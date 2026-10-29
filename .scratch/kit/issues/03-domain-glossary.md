@@ -24,17 +24,18 @@ Fix the words the kit, its docs and its CLI use: hub, admin, app, stack, templat
 - **Stack:** the framework shape an app is built on (TanStack Start; React with Hono).
 - **Template:** the files `robkit add` writes for a stack, shipped with the CLI and overridable in `robkit/templates/<stack>`.
 - **UI kit:** the optional shared React component library chosen at init.
-- **Access code:** what a guest types to sign in. It carries the guest's grants and expiry.
+- **Access code:** what a guest types to sign in. It holds the guest's roles and expiry.
 - **Intro link:** a link that signs a guest in with a code without typing it.
-- **Grant:** permission for a guest to open one app.
+- **Role:** a named group the owner creates in admin (init seeds Family and Friends). Codes hold roles, and each app is gated to one or more roles, or is open, or owner only.
 - **Session:** a signed-in browser, held by core and shown to apps as a short-lived token.
-- **Session token:** the Ed25519-signed JWT in the parent-domain cookie.
-- **Viewer:** who is asking, as an app sees it after the guard: owner, guest with grants, or nobody.
+- **Session token:** the Ed25519-signed JWT in the parent-domain cookie. It carries the code's roles, so role changes apply within one token lifetime.
+- **Viewer:** who is asking, as an app sees it after the guard: owner, guest with roles, or nobody.
 - **Guard:** the pure function that turns an app's access rule and the viewer into allow, login, refresh or not found.
 - **Adapter:** the per-stack glue that runs the guard and hands the viewer to the app's handlers.
 - **Manifest:** an app's declaration of its name, icon, access rule and settings.
 
 ## Answer
 
-- **One owner per install (R, 2026-10-28),** set at init. Init asks for the owner's login, and core stores it hashed (not in env, unlike robnet). Everyone else is a guest. Making owner a role later is a contained change.
+- **One owner per install (R, 2026-10-28; revised 2026-10-29),** claimed on first run through a setup screen the hub shows while core has no owner, and stored hashed by core (not in env, unlike robnet). Everyone else is a guest. Making owner a role later is a contained change.
 - The draft terms above are the glossary. It ships as `GLOSSARY.md` at the robkit repo root (the domain-modeling convention). R can rename any term in review.
+- **Roles replace grants (2026-10-29),** following [the session and guard ticket](07-session-and-guard.md): **Grant** is dropped, **Role** added, and Access code, Session token and Viewer reworded to match. Still 20 terms.

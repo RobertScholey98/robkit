@@ -12,3 +12,4 @@ Users will often build their apps with a coding agent. Decide what every generat
 R, 2026-10-28: every install ships a root `AGENTS.md` plus one per app, written for that app's stack and the repo's ORM. Each `CLAUDE.md` is one line pointing at its `AGENTS.md`. Lint rules fail when an agent breaks the layer rule or imports across apps.
 
 - For the spec: the layer check must still run when the user didn't pick ESLint at init (Biome or no linter). Either ESLint's boundary rules always ship, or a small `robkit check` enforces the same rules. Decide in the spec.
+- R, 2026-10-29: `robkit check` is the only implementation of the layer rule and ships with every install, so the rule lives in one place whatever linter was chosen. The rule itself is drafted in build ticket 09 (`v0.1-build/issues/09-agent-files-and-layer-rules.md`).

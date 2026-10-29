@@ -6,7 +6,7 @@ A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffold
 
 ## Notes
 
-- **Product:** painless self-hosting of small, often vibe-coded, apps for friends and family. Auth, database, routing and the launcher come built in. The templates are stacks, not R's apps.
+- **Product:** painless self-hosting of small, often vibe-coded, apps for friends and family. Auth, database, routing and the launcher come built in. The templates are stacks, not R's apps. robkit is a self-hosting cookbook shared with the community, so the init options are part of the product; R's own suite of apps will be a fork of this repo.
 - **Reference, not base:** `C:\Users\rober\code\robnet` (to be renamed `robnet_inspiration`). Borrow its ideas (guard outcome table, access codes and intro links, launcher, admin settings, ui tokens), not its Start-specific glue.
 - **Architecture draft:** the Robnet Platform docs site (https://claude.ai/artifact/Ps4buZoTFDtdaDZycwcP68): a framework-free core on web Request/Response, one server adapter per stack, plus client adapters.
 - **Domain:** robkit.dev, for testing once the kit works locally.
@@ -26,16 +26,16 @@ A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffold
 - [What session token and guard does the kit ship?](issues/07-session-and-guard.md): Ed25519 JWT signed only by core, verified locally via JWKS, same cookie and `/refresh` flow as robnet; login is access codes only; access comes from owner-defined roles held by codes, and each app is gated to roles in admin.
 - [How does each app get its database?](issues/09-app-databases.md): one Postgres with a schema and a locked-down role per app (core included); a per-app migrate step runs before each new container starts; init picks a repo-wide ORM (Drizzle recommended, Prisma, Kysely) over an ORM-agnostic contract.
 - [Are the hub and admin fixed apps, independent of the user's UI choice?](issues/06-platform-apps-ui.md): no, they follow the chosen UI kit; with no kit they are plain JSX and Tailwind styled like robnet's current shadcn look.
-- [What is robkit's domain glossary?](issues/03-domain-glossary.md): 20 terms in `GLOSSARY.md`; hub (login and launcher UI) and core (Hono backend) are distinct; one owner per install, set at init, everyone else a guest.
-- [How should the init and add wizards flow?](issues/11-cli-flow.md): as in the clickable prototype; no domain prompt (`ROBKIT_DOMAIN` is runtime config, default `localhost`); init always adds an example app and a local-only all-access code `test`.
-- [What does each template ship for coding agents?](issues/12-agent-instructions.md): root and per-app `AGENTS.md` (per stack and ORM), a one-line `CLAUDE.md` pointing at it, and lint rules that fail on layer or cross-app imports.
+- [What is robkit's domain glossary?](issues/03-domain-glossary.md): 20 terms in `GLOSSARY.md`; hub (login and launcher UI) and core (Hono backend) are distinct; one owner per install, claimed on first run (the Coolify model), everyone else a guest; roles, not grants.
+- [How should the init and add wizards flow?](issues/11-cli-flow.md): as in the clickable prototype; no domain prompt (`ROBKIT_DOMAIN` is runtime config, default `localhost`); no owner-login prompt either (the owner claims the install on first run); init always adds an example app and a local-only all-access code `test`.
+- [What does each template ship for coding agents?](issues/12-agent-instructions.md): root and per-app `AGENTS.md` (per stack and ORM), a one-line `CLAUDE.md` pointing at it, and a `robkit check` that is the single implementation of the layer rule, shipped whatever linter was chosen.
 - [How does robkit test itself?](issues/13-kit-testing.md): generate real projects; pairwise set (~12) plus one end-to-end journey per stack on each PR, full 72-combination matrix nightly.
 - [What does one-command local dev look like?](issues/10-local-dev.md): Postgres in Compose, every app native via `turbo dev`, and a robkit proxy on `:3000` routing `*.localhost` so URLs and cookies match production.
-- [Assemble the v0.1 spec and PR list](issues/14-assemble-spec.md): the destination, written up as the robkit v0.1 spec doc (https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5) with 18 ordered PRs.
+- [Assemble the v0.1 spec and PR list](issues/14-assemble-spec.md): the destination, written up as the robkit v0.1 spec doc (https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5) with 18 ordered PRs. Superseded for ordering by the 14 vertical tickets in `v0.1-build/issues`, where the first hosted install (08) comes before the other ORMs, package managers and kits (R, 2026-10-29).
 
 ## Not yet specified
 
-- How a generated app's Dockerfile and env plug into R's Coolify setup.
+- How a generated app's Dockerfile and env plug into R's Coolify setup (settled by build ticket 08).
 - Naming and publishing: the npm scope (`@robkit/*`), the CLI name, licence, versioning and release flow.
 - The robkit.dev website and its docs, including the later deployment cookbook.
 - Backups, observability and secret rotation for a running install.

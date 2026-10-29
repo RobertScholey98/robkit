@@ -1,8 +1,8 @@
-# 09: Prisma and Kysely
+# 10: Prisma and Kysely
 
 **What to build:** Choosing Prisma or Kysely at init produces an install where both stacks' apps use that ORM end to end: schema, migrate step and queries. The platform contract stays `DATABASE_URL`, a schema and a migrate hook.
 
-**Blocked by:** 07
+**Blocked by:** 08
 
 **Status:** ready-for-agent
 

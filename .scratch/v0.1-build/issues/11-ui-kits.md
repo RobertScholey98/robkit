@@ -1,4 +1,4 @@
-# 10: UI kits
+# 11: UI kits
 
 **What to build:** Choosing shadcn on Base UI, shadcn on Radix or Chakra at init adds `packages/ui` and restyles the hub, admin and any app that opted in. With no kit, the hub and admin keep the plain JSX + Tailwind look styled like robnet's shadcn default. Theme tokens stay the shared contract across all four.
 

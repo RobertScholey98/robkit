@@ -1,8 +1,8 @@
-# 11: bun and yarn
+# 12: bun and yarn
 
 **What to build:** Choosing bun or yarn at init produces an install that installs, runs `dev` and builds, with the catalog, lockfile, commands and one Dockerfile per manager rendered from a small adapter table.
 
-**Blocked by:** 06
+**Blocked by:** 08
 
 **Status:** ready-for-agent
 

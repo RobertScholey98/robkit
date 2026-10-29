@@ -1,8 +1,8 @@
-# 13: Kit matrix CI
+# 14: Kit matrix CI
 
 **What to build:** robkit's own CI generates real projects. On each PR it builds a pairwise set of combinations covering every pair of choices at least once, and runs one end-to-end journey per stack (sign in with `test`, open the launcher, open the example app). A nightly job builds the full matrix of package managers, ORMs, UI options and stacks. None of this ships in a user's install.
 
-**Blocked by:** 09, 10, 11, 12
+**Blocked by:** 10, 11, 12, 13
 
 **Status:** ready-for-agent
 
