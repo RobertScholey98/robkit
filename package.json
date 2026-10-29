@@ -1,0 +1,21 @@
+{
+  "name": "robkit",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.28.9",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
+  }
+}
