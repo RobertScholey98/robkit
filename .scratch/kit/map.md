@@ -31,11 +31,11 @@ A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffold
 - [What does each template ship for coding agents?](issues/12-agent-instructions.md): root and per-app `AGENTS.md` (per stack and ORM), a one-line `CLAUDE.md` pointing at it, and a `robkit check` that is the single implementation of the layer rule, shipped whatever linter was chosen.
 - [How does robkit test itself?](issues/13-kit-testing.md): generate real projects; pairwise set (~12) plus one end-to-end journey per stack on each PR, full 72-combination matrix nightly.
 - [What does one-command local dev look like?](issues/10-local-dev.md): Postgres in Compose, every app native via `turbo dev`, and a robkit proxy on `:3000` routing `*.localhost` so URLs and cookies match production.
-- [Assemble the v0.1 spec and PR list](issues/14-assemble-spec.md): the destination, written up as the robkit v0.1 spec doc (https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5) with 18 ordered PRs. Superseded for ordering by the 14 vertical tickets in `v0.1-build/issues`, where the first hosted install (08) comes before the other ORMs, package managers and kits (R, 2026-10-29).
+- [Assemble the v0.1 spec and PR list](issues/14-assemble-spec.md): the destination, written up as the robkit v0.1 spec doc (https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5) with 18 ordered PRs. Superseded for ordering by the 21 vertical tickets in `v0.1-build/issues`, where the first hosted install (11) comes before the other ORMs, package managers and kits (R, 2026-10-29).
 
 ## Not yet specified
 
-- How a generated app's Dockerfile and env plug into R's Coolify setup (settled by build ticket 08).
+- How a generated app's Dockerfile and env plug into R's Coolify setup (settled by build ticket 11).
 - Naming and publishing: the npm scope (`@robkit/*`), the CLI name, licence, versioning and release flow.
 - The robkit.dev website and its docs, including the later deployment cookbook.
 - Backups, observability and secret rotation for a running install.

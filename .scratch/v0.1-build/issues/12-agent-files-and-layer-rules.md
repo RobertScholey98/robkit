@@ -1,8 +1,8 @@
-# 09: Agent files and the layer rules
+# 12: Agent files and the layer rules
 
 **What to build:** Every generated install carries a root `AGENTS.md`, and every app its own one written for its stack and the repo's ORM, with a one-line `CLAUDE.md` pointing at it. A small `robkit check` enforces the layer rule below. It is the only implementation, it ships whatever linter was chosen, and the generated `lint` script and CI both run it. The generated repo includes a CI workflow that lints, typechecks, tests and builds its own apps.
 
-**Blocked by:** 06
+**Blocked by:** 08
 
 **Status:** ready-for-agent
 
