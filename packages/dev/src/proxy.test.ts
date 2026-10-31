@@ -190,4 +190,24 @@ describe("createProxy", () => {
     expect(res.headers["x-seen-host"]).toBe("hub.localhost:3000");
     expect(echoed.toString()).toBe("ping");
   });
+
+  it("answers an upgrade with 502 when the app refuses the connection", async () => {
+    const proxy = await startProxy([
+      { host: "hub.localhost", app: "hub", port: await unusedPort() },
+    ]);
+
+    const req = request({
+      host: "127.0.0.1",
+      port: proxy,
+      headers: {
+        host: "hub.localhost",
+        connection: "Upgrade",
+        upgrade: "websocket",
+      },
+    });
+    req.end();
+    const [res] = (await once(req, "response")) as [{ statusCode: number }];
+
+    expect(res.statusCode).toBe(502);
+  });
 });

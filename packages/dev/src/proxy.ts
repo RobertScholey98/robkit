@@ -84,7 +84,9 @@ export function createProxy(routes: readonly Route[]): Server {
       return;
     }
 
+    let connected = false;
     const upstream = connect(route.port, "127.0.0.1", () => {
+      connected = true;
       const headers = [];
       for (let i = 0; i < req.rawHeaders.length; i += 2) {
         headers.push(
@@ -98,7 +100,10 @@ export function createProxy(routes: readonly Route[]): Server {
       upstream.pipe(socket).pipe(upstream);
     });
     upstream.on("error", () => {
-      socket.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+      // Once connected, the socket carries the app's own bytes, so a 502
+      // could only corrupt them.
+      if (connected) socket.destroy();
+      else socket.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
     });
     socket.on("error", () => upstream.destroy());
     socket.on("close", () => upstream.destroy());
