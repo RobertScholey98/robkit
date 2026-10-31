@@ -18,8 +18,12 @@
     "typecheck": "tsc",
     "test": "vitest run"
   },
+  "dependencies": {
+    "postgres": "catalog:"
+  },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
+    "@internal/test-postgres": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "eslint": "catalog:",

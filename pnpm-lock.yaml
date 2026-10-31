@@ -55,10 +55,17 @@ importers:
         version: 6.0.3
 
   packages/dev:
+    dependencies:
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.9
     devDependencies:
       '@internal/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint
+      '@internal/test-postgres':
+        specifier: workspace:*
+        version: link:../../tooling/test-postgres
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
