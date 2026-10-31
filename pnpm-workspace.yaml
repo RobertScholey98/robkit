@@ -10,6 +10,7 @@ catalog:
   "@types/node": 26.6.5
   eslint: 10.13.0
   globals: 17.13.0
+  postgres: 3.4.9
   prettier: 3.9.10
   turbo: 2.11.10
   # typescript-eslint supports TypeScript below 6.1, so 7.x waits for it.
