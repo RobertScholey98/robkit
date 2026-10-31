@@ -1,13 +1,12 @@
 import { freePort } from "@internal/test-postgres";
-import { provisionDatabase } from "@robkit/dev";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createApp } from "./app.ts";
 import { createDatabase, type Database } from "./database.ts";
 
 let db: Database;
 
-beforeAll(async () => {
-  db = createDatabase(await provisionDatabase(inject("adminUrl"), "core"));
+beforeAll(() => {
+  db = createDatabase(inject("databaseUrl"));
 });
 
 afterAll(async () => {
