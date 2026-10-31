@@ -8,8 +8,10 @@ catalogMode: strict
 catalog:
   "@eslint/js": 10.0.1
   "@types/node": 26.6.5
+  drizzle-orm: 0.45.4
   eslint: 10.13.0
   globals: 17.13.0
+  hono: 4.13.14
   postgres: 3.4.9
   prettier: 3.9.10
   turbo: 2.11.10
