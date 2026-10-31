@@ -7,8 +7,8 @@ robkit is a self-hosting kit shared with the community. `npm create robkit` scaf
 - `.scratch/kit/map.md` is the plan. It lists every decision and links the ticket that made it.
 - `.scratch/v0.1-build/issues/` holds the build tickets, numbered in build order.
 - The spec is the Claude Doc "robkit v0.1 spec" (https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5). Where a ticket and the spec disagree, the ticket is newer and wins.
-- `GLOSSARY.md` holds the domain terms. Until ticket 01 creates it, read `.scratch/kit/issues/03-domain-glossary.md`.
-- `AGENTS.md` holds robkit's layer rule and the repo's commands, once ticket 01 creates it.
+- `GLOSSARY.md` holds the domain terms.
+- `AGENTS.md` holds robkit's layer rule, the repo's commands and its conventions. Read it before you change code.
 - `.skills/` holds copies of every skill this file names, with their licences.
 
 ## How to work
