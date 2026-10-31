@@ -18,12 +18,11 @@ export interface TestPostgres {
   stop: () => Promise<void>;
 }
 
-/** Asks the OS for a port nothing is listening on. */
-export function freePort(): Promise<number> {
+function listenOn(port: number): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer();
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(port, "127.0.0.1", () => {
       const address = server.address();
       server.close(() => {
         if (address && typeof address === "object") resolve(address.port);
@@ -31,6 +30,29 @@ export function freePort(): Promise<number> {
       });
     });
   });
+}
+
+/** Asks the OS for a port nothing is listening on. */
+export function freePort(): Promise<number> {
+  return listenOn(0);
+}
+
+/**
+ * Finds `size` consecutive free ports, for robkit-dev's proxy port and the
+ * app ports that follow it. The block sits below the OS's ephemeral range,
+ * since the OS hands out ephemeral ports in sequence and would soon give a
+ * neighbour of `freePort()` to someone else.
+ */
+export async function freePortBlock(size: number): Promise<number> {
+  for (;;) {
+    const first = 20_000 + Math.floor(Math.random() * 10_000);
+    try {
+      for (let port = first; port < first + size; port++) await listenOn(port);
+      return first;
+    } catch {
+      // Taken; try another block.
+    }
+  }
 }
 
 /**
