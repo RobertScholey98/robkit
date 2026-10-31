@@ -74,6 +74,9 @@ importers:
 
   .:
     devDependencies:
+      '@robkit/dev':
+        specifier: workspace:*
+        version: link:packages/dev
       prettier:
         specifier: 'catalog:'
         version: 3.9.10
