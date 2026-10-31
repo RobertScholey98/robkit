@@ -10,15 +10,17 @@ robkit is a self-hosting kit. `npm create robkit` scaffolds an install, and `rob
 
 ```sh
 pnpm install                              # Node 24, pnpm 11
-pnpm turbo run lint typecheck test        # what CI runs
+pnpm dev                                  # the install on http://hub.localhost:3000
+pnpm turbo run lint typecheck test        # what CI runs; needs Docker
 pnpm format                               # Prettier
 pnpm --filter <package> test              # one package
 ```
 
 ## Layout
 
-- `packages/` holds the published `@robkit/*` packages, starting with build ticket 02.
-- `tooling/` holds private workspace packages: the shared tsconfig, the shared ESLint config, and repo checks that run as tests.
+- The repo root is a hand-built install until build ticket 08 turns it into templates: `compose.yaml` runs Postgres, and `apps/` holds core and the hub. Each `apps/<slug>` gets the subdomain `<slug>.localhost`, and an app with a `migrate` script gets its own schema and role.
+- `packages/` holds the published `@robkit/*` packages: `@robkit/core` and `@robkit/dev`, the `robkit-dev` runner and proxy behind `pnpm dev`.
+- `tooling/` holds private workspace packages: the shared tsconfig, the shared ESLint config, repo checks that run as tests, a per-suite test Postgres and the whole-stack test.
 
 ## The layer rule
 

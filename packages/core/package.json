@@ -1,0 +1,39 @@
+{
+  "name": "@robkit/core",
+  "version": "0.0.0",
+  "description": "robkit's core: the Hono backend that owns the core tables.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "!src/test",
+    "drizzle"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "drizzle-orm": "catalog:",
+    "hono": "catalog:",
+    "postgres": "catalog:"
+  },
+  "devDependencies": {
+    "@internal/eslint-config": "workspace:*",
+    "@internal/test-postgres": "workspace:*",
+    "@internal/tsconfig": "workspace:*",
+    "@robkit/dev": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}
