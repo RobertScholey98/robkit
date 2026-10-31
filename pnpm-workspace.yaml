@@ -9,13 +9,20 @@ catalogMode: strict
 catalog:
   "@eslint/js": 10.0.1
   "@hono/node-server": 2.1.5
+  "@tailwindcss/vite": 4.3.3
   "@types/node": 26.6.5
+  "@types/react": 19.3.0
+  "@types/react-dom": 19.3.0
+  "@vitejs/plugin-react": 6.1.2
   drizzle-orm: 0.45.4
   eslint: 10.13.0
   globals: 17.13.0
   hono: 4.13.14
   postgres: 3.4.9
   prettier: 3.9.10
+  react: 19.3.1
+  react-dom: 19.3.1
+  tailwindcss: 4.3.3
   turbo: 2.11.10
   # typescript-eslint supports TypeScript below 6.1, so 7.x waits for it.
   typescript: 6.0.3
