@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import type { Database } from "./database.ts";
 
 export interface CoreOptions {
@@ -8,8 +9,32 @@ export interface CoreOptions {
   domain: string;
 }
 
-export function createApp({ db }: CoreOptions): Hono {
+/** The platform apps that call core from the browser with the session cookie. */
+const trustedApps = ["hub", "admin"];
+
+function hostnameOf(origin: string): string | undefined {
+  try {
+    return new URL(origin).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+export function createApp({ db, domain }: CoreOptions): Hono {
   const app = new Hono();
+  const trustedHosts = new Set(trustedApps.map((slug) => `${slug}.${domain}`));
+
+  app.use(
+    cors({
+      origin: (origin) => {
+        const hostname = hostnameOf(origin);
+        return hostname !== undefined && trustedHosts.has(hostname)
+          ? origin
+          : null;
+      },
+      credentials: true,
+    }),
+  );
 
   app.get("/status", async (c) => {
     try {
