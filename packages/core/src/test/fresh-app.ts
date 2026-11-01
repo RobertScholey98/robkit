@@ -5,9 +5,14 @@ import { createDatabase, type Database } from "../database.ts";
 import { migrate } from "../migrate.ts";
 import { freshDatabase } from "./fresh-database.ts";
 
+/** Where every fresh core's clock starts: 2026-11-01T12:00:00Z. */
+export const clockStart = new Date("2026-11-01T12:00:00Z");
+
 export interface FreshCore {
   app: Hono;
   db: Database;
+  /** Core's clock right now. */
+  now: () => Date;
   /** Moves core's clock forward. */
   advance: (ms: number) => void;
 }
@@ -24,13 +29,54 @@ export async function freshCore({
   const db = createDatabase(databaseUrl);
   onTestFinished(() => db.$client.end());
 
-  let now = Date.parse("2026-11-01T12:00:00Z");
-  const app = createApp({ db, domain, now: () => new Date(now) });
+  let now = clockStart.getTime();
+  const clock = () => new Date(now);
   return {
-    app,
+    app: createApp({ db, domain, now: clock }),
     db,
+    now: clock,
     advance: (ms) => {
       now += ms;
     },
+  };
+}
+
+/** POSTs `body` as JSON, as the hub does. */
+export function postJson(
+  app: Hono,
+  path: string,
+  body: unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return Promise.resolve(
+    app.request(path, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    }),
+  );
+}
+
+export interface SetCookie {
+  value: string;
+  /** Each attribute by name; a flag such as HttpOnly maps to `true`. */
+  attributes: Record<string, string | true>;
+}
+
+/** The `robkit_session` cookie a response sets, if it sets one. */
+export function sessionCookieOf(res: Response): SetCookie | undefined {
+  const header = res.headers
+    .getSetCookie()
+    .find((cookie) => cookie.startsWith("robkit_session="));
+  if (header === undefined) return undefined;
+  const [pair = "", ...attributes] = header.split(/;\s*/);
+  return {
+    value: pair.slice("robkit_session=".length),
+    attributes: Object.fromEntries(
+      attributes.map((attribute) => {
+        const [name = "", value] = attribute.split("=");
+        return [name, value ?? true];
+      }),
+    ),
   };
 }
