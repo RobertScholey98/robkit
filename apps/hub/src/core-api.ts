@@ -4,10 +4,19 @@ export interface Owner {
   username: string;
 }
 
+/** A guest, by their access code's id, and the name the owner gave them. */
+export interface Guest {
+  kind: "guest";
+  id: string;
+  name: string;
+}
+
+export type Viewer = Owner | Guest;
+
 export type Session =
   | { state: "unclaimed" }
   | { state: "signed-out" }
-  | { state: "signed-in"; viewer: Owner };
+  | { state: "signed-in"; viewer: Viewer };
 
 export type CoreResult =
   { ok: true; session: Session } | { ok: false; error: string };
@@ -35,13 +44,20 @@ export function signIn(
   return request(core, "/login", post(credentials), readSession);
 }
 
+export function signInWithCode(
+  core: string,
+  code: string,
+): Promise<CoreResult> {
+  return request(core, "/login/code", post({ code }), readSession);
+}
+
 export function signOut(core: string): Promise<CoreResult> {
   return request(core, "/logout", post(), () => ({ state: "signed-out" }));
 }
 
 // The JSON content type also makes the browser preflight every POST, so
 // another site can't post a form to core with the owner's cookie.
-function post(body?: Credentials): RequestInit {
+function post(body?: object): RequestInit {
   return {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -81,17 +97,14 @@ function readSession(body: unknown): Session | undefined {
   if (!isRecord(body)) return undefined;
   const { state, viewer } = body;
   if (state === "unclaimed" || state === "signed-out") return { state };
-  if (
-    state === "signed-in" &&
-    isRecord(viewer) &&
-    viewer.kind === "owner" &&
-    typeof viewer.id === "string" &&
-    typeof viewer.username === "string"
-  ) {
-    return {
-      state,
-      viewer: { kind: "owner", id: viewer.id, username: viewer.username },
-    };
+  if (state !== "signed-in" || !isRecord(viewer)) return undefined;
+  const { kind, id, username, name } = viewer;
+  if (typeof id !== "string") return undefined;
+  if (kind === "owner" && typeof username === "string") {
+    return { state, viewer: { kind, id, username } };
+  }
+  if (kind === "guest" && typeof name === "string") {
+    return { state, viewer: { kind, id, name } };
   }
   return undefined;
 }

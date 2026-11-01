@@ -1,5 +1,11 @@
 import { useState, type SubmitEvent } from "react";
-import { setUp, signIn, type CoreResult, type Session } from "./core-api.ts";
+import {
+  setUp,
+  signIn,
+  signInWithCode,
+  type CoreResult,
+  type Session,
+} from "./core-api.ts";
 import { Button, Card, Field, FormError, Heading } from "./ui.tsx";
 
 export type Sending =
@@ -9,8 +15,11 @@ export type Sending =
  * Tracks one request to core at a time. On success the hub moves to the
  * session core answered with, which unmounts the form.
  */
-export function useSend(onSession: (session: Session) => void) {
-  const [sending, setSending] = useState<Sending>({ state: "idle" });
+export function useSend(
+  onSession: (session: Session) => void,
+  initial: Sending = { state: "idle" },
+) {
+  const [sending, setSending] = useState<Sending>(initial);
 
   function fail(error: string) {
     setSending({ state: "failed", error });
@@ -79,7 +88,76 @@ export function Setup({ core, onSession }: FormProps) {
   );
 }
 
-export function SignIn({ core, onSession }: FormProps) {
+/**
+ * The signed-out screen. Most visitors are guests, so it leads with the
+ * access code and keeps the owner's password one click away.
+ */
+export function SignIn({
+  core,
+  onSession,
+  error,
+}: FormProps & { error?: string }) {
+  const [form, setForm] = useState<"code" | "owner">("code");
+  return form === "code" ? (
+    <CodeSignIn
+      core={core}
+      onSession={onSession}
+      error={error}
+      onOwner={() => {
+        setForm("owner");
+      }}
+    />
+  ) : (
+    <OwnerSignIn
+      core={core}
+      onSession={onSession}
+      onCode={() => {
+        setForm("code");
+      }}
+    />
+  );
+}
+
+function CodeSignIn({
+  core,
+  onSession,
+  error,
+  onOwner,
+}: FormProps & { error: string | undefined; onOwner: () => void }) {
+  const { sending, send } = useSend(
+    onSession,
+    error === undefined ? { state: "idle" } : { state: "failed", error },
+  );
+
+  function onSubmit(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    void send(() => signInWithCode(core, text(form, "code")));
+  }
+
+  return (
+    <Card>
+      <Heading>Sign in</Heading>
+      <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+        <Field
+          label="Access code"
+          name="code"
+          autoComplete="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+        />
+        <Submit sending={sending}>Sign in</Submit>
+      </form>
+      <Switch onClick={onOwner}>I'm the owner</Switch>
+    </Card>
+  );
+}
+
+function OwnerSignIn({
+  core,
+  onSession,
+  onCode,
+}: FormProps & { onCode: () => void }) {
   const { sending, send } = useSend(onSession);
 
   function onSubmit(event: SubmitEvent<HTMLFormElement>) {
@@ -95,7 +173,7 @@ export function SignIn({ core, onSession }: FormProps) {
 
   return (
     <Card>
-      <Heading>Sign in</Heading>
+      <Heading>Sign in as the owner</Heading>
       <form onSubmit={onSubmit} className="mt-6 grid gap-4">
         <Field label="Username" name="username" autoComplete="username" />
         <Field
@@ -106,7 +184,26 @@ export function SignIn({ core, onSession }: FormProps) {
         />
         <Submit sending={sending}>Sign in</Submit>
       </form>
+      <Switch onClick={onCode}>Use an access code</Switch>
     </Card>
+  );
+}
+
+function Switch({
+  onClick,
+  children,
+}: {
+  onClick: () => void;
+  children: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-4 text-sm text-neutral-500 underline-offset-4 hover:text-neutral-900 hover:underline"
+    >
+      {children}
+    </button>
   );
 }
 

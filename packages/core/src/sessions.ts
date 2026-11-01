@@ -1,8 +1,9 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
+import { readSessionToken, type SessionTokenClaims } from "@robkit/session";
+import { standingOf, type AccessCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { dummyPasswordHash, hashPassword, verifyPassword } from "./password.ts";
-import { owner, sessions } from "./schema.ts";
-import { readSessionToken } from "@robkit/session";
+import { accessCodes, owner, sessions } from "./schema.ts";
 import { mintSessionToken } from "./session-token.ts";
 import type { SigningKey } from "./signing-key.ts";
 
@@ -12,6 +13,8 @@ export const sessionLifetimeSeconds = 30 * 24 * 60 * 60;
 /** What core needs to start and read sessions. */
 export interface SessionContext {
   db: Database;
+  /** The install's domain, which decides whether the test code works. */
+  domain: string;
   now: () => Date;
   signingKey: () => Promise<SigningKey>;
 }
@@ -22,14 +25,23 @@ export interface OwnerViewer {
   username: string;
 }
 
+/** A guest, by their access code's id, and the name the owner gave them. */
+export interface GuestViewer {
+  kind: "guest";
+  id: string;
+  name: string;
+}
+
+export type Viewer = OwnerViewer | GuestViewer;
+
 /** Who is asking, as `GET /session` answers it. */
 export type SessionAnswer =
   | { state: "unclaimed" }
   | { state: "signed-out" }
-  | { state: "signed-in"; viewer: OwnerViewer };
+  | { state: "signed-in"; viewer: Viewer };
 
 export interface SignedIn {
-  viewer: OwnerViewer;
+  viewer: Viewer;
   sessionToken: string;
 }
 
@@ -51,23 +63,25 @@ type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 async function startSession(
   ctx: SessionContext,
   tx: Transaction,
-  { id, username }: { id: string; username: string },
+  viewer: Viewer,
 ): Promise<SignedIn> {
   const now = ctx.now();
   const [session] = await tx
     .insert(sessions)
     .values({
-      ownerId: id,
+      ...(viewer.kind === "owner"
+        ? { ownerId: viewer.id }
+        : { codeId: viewer.id }),
       createdAt: now,
       expiresAt: new Date(now.getTime() + sessionLifetimeSeconds * 1000),
     })
     .returning({ id: sessions.id });
   if (!session) throw new Error("Core couldn't store the session.");
   return {
-    viewer: { kind: "owner", id, username },
+    viewer,
     sessionToken: await mintSessionToken(
       await ctx.signingKey(),
-      { ownerId: id, sessionId: session.id },
+      { kind: viewer.kind, id: viewer.id, sessionId: session.id },
       now,
     ),
   };
@@ -100,7 +114,10 @@ export async function claimInstall(
         .values({ username, passwordHash, createdAt: ctx.now() })
         .returning({ id: owner.id, username: owner.username });
       if (!created) throw new Error("Core couldn't store the owner.");
-      return { outcome: "claimed", ...(await startSession(ctx, tx, created)) };
+      return {
+        outcome: "claimed",
+        ...(await startSession(ctx, tx, { kind: "owner", ...created })),
+      };
     });
   } catch (error) {
     if (isUniqueViolation(error)) return { outcome: "taken" };
@@ -125,8 +142,85 @@ export async function signIn(
   if (!isOwner || !matches) return { outcome: "wrong" };
   return {
     outcome: "signed-in",
-    ...(await ctx.db.transaction((tx) => startSession(ctx, tx, found))),
+    ...(await ctx.db.transaction((tx) =>
+      startSession(ctx, tx, {
+        kind: "owner",
+        id: found.id,
+        username: found.username,
+      }),
+    )),
   };
+}
+
+export type CodeSignIn =
+  | ({ outcome: "signed-in" } & SignedIn)
+  | { outcome: "refused" }
+  | { outcome: "unclaimed" };
+
+export async function signInWithCode(
+  ctx: SessionContext,
+  code: AccessCode,
+): Promise<CodeSignIn> {
+  if ((await ctx.db.select({ id: owner.id }).from(owner)).length === 0) {
+    return { outcome: "unclaimed" };
+  }
+  const [found] = await ctx.db
+    .select()
+    .from(accessCodes)
+    .where(eq(accessCodes.code, code));
+  if (!found || standingOf(found, ctx.now(), ctx.domain) !== "live") {
+    return { outcome: "refused" };
+  }
+  return {
+    outcome: "signed-in",
+    ...(await ctx.db.transaction((tx) =>
+      startSession(ctx, tx, { kind: "guest", id: found.id, name: found.name }),
+    )),
+  };
+}
+
+/**
+ * Who holds the live session the claims name, if anyone. A guest's session
+ * also needs their code to still work.
+ */
+async function holderOf(
+  ctx: SessionContext,
+  claims: SessionTokenClaims,
+  theOwner: { id: string; username: string },
+  now: Date,
+): Promise<Viewer | undefined> {
+  const live = and(
+    eq(sessions.id, claims.sessionId),
+    isNull(sessions.revokedAt),
+    gt(sessions.expiresAt, now),
+  );
+  switch (claims.kind) {
+    case "owner": {
+      if (claims.id !== theOwner.id) return undefined;
+      const [session] = await ctx.db
+        .select({ id: sessions.id })
+        .from(sessions)
+        .where(and(live, eq(sessions.ownerId, theOwner.id)));
+      return (
+        session && {
+          kind: "owner",
+          id: theOwner.id,
+          username: theOwner.username,
+        }
+      );
+    }
+    case "guest": {
+      const [found] = await ctx.db
+        .select({ code: accessCodes })
+        .from(sessions)
+        .innerJoin(accessCodes, eq(sessions.codeId, accessCodes.id))
+        .where(and(live, eq(sessions.codeId, claims.id)));
+      if (!found || standingOf(found.code, now, ctx.domain) !== "live") {
+        return undefined;
+      }
+      return { kind: "guest", id: found.code.id, name: found.code.name };
+    }
+  }
 }
 
 /**
@@ -148,24 +242,11 @@ export async function readSession(
   const now = ctx.now();
   const key = await ctx.signingKey();
   const claims = await readSessionToken(key.publicKey, sessionToken, now);
-  if (claims?.ownerId !== found.id) return signedOut;
-  const [live] = await ctx.db
-    .select({ id: sessions.id })
-    .from(sessions)
-    .where(
-      and(
-        eq(sessions.id, claims.sessionId),
-        eq(sessions.ownerId, found.id),
-        isNull(sessions.revokedAt),
-        gt(sessions.expiresAt, now),
-      ),
-    );
-  if (!live) return signedOut;
+  if (!claims) return signedOut;
+  const viewer = await holderOf(ctx, claims, found, now);
+  if (!viewer) return signedOut;
 
-  const answer: SessionAnswer = {
-    state: "signed-in",
-    viewer: { kind: "owner", id: found.id, username: found.username },
-  };
+  const answer: SessionAnswer = { state: "signed-in", viewer };
   if (!claims.expired && !renew) return { answer };
   return {
     answer,

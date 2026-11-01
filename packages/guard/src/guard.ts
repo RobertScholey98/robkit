@@ -1,14 +1,20 @@
 /** Who may open an app: anyone, or only the owner. */
 export type AccessRule = { kind: "open" } | { kind: "owner" };
 
+/** Someone with a live session: the owner, or a guest by their code's id. */
+export interface SignedInViewer {
+  kind: "owner" | "guest";
+  id: string;
+}
+
 /** Who is asking, as the app's handlers see it after the guard. */
-export type Viewer = { kind: "owner"; id: string } | { kind: "nobody" };
+export type Viewer = SignedInViewer | { kind: "nobody" };
 
 /** What the request's session token says, once the adapter has checked it. */
 export type SessionState =
   | { state: "signed-out" }
   | { state: "expired" }
-  | { state: "signed-in"; viewer: { kind: "owner"; id: string } };
+  | { state: "signed-in"; viewer: SignedInViewer };
 
 export type Decision =
   | { outcome: "allow"; viewer: Viewer }
@@ -17,11 +23,21 @@ export type Decision =
   | { outcome: "not-found" };
 
 type Outcome = Decision["outcome"];
-type Asking = "signed-out" | "expired" | "owner";
+type Asking = "signed-out" | "expired" | SignedInViewer["kind"];
 
 const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
-  open: { "signed-out": "allow", expired: "refresh", owner: "allow" },
-  owner: { "signed-out": "login", expired: "refresh", owner: "allow" },
+  open: {
+    "signed-out": "allow",
+    expired: "refresh",
+    owner: "allow",
+    guest: "allow",
+  },
+  owner: {
+    "signed-out": "login",
+    expired: "refresh",
+    owner: "allow",
+    guest: "not-found",
+  },
 };
 
 function askingOf(session: SessionState): Asking {

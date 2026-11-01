@@ -53,7 +53,8 @@ describe("coreKeys", () => {
     const read = await readSessionToken(keys, token, now);
 
     expect(read).toEqual({
-      ownerId: "owner-1",
+      kind: "owner",
+      id: "owner-1",
       sessionId: "session-1",
       expired: false,
     });
@@ -68,7 +69,7 @@ describe("coreKeys", () => {
 
     const reads = [];
     for (let i = 0; i < 3; i++) {
-      reads.push((await readSessionToken(keys, token, now))?.ownerId);
+      reads.push((await readSessionToken(keys, token, now))?.id);
     }
 
     expect(reads).toEqual(["owner-1", "owner-1", "owner-1"]);
@@ -92,7 +93,7 @@ describe("coreKeys", () => {
     const known = await readSessionToken(keys, token, now);
     const unknown = await readSessionToken(keys, await sign("key-2"), now);
 
-    expect(known?.ownerId).toBe("owner-1");
+    expect(known?.id).toBe("owner-1");
     expect(unknown).toBeUndefined();
   });
 
@@ -104,9 +105,7 @@ describe("coreKeys", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(Date.now() + 60 * 60_000);
     try {
-      expect((await readSessionToken(keys, token, now))?.ownerId).toBe(
-        "owner-1",
-      );
+      expect((await readSessionToken(keys, token, now))?.id).toBe("owner-1");
     } finally {
       vi.useRealTimers();
     }

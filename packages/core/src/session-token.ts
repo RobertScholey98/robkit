@@ -5,16 +5,15 @@ import {
 } from "@robkit/session";
 import type { SigningKey } from "./signing-key.ts";
 
-/** Signs a session token for the owner's session, valid from `now`. */
 export function mintSessionToken(
   key: SigningKey,
-  { ownerId, sessionId }: SessionTokenClaims,
+  { kind, id, sessionId }: SessionTokenClaims,
   now: Date,
 ): Promise<string> {
   const issuedAt = Math.floor(now.getTime() / 1000);
-  return new SignJWT({ sid: sessionId, kind: "owner" })
+  return new SignJWT({ sid: sessionId, kind })
     .setProtectedHeader({ alg: "EdDSA", kid: key.kid })
-    .setSubject(ownerId)
+    .setSubject(id)
     .setIssuedAt(issuedAt)
     .setExpirationTime(issuedAt + sessionTokenLifetimeSeconds)
     .sign(key.privateKey);

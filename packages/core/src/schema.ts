@@ -29,15 +29,43 @@ export const owner = core.table(
   (table) => [check("owner_singleton", sql`${table.singleton}`)],
 );
 
-export const sessions = core.table("sessions", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  ownerId: uuid("owner_id")
-    .notNull()
-    .references(() => owner.id, { onDelete: "cascade" }),
-  createdAt: createdAt(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  revokedAt: timestamp("revoked_at", { withTimezone: true }),
-});
+export const accessCodes = core.table(
+  "access_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Plain text, so admin can show it again.
+    code: text("code").notNull().unique(),
+    name: text("name").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    check("access_codes_code_shape", sql`${table.code} ~ '^[A-Z0-9]{3,32}$'`),
+  ],
+);
+
+export const sessions = core.table(
+  "sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id").references(() => owner.id, {
+      onDelete: "cascade",
+    }),
+    codeId: uuid("code_id").references(() => accessCodes.id, {
+      onDelete: "cascade",
+    }),
+    createdAt: createdAt(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    check(
+      "sessions_one_holder",
+      sql`num_nonnulls(${table.ownerId}, ${table.codeId}) = 1`,
+    ),
+  ],
+);
 
 export const signingKeys = core.table("signing_keys", {
   kid: text("kid").primaryKey(),

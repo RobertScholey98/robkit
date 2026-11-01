@@ -32,18 +32,21 @@ export interface Journey {
  * A session token for the same session, expired five minutes ago and signed
  * with core's own key, so the app must bounce it through core's /refresh.
  */
-async function expiredTwin(token: string, adminUrl: string): Promise<string> {
+export async function expiredTwin(
+  token: string,
+  adminUrl: string,
+): Promise<string> {
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
   const [key] = await sql<{ kid: string; private_jwk: JWK }[]>`
     select kid, private_jwk from core.signing_keys
   `.finally(() => sql.end());
   if (!key) throw new Error("core has no signing key");
-  const { sub, sid } = decodeJwt(token);
+  const { sub, sid, kind } = decodeJwt(token);
   if (typeof sub !== "string" || typeof sid !== "string") {
     throw new Error("the session cookie has no owner or session");
   }
   const iat = Math.floor(Date.now() / 1000) - 20 * 60;
-  return new SignJWT({ sid, kind: "owner" })
+  return new SignJWT({ sid, kind })
     .setProtectedHeader({ alg: "EdDSA", kid: key.kid })
     .setSubject(sub)
     .setIssuedAt(iat)
@@ -51,7 +54,7 @@ async function expiredTwin(token: string, adminUrl: string): Promise<string> {
     .sign(await importJWK(key.private_jwk, "EdDSA"));
 }
 
-function mainFrameRequests(page: Page): string[] {
+export function mainFrameRequests(page: Page): string[] {
   const urls: string[] = [];
   page.on("request", (request) => {
     if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
@@ -79,6 +82,7 @@ export async function ownerJourney({
 
     await page.goto(example);
     const signedOutAt = page.url();
+    await page.getByRole("button", { name: "I'm the owner" }).click();
     await page.getByLabel("Username").fill(username);
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();

@@ -1,10 +1,19 @@
 import { sql } from "drizzle-orm";
-import { Hono, type Context } from "hono";
+import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { sessionCookie } from "@robkit/session";
+import {
+  listCodes,
+  mintCode,
+  revokeCode,
+  parseAccessCode,
+  type AccessCode,
+  type NewCode,
+} from "./access-codes.ts";
 import type { Database } from "./database.ts";
+import { isLocal } from "./domain.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import {
   claimInstall,
@@ -14,6 +23,7 @@ import {
   type SessionAnswer,
   type SessionContext,
   signIn,
+  signInWithCode,
 } from "./sessions.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 
@@ -44,14 +54,6 @@ function appUrl(next: string | undefined, domain: string): string | undefined {
   return web && url.hostname.endsWith(`.${domain}`) ? url.href : undefined;
 }
 
-/**
- * Browsers treat `*.localhost` as a secure context, but WebKit drops Secure
- * cookies over plain http, so local domains go without.
- */
-function isLocal(domain: string): boolean {
-  return domain === "localhost" || domain.endsWith(".localhost");
-}
-
 function isJson(contentType: string | undefined): boolean {
   const mediaType = contentType?.split(";")[0]?.trim().toLowerCase();
   return mediaType === "application/json";
@@ -62,24 +64,61 @@ interface Credentials {
   password: string;
 }
 
+/** The fields of the JSON object a POST sent, or undefined if it isn't JSON. */
+async function fieldsOf(
+  c: Context,
+): Promise<Record<string, unknown> | undefined> {
+  try {
+    const body: unknown = await c.req.json();
+    return typeof body === "object" && body !== null
+      ? (body as Record<string, unknown>)
+      : {};
+  } catch {
+    return undefined;
+  }
+}
+
 /** The username, trimmed, and password a POST sent, or why it won't do. */
 async function credentialsFrom(
   c: Context,
 ): Promise<Credentials | { error: string }> {
-  let body: unknown;
-  try {
-    body = await c.req.json();
-  } catch {
-    return { error: "Send a valid JSON body." };
-  }
-  const { username, password } =
-    typeof body === "object" && body !== null
-      ? (body as Record<string, unknown>)
-      : {};
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  const { username, password } = fields;
   if (typeof username !== "string" || typeof password !== "string") {
     return { error: "Send a username and a password." };
   }
   return { username: username.trim(), password };
+}
+
+/** The guest's name, code and expiry the owner sent, or why they won't do. */
+async function newCodeFrom(
+  c: Context,
+  now: Date,
+): Promise<NewCode | { error: string }> {
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  const name = typeof fields.name === "string" ? fields.name.trim() : "";
+  if (name.length < 1 || name.length > 80) {
+    return { error: "Give the guest a name of 1 to 80 characters." };
+  }
+  let code: AccessCode | undefined;
+  if (fields.code !== undefined && fields.code !== null) {
+    code =
+      typeof fields.code === "string"
+        ? parseAccessCode(fields.code)
+        : undefined;
+    if (!code) return { error: "Use 3 to 32 letters or digits for the code." };
+  }
+  let expiresAt: Date | null = null;
+  if (fields.expiresAt !== undefined && fields.expiresAt !== null) {
+    expiresAt =
+      typeof fields.expiresAt === "string" ? new Date(fields.expiresAt) : null;
+    if (!expiresAt || !(expiresAt > now)) {
+      return { error: "Pick an expiry in the future." };
+    }
+  }
+  return code ? { name, code, expiresAt } : { name, expiresAt };
 }
 
 /** Why a new owner's username or password won't do, if it won't. */
@@ -105,9 +144,11 @@ function clientOf(c: Context): string {
   return "unknown";
 }
 
-function inMinutes(seconds: number): string {
-  const minutes = Math.ceil(seconds / 60);
-  return minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;
+function tooManyAttempts(c: Context, retryAfter: number): Response {
+  const minutes = Math.ceil(retryAfter / 60);
+  const wait = minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;
+  c.header("Retry-After", String(retryAfter));
+  return c.json({ error: `Too many attempts. Try again in ${wait}.` }, 429);
 }
 
 /** Caches a load once it succeeds; a failed load is tried again next call. */
@@ -129,9 +170,17 @@ export function createApp({
   const signingKey: () => Promise<SigningKey> = memoize(() =>
     ensureSigningKey(db),
   );
-  const ctx: SessionContext = { db, now, signingKey };
+  const ctx: SessionContext = { db, domain, now, signingKey };
   const loginLimiter = createRateLimiter({
     limit: 5,
+    windowMs: 15 * 60 * 1000,
+    now,
+  });
+  // Apart from the owner's limit, so a guest guessing codes can't lock the
+  // owner out. A guest's sign-in never clears it, or one live code would buy
+  // endless guesses at the others.
+  const codeLimiter = createRateLimiter({
+    limit: 10,
     windowMs: 15 * 60 * 1000,
     now,
   });
@@ -147,6 +196,8 @@ export function createApp({
       domain,
       sameSite: "Lax",
       maxAge,
+      // Browsers treat *.localhost as a secure context, but WebKit drops
+      // Secure cookies over plain http, so local domains go without.
       secure: !isLocal(domain),
     });
   };
@@ -256,13 +307,7 @@ export function createApp({
 
     const client = clientOf(c);
     const retryAfter = loginLimiter.retryAfter(client);
-    if (retryAfter > 0) {
-      c.header("Retry-After", String(retryAfter));
-      return c.json(
-        { error: `Too many attempts. Try again in ${inMinutes(retryAfter)}.` },
-        429,
-      );
-    }
+    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
 
     const result = await signIn(
       ctx,
@@ -284,10 +329,75 @@ export function createApp({
     return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
   });
 
+  app.post("/login/code", async (c) => {
+    const fields = await fieldsOf(c);
+    if (typeof fields?.code !== "string") {
+      return c.json({ error: "Send a code." }, 400);
+    }
+    const client = clientOf(c);
+    const retryAfter = codeLimiter.retryAfter(client);
+    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
+
+    const code = parseAccessCode(fields.code);
+    const result = code
+      ? await signInWithCode(ctx, code)
+      : { outcome: "refused" as const };
+    if (result.outcome === "unclaimed") {
+      return c.json(
+        { error: "This install has no owner yet. Set it up first." },
+        409,
+      );
+    }
+    if (result.outcome === "refused") {
+      codeLimiter.fail(client);
+      return c.json({ error: "That code doesn't work." }, 401);
+    }
+    setSessionCookie(c, result.sessionToken);
+    return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
+  });
+
   // The hub sends no body here, so none is read.
   app.post("/logout", async (c) => {
     await signOut(ctx, getCookie(c, sessionCookie));
     setSessionCookie(c, "", 0);
+    return c.body(null, 204);
+  });
+
+  // Admin manages codes over CORS with the owner's cookie. Anyone else is
+  // told there is nothing here.
+  const ownerOnly: MiddlewareHandler = async (c, next) => {
+    const { answer, freshSessionToken } = await readSession(
+      ctx,
+      getCookie(c, sessionCookie),
+    );
+    if (answer.state !== "signed-in" || answer.viewer.kind !== "owner") {
+      return c.json({ error: "Not found" }, 404);
+    }
+    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
+    await next();
+  };
+  app.use("/codes", ownerOnly);
+  app.use("/codes/*", ownerOnly);
+
+  app.get("/codes", async (c) =>
+    c.json({ codes: await listCodes(db, now(), domain) }),
+  );
+
+  app.post("/codes", async (c) => {
+    const at = now();
+    const request = await newCodeFrom(c, at);
+    if ("error" in request) return c.json(request, 400);
+    const mint = await mintCode(db, request, at, domain);
+    if (mint.outcome === "taken") {
+      return c.json({ error: "That code is taken." }, 409);
+    }
+    return c.json(mint.code, 201);
+  });
+
+  app.post("/codes/:id/revoke", async (c) => {
+    if (!(await revokeCode(db, c.req.param("id"), now()))) {
+      return c.json({ error: "Not found" }, 404);
+    }
     return c.body(null, 204);
   });
 

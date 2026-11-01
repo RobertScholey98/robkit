@@ -1,14 +1,14 @@
-import { signOut, type Owner, type Session } from "./core-api.ts";
+import { signOut, type Session, type Viewer } from "./core-api.ts";
 import { useSend } from "./forms.tsx";
 import { Button, FormError } from "./ui.tsx";
 
 export function Launcher({
   core,
-  owner,
+  viewer,
   onSession,
 }: {
   core: string;
-  owner: Owner;
+  viewer: Viewer;
   onSession: (session: Session) => void;
 }) {
   const { sending, send } = useSend(onSession);
@@ -22,7 +22,7 @@ export function Launcher({
             <p className="text-sm text-neutral-500">
               Signed in as{" "}
               <span className="font-medium text-neutral-900">
-                {owner.username}
+                {viewer.kind === "owner" ? viewer.username : viewer.name}
               </span>
             </p>
             <Button
@@ -45,11 +45,17 @@ export function Launcher({
         <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center">
           <h1 className="text-lg font-semibold tracking-tight">No apps yet.</h1>
           <p className="mt-2 text-sm text-neutral-500">
-            Apps you add with{" "}
-            <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs text-neutral-700">
-              robkit add
-            </code>{" "}
-            show up here.
+            {viewer.kind === "owner" ? (
+              <>
+                Apps you add with{" "}
+                <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs text-neutral-700">
+                  robkit add
+                </code>{" "}
+                show up here.
+              </>
+            ) : (
+              "Apps shared with you show up here."
+            )}
           </p>
         </div>
       </main>
