@@ -45,28 +45,29 @@ function isJson(contentType: string | undefined): boolean {
   return mediaType === "application/json";
 }
 
-const invalid = Symbol("invalid JSON");
-
-/** The request's JSON body, or `invalid` if it isn't valid JSON. */
-async function jsonBody(c: Context): Promise<unknown> {
-  try {
-    return (await c.req.json()) as unknown;
-  } catch {
-    return invalid;
-  }
-}
-
 interface Credentials {
   username: string;
   password: string;
 }
 
-function credentialsIn(body: unknown): Credentials | undefined {
-  if (typeof body !== "object" || body === null) return undefined;
-  const { username, password } = body as Record<string, unknown>;
-  return typeof username === "string" && typeof password === "string"
-    ? { username, password }
-    : undefined;
+/** The username, trimmed, and password a POST sent, or why it won't do. */
+async function credentialsFrom(
+  c: Context,
+): Promise<Credentials | { error: string }> {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return { error: "Send a valid JSON body." };
+  }
+  const { username, password } =
+    typeof body === "object" && body !== null
+      ? (body as Record<string, unknown>)
+      : {};
+  if (typeof username !== "string" || typeof password !== "string") {
+    return { error: "Send a username and a password." };
+  }
+  return { username: username.trim(), password };
 }
 
 /** Why a new owner's username or password won't do, if it won't. */
@@ -149,12 +150,8 @@ export function createApp({
   });
 
   app.post("/setup", async (c) => {
-    const body = await jsonBody(c);
-    if (body === invalid)
-      return c.json({ error: "Send a valid JSON body." }, 400);
-    const sent = credentialsIn(body);
-    if (!sent) return c.json({ error: "Send a username and a password." }, 400);
-    const credentials = { ...sent, username: sent.username.trim() };
+    const credentials = await credentialsFrom(c);
+    if ("error" in credentials) return c.json(credentials, 400);
     const problem = problemWith(credentials);
     if (problem) return c.json({ error: problem }, 400);
 
