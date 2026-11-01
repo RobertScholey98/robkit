@@ -38,12 +38,12 @@ async function expiredTwin(token: string, adminUrl: string): Promise<string> {
     select kid, private_jwk from core.signing_keys
   `.finally(() => sql.end());
   if (!key) throw new Error("core has no signing key");
-  const { sub, sid } = decodeJwt(token);
+  const { sub, sid, kind } = decodeJwt(token);
   if (typeof sub !== "string" || typeof sid !== "string") {
     throw new Error("the session cookie has no owner or session");
   }
   const iat = Math.floor(Date.now() / 1000) - 20 * 60;
-  return new SignJWT({ sid, kind: "owner" })
+  return new SignJWT({ sid, kind })
     .setProtectedHeader({ alg: "EdDSA", kid: key.kid })
     .setSubject(sub)
     .setIssuedAt(iat)

@@ -67,7 +67,7 @@ async function startSession(
     viewer: { kind: "owner", id, username },
     sessionToken: await mintSessionToken(
       await ctx.signingKey(),
-      { ownerId: id, sessionId: session.id },
+      { kind: "owner", id, sessionId: session.id },
       now,
     ),
   };
@@ -148,7 +148,7 @@ export async function readSession(
   const now = ctx.now();
   const key = await ctx.signingKey();
   const claims = await readSessionToken(key.publicKey, sessionToken, now);
-  if (claims?.ownerId !== found.id) return signedOut;
+  if (claims?.id !== found.id) return signedOut;
   const [live] = await ctx.db
     .select({ id: sessions.id })
     .from(sessions)

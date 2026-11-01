@@ -33,7 +33,8 @@ describe("readSessionToken", () => {
     );
 
     expect(read).toEqual({
-      ownerId: "owner-1",
+      kind: "owner",
+      id: "owner-1",
       sessionId: "session-1",
       expired: false,
     });
@@ -49,7 +50,8 @@ describe("readSessionToken", () => {
     );
 
     expect(read).toEqual({
-      ownerId: "owner-1",
+      kind: "owner",
+      id: "owner-1",
       sessionId: "session-1",
       expired: true,
     });
@@ -70,7 +72,7 @@ describe("readSessionToken", () => {
     expect([live, expired]).toEqual([undefined, undefined]);
     expect(
       await readSessionToken(forger.publicKey, token, issuedAt),
-    ).toMatchObject({ ownerId: "owner-1" });
+    ).toMatchObject({ id: "owner-1" });
   });
 
   it("refuses a token that isn't an owner's session", async () => {
