@@ -111,4 +111,14 @@ describe("coreKeys", () => {
       vi.useRealTimers();
     }
   });
+
+  it("speaks TLS to an https core, so a plaintext server never sees a request", async () => {
+    const { port, hosts, token } = await fakeCore();
+    const keys = coreKeys(`https://core.robkit.localhost:${String(port)}`);
+
+    const read = readSessionToken(keys, token, now);
+
+    await expect(read).rejects.toMatchObject({ code: "EPROTO" });
+    expect(hosts).toEqual([]);
+  });
 });
