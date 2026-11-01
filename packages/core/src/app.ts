@@ -1,9 +1,16 @@
 import { sql } from "drizzle-orm";
-import { Hono, type Context } from "hono";
+import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { sessionCookie } from "@robkit/session";
+import {
+  listCodes,
+  mintCode,
+  parseAccessCode,
+  type AccessCode,
+  type NewCode,
+} from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
 import { createRateLimiter } from "./rate-limit.ts";
@@ -80,6 +87,36 @@ async function credentialsFrom(
     return { error: "Send a username and a password." };
   }
   return { username: username.trim(), password };
+}
+
+/** The guest's name, code and expiry the owner sent, or why they won't do. */
+async function newCodeFrom(
+  c: Context,
+  now: Date,
+): Promise<NewCode | { error: string }> {
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  const name = typeof fields.name === "string" ? fields.name.trim() : "";
+  if (name.length < 1 || name.length > 80) {
+    return { error: "Give the guest a name of 1 to 80 characters." };
+  }
+  let code: AccessCode | undefined;
+  if (fields.code !== undefined && fields.code !== null) {
+    code =
+      typeof fields.code === "string"
+        ? parseAccessCode(fields.code)
+        : undefined;
+    if (!code) return { error: "Use 3 to 32 letters or digits for the code." };
+  }
+  let expiresAt: Date | null = null;
+  if (fields.expiresAt !== undefined && fields.expiresAt !== null) {
+    expiresAt =
+      typeof fields.expiresAt === "string" ? new Date(fields.expiresAt) : null;
+    if (!expiresAt || !(expiresAt > now)) {
+      return { error: "Pick an expiry in the future." };
+    }
+  }
+  return code ? { name, code, expiresAt } : { name, expiresAt };
 }
 
 /** Why a new owner's username or password won't do, if it won't. */
@@ -293,5 +330,35 @@ export function createApp({
     return c.body(null, 204);
   });
 
+  // Admin manages codes over CORS with the owner's cookie. Anyone else is
+  // told there is nothing here.
+  const ownerOnly: MiddlewareHandler = async (c, next) => {
+    const { answer, freshSessionToken } = await readSession(
+      ctx,
+      getCookie(c, sessionCookie),
+    );
+    if (answer.state !== "signed-in") {
+      return c.json({ error: "Not found" }, 404);
+    }
+    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
+    await next();
+  };
+  app.use("/codes", ownerOnly);
+  app.use("/codes/*", ownerOnly);
+
+  app.get("/codes", async (c) =>
+    c.json({ codes: await listCodes(db, now(), domain) }),
+  );
+
+  app.post("/codes", async (c) => {
+    const at = now();
+    const request = await newCodeFrom(c, at);
+    if ("error" in request) return c.json(request, 400);
+    const mint = await mintCode(db, request, at, domain);
+    if (mint.outcome === "taken") {
+      return c.json({ error: "That code is taken." }, 409);
+    }
+    return c.json(mint.code, 201);
+  });
   return app;
 }
