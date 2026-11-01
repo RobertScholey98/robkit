@@ -5,8 +5,13 @@ import { defineConfig } from "eslint/config";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 import { layerConfig } from "./layers.js";
+import relativeImportExtension from "./relative-import-extension.js";
 
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
+
+const robkit = {
+  rules: { "relative-import-extension": relativeImportExtension },
+};
 
 /**
  * Shared ESLint config with type-aware rules.
@@ -31,5 +36,9 @@ export function config(tsconfigRootDir) {
       extends: [tseslint.configs.disableTypeChecked],
     },
     layerConfig(workspace),
+    {
+      plugins: { robkit },
+      rules: { "robkit/relative-import-extension": "error" },
+    },
   );
 }
