@@ -206,7 +206,9 @@ export function createApp({
 
   // An app's guard sends an expired token here, and it comes straight back
   // to `next` with a fresh cookie, or none if its session ended. The app's
-  // guard then decides whether to send the browser to log in.
+  // guard then decides whether to send the browser to log in. The token is
+  // reissued even if core thinks it live, since the app's clock may run
+  // ahead of core's, and a bounce without a new token would loop.
   app.get("/refresh", async (c) => {
     const next = appUrl(c.req.query("next"), domain);
     if (!next) {
@@ -216,7 +218,9 @@ export function createApp({
       );
     }
     const sessionToken = getCookie(c, sessionCookie);
-    const { answer, freshSessionToken } = await readSession(ctx, sessionToken);
+    const { answer, freshSessionToken } = await readSession(ctx, sessionToken, {
+      renew: true,
+    });
     if (freshSessionToken) setSessionCookie(c, freshSessionToken);
     else if (sessionToken && answer.state !== "signed-in") {
       setSessionCookie(c, "", 0);

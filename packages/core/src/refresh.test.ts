@@ -46,15 +46,19 @@ describe("GET /refresh", () => {
     expect(await stateOf(app, fresh?.value ?? "")).toBe("signed-in");
   });
 
-  it("sends the browser back untouched while its token is live", async () => {
-    const { app } = await freshCore();
+  it("reissues a token core still thinks live, since the app's clock may run ahead", async () => {
+    const { app, advance } = await freshCore();
     const sessionToken = await claim(app);
+    advance(14 * minute);
 
     const res = await refresh(app, back, sessionToken);
+    const fresh = sessionCookieOf(res);
 
     expect(res.status).toBe(302);
     expect(res.headers.get("location")).toBe(back);
-    expect(res.headers.getSetCookie()).toEqual([]);
+    expect(fresh?.attributes["Max-Age"]).toBe("2592000");
+    expect(fresh?.value).not.toBe(sessionToken);
+    expect(await stateOf(app, fresh?.value ?? "")).toBe("signed-in");
   });
 
   it("clears the cookie of a revoked session and sends the browser back", async () => {
