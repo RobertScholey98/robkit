@@ -9,6 +9,7 @@ catalogMode: strict
 catalog:
   "@eslint/js": 10.0.1
   "@hono/node-server": 2.1.5
+  "@hono/vite-dev-server": 0.26.1
   "@tailwindcss/vite": 4.3.3
   "@types/node": 26.6.5
   "@types/react": 19.3.0
