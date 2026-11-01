@@ -24,6 +24,8 @@ pnpm --filter <package> test              # one package
 
 ## The layer rule
 
+`tooling/eslint` enforces each rule here, and its error names the rule. A new rule goes in with its lint rule, in the same commit.
+
 - `@robkit/session` and `@robkit/guard` import no framework, and the guard does no I/O.
 - Adapters (`@robkit/hono`, `@robkit/start`, `@robkit/react`) import session and guard, never core. Code reaches core over HTTP only.
 - Packages never import from apps or examples.
@@ -33,4 +35,4 @@ pnpm --filter <package> test              # one package
 - Every external version lives in the catalog in `pnpm-workspace.yaml`, and manifests say `catalog:`. A test in `tooling/repo-checks` fails on any version pinned elsewhere. Peer dependencies are exempt.
 - TypeScript stays on 6.0 until typescript-eslint supports 7.
 - pnpm 11 refuses packages published in the last day. Pin an older version rather than adding an exemption.
-- Relative imports use the `.ts` extension, so Node can run source files directly.
+- Relative imports use the `.ts` extension, so Node can run source files directly. ESLint enforces it.
