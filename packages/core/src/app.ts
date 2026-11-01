@@ -15,6 +15,7 @@ import {
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
 import { createRateLimiter } from "./rate-limit.ts";
+import { createRole, listRoles, setRoleCodes, type NewRole } from "./roles.ts";
 import {
   claimInstall,
   readSession,
@@ -119,6 +120,42 @@ async function newCodeFrom(
     }
   }
   return code ? { name, code, expiresAt } : { name, expiresAt };
+}
+
+const unknownCode = "One of those codes doesn't exist.";
+
+function readCodeIds(
+  fields: Record<string, unknown>,
+): { codeIds: string[] } | { error: string } {
+  const { codeIds } = fields;
+  if (
+    !Array.isArray(codeIds) ||
+    !codeIds.every((id): id is string => typeof id === "string")
+  ) {
+    return { error: "Send codeIds, a list of code ids." };
+  }
+  return { codeIds };
+}
+
+/** The codes the owner ticked for a role, or why they won't do. */
+async function codeIdsFrom(
+  c: Context,
+): Promise<{ codeIds: string[] } | { error: string }> {
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  return readCodeIds(fields);
+}
+
+/** The role's name and the codes the owner ticked, or why they won't do. */
+async function newRoleFrom(c: Context): Promise<NewRole | { error: string }> {
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  const name = typeof fields.name === "string" ? fields.name.trim() : "";
+  if (name.length < 1 || name.length > 40) {
+    return { error: "Give the role a name of 1 to 40 characters." };
+  }
+  const holders = readCodeIds(fields);
+  return "error" in holders ? holders : { name, ...holders };
 }
 
 /** Why a new owner's username or password won't do, if it won't. */
@@ -376,8 +413,9 @@ export function createApp({
     if (freshSessionToken) setSessionCookie(c, freshSessionToken);
     await next();
   };
-  app.use("/codes", ownerOnly);
-  app.use("/codes/*", ownerOnly);
+  for (const path of ["/codes", "/codes/*", "/roles", "/roles/*"]) {
+    app.use(path, ownerOnly);
+  }
 
   app.get("/codes", async (c) =>
     c.json({ codes: await listCodes(db, now(), domain) }),
@@ -399,6 +437,36 @@ export function createApp({
       return c.json({ error: "Not found" }, 404);
     }
     return c.body(null, 204);
+  });
+
+  app.get("/roles", async (c) => c.json({ roles: await listRoles(db) }));
+
+  app.post("/roles", async (c) => {
+    const request = await newRoleFrom(c);
+    if ("error" in request) return c.json(request, 400);
+    const creation = await createRole(db, request, now());
+    switch (creation.outcome) {
+      case "unknown-code":
+        return c.json({ error: unknownCode }, 400);
+      case "taken":
+        return c.json({ error: "There's a role with that name." }, 409);
+      case "created":
+        return c.json(creation.role, 201);
+    }
+  });
+
+  app.post("/roles/:id/codes", async (c) => {
+    const request = await codeIdsFrom(c);
+    if ("error" in request) return c.json(request, 400);
+    const change = await setRoleCodes(db, c.req.param("id"), request.codeIds);
+    switch (change.outcome) {
+      case "unknown-role":
+        return c.json({ error: "Not found" }, 404);
+      case "unknown-code":
+        return c.json({ error: unknownCode }, 400);
+      case "changed":
+        return c.json(change.role);
+    }
   });
 
   return app;

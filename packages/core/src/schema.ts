@@ -4,6 +4,7 @@ import {
   check,
   jsonb,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -43,6 +44,26 @@ export const accessCodes = core.table(
   (table) => [
     check("access_codes_code_shape", sql`${table.code} ~ '^[A-Z0-9]{3,32}$'`),
   ],
+);
+
+export const roles = core.table("roles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull().unique(),
+  createdAt: createdAt(),
+});
+
+/** Which codes hold which roles. The test code holds every role without a row. */
+export const codeRoles = core.table(
+  "code_roles",
+  {
+    codeId: uuid("code_id")
+      .notNull()
+      .references(() => accessCodes.id, { onDelete: "cascade" }),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.codeId, table.roleId] })],
 );
 
 export const sessions = core.table(
