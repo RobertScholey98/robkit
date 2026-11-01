@@ -1,11 +1,12 @@
 import { sql } from "drizzle-orm";
 import { Hono, type Context } from "hono";
-import { setCookie } from "hono/cookie";
+import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import type { Database } from "./database.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import {
   claimInstall,
+  readSession,
   sessionLifetimeSeconds,
   type SessionAnswer,
   type SessionContext,
@@ -171,6 +172,15 @@ export function createApp({
   app.get("/.well-known/jwks.json", async (c) => {
     const { kid, publicJwk } = await signingKey();
     return c.json({ keys: [{ ...publicJwk, kid, alg: "EdDSA", use: "sig" }] });
+  });
+
+  app.get("/session", async (c) => {
+    const { answer, freshSessionToken } = await readSession(
+      ctx,
+      getCookie(c, sessionCookie),
+    );
+    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
+    return c.json<SessionAnswer>(answer);
   });
 
   app.post("/setup", async (c) => {

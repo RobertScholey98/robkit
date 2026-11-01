@@ -14,6 +14,7 @@ import { signingKeys } from "./schema.ts";
 export interface SigningKey {
   kid: string;
   privateKey: CryptoKey;
+  publicKey: CryptoKey;
   publicJwk: JWK;
 }
 
@@ -54,6 +55,7 @@ export async function ensureSigningKey(db: Database): Promise<SigningKey> {
   return {
     kid: row.kid,
     privateKey: (await importJWK(row.privateJwk, "EdDSA")) as CryptoKey,
+    publicKey: (await importJWK(row.publicJwk, "EdDSA")) as CryptoKey,
     publicJwk: row.publicJwk,
   };
 }

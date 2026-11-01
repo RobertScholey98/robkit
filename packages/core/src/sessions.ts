@@ -1,7 +1,8 @@
+import { and, eq, gt, isNull } from "drizzle-orm";
 import type { Database } from "./database.ts";
 import { dummyPasswordHash, hashPassword, verifyPassword } from "./password.ts";
 import { owner, sessions } from "./schema.ts";
-import { mintSessionToken } from "./session-token.ts";
+import { mintSessionToken, readSessionToken } from "./session-token.ts";
 import type { SigningKey } from "./signing-key.ts";
 
 /** A session lasts 30 days from sign-in. */
@@ -37,6 +38,12 @@ export type SignIn =
   | ({ outcome: "signed-in" } & SignedIn)
   | { outcome: "wrong" }
   | { outcome: "unclaimed" };
+
+export interface SessionRead {
+  answer: SessionAnswer;
+  /** A new session token for the cookie, when the old one had expired. */
+  freshSessionToken?: string;
+}
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
@@ -118,5 +125,47 @@ export async function signIn(
   return {
     outcome: "signed-in",
     ...(await ctx.db.transaction((tx) => startSession(ctx, tx, found))),
+  };
+}
+
+/**
+ * Answers who the session token's holder is. The token's signature must be
+ * core's, but its session row decides: a revoked or expired session signs the
+ * holder out, and a live session renews an expired token.
+ */
+export async function readSession(
+  ctx: SessionContext,
+  sessionToken: string | undefined,
+): Promise<SessionRead> {
+  const signedOut: SessionRead = { answer: { state: "signed-out" } };
+  const [found] = await ctx.db.select().from(owner);
+  if (!found) return { answer: { state: "unclaimed" } };
+  if (!sessionToken) return signedOut;
+
+  const now = ctx.now();
+  const key = await ctx.signingKey();
+  const claims = await readSessionToken(key, sessionToken, now);
+  if (claims?.ownerId !== found.id) return signedOut;
+  const [live] = await ctx.db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(
+      and(
+        eq(sessions.id, claims.sessionId),
+        eq(sessions.ownerId, found.id),
+        isNull(sessions.revokedAt),
+        gt(sessions.expiresAt, now),
+      ),
+    );
+  if (!live) return signedOut;
+
+  const answer: SessionAnswer = {
+    state: "signed-in",
+    viewer: { kind: "owner", id: found.id, username: found.username },
+  };
+  if (!claims.expired) return { answer };
+  return {
+    answer,
+    freshSessionToken: await mintSessionToken(key, claims, now),
   };
 }
