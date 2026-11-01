@@ -1,3 +1,5 @@
 .scratch/
 .skills/
 pnpm-lock.yaml
+# drizzle-kit writes these.
+**/drizzle/meta/
