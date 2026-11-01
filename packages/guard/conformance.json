@@ -18,6 +18,12 @@
     "outcome": "allow"
   },
   {
+    "name": "an open app lets a guest in",
+    "rule": { "kind": "open" },
+    "session": "guest",
+    "outcome": "allow"
+  },
+  {
     "name": "an owner-only app sends a signed-out visitor to log in",
     "rule": { "kind": "owner" },
     "session": "signed-out",
@@ -34,5 +40,11 @@
     "rule": { "kind": "owner" },
     "session": "owner",
     "outcome": "allow"
+  },
+  {
+    "name": "an owner-only app answers a guest with not found",
+    "rule": { "kind": "owner" },
+    "session": "guest",
+    "outcome": "not-found"
   }
 ]

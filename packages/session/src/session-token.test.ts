@@ -12,11 +12,12 @@ async function keyPair() {
 function sign(
   privateKey: CryptoKey,
   claims: Record<string, unknown> = { sid: "session-1", kind: "owner" },
+  subject = "owner-1",
 ): Promise<string> {
   const iat = Math.floor(issuedAt.getTime() / 1000);
   return new SignJWT(claims)
     .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
-    .setSubject("owner-1")
+    .setSubject(subject)
     .setIssuedAt(iat)
     .setExpirationTime(iat + 15 * 60)
     .sign(privateKey);
@@ -75,12 +76,30 @@ describe("readSessionToken", () => {
     ).toMatchObject({ id: "owner-1" });
   });
 
-  it("refuses a token that isn't an owner's session", async () => {
+  it("reads a guest's session, with the code's id as the holder", async () => {
     const { privateKey, publicKey } = await keyPair();
-    const guest = await sign(privateKey, { sid: "session-1", kind: "guest" });
+    const guest = await sign(
+      privateKey,
+      { sid: "session-1", kind: "guest" },
+      "code-1",
+    );
+
+    expect(await readSessionToken(publicKey, guest, issuedAt)).toEqual({
+      kind: "guest",
+      id: "code-1",
+      sessionId: "session-1",
+      expired: false,
+    });
+  });
+
+  it("refuses a token that isn't an owner's or a guest's session", async () => {
+    const { privateKey, publicKey } = await keyPair();
+    const stranger = await sign(privateKey, { sid: "session-1", kind: "bot" });
     const sessionless = await sign(privateKey, { kind: "owner" });
 
-    expect(await readSessionToken(publicKey, guest, issuedAt)).toBeUndefined();
+    expect(
+      await readSessionToken(publicKey, stranger, issuedAt),
+    ).toBeUndefined();
     expect(
       await readSessionToken(publicKey, sessionless, issuedAt),
     ).toBeUndefined();

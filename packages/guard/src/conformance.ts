@@ -3,12 +3,12 @@ import type { AccessRule, Decision } from "./guard.ts";
 
 /**
  * One row of the shared conformance cases. `session` names who is asking:
- * nobody signed in, a holder of an expired token, or the owner.
+ * nobody signed in, a holder of an expired token, the owner or a guest.
  */
 export interface ConformanceCase {
   name: string;
   rule: AccessRule;
-  session: "signed-out" | "expired" | "owner";
+  session: "signed-out" | "expired" | "owner" | "guest";
   outcome: Decision["outcome"];
 }
 

@@ -12,9 +12,12 @@ export const sessionCookie = "robkit_session";
 /** A session token lives 15 minutes; core reissues it while the session lives. */
 export const sessionTokenLifetimeSeconds = 15 * 60;
 
-/** Whose session a token is for, and which session. */
+/**
+ * Whose session a token is for, and which session. A guest's id is their
+ * access code's id, never the code itself, since apps see it.
+ */
 export interface SessionTokenClaims {
-  kind: "owner";
+  kind: "owner" | "guest";
   id: string;
   sessionId: string;
 }
@@ -42,7 +45,8 @@ const badToken = new Set([
 
 function claimsIn(payload: JWTPayload): SessionTokenClaims | undefined {
   const { sub, sid, kind } = payload;
-  return typeof sub === "string" && typeof sid === "string" && kind === "owner"
+  const known = kind === "owner" || kind === "guest";
+  return typeof sub === "string" && typeof sid === "string" && known
     ? { kind, id: sub, sessionId: sid }
     : undefined;
 }

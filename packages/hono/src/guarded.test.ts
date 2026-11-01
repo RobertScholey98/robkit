@@ -25,12 +25,19 @@ beforeAll(async () => {
   }));
 });
 
+const owner = { kind: "owner", id: "owner-1" } as const;
+const guest = { kind: "guest", id: "code-1" } as const;
+
 /** A session token shaped like core's, issued `ageSeconds` ago. */
-function token(ageSeconds = 0, key = privateKey): Promise<string> {
+function token(
+  ageSeconds = 0,
+  key = privateKey,
+  holder: typeof owner | typeof guest = owner,
+): Promise<string> {
   const iat = Math.floor(Date.now() / 1000) - ageSeconds;
-  return new SignJWT({ sid: "session-1", kind: "owner" })
+  return new SignJWT({ sid: "session-1", kind: holder.kind })
     .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
-    .setSubject("owner-1")
+    .setSubject(holder.id)
     .setIssuedAt(iat)
     .setExpirationTime(iat + 15 * minute)
     .sign(key);
@@ -54,6 +61,7 @@ async function cookieFor(session: ConformanceCase["session"]) {
     "signed-out": undefined,
     expired: await token(20 * minute),
     owner: await token(),
+    guest: await token(0, privateKey, guest),
   };
   const value = tokens[session];
   return value === undefined ? {} : { cookie: `robkit_session=${value}` };
@@ -71,10 +79,12 @@ describe("guarded", () => {
       allow: {
         status: 200,
         location: null,
-        body:
-          session === "owner"
-            ? { kind: "owner", id: "owner-1" }
-            : { kind: "nobody" },
+        body: {
+          "signed-out": { kind: "nobody" },
+          expired: undefined,
+          owner,
+          guest,
+        }[session],
       },
       login: {
         status: 302,
