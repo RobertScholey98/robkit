@@ -8,6 +8,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { JWK } from "jose";
 
 const core = pgSchema("core");
 
@@ -40,7 +41,7 @@ export const sessions = core.table("sessions", {
 
 export const signingKeys = core.table("signing_keys", {
   kid: text("kid").primaryKey(),
-  privateJwk: jsonb("private_jwk").notNull(),
-  publicJwk: jsonb("public_jwk").notNull(),
+  privateJwk: jsonb("private_jwk").$type<JWK>().notNull(),
+  publicJwk: jsonb("public_jwk").$type<JWK>().notNull(),
   createdAt: createdAt(),
 });

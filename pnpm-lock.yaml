@@ -42,6 +42,9 @@ catalogs:
     hono:
       specifier: 4.13.14
       version: 4.13.14
+    jose:
+      specifier: 6.2.13
+      version: 6.2.13
     postgres:
       specifier: 3.4.9
       version: 3.4.9
@@ -187,6 +190,9 @@ importers:
       hono:
         specifier: 'catalog:'
         version: 4.13.14
+      jose:
+        specifier: 'catalog:'
+        version: 6.2.13
       postgres:
         specifier: 'catalog:'
         version: 3.4.9
@@ -1575,6 +1581,9 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
+  jose@6.2.13:
+    resolution: {integrity: sha512-7TIg10ZE1x82YediN+lcrPNvGMKge9yFHQD+Qho/b8y2adfugU3AsvvHfxV0fzyFllT6l9xCjf4RWY9g/Z9PJQ==}
+
   json-schema-traverse@0.4.1:
     resolution: {integrity: sha512-xbbCH5dCYU5T8LcEhhuh7HJ88HXuW3qsI3Y0zOZFKfZEHcpWiHU/Jxzk629Brsab/mMiHQti9wMP+845RPe3Vg==}
 
@@ -2909,6 +2918,8 @@ snapshots:
   isexe@2.0.0: {}
 
   jiti@2.7.0: {}
+
+  jose@6.2.13: {}
 
   json-schema-traverse@0.4.1: {}
 

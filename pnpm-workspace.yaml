@@ -19,6 +19,7 @@ catalog:
   eslint: 10.13.0
   globals: 17.13.0
   hono: 4.13.14
+  jose: 6.2.13
   postgres: 3.4.9
   prettier: 3.9.10
   react: 19.3.1
