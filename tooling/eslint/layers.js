@@ -7,6 +7,7 @@ import { matchesGlob } from "node:path/posix";
  *   globs over the workspace path from the repo root, such as `packages/*`
  * @property {string} rule the message ESLint prints, naming the rule
  * @property {string[]} imports gitignore-style patterns the workspace may not import
+ * @property {string[]} [importNames] if set, only these names from `imports` are banned
  * @property {string[]} [globals] globals the workspace may not use
  */
 
@@ -62,6 +63,12 @@ export const layers = [
     rule: "Layer rule: only apps/core imports @robkit/core. Code reaches core over HTTP only.",
     imports: ["@robkit/core"],
   },
+  {
+    workspaces: ["packages/core"],
+    rule: "Layer rule: core's tables live in the core schema. Declare them with core.table() from schema.ts.",
+    imports: ["drizzle-orm/pg-core"],
+    importNames: ["pgTable"],
+  },
 ];
 
 /**
@@ -77,8 +84,9 @@ export function layerConfig(workspace) {
       ? workspaces(workspace)
       : workspaces.some((glob) => matchesGlob(workspace, glob)),
   );
-  const patterns = rows.map(({ imports, rule }) => ({
+  const patterns = rows.map(({ imports, importNames, rule }) => ({
     group: imports,
+    ...(importNames && { importNames }),
     message: rule,
   }));
   const globals = rows.flatMap(({ globals = [], rule }) =>

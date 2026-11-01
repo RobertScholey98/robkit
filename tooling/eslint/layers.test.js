@@ -116,4 +116,18 @@ describe("layerConfig", () => {
       "'../../apps/hub/src/App.tsx' import is restricted from being used by a pattern. Layer rule: packages never import from apps or examples.",
     ]);
   });
+
+  it("keeps core's tables in the core schema", () => {
+    expect(
+      lint("packages/core", 'import { pgTable } from "drizzle-orm/pg-core";'),
+    ).toEqual([
+      "'pgTable' import from 'drizzle-orm/pg-core' is restricted from being used by a pattern. Layer rule: core's tables live in the core schema. Declare them with core.table() from schema.ts.",
+    ]);
+    expect(
+      lint("packages/core", 'import { pgSchema } from "drizzle-orm/pg-core";'),
+    ).toEqual([]);
+    expect(
+      lint("apps/notes", 'import { pgTable } from "drizzle-orm/pg-core";'),
+    ).toEqual([]);
+  });
 });

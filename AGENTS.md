@@ -29,6 +29,7 @@ pnpm --filter <package> test              # one package
 - `@robkit/session` and `@robkit/guard` import no framework, and the guard does no I/O.
 - Adapters (`@robkit/hono`, `@robkit/start`, `@robkit/react`) import session and guard, never core. Code reaches core over HTTP only.
 - Packages never import from apps or examples.
+- Core's tables live in the `core` schema, declared with `core.table()` in `packages/core/src/schema.ts`.
 
 ## Conventions
 
