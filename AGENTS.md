@@ -18,7 +18,7 @@ pnpm --filter <package> test              # one package
 
 ## Layout
 
-- The repo root is a hand-built install until build ticket 08 turns it into templates: `compose.yaml` runs Postgres, and `apps/` holds core, the hub and `example`, a React + Hono app open only to the owner. Each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role.
+- The repo root is a hand-built install until build ticket 08 turns it into templates: `compose.yaml` runs Postgres, and `apps/` holds core, the hub, admin and `example`, a React + Hono app open only to the owner. Each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role.
 - `packages/` holds the published `@robkit/*` packages:
   - `@robkit/core`, the backend.
   - `@robkit/session`, the session token's claims and cookie, and `coreKeys`, which fetches core's public key once so apps verify tokens locally.
