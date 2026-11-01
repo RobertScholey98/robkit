@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coreOrigin, returnTo } from "./core-origin.ts";
+import { appOrigin, coreOrigin, returnTo } from "./core-origin.ts";
 
 describe("coreOrigin", () => {
   it.each([
@@ -48,5 +48,17 @@ describe("returnTo", () => {
         `${page.split("?")[0] ?? ""}?next=https%3A%2F%2Fa.example.com%2F`,
       ),
     ).toBe("https://a.example.com/");
+  });
+});
+
+describe("appOrigin", () => {
+  it.each([
+    [
+      "http://hub.robkit.localhost:3000/",
+      "http://example.robkit.localhost:3000",
+    ],
+    ["https://hub.example.com/?x=1", "https://example.example.com"],
+  ])("puts the app beside the hub at %s", (page, origin) => {
+    expect(appOrigin(page, "example")).toBe(origin);
   });
 });

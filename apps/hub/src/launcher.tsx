@@ -1,6 +1,12 @@
+import { useEffect, useState } from "react";
 import { signOut, type Session, type Viewer } from "./core-api.ts";
+import { appOrigin } from "./core-origin.ts";
+import { listLauncherApps, type LauncherResult } from "./launcher-api.ts";
 import { useSend } from "./forms.tsx";
 import { Button, FormError } from "./ui.tsx";
+
+/** How often an open launcher asks core for the viewer's apps again. */
+const refreshMs = 30_000;
 
 export function Launcher({
   core,
@@ -12,6 +18,27 @@ export function Launcher({
   onSession: (session: Session) => void;
 }) {
   const { sending, send } = useSend(onSession);
+  const [listing, setListing] = useState<LauncherResult | undefined>();
+
+  // Asks again while the tab stays open, so an app the owner closes to this
+  // viewer drops off without a reload.
+  useEffect(() => {
+    let current = true;
+    const load = () => {
+      if (document.visibilityState !== "visible") return;
+      void listLauncherApps(core).then((result) => {
+        if (current) setListing(result);
+      });
+    };
+    load();
+    const timer = setInterval(load, refreshMs);
+    document.addEventListener("visibilitychange", load);
+    return () => {
+      current = false;
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", load);
+    };
+  }, [core]);
 
   return (
     <div className="min-h-screen bg-neutral-50 font-sans text-neutral-950 antialiased">
@@ -42,23 +69,57 @@ export function Launcher({
             <FormError>{sending.error}</FormError>
           </div>
         )}
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center">
-          <h1 className="text-lg font-semibold tracking-tight">No apps yet.</h1>
-          <p className="mt-2 text-sm text-neutral-500">
-            {viewer.kind === "owner" ? (
-              <>
-                Apps you add with{" "}
-                <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs text-neutral-700">
-                  robkit add
-                </code>{" "}
-                show up here.
-              </>
-            ) : (
-              "Apps shared with you show up here."
-            )}
-          </p>
-        </div>
+        <AppList viewer={viewer} listing={listing} />
       </main>
+    </div>
+  );
+}
+
+function AppList({
+  viewer,
+  listing,
+}: {
+  viewer: Viewer;
+  listing: LauncherResult | undefined;
+}) {
+  if (listing === undefined) {
+    return <p className="text-sm text-neutral-500">Loading apps…</p>;
+  }
+  if (!listing.ok) return <FormError>{listing.error}</FormError>;
+  if (listing.apps.length === 0) return <NoApps viewer={viewer} />;
+  return (
+    <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {listing.apps.map((app) => (
+        <li key={app.slug}>
+          <a
+            href={appOrigin(location.href, app.slug)}
+            className="block rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-xs transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+          >
+            <span className="font-medium">{app.name}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function NoApps({ viewer }: { viewer: Viewer }) {
+  return (
+    <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center">
+      <h1 className="text-lg font-semibold tracking-tight">No apps yet.</h1>
+      <p className="mt-2 text-sm text-neutral-500">
+        {viewer.kind === "owner" ? (
+          <>
+            Apps you add with{" "}
+            <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs text-neutral-700">
+              robkit add
+            </code>{" "}
+            show up here.
+          </>
+        ) : (
+          "Apps shared with you show up here."
+        )}
+      </p>
     </div>
   );
 }
