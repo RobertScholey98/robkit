@@ -32,6 +32,7 @@ A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffold
 - [How does robkit test itself?](issues/13-kit-testing.md): generate real projects; pairwise set (~12) plus one end-to-end journey per stack on each PR, full 72-combination matrix nightly.
 - [What does one-command local dev look like?](issues/10-local-dev.md): Postgres in Compose, every app native via `turbo dev`, and a robkit proxy on `:3000` routing `*.localhost` so URLs and cookies match production. Refined by build ticket 02 (R, 2026-10-31): core answers on `core.<domain>`, and a `robkit-dev` runner from `@robkit/dev` starts each `apps/<slug>` itself instead of `turbo dev`, so the folder name is the subdomain.
 - [Assemble the v0.1 spec and PR list](issues/14-assemble-spec.md): the destination, written up as the robkit v0.1 spec doc (https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5) with 18 ordered PRs. Superseded for ordering by the 21 vertical tickets in `v0.1-build/issues`, where the first hosted install (11) comes before the other ORMs, package managers and kits (R, 2026-10-29).
+- [The owner claims the install and signs in](../v0.1-build/issues/03-owner-claims-and-signs-in.md) (build ticket 03, R, 2026-11-01): the setup screen stays open with no one-time token, as in Coolify, so the owner claims a hosted install as soon as it's up. Core generates its Ed25519 key on first boot and keeps the private half in its own schema, not in env.
 
 ## Not yet specified
 
