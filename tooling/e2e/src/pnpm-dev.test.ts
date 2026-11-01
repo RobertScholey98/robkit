@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { freePort, freePortBlock } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { guestJourney } from "./guest-journey.ts";
 import { ownerJourney } from "./owner-journey.ts";
 
 const run = promisify(execFile);
@@ -195,6 +196,40 @@ describe("pnpm dev", () => {
       ],
       bouncedTo: example,
       bouncedViewerId: journey.ownerId,
+    });
+  });
+
+  it("signs guests in with codes, keeps them out of owner-only apps, and ends a revoked code's session", async () => {
+    const at = (slug: string, path = "/") =>
+      `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
+    const example = at("example");
+    const notFound = { status: 404, body: "Not found" };
+
+    const journey = await guestJourney({
+      devPort,
+      adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
+      username: "rob",
+      password: "correct horse battery",
+    });
+
+    expect(journey).toEqual({
+      code: expect.stringMatching(
+        /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{5}$/,
+      ) as string,
+      introLink: at("hub", `/i/${journey.code ?? ""}`),
+      introLandedAt: at("hub"),
+      introGreeting: "Signed in as Grandma",
+      admin: notFound,
+      example: notFound,
+      testCodeGreeting: "Signed in as Test",
+      revokedStanding: "Revoked",
+      bounce: [
+        example,
+        at("core", `/refresh?next=${encodeURIComponent(example)}`),
+        example,
+        at("hub", `/?next=${encodeURIComponent(example)}`),
+      ],
+      afterRevokeAt: at("hub", `/?next=${encodeURIComponent(example)}`),
     });
   });
 

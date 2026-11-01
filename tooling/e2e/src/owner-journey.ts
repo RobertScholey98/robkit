@@ -32,7 +32,10 @@ export interface Journey {
  * A session token for the same session, expired five minutes ago and signed
  * with core's own key, so the app must bounce it through core's /refresh.
  */
-async function expiredTwin(token: string, adminUrl: string): Promise<string> {
+export async function expiredTwin(
+  token: string,
+  adminUrl: string,
+): Promise<string> {
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
   const [key] = await sql<{ kid: string; private_jwk: JWK }[]>`
     select kid, private_jwk from core.signing_keys
@@ -51,7 +54,7 @@ async function expiredTwin(token: string, adminUrl: string): Promise<string> {
     .sign(await importJWK(key.private_jwk, "EdDSA"));
 }
 
-function mainFrameRequests(page: Page): string[] {
+export function mainFrameRequests(page: Page): string[] {
   const urls: string[] = [];
   page.on("request", (request) => {
     if (request.isNavigationRequest() && request.frame() === page.mainFrame()) {
