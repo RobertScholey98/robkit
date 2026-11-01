@@ -80,7 +80,7 @@ export async function runDev(
   root: string,
   env: NodeJS.ProcessEnv,
 ): Promise<number> {
-  const domain = env.ROBKIT_DOMAIN ?? "localhost";
+  const domain = env.ROBKIT_DOMAIN ?? "robkit.localhost";
   const devPort = Number(env.ROBKIT_DEV_PORT ?? 3000);
   const adminUrl =
     env.ROBKIT_DATABASE_URL ??

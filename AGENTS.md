@@ -10,7 +10,7 @@ robkit is a self-hosting kit. `npm create robkit` scaffolds an install, and `rob
 
 ```sh
 pnpm install                              # Node 24, pnpm 11
-pnpm dev                                  # the install on http://hub.localhost:3000
+pnpm dev                                  # the install on http://hub.robkit.localhost:3000
 pnpm turbo run lint typecheck test        # what CI runs; needs Docker
 pnpm format                               # Prettier
 pnpm --filter <package> test              # one package
@@ -18,19 +18,23 @@ pnpm --filter <package> test              # one package
 
 ## Layout
 
-- The repo root is a hand-built install until build ticket 08 turns it into templates: `compose.yaml` runs Postgres, and `apps/` holds core and the hub. Each `apps/<slug>` gets the subdomain `<slug>.localhost`, and an app with a `migrate` script gets its own schema and role.
+- The repo root is a hand-built install until build ticket 08 turns it into templates: `compose.yaml` runs Postgres, and `apps/` holds core and the hub. Each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role.
 - `packages/` holds the published `@robkit/*` packages: `@robkit/core` and `@robkit/dev`, the `robkit-dev` runner and proxy behind `pnpm dev`.
 - `tooling/` holds private workspace packages: the shared tsconfig, the shared ESLint config, repo checks that run as tests, a per-suite test Postgres and the whole-stack test.
 
 ## The layer rule
 
+`tooling/eslint` enforces each rule here, and its error names the rule. A new rule goes in with its lint rule, in the same commit.
+
 - `@robkit/session` and `@robkit/guard` import no framework, and the guard does no I/O.
 - Adapters (`@robkit/hono`, `@robkit/start`, `@robkit/react`) import session and guard, never core. Code reaches core over HTTP only.
 - Packages never import from apps or examples.
+- Core's tables live in the `core` schema, declared with `core.table()` in `packages/core/src/schema.ts`.
+- Only the proxy may reach core, because core trusts `X-Forwarded-For` for its sign-in limit. Core listens on 127.0.0.1 unless `HOST` is set.
 
 ## Conventions
 
 - Every external version lives in the catalog in `pnpm-workspace.yaml`, and manifests say `catalog:`. A test in `tooling/repo-checks` fails on any version pinned elsewhere. Peer dependencies are exempt.
 - TypeScript stays on 6.0 until typescript-eslint supports 7.
 - pnpm 11 refuses packages published in the last day. Pin an older version rather than adding an exemption.
-- Relative imports use the `.ts` extension, so Node can run source files directly.
+- Relative imports use the `.ts` extension, so Node can run source files directly. ESLint enforces it.

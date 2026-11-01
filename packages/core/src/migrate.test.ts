@@ -1,37 +1,77 @@
 import postgres from "postgres";
-import { afterAll, describe, expect, inject, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { migrate, migrateFrom } from "./migrate.ts";
+import { freshDatabase } from "./test/fresh-database.ts";
 
-const admin = postgres(inject("adminUrl"), { max: 1 });
-
-afterAll(async () => {
-  await admin.end();
-});
+async function query<Row extends object>(
+  databaseUrl: string,
+  statement: string,
+): Promise<Row[]> {
+  const sql = postgres(databaseUrl, { max: 1, onnotice: () => undefined });
+  try {
+    return [...(await sql.unsafe<Row[]>(statement))];
+  } finally {
+    await sql.end();
+  }
+}
 
 describe("migrate", () => {
-  it("keeps every table core owns in the core schema", async () => {
-    await migrate(inject("databaseUrl"));
+  it("creates core's tables, all in the core schema", async () => {
+    const databaseUrl = await freshDatabase();
 
-    const tables = await admin<{ schema: string; owner: string }[]>`
-      select schemaname as schema, tableowner as owner from pg_tables
-      where tableowner = 'core' or schemaname = 'public'`;
+    await migrate(databaseUrl);
 
-    expect(tables.length).toBeGreaterThan(0);
-    expect(tables.filter((t) => t.schema !== "core")).toEqual([]);
+    expect(
+      await query(
+        databaseUrl,
+        `select schemaname as schema, tablename as name from pg_tables
+         where tableowner = 'core' or schemaname = 'public'
+         order by tablename`,
+      ),
+    ).toEqual([
+      { schema: "core", name: "__drizzle_migrations" },
+      { schema: "core", name: "owner" },
+      { schema: "core", name: "sessions" },
+      { schema: "core", name: "signing_keys" },
+    ]);
   });
 
   it("can run again", async () => {
-    await migrate(inject("databaseUrl"));
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
 
-    await expect(migrate(inject("databaseUrl"))).resolves.toBeUndefined();
+    await expect(migrate(databaseUrl)).resolves.toBeUndefined();
   });
 
   it("applies each migration once, inside core's schema", async () => {
+    const databaseUrl = await freshDatabase();
     const folder = new URL("test/fixture-migrations", import.meta.url).pathname;
 
-    await migrateFrom(folder, inject("databaseUrl"));
-    await migrateFrom(folder, inject("databaseUrl"));
+    await migrateFrom(folder, databaseUrl);
+    await migrateFrom(folder, databaseUrl);
 
-    expect(await admin`select id from core.probe`).toEqual([{ id: 1 }]);
+    expect(await query(databaseUrl, "select id from core.probe")).toEqual([
+      { id: 1 },
+    ]);
+  });
+});
+
+describe("core's tables", () => {
+  it("hold at most one owner", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    const insertOwner = (username: string) =>
+      query(
+        databaseUrl,
+        `insert into core.owner (username, password_hash)
+         values ('${username}', 'scrypt$x')`,
+      );
+
+    await insertOwner("rob");
+
+    await expect(insertOwner("eve")).rejects.toThrow(/unique/);
+    expect(await query(databaseUrl, "select username from core.owner")).toEqual(
+      [{ username: "rob" }],
+    );
   });
 });

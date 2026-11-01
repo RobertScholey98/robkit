@@ -58,6 +58,7 @@ function echoApp(): Server {
           url: req.url,
           host: req.headers.host,
           custom: req.headers["x-custom"],
+          forwardedFor: req.headers["x-forwarded-for"],
           body,
         }),
       );
@@ -125,7 +126,25 @@ describe("createProxy", () => {
       url: "/status?x=1",
       host: "core.localhost:3000",
       custom: "yes",
+      forwardedFor: "127.0.0.1",
       body: "hello",
+    });
+  });
+
+  it("appends the client's address to X-Forwarded-For, as Traefik does", async () => {
+    const core = await listen(echoApp());
+    const proxy = await startProxy([
+      { host: "core.localhost", app: "core", port: core },
+    ]);
+
+    const fresh = await send(proxy, "core.localhost");
+    const chained = await send(proxy, "core.localhost", {
+      headers: { "x-forwarded-for": "203.0.113.7" },
+    });
+
+    expect(JSON.parse(fresh.body)).toMatchObject({ forwardedFor: "127.0.0.1" });
+    expect(JSON.parse(chained.body)).toMatchObject({
+      forwardedFor: "203.0.113.7, 127.0.0.1",
     });
   });
 
@@ -160,7 +179,8 @@ describe("createProxy", () => {
       socket.write(
         "HTTP/1.1 101 Switching Protocols\r\n" +
           "Upgrade: websocket\r\nConnection: Upgrade\r\n" +
-          `X-Seen-Host: ${String(req.headers.host)}\r\n\r\n`,
+          `X-Seen-Host: ${String(req.headers.host)}\r\n` +
+          `X-Seen-Forwarded-For: ${String(req.headers["x-forwarded-for"])}\r\n\r\n`,
       );
       socket.on("data", (data) => socket.write(data));
       socket.on("end", () => socket.end());
@@ -176,6 +196,7 @@ describe("createProxy", () => {
         host: "hub.localhost:3000",
         connection: "Upgrade",
         upgrade: "websocket",
+        "x-forwarded-for": "203.0.113.7",
       },
     });
     req.end();
@@ -188,6 +209,7 @@ describe("createProxy", () => {
     socket.destroy();
 
     expect(res.headers["x-seen-host"]).toBe("hub.localhost:3000");
+    expect(res.headers["x-seen-forwarded-for"]).toBe("203.0.113.7, 127.0.0.1");
     expect(echoed.toString()).toBe("ping");
   });
 

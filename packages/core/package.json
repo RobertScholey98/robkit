@@ -18,11 +18,13 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
     "hono": "catalog:",
+    "jose": "catalog:",
     "postgres": "catalog:"
   },
   "devDependencies": {
@@ -31,6 +33,7 @@
     "@internal/tsconfig": "workspace:*",
     "@robkit/dev": "workspace:*",
     "@types/node": "catalog:",
+    "drizzle-kit": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

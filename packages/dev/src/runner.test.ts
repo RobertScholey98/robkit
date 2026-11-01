@@ -135,19 +135,19 @@ describe("robkit-dev", () => {
     const dev = await startDev();
 
     const alpha: unknown = JSON.parse(
-      await eventually(() => get(dev.port, "alpha.localhost")),
+      await eventually(() => get(dev.port, "alpha.robkit.localhost")),
     );
     const beta: unknown = JSON.parse(
-      await eventually(() => get(dev.port, "beta.localhost")),
+      await eventually(() => get(dev.port, "beta.robkit.localhost")),
     );
     expect(alpha).toEqual({
       slug: "alpha",
-      domain: "localhost",
+      domain: "robkit.localhost",
       database: true,
     });
     expect(beta).toEqual({
       slug: "beta",
-      domain: "localhost",
+      domain: "robkit.localhost",
       database: false,
     });
     expect(dev.output()).toMatch(/^\[alpha\] .*listening on \d+$/m);

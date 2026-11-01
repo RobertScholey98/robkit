@@ -2,7 +2,7 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const domain = process.env.ROBKIT_DOMAIN ?? "localhost";
+const domain = process.env.ROBKIT_DOMAIN;
 
 // robkit-dev assigns PORT and serves the hub on hub.<domain> through its proxy.
 export default defineConfig({
@@ -13,6 +13,6 @@ export default defineConfig({
       port: Number(process.env.PORT),
       strictPort: true,
     }),
-    allowedHosts: [`hub.${domain}`],
+    ...(domain && { allowedHosts: [`hub.${domain}`] }),
   },
 });

@@ -22,14 +22,24 @@ let devPort: number;
 let output = "";
 const project = `robkit-e2e-${String(process.pid)}`;
 
-function get(
+function send(
   host: string,
-  path = "/",
-  headers: Record<string, string> = {},
+  path: string,
+  {
+    method = "GET",
+    headers = {},
+    body,
+  }: { method?: string; headers?: Record<string, string>; body?: string } = {},
 ): Promise<Reply> {
   return new Promise((resolve, reject) => {
     request(
-      { host: "127.0.0.1", port: devPort, path, headers: { host, ...headers } },
+      {
+        host: "127.0.0.1",
+        port: devPort,
+        method,
+        path,
+        headers: { host, ...headers },
+      },
       (res) => {
         let body = "";
         res.on("data", (chunk: Buffer) => (body += chunk.toString()));
@@ -39,8 +49,16 @@ function get(
       },
     )
       .on("error", reject)
-      .end();
+      .end(body);
   });
+}
+
+function get(
+  host: string,
+  path = "/",
+  headers: Record<string, string> = {},
+): Promise<Reply> {
+  return send(host, path, { headers });
 }
 
 async function eventually(attempt: () => Promise<Reply>): Promise<Reply> {
@@ -93,18 +111,20 @@ afterAll(async () => {
 });
 
 describe("pnpm dev", () => {
-  it("serves the hub on hub.localhost", async () => {
-    const hub = await eventually(() => get(`hub.localhost:${String(devPort)}`));
+  it("serves the hub on hub.robkit.localhost", async () => {
+    const hub = await eventually(() =>
+      get(`hub.robkit.localhost:${String(devPort)}`),
+    );
 
     expect(hub.headers["content-type"]).toMatch(/text\/html/);
     expect(hub.body).toContain('<div id="root">');
   });
 
-  it("serves core on core.localhost, open to the hub", async () => {
-    const hubOrigin = `http://hub.localhost:${String(devPort)}`;
+  it("serves core on core.robkit.localhost, open to the hub", async () => {
+    const hubOrigin = `http://hub.robkit.localhost:${String(devPort)}`;
 
     const status = await eventually(() =>
-      get(`core.localhost:${String(devPort)}`, "/status", {
+      get(`core.robkit.localhost:${String(devPort)}`, "/status", {
         origin: hubOrigin,
       }),
     );
@@ -113,6 +133,41 @@ describe("pnpm dev", () => {
     expect(status.headers["access-control-allow-origin"]).toBe(hubOrigin);
   });
 
+  it("lets the owner claim the install and stay signed in", async () => {
+    const core = `core.robkit.localhost:${String(devPort)}`;
+    const origin = `http://hub.robkit.localhost:${String(devPort)}`;
+
+    const before = await get(core, "/session", { origin });
+    const setup = await send(core, "/setup", {
+      method: "POST",
+      headers: { origin, "content-type": "application/json" },
+      body: JSON.stringify({
+        username: "rob",
+        password: "correct horse battery",
+      }),
+    });
+    const [cookie = ""] = setup.headers["set-cookie"] ?? [];
+    const after = await get(core, "/session", {
+      origin,
+      cookie: cookie.split(";")[0] ?? "",
+    });
+
+    expect(JSON.parse(before.body)).toEqual({ state: "unclaimed" });
+    expect(setup.status).toBe(201);
+    expect(cookie).toMatch(/^robkit_session=[\w-]+\.[\w-]+\.[\w-]+;/);
+    expect(cookie).toContain("; Domain=robkit.localhost;");
+    expect(cookie).not.toContain("Secure");
+    expect(JSON.parse(after.body)).toEqual({
+      state: "signed-in",
+      viewer: {
+        kind: "owner",
+        id: (JSON.parse(setup.body) as { viewer: { id: string } }).viewer.id,
+        username: "rob",
+      },
+    });
+  });
+
+  // Last, since it stops the stack.
   it("stops every app and Postgres on Ctrl-C", async () => {
     const apps = await discoverApps(root, devPort + 1);
     if (!dev.pid) throw new Error("pnpm dev never started");
