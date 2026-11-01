@@ -169,3 +169,22 @@ export async function readSession(
     freshSessionToken: await mintSessionToken(key, claims, now),
   };
 }
+
+/** Revokes the session the token belongs to, if it is core's and still live. */
+export async function signOut(
+  ctx: SessionContext,
+  sessionToken: string | undefined,
+): Promise<void> {
+  if (!sessionToken) return;
+  const now = ctx.now();
+  const claims = await readSessionToken(
+    await ctx.signingKey(),
+    sessionToken,
+    now,
+  );
+  if (!claims) return;
+  await ctx.db
+    .update(sessions)
+    .set({ revokedAt: now })
+    .where(and(eq(sessions.id, claims.sessionId), isNull(sessions.revokedAt)));
+}

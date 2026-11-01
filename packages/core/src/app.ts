@@ -7,6 +7,7 @@ import { createRateLimiter } from "./rate-limit.ts";
 import {
   claimInstall,
   readSession,
+  signOut,
   sessionLifetimeSeconds,
   type SessionAnswer,
   type SessionContext,
@@ -127,13 +128,17 @@ export function createApp({
     now,
   });
 
-  const setSessionCookie = (c: Context, sessionToken: string) => {
+  const setSessionCookie = (
+    c: Context,
+    sessionToken: string,
+    maxAge = sessionLifetimeSeconds,
+  ) => {
     setCookie(c, sessionCookie, sessionToken, {
       httpOnly: true,
       path: "/",
       domain,
       sameSite: "Lax",
-      maxAge: sessionLifetimeSeconds,
+      maxAge,
       secure: !isLocal(domain),
     });
   };
@@ -236,6 +241,13 @@ export function createApp({
     loginLimiter.clear(client);
     setSessionCookie(c, result.sessionToken);
     return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
+  });
+
+  // The hub sends no body here, so none is read.
+  app.post("/logout", async (c) => {
+    await signOut(ctx, getCookie(c, sessionCookie));
+    setSessionCookie(c, "", 0);
+    return c.body(null, 204);
   });
 
   return app;
