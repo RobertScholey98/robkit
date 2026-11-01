@@ -11,5 +11,11 @@
 - [ ] Revoking a code ends its sessions at the next refresh
 - [ ] The seeded `test` code is refused unless `ROBKIT_DOMAIN` ends in `.localhost`
 - [ ] The CI journey adds a guest signing in with a code
+- [ ] An expired code is refused, and its sessions end at the next refresh
+
+## Decisions
+
+- **Codes are stored as plain text (R, 2026-11-01).** Admin lists every code and can copy its intro link at any time, as in robnet.
+- **Codes have an optional expiry (R, 2026-11-01).** The mint form takes an optional date. An expired code is refused at sign-in, and its sessions end at the next refresh, the same way as a revoked code.
 
 Source: the robkit v0.1 spec, https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5
