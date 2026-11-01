@@ -15,7 +15,7 @@ import {
 } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
-import { accessOf, listApps, setAccess } from "./apps.ts";
+import { accessOf, launcherApps, listApps, setAccess } from "./apps.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import { createRole, listRoles, setRoleCodes, type NewRole } from "./roles.ts";
 import {
@@ -456,6 +456,15 @@ export function createApp({
       return c.json({ error: "Not found" }, 404);
     }
     return c.body(null, 204);
+  });
+
+  app.get("/launcher", async (c) => {
+    const { forGuard, freshSessionToken } = await readSession(
+      ctx,
+      getCookie(c, sessionCookie),
+    );
+    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
+    return c.json({ apps: await launcherApps(db, forGuard) });
   });
 
   // Each app's adapter reads its own rule here, with no cookie.

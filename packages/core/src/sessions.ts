@@ -1,4 +1,5 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
+import type { SessionState, SignedInViewer } from "@robkit/guard";
 import { readSessionToken, type SessionTokenClaims } from "@robkit/session";
 import { standingOf, type AccessCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -55,6 +56,8 @@ export type SignIn =
 
 export interface SessionRead {
   answer: SessionAnswer;
+  /** The same session as an app's guard sees it, roles included. */
+  forGuard: SessionState;
   /** A new session token for the cookie, when the old one had expired. */
   freshSessionToken?: string;
 }
@@ -65,6 +68,12 @@ type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 interface Holder {
   viewer: Viewer;
   roles: string[];
+}
+
+function guardViewerOf({ viewer, roles }: Holder): SignedInViewer {
+  return viewer.kind === "owner"
+    ? { kind: viewer.kind, id: viewer.id }
+    : { kind: viewer.kind, id: viewer.id, roles };
 }
 
 function claimsFor(
@@ -262,9 +271,17 @@ export async function readSession(
   sessionToken: string | undefined,
   { renew = false }: { renew?: boolean } = {},
 ): Promise<SessionRead> {
-  const signedOut: SessionRead = { answer: { state: "signed-out" } };
+  const signedOut: SessionRead = {
+    answer: { state: "signed-out" },
+    forGuard: { state: "signed-out" },
+  };
   const [found] = await ctx.db.select().from(owner);
-  if (!found) return { answer: { state: "unclaimed" } };
+  if (!found) {
+    return {
+      answer: { state: "unclaimed" },
+      forGuard: { state: "signed-out" },
+    };
+  }
   if (!sessionToken) return signedOut;
 
   const now = ctx.now();
@@ -275,9 +292,14 @@ export async function readSession(
   if (!holder) return signedOut;
 
   const answer: SessionAnswer = { state: "signed-in", viewer: holder.viewer };
-  if (!claims.expired && !renew) return { answer };
+  const forGuard: SessionState = {
+    state: "signed-in",
+    viewer: guardViewerOf(holder),
+  };
+  if (!claims.expired && !renew) return { answer, forGuard };
   return {
     answer,
+    forGuard,
     freshSessionToken: await mintSessionToken(
       key,
       claimsFor(holder, claims.sessionId),

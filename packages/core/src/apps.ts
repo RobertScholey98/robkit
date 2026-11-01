@@ -1,4 +1,4 @@
-import type { AccessRule } from "@robkit/guard";
+import { guard, type AccessRule, type SessionState } from "@robkit/guard";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -106,4 +106,23 @@ export async function setAccess(
       ),
     };
   });
+}
+
+/** An app as the launcher lists it. */
+export interface LauncherApp {
+  slug: string;
+  name: string;
+}
+
+/**
+ * The apps the launcher lists for a session: exactly those the guard lets
+ * it open, so the launcher never lists an app that would answer 404.
+ */
+export async function launcherApps(
+  db: Database,
+  session: SessionState,
+): Promise<LauncherApp[]> {
+  return (await listApps(db))
+    .filter((app) => guard(app.access, session).outcome === "allow")
+    .map(({ slug, name }) => ({ slug, name }));
 }
