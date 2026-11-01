@@ -1,6 +1,6 @@
 # 04: A guarded example app
 
-**What to build:** A hand-written React + Hono example app runs at `example.localhost` with its own schema and role. Signed out, opening it redirects to hub login and returns to the app afterwards. Signed in as the owner, it opens and the handler receives the verified viewer. When the short-lived token expires but the session is live, the request bounces through core's `/refresh` and back without a click. This ticket also starts the end-to-end journey that every later ticket extends.
+**What to build:** A hand-written React + Hono example app runs at `example.robkit.localhost` with its own schema and role. Signed out, opening it redirects to hub login and returns to the app afterwards. Signed in as the owner, it opens and the handler receives the verified viewer. When the short-lived token expires but the session is live, the request bounces through core's `/refresh` and back without a click. This ticket also starts the end-to-end journey that every later ticket extends.
 
 **Blocked by:** 03
 
