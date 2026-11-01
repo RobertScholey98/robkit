@@ -5,7 +5,7 @@ import type { Database } from "./database.ts";
 
 export interface CoreOptions {
   db: Database;
-  /** The install's domain, such as `localhost` in development. */
+  /** The install's domain, such as `robkit.localhost` in development. */
   domain: string;
 }
 

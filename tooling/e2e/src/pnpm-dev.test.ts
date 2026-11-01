@@ -93,18 +93,20 @@ afterAll(async () => {
 });
 
 describe("pnpm dev", () => {
-  it("serves the hub on hub.localhost", async () => {
-    const hub = await eventually(() => get(`hub.localhost:${String(devPort)}`));
+  it("serves the hub on hub.robkit.localhost", async () => {
+    const hub = await eventually(() =>
+      get(`hub.robkit.localhost:${String(devPort)}`),
+    );
 
     expect(hub.headers["content-type"]).toMatch(/text\/html/);
     expect(hub.body).toContain('<div id="root">');
   });
 
-  it("serves core on core.localhost, open to the hub", async () => {
-    const hubOrigin = `http://hub.localhost:${String(devPort)}`;
+  it("serves core on core.robkit.localhost, open to the hub", async () => {
+    const hubOrigin = `http://hub.robkit.localhost:${String(devPort)}`;
 
     const status = await eventually(() =>
-      get(`core.localhost:${String(devPort)}`, "/status", {
+      get(`core.robkit.localhost:${String(devPort)}`, "/status", {
         origin: hubOrigin,
       }),
     );

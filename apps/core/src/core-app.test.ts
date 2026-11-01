@@ -49,6 +49,7 @@ describe("apps/core", () => {
     start("src/main.ts", {
       PORT: String(port),
       DATABASE_URL: inject("databaseUrl"),
+      ROBKIT_DOMAIN: "robkit.localhost",
     });
 
     expect(await statusOf(port)).toBe(200);
