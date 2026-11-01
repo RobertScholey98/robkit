@@ -180,7 +180,10 @@ export async function signInWithCode(
   };
 }
 
-/** Who holds the live session the claims name, if anyone. */
+/**
+ * Who holds the live session the claims name, if anyone. A guest's session
+ * also needs their code to still work.
+ */
 async function holderOf(
   ctx: SessionContext,
   claims: SessionTokenClaims,
@@ -208,12 +211,15 @@ async function holderOf(
       );
     }
     case "guest": {
-      const [code] = await ctx.db
-        .select({ id: accessCodes.id, label: accessCodes.label })
+      const [found] = await ctx.db
+        .select({ code: accessCodes })
         .from(sessions)
         .innerJoin(accessCodes, eq(sessions.codeId, accessCodes.id))
         .where(and(live, eq(sessions.codeId, claims.id)));
-      return code && { kind: "guest", id: code.id, name: code.label };
+      if (!found || standingOf(found.code, now, ctx.domain) !== "live") {
+        return undefined;
+      }
+      return { kind: "guest", id: found.code.id, name: found.code.label };
     }
   }
 }
