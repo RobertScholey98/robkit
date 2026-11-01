@@ -15,8 +15,11 @@ export type Sending =
  * Tracks one request to core at a time. On success the hub moves to the
  * session core answered with, which unmounts the form.
  */
-export function useSend(onSession: (session: Session) => void) {
-  const [sending, setSending] = useState<Sending>({ state: "idle" });
+export function useSend(
+  onSession: (session: Session) => void,
+  initial: Sending = { state: "idle" },
+) {
+  const [sending, setSending] = useState<Sending>(initial);
 
   function fail(error: string) {
     setSending({ state: "failed", error });
@@ -89,12 +92,17 @@ export function Setup({ core, onSession }: FormProps) {
  * The signed-out screen. Most visitors are guests, so it leads with the
  * access code and keeps the owner's password one click away.
  */
-export function SignIn({ core, onSession }: FormProps) {
+export function SignIn({
+  core,
+  onSession,
+  error,
+}: FormProps & { error?: string }) {
   const [form, setForm] = useState<"code" | "owner">("code");
   return form === "code" ? (
     <CodeSignIn
       core={core}
       onSession={onSession}
+      error={error}
       onOwner={() => {
         setForm("owner");
       }}
@@ -113,9 +121,13 @@ export function SignIn({ core, onSession }: FormProps) {
 function CodeSignIn({
   core,
   onSession,
+  error,
   onOwner,
-}: FormProps & { onOwner: () => void }) {
-  const { sending, send } = useSend(onSession);
+}: FormProps & { error: string | undefined; onOwner: () => void }) {
+  const { sending, send } = useSend(
+    onSession,
+    error === undefined ? { state: "idle" } : { state: "failed", error },
+  );
 
   function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
-import { getSession, type Session } from "./core-api.ts";
+import { getSession, signInWithCode, type Session } from "./core-api.ts";
 import { coreOrigin, returnTo } from "./core-origin.ts";
 import { Setup, SignIn } from "./forms.tsx";
+import { introCode } from "./intro-link.ts";
 import { Launcher } from "./launcher.tsx";
 import { Card } from "./ui.tsx";
 
 type Screen =
-  { state: "checking" } | { state: "unreachable"; reason: string } | Session;
+  | { state: "checking" }
+  | { state: "unreachable"; reason: string }
+  | { state: "code-refused"; error: string }
+  | Session;
 
 export function App() {
   let core: string;
@@ -19,17 +23,38 @@ export function App() {
 }
 
 function Hub({ core }: { core: string }) {
+  // Read once, since the effect below takes the code out of the address bar.
+  const [intro] = useState(() => introCode(location.href));
   const [screen, setScreen] = useState<Screen>({ state: "checking" });
 
   useEffect(() => {
-    void getSession(core).then((result) => {
-      setScreen(
-        result.ok
-          ? result.session
-          : { state: "unreachable", reason: result.error },
-      );
-    });
-  }, [core]);
+    let current = true;
+    if (intro === undefined) {
+      void getSession(core).then((result) => {
+        if (!current) return;
+        setScreen(
+          result.ok
+            ? result.session
+            : { state: "unreachable", reason: result.error },
+        );
+      });
+    } else {
+      // An intro link signs the guest in once; a reload shouldn't send the
+      // code again, and it shouldn't stay in the address bar.
+      history.replaceState(null, "", "/");
+      void signInWithCode(core, intro).then((result) => {
+        if (!current) return;
+        setScreen(
+          result.ok
+            ? result.session
+            : { state: "code-refused", error: result.error },
+        );
+      });
+    }
+    return () => {
+      current = false;
+    };
+  }, [core, intro]);
 
   // Signing in on the way to an app goes back to it instead of the launcher.
   const onSignedIn = (session: Session) => {
@@ -49,6 +74,8 @@ function Hub({ core }: { core: string }) {
       return <Unreachable reason={screen.reason} />;
     case "unclaimed":
       return <Setup core={core} onSession={onSignedIn} />;
+    case "code-refused":
+      return <SignIn core={core} onSession={onSignedIn} error={screen.error} />;
     case "signed-out":
       return <SignIn core={core} onSession={onSignedIn} />;
     case "signed-in":
