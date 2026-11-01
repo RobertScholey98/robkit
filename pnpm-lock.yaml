@@ -432,6 +432,9 @@ importers:
 
   packages/session:
     dependencies:
+      '@robkit/guard':
+        specifier: workspace:*
+        version: link:../guard
       jose:
         specifier: 'catalog:'
         version: 6.2.13
