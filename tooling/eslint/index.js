@@ -2,11 +2,13 @@ import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import coreSchema from "./core-schema.js";
 import layer from "./layers.js";
 import relativeImportExtension from "./relative-import-extension.js";
 
 const robkit = {
   rules: {
+    "core-schema": coreSchema,
     layer,
     "relative-import-extension": relativeImportExtension,
   },
@@ -35,6 +37,7 @@ export function config(tsconfigRootDir) {
     {
       plugins: { robkit },
       rules: {
+        "robkit/core-schema": "error",
         "robkit/layer": "error",
         "robkit/relative-import-extension": "error",
       },
