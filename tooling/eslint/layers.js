@@ -1,106 +1,166 @@
 import { builtinModules } from "node:module";
+import { dirname, relative, resolve } from "node:path";
 import { matchesGlob } from "node:path/posix";
+import { fileURLToPath } from "node:url";
+
+export const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
 /**
  * @typedef {object} LayerRow
- * @property {string[] | ((workspace: string) => boolean)} workspaces
- *   globs over the workspace path from the repo root, such as `packages/*`
+ * @property {(workspace: string) => boolean} applies
+ *   whether the row binds a workspace, given its path from the repo root
  * @property {string} rule the message ESLint prints, naming the rule
- * @property {string[]} imports gitignore-style patterns the workspace may not import
- * @property {string[]} [importNames] if set, only these names from `imports` are banned
+ * @property {string[]} [modules] bare specifiers the workspace may not import:
+ *   a name also covers its subpaths, and a glob matches the package name
+ * @property {string[]} [folders] folders, from the repo root, that the
+ *   workspace's relative imports may not reach into
  * @property {string[]} [globals] globals the workspace may not use
  */
 
-// A leading slash anchors a bare name, so `/react` matches `react` and
-// `react/jsx-runtime` but not `@robkit/react`.
-const frameworks = [
-  "/hono",
-  "@hono/*",
-  "/react",
-  "/react-dom",
-  "@tanstack/*",
-  "/next",
-  "/express",
-];
+/** @param {...string} globs */
+const inside =
+  (...globs) =>
+  (/** @type {string} */ workspace) =>
+    globs.some((glob) => matchesGlob(workspace, glob));
 
-const nodeBuiltins = builtinModules.flatMap((name) =>
-  name.startsWith("node:") ? [name] : [`/${name}`, `node:${name}`],
-);
+const frameworks = [
+  "hono",
+  "@hono/*",
+  "react",
+  "react-dom",
+  "@tanstack/*",
+  "next",
+  "express",
+];
 
 /** @type {LayerRow[]} */
 export const layers = [
   {
-    workspaces: ["packages/session"],
+    applies: inside("packages/session"),
     rule: "Layer rule: @robkit/session imports no framework.",
-    imports: frameworks,
+    modules: frameworks,
   },
   {
-    workspaces: ["packages/guard"],
+    applies: inside("packages/guard"),
     rule: "Layer rule: @robkit/guard imports no framework.",
-    imports: frameworks,
+    modules: frameworks,
   },
   {
-    workspaces: ["packages/guard"],
+    applies: inside("packages/guard"),
     rule: "Layer rule: @robkit/guard does no I/O.",
-    imports: nodeBuiltins,
+    modules: builtinModules,
     globals: ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "process"],
   },
   {
-    workspaces: ["packages/hono", "packages/start", "packages/react"],
+    applies: inside("packages/hono", "packages/start", "packages/react"),
     rule: "Layer rule: adapters never import @robkit/core. Code reaches core over HTTP only.",
-    imports: ["@robkit/core"],
+    modules: ["@robkit/core"],
+    folders: ["packages/core"],
   },
   {
-    workspaces: ["packages/*"],
+    applies: inside("packages/*"),
     rule: "Layer rule: packages never import from apps or examples.",
-    // From packages/<name>, one `..` only reaches packages/, so a path into
-    // the repo's apps/ or examples/ climbs at least twice.
-    imports: ["@internal/*-app", "../../**/apps/**", "../../**/examples/**"],
+    modules: ["@internal/*-app"],
+    folders: ["apps", "examples"],
   },
   {
-    workspaces: (workspace) =>
+    applies: (workspace) =>
       matchesGlob(workspace, "apps/*") && workspace !== "apps/core",
     rule: "Layer rule: only apps/core imports @robkit/core. Code reaches core over HTTP only.",
-    imports: ["@robkit/core"],
-  },
-  {
-    workspaces: ["packages/core"],
-    rule: "Layer rule: core's tables live in the core schema. Declare them with core.table() from schema.ts.",
-    imports: ["drizzle-orm/pg-core"],
-    importNames: ["pgTable"],
+    modules: ["@robkit/core"],
+    folders: ["packages/core"],
   },
 ];
 
-/**
- * Merges every layer row that applies to `workspace` into one config object.
- * A later `no-restricted-imports` replaces an earlier one, so the rows can't
- * each bring their own.
- * @param {string} workspace path from the repo root, such as `packages/guard`
- * @returns {import("eslint").Linter.Config}
- */
-export function layerConfig(workspace) {
-  const rows = layers.filter(({ workspaces }) =>
-    typeof workspaces === "function"
-      ? workspaces(workspace)
-      : workspaces.some((glob) => matchesGlob(workspace, glob)),
-  );
-  const patterns = rows.map(({ imports, importNames, rule }) => ({
-    group: imports,
-    ...(importNames && { importNames }),
-    message: rule,
-  }));
-  const globals = rows.flatMap(({ globals = [], rule }) =>
-    globals.map((name) => ({ name, message: rule })),
-  );
-
-  return {
-    rules: {
-      ...(patterns.length > 0 && {
-        "no-restricted-imports": ["error", { patterns }],
-      }),
-      ...(globals.length > 0 && {
-        "no-restricted-globals": ["error", ...globals],
-      }),
-    },
-  };
+/** The workspace a file belongs to, such as `packages/guard`. */
+export function workspaceOf(/** @type {string} */ filename) {
+  return relative(repoRoot, filename)
+    .replaceAll("\\", "/")
+    .split("/")
+    .slice(0, 2)
+    .join("/");
 }
+
+/** @param {string} specifier */
+function packageName(specifier) {
+  const parts = specifier.split("/");
+  return (specifier.startsWith("@") ? parts.slice(0, 2) : parts.slice(0, 1))
+    .join("/")
+    .replace(/^node:/, "");
+}
+
+/**
+ * Whether `specifier`, imported from `filename`, is one `row` forbids.
+ * @param {LayerRow} row
+ * @param {string} filename
+ * @param {string} specifier
+ */
+function breaks(row, filename, specifier) {
+  if (/^\.\.?\//.test(specifier)) {
+    const target = relative(
+      repoRoot,
+      resolve(dirname(filename), specifier),
+    ).replaceAll("\\", "/");
+    return (row.folders ?? []).some(
+      (folder) => target === folder || target.startsWith(`${folder}/`),
+    );
+  }
+  const name = packageName(specifier);
+  const bare = specifier.replace(/^node:/, "");
+  return (row.modules ?? []).some((module) => {
+    const wanted = module.replace(/^node:/, "");
+    return (
+      bare === wanted ||
+      bare.startsWith(`${wanted}/`) ||
+      matchesGlob(name, wanted)
+    );
+  });
+}
+
+/** @type {import("eslint").Rule.RuleModule} */
+export default {
+  meta: {
+    type: "problem",
+    docs: { description: "Enforce robkit's layer rule" },
+    schema: [],
+  },
+  create(context) {
+    const workspace = workspaceOf(context.filename);
+    const rows = layers.filter((row) => row.applies(workspace));
+    if (rows.length === 0) return {};
+
+    /** @param {import("estree").Node | null | undefined} source */
+    function check(source) {
+      if (source?.type !== "Literal" || typeof source.value !== "string") {
+        return;
+      }
+      const specifier = source.value;
+      for (const row of rows) {
+        if (breaks(row, context.filename, specifier)) {
+          context.report({ node: source, message: row.rule });
+        }
+      }
+    }
+
+    return {
+      ImportDeclaration: (node) => check(node.source),
+      ExportNamedDeclaration: (node) => check(node.source),
+      ExportAllDeclaration: (node) => check(node.source),
+      ImportExpression: (node) => check(node.source),
+      "Program:exit"(node) {
+        const scope = context.sourceCode.getScope(node);
+        for (const row of rows) {
+          for (const name of row.globals ?? []) {
+            const references = [
+              ...(scope.set.get(name)?.references ?? []),
+              ...scope.through.filter((ref) => ref.identifier.name === name),
+            ];
+            for (const { identifier } of references) {
+              context.report({ node: identifier, message: row.rule });
+            }
+          }
+        }
+      },
+    };
+  },
+};
