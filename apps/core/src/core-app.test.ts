@@ -25,11 +25,11 @@ function start(script: string, env: Record<string, string>): ChildProcess {
   return child;
 }
 
-async function statusOf(port: number): Promise<number> {
+async function statusOf(port: number, host = "127.0.0.1"): Promise<number> {
   const deadline = Date.now() + 20_000;
   for (;;) {
     try {
-      return (await fetch(`http://127.0.0.1:${String(port)}/status`)).status;
+      return (await fetch(`http://${host}:${String(port)}/status`)).status;
     } catch (error) {
       if (Date.now() > deadline) throw error;
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -50,11 +50,12 @@ async function signingKeyIds(): Promise<string[]> {
   return rows.map((row) => row.kid);
 }
 
-function boot(port: number): ChildProcess {
+function boot(port: number, env: Record<string, string> = {}): ChildProcess {
   return start("src/main.ts", {
     PORT: String(port),
     DATABASE_URL: inject("databaseUrl"),
     ROBKIT_DOMAIN: "robkit.localhost",
+    ...env,
   });
 }
 
@@ -92,5 +93,22 @@ describe("apps/core", () => {
 
     expect(afterFirstBoot).toHaveLength(1);
     expect(await signingKeyIds()).toEqual(afterFirstBoot);
+  });
+
+  it("listens on 127.0.0.1 only, so the proxy is the way in", async () => {
+    const port = await freePort();
+    boot(port);
+
+    expect(await statusOf(port)).toBe(200);
+    await expect(
+      fetch(`http://[::1]:${String(port)}/status`),
+    ).rejects.toThrow();
+  });
+
+  it("listens where HOST says, as a container needs", async () => {
+    const port = await freePort();
+    boot(port, { HOST: "::" });
+
+    expect(await statusOf(port, "[::1]")).toBe(200);
   });
 });
