@@ -27,6 +27,16 @@ function hostnameOf(host: string | undefined): string | undefined {
 }
 
 /**
+ * The X-Forwarded-For value to send upstream: whatever the client sent, then
+ * the client's own address, as Traefik does in production.
+ */
+function forwardedFor(req: IncomingMessage): string {
+  const client = req.socket.remoteAddress ?? "unknown";
+  const earlier = req.headers["x-forwarded-for"] ?? [];
+  return [earlier, client].flat().join(", ");
+}
+
+/**
  * The dev proxy: routes each request by its Host header to the app that owns
  * that host, so local URLs look like production subdomains.
  */
@@ -54,7 +64,7 @@ export function createProxy(routes: readonly Route[]): Server {
         port: route.port,
         method: req.method,
         path: req.url,
-        headers: req.headers,
+        headers: { ...req.headers, "x-forwarded-for": forwardedFor(req) },
       },
       (reply) => {
         res.writeHead(reply.statusCode ?? 502, reply.rawHeaders);
@@ -89,10 +99,11 @@ export function createProxy(routes: readonly Route[]): Server {
       connected = true;
       const headers = [];
       for (let i = 0; i < req.rawHeaders.length; i += 2) {
-        headers.push(
-          `${String(req.rawHeaders[i])}: ${String(req.rawHeaders[i + 1])}\r\n`,
-        );
+        const name = String(req.rawHeaders[i]);
+        if (name.toLowerCase() === "x-forwarded-for") continue;
+        headers.push(`${name}: ${String(req.rawHeaders[i + 1])}\r\n`);
       }
+      headers.push(`X-Forwarded-For: ${forwardedFor(req)}\r\n`);
       upstream.write(
         `${String(req.method)} ${String(req.url)} HTTP/${req.httpVersion}\r\n${headers.join("")}\r\n`,
       );
