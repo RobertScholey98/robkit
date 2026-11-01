@@ -1,0 +1,38 @@
+[
+  {
+    "name": "an open app lets a signed-out visitor in as nobody",
+    "rule": { "kind": "open" },
+    "session": "signed-out",
+    "outcome": "allow"
+  },
+  {
+    "name": "an open app refreshes an expired token, so the app sees who it is",
+    "rule": { "kind": "open" },
+    "session": "expired",
+    "outcome": "refresh"
+  },
+  {
+    "name": "an open app lets the owner in",
+    "rule": { "kind": "open" },
+    "session": "owner",
+    "outcome": "allow"
+  },
+  {
+    "name": "an owner-only app sends a signed-out visitor to log in",
+    "rule": { "kind": "owner" },
+    "session": "signed-out",
+    "outcome": "login"
+  },
+  {
+    "name": "an owner-only app refreshes an expired token",
+    "rule": { "kind": "owner" },
+    "session": "expired",
+    "outcome": "refresh"
+  },
+  {
+    "name": "an owner-only app lets the owner in",
+    "rule": { "kind": "owner" },
+    "session": "owner",
+    "outcome": "allow"
+  }
+]
