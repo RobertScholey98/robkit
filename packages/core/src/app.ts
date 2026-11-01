@@ -36,6 +36,14 @@ function hostnameOf(origin: string): string | undefined {
   }
 }
 
+/** `next` if it is an http(s) URL on one of the install's subdomains. */
+function appUrl(next: string | undefined, domain: string): string | undefined {
+  if (next === undefined || !URL.canParse(next)) return undefined;
+  const url = new URL(next);
+  const web = url.protocol === "https:" || url.protocol === "http:";
+  return web && url.hostname.endsWith(`.${domain}`) ? url.href : undefined;
+}
+
 /**
  * Browsers treat `*.localhost` as a secure context, but WebKit drops Secure
  * cookies over plain http, so local domains go without.
@@ -194,6 +202,27 @@ export function createApp({
     );
     if (freshSessionToken) setSessionCookie(c, freshSessionToken);
     return c.json<SessionAnswer>(answer);
+  });
+
+  // An app's guard sends an expired token here, and it comes straight back
+  // to `next` with a fresh cookie, or none if its session ended. The app's
+  // guard then decides whether to send the browser to log in.
+  app.get("/refresh", async (c) => {
+    const next = appUrl(c.req.query("next"), domain);
+    if (!next) {
+      return c.json(
+        { error: "Send next, a URL on one of this install's apps." },
+        400,
+      );
+    }
+    const sessionToken = getCookie(c, sessionCookie);
+    const { answer, freshSessionToken } = await readSession(ctx, sessionToken);
+    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
+    else if (sessionToken && answer.state !== "signed-in") {
+      setSessionCookie(c, "", 0);
+    }
+    c.header("Cache-Control", "no-store");
+    return c.redirect(next, 302);
   });
 
   app.post("/setup", async (c) => {
