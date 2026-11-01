@@ -207,4 +207,25 @@ describe("POST bodies", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Send a valid JSON body." });
   });
+
+  it("refuses a body over 16 KiB with 413, and takes one just under", async () => {
+    const { app } = await freshCore();
+    const padded = (size: number) =>
+      JSON.stringify({ ...rob, padding: "x".repeat(size) });
+
+    const tooBig = await app.request("/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: padded(16 * 1024),
+    });
+    const fits = await app.request("/setup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: padded(15 * 1024),
+    });
+
+    expect(tooBig.status).toBe(413);
+    expect(await tooBig.json()).toEqual({ error: "Send at most 16 KiB." });
+    expect(fits.status).toBe(201);
+  });
 });

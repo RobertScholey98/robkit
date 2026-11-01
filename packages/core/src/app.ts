@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { Hono, type Context } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import type { Database } from "./database.ts";
@@ -164,6 +165,14 @@ export function createApp({
     }
     await next();
   });
+  app.on(
+    "POST",
+    "*",
+    bodyLimit({
+      maxSize: 16 * 1024,
+      onError: (c) => c.json({ error: "Send at most 16 KiB." }, 413),
+    }),
+  );
 
   app.get("/status", async (c) => {
     try {
