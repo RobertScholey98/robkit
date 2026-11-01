@@ -60,3 +60,10 @@ export async function verifyPassword(
     return false;
   }
 }
+
+/**
+ * A hash of no one's password. Signing in with an unknown username checks
+ * against it, so the reply takes as long as a wrong password would.
+ */
+export const dummyPasswordHash =
+  "scrypt$32768$8$1$9ga6N/1i1khyCmyfnCAEKw==$6LT+E0AZPB3WtLjeBG8riNTtSoQU/ZaBo5Kl/HBuLuc=";

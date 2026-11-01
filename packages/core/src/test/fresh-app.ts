@@ -80,3 +80,16 @@ export function sessionCookieOf(res: Response): SetCookie | undefined {
     ),
   };
 }
+
+/** Claims the install as `rob`, returning the session cookie's value. */
+export async function claim(app: Hono): Promise<string> {
+  const res = await postJson(app, "/setup", {
+    username: "rob",
+    password: "correct horse battery",
+  });
+  const cookie = sessionCookieOf(res);
+  if (res.status !== 201 || !cookie) {
+    throw new Error(`setup answered ${String(res.status)}`);
+  }
+  return cookie.value;
+}

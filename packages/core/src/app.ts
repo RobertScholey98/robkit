@@ -3,11 +3,13 @@ import { Hono, type Context } from "hono";
 import { setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import type { Database } from "./database.ts";
+import { createRateLimiter } from "./rate-limit.ts";
 import {
   claimInstall,
   sessionLifetimeSeconds,
   type SessionAnswer,
   type SessionContext,
+  signIn,
 } from "./sessions.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 
@@ -81,6 +83,23 @@ function problemWith({ username, password }: Credentials): string | undefined {
   return undefined;
 }
 
+/**
+ * Who is asking, for rate limiting. Traefik in production and the dev proxy
+ * locally each append the address they saw, so only the last entry is
+ * something the client can't forge.
+ */
+function clientOf(c: Context): string {
+  const forwarded = c.req.header("x-forwarded-for")?.split(",").at(-1)?.trim();
+  // An empty header counts as no header.
+  if (forwarded) return forwarded;
+  return "unknown";
+}
+
+function inMinutes(seconds: number): string {
+  const minutes = Math.ceil(seconds / 60);
+  return minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;
+}
+
 /** Caches a load once it succeeds; a failed load is tried again next call. */
 function memoize<T>(load: () => Promise<T>): () => Promise<T> {
   let pending: Promise<T> | undefined;
@@ -101,6 +120,11 @@ export function createApp({
     ensureSigningKey(db),
   );
   const ctx: SessionContext = { db, now, signingKey };
+  const loginLimiter = createRateLimiter({
+    limit: 5,
+    windowMs: 15 * 60 * 1000,
+    now,
+  });
 
   const setSessionCookie = (c: Context, sessionToken: string) => {
     setCookie(c, sessionCookie, sessionToken, {
@@ -168,6 +192,40 @@ export function createApp({
       { state: "signed-in", viewer: claim.viewer },
       201,
     );
+  });
+
+  app.post("/login", async (c) => {
+    const credentials = await credentialsFrom(c);
+    if ("error" in credentials) return c.json(credentials, 400);
+
+    const client = clientOf(c);
+    const retryAfter = loginLimiter.retryAfter(client);
+    if (retryAfter > 0) {
+      c.header("Retry-After", String(retryAfter));
+      return c.json(
+        { error: `Too many attempts. Try again in ${inMinutes(retryAfter)}.` },
+        429,
+      );
+    }
+
+    const result = await signIn(
+      ctx,
+      credentials.username,
+      credentials.password,
+    );
+    if (result.outcome === "unclaimed") {
+      return c.json(
+        { error: "This install has no owner yet. Set it up first." },
+        409,
+      );
+    }
+    if (result.outcome === "wrong") {
+      loginLimiter.fail(client);
+      return c.json({ error: "Wrong username or password." }, 401);
+    }
+    loginLimiter.clear(client);
+    setSessionCookie(c, result.sessionToken);
+    return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
   });
 
   return app;

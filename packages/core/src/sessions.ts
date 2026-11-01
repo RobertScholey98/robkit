@@ -1,5 +1,5 @@
 import type { Database } from "./database.ts";
-import { hashPassword } from "./password.ts";
+import { dummyPasswordHash, hashPassword, verifyPassword } from "./password.ts";
 import { owner, sessions } from "./schema.ts";
 import { mintSessionToken } from "./session-token.ts";
 import type { SigningKey } from "./signing-key.ts";
@@ -32,6 +32,11 @@ export interface SignedIn {
 }
 
 export type Claim = ({ outcome: "claimed" } & SignedIn) | { outcome: "taken" };
+
+export type SignIn =
+  | ({ outcome: "signed-in" } & SignedIn)
+  | { outcome: "wrong" }
+  | { outcome: "unclaimed" };
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
@@ -93,4 +98,25 @@ export async function claimInstall(
     if (isUniqueViolation(error)) return { outcome: "taken" };
     throw error;
   }
+}
+
+/** Signs the owner in if the username and password are theirs. */
+export async function signIn(
+  ctx: SessionContext,
+  username: string,
+  password: string,
+): Promise<SignIn> {
+  const [found] = await ctx.db.select().from(owner);
+  if (!found) return { outcome: "unclaimed" };
+  // An unknown username still costs one scrypt, so timing can't tell it apart.
+  const isOwner = found.username === username;
+  const matches = await verifyPassword(
+    password,
+    isOwner ? found.passwordHash : dummyPasswordHash,
+  );
+  if (!isOwner || !matches) return { outcome: "wrong" };
+  return {
+    outcome: "signed-in",
+    ...(await ctx.db.transaction((tx) => startSession(ctx, tx, found))),
+  };
 }
