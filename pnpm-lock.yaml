@@ -184,6 +184,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@robkit/session':
+        specifier: workspace:*
+        version: link:../session
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.4(postgres@3.4.9)
@@ -258,6 +261,28 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 5.0.5(@types/node@26.6.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15))
+
+  packages/session:
+    dependencies:
+      jose:
+        specifier: 'catalog:'
+        version: 6.2.13
+    devDependencies:
+      '@internal/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@internal/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
+      eslint:
+        specifier: 'catalog:'
+        version: 10.13.0(jiti@2.7.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
 
   tooling/e2e:
     devDependencies:

@@ -3,6 +3,7 @@ import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
+import { sessionCookie } from "@robkit/session";
 import type { Database } from "./database.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import {
@@ -34,8 +35,6 @@ function hostnameOf(origin: string): string | undefined {
     return undefined;
   }
 }
-
-const sessionCookie = "robkit_session";
 
 /**
  * Browsers treat `*.localhost` as a secure context, but WebKit drops Secure
