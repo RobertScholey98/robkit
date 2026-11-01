@@ -319,3 +319,72 @@ describe("guarded, with core's keys", () => {
     );
   });
 });
+
+describe("guarded, with its rule in core", () => {
+  const servers: Server[] = [];
+
+  afterEach(async () => {
+    await Promise.all(
+      servers.splice(0).map(async (server) => {
+        server.close();
+        await once(server, "close");
+      }),
+    );
+  });
+
+  /** Core's access endpoint on a loopback port, answering with `rule`. */
+  async function coreWithRule(rule: unknown) {
+    const answer = { status: 200, rule };
+    const fetched: string[] = [];
+    const server = createServer((req, res) => {
+      fetched.push(String(req.url));
+      res.writeHead(answer.status, { "content-type": "application/json" });
+      res.end(JSON.stringify(answer.rule));
+    });
+    servers.push(server);
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const port = String((server.address() as AddressInfo).port);
+    return { origin: `http://core.robkit.localhost:${port}`, answer, fetched };
+  }
+
+  function appBehind(core: string) {
+    return new Hono<GuardedEnv>()
+      .use(guarded({ app: "example", core, keys: publicKey }))
+      .get("*", (c) => c.json(c.var.viewer));
+  }
+
+  async function asGuest(app: Hono<GuardedEnv>, roles: string[]) {
+    return app.request(page, {
+      headers: {
+        ...navigate,
+        cookie: `robkit_session=${await token(0, privateKey, guest(roles))}`,
+      },
+    });
+  }
+
+  it("lets in only the guests holding a role core gates the app to", async () => {
+    const core = await coreWithRule({ kind: "roles", roles: ["family"] });
+    const app = appBehind(core.origin);
+
+    const family = await asGuest(app, ["family"]);
+    const friends = await asGuest(app, ["friends"]);
+
+    expect([family.status, friends.status]).toEqual([200, 404]);
+    expect(await family.json()).toEqual(guest(["family"]));
+    expect(core.fetched).toEqual(["/apps/example/access"]);
+  });
+
+  it("answers 503 when it can't load its rule, not a 404", async () => {
+    const core = await coreWithRule({ error: "Not found" });
+    core.answer.status = 404;
+    const app = appBehind(core.origin);
+
+    const res = await asGuest(app, ["family"]);
+
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe(
+      "Can't reach core to check who may open this app.",
+    );
+  });
+});

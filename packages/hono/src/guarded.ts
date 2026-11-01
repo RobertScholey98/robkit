@@ -6,6 +6,7 @@ import {
   type Viewer,
 } from "@robkit/guard";
 import {
+  coreAccess,
   coreKeys,
   readSessionToken,
   sessionCookie,
@@ -14,9 +15,21 @@ import {
 import type { Context, MiddlewareHandler } from "hono";
 import { getCookie } from "hono/cookie";
 
-export interface GuardedOptions {
-  /** Who may open the app. */
-  access: AccessRule;
+/** Who may open the app: a rule of its own, or the one the owner set in admin. */
+export type GuardedRule =
+  | {
+      /** A fixed rule, for an app core's catalog doesn't hold, such as admin. */
+      access: AccessRule;
+    }
+  | {
+      /**
+       * The app's slug. Its rule comes from core's catalog and is kept for
+       * a minute, so a change in admin reaches the app within one.
+       */
+      app: string;
+    };
+
+export type GuardedOptions = GuardedRule & {
   /**
    * Core's public origin, such as `http://core.robkit.localhost:3000`. The
    * hub is beside it on `hub.`. Config, never the request's Host, so a
@@ -25,7 +38,7 @@ export interface GuardedOptions {
   core: string;
   /** Core's public keys. By default they come from core's JWKS, once. */
   keys?: VerifyKey;
-}
+};
 
 /** Handlers behind `guarded` read the viewer as `c.var.viewer`. */
 export interface GuardedEnv {
@@ -81,13 +94,16 @@ const elsewhere = {
  * core's public key, then lets the request through with `c.var.viewer`
  * set, sends the browser to log in or refresh, or answers 404.
  */
-export function guarded({
-  access,
-  core,
-  keys,
-}: GuardedOptions): MiddlewareHandler<GuardedEnv> {
+export function guarded(
+  options: GuardedOptions,
+): MiddlewareHandler<GuardedEnv> {
+  const { core, keys } = options;
   const origins = platformOrigins(core);
   const verifyKey = keys ?? coreKeys(origins.core);
+  const ruleOf =
+    "access" in options
+      ? () => Promise.resolve(options.access)
+      : coreAccess(origins.core, options.app);
 
   const sessionOf = async (c: Context): Promise<SessionState> => {
     const token = getCookie(c, sessionCookie);
@@ -111,7 +127,13 @@ export function guarded({
       // browser isn't sent to log in.
       return c.text("Can't reach core to check your session.", 503);
     }
-    const decision: Decision = guard(access, session);
+    let rule: AccessRule;
+    try {
+      rule = await ruleOf();
+    } catch {
+      return c.text("Can't reach core to check who may open this app.", 503);
+    }
+    const decision: Decision = guard(rule, session);
     switch (decision.outcome) {
       case "allow":
         c.set("viewer", decision.viewer);
