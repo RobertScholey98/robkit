@@ -17,3 +17,7 @@
 - [ ] The generated CI workflow passes on a fresh install
 
 Source: the robkit v0.1 spec, https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5
+
+## Comments
+
+- R, 2026-11-01: every robkit rule is enforced as a lint rule as we build. robkit's own repo now checks the layer rule in ESLint, in `tooling/eslint/layers.js`, a table with one row per rule. This ticket says `robkit check` is the only implementation in a generated install. Build it from the same table, or have the ESLint rules call it, so there aren't two copies of the rule.
