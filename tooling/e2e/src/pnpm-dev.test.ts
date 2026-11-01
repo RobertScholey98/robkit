@@ -9,6 +9,7 @@ import { discoverApps } from "@robkit/dev";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { guestJourney } from "./guest-journey.ts";
 import { ownerJourney } from "./owner-journey.ts";
+import { roleJourney } from "./role-journey.ts";
 
 const run = promisify(execFile);
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -232,6 +233,36 @@ describe("pnpm dev", () => {
       afterRevokeAt: at("hub", `/?next=${encodeURIComponent(example)}`),
     });
   });
+
+  // The example app keeps its rule for a minute, and this journey waits it
+  // out twice.
+  it(
+    "lets a guest open an app through a role, and not once it's gated to another",
+    {
+      timeout: 300_000,
+    },
+    async () => {
+      const at = (slug: string, path = "/") =>
+        `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
+
+      const journey = await roleJourney({
+        devPort,
+        adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
+        username: "rob",
+        password: "correct horse battery",
+      });
+
+      expect(journey).toEqual({
+        createdWith: "Alex, Sam",
+        editedTo: "Sam",
+        launcherGatedToFamily: ["example"],
+        openedAt: at("example"),
+        heading: "Signed in as a guest",
+        launcherGatedToFriends: [],
+        example: { status: 404, body: "Not found" },
+      });
+    },
+  );
 
   // Last, since it stops the stack.
   it("stops every app and Postgres on Ctrl-C", async () => {
