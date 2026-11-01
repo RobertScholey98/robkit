@@ -144,9 +144,12 @@ function clientOf(c: Context): string {
   return "unknown";
 }
 
-function inMinutes(seconds: number): string {
-  const minutes = Math.ceil(seconds / 60);
-  return minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;
+/** Tells a client that has failed too often when it may try again. */
+function tooManyAttempts(c: Context, retryAfter: number): Response {
+  const minutes = Math.ceil(retryAfter / 60);
+  const wait = minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;
+  c.header("Retry-After", String(retryAfter));
+  return c.json({ error: `Too many attempts. Try again in ${wait}.` }, 429);
 }
 
 /** Caches a load once it succeeds; a failed load is tried again next call. */
@@ -297,13 +300,7 @@ export function createApp({
 
     const client = clientOf(c);
     const retryAfter = loginLimiter.retryAfter(client);
-    if (retryAfter > 0) {
-      c.header("Retry-After", String(retryAfter));
-      return c.json(
-        { error: `Too many attempts. Try again in ${inMinutes(retryAfter)}.` },
-        429,
-      );
-    }
+    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
 
     const result = await signIn(
       ctx,
