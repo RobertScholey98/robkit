@@ -5,7 +5,6 @@ import {
 } from "@robkit/session";
 import type { SigningKey } from "./signing-key.ts";
 
-/** Signs a session token for a session, valid from `now`. */
 export function mintSessionToken(
   key: SigningKey,
   { kind, id, sessionId }: SessionTokenClaims,

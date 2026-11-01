@@ -1,7 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
 
-// The hub's look, until the UI kit gives the platform apps one place for it.
-
 export function Field({
   label,
   ...input

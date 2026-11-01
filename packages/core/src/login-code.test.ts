@@ -17,7 +17,6 @@ interface Minted {
   code: string;
 }
 
-/** Claims the install and mints a code for `name`, as the owner would in admin. */
 async function ownerMints(
   app: Hono,
   request: Record<string, unknown> = {},

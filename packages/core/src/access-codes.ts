@@ -90,7 +90,6 @@ export interface NewCode {
 
 export type Mint = { outcome: "minted"; code: CodeView } | { outcome: "taken" };
 
-/** Every code, newest first. */
 export async function listCodes(
   db: Database,
   now: Date,

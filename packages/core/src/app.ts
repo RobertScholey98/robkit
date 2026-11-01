@@ -144,7 +144,6 @@ function clientOf(c: Context): string {
   return "unknown";
 }
 
-/** Tells a client that has failed too often when it may try again. */
 function tooManyAttempts(c: Context, retryAfter: number): Response {
   const minutes = Math.ceil(retryAfter / 60);
   const wait = minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;

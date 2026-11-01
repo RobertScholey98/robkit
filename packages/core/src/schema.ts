@@ -59,7 +59,6 @@ export const sessions = core.table(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
   },
-  // A session belongs to the owner or to one guest's code, never both.
   (table) => [
     check(
       "sessions_one_holder",

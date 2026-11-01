@@ -157,7 +157,6 @@ export type CodeSignIn =
   | { outcome: "refused" }
   | { outcome: "unclaimed" };
 
-/** Signs a guest in if their access code works. */
 export async function signInWithCode(
   ctx: SessionContext,
   code: AccessCode,

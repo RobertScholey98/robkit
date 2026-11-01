@@ -12,7 +12,6 @@ import {
 const minute = 60_000;
 const back = "https://notes.robkit.test/";
 
-/** The owner mints a code, then a guest signs in with it. */
 async function guestSignsIn(app: Hono, request: Record<string, unknown> = {}) {
   const owner = await claim(app);
   const minted = await postJson(
