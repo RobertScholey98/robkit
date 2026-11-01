@@ -101,6 +101,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@robkit/guard':
+        specifier: workspace:*
+        version: link:../../packages/guard
       '@robkit/hono':
         specifier: workspace:*
         version: link:../../packages/hono

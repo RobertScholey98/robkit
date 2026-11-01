@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@robkit/guard": "workspace:*",
     "@robkit/hono": "workspace:*",
     "hono": "catalog:",
     "react": "catalog:",
