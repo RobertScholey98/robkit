@@ -1,5 +1,5 @@
 import { asc, eq, inArray } from "drizzle-orm";
-import { isUuid } from "./access-codes.ts";
+import { isUuid, testCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { accessCodes, codeRoles, roles } from "./schema.ts";
 
@@ -25,7 +25,7 @@ type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 export async function listRoles(db: Database): Promise<RoleView[]> {
   const [rows, holders] = await Promise.all([
-    db.select().from(roles).orderBy(asc(roles.createdAt), asc(roles.name)),
+    db.select().from(roles).orderBy(asc(roles.name)),
     db.select().from(codeRoles),
   ]);
   return rows.map(({ id, name }) => ({
@@ -104,4 +104,25 @@ export async function setRoleCodes(
     }
     return { outcome: "changed", role: { ...role, codeIds: holders } };
   });
+}
+
+/**
+ * The roles a code holds, by id, in name order. The test code holds
+ * every role, including ones made after it signed in.
+ */
+export async function rolesOf(
+  db: Database | Transaction,
+  code: { id: string; code: string },
+): Promise<string[]> {
+  const byName = asc(roles.name);
+  const rows =
+    code.code === testCode
+      ? await db.select({ id: roles.id }).from(roles).orderBy(byName)
+      : await db
+          .select({ id: roles.id })
+          .from(codeRoles)
+          .innerJoin(roles, eq(codeRoles.roleId, roles.id))
+          .where(eq(codeRoles.codeId, code.id))
+          .orderBy(byName);
+  return rows.map((row) => row.id);
 }

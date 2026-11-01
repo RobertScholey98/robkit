@@ -29,7 +29,7 @@ function generateAccessCode(): AccessCode {
 }
 
 /** The code every install is seeded with, for trying robkit out locally. */
-const testCode = "TEST";
+export const testCode = "TEST";
 
 /** Whether a code signs a guest in, and if not, why not. */
 export type Standing = "live" | "revoked" | "expired" | "local-only";
