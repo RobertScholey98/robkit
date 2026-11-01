@@ -79,6 +79,7 @@ export async function ownerJourney({
 
     await page.goto(example);
     const signedOutAt = page.url();
+    await page.getByRole("button", { name: "I'm the owner" }).click();
     await page.getByLabel("Username").fill(username);
     await page.getByLabel("Password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
