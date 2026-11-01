@@ -94,6 +94,38 @@ describe("a guest's session token", () => {
     expect(rolesIn(await refreshed(app, guest))).toEqual([Friends]);
   });
 
+  it("is reissued as soon as core sees the roles changed, so the launcher and apps agree", async () => {
+    const { app } = await freshCore();
+    const owner = await claim(app);
+    const minted = await postJson(
+      app,
+      "/codes",
+      { name: "Gran" },
+      withSession(owner),
+    );
+    const { id, code } = (await minted.json()) as { id: string; code: string };
+    const guest = await signIn(app, code);
+    const { Family } = await rolesByName(app, owner);
+    const sameRoles = await app.request("/launcher", {
+      headers: withSession(guest),
+    });
+
+    await postJson(
+      app,
+      `/roles/${Family ?? ""}/codes`,
+      { codeIds: [id] },
+      withSession(owner),
+    );
+    const changedRoles = await app.request("/launcher", {
+      headers: withSession(guest),
+    });
+
+    expect(sessionCookieOf(sameRoles)).toBeUndefined();
+    expect(rolesIn(sessionCookieOf(changedRoles)?.value ?? "")).toEqual([
+      Family,
+    ]);
+  });
+
   it("gives the test code every role, even one made after sign-in", async () => {
     const { app } = await freshCore({ domain: "robkit.localhost" });
     const owner = await claim(app);

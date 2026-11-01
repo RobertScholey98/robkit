@@ -76,6 +76,10 @@ function guardViewerOf({ viewer, roles }: Holder): SignedInViewer {
     : { kind: viewer.kind, id: viewer.id, roles };
 }
 
+function sameRoles(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((role, i) => role === b[i]);
+}
+
 function claimsFor(
   { viewer, roles }: Holder,
   sessionId: string,
@@ -263,8 +267,9 @@ async function holderOf(
 /**
  * Answers who the session token's holder is. The token's signature must be
  * core's, but its session row decides: a revoked or expired session signs the
- * holder out, and a live session renews an expired token. With `renew`, a
- * live session renews any token, expired or not.
+ * holder out, and a live session renews an expired token, or a guest's
+ * token whose roles have changed. With `renew`, a live session renews any
+ * token.
  */
 export async function readSession(
   ctx: SessionContext,
@@ -296,7 +301,13 @@ export async function readSession(
     state: "signed-in",
     viewer: guardViewerOf(holder),
   };
-  if (!claims.expired && !renew) return { answer, forGuard };
+  // A guest whose roles changed gets a token with the new ones at once, so
+  // the apps they open agree with the launcher core lists for them.
+  const rolesChanged =
+    claims.kind === "guest" && !sameRoles(claims.roles, holder.roles);
+  if (!claims.expired && !renew && !rolesChanged) {
+    return { answer, forGuard };
+  }
   return {
     answer,
     forGuard,
