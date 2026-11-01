@@ -105,4 +105,26 @@ describe("core's tables", () => {
       /sessions_one_holder/,
     );
   });
+
+  it("hold access codes only as 3 to 32 upper-case letters or digits", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    const insertCode = (code: string) =>
+      query(
+        databaseUrl,
+        `insert into core.access_codes (code, name) values ('${code}', 'Gran')`,
+      );
+
+    await insertCode("K7XQ2");
+
+    for (const code of ["k7xq3", "AB", "A".repeat(33), "AB-CD", " ABCD"]) {
+      await expect(insertCode(code)).rejects.toThrow(/access_codes_code_shape/);
+    }
+    expect(
+      await query(
+        databaseUrl,
+        "select code from core.access_codes order by code",
+      ),
+    ).toEqual([{ code: "K7XQ2" }, { code: "TEST" }]);
+  });
 });

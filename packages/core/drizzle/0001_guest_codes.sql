@@ -5,7 +5,8 @@ CREATE TABLE "core"."access_codes" (
 	"expires_at" timestamp with time zone,
 	"revoked_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "access_codes_code_unique" UNIQUE("code")
+	CONSTRAINT "access_codes_code_unique" UNIQUE("code"),
+	CONSTRAINT "access_codes_code_shape" CHECK ("core"."access_codes"."code" ~ '^[A-Z0-9]{3,32}$')
 );
 --> statement-breakpoint
 ALTER TABLE "core"."sessions" ALTER COLUMN "owner_id" DROP NOT NULL;--> statement-breakpoint

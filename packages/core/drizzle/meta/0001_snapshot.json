@@ -1,5 +1,5 @@
 {
-  "id": "717c0d3e-06a5-47a2-a6a7-833abd5f50ad",
+  "id": "44a89527-ea63-4f81-847b-13160ecb3f35",
   "prevId": "899122e8-094d-4681-9737-918ecdd9a9c1",
   "version": "7",
   "dialect": "postgresql",
@@ -60,7 +60,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "access_codes_code_shape": {
+          "name": "access_codes_code_shape",
+          "value": "\"core\".\"access_codes\".\"code\" ~ '^[A-Z0-9]{3,32}$'"
+        }
+      },
       "isRLSEnabled": false
     },
     "core.owner": {

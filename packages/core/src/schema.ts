@@ -29,15 +29,21 @@ export const owner = core.table(
   (table) => [check("owner_singleton", sql`${table.singleton}`)],
 );
 
-export const accessCodes = core.table("access_codes", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  // Upper-cased, and kept as plain text so admin can show it again.
-  code: text("code").notNull().unique(),
-  name: text("name").notNull(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }),
-  revokedAt: timestamp("revoked_at", { withTimezone: true }),
-  createdAt: createdAt(),
-});
+export const accessCodes = core.table(
+  "access_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Plain text, so admin can show it again.
+    code: text("code").notNull().unique(),
+    name: text("name").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    check("access_codes_code_shape", sql`${table.code} ~ '^[A-Z0-9]{3,32}$'`),
+  ],
+);
 
 export const sessions = core.table(
   "sessions",
