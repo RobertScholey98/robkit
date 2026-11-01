@@ -223,6 +223,7 @@ async function holderOf(
     }
   }
 }
+
 /**
  * Answers who the session token's holder is. The token's signature must be
  * core's, but its session row decides: a revoked or expired session signs the

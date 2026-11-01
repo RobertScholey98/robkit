@@ -401,5 +401,6 @@ export function createApp({
     }
     return c.body(null, 204);
   });
+
   return app;
 }
