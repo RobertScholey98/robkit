@@ -1,5 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalDependencies": ["compose.yaml"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -13,6 +14,10 @@
     },
     "test": {
       "dependsOn": ["^build"]
+    },
+    "@internal/e2e#test": {
+      "dependsOn": ["^build"],
+      "cache": false
     }
   }
 }

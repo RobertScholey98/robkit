@@ -7,6 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev": "robkit-dev",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
@@ -14,6 +15,7 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "@robkit/dev": "workspace:*",
     "prettier": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:"

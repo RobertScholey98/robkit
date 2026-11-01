@@ -1,0 +1,9 @@
+{
+  "name": "alpha",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node ../../serve.js",
+    "migrate": "node ../../migrate.js"
+  }
+}
