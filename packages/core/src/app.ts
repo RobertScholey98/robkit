@@ -55,20 +55,27 @@ interface Credentials {
   password: string;
 }
 
+/** The fields of the JSON object a POST sent, or undefined if it isn't JSON. */
+async function fieldsOf(
+  c: Context,
+): Promise<Record<string, unknown> | undefined> {
+  try {
+    const body: unknown = await c.req.json();
+    return typeof body === "object" && body !== null
+      ? (body as Record<string, unknown>)
+      : {};
+  } catch {
+    return undefined;
+  }
+}
+
 /** The username, trimmed, and password a POST sent, or why it won't do. */
 async function credentialsFrom(
   c: Context,
 ): Promise<Credentials | { error: string }> {
-  let body: unknown;
-  try {
-    body = await c.req.json();
-  } catch {
-    return { error: "Send a valid JSON body." };
-  }
-  const { username, password } =
-    typeof body === "object" && body !== null
-      ? (body as Record<string, unknown>)
-      : {};
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  const { username, password } = fields;
   if (typeof username !== "string" || typeof password !== "string") {
     return { error: "Send a username and a password." };
   }
