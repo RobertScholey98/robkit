@@ -48,6 +48,9 @@ catalogs:
     jose:
       specifier: 6.2.13
       version: 6.2.13
+    playwright:
+      specifier: 1.64.1
+      version: 1.64.1
     postgres:
       specifier: 3.4.9
       version: 3.4.9
@@ -417,6 +420,15 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)
+      jose:
+        specifier: 'catalog:'
+        version: 6.2.13
+      playwright:
+        specifier: 'catalog:'
+        version: 1.64.1
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.9
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -1968,6 +1980,16 @@ packages:
     resolution: {integrity: sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==}
     engines: {node: '>=12'}
 
+  playwright-core@1.64.1:
+    resolution: {integrity: sha512-BC4s8y6SEVA6Q1rSxZTto8hI1KUI3xXlHGZgvGqP4IqPdI/a6FX9H29IDNz7vKo9l21b6LfYosScPL6M3xxyDQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.64.1:
+    resolution: {integrity: sha512-HCrVhHr5QQuwYoswEUGTb7gGp522yflbv/ST8nF4sFWGuLjQCt17Q/EubpGGSNKYn1tsTCPZxqHhHCfVURu7UA==}
+    engines: {node: '>=20'}
+    hasBin: true
+
   postcss@8.5.32:
     resolution: {integrity: sha512-LJlKCCAUFKOuZxipUdYw1NzIITEsPcgyOG9LkvRJvuKj/bRzbuRY0ARXvL0pWGpsZvn8jku+LMep2eU0seHp8g==}
     engines: {node: ^10 || ^12 || >=14}
@@ -3267,6 +3289,12 @@ snapshots:
   picocolors@1.1.1: {}
 
   picomatch@4.0.7: {}
+
+  playwright-core@1.64.1: {}
+
+  playwright@1.64.1:
+    dependencies:
+      playwright-core: 1.64.1
 
   postcss@8.5.32:
     dependencies:

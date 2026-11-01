@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { freePort, freePortBlock } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ownerJourney } from "./owner-journey.ts";
 
 const run = promisify(execFile);
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -19,6 +20,7 @@ interface Reply {
 
 let dev: ChildProcess;
 let devPort: number;
+let postgresPort: number;
 let output = "";
 const project = `robkit-e2e-${String(process.pid)}`;
 
@@ -88,12 +90,13 @@ function isListening(port: number): Promise<boolean> {
 
 beforeAll(async () => {
   devPort = await freePortBlock(1 + (await discoverApps(root)).length);
+  postgresPort = await freePort();
   dev = spawn("pnpm", ["dev"], {
     cwd: root,
     env: {
       ...process.env,
       ROBKIT_DEV_PORT: String(devPort),
-      ROBKIT_POSTGRES_PORT: String(await freePort()),
+      ROBKIT_POSTGRES_PORT: String(postgresPort),
       COMPOSE_PROJECT_NAME: project,
     },
     // Its own process group, like a terminal's foreground job, so SIGINT
@@ -164,6 +167,34 @@ describe("pnpm dev", () => {
         id: (JSON.parse(setup.body) as { viewer: { id: string } }).viewer.id,
         username: "rob",
       },
+    });
+  });
+
+  it("guards the example app: login, return and refresh bounce", async () => {
+    const at = (slug: string, path = "/") =>
+      `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
+    const example = at("example");
+
+    const journey = await ownerJourney({
+      devPort,
+      adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
+      username: "rob",
+      password: "correct horse battery",
+    });
+
+    expect(journey).toEqual({
+      signedOutAt: at("hub", `/?next=${encodeURIComponent(example)}`),
+      signedInAt: example,
+      heading: "Signed in as the owner",
+      viewerId: journey.ownerId,
+      ownerId: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
+      bounce: [
+        example,
+        at("core", `/refresh?next=${encodeURIComponent(example)}`),
+        example,
+      ],
+      bouncedTo: example,
+      bouncedViewerId: journey.ownerId,
     });
   });
 
