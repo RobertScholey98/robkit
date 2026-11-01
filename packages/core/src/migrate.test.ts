@@ -30,6 +30,7 @@ describe("migrate", () => {
       ),
     ).toEqual([
       { schema: "core", name: "__drizzle_migrations" },
+      { schema: "core", name: "access_codes" },
       { schema: "core", name: "owner" },
       { schema: "core", name: "sessions" },
       { schema: "core", name: "signing_keys" },
@@ -72,6 +73,36 @@ describe("core's tables", () => {
     await expect(insertOwner("eve")).rejects.toThrow(/unique/);
     expect(await query(databaseUrl, "select username from core.owner")).toEqual(
       [{ username: "rob" }],
+    );
+  });
+
+  it("give each session exactly one holder, the owner or a code", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    const [rob] = await query<{ id: string }>(
+      databaseUrl,
+      `insert into core.owner (username, password_hash)
+       values ('rob', 'scrypt$x') returning id`,
+    );
+    const [test] = await query<{ id: string }>(
+      databaseUrl,
+      `select id from core.access_codes where code = 'TEST'`,
+    );
+    const insertSession = (ownerId: string, codeId: string) =>
+      query(
+        databaseUrl,
+        `insert into core.sessions (owner_id, code_id, expires_at)
+         values (${ownerId}, ${codeId}, now())`,
+      );
+
+    await insertSession(`'${rob?.id ?? ""}'`, "null");
+    await insertSession("null", `'${test?.id ?? ""}'`);
+
+    await expect(
+      insertSession(`'${rob?.id ?? ""}'`, `'${test?.id ?? ""}'`),
+    ).rejects.toThrow(/sessions_one_holder/);
+    await expect(insertSession("null", "null")).rejects.toThrow(
+      /sessions_one_holder/,
     );
   });
 });
