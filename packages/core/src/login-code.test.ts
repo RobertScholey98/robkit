@@ -179,3 +179,86 @@ describe("POST /login/code", () => {
     });
   });
 });
+
+describe("POST /login/code's rate limit", () => {
+  const from = (client: string) => ({ "x-forwarded-for": client });
+
+  it("stops a client after ten wrong codes for 15 minutes, even with a live code", async () => {
+    const { app, advance } = await freshCore();
+    const { code } = await ownerMints(app);
+    for (let i = 0; i < 10; i++) {
+      const wrong = await postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from("203.0.113.7"),
+      );
+      expect(wrong.status).toBe(401);
+    }
+
+    const blocked = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.7"),
+    );
+    const other = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("198.51.100.1"),
+    );
+    advance(15 * minute);
+    const later = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.7"),
+    );
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toBe("900");
+    expect(await blocked.json()).toEqual({
+      error: "Too many attempts. Try again in 15 minutes.",
+    });
+    expect([other.status, later.status]).toEqual([200, 200]);
+  });
+
+  it("keeps counting after a guest signs in, so one live code buys no more guesses", async () => {
+    const { app } = await freshCore();
+    const { code } = await ownerMints(app);
+    const attempt = (value: string) =>
+      postJson(app, "/login/code", { code: value }, from("203.0.113.7"));
+    for (let i = 0; i < 9; i++) await attempt("NOPE2");
+
+    const signedIn = await attempt(code);
+    const tenthWrong = await attempt("NOPE2");
+    const blocked = await attempt(code);
+
+    expect([signedIn.status, tenthWrong.status, blocked.status]).toEqual([
+      200, 401, 429,
+    ]);
+  });
+
+  it("counts apart from the owner's password limit", async () => {
+    const { app } = await freshCore();
+    await ownerMints(app);
+    for (let i = 0; i < 5; i++) {
+      await postJson(
+        app,
+        "/login",
+        { username: "rob", password: "not the password" },
+        from("203.0.113.7"),
+      );
+    }
+
+    const res = await postJson(
+      app,
+      "/login/code",
+      { code: "NOPE2" },
+      from("203.0.113.7"),
+    );
+
+    expect(res.status).toBe(401);
+  });
+});

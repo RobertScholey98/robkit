@@ -177,6 +177,14 @@ export function createApp({
     windowMs: 15 * 60 * 1000,
     now,
   });
+  // Apart from the owner's limit, so a guest guessing codes can't lock the
+  // owner out. A guest's sign-in never clears it, or one live code would buy
+  // endless guesses at the others.
+  const codeLimiter = createRateLimiter({
+    limit: 10,
+    windowMs: 15 * 60 * 1000,
+    now,
+  });
 
   const setSessionCookie = (
     c: Context,
@@ -327,6 +335,10 @@ export function createApp({
     if (typeof fields?.code !== "string") {
       return c.json({ error: "Send a code." }, 400);
     }
+    const client = clientOf(c);
+    const retryAfter = codeLimiter.retryAfter(client);
+    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
+
     const code = parseAccessCode(fields.code);
     const result = code
       ? await signInWithCode(ctx, code)
@@ -338,6 +350,7 @@ export function createApp({
       );
     }
     if (result.outcome === "refused") {
+      codeLimiter.fail(client);
       return c.json({ error: "That code doesn't work." }, 401);
     }
     setSessionCookie(c, result.sessionToken);
