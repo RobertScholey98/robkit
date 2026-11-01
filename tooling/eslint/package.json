@@ -5,10 +5,19 @@
   "exports": {
     ".": "./index.js"
   },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
   "dependencies": {
     "@eslint/js": "catalog:",
     "globals": "catalog:",
     "typescript-eslint": "catalog:"
+  },
+  "devDependencies": {
+    "eslint": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
   },
   "peerDependencies": {
     "eslint": "^10.0.0"

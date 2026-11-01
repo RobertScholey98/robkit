@@ -282,15 +282,22 @@ importers:
       '@eslint/js':
         specifier: 'catalog:'
         version: 10.0.1(eslint@10.13.0(jiti@2.7.0))
-      eslint:
-        specifier: ^10.0.0
-        version: 10.13.0(jiti@2.7.0)
       globals:
         specifier: 'catalog:'
         version: 17.13.0
       typescript-eslint:
         specifier: 'catalog:'
         version: 8.72.1(eslint@10.13.0(jiti@2.7.0))(typescript@6.0.3)
+    devDependencies:
+      eslint:
+        specifier: 'catalog:'
+        version: 10.13.0(jiti@2.7.0)
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.5(@types/node@26.6.5)(jiti@2.7.0)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(vite@8.3.5(@types/node@26.6.5)(jiti@2.7.0))
 
   tooling/repo-checks:
     devDependencies:
