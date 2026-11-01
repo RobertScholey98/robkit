@@ -1,5 +1,5 @@
 import { serve } from "@hono/node-server";
-import { createApp, createDatabase } from "@robkit/core";
+import { createApp, createDatabase, ensureSigningKey } from "@robkit/core";
 
 function env(name: string): string {
   const value = process.env[name];
@@ -8,6 +8,7 @@ function env(name: string): string {
 }
 
 const db = createDatabase(env("DATABASE_URL"));
+await ensureSigningKey(db);
 const app = createApp({ db, domain: env("ROBKIT_DOMAIN") });
 
 serve({ fetch: app.fetch, port: Number(env("PORT")) }, ({ port }) => {

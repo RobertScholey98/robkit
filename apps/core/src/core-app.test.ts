@@ -43,16 +43,28 @@ async function coreTables(): Promise<string[]> {
   return rows.map((row) => row.name);
 }
 
-describe("apps/core", () => {
-  it("serves core on PORT without migrating", async () => {
-    const port = await freePort();
-    start("src/main.ts", {
-      PORT: String(port),
-      DATABASE_URL: inject("databaseUrl"),
-      ROBKIT_DOMAIN: "robkit.localhost",
-    });
+async function signingKeyIds(): Promise<string[]> {
+  const rows = await admin<
+    { kid: string }[]
+  >`select kid from core.signing_keys`;
+  return rows.map((row) => row.kid);
+}
 
-    expect(await statusOf(port)).toBe(200);
+function boot(port: number): ChildProcess {
+  return start("src/main.ts", {
+    PORT: String(port),
+    DATABASE_URL: inject("databaseUrl"),
+    ROBKIT_DOMAIN: "robkit.localhost",
+  });
+}
+
+// These run in order on one database: core first meets it unmigrated.
+describe("apps/core", () => {
+  it("won't start, and doesn't migrate, before core's schema exists", async () => {
+    const core = boot(await freePort());
+    const [code] = (await once(core, "exit")) as [number | null];
+
+    expect(code).toBe(1);
     expect(await coreTables()).toEqual([]);
   });
 
@@ -64,5 +76,21 @@ describe("apps/core", () => {
 
     expect(code).toBe(0);
     expect(await coreTables()).toContain("__drizzle_migrations");
+  });
+
+  it("creates its signing key on first boot and keeps it after", async () => {
+    const firstPort = await freePort();
+    const first = boot(firstPort);
+    expect(await statusOf(firstPort)).toBe(200);
+    const afterFirstBoot = await signingKeyIds();
+    first.kill();
+    await once(first, "exit");
+
+    const secondPort = await freePort();
+    boot(secondPort);
+    expect(await statusOf(secondPort)).toBe(200);
+
+    expect(afterFirstBoot).toHaveLength(1);
+    expect(await signingKeyIds()).toEqual(afterFirstBoot);
   });
 });
