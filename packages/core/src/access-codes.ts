@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { desc } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
 import { accessCodes } from "./schema.ts";
@@ -132,4 +132,26 @@ export async function mintCode(
     if (row) return { outcome: "minted", code: viewOf(row, now, domain) };
   }
   throw new Error("Core couldn't find a free access code.");
+}
+
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Revokes a code, keeping the time it was first revoked. Answers whether
+ * the code exists.
+ */
+export async function revokeCode(
+  db: Database,
+  id: string,
+  now: Date,
+): Promise<boolean> {
+  if (!uuid.test(id)) return false;
+  const [row] = await db
+    .update(accessCodes)
+    .set({
+      revokedAt: sql`coalesce(${accessCodes.revokedAt}, ${now.toISOString()}::timestamptz)`,
+    })
+    .where(eq(accessCodes.id, id))
+    .returning({ id: accessCodes.id });
+  return row !== undefined;
 }

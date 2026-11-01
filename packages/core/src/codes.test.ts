@@ -183,6 +183,48 @@ describe("GET /codes", () => {
   });
 });
 
+describe("POST /codes/:id/revoke", () => {
+  function revoke(app: Hono, sessionToken: string, id: string) {
+    return postJson(app, `/codes/${id}/revoke`, {}, asOwner(sessionToken));
+  }
+
+  it("revokes a code, once", async () => {
+    const { app, advance, now } = await freshCore();
+    const owner = await claim(app);
+    const minted = await postJson(
+      app,
+      "/codes",
+      { name: "Gran" },
+      asOwner(owner),
+    );
+    const { id } = (await minted.json()) as CodeAnswer;
+    advance(minute);
+    const revokedAt = now().toISOString();
+
+    const first = await revoke(app, owner, id);
+    advance(minute);
+    const again = await revoke(app, owner, id);
+
+    expect([first.status, again.status]).toEqual([204, 204]);
+    expect(await mintedCodes(app, owner)).toMatchObject([
+      { id, revokedAt, standing: "revoked" },
+    ]);
+  });
+
+  it.each([
+    ["an unknown code", "6f1d1b8e-0000-4000-8000-000000000000"],
+    ["something that isn't an id", "not-an-id"],
+  ])("answers %s with 404", async (_, id) => {
+    const { app } = await freshCore();
+    const owner = await claim(app);
+
+    const res = await revoke(app, owner, id);
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Not found" });
+  });
+});
+
 describe("the code endpoints", () => {
   it.each([
     ["nobody signed in", undefined],
@@ -202,15 +244,26 @@ describe("the code endpoints", () => {
 
     const list = await app.request("/codes", { headers: cookie });
     const mint = await postJson(app, "/codes", { name: "Eve" }, cookie);
+    const [test] = await db.execute<{ id: string }>(
+      sql`select id from core.access_codes`,
+    );
+    const revoke = await postJson(
+      app,
+      `/codes/${test?.id ?? ""}/revoke`,
+      {},
+      cookie,
+    );
 
-    expect([list.status, mint.status]).toEqual([404, 404]);
-    expect([await list.json(), await mint.json()]).toEqual([
+    const answers = [list, mint, revoke];
+    expect(answers.map((res) => res.status)).toEqual([404, 404, 404]);
+    expect(await Promise.all(answers.map((res) => res.json()))).toEqual([
+      { error: "Not found" },
       { error: "Not found" },
       { error: "Not found" },
     ]);
-    expect(await db.execute(sql`select code from core.access_codes`)).toEqual([
-      { code: "TEST" },
-    ]);
+    expect(
+      await db.execute(sql`select code, revoked_at from core.access_codes`),
+    ).toEqual([{ code: "TEST", revoked_at: null }]);
   });
 
   it("let admin call them with the owner's cookie", async () => {

@@ -7,6 +7,7 @@ import { sessionCookie } from "@robkit/session";
 import {
   listCodes,
   mintCode,
+  revokeCode,
   parseAccessCode,
   type AccessCode,
   type NewCode,
@@ -359,6 +360,13 @@ export function createApp({
       return c.json({ error: "That code is taken." }, 409);
     }
     return c.json(mint.code, 201);
+  });
+
+  app.post("/codes/:id/revoke", async (c) => {
+    if (!(await revokeCode(db, c.req.param("id"), now()))) {
+      return c.json({ error: "Not found" }, 404);
+    }
+    return c.body(null, 204);
   });
   return app;
 }
