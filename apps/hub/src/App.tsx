@@ -1,49 +1,70 @@
 import { useEffect, useState } from "react";
+import { getSession, type Session } from "./core-api.ts";
 import { coreOrigin } from "./core-origin.ts";
+import { Setup, SignIn } from "./forms.tsx";
+import { Launcher } from "./launcher.tsx";
+import { Card } from "./ui.tsx";
 
-type CoreStatus =
-  { state: "checking" } | { state: "up" } | { state: "down"; reason: string };
+type Screen =
+  { state: "checking" } | { state: "unreachable"; reason: string } | Session;
 
-async function checkCore(): Promise<CoreStatus> {
+export function App() {
+  let core: string;
   try {
-    const res = await fetch(`${coreOrigin(location.href)}/status`, {
-      credentials: "include",
-    });
-    return res.ok
-      ? { state: "up" }
-      : { state: "down", reason: `Core answered ${String(res.status)}.` };
+    core = coreOrigin(location.href);
   } catch (error) {
-    return { state: "down", reason: String(error) };
+    return <Unreachable reason={String(error)} />;
+  }
+  return <Hub core={core} />;
+}
+
+function Hub({ core }: { core: string }) {
+  const [screen, setScreen] = useState<Screen>({ state: "checking" });
+
+  useEffect(() => {
+    void getSession(core).then((result) => {
+      setScreen(
+        result.ok
+          ? result.session
+          : { state: "unreachable", reason: result.error },
+      );
+    });
+  }, [core]);
+
+  switch (screen.state) {
+    case "checking":
+      return (
+        <Card>
+          <Status dot="bg-neutral-300">Checking core…</Status>
+        </Card>
+      );
+    case "unreachable":
+      return <Unreachable reason={screen.reason} />;
+    case "unclaimed":
+      return <Setup core={core} onSession={setScreen} />;
+    case "signed-out":
+      return <SignIn core={core} onSession={setScreen} />;
+    case "signed-in":
+      return (
+        <Launcher core={core} owner={screen.viewer} onSession={setScreen} />
+      );
   }
 }
 
-const dot = {
-  checking: "bg-neutral-300",
-  up: "bg-emerald-500",
-  down: "bg-red-500",
-};
-
-export function App() {
-  const [status, setStatus] = useState<CoreStatus>({ state: "checking" });
-
-  useEffect(() => {
-    void checkCore().then(setStatus);
-  }, []);
-
+function Unreachable({ reason }: { reason: string }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 p-6 font-sans text-neutral-950 antialiased">
-      <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <p className="text-sm text-neutral-500">robkit hub</p>
-        <h1 className="mt-1 flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <span className={`size-2 rounded-full ${dot[status.state]}`} />
-          {status.state === "checking" && "Checking core…"}
-          {status.state === "up" && "Core is up"}
-          {status.state === "down" && "Core is unreachable"}
-        </h1>
-        {status.state === "down" && (
-          <p className="mt-2 text-sm text-neutral-500">{status.reason}</p>
-        )}
-      </div>
-    </main>
+    <Card>
+      <Status dot="bg-red-500">Core is unreachable</Status>
+      <p className="mt-2 text-sm text-neutral-500">{reason}</p>
+    </Card>
+  );
+}
+
+function Status({ dot, children }: { dot: string; children: string }) {
+  return (
+    <h1 className="mt-1 flex items-center gap-2 text-lg font-semibold tracking-tight">
+      <span className={`size-2 rounded-full ${dot}`} />
+      {children}
+    </h1>
   );
 }
