@@ -13,7 +13,19 @@ services:
       # Postgres 18 images keep data under a versioned folder in /var/lib/postgresql.
       - postgres:/var/lib/postgresql
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "robkit"]
+      # Over TCP, because the image's first-run setup server listens only on
+      # the socket and would pass a socket check before Postgres restarts.
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-h",
+          "127.0.0.1",
+          "-U",
+          "postgres",
+          "-d",
+          "robkit",
+        ]
       interval: 1s
       timeout: 3s
       retries: 30
