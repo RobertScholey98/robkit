@@ -33,8 +33,7 @@ export const accessCodes = core.table("access_codes", {
   id: uuid("id").primaryKey().defaultRandom(),
   // Upper-cased, and kept as plain text so admin can show it again.
   code: text("code").notNull().unique(),
-  /** The guest's name. */
-  label: text("label").notNull(),
+  name: text("name").notNull(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   createdAt: createdAt(),

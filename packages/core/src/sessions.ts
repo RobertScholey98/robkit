@@ -175,7 +175,7 @@ export async function signInWithCode(
   return {
     outcome: "signed-in",
     ...(await ctx.db.transaction((tx) =>
-      startSession(ctx, tx, { kind: "guest", id: found.id, name: found.label }),
+      startSession(ctx, tx, { kind: "guest", id: found.id, name: found.name }),
     )),
   };
 }
@@ -219,7 +219,7 @@ async function holderOf(
       if (!found || standingOf(found.code, now, ctx.domain) !== "live") {
         return undefined;
       }
-      return { kind: "guest", id: found.code.id, name: found.code.label };
+      return { kind: "guest", id: found.code.id, name: found.code.name };
     }
   }
 }

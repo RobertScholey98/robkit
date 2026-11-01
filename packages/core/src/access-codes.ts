@@ -72,7 +72,7 @@ function viewOf(row: CodeRow, now: Date, domain: string): CodeView {
   return {
     id: row.id,
     code: row.code,
-    name: row.label,
+    name: row.name,
     expiresAt: row.expiresAt,
     revokedAt: row.revokedAt,
     createdAt: row.createdAt,
@@ -116,7 +116,7 @@ export async function mintCode(
   const insert = async (value: AccessCode) => {
     const [row] = await db
       .insert(accessCodes)
-      .values({ code: value, label: name, expiresAt, createdAt: now })
+      .values({ code: value, name, expiresAt, createdAt: now })
       .onConflictDoNothing({ target: accessCodes.code })
       .returning();
     return row;

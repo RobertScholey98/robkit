@@ -1,5 +1,5 @@
 {
-  "id": "266e62a6-a58e-4bdd-9496-8e7553810af5",
+  "id": "717c0d3e-06a5-47a2-a6a7-833abd5f50ad",
   "prevId": "899122e8-094d-4681-9737-918ecdd9a9c1",
   "version": "7",
   "dialect": "postgresql",
@@ -21,8 +21,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "label": {
-          "name": "label",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
