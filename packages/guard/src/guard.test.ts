@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { conformanceCases, type ConformanceCase } from "./conformance.ts";
-import { guard, type SessionState, type Viewer } from "./index.ts";
+import {
+  guard,
+  readAccessRule,
+  type SessionState,
+  type Viewer,
+} from "./index.ts";
 
 function viewerOf({
   session,
@@ -45,5 +50,33 @@ describe("guard", () => {
         { state: "signed-in", viewer: { kind: "owner", id: "abc" } },
       ),
     ).toEqual({ outcome: "allow", viewer: { kind: "owner", id: "abc" } });
+  });
+});
+
+describe("readAccessRule", () => {
+  it.each([
+    { kind: "open" },
+    { kind: "owner" },
+    { kind: "roles", roles: ["role-1", "role-2"] },
+  ])("reads %j", (rule) => {
+    expect(readAccessRule(JSON.parse(JSON.stringify(rule)))).toEqual(rule);
+  });
+
+  it("keeps only what a rule needs", () => {
+    expect(readAccessRule({ kind: "open", roles: ["role-1"] })).toEqual({
+      kind: "open",
+    });
+  });
+
+  it.each([
+    null,
+    "open",
+    {},
+    { kind: "everyone" },
+    { kind: "roles" },
+    { kind: "roles", roles: "role-1" },
+    { kind: "roles", roles: ["role-1", 2] },
+  ])("refuses %j", (value) => {
+    expect(readAccessRule(value)).toBeUndefined();
   });
 });

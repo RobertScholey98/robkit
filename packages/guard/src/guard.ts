@@ -84,3 +84,13 @@ export function guard(rule: AccessRule, session: SessionState): Decision {
     viewer: session.state === "signed-in" ? session.viewer : { kind: "nobody" },
   };
 }
+
+/** Reads an access rule sent as JSON, or undefined if it isn't one. */
+export function readAccessRule(value: unknown): AccessRule | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const { kind, roles } = value as Record<string, unknown>;
+  if (kind === "open" || kind === "owner") return { kind };
+  const isRoleList =
+    Array.isArray(roles) && roles.every((role) => typeof role === "string");
+  return kind === "roles" && isRoleList ? { kind, roles } : undefined;
+}

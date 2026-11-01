@@ -1,5 +1,6 @@
 export {
   guard,
+  readAccessRule,
   type AccessRule,
   type Decision,
   type SessionState,
