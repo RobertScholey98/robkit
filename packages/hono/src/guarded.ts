@@ -56,14 +56,15 @@ function platformOrigins(core: string): { core: string; hub: string } {
 
 /**
  * A page load can follow a redirect to the hub or core. A fetch from the
- * page can't, so it gets 401 and the place to send the browser.
+ * page, or a server calling the app, can't, so it gets 401 and the place to
+ * send the browser. Without fetch metadata, only a request that accepts HTML
+ * counts as a page load.
  */
 function isNavigation(c: Context): boolean {
+  if (c.req.method !== "GET" && c.req.method !== "HEAD") return false;
   const mode = c.req.header("sec-fetch-mode");
-  return (
-    (c.req.method === "GET" || c.req.method === "HEAD") &&
-    (mode === undefined || mode === "navigate")
-  );
+  if (mode !== undefined) return mode === "navigate";
+  return c.req.header("accept")?.includes("text/html") ?? false;
 }
 
 const elsewhere = {

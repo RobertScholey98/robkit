@@ -146,6 +146,31 @@ describe("guarded", () => {
   });
 });
 
+describe("guarded, without fetch metadata", () => {
+  it("answers a server's JSON request with 401, not a redirect", async () => {
+    const res = await exampleApp().request(page, {
+      headers: { accept: "application/json" },
+    });
+
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({
+      error: "Sign in to use this app.",
+      location: `http://hub.robkit.localhost:3000/?next=${next}`,
+    });
+  });
+
+  it("redirects a page load from a browser that sends no metadata", async () => {
+    const res = await exampleApp().request(page, {
+      headers: { accept: "text/html,application/xhtml+xml,*/*;q=0.8" },
+    });
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      `http://hub.robkit.localhost:3000/?next=${next}`,
+    );
+  });
+});
+
 describe("guarded, with core's keys", () => {
   const servers: Server[] = [];
 
