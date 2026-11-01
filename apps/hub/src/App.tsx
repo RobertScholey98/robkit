@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getSession, type Session } from "./core-api.ts";
-import { coreOrigin } from "./core-origin.ts";
+import { coreOrigin, returnTo } from "./core-origin.ts";
 import { Setup, SignIn } from "./forms.tsx";
 import { Launcher } from "./launcher.tsx";
 import { Card } from "./ui.tsx";
@@ -31,6 +31,13 @@ function Hub({ core }: { core: string }) {
     });
   }, [core]);
 
+  // Signing in on the way to an app goes back to it instead of the launcher.
+  const onSignedIn = (session: Session) => {
+    const next = returnTo(location.href);
+    if (session.state === "signed-in" && next) location.assign(next);
+    else setScreen(session);
+  };
+
   switch (screen.state) {
     case "checking":
       return (
@@ -41,9 +48,9 @@ function Hub({ core }: { core: string }) {
     case "unreachable":
       return <Unreachable reason={screen.reason} />;
     case "unclaimed":
-      return <Setup core={core} onSession={setScreen} />;
+      return <Setup core={core} onSession={onSignedIn} />;
     case "signed-out":
-      return <SignIn core={core} onSession={setScreen} />;
+      return <SignIn core={core} onSession={onSignedIn} />;
     case "signed-in":
       return (
         <Launcher core={core} owner={screen.viewer} onSession={setScreen} />

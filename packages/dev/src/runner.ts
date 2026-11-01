@@ -86,7 +86,11 @@ export async function runDev(
     env.ROBKIT_DATABASE_URL ??
     `postgres://postgres:postgres@127.0.0.1:${env.ROBKIT_POSTGRES_PORT ?? "54320"}/robkit`;
   const apps = await discoverApps(root, devPort + 1);
-  const appEnv: NodeJS.ProcessEnv = { ...env, ROBKIT_DOMAIN: domain };
+  const appEnv: NodeJS.ProcessEnv = {
+    ...env,
+    ROBKIT_DOMAIN: domain,
+    ROBKIT_CORE_URL: `http://core.${domain}:${String(devPort)}`,
+  };
   delete appEnv.ROBKIT_DATABASE_URL;
   delete appEnv.DATABASE_URL;
 

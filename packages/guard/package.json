@@ -1,0 +1,32 @@
+{
+  "name": "@robkit/guard",
+  "version": "0.0.0",
+  "description": "robkit's guard: the pure decision of who may open an app.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./conformance": "./src/conformance.ts",
+    "./conformance.json": "./conformance.json"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts",
+    "conformance.json"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@internal/eslint-config": "workspace:*",
+    "@internal/tsconfig": "workspace:*",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

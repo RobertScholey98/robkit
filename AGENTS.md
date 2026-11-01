@@ -18,9 +18,14 @@ pnpm --filter <package> test              # one package
 
 ## Layout
 
-- The repo root is a hand-built install until build ticket 08 turns it into templates: `compose.yaml` runs Postgres, and `apps/` holds core and the hub. Each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role.
-- `packages/` holds the published `@robkit/*` packages: `@robkit/core` and `@robkit/dev`, the `robkit-dev` runner and proxy behind `pnpm dev`.
-- `tooling/` holds private workspace packages: the shared tsconfig, the shared ESLint config, repo checks that run as tests, a per-suite test Postgres and the whole-stack test.
+- The repo root is a hand-built install until build ticket 08 turns it into templates: `compose.yaml` runs Postgres, and `apps/` holds core, the hub and `example`, a React + Hono app open only to the owner. Each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role.
+- `packages/` holds the published `@robkit/*` packages:
+  - `@robkit/core`, the backend.
+  - `@robkit/session`, the session token's claims and cookie, and `coreKeys`, which fetches core's public key once so apps verify tokens locally.
+  - `@robkit/guard`, the pure guard, and `conformance.json`, the cases the guard and every adapter pass.
+  - `@robkit/hono`, the Hono adapter.
+  - `@robkit/dev`, the `robkit-dev` runner and proxy behind `pnpm dev`.
+- `tooling/` holds private workspace packages: the shared tsconfig, the shared ESLint config, repo checks that run as tests, a per-suite test Postgres and the whole-stack test, which includes a Playwright journey in Chromium.
 
 ## The layer rule
 

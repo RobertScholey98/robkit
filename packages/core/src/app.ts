@@ -3,6 +3,7 @@ import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
+import { sessionCookie } from "@robkit/session";
 import type { Database } from "./database.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import {
@@ -35,7 +36,13 @@ function hostnameOf(origin: string): string | undefined {
   }
 }
 
-const sessionCookie = "robkit_session";
+/** `next` if it is an http(s) URL on one of the install's subdomains. */
+function appUrl(next: string | undefined, domain: string): string | undefined {
+  if (next === undefined || !URL.canParse(next)) return undefined;
+  const url = new URL(next);
+  const web = url.protocol === "https:" || url.protocol === "http:";
+  return web && url.hostname.endsWith(`.${domain}`) ? url.href : undefined;
+}
 
 /**
  * Browsers treat `*.localhost` as a secure context, but WebKit drops Secure
@@ -195,6 +202,31 @@ export function createApp({
     );
     if (freshSessionToken) setSessionCookie(c, freshSessionToken);
     return c.json<SessionAnswer>(answer);
+  });
+
+  // An app's guard sends an expired token here, and it comes straight back
+  // to `next` with a fresh cookie, or none if its session ended. The app's
+  // guard then decides whether to send the browser to log in. The token is
+  // reissued even if core thinks it live, since the app's clock may run
+  // ahead of core's, and a bounce without a new token would loop.
+  app.get("/refresh", async (c) => {
+    const next = appUrl(c.req.query("next"), domain);
+    if (!next) {
+      return c.json(
+        { error: "Send next, a URL on one of this install's apps." },
+        400,
+      );
+    }
+    const sessionToken = getCookie(c, sessionCookie);
+    const { answer, freshSessionToken } = await readSession(ctx, sessionToken, {
+      renew: true,
+    });
+    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
+    else if (sessionToken && answer.state !== "signed-in") {
+      setSessionCookie(c, "", 0);
+    }
+    c.header("Cache-Control", "no-store");
+    return c.redirect(next, 302);
   });
 
   app.post("/setup", async (c) => {

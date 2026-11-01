@@ -25,4 +25,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
+      # The end-to-end journey drives the stack in Chromium.
+      - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
       - run: pnpm turbo run lint typecheck test

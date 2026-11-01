@@ -43,6 +43,20 @@ describe("provisionDatabase", () => {
     );
   });
 
+  it("keeps the example app out of core's schema", async () => {
+    const core = connect(await provisionDatabase(adminUrl, "core"));
+    const example = connect(await provisionDatabase(adminUrl, "example"));
+    await core`create table owner (username text)`;
+    await core`insert into owner values ('rob')`;
+
+    await expect(example`select * from core.owner`).rejects.toThrow(
+      /permission denied for schema core/,
+    );
+    expect(await core`select username from core.owner`).toEqual([
+      { username: "rob" },
+    ]);
+  });
+
   it("stops the app creating schemas", async () => {
     const app = connect(await provisionDatabase(adminUrl, "schemer"));
 

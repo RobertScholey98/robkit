@@ -2,7 +2,8 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import type { Database } from "./database.ts";
 import { dummyPasswordHash, hashPassword, verifyPassword } from "./password.ts";
 import { owner, sessions } from "./schema.ts";
-import { mintSessionToken, readSessionToken } from "./session-token.ts";
+import { readSessionToken } from "@robkit/session";
+import { mintSessionToken } from "./session-token.ts";
 import type { SigningKey } from "./signing-key.ts";
 
 /** A session lasts 30 days from sign-in. */
@@ -131,11 +132,13 @@ export async function signIn(
 /**
  * Answers who the session token's holder is. The token's signature must be
  * core's, but its session row decides: a revoked or expired session signs the
- * holder out, and a live session renews an expired token.
+ * holder out, and a live session renews an expired token. With `renew`, a
+ * live session renews any token, expired or not.
  */
 export async function readSession(
   ctx: SessionContext,
   sessionToken: string | undefined,
+  { renew = false }: { renew?: boolean } = {},
 ): Promise<SessionRead> {
   const signedOut: SessionRead = { answer: { state: "signed-out" } };
   const [found] = await ctx.db.select().from(owner);
@@ -144,7 +147,7 @@ export async function readSession(
 
   const now = ctx.now();
   const key = await ctx.signingKey();
-  const claims = await readSessionToken(key, sessionToken, now);
+  const claims = await readSessionToken(key.publicKey, sessionToken, now);
   if (claims?.ownerId !== found.id) return signedOut;
   const [live] = await ctx.db
     .select({ id: sessions.id })
@@ -163,7 +166,7 @@ export async function readSession(
     state: "signed-in",
     viewer: { kind: "owner", id: found.id, username: found.username },
   };
-  if (!claims.expired) return { answer };
+  if (!claims.expired && !renew) return { answer };
   return {
     answer,
     freshSessionToken: await mintSessionToken(key, claims, now),
@@ -178,7 +181,7 @@ export async function signOut(
   if (!sessionToken) return;
   const now = ctx.now();
   const claims = await readSessionToken(
-    await ctx.signingKey(),
+    (await ctx.signingKey()).publicKey,
     sessionToken,
     now,
   );

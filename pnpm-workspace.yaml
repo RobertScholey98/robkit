@@ -9,6 +9,7 @@ catalogMode: strict
 catalog:
   "@eslint/js": 10.0.1
   "@hono/node-server": 2.1.5
+  "@hono/vite-dev-server": 0.26.1
   "@tailwindcss/vite": 4.3.3
   "@types/node": 26.6.5
   "@types/react": 19.3.0
@@ -20,6 +21,7 @@ catalog:
   globals: 17.13.0
   hono: 4.13.14
   jose: 6.2.13
+  playwright: 1.64.1
   postgres: 3.4.9
   prettier: 3.9.10
   react: 19.3.1
