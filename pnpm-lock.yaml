@@ -291,6 +291,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@robkit/guard':
+        specifier: workspace:*
+        version: link:../guard
       '@robkit/session':
         specifier: workspace:*
         version: link:../session

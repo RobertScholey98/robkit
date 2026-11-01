@@ -31,6 +31,8 @@ describe("migrate", () => {
     ).toEqual([
       { schema: "core", name: "__drizzle_migrations" },
       { schema: "core", name: "access_codes" },
+      { schema: "core", name: "app_roles" },
+      { schema: "core", name: "apps" },
       { schema: "core", name: "code_roles" },
       { schema: "core", name: "owner" },
       { schema: "core", name: "roles" },

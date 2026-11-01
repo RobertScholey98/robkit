@@ -66,6 +66,39 @@ export const codeRoles = core.table(
   (table) => [primaryKey({ columns: [table.codeId, table.roleId] })],
 );
 
+/** The launcher catalog: each app core knows, and who may open it. */
+export const apps = core.table(
+  "apps",
+  {
+    slug: text("slug").primaryKey(),
+    name: text("name").notNull(),
+    access: text("access", { enum: ["open", "roles", "owner"] })
+      .notNull()
+      .default("owner"),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    check(
+      "apps_access_kind",
+      sql`${table.access} in ('open', 'roles', 'owner')`,
+    ),
+  ],
+);
+
+/** The roles an app gated to roles lets in. */
+export const appRoles = core.table(
+  "app_roles",
+  {
+    appSlug: text("app_slug")
+      .notNull()
+      .references(() => apps.slug, { onDelete: "cascade" }),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.appSlug, table.roleId] })],
+);
+
 export const sessions = core.table(
   "sessions",
   {

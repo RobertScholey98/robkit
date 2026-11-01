@@ -3,6 +3,7 @@ import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
+import type { AccessRule } from "@robkit/guard";
 import { sessionCookie } from "@robkit/session";
 import {
   listCodes,
@@ -14,6 +15,7 @@ import {
 } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
+import { accessOf, listApps, setAccess } from "./apps.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import { createRole, listRoles, setRoleCodes, type NewRole } from "./roles.ts";
 import {
@@ -123,6 +125,23 @@ async function newCodeFrom(
 }
 
 const unknownCode = "One of those codes doesn't exist.";
+
+/** The rule the owner sent for an app, or why it won't do. */
+async function accessFrom(c: Context): Promise<AccessRule | { error: string }> {
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  const { kind, roles } = fields;
+  if (kind === "open" || kind === "owner") return { kind };
+  if (kind !== "roles") return { error: "Pick open, roles or owner." };
+  if (
+    !Array.isArray(roles) ||
+    roles.length === 0 ||
+    !roles.every((id): id is string => typeof id === "string")
+  ) {
+    return { error: "Pick at least one role." };
+  }
+  return { kind, roles };
+}
 
 function readCodeIds(
   fields: Record<string, unknown>,
@@ -413,7 +432,7 @@ export function createApp({
     if (freshSessionToken) setSessionCookie(c, freshSessionToken);
     await next();
   };
-  for (const path of ["/codes", "/codes/*", "/roles", "/roles/*"]) {
+  for (const path of ["/codes", "/codes/*", "/roles", "/roles/*", "/apps"]) {
     app.use(path, ownerOnly);
   }
 
@@ -437,6 +456,28 @@ export function createApp({
       return c.json({ error: "Not found" }, 404);
     }
     return c.body(null, 204);
+  });
+
+  // Each app's adapter reads its own rule here, with no cookie.
+  app.get("/apps/:slug/access", async (c) => {
+    const access = await accessOf(db, c.req.param("slug"));
+    return access ? c.json(access) : c.json({ error: "Not found" }, 404);
+  });
+
+  app.get("/apps", async (c) => c.json({ apps: await listApps(db) }));
+
+  app.post("/apps/:slug/access", ownerOnly, async (c) => {
+    const rule = await accessFrom(c);
+    if ("error" in rule) return c.json(rule, 400);
+    const change = await setAccess(db, c.req.param("slug"), rule);
+    switch (change.outcome) {
+      case "unknown-app":
+        return c.json({ error: "Not found" }, 404);
+      case "unknown-role":
+        return c.json({ error: "One of those roles doesn't exist." }, 400);
+      case "changed":
+        return c.json(change.access);
+    }
   });
 
   app.get("/roles", async (c) => c.json({ roles: await listRoles(db) }));
