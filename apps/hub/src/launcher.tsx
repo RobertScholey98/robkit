@@ -1,14 +1,14 @@
-import { signOut, type Owner, type Session } from "./core-api.ts";
+import { signOut, type Session, type Viewer } from "./core-api.ts";
 import { useSend } from "./forms.tsx";
 import { Button, FormError } from "./ui.tsx";
 
 export function Launcher({
   core,
-  owner,
+  viewer,
   onSession,
 }: {
   core: string;
-  owner: Owner;
+  viewer: Viewer;
   onSession: (session: Session) => void;
 }) {
   const { sending, send } = useSend(onSession);
@@ -22,7 +22,7 @@ export function Launcher({
             <p className="text-sm text-neutral-500">
               Signed in as{" "}
               <span className="font-medium text-neutral-900">
-                {owner.username}
+                {viewer.kind === "owner" ? viewer.username : viewer.name}
               </span>
             </p>
             <Button

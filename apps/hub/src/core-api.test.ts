@@ -1,8 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getSession, setUp, signIn, signOut } from "./core-api.ts";
+import {
+  getSession,
+  setUp,
+  signIn,
+  signInWithCode,
+  signOut,
+} from "./core-api.ts";
 
 const core = "https://core.example.com";
 const owner = { kind: "owner", id: "o_1", username: "rob" } as const;
+const guest = { kind: "guest", id: "c_1", name: "Grandma" } as const;
 const credentials = { username: "rob", password: "correct horse battery" };
 
 function coreAnswers(status: number, body?: unknown) {
@@ -38,6 +45,7 @@ describe("getSession", () => {
     [{ state: "unclaimed" }],
     [{ state: "signed-out" }],
     [{ state: "signed-in", viewer: owner }],
+    [{ state: "signed-in", viewer: guest }],
   ])("reads %o", async (session) => {
     const fetch = coreAnswers(200, session);
 
@@ -70,7 +78,11 @@ describe("getSession", () => {
 
   it.each([
     ["an unknown state", { state: "sleeping" }],
-    ["a viewer that isn't the owner", { state: "signed-in", viewer: {} }],
+    ["a viewer that is nobody", { state: "signed-in", viewer: {} }],
+    [
+      "a guest without a name",
+      { state: "signed-in", viewer: { kind: "guest", id: "c_1" } },
+    ],
     ["no JSON at all", "<html>"],
   ])("refuses %s", async (_, body) => {
     vi.stubGlobal(
@@ -136,6 +148,29 @@ describe("signIn", () => {
     expect(await signIn(core, credentials)).toEqual({
       ok: false,
       error: "Too many attempts. Try again in a minute.",
+    });
+  });
+});
+
+describe("signInWithCode", () => {
+  it("posts the code and reads the guest's session", async () => {
+    const fetch = coreAnswers(200, { state: "signed-in", viewer: guest });
+
+    expect(await signInWithCode(core, "k7xq2")).toEqual({
+      ok: true,
+      session: { state: "signed-in", viewer: guest },
+    });
+    expect(fetch.mock.calls).toEqual([
+      postedTo("/login/code", { code: "k7xq2" }),
+    ]);
+  });
+
+  it("passes on a refused code as core's sentence", async () => {
+    coreAnswers(401, { error: "That code doesn't work." });
+
+    expect(await signInWithCode(core, "NOPE2")).toEqual({
+      ok: false,
+      error: "That code doesn't work.",
     });
   });
 });
