@@ -13,7 +13,7 @@ const sql = postgres(env("DATABASE_URL"), { max: 2 });
 
 const app = new Hono<GuardedEnv>();
 
-app.use(guarded({ access: { kind: "owner" }, domain: env("ROBKIT_DOMAIN") }));
+app.use(guarded({ access: { kind: "owner" }, core: env("ROBKIT_CORE_URL") }));
 
 app.get("/", async (c) => {
   const { viewer } = c.var;

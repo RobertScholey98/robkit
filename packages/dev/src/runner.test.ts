@@ -143,11 +143,13 @@ describe("robkit-dev", () => {
     expect(alpha).toEqual({
       slug: "alpha",
       domain: "robkit.localhost",
+      core: `http://core.robkit.localhost:${String(dev.port)}`,
       database: true,
     });
     expect(beta).toEqual({
       slug: "beta",
       domain: "robkit.localhost",
+      core: `http://core.robkit.localhost:${String(dev.port)}`,
       database: false,
     });
     expect(dev.output()).toMatch(/^\[alpha\] .*listening on \d+$/m);

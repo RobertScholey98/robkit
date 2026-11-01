@@ -20,6 +20,7 @@ createServer((_req, res) => {
     JSON.stringify({
       slug,
       domain: process.env.ROBKIT_DOMAIN,
+      core: process.env.ROBKIT_CORE_URL,
       database: databaseUrl !== undefined,
     }),
   );

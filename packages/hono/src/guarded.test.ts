@@ -41,7 +41,7 @@ function exampleApp(options: Partial<GuardedOptions> = {}) {
     .use(
       guarded({
         access: { kind: "owner" },
-        domain: "robkit.localhost",
+        core: "http://core.robkit.localhost:3000",
         keys: publicKey,
         ...options,
       }),
@@ -112,7 +112,7 @@ describe("guarded", () => {
   });
 
   it("keeps the public scheme the proxy saw", async () => {
-    const res = await exampleApp({ domain: "example.com" }).request(
+    const res = await exampleApp({ core: "https://core.example.com" }).request(
       "http://notes.example.com/",
       { headers: { ...navigate, "x-forwarded-proto": "https" } },
     );
@@ -158,30 +158,36 @@ describe("guarded, with core's keys", () => {
     );
   });
 
-  it("fetches core's key once, not on every request", async () => {
-    const jwk = { ...(await exportJWK(publicKey)), kid: "key-1", alg: "EdDSA" };
+  /** A JWKS endpoint on a loopback port that serves `key`'s public half. */
+  async function jwksServer(key: CryptoKey) {
+    const jwk = { ...(await exportJWK(key)), kid: "key-1", alg: "EdDSA" };
     const fetched: string[] = [];
-    const core = createServer((req, res) => {
+    const server = createServer((req, res) => {
       fetched.push(`${String(req.headers.host)} ${String(req.url)}`);
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ keys: [jwk] }));
     });
-    servers.push(core);
-    core.listen(0, "127.0.0.1");
-    await once(core, "listening");
-    const port = String((core.address() as AddressInfo).port);
-    const app = new Hono<GuardedEnv>()
-      .use(guarded({ access: { kind: "owner" }, domain: "robkit.localhost" }))
+    servers.push(server);
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    return { port: String((server.address() as AddressInfo).port), fetched };
+  }
+
+  function appBehind(core: string) {
+    return new Hono<GuardedEnv>()
+      .use(guarded({ access: { kind: "owner" }, core }))
       .get("*", (c) => c.json(c.var.viewer));
+  }
+
+  it("fetches core's key once, not on every request", async () => {
+    const core = await jwksServer(publicKey);
+    const app = appBehind(`http://core.robkit.localhost:${core.port}`);
 
     const viewers = [];
     for (let i = 0; i < 3; i++) {
-      const res = await app.request(
-        `http://example.robkit.localhost:${port}/`,
-        {
-          headers: { ...navigate, cookie: `robkit_session=${await token()}` },
-        },
-      );
+      const res = await app.request("http://example.robkit.localhost:3000/", {
+        headers: { ...navigate, cookie: `robkit_session=${await token()}` },
+      });
       viewers.push(await res.json());
     }
 
@@ -190,8 +196,42 @@ describe("guarded, with core's keys", () => {
       { kind: "owner", id: "owner-1" },
       { kind: "owner", id: "owner-1" },
     ]);
-    expect(fetched).toEqual([
-      `core.robkit.localhost:${port} /.well-known/jwks.json`,
+    expect(core.fetched).toEqual([
+      `core.robkit.localhost:${core.port} /.well-known/jwks.json`,
     ]);
+  });
+
+  it("checks tokens against the configured core, whatever port the Host names", async () => {
+    const core = await jwksServer(publicKey);
+    const forger = await generateKeyPair("EdDSA", { crv: "Ed25519" });
+    const attacker = await jwksServer(forger.publicKey);
+    const app = appBehind(`http://core.robkit.localhost:${core.port}`);
+
+    const res = await app.request(
+      `http://example.robkit.localhost:${attacker.port}/`,
+      {
+        headers: {
+          ...navigate,
+          cookie: `robkit_session=${await token(0, forger.privateKey)}`,
+        },
+      },
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(
+      `http://hub.robkit.localhost:${core.port}/?next=${encodeURIComponent(`http://example.robkit.localhost:${attacker.port}/`)}`,
+    );
+    expect(attacker.fetched).toEqual([]);
+    expect(core.fetched).toEqual([
+      `core.robkit.localhost:${core.port} /.well-known/jwks.json`,
+    ]);
+  });
+
+  it("refuses a core origin that isn't core.<domain>", () => {
+    expect(() =>
+      guarded({ access: { kind: "owner" }, core: "http://localhost:3000" }),
+    ).toThrow(
+      "core must be core's public origin, such as http://core.robkit.localhost:3000, not http://localhost:3000",
+    );
   });
 });

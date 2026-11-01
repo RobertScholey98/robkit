@@ -17,8 +17,12 @@ import { getCookie } from "hono/cookie";
 export interface GuardedOptions {
   /** Who may open the app. */
   access: AccessRule;
-  /** The install's domain, such as `robkit.localhost`. */
-  domain: string;
+  /**
+   * Core's public origin, such as `http://core.robkit.localhost:3000`. The
+   * hub is beside it on `hub.`. Config, never the request's Host, so a
+   * request can't choose whose keys the app trusts.
+   */
+  core: string;
   /** Core's public keys. By default they come from core's JWKS, once. */
   keys?: VerifyKey;
 }
@@ -36,11 +40,18 @@ function publicUrl(c: Context): URL {
   return url;
 }
 
-/** Another platform app's origin, such as the hub's, beside this app. */
-function sibling(page: URL, slug: string, domain: string): string {
-  const url = new URL(page.origin);
-  url.hostname = `${slug}.${domain}`;
-  return url.origin;
+/** Core's origin and the hub's beside it, from core's public origin. */
+function platformOrigins(core: string): { core: string; hub: string } {
+  const url = URL.canParse(core) ? new URL(core) : undefined;
+  const web = url?.protocol === "https:" || url?.protocol === "http:";
+  if (!url || !web || !url.hostname.startsWith("core.")) {
+    throw new Error(
+      `core must be core's public origin, such as http://core.robkit.localhost:3000, not ${core}`,
+    );
+  }
+  const hub = new URL(url.origin);
+  hub.hostname = `hub.${url.hostname.slice("core.".length)}`;
+  return { core: url.origin, hub: hub.origin };
 }
 
 /**
@@ -56,9 +67,9 @@ function isNavigation(c: Context): boolean {
 }
 
 const elsewhere = {
-  login: { slug: "hub", path: "/", error: "Sign in to use this app." },
+  login: { app: "hub", path: "/", error: "Sign in to use this app." },
   refresh: {
-    slug: "core",
+    app: "core",
     path: "/refresh",
     error: "Your session needs refreshing.",
   },
@@ -71,36 +82,23 @@ const elsewhere = {
  */
 export function guarded({
   access,
-  domain,
+  core,
   keys,
 }: GuardedOptions): MiddlewareHandler<GuardedEnv> {
-  const keySets = new Map<string, VerifyKey>();
-  const keysFor = (coreOrigin: string): VerifyKey => {
-    if (keys) return keys;
-    let found = keySets.get(coreOrigin);
-    if (!found) {
-      found = coreKeys(coreOrigin);
-      keySets.set(coreOrigin, found);
-    }
-    return found;
-  };
+  const origins = platformOrigins(core);
+  const verifyKey = keys ?? coreKeys(origins.core);
 
-  const sessionOf = async (c: Context, page: URL): Promise<SessionState> => {
+  const sessionOf = async (c: Context): Promise<SessionState> => {
     const token = getCookie(c, sessionCookie);
     if (!token) return { state: "signed-out" };
-    const read = await readSessionToken(
-      keysFor(sibling(page, "core", domain)),
-      token,
-      new Date(),
-    );
+    const read = await readSessionToken(verifyKey, token, new Date());
     if (!read) return { state: "signed-out" };
     if (read.expired) return { state: "expired" };
     return { state: "signed-in", viewer: { kind: "owner", id: read.ownerId } };
   };
 
   return async (c, next) => {
-    const page = publicUrl(c);
-    const decision: Decision = guard(access, await sessionOf(c, page));
+    const decision: Decision = guard(access, await sessionOf(c));
     switch (decision.outcome) {
       case "allow":
         c.set("viewer", decision.viewer);
@@ -110,9 +108,9 @@ export function guarded({
         return c.text("Not found", 404);
       case "login":
       case "refresh": {
-        const { slug, path, error } = elsewhere[decision.outcome];
-        const location = new URL(path, sibling(page, slug, domain));
-        location.searchParams.set("next", page.href);
+        const { app, path, error } = elsewhere[decision.outcome];
+        const location = new URL(path, origins[app]);
+        location.searchParams.set("next", publicUrl(c).href);
         c.header("Cache-Control", "no-store");
         if (!isNavigation(c)) {
           return c.json({ error, location: location.href }, 401);
