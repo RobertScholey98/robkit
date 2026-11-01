@@ -23,6 +23,7 @@ import {
   type SessionAnswer,
   type SessionContext,
   signIn,
+  signInWithCode,
 } from "./sessions.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 
@@ -167,7 +168,7 @@ export function createApp({
   const signingKey: () => Promise<SigningKey> = memoize(() =>
     ensureSigningKey(db),
   );
-  const ctx: SessionContext = { db, now, signingKey };
+  const ctx: SessionContext = { db, domain, now, signingKey };
   const loginLimiter = createRateLimiter({
     limit: 5,
     windowMs: 15 * 60 * 1000,
@@ -324,6 +325,28 @@ export function createApp({
     return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
   });
 
+  app.post("/login/code", async (c) => {
+    const fields = await fieldsOf(c);
+    if (typeof fields?.code !== "string") {
+      return c.json({ error: "Send a code." }, 400);
+    }
+    const code = parseAccessCode(fields.code);
+    const result = code
+      ? await signInWithCode(ctx, code)
+      : { outcome: "refused" as const };
+    if (result.outcome === "unclaimed") {
+      return c.json(
+        { error: "This install has no owner yet. Set it up first." },
+        409,
+      );
+    }
+    if (result.outcome === "refused") {
+      return c.json({ error: "That code doesn't work." }, 401);
+    }
+    setSessionCookie(c, result.sessionToken);
+    return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
+  });
+
   // The hub sends no body here, so none is read.
   app.post("/logout", async (c) => {
     await signOut(ctx, getCookie(c, sessionCookie));
@@ -338,7 +361,7 @@ export function createApp({
       ctx,
       getCookie(c, sessionCookie),
     );
-    if (answer.state !== "signed-in") {
+    if (answer.state !== "signed-in" || answer.viewer.kind !== "owner") {
       return c.json({ error: "Not found" }, 404);
     }
     if (freshSessionToken) setSessionCookie(c, freshSessionToken);

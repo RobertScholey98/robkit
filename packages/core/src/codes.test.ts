@@ -266,6 +266,33 @@ describe("the code endpoints", () => {
     ).toEqual([{ code: "TEST", revoked_at: null }]);
   });
 
+  it("answer a guest with 404", async () => {
+    const { app } = await freshCore();
+    const owner = await claim(app);
+    const minted = await postJson(
+      app,
+      "/codes",
+      { name: "Gran" },
+      asOwner(owner),
+    );
+    const { id, code } = (await minted.json()) as CodeAnswer;
+    const signIn = await postJson(app, "/login/code", { code });
+    const guest = {
+      cookie: `robkit_session=${sessionCookieOf(signIn)?.value ?? ""}`,
+    };
+
+    const answers = [
+      await app.request("/codes", { headers: guest }),
+      await postJson(app, "/codes", { name: "Eve" }, guest),
+      await postJson(app, `/codes/${id}/revoke`, {}, guest),
+    ];
+
+    expect(answers.map((res) => res.status)).toEqual([404, 404, 404]);
+    expect(await mintedCodes(app, owner)).toMatchObject([
+      { name: "Gran", standing: "live" },
+    ]);
+  });
+
   it("let admin call them with the owner's cookie", async () => {
     const { app } = await freshCore();
 
