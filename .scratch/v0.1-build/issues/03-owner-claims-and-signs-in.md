@@ -33,5 +33,6 @@ Notes from the build, for ticket 04 onwards:
 - **POST rules.** Every POST needs `content-type: application/json` (otherwise 415) and a body of at most 16 KiB (otherwise 413).
 - **Tests.** Each core test gets a fresh database (`packages/core/src/test/fresh-database.ts`) and a clock it can move (`fresh-app.ts`).
 - **drizzle-kit.** It's set up in `packages/core` with `pnpm db:generate`. `schema.ts` doesn't export the `core` schema object, so drizzle-kit never emits `CREATE SCHEMA`, which core's role can't run.
-- **Lint.** `tooling/eslint/layers.js` now fails a `pgTable` import in `packages/core`, so core's tables stay in the core schema.
+- **Lint.** `robkit/layer` (`tooling/eslint/layers.js`) checks static, dynamic and relative imports, judging a relative import by the folder it resolves into. `robkit/core-schema` allows only `pgSchema("core")` and no `pgTable` in `packages/core`.
+- **Core listens on 127.0.0.1** unless `HOST` is set, because its sign-in limit trusts `X-Forwarded-For` and only the proxy may set it. Ticket 11's container must set `HOST=0.0.0.0` and keep core's port off the public network.
 - **Safari.** Local dev in Safari doesn't work, because WebKit doesn't send the cookie on the hub's fetch to core. This was tested in Playwright's WebKit, not in Safari itself.
