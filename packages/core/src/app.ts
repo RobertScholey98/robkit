@@ -5,6 +5,7 @@ import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { sessionCookie } from "@robkit/session";
 import type { Database } from "./database.ts";
+import { isLocal } from "./domain.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import {
   claimInstall,
@@ -42,14 +43,6 @@ function appUrl(next: string | undefined, domain: string): string | undefined {
   const url = new URL(next);
   const web = url.protocol === "https:" || url.protocol === "http:";
   return web && url.hostname.endsWith(`.${domain}`) ? url.href : undefined;
-}
-
-/**
- * Browsers treat `*.localhost` as a secure context, but WebKit drops Secure
- * cookies over plain http, so local domains go without.
- */
-function isLocal(domain: string): boolean {
-  return domain === "localhost" || domain.endsWith(".localhost");
 }
 
 function isJson(contentType: string | undefined): boolean {
@@ -147,6 +140,8 @@ export function createApp({
       domain,
       sameSite: "Lax",
       maxAge,
+      // Browsers treat *.localhost as a secure context, but WebKit drops
+      // Secure cookies over plain http, so local domains go without.
       secure: !isLocal(domain),
     });
   };
