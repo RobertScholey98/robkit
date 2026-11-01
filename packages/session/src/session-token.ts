@@ -26,6 +26,18 @@ export interface ReadSessionToken extends SessionTokenClaims {
 /** Core's public key, or a key set that finds it by the token's `kid`. */
 export type VerifyKey = CryptoKey | JWTVerifyGetKey;
 
+/** jose's codes for a token that is bad, as opposed to keys that can't load. */
+const badToken = new Set([
+  "ERR_JWS_INVALID",
+  "ERR_JWT_INVALID",
+  "ERR_JWS_SIGNATURE_VERIFICATION_FAILED",
+  "ERR_JWT_CLAIM_VALIDATION_FAILED",
+  "ERR_JWKS_NO_MATCHING_KEY",
+  "ERR_JWKS_MULTIPLE_MATCHING_KEYS",
+  "ERR_JOSE_ALG_NOT_ALLOWED",
+  "ERR_JOSE_NOT_SUPPORTED",
+]);
+
 function claimsIn(payload: JWTPayload): SessionTokenClaims | undefined {
   const { sub, sid, kind } = payload;
   return typeof sub === "string" && typeof sid === "string" && kind === "owner"
@@ -36,6 +48,8 @@ function claimsIn(payload: JWTPayload): SessionTokenClaims | undefined {
 /**
  * Checks a session token's signature and reads its claims, even once it has
  * expired: core holds the session itself, so it can renew an expired token.
+ * A bad token reads as undefined. Failing to load the keys throws, so a
+ * caller can tell "not signed in" from "can't check".
  */
 export async function readSessionToken(
   key: VerifyKey,
@@ -51,9 +65,12 @@ export async function readSessionToken(
     const claims = claimsIn(payload);
     return claims && { ...claims, expired: false };
   } catch (error) {
+    if (error instanceof errors.JOSEError && badToken.has(error.code)) {
+      return undefined;
+    }
     // jose checks the signature before the expiry, so an expired token's
     // payload is still one core signed.
-    if (!(error instanceof errors.JWTExpired)) return undefined;
+    if (!(error instanceof errors.JWTExpired)) throw error;
     const claims = claimsIn(error.payload);
     return claims && { ...claims, expired: true };
   }

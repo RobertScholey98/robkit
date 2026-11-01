@@ -2,7 +2,7 @@ import { once } from "node:events";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { coreKeys, readSessionToken } from "./index.ts";
 
 const now = new Date("2026-11-01T12:00:00Z");
@@ -24,9 +24,10 @@ async function fakeCore() {
   });
   const jwk = { ...(await exportJWK(publicKey)), kid: "key-1", alg: "EdDSA" };
   const hosts: string[] = [];
+  const answer = { status: 200 };
   const server = createServer((req, res) => {
     hosts.push(`${String(req.headers.host)} ${String(req.url)}`);
-    res.writeHead(200, { "content-type": "application/json" });
+    res.writeHead(answer.status, { "content-type": "application/json" });
     res.end(JSON.stringify({ keys: [jwk] }));
   });
   servers.push(server);
@@ -34,13 +35,14 @@ async function fakeCore() {
   await once(server, "listening");
   const { port } = server.address() as AddressInfo;
   const iat = Math.floor(now.getTime() / 1000);
-  const token = await new SignJWT({ sid: "session-1", kind: "owner" })
-    .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
-    .setSubject("owner-1")
-    .setIssuedAt(iat)
-    .setExpirationTime(iat + 900)
-    .sign(privateKey);
-  return { port, hosts, token };
+  const sign = (kid: string) =>
+    new SignJWT({ sid: "session-1", kind: "owner" })
+      .setProtectedHeader({ alg: "EdDSA", kid })
+      .setSubject("owner-1")
+      .setIssuedAt(iat)
+      .setExpirationTime(iat + 900)
+      .sign(privateKey);
+  return { port, hosts, answer, token: await sign("key-1"), sign };
 }
 
 describe("coreKeys", () => {
@@ -71,5 +73,42 @@ describe("coreKeys", () => {
 
     expect(reads).toEqual(["owner-1", "owner-1", "owner-1"]);
     expect(hosts).toHaveLength(1);
+  });
+
+  it("throws when core's keys can't be fetched, rather than reading a bad token", async () => {
+    const { port, answer, token } = await fakeCore();
+    answer.status = 503;
+    const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
+
+    await expect(readSessionToken(keys, token, now)).rejects.toThrow(
+      "Expected 200 OK from the JSON Web Key Set HTTP response",
+    );
+  });
+
+  it("reads a token whose key core doesn't have as no token", async () => {
+    const { port, token, sign } = await fakeCore();
+    const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
+
+    const known = await readSessionToken(keys, token, now);
+    const unknown = await readSessionToken(keys, await sign("key-2"), now);
+
+    expect(known?.ownerId).toBe("owner-1");
+    expect(unknown).toBeUndefined();
+  });
+
+  it("keeps using a cached key while core can't answer", async () => {
+    const { port, answer, token } = await fakeCore();
+    const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
+    await readSessionToken(keys, token, now);
+    answer.status = 503;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 60 * 60_000);
+    try {
+      expect((await readSessionToken(keys, token, now))?.ownerId).toBe(
+        "owner-1",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

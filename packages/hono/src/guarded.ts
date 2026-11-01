@@ -98,7 +98,15 @@ export function guarded({
   };
 
   return async (c, next) => {
-    const decision: Decision = guard(access, await sessionOf(c));
+    let session: SessionState;
+    try {
+      session = await sessionOf(c);
+    } catch {
+      // Not knowing who is asking isn't the same as nobody asking, so the
+      // browser isn't sent to log in.
+      return c.text("Can't reach core to check your session.", 503);
+    }
+    const decision: Decision = guard(access, session);
     switch (decision.outcome) {
       case "allow":
         c.set("viewer", decision.viewer);

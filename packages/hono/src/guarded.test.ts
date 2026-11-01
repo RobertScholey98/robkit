@@ -7,7 +7,7 @@ import {
 } from "@robkit/guard/conformance";
 import { Hono } from "hono";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { guarded, type GuardedEnv, type GuardedOptions } from "./index.ts";
 
 const page = "http://example.robkit.localhost:3000/notes?x=1";
@@ -162,15 +162,20 @@ describe("guarded, with core's keys", () => {
   async function jwksServer(key: CryptoKey) {
     const jwk = { ...(await exportJWK(key)), kid: "key-1", alg: "EdDSA" };
     const fetched: string[] = [];
+    const answer = { status: 200 };
     const server = createServer((req, res) => {
       fetched.push(`${String(req.headers.host)} ${String(req.url)}`);
-      res.writeHead(200, { "content-type": "application/json" });
+      res.writeHead(answer.status, { "content-type": "application/json" });
       res.end(JSON.stringify({ keys: [jwk] }));
     });
     servers.push(server);
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
-    return { port: String((server.address() as AddressInfo).port), fetched };
+    return {
+      port: String((server.address() as AddressInfo).port),
+      fetched,
+      answer,
+    };
   }
 
   function appBehind(core: string) {
@@ -225,6 +230,41 @@ describe("guarded, with core's keys", () => {
     expect(core.fetched).toEqual([
       `core.robkit.localhost:${core.port} /.well-known/jwks.json`,
     ]);
+  });
+
+  it("answers 503 when it can't fetch core's key, not a login redirect", async () => {
+    const core = await jwksServer(publicKey);
+    core.answer.status = 503;
+    const app = appBehind(`http://core.robkit.localhost:${core.port}`);
+
+    const res = await app.request("http://example.robkit.localhost:3000/", {
+      headers: { ...navigate, cookie: `robkit_session=${await token()}` },
+    });
+
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe("Can't reach core to check your session.");
+  });
+
+  it("keeps letting the owner in on a cached key once core stops answering", async () => {
+    const core = await jwksServer(publicKey);
+    const app = appBehind(`http://core.robkit.localhost:${core.port}`);
+    const open = async () =>
+      app.request("http://example.robkit.localhost:3000/", {
+        headers: { ...navigate, cookie: `robkit_session=${await token()}` },
+      });
+    const first = await open();
+    core.answer.status = 503;
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.now() + 60 * 60_000);
+    try {
+      const later = await open();
+
+      expect([first.status, later.status]).toEqual([200, 200]);
+      expect(await later.json()).toEqual({ kind: "owner", id: "owner-1" });
+      expect(core.fetched).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("refuses a core origin that isn't core.<domain>", () => {
