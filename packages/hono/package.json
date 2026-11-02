@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
+    "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "eslint": "catalog:",

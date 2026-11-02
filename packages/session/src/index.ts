@@ -8,3 +8,9 @@ export {
 } from "./session-token.ts";
 export { coreAccess, type CoreAccessOptions } from "./core-access.ts";
 export { coreKeys } from "./core-keys.ts";
+export {
+  requestGuard,
+  type GuardedOptions,
+  type GuardedRule,
+  type RequestDecision,
+} from "./request-guard.ts";

@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { guestJourney } from "./guest-journey.ts";
 import { ownerJourney } from "./owner-journey.ts";
 import { roleJourney } from "./role-journey.ts";
+import { serverFunctionJourney } from "./server-function-journey.ts";
 
 const run = promisify(execFile);
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -65,11 +66,14 @@ function get(
   return send(host, path, { headers });
 }
 
-async function eventually(attempt: () => Promise<Reply>): Promise<Reply> {
+async function eventually(
+  attempt: () => Promise<Reply>,
+  status = 200,
+): Promise<Reply> {
   const deadline = Date.now() + 120_000;
   for (;;) {
     const reply = await attempt().catch(() => undefined);
-    if (reply?.status === 200) return reply;
+    if (reply?.status === status) return reply;
     if (Date.now() > deadline) {
       throw new Error(`the stack never came up:\n${output}`);
     }
@@ -172,31 +176,69 @@ describe("pnpm dev", () => {
     });
   });
 
-  it("guards the example app: login, return and refresh bounce", async () => {
+  // example is the Hono app, and start the TanStack Start one.
+  it.each(["example", "start"])(
+    "guards the %s app: login, return and refresh bounce",
+    async (app) => {
+      const at = (slug: string, path = "/") =>
+        `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
+      const example = at(app);
+      // pnpm dev waits for no app. Until the guard answers a signed-out
+      // fetch with 401, the proxy may still be answering 502.
+      await eventually(
+        () => get(`${app}.robkit.localhost:${String(devPort)}`),
+        401,
+      );
+
+      const journey = await ownerJourney(
+        {
+          devPort,
+          adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
+          username: "rob",
+          password: "correct horse battery",
+        },
+        app,
+      );
+
+      expect(journey).toEqual({
+        signedOutAt: at("hub", `/?next=${encodeURIComponent(example)}`),
+        signedInAt: example,
+        heading: "Signed in as the owner",
+        viewerId: journey.ownerId,
+        ownerId: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
+        bounce: [
+          example,
+          at("core", `/refresh?next=${encodeURIComponent(example)}`),
+          example,
+        ],
+        bouncedTo: example,
+        bouncedViewerId: journey.ownerId,
+      });
+    },
+  );
+
+  it("sends a server function call with an expired session through core's refresh", async () => {
     const at = (slug: string, path = "/") =>
       `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
-    const example = at("example");
+    const example = at("start");
 
-    const journey = await ownerJourney({
+    const journey = await serverFunctionJourney({
       devPort,
       adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
       username: "rob",
       password: "correct horse battery",
     });
 
+    const [first] = journey.visits;
     expect(journey).toEqual({
-      signedOutAt: at("hub", `/?next=${encodeURIComponent(example)}`),
-      signedInAt: example,
-      heading: "Signed in as the owner",
-      viewerId: journey.ownerId,
-      ownerId: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
+      visits: [first, first + 1],
       bounce: [
-        example,
         at("core", `/refresh?next=${encodeURIComponent(example)}`),
         example,
       ],
       bouncedTo: example,
-      bouncedViewerId: journey.ownerId,
+      // The expired call recorded nothing. The page load after it did.
+      visitsAfterBounce: first + 2,
     });
   });
 
@@ -222,6 +264,7 @@ describe("pnpm dev", () => {
       introGreeting: "Signed in as Grandma",
       admin: notFound,
       example: notFound,
+      startExample: notFound,
       testCodeGreeting: "Signed in as Test",
       revokedStanding: "Revoked",
       bounce: [
@@ -255,11 +298,12 @@ describe("pnpm dev", () => {
       expect(journey).toEqual({
         createdWith: "Alex, Sam",
         editedTo: "Sam",
-        launcherGatedToFamily: ["example"],
+        launcherGatedToFamily: ["example", "start"],
         openedAt: at("example"),
         heading: "Signed in as a guest",
         launcherGatedToFriends: [],
         example: { status: 404, body: "Not found" },
+        start: [200, { status: 404, body: "Not found" }],
       });
     },
   );

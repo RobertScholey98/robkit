@@ -2,11 +2,14 @@ import { once } from "node:events";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import {
-  conformanceCases,
-  type ConformanceCase,
-} from "@robkit/guard/conformance";
+  guest,
+  owner,
+  signingKey,
+  type SigningKey,
+} from "@internal/test-session";
+import { conformanceCases } from "@robkit/guard/conformance";
 import { Hono } from "hono";
-import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
+import { exportJWK, type CryptoKey } from "jose";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { guarded, type GuardedEnv, type GuardedOptions } from "./index.ts";
 
@@ -15,41 +18,11 @@ const next = encodeURIComponent(page);
 const navigate = { "sec-fetch-mode": "navigate" };
 const minute = 60;
 
-let privateKey: CryptoKey;
-let publicKey: CryptoKey;
+let key: SigningKey;
 
 beforeAll(async () => {
-  ({ privateKey, publicKey } = await generateKeyPair("EdDSA", {
-    crv: "Ed25519",
-    extractable: true,
-  }));
+  key = await signingKey();
 });
-
-const owner = { kind: "owner", id: "owner-1" } as const;
-type Holder =
-  typeof owner | { kind: "guest"; id: string; roles: readonly string[] };
-
-const guest = (roles: readonly string[] = []): Holder => ({
-  kind: "guest",
-  id: "code-1",
-  roles,
-});
-
-/** A session token shaped like core's, issued `ageSeconds` ago. */
-function token(
-  ageSeconds = 0,
-  key = privateKey,
-  holder: Holder = owner,
-): Promise<string> {
-  const iat = Math.floor(Date.now() / 1000) - ageSeconds;
-  const roles = holder.kind === "guest" ? { roles: holder.roles } : {};
-  return new SignJWT({ sid: "session-1", kind: holder.kind, ...roles })
-    .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
-    .setSubject(holder.id)
-    .setIssuedAt(iat)
-    .setExpirationTime(iat + 15 * minute)
-    .sign(key);
-}
 
 function exampleApp(options: Partial<GuardedOptions> = {}) {
   return new Hono<GuardedEnv>()
@@ -57,22 +30,11 @@ function exampleApp(options: Partial<GuardedOptions> = {}) {
       guarded({
         access: { kind: "owner" },
         core: "http://core.robkit.localhost:3000",
-        keys: publicKey,
+        keys: key.publicKey,
         ...options,
       }),
     )
     .get("*", (c) => c.json(c.var.viewer));
-}
-
-async function cookieFor({ session, guestRoles }: ConformanceCase) {
-  const tokens = {
-    "signed-out": undefined,
-    expired: await token(20 * minute),
-    owner: await token(),
-    guest: await token(0, privateKey, guest(guestRoles)),
-  };
-  const value = tokens[session];
-  return value === undefined ? {} : { cookie: `robkit_session=${value}` };
 }
 
 describe("guarded", () => {
@@ -81,7 +43,7 @@ describe("guarded", () => {
     const app = exampleApp({ access: rule });
 
     const res = await app.request(page, {
-      headers: { ...navigate, ...(await cookieFor(asking)) },
+      headers: { ...navigate, ...(await key.cookieFor(asking)) },
     });
 
     const expected = {
@@ -115,12 +77,12 @@ describe("guarded", () => {
   });
 
   it("treats a token core didn't sign as no token", async () => {
-    const forger = await generateKeyPair("EdDSA", { crv: "Ed25519" });
+    const forger = await signingKey();
 
     const res = await exampleApp().request(page, {
       headers: {
         ...navigate,
-        cookie: `robkit_session=${await token(0, forger.privateKey)}`,
+        cookie: `robkit_session=${await forger.token()}`,
       },
     });
 
@@ -149,7 +111,7 @@ describe("guarded", () => {
     });
     const expired = await app.request(page, {
       method: "POST",
-      headers: { cookie: `robkit_session=${await token(20 * minute)}` },
+      headers: { cookie: `robkit_session=${await key.token(20 * minute)}` },
     });
 
     expect(loggedOut.status).toBe(401);
@@ -162,6 +124,23 @@ describe("guarded", () => {
       error: "Your session needs refreshing.",
       location: `http://core.robkit.localhost:3000/refresh?next=${next}`,
     });
+  });
+
+  it("marks its 401 so the page can tell it from the app's own", async () => {
+    const app = exampleApp();
+
+    const loggedOut = await app.request(page, {
+      headers: { "sec-fetch-mode": "cors" },
+    });
+    const expired = await app.request(page, {
+      method: "POST",
+      headers: { cookie: `robkit_session=${await key.token(20 * minute)}` },
+    });
+
+    expect([
+      loggedOut.headers.get("robkit-session"),
+      expired.headers.get("robkit-session"),
+    ]).toEqual(["login", "refresh"]);
   });
 });
 
@@ -229,13 +208,13 @@ describe("guarded, with core's keys", () => {
   }
 
   it("fetches core's key once, not on every request", async () => {
-    const core = await jwksServer(publicKey);
+    const core = await jwksServer(key.publicKey);
     const app = appBehind(`http://core.robkit.localhost:${core.port}`);
 
     const viewers = [];
     for (let i = 0; i < 3; i++) {
       const res = await app.request("http://example.robkit.localhost:3000/", {
-        headers: { ...navigate, cookie: `robkit_session=${await token()}` },
+        headers: { ...navigate, cookie: `robkit_session=${await key.token()}` },
       });
       viewers.push(await res.json());
     }
@@ -251,8 +230,8 @@ describe("guarded, with core's keys", () => {
   });
 
   it("checks tokens against the configured core, whatever port the Host names", async () => {
-    const core = await jwksServer(publicKey);
-    const forger = await generateKeyPair("EdDSA", { crv: "Ed25519" });
+    const core = await jwksServer(key.publicKey);
+    const forger = await signingKey();
     const attacker = await jwksServer(forger.publicKey);
     const app = appBehind(`http://core.robkit.localhost:${core.port}`);
 
@@ -261,7 +240,7 @@ describe("guarded, with core's keys", () => {
       {
         headers: {
           ...navigate,
-          cookie: `robkit_session=${await token(0, forger.privateKey)}`,
+          cookie: `robkit_session=${await forger.token()}`,
         },
       },
     );
@@ -277,12 +256,12 @@ describe("guarded, with core's keys", () => {
   });
 
   it("answers 503 when it can't fetch core's key, not a login redirect", async () => {
-    const core = await jwksServer(publicKey);
+    const core = await jwksServer(key.publicKey);
     core.answer.status = 503;
     const app = appBehind(`http://core.robkit.localhost:${core.port}`);
 
     const res = await app.request("http://example.robkit.localhost:3000/", {
-      headers: { ...navigate, cookie: `robkit_session=${await token()}` },
+      headers: { ...navigate, cookie: `robkit_session=${await key.token()}` },
     });
 
     expect(res.status).toBe(503);
@@ -290,11 +269,11 @@ describe("guarded, with core's keys", () => {
   });
 
   it("keeps letting the owner in on a cached key once core stops answering", async () => {
-    const core = await jwksServer(publicKey);
+    const core = await jwksServer(key.publicKey);
     const app = appBehind(`http://core.robkit.localhost:${core.port}`);
     const open = async () =>
       app.request("http://example.robkit.localhost:3000/", {
-        headers: { ...navigate, cookie: `robkit_session=${await token()}` },
+        headers: { ...navigate, cookie: `robkit_session=${await key.token()}` },
       });
     const first = await open();
     core.answer.status = 503;
@@ -350,7 +329,7 @@ describe("guarded, with its rule in core", () => {
 
   function appBehind(core: string) {
     return new Hono<GuardedEnv>()
-      .use(guarded({ app: "example", core, keys: publicKey }))
+      .use(guarded({ app: "example", core, keys: key.publicKey }))
       .get("*", (c) => c.json(c.var.viewer));
   }
 
@@ -358,7 +337,7 @@ describe("guarded, with its rule in core", () => {
     return app.request(page, {
       headers: {
         ...navigate,
-        cookie: `robkit_session=${await token(0, privateKey, guest(roles))}`,
+        cookie: `robkit_session=${await key.token(0, guest(roles))}`,
       },
     });
   }

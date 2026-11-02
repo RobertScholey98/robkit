@@ -1,0 +1,41 @@
+{
+  "name": "@robkit/start",
+  "version": "0.0.0",
+  "description": "robkit's TanStack Start adapter: runs the guard and hands server functions the viewer.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "!src/**/*.test.ts"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@robkit/guard": "workspace:*",
+    "@robkit/session": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tanstack/react-start": "^1.169.4"
+  },
+  "devDependencies": {
+    "@internal/eslint-config": "workspace:*",
+    "@internal/test-session": "workspace:*",
+    "@internal/tsconfig": "workspace:*",
+    "@tanstack/react-start": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

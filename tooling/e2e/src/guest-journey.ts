@@ -19,9 +19,10 @@ export interface GuestJourney {
   /** Where opening the intro link landed, and what the hub said there. */
   introLandedAt: string;
   introGreeting: string | null;
-  /** How admin and the owner-only example answered that guest. */
+  /** How admin and the owner-only examples, on Hono and Start, answered that guest. */
   admin: Answer;
   example: Answer;
+  startExample: Answer;
   /** What the hub said to a guest who typed the test code. */
   testCodeGreeting: string | null;
   /** The code's standing in admin once the owner revoked it. */
@@ -80,6 +81,7 @@ export async function guestJourney({
     const introLandedAt = guest.url();
     const admin = await openAs(guest, at("admin"));
     const example = await openAs(guest, at("example"));
+    const startExample = await openAs(guest, at("start"));
 
     const tester = await freshPage(browser);
     await tester.goto(at("hub"));
@@ -109,6 +111,7 @@ export async function guestJourney({
       introGreeting,
       admin,
       example,
+      startExample,
       testCodeGreeting,
       revokedStanding,
       bounce,
