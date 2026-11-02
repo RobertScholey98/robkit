@@ -144,6 +144,7 @@ describe("robkit-dev", () => {
       slug: "alpha",
       domain: "robkit.localhost",
       core: `http://core.robkit.localhost:${String(dev.port)}`,
+      app: "alpha",
       apps: "alpha,beta",
       database: true,
     });
@@ -151,6 +152,7 @@ describe("robkit-dev", () => {
       slug: "beta",
       domain: "robkit.localhost",
       core: `http://core.robkit.localhost:${String(dev.port)}`,
+      app: "beta",
       apps: "alpha,beta",
       database: false,
     });

@@ -118,6 +118,7 @@ export async function runDev(
       cwd: app.dir,
       env: {
         ...appEnv,
+        ROBKIT_APP: app.slug,
         PORT: String(app.port),
         ...(databaseUrl && { DATABASE_URL: databaseUrl }),
       },
