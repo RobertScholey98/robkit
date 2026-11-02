@@ -135,6 +135,11 @@ export async function mintCode(
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Whether `id` could be a row id; Postgres errors on anything else. */
+export function isUuid(id: string): boolean {
+  return uuid.test(id);
+}
+
 /**
  * Revokes a code, keeping the time it was first revoked. Answers whether
  * the code exists.
@@ -144,7 +149,7 @@ export async function revokeCode(
   id: string,
   now: Date,
 ): Promise<boolean> {
-  if (!uuid.test(id)) return false;
+  if (!isUuid(id)) return false;
   const [row] = await db
     .update(accessCodes)
     .set({
