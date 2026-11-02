@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "description": "Writes a robkit install: core, the hub, admin, one Postgres and an example app.",
   "type": "module",
+  "bin": {
+    "create-robkit": "./src/bin.ts"
+  },
   "exports": {
     ".": "./src/index.ts"
   },

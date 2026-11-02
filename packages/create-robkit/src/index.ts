@@ -1,7 +1,9 @@
 export {
+  choicesFromFlags,
   defaultChoices,
   generators,
   type Choices,
+  type Flags,
   type Generator,
 } from "./choices.ts";
 export {
