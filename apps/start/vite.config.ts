@@ -3,9 +3,10 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 const domain = process.env.ROBKIT_DOMAIN;
+const slug = process.env.ROBKIT_APP;
 
-// robkit-dev assigns PORT and serves the app on start.<domain>
-// through its proxy. src/server.ts puts robkit's guard in front of Start.
+// robkit-dev assigns PORT and serves the app on <slug>.<domain> through its
+// proxy. src/server.ts puts robkit's guard in front of Start.
 export default defineConfig(({ command }) => {
   // Start loads the server entry on the first request, so check its config now.
   if (command === "serve" && !process.env.ROBKIT_CORE_URL) {
@@ -21,7 +22,7 @@ export default defineConfig(({ command }) => {
         port: Number(process.env.PORT),
         strictPort: true,
       }),
-      ...(domain && { allowedHosts: [`start.${domain}`] }),
+      ...(domain && slug && { allowedHosts: [`${slug}.${domain}`] }),
     },
   };
 });
