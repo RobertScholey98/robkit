@@ -5,16 +5,13 @@ import {
   freshCore,
   postJson,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 interface RoleAnswer {
   id: string;
   name: string;
   codeIds: string[];
-}
-
-function withSession(sessionToken: string) {
-  return { cookie: `robkit_session=${sessionToken}` };
 }
 
 async function mint(app: Hono, owner: string, name: string): Promise<string> {

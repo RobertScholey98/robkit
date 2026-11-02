@@ -5,12 +5,10 @@ import {
   claim,
   freshCore,
   postJson,
+  roleIdsByName,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
-
-function withSession(sessionToken: string) {
-  return { cookie: `robkit_session=${sessionToken}` };
-}
 
 async function accessOf(app: Hono, slug: string) {
   const res = await app.request(`/apps/${slug}/access`);
@@ -19,14 +17,6 @@ async function accessOf(app: Hono, slug: string) {
 
 function setAccess(app: Hono, owner: string, slug: string, access: unknown) {
   return postJson(app, `/apps/${slug}/access`, access, withSession(owner));
-}
-
-async function roleIds(app: Hono, owner: string) {
-  const res = await app.request("/roles", { headers: withSession(owner) });
-  const { roles } = (await res.json()) as {
-    roles: { id: string; name: string }[];
-  };
-  return Object.fromEntries(roles.map((role) => [role.name, role.id]));
 }
 
 describe("registerApps", () => {
@@ -82,7 +72,7 @@ describe("POST /apps/:slug/access", () => {
     const { app, db } = await freshCore();
     const owner = await claim(app);
     await registerApps(db, ["example"]);
-    const { Family, Friends } = await roleIds(app, owner);
+    const { Family, Friends } = await roleIdsByName(app, owner);
 
     const gated = await setAccess(app, owner, "example", {
       kind: "roles",

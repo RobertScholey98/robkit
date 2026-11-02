@@ -5,14 +5,12 @@ import {
   claim,
   freshCore,
   postJson,
+  roleIdsByName,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
-
-function withSession(sessionToken: string) {
-  return { cookie: `robkit_session=${sessionToken}` };
-}
 
 async function launcher(app: Hono, sessionToken?: string) {
   const res = await app.request("/launcher", {
@@ -31,12 +29,8 @@ async function install() {
   const { app, db } = core;
   const owner = await claim(app);
   await registerApps(db, ["family", "friends", "open", "private"]);
-  const res = await app.request("/roles", { headers: withSession(owner) });
-  const { roles } = (await res.json()) as {
-    roles: { id: string; name: string }[];
-  };
-  const roleId = (name: string) =>
-    roles.find((role) => role.name === name)?.id ?? "";
+  const ids = await roleIdsByName(app, owner);
+  const roleId = (name: string) => ids[name] ?? "";
   const gate = (slug: string, access: unknown) =>
     postJson(app, `/apps/${slug}/access`, access, withSession(owner));
   await gate("family", { kind: "roles", roles: [roleId("Family")] });

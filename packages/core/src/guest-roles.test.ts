@@ -5,22 +5,12 @@ import {
   claim,
   freshCore,
   postJson,
+  roleIdsByName,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
-
-function withSession(sessionToken: string) {
-  return { cookie: `robkit_session=${sessionToken}` };
-}
-
-async function rolesByName(app: Hono, owner: string) {
-  const res = await app.request("/roles", { headers: withSession(owner) });
-  const { roles } = (await res.json()) as {
-    roles: { id: string; name: string }[];
-  };
-  return Object.fromEntries(roles.map((role) => [role.name, role.id]));
-}
 
 async function signIn(app: Hono, code: string): Promise<string> {
   const res = await postJson(app, "/login/code", { code });
@@ -56,7 +46,7 @@ describe("a guest's session token", () => {
       withSession(owner),
     );
     const { id, code } = (await minted.json()) as { id: string; code: string };
-    const { Family, Friends } = await rolesByName(app, owner);
+    const { Family, Friends } = await roleIdsByName(app, owner);
     for (const role of [Family, Friends]) {
       await postJson(
         app,
@@ -80,7 +70,7 @@ describe("a guest's session token", () => {
     );
     const { id, code } = (await minted.json()) as { id: string; code: string };
     const guest = await signIn(app, code);
-    const { Friends } = await rolesByName(app, owner);
+    const { Friends } = await roleIdsByName(app, owner);
 
     await postJson(
       app,
@@ -105,7 +95,7 @@ describe("a guest's session token", () => {
     );
     const { id, code } = (await minted.json()) as { id: string; code: string };
     const guest = await signIn(app, code);
-    const { Family } = await rolesByName(app, owner);
+    const { Family } = await roleIdsByName(app, owner);
     const sameRoles = await app.request("/launcher", {
       headers: withSession(guest),
     });
@@ -137,7 +127,7 @@ describe("a guest's session token", () => {
       withSession(owner),
     );
     const bookClub = ((await created.json()) as { id: string }).id;
-    const { Family, Friends } = await rolesByName(app, owner);
+    const { Family, Friends } = await roleIdsByName(app, owner);
 
     expect(rolesIn(guest)).toEqual([Family, Friends]);
     expect(rolesIn(await refreshed(app, guest, "robkit.localhost"))).toEqual([
