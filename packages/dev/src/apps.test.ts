@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { discoverApps, routesFor } from "./apps.ts";
+import { catalogOf, discoverApps, routesFor } from "./apps.ts";
 
 async function installWith(
   apps: Record<string, Record<string, string> | null>,
@@ -80,5 +80,20 @@ describe("routesFor", () => {
       { host: "core.robkit.test", app: "core", port: 3001 },
       { host: "hub.robkit.test", app: "hub", port: 3002 },
     ]);
+  });
+});
+
+describe("catalogOf", () => {
+  it("lists the owner's apps for core's catalog, leaving out the platform apps", () => {
+    const app = (slug: string) => ({
+      slug,
+      dir: `/x/apps/${slug}`,
+      port: 3001,
+      migrates: false,
+    });
+
+    expect(
+      catalogOf(["admin", "core", "example", "hub", "notes"].map(app)),
+    ).toBe("example,notes");
   });
 });

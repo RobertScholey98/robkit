@@ -21,6 +21,7 @@ createServer((_req, res) => {
       slug,
       domain: process.env.ROBKIT_DOMAIN,
       core: process.env.ROBKIT_CORE_URL,
+      apps: process.env.ROBKIT_APPS,
       database: databaseUrl !== undefined,
     }),
   );

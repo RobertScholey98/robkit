@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
-import { discoverApps, routesFor, type App } from "./apps.ts";
+import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { createProxy } from "./proxy.ts";
 import { provisionDatabase } from "./provision.ts";
 
@@ -90,6 +90,7 @@ export async function runDev(
     ...env,
     ROBKIT_DOMAIN: domain,
     ROBKIT_CORE_URL: `http://core.${domain}:${String(devPort)}`,
+    ROBKIT_APPS: catalogOf(apps),
   };
   delete appEnv.ROBKIT_DATABASE_URL;
   delete appEnv.DATABASE_URL;
