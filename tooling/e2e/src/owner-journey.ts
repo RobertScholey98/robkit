@@ -41,12 +41,14 @@ export async function expiredTwin(
     select kid, private_jwk from core.signing_keys
   `.finally(() => sql.end());
   if (!key) throw new Error("core has no signing key");
-  const { sub, sid, kind } = decodeJwt(token);
+  const claims = decodeJwt(token);
+  const { sub, sid } = claims;
   if (typeof sub !== "string" || typeof sid !== "string") {
     throw new Error("the session cookie has no owner or session");
   }
   const iat = Math.floor(Date.now() / 1000) - 20 * 60;
-  return new SignJWT({ sid, kind })
+  // Every claim, so a guest's twin keeps their roles. The times are reset.
+  return new SignJWT(claims)
     .setProtectedHeader({ alg: "EdDSA", kid: key.kid })
     .setSubject(sub)
     .setIssuedAt(iat)

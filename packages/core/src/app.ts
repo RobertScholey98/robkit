@@ -3,6 +3,7 @@ import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
+import { readAccessRule, type AccessRule } from "@robkit/guard";
 import { sessionCookie } from "@robkit/session";
 import {
   listCodes,
@@ -14,7 +15,9 @@ import {
 } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
+import { accessOf, launcherApps, listApps, setAccess } from "./apps.ts";
 import { createRateLimiter } from "./rate-limit.ts";
+import { createRole, listRoles, setRoleCodes, type NewRole } from "./roles.ts";
 import {
   claimInstall,
   readSession,
@@ -119,6 +122,53 @@ async function newCodeFrom(
     }
   }
   return code ? { name, code, expiresAt } : { name, expiresAt };
+}
+
+const unknownCode = "One of those codes doesn't exist.";
+
+/** The rule the owner sent for an app, or why it won't do. */
+async function accessFrom(c: Context): Promise<AccessRule | { error: string }> {
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  const rule = readAccessRule(fields);
+  if (rule && !(rule.kind === "roles" && rule.roles.length === 0)) return rule;
+  return fields.kind === "roles"
+    ? { error: "Pick at least one role." }
+    : { error: "Pick open, roles or owner." };
+}
+
+function readCodeIds(
+  fields: Record<string, unknown>,
+): { codeIds: string[] } | { error: string } {
+  const { codeIds } = fields;
+  if (
+    !Array.isArray(codeIds) ||
+    !codeIds.every((id): id is string => typeof id === "string")
+  ) {
+    return { error: "Send codeIds, a list of code ids." };
+  }
+  return { codeIds };
+}
+
+/** The codes the owner ticked for a role, or why they won't do. */
+async function codeIdsFrom(
+  c: Context,
+): Promise<{ codeIds: string[] } | { error: string }> {
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  return readCodeIds(fields);
+}
+
+/** The role's name and the codes the owner ticked, or why they won't do. */
+async function newRoleFrom(c: Context): Promise<NewRole | { error: string }> {
+  const fields = await fieldsOf(c);
+  if (!fields) return { error: "Send a valid JSON body." };
+  const name = typeof fields.name === "string" ? fields.name.trim() : "";
+  if (name.length < 1 || name.length > 40) {
+    return { error: "Give the role a name of 1 to 40 characters." };
+  }
+  const holders = readCodeIds(fields);
+  return "error" in holders ? holders : { name, ...holders };
 }
 
 /** Why a new owner's username or password won't do, if it won't. */
@@ -376,8 +426,9 @@ export function createApp({
     if (freshSessionToken) setSessionCookie(c, freshSessionToken);
     await next();
   };
-  app.use("/codes", ownerOnly);
-  app.use("/codes/*", ownerOnly);
+  for (const path of ["/codes", "/codes/*", "/roles", "/roles/*", "/apps"]) {
+    app.use(path, ownerOnly);
+  }
 
   app.get("/codes", async (c) =>
     c.json({ codes: await listCodes(db, now(), domain) }),
@@ -399,6 +450,67 @@ export function createApp({
       return c.json({ error: "Not found" }, 404);
     }
     return c.body(null, 204);
+  });
+
+  app.get("/launcher", async (c) => {
+    const { forGuard, freshSessionToken } = await readSession(
+      ctx,
+      getCookie(c, sessionCookie),
+    );
+    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
+    return c.json({ apps: await launcherApps(db, forGuard) });
+  });
+
+  // Each app's adapter reads its own rule here, with no cookie.
+  app.get("/apps/:slug/access", async (c) => {
+    const access = await accessOf(db, c.req.param("slug"));
+    return access ? c.json(access) : c.json({ error: "Not found" }, 404);
+  });
+
+  app.get("/apps", async (c) => c.json({ apps: await listApps(db) }));
+
+  app.post("/apps/:slug/access", ownerOnly, async (c) => {
+    const rule = await accessFrom(c);
+    if ("error" in rule) return c.json(rule, 400);
+    const change = await setAccess(db, c.req.param("slug"), rule);
+    switch (change.outcome) {
+      case "unknown-app":
+        return c.json({ error: "Not found" }, 404);
+      case "unknown-role":
+        return c.json({ error: "One of those roles doesn't exist." }, 400);
+      case "changed":
+        return c.json(change.access);
+    }
+  });
+
+  app.get("/roles", async (c) => c.json({ roles: await listRoles(db) }));
+
+  app.post("/roles", async (c) => {
+    const request = await newRoleFrom(c);
+    if ("error" in request) return c.json(request, 400);
+    const creation = await createRole(db, request, now());
+    switch (creation.outcome) {
+      case "unknown-code":
+        return c.json({ error: unknownCode }, 400);
+      case "taken":
+        return c.json({ error: "There's a role with that name." }, 409);
+      case "created":
+        return c.json(creation.role, 201);
+    }
+  });
+
+  app.post("/roles/:id/codes", async (c) => {
+    const request = await codeIdsFrom(c);
+    if ("error" in request) return c.json(request, 400);
+    const change = await setRoleCodes(db, c.req.param("id"), request.codeIds);
+    switch (change.outcome) {
+      case "unknown-role":
+        return c.json({ error: "Not found" }, 404);
+      case "unknown-code":
+        return c.json({ error: unknownCode }, 400);
+      case "changed":
+        return c.json(change.role);
+    }
   });
 
   return app;

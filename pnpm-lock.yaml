@@ -101,6 +101,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@robkit/guard':
+        specifier: workspace:*
+        version: link:../../packages/guard
       '@robkit/hono':
         specifier: workspace:*
         version: link:../../packages/hono
@@ -291,6 +294,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@robkit/guard':
+        specifier: workspace:*
+        version: link:../guard
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -429,6 +435,9 @@ importers:
 
   packages/session:
     dependencies:
+      '@robkit/guard':
+        specifier: workspace:*
+        version: link:../guard
       jose:
         specifier: 'catalog:'
         version: 6.2.13

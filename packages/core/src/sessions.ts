@@ -1,10 +1,12 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
+import type { SessionState, SignedInViewer } from "@robkit/guard";
 import { readSessionToken, type SessionTokenClaims } from "@robkit/session";
 import { standingOf, type AccessCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { dummyPasswordHash, hashPassword, verifyPassword } from "./password.ts";
 import { accessCodes, owner, sessions } from "./schema.ts";
 import { mintSessionToken } from "./session-token.ts";
+import { rolesOf } from "./roles.ts";
 import type { SigningKey } from "./signing-key.ts";
 
 /** A session lasts 30 days from sign-in. */
@@ -54,17 +56,45 @@ export type SignIn =
 
 export interface SessionRead {
   answer: SessionAnswer;
+  /** The same session as an app's guard sees it, roles included. */
+  forGuard: SessionState;
   /** A new session token for the cookie, when the old one had expired. */
   freshSessionToken?: string;
 }
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
+/** Who holds a session: the viewer, and a guest's roles, by id. */
+interface Holder {
+  viewer: Viewer;
+  roles: string[];
+}
+
+function guardViewerOf({ viewer, roles }: Holder): SignedInViewer {
+  return viewer.kind === "owner"
+    ? { kind: viewer.kind, id: viewer.id }
+    : { kind: viewer.kind, id: viewer.id, roles };
+}
+
+function sameRoles(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((role, i) => role === b[i]);
+}
+
+function claimsFor(
+  { viewer, roles }: Holder,
+  sessionId: string,
+): SessionTokenClaims {
+  return viewer.kind === "owner"
+    ? { kind: viewer.kind, id: viewer.id, sessionId }
+    : { kind: viewer.kind, id: viewer.id, sessionId, roles };
+}
+
 async function startSession(
   ctx: SessionContext,
   tx: Transaction,
-  viewer: Viewer,
+  holder: Holder,
 ): Promise<SignedIn> {
+  const { viewer } = holder;
   const now = ctx.now();
   const [session] = await tx
     .insert(sessions)
@@ -81,7 +111,7 @@ async function startSession(
     viewer,
     sessionToken: await mintSessionToken(
       await ctx.signingKey(),
-      { kind: viewer.kind, id: viewer.id, sessionId: session.id },
+      claimsFor(holder, session.id),
       now,
     ),
   };
@@ -116,7 +146,10 @@ export async function claimInstall(
       if (!created) throw new Error("Core couldn't store the owner.");
       return {
         outcome: "claimed",
-        ...(await startSession(ctx, tx, { kind: "owner", ...created })),
+        ...(await startSession(ctx, tx, {
+          viewer: { kind: "owner", ...created },
+          roles: [],
+        })),
       };
     });
   } catch (error) {
@@ -144,9 +177,8 @@ export async function signIn(
     outcome: "signed-in",
     ...(await ctx.db.transaction((tx) =>
       startSession(ctx, tx, {
-        kind: "owner",
-        id: found.id,
-        username: found.username,
+        viewer: { kind: "owner", id: found.id, username: found.username },
+        roles: [],
       }),
     )),
   };
@@ -173,22 +205,25 @@ export async function signInWithCode(
   }
   return {
     outcome: "signed-in",
-    ...(await ctx.db.transaction((tx) =>
-      startSession(ctx, tx, { kind: "guest", id: found.id, name: found.name }),
+    ...(await ctx.db.transaction(async (tx) =>
+      startSession(ctx, tx, {
+        viewer: { kind: "guest", id: found.id, name: found.name },
+        roles: await rolesOf(tx, found),
+      }),
     )),
   };
 }
 
 /**
- * Who holds the live session the claims name, if anyone. A guest's session
- * also needs their code to still work.
+ * Who holds the live session the claims name, if anyone, with their roles
+ * as they are now. A guest's session also needs their code to still work.
  */
 async function holderOf(
   ctx: SessionContext,
   claims: SessionTokenClaims,
   theOwner: { id: string; username: string },
   now: Date,
-): Promise<Viewer | undefined> {
+): Promise<Holder | undefined> {
   const live = and(
     eq(sessions.id, claims.sessionId),
     isNull(sessions.revokedAt),
@@ -203,9 +238,12 @@ async function holderOf(
         .where(and(live, eq(sessions.ownerId, theOwner.id)));
       return (
         session && {
-          kind: "owner",
-          id: theOwner.id,
-          username: theOwner.username,
+          viewer: {
+            kind: "owner",
+            id: theOwner.id,
+            username: theOwner.username,
+          },
+          roles: [],
         }
       );
     }
@@ -218,7 +256,10 @@ async function holderOf(
       if (!found || standingOf(found.code, now, ctx.domain) !== "live") {
         return undefined;
       }
-      return { kind: "guest", id: found.code.id, name: found.code.name };
+      return {
+        viewer: { kind: "guest", id: found.code.id, name: found.code.name },
+        roles: await rolesOf(ctx.db, found.code),
+      };
     }
   }
 }
@@ -226,31 +267,55 @@ async function holderOf(
 /**
  * Answers who the session token's holder is. The token's signature must be
  * core's, but its session row decides: a revoked or expired session signs the
- * holder out, and a live session renews an expired token. With `renew`, a
- * live session renews any token, expired or not.
+ * holder out, and a live session renews an expired token, or a guest's
+ * token whose roles have changed. With `renew`, a live session renews any
+ * token.
  */
 export async function readSession(
   ctx: SessionContext,
   sessionToken: string | undefined,
   { renew = false }: { renew?: boolean } = {},
 ): Promise<SessionRead> {
-  const signedOut: SessionRead = { answer: { state: "signed-out" } };
+  const signedOut: SessionRead = {
+    answer: { state: "signed-out" },
+    forGuard: { state: "signed-out" },
+  };
   const [found] = await ctx.db.select().from(owner);
-  if (!found) return { answer: { state: "unclaimed" } };
+  if (!found) {
+    return {
+      answer: { state: "unclaimed" },
+      forGuard: { state: "signed-out" },
+    };
+  }
   if (!sessionToken) return signedOut;
 
   const now = ctx.now();
   const key = await ctx.signingKey();
   const claims = await readSessionToken(key.publicKey, sessionToken, now);
   if (!claims) return signedOut;
-  const viewer = await holderOf(ctx, claims, found, now);
-  if (!viewer) return signedOut;
+  const holder = await holderOf(ctx, claims, found, now);
+  if (!holder) return signedOut;
 
-  const answer: SessionAnswer = { state: "signed-in", viewer };
-  if (!claims.expired && !renew) return { answer };
+  const answer: SessionAnswer = { state: "signed-in", viewer: holder.viewer };
+  const forGuard: SessionState = {
+    state: "signed-in",
+    viewer: guardViewerOf(holder),
+  };
+  // A guest whose roles changed gets a token with the new ones at once, so
+  // the apps they open agree with the launcher core lists for them.
+  const rolesChanged =
+    claims.kind === "guest" && !sameRoles(claims.roles, holder.roles);
+  if (!claims.expired && !renew && !rolesChanged) {
+    return { answer, forGuard };
+  }
   return {
     answer,
-    freshSessionToken: await mintSessionToken(key, claims, now),
+    forGuard,
+    freshSessionToken: await mintSessionToken(
+      key,
+      claimsFor(holder, claims.sessionId),
+      now,
+    ),
   };
 }
 

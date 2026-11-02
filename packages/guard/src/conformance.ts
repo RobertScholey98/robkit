@@ -9,6 +9,8 @@ export interface ConformanceCase {
   name: string;
   rule: AccessRule;
   session: "signed-out" | "expired" | "owner" | "guest";
+  /** The roles a guest holds, by id. None if absent. */
+  guestRoles?: string[];
   outcome: Decision["outcome"];
 }
 

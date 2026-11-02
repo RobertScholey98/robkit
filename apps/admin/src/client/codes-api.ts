@@ -1,3 +1,5 @@
+import { call, isRecord, post, readWith, type Result } from "./core-call.ts";
+
 /** Whether a code signs a guest in, and if not, why not. */
 export type Standing = "live" | "revoked" | "expired" | "local-only";
 
@@ -18,8 +20,6 @@ export interface NewCode {
   code?: string;
   expiresAt?: Date;
 }
-
-export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 
 export async function listCodes(core: string): Promise<Result<Code[]>> {
   return readWith(await call(core, "/codes", { method: "GET" }), (body) => {
@@ -67,49 +67,6 @@ export function expiryAfter(day: string): Date | undefined {
   return new Date(year, month - 1, date + 1);
 }
 
-// The JSON content type makes the browser preflight every POST, which core
-// answers only for the hub and admin.
-function post(body?: object): RequestInit {
-  return {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    ...(body && { body: JSON.stringify(body) }),
-  };
-}
-
-/** Calls core with the owner's cookie, answering with the body it sent. */
-async function call(
-  core: string,
-  path: string,
-  init: RequestInit,
-): Promise<Result<unknown>> {
-  let res: Response;
-  try {
-    res = await fetch(`${core}${path}`, { ...init, credentials: "include" });
-  } catch {
-    return { ok: false, error: `Couldn't reach core at ${core}.` };
-  }
-  const body: unknown =
-    res.status === 204 ? undefined : await res.json().catch(() => undefined);
-  if (res.ok) return { ok: true, value: body };
-  const error =
-    isRecord(body) && typeof body.error === "string"
-      ? body.error
-      : `Core answered ${String(res.status)}.`;
-  return { ok: false, error };
-}
-
-function readWith<T>(
-  result: Result<unknown>,
-  read: (body: unknown) => T | undefined,
-): Result<T> {
-  if (!result.ok) return result;
-  const value = read(result.value);
-  return value === undefined
-    ? { ok: false, error: "Core sent an answer admin can't read." }
-    : { ok: true, value };
-}
-
 const standings = new Set<unknown>([
   "live",
   "revoked",
@@ -152,8 +109,4 @@ function readDate(value: unknown): Date | null | undefined {
   if (typeof value !== "string") return undefined;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? undefined : date;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
 }

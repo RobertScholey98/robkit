@@ -41,6 +41,23 @@ export async function freshCore({
   };
 }
 
+/** Headers that send `sessionToken` as the session cookie. */
+export function withSession(sessionToken: string): Record<string, string> {
+  return { cookie: `robkit_session=${sessionToken}` };
+}
+
+/** Each role's id, by its name, as the owner lists them. */
+export async function roleIdsByName(
+  app: Hono,
+  owner: string,
+): Promise<Record<string, string>> {
+  const res = await app.request("/roles", { headers: withSession(owner) });
+  const { roles } = (await res.json()) as {
+    roles: { id: string; name: string }[];
+  };
+  return Object.fromEntries(roles.map((role) => [role.name, role.id]));
+}
+
 /** POSTs `body` as JSON, as the hub does. */
 export function postJson(
   app: Hono,

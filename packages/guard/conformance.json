@@ -46,5 +46,64 @@
     "rule": { "kind": "owner" },
     "session": "guest",
     "outcome": "not-found"
+  },
+  {
+    "name": "an owner-only app answers a guest with not found, whatever their roles",
+    "rule": { "kind": "owner" },
+    "session": "guest",
+    "guestRoles": ["family"],
+    "outcome": "not-found"
+  },
+  {
+    "name": "a role-gated app sends a signed-out visitor to log in",
+    "rule": { "kind": "roles", "roles": ["family"] },
+    "session": "signed-out",
+    "outcome": "login"
+  },
+  {
+    "name": "a role-gated app refreshes an expired token",
+    "rule": { "kind": "roles", "roles": ["family"] },
+    "session": "expired",
+    "outcome": "refresh"
+  },
+  {
+    "name": "a role-gated app lets the owner in",
+    "rule": { "kind": "roles", "roles": ["family"] },
+    "session": "owner",
+    "outcome": "allow"
+  },
+  {
+    "name": "a role-gated app lets in a guest who holds its role",
+    "rule": { "kind": "roles", "roles": ["family"] },
+    "session": "guest",
+    "guestRoles": ["family"],
+    "outcome": "allow"
+  },
+  {
+    "name": "a role-gated app lets in a guest who holds any one of its roles",
+    "rule": { "kind": "roles", "roles": ["family", "friends"] },
+    "session": "guest",
+    "guestRoles": ["book-club", "friends"],
+    "outcome": "allow"
+  },
+  {
+    "name": "a role-gated app answers a guest with another role with not found",
+    "rule": { "kind": "roles", "roles": ["family"] },
+    "session": "guest",
+    "guestRoles": ["friends"],
+    "outcome": "not-found"
+  },
+  {
+    "name": "a role-gated app answers a guest with no roles with not found",
+    "rule": { "kind": "roles", "roles": ["family"] },
+    "session": "guest",
+    "outcome": "not-found"
+  },
+  {
+    "name": "an open app lets a guest with roles in",
+    "rule": { "kind": "open" },
+    "session": "guest",
+    "guestRoles": ["family"],
+    "outcome": "allow"
   }
 ]

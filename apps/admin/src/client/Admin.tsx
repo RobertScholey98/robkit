@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState, type SubmitEvent } from "react";
+import { listApps, listRoles, type App, type Role } from "./access-api.ts";
+import { Apps } from "./apps.tsx";
 import {
   expiryAfter,
   introLink,
@@ -8,6 +10,7 @@ import {
   type Code,
   type Standing,
 } from "./codes-api.ts";
+import { Roles } from "./roles.tsx";
 import { Button, Field, FormError } from "./ui.tsx";
 
 type Listing =
@@ -15,19 +18,33 @@ type Listing =
   | { state: "failed"; error: string }
   | { state: "loaded"; codes: Code[] };
 
+/** Everything the owner manages that hangs off codes: roles and apps. */
+type Access =
+  | { state: "loading" }
+  | { state: "failed"; error: string }
+  | { state: "loaded"; roles: Role[]; apps: App[] };
+
 type Sending =
   { state: "idle" } | { state: "sending" } | { state: "failed"; error: string };
 
 export function Admin({ core }: { core: string }) {
   const [listing, setListing] = useState<Listing>({ state: "loading" });
+  const [access, setAccess] = useState<Access>({ state: "loading" });
 
   const reload = useCallback(async () => {
-    const result = await listCodes(core);
+    const [codes, roles, apps] = await Promise.all([
+      listCodes(core),
+      listRoles(core),
+      listApps(core),
+    ]);
     setListing(
-      result.ok
-        ? { state: "loaded", codes: result.value }
-        : { state: "failed", error: result.error },
+      codes.ok
+        ? { state: "loaded", codes: codes.value }
+        : { state: "failed", error: codes.error },
     );
+    if (!roles.ok) setAccess({ state: "failed", error: roles.error });
+    else if (!apps.ok) setAccess({ state: "failed", error: apps.error });
+    else setAccess({ state: "loaded", roles: roles.value, apps: apps.value });
   }, [core]);
 
   useEffect(() => {
@@ -49,9 +66,53 @@ export function Admin({ core }: { core: string }) {
             <Codes core={core} listing={listing} onChange={reload} />
           </div>
         </section>
+        <AccessSections
+          core={core}
+          codes={listing.state === "loaded" ? listing.codes : []}
+          access={access}
+          onChange={reload}
+        />
       </main>
     </div>
   );
+}
+
+function AccessSections({
+  core,
+  codes,
+  access,
+  onChange,
+}: {
+  core: string;
+  codes: Code[];
+  access: Access;
+  onChange: () => Promise<void>;
+}) {
+  switch (access.state) {
+    case "loading":
+      return (
+        <p className="text-sm text-neutral-500">Loading roles and apps…</p>
+      );
+    case "failed":
+      return <FormError>{access.error}</FormError>;
+    case "loaded":
+      return (
+        <>
+          <Roles
+            core={core}
+            roles={access.roles}
+            codes={codes}
+            onChange={onChange}
+          />
+          <Apps
+            core={core}
+            apps={access.apps}
+            roles={access.roles}
+            onChange={onChange}
+          />
+        </>
+      );
+  }
 }
 
 function MintForm({

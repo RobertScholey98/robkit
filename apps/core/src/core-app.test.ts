@@ -95,6 +95,27 @@ describe("apps/core", () => {
     expect(await signingKeyIds()).toEqual(afterFirstBoot);
   });
 
+  it("adds the apps in ROBKIT_APPS to its catalog as owner-only", async () => {
+    const port = await freePort();
+    boot(port, { ROBKIT_APPS: "example,notes" });
+    expect(await statusOf(port)).toBe(200);
+
+    const access = await Promise.all(
+      ["example", "notes", "other"].map(async (slug) => {
+        const res = await fetch(
+          `http://127.0.0.1:${String(port)}/apps/${slug}/access`,
+        );
+        return [slug, res.status, await res.json()] as const;
+      }),
+    );
+
+    expect(access).toEqual([
+      ["example", 200, { kind: "owner" }],
+      ["notes", 200, { kind: "owner" }],
+      ["other", 404, { error: "Not found" }],
+    ]);
+  });
+
   it("listens on 127.0.0.1 only, so the proxy is the way in", async () => {
     const port = await freePort();
     boot(port);

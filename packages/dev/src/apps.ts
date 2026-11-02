@@ -71,3 +71,17 @@ export function routesFor(apps: readonly App[], domain: string): Route[] {
     port,
   }));
 }
+
+/** Core, the hub and admin, which core's catalog doesn't list. */
+const platformApps = new Set(["core", "hub", "admin"]);
+
+/**
+ * `ROBKIT_APPS` for core: the owner's apps, by slug, comma-separated. Core
+ * adds any it doesn't know to its catalog when it starts.
+ */
+export function catalogOf(apps: readonly App[]): string {
+  return apps
+    .map((app) => app.slug)
+    .filter((slug) => !platformApps.has(slug))
+    .join(",");
+}

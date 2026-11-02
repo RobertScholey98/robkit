@@ -14,19 +14,18 @@ export const sessionTokenLifetimeSeconds = 15 * 60;
 
 /**
  * Whose session a token is for, and which session. A guest's id is their
- * access code's id, never the code itself, since apps see it.
+ * access code's id, never the code itself, since apps see it. A guest's
+ * token carries their code's roles, by id, as they were when core issued it.
  */
-export interface SessionTokenClaims {
-  kind: "owner" | "guest";
-  id: string;
-  sessionId: string;
-}
+export type SessionTokenClaims =
+  | { kind: "owner"; id: string; sessionId: string }
+  | { kind: "guest"; id: string; sessionId: string; roles: string[] };
 
 /** A session token's claims, once its signature checks out. */
-export interface ReadSessionToken extends SessionTokenClaims {
+export type ReadSessionToken = SessionTokenClaims & {
   /** The token's lifetime has passed; its session may still be live. */
   expired: boolean;
-}
+};
 
 /** Core's public key, or a key set that finds it by the token's `kid`. */
 export type VerifyKey = CryptoKey | JWTVerifyGetKey;
@@ -43,12 +42,20 @@ const badToken = new Set([
   "ERR_JOSE_NOT_SUPPORTED",
 ]);
 
+function isRoleList(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((role) => typeof role === "string")
+  );
+}
+
 function claimsIn(payload: JWTPayload): SessionTokenClaims | undefined {
-  const { sub, sid, kind } = payload;
-  const known = kind === "owner" || kind === "guest";
-  return typeof sub === "string" && typeof sid === "string" && known
-    ? { kind, id: sub, sessionId: sid }
-    : undefined;
+  const { sub, sid, kind, roles } = payload;
+  if (typeof sub !== "string" || typeof sid !== "string") return undefined;
+  if (kind === "owner") return { kind, id: sub, sessionId: sid };
+  if (kind === "guest" && isRoleList(roles)) {
+    return { kind, id: sub, sessionId: sid, roles };
+  }
+  return undefined;
 }
 
 /**

@@ -28,3 +28,10 @@ export function returnTo(page: string | URL): string | undefined {
     ? target.href
     : undefined;
 }
+
+/** An app's origin: `<slug>.<domain>`, beside the hub on `hub.<domain>`. */
+export function appOrigin(page: string | URL, slug: string): string {
+  const url = new URL(page);
+  url.hostname = `${slug}.${url.hostname.slice("hub.".length)}`;
+  return url.origin;
+}

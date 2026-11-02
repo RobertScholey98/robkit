@@ -15,6 +15,20 @@
       "when": 1793572264748,
       "tag": "0001_guest_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793573490709,
+      "tag": "0002_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793573970826,
+      "tag": "0003_app_catalog",
+      "breakpoints": true
     }
   ]
 }

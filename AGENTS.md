@@ -18,10 +18,10 @@ pnpm --filter <package> test              # one package
 
 ## Layout
 
-- The repo root is a hand-built install until build ticket 08 turns it into templates: `compose.yaml` runs Postgres, and `apps/` holds core, the hub, admin and `example`, a React + Hono app open only to the owner. Each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role.
+- The repo root is a hand-built install until build ticket 08 turns it into templates: `compose.yaml` runs Postgres, and `apps/` holds core, the hub, admin and `example`, a React + Hono app that starts owner-only. Each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role. The dev runner tells each app its slug as `ROBKIT_APP`, and hands core the owner's apps as `ROBKIT_APPS`. Core adds new ones to its app catalog, where admin sets who may open each one.
 - `packages/` holds the published `@robkit/*` packages:
   - `@robkit/core`, the backend.
-  - `@robkit/session`, the session token's claims and cookie, and `coreKeys`, which fetches core's public key once so apps verify tokens locally.
+  - `@robkit/session`, the session token's claims and cookie, `coreKeys`, which fetches core's public key once so apps verify tokens locally, and `coreAccess`, which loads an app's access rule from core and keeps it for a minute.
   - `@robkit/guard`, the pure guard, and `conformance.json`, the cases the guard and every adapter pass.
   - `@robkit/hono`, the Hono adapter.
   - `@robkit/dev`, the `robkit-dev` runner and proxy behind `pnpm dev`.

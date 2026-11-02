@@ -26,16 +26,24 @@ beforeAll(async () => {
 });
 
 const owner = { kind: "owner", id: "owner-1" } as const;
-const guest = { kind: "guest", id: "code-1" } as const;
+type Holder =
+  typeof owner | { kind: "guest"; id: string; roles: readonly string[] };
+
+const guest = (roles: readonly string[] = []): Holder => ({
+  kind: "guest",
+  id: "code-1",
+  roles,
+});
 
 /** A session token shaped like core's, issued `ageSeconds` ago. */
 function token(
   ageSeconds = 0,
   key = privateKey,
-  holder: typeof owner | typeof guest = owner,
+  holder: Holder = owner,
 ): Promise<string> {
   const iat = Math.floor(Date.now() / 1000) - ageSeconds;
-  return new SignJWT({ sid: "session-1", kind: holder.kind })
+  const roles = holder.kind === "guest" ? { roles: holder.roles } : {};
+  return new SignJWT({ sid: "session-1", kind: holder.kind, ...roles })
     .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
     .setSubject(holder.id)
     .setIssuedAt(iat)
@@ -56,23 +64,24 @@ function exampleApp(options: Partial<GuardedOptions> = {}) {
     .get("*", (c) => c.json(c.var.viewer));
 }
 
-async function cookieFor(session: ConformanceCase["session"]) {
+async function cookieFor({ session, guestRoles }: ConformanceCase) {
   const tokens = {
     "signed-out": undefined,
     expired: await token(20 * minute),
     owner: await token(),
-    guest: await token(0, privateKey, guest),
+    guest: await token(0, privateKey, guest(guestRoles)),
   };
   const value = tokens[session];
   return value === undefined ? {} : { cookie: `robkit_session=${value}` };
 }
 
 describe("guarded", () => {
-  it.each(conformanceCases)("$name", async ({ rule, session, outcome }) => {
+  it.each(conformanceCases)("$name", async (asking) => {
+    const { rule, session, guestRoles, outcome } = asking;
     const app = exampleApp({ access: rule });
 
     const res = await app.request(page, {
-      headers: { ...navigate, ...(await cookieFor(session)) },
+      headers: { ...navigate, ...(await cookieFor(asking)) },
     });
 
     const expected = {
@@ -83,7 +92,7 @@ describe("guarded", () => {
           "signed-out": { kind: "nobody" },
           expired: undefined,
           owner,
-          guest,
+          guest: guest(guestRoles),
         }[session],
       },
       login: {
@@ -307,6 +316,75 @@ describe("guarded, with core's keys", () => {
       guarded({ access: { kind: "owner" }, core: "http://localhost:3000" }),
     ).toThrow(
       "core must be core's public origin, such as http://core.robkit.localhost:3000, not http://localhost:3000",
+    );
+  });
+});
+
+describe("guarded, with its rule in core", () => {
+  const servers: Server[] = [];
+
+  afterEach(async () => {
+    await Promise.all(
+      servers.splice(0).map(async (server) => {
+        server.close();
+        await once(server, "close");
+      }),
+    );
+  });
+
+  /** Core's access endpoint on a loopback port, answering with `rule`. */
+  async function coreWithRule(rule: unknown) {
+    const answer = { status: 200, rule };
+    const fetched: string[] = [];
+    const server = createServer((req, res) => {
+      fetched.push(String(req.url));
+      res.writeHead(answer.status, { "content-type": "application/json" });
+      res.end(JSON.stringify(answer.rule));
+    });
+    servers.push(server);
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    const port = String((server.address() as AddressInfo).port);
+    return { origin: `http://core.robkit.localhost:${port}`, answer, fetched };
+  }
+
+  function appBehind(core: string) {
+    return new Hono<GuardedEnv>()
+      .use(guarded({ app: "example", core, keys: publicKey }))
+      .get("*", (c) => c.json(c.var.viewer));
+  }
+
+  async function asGuest(app: Hono<GuardedEnv>, roles: string[]) {
+    return app.request(page, {
+      headers: {
+        ...navigate,
+        cookie: `robkit_session=${await token(0, privateKey, guest(roles))}`,
+      },
+    });
+  }
+
+  it("lets in only the guests holding a role core gates the app to", async () => {
+    const core = await coreWithRule({ kind: "roles", roles: ["family"] });
+    const app = appBehind(core.origin);
+
+    const family = await asGuest(app, ["family"]);
+    const friends = await asGuest(app, ["friends"]);
+
+    expect([family.status, friends.status]).toEqual([200, 404]);
+    expect(await family.json()).toEqual(guest(["family"]));
+    expect(core.fetched).toEqual(["/apps/example/access"]);
+  });
+
+  it("answers 503 when it can't load its rule, not a 404", async () => {
+    const core = await coreWithRule({ error: "Not found" });
+    core.answer.status = 404;
+    const app = appBehind(core.origin);
+
+    const res = await asGuest(app, ["family"]);
+
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe(
+      "Can't reach core to check who may open this app.",
     );
   });
 });
