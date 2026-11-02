@@ -95,7 +95,11 @@ export function guarded({
     const read = await readSessionToken(verifyKey, token, new Date());
     if (!read) return { state: "signed-out" };
     if (read.expired) return { state: "expired" };
-    return { state: "signed-in", viewer: { kind: read.kind, id: read.id } };
+    const viewer =
+      read.kind === "owner"
+        ? { kind: read.kind, id: read.id }
+        : { kind: read.kind, id: read.id, roles: read.roles };
+    return { state: "signed-in", viewer };
   };
 
   return async (c, next) => {

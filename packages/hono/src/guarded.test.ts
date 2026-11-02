@@ -26,20 +26,24 @@ beforeAll(async () => {
 });
 
 const owner = { kind: "owner", id: "owner-1" } as const;
-const guest = { kind: "guest", id: "code-1" } as const;
+type Holder =
+  typeof owner | { kind: "guest"; id: string; roles: readonly string[] };
+
+const guest = (roles: readonly string[] = []): Holder => ({
+  kind: "guest",
+  id: "code-1",
+  roles,
+});
 
 /** A session token shaped like core's, issued `ageSeconds` ago. */
 function token(
   ageSeconds = 0,
   key = privateKey,
-  holder: typeof owner | typeof guest = owner,
+  holder: Holder = owner,
 ): Promise<string> {
   const iat = Math.floor(Date.now() / 1000) - ageSeconds;
-  return new SignJWT({
-    sid: "session-1",
-    kind: holder.kind,
-    ...(holder.kind === "guest" && { roles: [] }),
-  })
+  const roles = holder.kind === "guest" ? { roles: holder.roles } : {};
+  return new SignJWT({ sid: "session-1", kind: holder.kind, ...roles })
     .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
     .setSubject(holder.id)
     .setIssuedAt(iat)
@@ -60,23 +64,24 @@ function exampleApp(options: Partial<GuardedOptions> = {}) {
     .get("*", (c) => c.json(c.var.viewer));
 }
 
-async function cookieFor(session: ConformanceCase["session"]) {
+async function cookieFor({ session, guestRoles }: ConformanceCase) {
   const tokens = {
     "signed-out": undefined,
     expired: await token(20 * minute),
     owner: await token(),
-    guest: await token(0, privateKey, guest),
+    guest: await token(0, privateKey, guest(guestRoles)),
   };
   const value = tokens[session];
   return value === undefined ? {} : { cookie: `robkit_session=${value}` };
 }
 
 describe("guarded", () => {
-  it.each(conformanceCases)("$name", async ({ rule, session, outcome }) => {
+  it.each(conformanceCases)("$name", async (asking) => {
+    const { rule, session, guestRoles, outcome } = asking;
     const app = exampleApp({ access: rule });
 
     const res = await app.request(page, {
-      headers: { ...navigate, ...(await cookieFor(session)) },
+      headers: { ...navigate, ...(await cookieFor(asking)) },
     });
 
     const expected = {
@@ -87,7 +92,7 @@ describe("guarded", () => {
           "signed-out": { kind: "nobody" },
           expired: undefined,
           owner,
-          guest,
+          guest: guest(guestRoles),
         }[session],
       },
       login: {
