@@ -77,6 +77,7 @@ describe("POST /login/code", () => {
       sid: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
       kind: "guest",
       sub: id,
+      roles: [],
       iat,
       exp: iat + 15 * 60,
     });

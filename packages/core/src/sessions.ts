@@ -81,7 +81,14 @@ async function startSession(
     viewer,
     sessionToken: await mintSessionToken(
       await ctx.signingKey(),
-      { kind: viewer.kind, id: viewer.id, sessionId: session.id },
+      viewer.kind === "owner"
+        ? { kind: viewer.kind, id: viewer.id, sessionId: session.id }
+        : {
+            kind: viewer.kind,
+            id: viewer.id,
+            sessionId: session.id,
+            roles: [],
+          },
       now,
     ),
   };

@@ -35,7 +35,11 @@ function token(
   holder: typeof owner | typeof guest = owner,
 ): Promise<string> {
   const iat = Math.floor(Date.now() / 1000) - ageSeconds;
-  return new SignJWT({ sid: "session-1", kind: holder.kind })
+  return new SignJWT({
+    sid: "session-1",
+    kind: holder.kind,
+    ...(holder.kind === "guest" && { roles: [] }),
+  })
     .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
     .setSubject(holder.id)
     .setIssuedAt(iat)

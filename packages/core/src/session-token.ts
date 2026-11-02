@@ -7,11 +7,13 @@ import type { SigningKey } from "./signing-key.ts";
 
 export function mintSessionToken(
   key: SigningKey,
-  { kind, id, sessionId }: SessionTokenClaims,
+  claims: SessionTokenClaims,
   now: Date,
 ): Promise<string> {
   const issuedAt = Math.floor(now.getTime() / 1000);
-  return new SignJWT({ sid: sessionId, kind })
+  const { kind, id, sessionId } = claims;
+  const roles = claims.kind === "guest" ? { roles: claims.roles } : {};
+  return new SignJWT({ sid: sessionId, kind, ...roles })
     .setProtectedHeader({ alg: "EdDSA", kid: key.kid })
     .setSubject(id)
     .setIssuedAt(issuedAt)
