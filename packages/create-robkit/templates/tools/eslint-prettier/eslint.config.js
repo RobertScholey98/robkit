@@ -22,4 +22,22 @@ export default defineConfig(
     files: ["**/*.js"],
     extends: [tseslint.configs.disableTypeChecked],
   },
+  {
+    files: ["apps/**"],
+    ignores: ["apps/core/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@robkit/core",
+              message:
+                "Layer rule: only apps/core imports @robkit/core. Code reaches core over HTTP only.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

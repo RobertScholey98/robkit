@@ -63,13 +63,6 @@ export const layers = [
     modules: ["@internal/*-app"],
     folders: ["apps", "examples"],
   },
-  {
-    applies: (workspace) =>
-      matchesGlob(workspace, "apps/*") && workspace !== "apps/core",
-    rule: "Layer rule: only apps/core imports @robkit/core. Code reaches core over HTTP only.",
-    modules: ["@robkit/core"],
-    folders: ["packages/core"],
-  },
 ];
 
 /** The workspace a file belongs to, such as `packages/guard`. */
