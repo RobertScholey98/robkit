@@ -27,11 +27,11 @@
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
+    "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@tanstack/react-start": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
-    "jose": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "typescript": "catalog:",

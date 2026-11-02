@@ -1,0 +1,25 @@
+{
+  "name": "@internal/test-session",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@internal/eslint-config": "workspace:*",
+    "@internal/tsconfig": "workspace:*",
+    "@robkit/guard": "workspace:*",
+    "@robkit/session": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "jose": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

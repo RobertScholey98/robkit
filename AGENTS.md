@@ -27,7 +27,7 @@ pnpm --filter <package> test              # one package
   - `@robkit/start`, the TanStack Start adapter. It wraps the app's server entry, so routes and server functions get the viewer as `context.viewer`.
   - `@robkit/react`, the client helper. Its `sessionFetch` sends the browser through core's `/refresh` when a call finds the session lapsed, and hands every other answer to the caller.
   - `@robkit/dev`, the `robkit-dev` runner and proxy behind `pnpm dev`.
-- `tooling/` holds private workspace packages: the shared tsconfig, the shared ESLint config, repo checks that run as tests, a per-suite test Postgres and the whole-stack test, which includes a Playwright journey in Chromium.
+- `tooling/` holds private workspace packages: the shared tsconfig, the shared ESLint config, repo checks that run as tests, a per-suite test Postgres, `@internal/test-session`, which signs session tokens for the adapters' tests, and the whole-stack test, which includes a Playwright journey in Chromium.
 
 ## The layer rule
 

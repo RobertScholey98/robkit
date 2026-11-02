@@ -1,8 +1,10 @@
 import {
-  conformanceCases,
-  type ConformanceCase,
-} from "@robkit/guard/conformance";
-import { generateKeyPair, SignJWT, type CryptoKey } from "jose";
+  guest,
+  owner,
+  signingKey,
+  type SigningKey,
+} from "@internal/test-session";
+import { conformanceCases } from "@robkit/guard/conformance";
 import { beforeAll, describe, expect, it } from "vitest";
 import { guarded, type GuardedOptions } from "./index.ts";
 
@@ -11,36 +13,11 @@ const next = encodeURIComponent(page);
 const navigate = { "sec-fetch-mode": "navigate" };
 const minute = 60;
 
-let privateKey: CryptoKey;
-let publicKey: CryptoKey;
+let key: SigningKey;
 
 beforeAll(async () => {
-  ({ privateKey, publicKey } = await generateKeyPair("EdDSA", {
-    crv: "Ed25519",
-  }));
+  key = await signingKey();
 });
-
-const owner = { kind: "owner", id: "owner-1" } as const;
-type Holder =
-  typeof owner | { kind: "guest"; id: string; roles: readonly string[] };
-
-const guest = (roles: readonly string[] = []): Holder => ({
-  kind: "guest",
-  id: "code-1",
-  roles,
-});
-
-/** A session token shaped like core's, issued `ageSeconds` ago. */
-function token(ageSeconds = 0, holder: Holder = owner): Promise<string> {
-  const iat = Math.floor(Date.now() / 1000) - ageSeconds;
-  const roles = holder.kind === "guest" ? { roles: holder.roles } : {};
-  return new SignJWT({ sid: "session-1", kind: holder.kind, ...roles })
-    .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
-    .setSubject(holder.id)
-    .setIssuedAt(iat)
-    .setExpirationTime(iat + 15 * minute)
-    .sign(privateKey);
-}
 
 /**
  * Asks the guarded entry for `url`. Start behind it answers with the context
@@ -58,21 +35,10 @@ async function open(
   const entry = guarded(start, {
     access: { kind: "owner" },
     core: "http://core.robkit.localhost:3000",
-    keys: publicKey,
+    keys: key.publicKey,
     ...options,
   });
   return entry.fetch(new Request(url, init));
-}
-
-async function cookieFor({ session, guestRoles }: ConformanceCase) {
-  const tokens = {
-    "signed-out": undefined,
-    expired: await token(20 * minute),
-    owner: await token(),
-    guest: await token(0, guest(guestRoles)),
-  };
-  const value = tokens[session];
-  return value === undefined ? {} : { cookie: `robkit_session=${value}` };
 }
 
 describe("guarded", () => {
@@ -80,7 +46,7 @@ describe("guarded", () => {
     const { rule, session, guestRoles, outcome } = asking;
 
     const res = await open({ access: rule }, page, {
-      headers: { ...navigate, ...(await cookieFor(asking)) },
+      headers: { ...navigate, ...(await key.cookieFor(asking)) },
     });
 
     const expected = {
@@ -123,7 +89,7 @@ describe("guarded", () => {
       headers: {
         "sec-fetch-mode": "cors",
         "x-tsr-serverfn": "true",
-        cookie: `robkit_session=${await token(20 * minute)}`,
+        cookie: `robkit_session=${await key.token(20 * minute)}`,
       },
     });
 
@@ -144,7 +110,7 @@ describe("guarded", () => {
         headers: {
           "sec-fetch-mode": "cors",
           "x-tsr-serverfn": "true",
-          cookie: `robkit_session=${await token()}`,
+          cookie: `robkit_session=${await key.token()}`,
         },
       },
     );
