@@ -3,7 +3,7 @@ import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
-import type { AccessRule } from "@robkit/guard";
+import { readAccessRule, type AccessRule } from "@robkit/guard";
 import { sessionCookie } from "@robkit/session";
 import {
   listCodes,
@@ -130,17 +130,11 @@ const unknownCode = "One of those codes doesn't exist.";
 async function accessFrom(c: Context): Promise<AccessRule | { error: string }> {
   const fields = await fieldsOf(c);
   if (!fields) return { error: "Send a valid JSON body." };
-  const { kind, roles } = fields;
-  if (kind === "open" || kind === "owner") return { kind };
-  if (kind !== "roles") return { error: "Pick open, roles or owner." };
-  if (
-    !Array.isArray(roles) ||
-    roles.length === 0 ||
-    !roles.every((id): id is string => typeof id === "string")
-  ) {
-    return { error: "Pick at least one role." };
-  }
-  return { kind, roles };
+  const rule = readAccessRule(fields);
+  if (rule && !(rule.kind === "roles" && rule.roles.length === 0)) return rule;
+  return fields.kind === "roles"
+    ? { error: "Pick at least one role." }
+    : { error: "Pick open, roles or owner." };
 }
 
 function readCodeIds(
