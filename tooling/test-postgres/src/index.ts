@@ -6,9 +6,12 @@ import { promisify } from "node:util";
 
 const run = promisify(execFile);
 
-/** The install's own compose file at the repo root, so tests run the Postgres that `pnpm dev` runs. */
+/** The install template's compose file, so tests run the Postgres that an install's `pnpm dev` runs. */
 export const composeFile = fileURLToPath(
-  new URL("../../../compose.yaml", import.meta.url),
+  new URL(
+    "../../../packages/create-robkit/templates/base/compose.yaml",
+    import.meta.url,
+  ),
 );
 
 export interface TestPostgres {

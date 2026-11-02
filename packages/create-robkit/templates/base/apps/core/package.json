@@ -5,24 +5,15 @@
   "scripts": {
     "dev": "node --watch src/main.ts",
     "migrate": "node src/migrate.ts",
-    "lint": "eslint .",
-    "typecheck": "tsc",
-    "test": "vitest run"
+    "typecheck": "tsc"
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
-    "@robkit/core": "workspace:*"
+    "@robkit/core": "catalog:"
   },
   "devDependencies": {
-    "@internal/eslint-config": "workspace:*",
-    "@internal/test-postgres": "workspace:*",
     "@internal/tsconfig": "workspace:*",
-    "@robkit/dev": "workspace:*",
     "@types/node": "catalog:",
-    "eslint": "catalog:",
-    "postgres": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "catalog:"
   }
 }

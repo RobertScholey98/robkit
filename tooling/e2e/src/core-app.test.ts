@@ -1,11 +1,33 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { freePort } from "@internal/test-postgres";
+import { join } from "node:path";
+import {
+  freePort,
+  startPostgres,
+  type TestPostgres,
+} from "@internal/test-postgres";
+import { provisionDatabase } from "@robkit/dev";
 import postgres from "postgres";
-import { afterAll, afterEach, describe, expect, inject, it } from "vitest";
-
-const admin = postgres(inject("adminUrl"), { max: 1 });
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  inject,
+  it,
+} from "vitest";
+let database: TestPostgres;
+let admin: postgres.Sql;
+/** Core's own `DATABASE_URL`, connecting as the core role. */
+let databaseUrl: string;
 const children: ChildProcess[] = [];
+
+beforeAll(async () => {
+  database = await startPostgres();
+  admin = postgres(database.adminUrl, { max: 1 });
+  databaseUrl = await provisionDatabase(database.adminUrl, "core");
+});
 
 afterEach(() => {
   for (const child of children.splice(0)) child.kill();
@@ -13,11 +35,12 @@ afterEach(() => {
 
 afterAll(async () => {
   await admin.end();
+  await database.stop();
 });
 
 function start(script: string, env: Record<string, string>): ChildProcess {
   const child = spawn(process.execPath, [script], {
-    cwd: new URL("..", import.meta.url),
+    cwd: join(inject("installs").checks, "apps/core"),
     env: { ...process.env, ...env },
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -53,14 +76,14 @@ async function signingKeyIds(): Promise<string[]> {
 function boot(port: number, env: Record<string, string> = {}): ChildProcess {
   return start("src/main.ts", {
     PORT: String(port),
-    DATABASE_URL: inject("databaseUrl"),
+    DATABASE_URL: databaseUrl,
     ROBKIT_DOMAIN: "robkit.localhost",
     ...env,
   });
 }
 
 // These run in order on one database: core first meets it unmigrated.
-describe("apps/core", () => {
+describe("the default install's apps/core", () => {
   it("won't start, and doesn't migrate, before core's schema exists", async () => {
     const core = boot(await freePort());
     const [code] = (await once(core, "exit")) as [number | null];
@@ -71,7 +94,7 @@ describe("apps/core", () => {
 
   it("migrates core's schema as a separate step", async () => {
     const migrate = start("src/migrate.ts", {
-      DATABASE_URL: inject("databaseUrl"),
+      DATABASE_URL: databaseUrl,
     });
     const [code] = (await once(migrate, "exit")) as [number | null];
 

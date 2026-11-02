@@ -1,0 +1,3 @@
+pnpm-lock.yaml
+# TanStack Router writes these.
+**/routeTree.gen.ts

@@ -13,6 +13,7 @@
     "@internal/tsconfig": "workspace:*",
     "@robkit/dev": "workspace:*",
     "@types/node": "catalog:",
+    "create-robkit": "workspace:*",
     "eslint": "catalog:",
     "jose": "catalog:",
     "playwright": "catalog:",

@@ -1,0 +1,8 @@
+{
+  "name": "@internal/tsconfig",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./base.json": "./base.json"
+  }
+}

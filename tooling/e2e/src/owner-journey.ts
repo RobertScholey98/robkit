@@ -67,17 +67,16 @@ export function mainFrameRequests(page: Page): string[] {
 }
 
 /**
- * Opens an example app signed out, signs in at the hub as the owner, then
+ * Opens the example app signed out, signs in at the hub as the owner, then
  * opens it again with an expired token.
- *
- * @param app the example app's slug: `example` on Hono, `start` on
- *   TanStack Start
  */
-export async function ownerJourney(
-  { devPort, adminUrl, username, password }: JourneyOptions,
-  app = "example",
-): Promise<Journey> {
-  const example = `http://${app}.robkit.localhost:${String(devPort)}/`;
+export async function ownerJourney({
+  devPort,
+  adminUrl,
+  username,
+  password,
+}: JourneyOptions): Promise<Journey> {
+  const example = `http://example.robkit.localhost:${String(devPort)}/`;
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext();
