@@ -163,6 +163,23 @@ describe("guarded", () => {
       location: `http://core.robkit.localhost:3000/refresh?next=${next}`,
     });
   });
+
+  it("marks its 401 so the page can tell it from the app's own", async () => {
+    const app = exampleApp();
+
+    const loggedOut = await app.request(page, {
+      headers: { "sec-fetch-mode": "cors" },
+    });
+    const expired = await app.request(page, {
+      method: "POST",
+      headers: { cookie: `robkit_session=${await token(20 * minute)}` },
+    });
+
+    expect([
+      loggedOut.headers.get("robkit-session"),
+      expired.headers.get("robkit-session"),
+    ]).toEqual(["login", "refresh"]);
+  });
 });
 
 describe("guarded, without fetch metadata", () => {

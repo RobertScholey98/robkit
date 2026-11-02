@@ -158,10 +158,14 @@ export function requestGuard(
         location.searchParams.set("next", publicUrl(request).href);
         const headers = { "cache-control": "no-store" };
         if (!isNavigation(request)) {
+          // The header tells the page this 401 is the guard's, not the app's.
           return {
             response: Response.json(
               { error, location: location.href },
-              { status: 401, headers },
+              {
+                status: 401,
+                headers: { ...headers, "robkit-session": decision.outcome },
+              },
             ),
           };
         }
