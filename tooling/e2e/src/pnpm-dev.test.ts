@@ -66,11 +66,14 @@ function get(
   return send(host, path, { headers });
 }
 
-async function eventually(attempt: () => Promise<Reply>): Promise<Reply> {
+async function eventually(
+  attempt: () => Promise<Reply>,
+  status = 200,
+): Promise<Reply> {
   const deadline = Date.now() + 120_000;
   for (;;) {
     const reply = await attempt().catch(() => undefined);
-    if (reply?.status === 200) return reply;
+    if (reply?.status === status) return reply;
     if (Date.now() > deadline) {
       throw new Error(`the stack never came up:\n${output}`);
     }
@@ -180,6 +183,12 @@ describe("pnpm dev", () => {
       const at = (slug: string, path = "/") =>
         `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
       const example = at(app);
+      // pnpm dev waits for no app. Until the guard answers a signed-out
+      // fetch with 401, the proxy may still be answering 502.
+      await eventually(
+        () => get(`${app}.robkit.localhost:${String(devPort)}`),
+        401,
+      );
 
       const journey = await ownerJourney(
         {
