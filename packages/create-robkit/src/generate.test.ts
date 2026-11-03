@@ -266,6 +266,19 @@ describe("generateInstall", () => {
     for (const stack of readyOptions(choiceTable.generators)) {
       expect(stack.layer, stack.value).toBeDefined();
     }
+    for (const kit of readyOptions(choiceTable.uiKit)) {
+      if (kit.optInLayer === undefined) continue;
+      for (const stack of readyOptions(choiceTable.generators)) {
+        const dir = new URL(
+          `../templates/${kit.optInLayer}/${stack.value}/`,
+          import.meta.url,
+        );
+        expect(
+          (await stat(dir)).isDirectory(),
+          `${kit.value} ${stack.value}`,
+        ).toBe(true);
+      }
+    }
     for (const orm of readyOptions(choiceTable.orm)) {
       const appLayer = new URL(
         `../templates/${orm.appLayer ?? ""}/`,
@@ -394,6 +407,13 @@ describe("generateInstall", () => {
       [...plain.keys()].some((path) => path.startsWith("packages/ui/")),
     ).toBe(false);
     expect(kit.has("packages/ui/src/components/ui/button.tsx")).toBe(true);
+    // Only the install: the kit keeps its apps' files out of it.
+    expect(
+      [...kit.keys()].filter(
+        (path) =>
+          !/^(?:apps|packages|tooling|docs|\.github)\/|^[^/]+$/.test(path),
+      ),
+    ).toEqual([]);
     expect(kit.get("apps/hub/src/ui.tsx")).toContain(
       'from "@internal/ui/components/ui/button"',
     );
@@ -408,6 +428,11 @@ describe("generateInstall", () => {
       plain.get("apps/admin/src/client/Admin.tsx"),
     );
     expect(hub.dependencies["@internal/ui"]).toBe("workspace:*");
+    // The example app shows the kit off; robkit add asks each app.
+    expect(kit.get("apps/example/src/styles.css")).toContain(
+      "@internal/ui/styles.css",
+    );
+    expect(plain.has("apps/example/src/styles.css")).toBe(false);
     expect(catalog).toMatchObject({
       "@base-ui/react": "1.9.0",
       shadcn: "4.23.0",

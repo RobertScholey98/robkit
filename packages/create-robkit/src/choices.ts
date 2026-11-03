@@ -22,6 +22,11 @@ export interface Option {
    */
   readonly appGuide?: string;
   /**
+   * For a UI kit: the template folder holding one folder per stack, laid
+   * over an app on that stack that uses the kit.
+   */
+  readonly optInLayer?: string;
+  /**
    * The dependencies the option adds that have install scripts: `true` for
    * one the install must run, `false` for one it can skip. The package
    * manager runs no other.
@@ -111,6 +116,7 @@ export const choiceTable = {
         value: "shadcn-base-ui",
         label: "shadcn on Base UI",
         layer: "ui-kits/shadcn-base-ui/install",
+        optInLayer: "ui-kits/shadcn-base-ui/app",
       },
       { value: "shadcn-radix", label: "shadcn on Radix", comingLater: true },
       { value: "chakra", label: "Chakra UI", comingLater: true },

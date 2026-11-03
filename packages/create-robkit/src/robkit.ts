@@ -187,11 +187,13 @@ async function affectedApps(root: string): Promise<string[]> {
 async function add(): Promise<void> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
+    allowNegative: true,
     options: {
       stack: { type: "string" },
       access: { type: "string" },
       roles: { type: "string" },
       icon: { type: "string" },
+      "ui-kit": { type: "boolean" },
     },
   });
   const [command, given, ...rest] = positionals;

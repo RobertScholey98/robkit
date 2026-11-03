@@ -10,6 +10,7 @@ import {
   type Generator,
   type Option,
   type Orm,
+  type UiKit,
 } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
@@ -152,12 +153,13 @@ function buildsFor(choices: Choices): Record<string, boolean> {
 
 /**
  * The template robkit ships for `stack`: an app's files, from its folder,
- * with the install's ORM's app files laid over them. Its `AGENTS.md` ends
- * with the section the ORM adds.
+ * with the install's ORM's app files laid over them, and the UI kit's when
+ * the app uses one. Its `AGENTS.md` ends with the section the ORM adds.
  */
 export async function stackTemplate(
   stack: Generator,
   orm: Orm,
+  uiKit: UiKit | null = null,
 ): Promise<Files> {
   const layer = layerOf(choiceTable.generators, stack);
   if (layer === undefined) {
@@ -169,6 +171,11 @@ export async function stackTemplate(
   );
   const appLayer = ormOption?.appLayer;
   if (appLayer !== undefined) overlay(files, await readLayer(appLayer));
+  const kitLayer =
+    uiKit === null ? undefined : optionOf(choiceTable.uiKit, uiKit)?.optInLayer;
+  if (kitLayer !== undefined) {
+    overlay(files, await readLayer(`${kitLayer}/${stack}`));
+  }
   const guide = ormOption?.appGuide;
   const agents = files.get("AGENTS.md");
   if (guide !== undefined && agents !== undefined) {
@@ -287,7 +294,10 @@ export async function generateInstall(
   }
 
   const stacks = await Promise.all(
-    choices.generators.map((stack) => stackTemplate(stack, choices.orm)),
+    // The example shows the install's UI kit off, if it has one.
+    choices.generators.map((stack) =>
+      stackTemplate(stack, choices.orm, choices.uiKit),
+    ),
   );
   const [example] = stacks;
   if (example === undefined) throw new Error("init needs a generator");
