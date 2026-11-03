@@ -132,7 +132,6 @@ exports[`generateInstall > writes the default install 1`] = `
   "apps/admin/src/client/code-picker.tsx",
   "apps/admin/src/client/codes-api.test.ts",
   "apps/admin/src/client/codes-api.ts",
-  "apps/admin/src/client/core-call.ts",
   "apps/admin/src/client/index.css",
   "apps/admin/src/client/main.tsx",
   "apps/admin/src/client/roles.tsx",

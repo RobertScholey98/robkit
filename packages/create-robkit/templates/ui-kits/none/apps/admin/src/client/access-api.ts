@@ -1,5 +1,5 @@
 import { readAccessRule, type AccessRule } from "@robkit/guard";
-import { call, isRecord, post, readWith, type Result } from "./core-call.ts";
+import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
 
 export type { AccessRule };
 
@@ -17,51 +17,42 @@ export interface App {
   access: AccessRule;
 }
 
-export async function listRoles(core: string): Promise<Result<Role[]>> {
-  return readWith(await call(core, "/roles", { method: "GET" }), (body) =>
-    isRecord(body) ? listOf(body.roles, readRole) : undefined,
-  );
+export function listRoles(core: string): Promise<Result<Role[]>> {
+  return callCore(core, "GET", "/roles", {
+    read: (body) => (isRecord(body) ? listOf(body.roles, readRole) : undefined),
+  });
 }
 
-export async function createRole(
+export function createRole(
   core: string,
   role: { name: string; codeIds: string[] },
 ): Promise<Result<Role>> {
-  return readWith(await call(core, "/roles", post(role)), readRole);
+  return callCore(core, "POST", "/roles", { body: role, read: readRole });
 }
 
 /** Makes exactly these codes hold the role. */
-export async function setRoleCodes(
+export function setRoleCodes(
   core: string,
   roleId: string,
   codeIds: string[],
 ): Promise<Result<Role>> {
   const path = `/roles/${encodeURIComponent(roleId)}/codes`;
-  return readWith(await call(core, path, post({ codeIds })), readRole);
+  return callCore(core, "POST", path, { body: { codeIds }, read: readRole });
 }
 
-export async function listApps(core: string): Promise<Result<App[]>> {
-  return readWith(await call(core, "/apps", { method: "GET" }), (body) =>
-    isRecord(body) ? listOf(body.apps, readApp) : undefined,
-  );
+export function listApps(core: string): Promise<Result<App[]>> {
+  return callCore(core, "GET", "/apps", {
+    read: (body) => (isRecord(body) ? listOf(body.apps, readApp) : undefined),
+  });
 }
 
-export async function setAccess(
+export function setAccess(
   core: string,
   slug: string,
   access: AccessRule,
 ): Promise<Result<AccessRule>> {
   const path = `/apps/${encodeURIComponent(slug)}/access`;
-  return readWith(await call(core, path, post(access)), readAccessRule);
-}
-
-function listOf<T>(
-  value: unknown,
-  read: (item: unknown) => T | undefined,
-): T[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const items = value.map(read);
-  return items.every((item) => item !== undefined) ? items : undefined;
+  return callCore(core, "POST", path, { body: access, read: readAccessRule });
 }
 
 function readRole(body: unknown): Role | undefined {
