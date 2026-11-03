@@ -11,3 +11,11 @@
 - [ ] `turbo prune --docker` followed by a frozen install passes for bun
 
 Source: the robkit v0.1 spec, https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5
+
+## Comments
+
+Notes carried over from the finished tickets 02 and 09, which were deleted once done:
+
+- The dev runner always calls `pnpm run`. (02)
+- init's install step reads a per-manager command table. Add bun's install there. It runs `pnpm install --no-frozen-lockfile`, because pnpm on CI refuses an install with no lockfile. (09)
+- The wizard offers whatever `packageManagers` lists, so adding bun there offers it with no wizard change. (09)

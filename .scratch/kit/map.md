@@ -40,6 +40,20 @@ A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffold
 - [The generator writes the default install](../v0.1-build/issues/08-generator-writes-default-install.md) (build ticket 08, chosen in the build, awaiting R's review): the hand-built apps became template layers in `packages/create-robkit`, merged in memory with manifests deep-merged. The generator writes an install's catalog from robkit's own, and `--link` points `@robkit/*` at a checkout through pnpm overrides. An install has one root ESLint config, its unit tests ship before Vitest becomes a choice, and the whole-stack test runs on generated installs.
 - [The init wizard](../v0.1-build/issues/09-init-wizard.md) (build ticket 09, chosen in the build, awaiting R's review): init asks its questions when no choice flag is given, offers the options a later ticket adds as "coming later", and prints the flags that make the same install. The UI kit question is No or a disabled Yes until a kit lands. Installing and `git init` are one question, and opt-in as `--install` on flags.
 
+## Known gaps
+
+Left open by build tickets 02 to 09, with no ticket yet:
+
+- If an app's clock runs more than the 15-minute token lifetime ahead of core's, the app and `/refresh` redirect to each other forever. There's no loop guard. (04)
+- For up to a minute after the owner changes an app's rule, the launcher and the app can disagree. (06)
+- Roles can't be renamed or deleted, and an app's name is its slug. (06)
+- The sign-in limit is soft: two attempts racing in parallel can both get past the check. (03)
+- Local dev doesn't work in Safari, because WebKit doesn't send the cookie on the hub's fetch to core. Tested in Playwright's WebKit only. (03)
+- In dev, React StrictMode sends an intro link's sign-in twice, which leaves one extra session. (05)
+- Vite prints `http://127.0.0.1:<port>`, which shows nothing, since each app answers only on its subdomain. (02)
+- Running `pnpm install` anywhere on the machine touches the hard-linked files under a running core, and `node --watch` restarts it. (08)
+- `pnpm dev`, the runner tests, the whole-stack test, `repo-checks` and one `migrate.test.ts` case need Linux or macOS. The whole suite passes in WSL. (04 to 09)
+
 ## Not yet specified
 
 - How a generated app's Dockerfile and env plug into R's Coolify setup (settled by build ticket 11).

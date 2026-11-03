@@ -10,3 +10,9 @@
 - [ ] The layer check fails a cross-app import whether or not ESLint was chosen
 
 Source: the robkit v0.1 spec, https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5
+
+## Comments
+
+Notes carried over from the finished ticket 08, which was deleted once done:
+
+- The hub's and admin's unit tests already ship in the install and run under its `pnpm test`, though Vitest isn't a choice in `robkit.json` yet.

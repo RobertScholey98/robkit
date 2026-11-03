@@ -11,3 +11,10 @@
 - [ ] The no-kit hub and admin read the same token variables as the kit
 
 Source: the robkit v0.1 spec, https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5
+
+## Comments
+
+Notes carried over from the finished tickets 05 and 09, which were deleted once done:
+
+- Admin's `ui.tsx` is a copy of the hub's until a kit lands. (05)
+- The wizard's UI kit question is No or a disabled Yes. Enable Yes, add "Which UI kit?" after it as in the prototype, and add `--ui` to the flags and to the printed command. (09)
