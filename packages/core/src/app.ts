@@ -11,8 +11,7 @@ import {
   mintCode,
   revokeCode,
   parseAccessCode,
-  type AccessCode,
-  type NewCode,
+  readNewCode,
 } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
@@ -74,18 +73,25 @@ interface Credentials {
   password: string;
 }
 
+type Fields = Record<string, unknown>;
+
 /** The fields of the JSON object a POST sent, or undefined if it isn't JSON. */
-async function fieldsOf(
-  c: Context,
-): Promise<Record<string, unknown> | undefined> {
+async function fieldsOf(c: Context): Promise<Fields | undefined> {
   try {
     const body: unknown = await c.req.json();
-    return typeof body === "object" && body !== null
-      ? (body as Record<string, unknown>)
-      : {};
+    return typeof body === "object" && body !== null ? (body as Fields) : {};
   } catch {
     return undefined;
   }
+}
+
+/** A POST's JSON fields read by one of core's input rules, or why they won't do. */
+async function readBody<T>(
+  c: Context,
+  read: (fields: Fields) => T | { error: string },
+): Promise<T | { error: string }> {
+  const fields = await fieldsOf(c);
+  return fields ? read(fields) : { error: "Send a valid JSON body." };
 }
 
 /** The username, trimmed, and password a POST sent, or why it won't do. */
@@ -99,36 +105,6 @@ async function credentialsFrom(
     return { error: "Send a username and a password." };
   }
   return { username: username.trim(), password };
-}
-
-/** The guest's name, code and expiry the owner sent, or why they won't do. */
-async function newCodeFrom(
-  c: Context,
-  now: Date,
-): Promise<NewCode | { error: string }> {
-  const fields = await fieldsOf(c);
-  if (!fields) return { error: "Send a valid JSON body." };
-  const name = typeof fields.name === "string" ? fields.name.trim() : "";
-  if (name.length < 1 || name.length > 80) {
-    return { error: "Give the guest a name of 1 to 80 characters." };
-  }
-  let code: AccessCode | undefined;
-  if (fields.code !== undefined && fields.code !== null) {
-    code =
-      typeof fields.code === "string"
-        ? parseAccessCode(fields.code)
-        : undefined;
-    if (!code) return { error: "Use 3 to 32 letters or digits for the code." };
-  }
-  let expiresAt: Date | null = null;
-  if (fields.expiresAt !== undefined && fields.expiresAt !== null) {
-    expiresAt =
-      typeof fields.expiresAt === "string" ? new Date(fields.expiresAt) : null;
-    if (!expiresAt || !(expiresAt > now)) {
-      return { error: "Pick an expiry in the future." };
-    }
-  }
-  return code ? { name, code, expiresAt } : { name, expiresAt };
 }
 
 const unknownCode = "One of those codes doesn't exist.";
@@ -450,7 +426,7 @@ export function createApp({
 
   app.post("/codes", owner, async (c) => {
     const at = now();
-    const request = await newCodeFrom(c, at);
+    const request = await readBody(c, (fields) => readNewCode(fields, at));
     if ("error" in request) return c.json(request, 400);
     const mint = await mintCode(db, request, at, domain);
     if (mint.outcome === "taken") {
