@@ -21,6 +21,7 @@ describe("the install's theme tokens", () => {
   const installs: [string, Choices][] = [
     ["no UI kit", defaultChoices],
     ["shadcn on Base UI", { ...defaultChoices, uiKit: "shadcn-base-ui" }],
+    ["shadcn on Radix", { ...defaultChoices, uiKit: "shadcn-radix" }],
   ];
 
   describe.each(installs)("with %s", (_, choices) => {
