@@ -1,23 +1,6 @@
 import { randomBytes } from "node:crypto";
 import postgres from "postgres";
-
-const reserved = new Set(["public", "postgres"]);
-
-/**
- * Slugs become unquoted-looking identifiers so app code can write `notes.note`
- * without quoting, and so they can be inlined into DDL safely.
- */
-function assertSafeSlug(slug: string): void {
-  if (
-    !/^[a-z][a-z0-9_]{0,62}$/.test(slug) ||
-    slug.startsWith("pg_") ||
-    reserved.has(slug)
-  ) {
-    throw new Error(
-      `"${slug}" can't be a database role. Use lowercase letters, digits and underscores, start with a letter, and avoid public, postgres and pg_ names.`,
-    );
-  }
-}
+import { slugProblem } from "./slug.ts";
 
 /**
  * Gives an app its own schema and a login role that can touch nothing else,
@@ -31,7 +14,8 @@ export async function provisionDatabase(
   adminUrl: string,
   slug: string,
 ): Promise<string> {
-  assertSafeSlug(slug);
+  const problem = slugProblem(slug);
+  if (problem) throw new Error(problem);
   const password = randomBytes(24).toString("hex");
   const role = `"${slug}"`;
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
