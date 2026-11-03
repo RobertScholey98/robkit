@@ -67,6 +67,11 @@ function listOf<T extends string>(
   return list;
 }
 
+/** A list as its flag spells it, which choicesFromFlags reads back. */
+export function listFlag(list: readonly string[]): string {
+  return list.length > 0 ? list.join(",") : "none";
+}
+
 /** The choices init's flags make, with a default for each flag left out. */
 export function choicesFromFlags(flags: Flags): Choices {
   return {
@@ -82,7 +87,9 @@ export function choicesFromFlags(flags: Flags): Choices {
     tools:
       flags.tools === undefined
         ? defaultChoices.tools
-        : listOf("tools", flags.tools, tools),
+        : flags.tools === "none"
+          ? []
+          : listOf("tools", flags.tools, tools),
     generators:
       flags.generators === undefined
         ? defaultChoices.generators

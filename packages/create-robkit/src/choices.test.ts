@@ -33,6 +33,10 @@ describe("choicesFromFlags", () => {
     );
   });
 
+  it("reads --tools none as no dev tools", () => {
+    expect(choicesFromFlags({ tools: "none" }).tools).toEqual([]);
+  });
+
   it("refuses an option named twice", () => {
     expect(() => choicesFromFlags({ generators: "start,start" })).toThrow(
       "--generators start,start names an option twice.",

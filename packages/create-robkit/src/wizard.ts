@@ -1,0 +1,179 @@
+import {
+  CANCEL_SYMBOL,
+  confirm,
+  intro,
+  isCancel,
+  multiselect,
+  select,
+  text,
+} from "@clack/prompts";
+import * as choices from "./choices.ts";
+import { folderInUse } from "./write.ts";
+
+/**
+ * init's answers, as the flags that make the same install. The choice flags
+ * come in the order init asks them, which is the order the command prints.
+ */
+export type Answers = { [Flag in keyof choices.Flags]-?: string } & {
+  folder: string;
+  install: boolean;
+};
+
+/** What init calls each option whose value isn't its name. */
+const labels: Record<string, string> = {
+  drizzle: "Drizzle",
+  prisma: "Prisma",
+  kysely: "Kysely",
+  start: "TanStack Start",
+  "react-hono": "React + Hono",
+  next: "Next.js",
+  express: "React + Express",
+  go: "React + Go",
+  "eslint-prettier": "ESLint + Prettier",
+  vitest: "Vitest",
+  playwright: "Playwright",
+  husky: "Husky + lint-staged",
+};
+
+/**
+ * The options init offers: the ones it can make, then the ones a later
+ * release adds, shown but not yet selectable.
+ */
+function optionsFor(
+  ready: readonly string[],
+  comingLater: string[],
+  recommended?: string,
+) {
+  const label = (value: string) => labels[value] ?? value;
+  return [
+    ...ready.map((value) => ({
+      value,
+      label: label(value),
+      ...(value === recommended && { hint: "recommended" }),
+    })),
+    ...comingLater
+      .filter((value) => !ready.includes(value))
+      .map((value) => ({
+        value,
+        label: label(value),
+        hint: "coming later",
+        disabled: true,
+      })),
+  ];
+}
+
+function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
+  if (isCancel(answer)) throw new Error("Cancelled. Nothing was written.");
+  return answer;
+}
+
+/**
+ * The folder as the printed command spells it, so it reads back the same in
+ * bash, PowerShell and cmd, or undefined for a name no quoting would keep.
+ * Shells share no escape, so only double quotes, around these characters.
+ */
+function shellWord(folder: string): string | undefined {
+  if (!/^[\p{L}\p{N} ._/\\:-]+$/u.test(folder)) return undefined;
+  return /^[\p{L}\p{N}._/-]+$/u.test(folder) ? folder : `"${folder}"`;
+}
+
+function folderProblem(folder: string | undefined): string | undefined {
+  if (!folder) return undefined;
+  if (shellWord(folder) === undefined) {
+    return `${folder} can't be the folder. Use letters, digits, spaces, dots, dashes, underscores and slashes.`;
+  }
+  return folderInUse(folder);
+}
+
+const defaultFolder = "my-robkit";
+
+/** Asks init's questions, skipping the folder when it's already given. */
+export async function askInit(folder?: string): Promise<Answers> {
+  const problem = folderProblem(folder);
+  if (problem) throw new Error(problem);
+  intro("robkit");
+  const where =
+    folder ??
+    answered(
+      await text({
+        message: "Where should robkit create the install?",
+        placeholder: defaultFolder,
+        defaultValue: defaultFolder,
+        // An empty answer takes the default, which clack doesn't validate.
+        validate: (answer) => folderProblem(answer ?? defaultFolder),
+      }),
+    );
+  const pm = answered(
+    await select({
+      message: "Which package manager?",
+      options: optionsFor(
+        choices.packageManagers,
+        ["bun", "yarn"],
+        choices.defaultChoices.packageManager,
+      ),
+    }),
+  );
+  const orm = answered(
+    await select({
+      message: "Which ORM?",
+      options: optionsFor(
+        choices.orms,
+        ["prisma", "kysely"],
+        choices.defaultChoices.orm,
+      ),
+    }),
+  );
+  answered(
+    await select({
+      message: "Add a shared React UI kit?",
+      options: [
+        { value: "no", label: "No", hint: "the hub and admin use Tailwind" },
+        {
+          value: "yes",
+          label: "Yes",
+          hint: "shadcn or Chakra UI, coming later",
+          disabled: true,
+        },
+      ],
+    }),
+  );
+  const generators = answered(
+    await multiselect({
+      message: "Which app generators should robkit add offer?",
+      options: optionsFor(choices.generators, ["next", "express", "go"]),
+      initialValues: [...choices.defaultChoices.generators],
+    }),
+  );
+  const tools = answered(
+    await multiselect({
+      message: "Which dev tools?",
+      options: optionsFor(choices.tools, ["vitest", "playwright", "husky"]),
+      initialValues: [...choices.defaultChoices.tools],
+      required: false,
+    }),
+  );
+  const install = answered(
+    await confirm({ message: "Install dependencies and initialise git?" }),
+  );
+  return {
+    folder: where,
+    pm,
+    orm,
+    generators: choices.listFlag(generators),
+    tools: choices.listFlag(tools),
+    install,
+  };
+}
+
+/** The command that makes the same install without asking. */
+export function commandFor(
+  { folder, install, ...flags }: Answers,
+  link = false,
+): string {
+  return [
+    `npm create robkit@latest ${shellWord(folder) ?? folder} --`,
+    ...Object.entries(flags).map(([flag, value]) => `--${flag} ${value}`),
+    ...(install ? ["--install"] : []),
+    ...(link ? ["--link"] : []),
+  ].join(" ");
+}

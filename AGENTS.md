@@ -10,7 +10,7 @@ robkit is a self-hosting kit. `npm create robkit` scaffolds an install, and `rob
 
 ```sh
 pnpm install                              # Node 24, pnpm 11
-pnpm create-install <folder>              # an install linked to this checkout; then pnpm install and pnpm dev in it
+pnpm create-install                       # init's questions, then an install linked to this checkout; pnpm dev in it
 pnpm turbo run lint typecheck test        # what CI runs; needs Docker
 pnpm format                               # Prettier
 pnpm --filter <package> test              # one package
@@ -18,7 +18,7 @@ pnpm --filter <package> test              # one package
 
 ## Layout
 
-- `packages/create-robkit` is `npm create robkit`. Its `templates/` holds an install in layers: `base` (core, Compose, turbo), `package-managers/<name>`, `ui-kits/none` (the hub and admin without a kit), `tools/<name>`, and `stacks/<name>` for apps. The generator lays the chosen layers over each other in memory, merging manifests, mounts the first generator's stack at `apps/example`, writes the catalog from robkit's own, and records the choices in `robkit.json`. The templates are an install's own files: the install lints and tests them, so robkit's ESLint and TypeScript skip them.
+- `packages/create-robkit` is `npm create robkit`. With no flags it asks init's questions and ends by printing the flags that make the same install. Its `templates/` holds an install in layers: `base` (core, Compose, turbo), `package-managers/<name>`, `ui-kits/none` (the hub and admin without a kit), `tools/<name>`, and `stacks/<name>` for apps. The generator lays the chosen layers over each other in memory, merging manifests, mounts the first generator's stack at `apps/example`, writes the catalog from robkit's own, and records the choices in `robkit.json`. The templates are an install's own files: the install lints and tests them, so robkit's ESLint and TypeScript skip them.
 - In an install, each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role. The dev runner tells each app its slug as `ROBKIT_APP`, and hands core the owner's apps as `ROBKIT_APPS`. Core adds new ones to its app catalog, where admin sets who may open each one.
 - `packages/` holds the published `@robkit/*` packages:
   - `@robkit/core`, the backend.
