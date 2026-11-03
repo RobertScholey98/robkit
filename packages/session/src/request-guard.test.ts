@@ -10,6 +10,7 @@ import type { AccessRule } from "@robkit/guard";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { requestGuard, type GuardedRule } from "./index.ts";
+import { readSessionLapsed } from "./session-lapsed.ts";
 
 const page = "http://example.robkit.localhost:3000/notes?x=1";
 const navigate = { "sec-fetch-mode": "navigate" };
@@ -109,7 +110,7 @@ describe("requestGuard, on a page load", () => {
 });
 
 describe("requestGuard, on a call from the page or a server", () => {
-  it("answers 401 and where to go, not a redirect", async () => {
+  it("answers with the 401 the page reads as the guard's, not a redirect", async () => {
     const core = await fakeCore();
     const open = guardedBy(core);
 
@@ -121,44 +122,26 @@ describe("requestGuard, on a call from the page or a server", () => {
       headers: cookie(await core.key.token(20 * minute)),
     });
 
-    expect(loggedOut.status).toBe(401);
-    expect(await loggedOut.json()).toEqual({
+    expect(await readSessionLapsed(loggedOut)).toEqual({
+      outcome: "login",
       error: "Sign in to use this app.",
       location: elsewhere(core).login,
     });
-    expect(expired.status).toBe(401);
-    expect(await expired.json()).toEqual({
+    expect(await readSessionLapsed(expired)).toEqual({
+      outcome: "refresh",
       error: "Your session needs refreshing.",
       location: elsewhere(core).refresh,
     });
   });
 
-  it("marks its 401 so the page can tell it from the app's own", async () => {
-    const core = await fakeCore();
-    const open = guardedBy(core);
-
-    const loggedOut = await open(page, {
-      headers: { "sec-fetch-mode": "cors" },
-    });
-    const expired = await open(page, {
-      method: "POST",
-      headers: cookie(await core.key.token(20 * minute)),
-    });
-
-    expect([
-      loggedOut.headers.get("robkit-session"),
-      expired.headers.get("robkit-session"),
-    ]).toEqual(["login", "refresh"]);
-  });
-
-  it("answers a server's JSON request with 401", async () => {
+  it("answers a server's JSON request with the guard's 401", async () => {
     const core = await fakeCore();
 
     const res = await guardedBy(core)(page, {
       headers: { accept: "application/json" },
     });
 
-    expect(res.status).toBe(401);
+    expect(await readSessionLapsed(res)).toMatchObject({ outcome: "login" });
   });
 });
 

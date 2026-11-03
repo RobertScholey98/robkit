@@ -6,6 +6,7 @@ import {
 } from "@robkit/guard";
 import { coreAccess } from "./core-access.ts";
 import { coreKeys } from "./core-keys.ts";
+import { sessionLapsedResponse } from "./session-lapsed.ts";
 import { readSessionToken, sessionCookie } from "./session-token.ts";
 
 /** Who may open the app: a rule of its own, or the one the owner set in admin. */
@@ -149,23 +150,19 @@ export function requestGuard(
         const { app, path, error } = elsewhere[decision.outcome];
         const location = new URL(path, origins[app]);
         location.searchParams.set("next", publicUrl(request).href);
-        const headers = { "cache-control": "no-store" };
         if (!isNavigation(request)) {
-          // The header tells the page this 401 is the guard's, not the app's.
           return {
-            response: Response.json(
-              { error, location: location.href },
-              {
-                status: 401,
-                headers: { ...headers, "robkit-session": decision.outcome },
-              },
-            ),
+            response: sessionLapsedResponse({
+              outcome: decision.outcome,
+              error,
+              location: location.href,
+            }),
           };
         }
         return {
           response: new Response(null, {
             status: 302,
-            headers: { ...headers, location: location.href },
+            headers: { "cache-control": "no-store", location: location.href },
           }),
         };
       }
