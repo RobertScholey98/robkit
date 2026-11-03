@@ -22,7 +22,7 @@ pnpm --filter <package> test              # one package
 - In an install, each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role from the provision step, `provisionApps` in `@robkit/dev`, which then runs that script. `pnpm dev` runs the step before it starts the apps. The dev runner tells each app its slug as `ROBKIT_APP`, and hands core the owner's apps as `ROBKIT_APPS`. Core adds new ones to its app catalog, where admin sets who may open each one.
 - `packages/` holds the published `@robkit/*` packages:
   - `@robkit/core`, the backend.
-  - `@robkit/session`, the session token's claims and cookie, `coreKeys`, which fetches core's public key once so apps verify tokens locally, `coreAccess`, which loads an app's access rule from core and keeps it for a minute, and `requestGuard`, which runs the guard on a web-standard `Request` for the server adapters.
+  - `@robkit/session`, the session token's claims and cookie, and `requestGuard`, which runs the guard on a web-standard `Request` for the server adapters. It fetches core's public key once, so apps verify tokens locally, and keeps an app's access rule from core for a minute.
   - `@robkit/guard`, the pure guard, and `conformance.json`, the cases the guard and every adapter pass.
   - `@robkit/hono`, the Hono adapter.
   - `@robkit/start`, the TanStack Start adapter. It wraps the app's server entry, so routes and server functions get the viewer as `context.viewer`.
