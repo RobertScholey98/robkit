@@ -1,4 +1,3 @@
-import type { Viewer } from "@robkit/start";
 import postgres from "postgres";
 
 let sql: postgres.Sql | undefined;
@@ -10,13 +9,12 @@ function database(): postgres.Sql {
   return sql;
 }
 
-/** Records a visit by the viewer and counts their visits so far. */
-export async function recordVisit(viewer: Viewer): Promise<number> {
-  const id = viewer.kind === "nobody" ? "nobody" : viewer.id;
+/** Records a visit by `viewerId` and counts their visits so far. */
+export async function recordVisit(viewerId: string): Promise<number> {
   const db = database();
-  await db`insert into visit (viewer) values (${id})`;
+  await db`insert into visit (viewer) values (${viewerId})`;
   const [counted] = await db<{ visits: number }[]>`
-    select count(*)::int as visits from visit where viewer = ${id}
+    select count(*)::int as visits from visit where viewer = ${viewerId}
   `;
   return counted?.visits ?? 0;
 }

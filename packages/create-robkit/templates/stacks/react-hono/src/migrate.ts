@@ -17,4 +17,4 @@ try {
 } finally {
   await sql.end();
 }
-console.log("example migrated");
+console.log("migrated");
