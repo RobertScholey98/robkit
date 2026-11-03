@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@clack/prompts": "catalog:",
+    "@robkit/dev": "workspace:*",
     "@robkit/session": "workspace:*",
     "prettier": "catalog:",
     "yaml": "catalog:"
