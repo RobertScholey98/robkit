@@ -266,6 +266,11 @@ describe("generateInstall", () => {
       expect(stack.layer, stack.value).toBeDefined();
     }
     for (const orm of readyOptions(choiceTable.orm)) {
+      const appLayer = new URL(
+        `../templates/${orm.appLayer ?? ""}/`,
+        import.meta.url,
+      );
+      expect((await stat(appLayer)).isDirectory(), orm.value).toBe(true);
       const guide = new URL(
         `../templates/${orm.appGuide ?? ""}`,
         import.meta.url,
@@ -295,6 +300,21 @@ describe("generateInstall", () => {
       expect(agents).toContain("`src/migrate.ts` is the app's migration.");
       expect(agents.endsWith(ormSection.replaceAll("\r\n", "\n"))).toBe(true);
       expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
+    },
+  );
+
+  it.each(["start", "react-hono"] as const)(
+    "lays the ORM's app files over a %s app",
+    async (stack) => {
+      const files = await stackTemplate(stack, "drizzle");
+      const manifest = JSON.parse(files.get("package.json") ?? "{}") as {
+        scripts: Record<string, string>;
+      };
+
+      expect(files.has("src/migrate.ts")).toBe(true);
+      expect(files.has("src/visits.ts")).toBe(true);
+      expect(manifest.scripts.migrate).toBe("node src/migrate.ts");
+      expect(manifest.scripts.start).toMatch(/^node --run migrate && /);
     },
   );
 

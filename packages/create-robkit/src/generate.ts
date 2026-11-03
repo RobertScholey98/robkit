@@ -8,6 +8,7 @@ import {
   type Choice,
   type Choices,
   type Generator,
+  type Option,
   type Orm,
 } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
@@ -126,8 +127,9 @@ function layersFor(choices: Choices): string[] {
 }
 
 /**
- * The template robkit ships for `stack`: an app's files, from its folder.
- * Its `AGENTS.md` ends with the section the install's ORM adds.
+ * The template robkit ships for `stack`: an app's files, from its folder,
+ * with the install's ORM's app files laid over them. Its `AGENTS.md` ends
+ * with the section the ORM adds.
  */
 export async function stackTemplate(
   stack: Generator,
@@ -138,9 +140,12 @@ export async function stackTemplate(
     throw new Error(`the ${stack} stack has no template`);
   }
   const files = await readLayer(layer);
-  const guide = choiceTable.orm.options.find(
+  const ormOption: Option | undefined = choiceTable.orm.options.find(
     (option) => option.value === orm,
-  )?.appGuide;
+  );
+  const appLayer = ormOption?.appLayer;
+  if (appLayer !== undefined) overlay(files, await readLayer(appLayer));
+  const guide = ormOption?.appGuide;
   const agents = files.get("AGENTS.md");
   if (guide !== undefined && agents !== undefined) {
     // A Windows checkout may hold the templates with CRLF endings.

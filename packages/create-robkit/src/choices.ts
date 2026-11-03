@@ -12,6 +12,11 @@ export interface Option {
    */
   readonly layer?: string;
   /**
+   * The template folder, under `templates/`, the option lays over every
+   * app's files: the example's and each app robkit add writes.
+   */
+  readonly appLayer?: string;
+  /**
    * A section, as a file under `templates/`, the option adds to the end of
    * every app's `AGENTS.md`.
    */
@@ -59,11 +64,10 @@ export const choiceTable = {
     about: "ORM",
     takes: "one",
     options: [
-      // Drizzle adds no files: core keeps it inside @robkit/core, and the
-      // example apps query Postgres directly.
       {
         value: "drizzle",
         label: "Drizzle",
+        appLayer: "orms/drizzle/app",
         appGuide: "orms/drizzle/AGENTS.md",
       },
       { value: "prisma", label: "Prisma", comingLater: true },

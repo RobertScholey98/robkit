@@ -3,16 +3,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "migrate": "node src/migrate.ts",
     "typecheck": "tsc",
     "build": "vite build",
-    "start": "node src/migrate.ts && node dist/serve.js"
+    "start": "node --run migrate && node dist/serve.js"
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@robkit/hono": "catalog:",
     "hono": "catalog:",
-    "postgres": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "migrate": "node src/migrate.ts"
+  },
+  "dependencies": {
+    "postgres": "catalog:"
+  }
+}

@@ -3,10 +3,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "migrate": "node src/migrate.ts",
     "typecheck": "tsc",
     "build": "vite build",
-    "start": "node src/migrate.ts && node src/serve.ts"
+    "start": "node --run migrate && node src/serve.ts"
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
@@ -15,7 +14,6 @@
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
     "hono": "catalog:",
-    "postgres": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

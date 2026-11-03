@@ -7,10 +7,10 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
   "type": "module",
   "scripts": {
     "dev": "vite dev",
-    "migrate": "node src/migrate.ts",
     "typecheck": "tsc",
     "build": "vite build",
-    "start": "node src/migrate.ts && node src/serve.ts"
+    "start": "node --run migrate && node src/serve.ts",
+    "migrate": "node src/migrate.ts"
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
