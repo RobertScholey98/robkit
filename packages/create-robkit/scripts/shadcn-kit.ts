@@ -46,7 +46,7 @@ if (!base || !layer) {
 }
 
 const templates = fileURLToPath(new URL("../templates/", import.meta.url));
-const ui = join(templates, "ui-kits", layer, "packages", "ui");
+const ui = join(templates, "ui-kits", layer, "install", "packages", "ui");
 const { catalog } = await readRobkitRepo();
 
 function version(name: string): string {
