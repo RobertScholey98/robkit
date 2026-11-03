@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -191,6 +191,60 @@ describe("robkit database-urls", { timeout: 30_000 }, () => {
       code: 1,
       output:
         "Set ROBKIT_ADMIN_DATABASE_URL to the host's Postgres admin URL and ROBKIT_DB_SECRET to the install's database secret.\n",
+    });
+  });
+});
+
+describe("robkit deploy", { timeout: 30_000 }, () => {
+  const coolifyJson = JSON.stringify({
+    project: "robkit",
+    environment: "production",
+    server: "localhost",
+    githubApp: "robkit-coolify",
+    repository: "RobertScholey98/robkit-dev",
+    branch: "main",
+    domain: "robkit.dev",
+  });
+
+  it("says how to set up an install with no coolify.json", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["deploy"]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output:
+        "This install has no coolify.json. See docs/deploy.md to set one up.\n",
+    });
+  });
+
+  it("prints each app's variables on a dry run", async () => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "coolify.json"), coolifyJson);
+
+    const { code, output } = await drive(bin, dir, ["deploy", "--dry-run"]);
+
+    expect(code).toBe(0);
+    expect(output).toContain(`example:
+  ROBKIT_APP=example
+  ROBKIT_DOMAIN=robkit.dev
+  ROBKIT_CORE_URL=https://core.robkit.dev
+  PORT=3000
+  DATABASE_URL=(shared) EXAMPLE_DATABASE_URL
+`);
+  });
+
+  it("deploys nothing until COOLIFY_URL is set", async () => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "coolify.json"), coolifyJson);
+
+    const { code, output } = await drive(bin, dir, ["deploy"], [], {
+      COOLIFY_URL: "",
+    });
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: "COOLIFY_URL is not set, so nothing was deployed.\n",
     });
   });
 });
