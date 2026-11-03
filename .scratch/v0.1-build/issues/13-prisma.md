@@ -10,3 +10,9 @@
 - [ ] Prisma's migrate command runs as the app's pre-start step locally and as its pre-deploy step, following ticket 11's notes
 
 Source: the robkit v0.1 spec, https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5
+
+## Comments
+
+Notes carried over from the finished ticket 08, which was deleted once done:
+
+- `robkit.json` records `orm: "drizzle"`, but there is no Drizzle layer. Core keeps Drizzle inside `@robkit/core`, and the example apps query Postgres with `postgres` directly. Put the example apps on Drizzle first, so Prisma has something to replace.

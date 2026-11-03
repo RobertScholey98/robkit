@@ -1,6 +1,6 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { cp, mkdtemp, readdir } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
@@ -37,10 +37,14 @@ afterEach(async () => {
   );
 });
 
-async function startDev(env: Record<string, string> = {}): Promise<Dev> {
+async function startDev(
+  env: Record<string, string> = {},
+  prepare: (root: string) => Promise<void> = () => Promise.resolve(),
+): Promise<Dev> {
   const root = await mkdtemp(join(tmpdir(), "robkit-dev-"));
   await cp(fixture, root, { recursive: true });
   await cp(composeFile, join(root, "compose.yaml"));
+  await prepare(root);
   const port = await freePortBlock(3);
   const project = `robkit-test-${String(port)}`;
   projects.push({ root, project });
@@ -121,6 +125,17 @@ async function runningContainers(root: string): Promise<string> {
   return stdout.trim();
 }
 
+/** Every container Compose made for the install, stopped or not. */
+async function createdContainers(root: string): Promise<string> {
+  const project = projects.find((p) => p.root === root)?.project ?? "";
+  const { stdout } = await run(
+    "docker",
+    ["compose", "-p", project, "ps", "-a", "-q"],
+    { cwd: root },
+  );
+  return stdout.trim();
+}
+
 async function startedApps(root: string): Promise<string[]> {
   const started = [];
   for (const slug of await readdir(join(root, "apps"))) {
@@ -174,6 +189,23 @@ describe("robkit-dev", () => {
     expect(dev.output()).toContain("migration failed on purpose");
     expect(await startedApps(dev.root)).toEqual([]);
     expect(await runningContainers(dev.root)).toBe("");
+  });
+
+  it("refuses an app folder that isn't a slug before starting anything", async () => {
+    const dev = await startDev({}, async (root) => {
+      await mkdir(join(root, "apps", "my-app"));
+      await writeFile(
+        join(root, "apps", "my-app", "package.json"),
+        JSON.stringify({ scripts: { dev: "node ../../serve.js" } }),
+      );
+    });
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toBe(
+      `apps/my-app: "my-app" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters, digits and underscores, start with a letter, and avoid public, postgres and pg_ names.\n`,
+    );
+    expect(await startedApps(dev.root)).toEqual([]);
+    expect(await createdContainers(dev.root)).toBe("");
   });
 
   it("stops everything and fails when an app exits", async () => {
