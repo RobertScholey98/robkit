@@ -40,7 +40,7 @@ afterAll(async () => {
 
 function start(script: string, env: Record<string, string>): ChildProcess {
   const child = spawn(process.execPath, [script], {
-    cwd: join(inject("installs").checks, "apps/core"),
+    cwd: join(inject("installs").start, "apps/core"),
     env: { ...process.env, ...env },
     stdio: ["ignore", "inherit", "inherit"],
   });

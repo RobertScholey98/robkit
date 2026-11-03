@@ -18,8 +18,6 @@ export const installs = {
   /** The default install, whose example app is on TanStack Start. */
   start: defaultChoices,
   reactHono: { ...defaultChoices, generators: ["react-hono", "start"] },
-  /** Another default install, for the suites that don't run `pnpm dev`. */
-  checks: defaultChoices,
 } satisfies Record<string, Choices>;
 
 export type InstallName = keyof typeof installs;
