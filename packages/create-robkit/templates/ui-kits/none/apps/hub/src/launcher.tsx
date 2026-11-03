@@ -42,14 +42,14 @@ export function Launcher({
   }, [core]);
 
   return (
-    <div className="min-h-screen bg-neutral-50 font-sans text-neutral-950 antialiased">
-      <header className="border-b border-neutral-200 bg-white">
+    <div className="min-h-screen bg-muted/50 antialiased">
+      <header className="border-b bg-background">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-4 px-6">
           <p className="text-sm font-semibold tracking-tight">robkit hub</p>
           <div className="flex items-center gap-3">
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm text-muted-foreground">
               Signed in as{" "}
-              <span className="font-medium text-neutral-900">
+              <span className="font-medium text-foreground">
                 {viewer.kind === "owner" ? viewer.username : viewer.name}
               </span>
             </p>
@@ -84,7 +84,7 @@ function AppList({
   listing: Result<LauncherApp[]> | undefined;
 }) {
   if (listing === undefined) {
-    return <p className="text-sm text-neutral-500">Loading apps…</p>;
+    return <p className="text-sm text-muted-foreground">Loading apps…</p>;
   }
   if (!listing.ok) return <FormError>{listing.error}</FormError>;
   if (listing.value.length === 0) return <NoApps viewer={viewer} />;
@@ -110,9 +110,9 @@ function AppList({
 
 function NoApps({ viewer }: { viewer: Viewer }) {
   return (
-    <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center">
+    <div className="rounded-xl border border-dashed bg-card px-6 py-16 text-center">
       <h1 className="text-lg font-semibold tracking-tight">No apps yet.</h1>
-      <p className="mt-2 text-sm text-neutral-500">
+      <p className="mt-2 text-sm text-muted-foreground">
         {viewer.kind === "owner" ? (
           <>
             Apps you add with <InlineCode>robkit add</InlineCode> show up here.

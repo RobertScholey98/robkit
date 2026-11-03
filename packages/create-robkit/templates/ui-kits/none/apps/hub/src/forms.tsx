@@ -59,7 +59,7 @@ export function Setup({ core, onSession }: FormProps) {
   return (
     <Card>
       <Heading>Set up this install</Heading>
-      <p className="mt-2 text-sm text-neutral-500">
+      <p className="mt-2 text-sm text-muted-foreground">
         Whoever sets up a new install becomes its owner. Pick the username and
         password you'll sign in with.
       </p>

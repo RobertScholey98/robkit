@@ -126,7 +126,7 @@ function RoleRow({
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="font-medium">{role.name}</h2>
-            <p className="text-sm text-neutral-500">
+            <p className="text-sm text-muted-foreground">
               {names.length === 0 ? "No guests yet" : names.join(", ")}
             </p>
           </div>

@@ -12,6 +12,7 @@
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@internal/core-client": "workspace:*",
+    "@internal/theme": "workspace:*",
     "@robkit/guard": "catalog:",
     "@robkit/hono": "catalog:",
     "@robkit/session": "catalog:",

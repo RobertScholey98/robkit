@@ -67,7 +67,7 @@ function Hub({ core }: { core: string }) {
     case "checking":
       return (
         <Card>
-          <Status dot="bg-neutral-300">Checking core…</Status>
+          <Status dot="bg-muted-foreground/40">Checking core…</Status>
         </Card>
       );
     case "unreachable":
@@ -88,8 +88,8 @@ function Hub({ core }: { core: string }) {
 function Unreachable({ reason }: { reason: string }) {
   return (
     <Card>
-      <Status dot="bg-red-500">Core is unreachable</Status>
-      <p className="mt-2 text-sm text-neutral-500">{reason}</p>
+      <Status dot="bg-destructive">Core is unreachable</Status>
+      <p className="mt-2 text-sm text-muted-foreground">{reason}</p>
     </Card>
   );
 }

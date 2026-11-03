@@ -32,7 +32,7 @@ export function CodePicker({
   return (
     <fieldset className="grid gap-2">
       <div className="flex items-center justify-between gap-4">
-        <legend className="text-sm font-medium text-neutral-700">Guests</legend>
+        <legend className="text-sm font-medium text-foreground">Guests</legend>
         <div className="flex gap-2">
           <Button
             look="outline"
@@ -55,7 +55,7 @@ export function CodePicker({
         </div>
       </div>
       {choices.length === 0 ? (
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-muted-foreground">
           Mint a code first, then give it roles here.
         </p>
       ) : (
@@ -69,7 +69,7 @@ export function CodePicker({
                 }}
               >
                 {code.name}
-                <span className="font-mono text-xs text-neutral-500">
+                <span className="font-mono text-xs text-muted-foreground">
                   {code.code}
                 </span>
               </Check>
@@ -77,7 +77,7 @@ export function CodePicker({
           ))}
         </ul>
       )}
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-muted-foreground">
         The test code holds every role.
       </p>
     </fieldset>

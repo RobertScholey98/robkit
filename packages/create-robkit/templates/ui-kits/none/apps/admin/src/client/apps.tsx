@@ -34,7 +34,7 @@ export function Apps({
     <section className="grid gap-4">
       <h1 className="text-lg font-semibold tracking-tight">Apps</h1>
       {apps.length === 0 ? (
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-muted-foreground">
           Apps you add with robkit add show up here.
         </p>
       ) : (
@@ -97,7 +97,7 @@ function AppRow({
         />
         {kind === "roles" && (
           <fieldset className="grid gap-2">
-            <legend className="text-sm font-medium text-neutral-700">
+            <legend className="text-sm font-medium text-foreground">
               Roles
             </legend>
             <div className="flex flex-wrap gap-4">
@@ -128,7 +128,7 @@ function AppRow({
             Save access
           </Button>
           {sending.state === "saved" && (
-            <p role="status" className="text-sm text-neutral-500">
+            <p role="status" className="text-sm text-muted-foreground">
               Saved. The app picks it up within a minute.
             </p>
           )}

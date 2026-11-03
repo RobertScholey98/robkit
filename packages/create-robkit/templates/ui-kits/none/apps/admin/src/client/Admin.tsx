@@ -58,8 +58,8 @@ export function Admin({ core }: { core: string }) {
   }, [reload]);
 
   return (
-    <div className="min-h-screen bg-neutral-50 font-sans text-neutral-950 antialiased">
-      <header className="border-b border-neutral-200 bg-white">
+    <div className="min-h-screen bg-muted/50 antialiased">
+      <header className="border-b bg-background">
         <div className="mx-auto flex h-14 max-w-5xl items-center px-6">
           <p className="text-sm font-semibold tracking-tight">robkit admin</p>
         </div>
@@ -97,7 +97,7 @@ function AccessSections({
   switch (access.state) {
     case "loading":
       return (
-        <p className="text-sm text-neutral-500">Loading roles and apps…</p>
+        <p className="text-sm text-muted-foreground">Loading roles and apps…</p>
       );
     case "failed":
       return <FormError>{access.error}</FormError>;
@@ -156,7 +156,7 @@ function MintForm({
       <Panel>
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Mint a code</h2>
-          <p className="mt-1 text-sm text-neutral-500">
+          <p className="mt-1 text-sm text-muted-foreground">
             Give a guest the code, or send them its intro link.
           </p>
         </div>
@@ -203,7 +203,7 @@ function Codes({
 }) {
   switch (listing.state) {
     case "loading":
-      return <p className="text-sm text-neutral-500">Loading codes…</p>;
+      return <p className="text-sm text-muted-foreground">Loading codes…</p>;
     case "failed":
       return <FormError>{listing.error}</FormError>;
     case "loaded":
@@ -254,7 +254,7 @@ function CodeRow({
         <div className="flex items-center gap-2">
           <code
             data-testid="intro-link"
-            className="font-mono text-xs text-neutral-700"
+            className="font-mono text-xs text-foreground"
           >
             {link}
           </code>
