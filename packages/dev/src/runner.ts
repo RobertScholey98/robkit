@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { exec, prefixLines } from "./exec.ts";
 import { createProxy } from "./proxy.ts";
-import { provisionDatabase } from "./provision.ts";
+import { provisionApps } from "./provision.ts";
 
 /** How long an app gets to exit after SIGTERM before it is killed. */
 const stopTimeoutMs = 5000;
@@ -40,9 +40,8 @@ function errorMessage(error: unknown): string {
 /**
  * `robkit-dev`: runs the install in `root` for local development. Finds the
  * apps, refusing any folder that isn't a slug before it starts anything. Starts
- * Postgres, provisions and migrates every app with a database, starts every
- * app and puts the proxy in front. Stops it all on SIGINT or SIGTERM, or as
- * soon as any app exits.
+ * Postgres, runs the provision step, starts every app and puts the proxy in
+ * front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
  *
  * @returns the exit code: 0 after a signal, 1 if anything failed
  */
@@ -75,8 +74,10 @@ export async function runDev(
   let outcome: "interrupted" | "failed" | undefined;
   const { promise: stopRequested, resolve: wake } =
     Promise.withResolvers<undefined>();
+  const stopController = new AbortController();
   const stop = (why: "interrupted" | "failed") => {
     outcome ??= why;
+    stopController.abort();
     wake(undefined);
   };
   const stopping = () => outcome !== undefined;
@@ -115,17 +116,11 @@ export async function runDev(
   try {
     await exec("docker", ["compose", "up", "-d", "--wait"], { cwd: root, env });
 
-    const databaseUrls = new Map<string, string>();
-    for (const app of apps.filter((a) => a.migrates)) {
-      if (stopping()) break;
-      const databaseUrl = await provisionDatabase(adminUrl, app.slug);
-      await exec("pnpm", ["run", "migrate"], {
-        cwd: app.dir,
-        env: { ...appEnv, DATABASE_URL: databaseUrl },
-        slug: app.slug,
-      });
-      databaseUrls.set(app.slug, databaseUrl);
-    }
+    const databaseUrls = await provisionApps(root, {
+      adminUrl,
+      env: appEnv,
+      signal: stopController.signal,
+    });
 
     if (!stopping()) {
       for (const app of apps) start(app, databaseUrls.get(app.slug));
