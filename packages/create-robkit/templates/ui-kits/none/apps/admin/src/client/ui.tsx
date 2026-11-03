@@ -76,6 +76,10 @@ export function Table({
   );
 }
 
+export function Row({ children }: { children: ReactNode }) {
+  return <tr>{children}</tr>;
+}
+
 export function Cell({
   look = "plain",
   children,

@@ -17,7 +17,16 @@ import {
   type Standing,
 } from "./codes-api.ts";
 import { Roles } from "./roles.tsx";
-import { Badge, Button, Cell, Field, FormError, Panel, Table } from "./ui.tsx";
+import {
+  Badge,
+  Button,
+  Cell,
+  Field,
+  FormError,
+  Panel,
+  Row,
+  Table,
+} from "./ui.tsx";
 
 type Listing =
   | { state: "loading" }
@@ -247,7 +256,7 @@ function CodeRow({
   }
 
   return (
-    <tr>
+    <Row>
       <Cell look="strong">{code.name}</Cell>
       <Cell look="code">{code.code}</Cell>
       <Cell>
@@ -278,7 +287,7 @@ function CodeRow({
         )}
         {revoking.state === "failed" && <FormError>{revoking.error}</FormError>}
       </Cell>
-    </tr>
+    </Row>
   );
 }
 
