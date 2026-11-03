@@ -7,10 +7,12 @@
   "scripts": {
     "dev": "robkit-dev",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "robkit": "robkit"
   },
   "devDependencies": {
     "@robkit/dev": "catalog:",
+    "create-robkit": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:"
   }

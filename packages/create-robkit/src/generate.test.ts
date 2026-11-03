@@ -87,9 +87,11 @@ describe("generateInstall", () => {
         lint: "eslint .",
         format: "prettier --write .",
         "format:check": "prettier --check .",
+        robkit: "robkit",
       },
       devDependencies: {
         "@robkit/dev": "catalog:",
+        "create-robkit": "catalog:",
         turbo: "catalog:",
         typescript: "catalog:",
         "@eslint/js": "catalog:",
@@ -112,6 +114,7 @@ describe("generateInstall", () => {
       "@robkit/dev": "0.0.0",
       "@robkit/start": "0.0.0",
       "@tanstack/react-start": "1.169.4",
+      "create-robkit": "0.0.0",
       hono: "4.13.14",
       prettier: "3.9.10",
     });
@@ -146,6 +149,7 @@ describe("generateInstall", () => {
       "@robkit/react": at("react"),
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),
+      "create-robkit": at("create-robkit"),
     });
   });
 

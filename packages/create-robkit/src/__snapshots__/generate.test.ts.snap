@@ -43,6 +43,7 @@ exports[`generateInstall > writes the default install > package.json 1`] = `
     "dev": "robkit-dev",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "robkit": "robkit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -50,6 +51,7 @@ exports[`generateInstall > writes the default install > package.json 1`] = `
   "devDependencies": {
     "@eslint/js": "catalog:",
     "@robkit/dev": "catalog:",
+    "create-robkit": "catalog:",
     "eslint": "catalog:",
     "globals": "catalog:",
     "prettier": "catalog:",
@@ -93,6 +95,7 @@ catalog:
   "@types/react": 19.3.0
   "@types/react-dom": 19.3.0
   "@vitejs/plugin-react": 6.1.2
+  create-robkit: 0.0.0
   eslint: 10.13.0
   globals: 17.13.0
   hono: 4.13.14
