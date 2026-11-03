@@ -3,6 +3,7 @@ import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
+import { validator } from "hono/validator";
 import { readAccessRule, type AccessRule } from "@robkit/guard";
 import { sessionCookie } from "@robkit/session";
 import {
@@ -25,6 +26,7 @@ import {
   sessionLifetimeSeconds,
   type SessionAnswer,
   type SessionContext,
+  type SessionRead,
   signIn,
   signInWithCode,
 } from "./sessions.ts";
@@ -36,6 +38,11 @@ export interface CoreOptions {
   domain: string;
   /** Core's clock, for token times, session expiry and rate limits. */
   now?: () => Date;
+}
+
+/** What a route that needs the viewer finds in `c.var`. */
+interface CoreEnv {
+  Variables: { session: SessionRead };
 }
 
 /** The platform apps that call core from the browser with the session cookie. */
@@ -251,6 +258,37 @@ export function createApp({
       secure: !isLocal(domain),
     });
   };
+
+  /**
+   * Reads who is asking from the session cookie into `c.var.session`, for
+   * every route that needs the viewer, and puts a live session's fresh token
+   * on the answer's cookie. With `renew`, as `/refresh` asks, a live
+   * session's token is reissued even if it hasn't expired, and the cookie of
+   * a session that ended is cleared. With `ownerOnly`, anyone but the owner
+   * is told there is nothing here, with no fresh cookie, as a route that
+   * doesn't exist would answer.
+   */
+  const viewer = ({
+    renew = false,
+    ownerOnly = false,
+  } = {}): MiddlewareHandler<CoreEnv> =>
+    async function readViewer(c, next) {
+      const sessionToken = getCookie(c, sessionCookie);
+      const session = await readSession(ctx, sessionToken, { renew });
+      const { answer, freshSessionToken } = session;
+      const isOwner =
+        answer.state === "signed-in" && answer.viewer.kind === "owner";
+      if (ownerOnly && !isOwner) return c.json({ error: "Not found" }, 404);
+      if (freshSessionToken) setSessionCookie(c, freshSessionToken);
+      else if (renew && sessionToken && answer.state !== "signed-in") {
+        setSessionCookie(c, "", 0);
+      }
+      c.set("session", session);
+      await next();
+    };
+  // Admin manages the install over CORS with the owner's cookie.
+  const owner = viewer({ ownerOnly: true });
+
   const trustedHosts = new Set(trustedApps.map((slug) => `${slug}.${domain}`));
 
   app.use(
@@ -296,39 +334,32 @@ export function createApp({
     return c.json({ keys: [{ ...publicJwk, kid, alg: "EdDSA", use: "sig" }] });
   });
 
-  app.get("/session", async (c) => {
-    const { answer, freshSessionToken } = await readSession(
-      ctx,
-      getCookie(c, sessionCookie),
-    );
-    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
-    return c.json<SessionAnswer>(answer);
-  });
+  app.get("/session", viewer(), (c) =>
+    c.json<SessionAnswer>(c.var.session.answer),
+  );
 
   // An app's guard sends an expired token here, and it comes straight back
   // to `next` with a fresh cookie, or none if its session ended. The app's
   // guard then decides whether to send the browser to log in. The token is
   // reissued even if core thinks it live, since the app's clock may run
   // ahead of core's, and a bounce without a new token would loop.
-  app.get("/refresh", async (c) => {
-    const next = appUrl(c.req.query("next"), domain);
-    if (!next) {
-      return c.json(
-        { error: "Send next, a URL on one of this install's apps." },
-        400,
-      );
-    }
-    const sessionToken = getCookie(c, sessionCookie);
-    const { answer, freshSessionToken } = await readSession(ctx, sessionToken, {
-      renew: true,
-    });
-    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
-    else if (sessionToken && answer.state !== "signed-in") {
-      setSessionCookie(c, "", 0);
-    }
-    c.header("Cache-Control", "no-store");
-    return c.redirect(next, 302);
-  });
+  app.get(
+    "/refresh",
+    validator("query", (_, c) => {
+      const next = appUrl(c.req.query("next"), domain);
+      return next
+        ? { next }
+        : c.json(
+            { error: "Send next, a URL on one of this install's apps." },
+            400,
+          );
+    }),
+    viewer({ renew: true }),
+    (c) => {
+      c.header("Cache-Control", "no-store");
+      return c.redirect(c.req.valid("query").next, 302);
+    },
+  );
 
   app.post("/setup", async (c) => {
     const credentials = await credentialsFrom(c);
@@ -413,28 +444,11 @@ export function createApp({
     return c.body(null, 204);
   });
 
-  // Admin manages codes over CORS with the owner's cookie. Anyone else is
-  // told there is nothing here.
-  const ownerOnly: MiddlewareHandler = async (c, next) => {
-    const { answer, freshSessionToken } = await readSession(
-      ctx,
-      getCookie(c, sessionCookie),
-    );
-    if (answer.state !== "signed-in" || answer.viewer.kind !== "owner") {
-      return c.json({ error: "Not found" }, 404);
-    }
-    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
-    await next();
-  };
-  for (const path of ["/codes", "/codes/*", "/roles", "/roles/*", "/apps"]) {
-    app.use(path, ownerOnly);
-  }
-
-  app.get("/codes", async (c) =>
+  app.get("/codes", owner, async (c) =>
     c.json({ codes: await listCodes(db, now(), domain) }),
   );
 
-  app.post("/codes", async (c) => {
+  app.post("/codes", owner, async (c) => {
     const at = now();
     const request = await newCodeFrom(c, at);
     if ("error" in request) return c.json(request, 400);
@@ -445,31 +459,27 @@ export function createApp({
     return c.json(mint.code, 201);
   });
 
-  app.post("/codes/:id/revoke", async (c) => {
+  app.post("/codes/:id/revoke", owner, async (c) => {
     if (!(await revokeCode(db, c.req.param("id"), now()))) {
       return c.json({ error: "Not found" }, 404);
     }
     return c.body(null, 204);
   });
 
-  app.get("/launcher", async (c) => {
-    const { forGuard, freshSessionToken } = await readSession(
-      ctx,
-      getCookie(c, sessionCookie),
-    );
-    if (freshSessionToken) setSessionCookie(c, freshSessionToken);
-    return c.json({ apps: await launcherApps(db, forGuard) });
-  });
+  app.get("/launcher", viewer(), async (c) =>
+    c.json({ apps: await launcherApps(db, c.var.session.forGuard) }),
+  );
 
-  // Each app's adapter reads its own rule here, with no cookie.
+  // Each app's adapter reads its own rule here, with no cookie, so it's open
+  // to anyone.
   app.get("/apps/:slug/access", async (c) => {
     const access = await accessOf(db, c.req.param("slug"));
     return access ? c.json(access) : c.json({ error: "Not found" }, 404);
   });
 
-  app.get("/apps", async (c) => c.json({ apps: await listApps(db) }));
+  app.get("/apps", owner, async (c) => c.json({ apps: await listApps(db) }));
 
-  app.post("/apps/:slug/access", ownerOnly, async (c) => {
+  app.post("/apps/:slug/access", owner, async (c) => {
     const rule = await accessFrom(c);
     if ("error" in rule) return c.json(rule, 400);
     const change = await setAccess(db, c.req.param("slug"), rule);
@@ -483,9 +493,9 @@ export function createApp({
     }
   });
 
-  app.get("/roles", async (c) => c.json({ roles: await listRoles(db) }));
+  app.get("/roles", owner, async (c) => c.json({ roles: await listRoles(db) }));
 
-  app.post("/roles", async (c) => {
+  app.post("/roles", owner, async (c) => {
     const request = await newRoleFrom(c);
     if ("error" in request) return c.json(request, 400);
     const creation = await createRole(db, request, now());
@@ -499,7 +509,7 @@ export function createApp({
     }
   });
 
-  app.post("/roles/:id/codes", async (c) => {
+  app.post("/roles/:id/codes", owner, async (c) => {
     const request = await codeIdsFrom(c);
     if ("error" in request) return c.json(request, 400);
     const change = await setRoleCodes(db, c.req.param("id"), request.codeIds);
