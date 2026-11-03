@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { slugProblem } from "@robkit/dev";
@@ -57,16 +58,13 @@ async function exists(path: string): Promise<boolean> {
  * Why `slug` can't name a new app in the install at `root`, or `undefined`.
  * Its shape fits a prompt's `validate`.
  */
-export async function newSlugProblem(
-  root: string,
-  slug: string,
-): Promise<string | undefined> {
+export function newSlugProblem(root: string, slug: string): string | undefined {
   const problem = slugProblem(slug);
   if (problem) return problem;
   if (isPlatformApp(slug)) {
     return `${slug} is one of the platform apps: ${andList(platformApps)}.`;
   }
-  if (await exists(join(root, "apps", slug))) {
+  if (existsSync(join(root, "apps", slug))) {
     return `apps/${slug} already exists. Choose another name.`;
   }
   return undefined;
@@ -95,7 +93,7 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
       `This install's robkit add offers ${andList(generators)}, not ${choices.stack}.`,
     );
   }
-  const problem = await newSlugProblem(root, choices.slug);
+  const problem = newSlugProblem(root, choices.slug);
   if (problem) throw new Error(problem);
   const template = await templateFor(root, choices.stack);
   await writeInstall(
