@@ -127,6 +127,8 @@ exports[`generateInstall > writes the default install 1`] = `
 [
   ".gitignore",
   ".prettierignore",
+  "AGENTS.md",
+  "CLAUDE.md",
   "apps/admin/package.json",
   "apps/admin/src/client/Admin.tsx",
   "apps/admin/src/client/access-api.test.ts",

@@ -9,6 +9,7 @@ import {
   type Choice,
   type Choices,
 } from "./choices.ts";
+import { layerRule } from "./check.ts";
 import { generateInstall, type Files } from "./generate.ts";
 
 function json(files: Files, path: string): unknown {
@@ -102,6 +103,19 @@ describe("generateInstall", () => {
       },
       packageManager: "pnpm@11.28.9",
     });
+  });
+
+  it("states each rule robkit check enforces in the root AGENTS.md", async () => {
+    const files = await generateInstall(defaultChoices);
+    const agents = files.get("AGENTS.md") ?? "";
+
+    for (const { rule } of layerRule) {
+      const stated = rule.replace(/^Layer rule: (.)/, (_, first: string) =>
+        first.toUpperCase(),
+      );
+      expect(agents).toContain(`- ${stated}`);
+    }
+    expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
   });
 
   it("lints with robkit check, without ESLint too", async () => {
