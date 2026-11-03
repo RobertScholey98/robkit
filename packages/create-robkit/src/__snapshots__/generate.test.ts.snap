@@ -83,6 +83,7 @@ catalog:
   "@robkit/guard": 0.0.0
   "@robkit/hono": 0.0.0
   "@robkit/react": 0.0.0
+  "@robkit/session": 0.0.0
   "@robkit/start": 0.0.0
   "@tailwindcss/vite": 4.3.3
   "@tanstack/react-router": 1.170.46

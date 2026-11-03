@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@robkit/session": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },

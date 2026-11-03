@@ -135,6 +135,7 @@ describe("generateInstall", () => {
       "@robkit/guard": at("guard"),
       "@robkit/hono": at("hono"),
       "@robkit/react": at("react"),
+      "@robkit/session": at("session"),
       "@robkit/start": at("start"),
     });
   });

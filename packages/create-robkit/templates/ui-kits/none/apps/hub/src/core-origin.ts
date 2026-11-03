@@ -1,16 +1,22 @@
+import { installAt, type Install } from "@robkit/session/addresses";
+
 /**
- * Core answers on `core.<domain>` beside the hub on `hub.<domain>`, so the
- * hub finds it from its own address and needs no config.
+ * The install the hub's page is on. The hub answers on `hub.<domain>`, so it
+ * finds core and every app from its own address and needs no config.
  */
-export function coreOrigin(page: string | URL): string {
-  const url = new URL(page);
-  if (!url.hostname.startsWith("hub.")) {
+function installOf(page: string | URL): Install {
+  const install = installAt(page, "hub");
+  if (!install) {
     throw new Error(
-      `The hub must be served from hub.<domain>, not ${url.host}`,
+      `The hub must be served from hub.<domain>, not ${new URL(page).host}`,
     );
   }
-  url.hostname = `core.${url.hostname.slice("hub.".length)}`;
-  return url.origin;
+  return install;
+}
+
+/** Core's origin: `core.<domain>`, beside the hub. */
+export function coreOrigin(page: string | URL): string {
+  return installOf(page).origin("core");
 }
 
 /**
@@ -18,20 +24,11 @@ export function coreOrigin(page: string | URL): string {
  * put on the hub's address, if it is on one of the install's subdomains.
  */
 export function returnTo(page: string | URL): string | undefined {
-  const url = new URL(page);
-  const next = url.searchParams.get("next");
-  if (next === null || !URL.canParse(next)) return undefined;
-  const target = new URL(next);
-  const domain = url.hostname.slice("hub.".length);
-  const web = target.protocol === "https:" || target.protocol === "http:";
-  return web && target.hostname.endsWith(`.${domain}`)
-    ? target.href
-    : undefined;
+  const next = new URL(page).searchParams.get("next") ?? undefined;
+  return installOf(page).onInstall(next);
 }
 
-/** An app's origin: `<slug>.<domain>`, beside the hub on `hub.<domain>`. */
+/** An app's origin: `<slug>.<domain>`, beside the hub. */
 export function appOrigin(page: string | URL, slug: string): string {
-  const url = new URL(page);
-  url.hostname = `${slug}.${url.hostname.slice("hub.".length)}`;
-  return url.origin;
+  return installOf(page).origin(slug);
 }
