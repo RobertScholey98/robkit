@@ -134,13 +134,15 @@ describe("addApp", () => {
     ).toContain('from "@internal/ui/components/ui/card"');
   });
 
-  it.each(["start", "react-hono"] as const)(
-    "leaves the UI kit out of a %s app that opts out",
-    async (stack) => {
-      const dir = await freshInstall({
-        ...defaultChoices,
-        uiKit: "shadcn-base-ui",
-      });
+  it.each([
+    ["start", "shadcn-base-ui"],
+    ["react-hono", "shadcn-base-ui"],
+    ["start", "shadcn-radix"],
+    ["react-hono", "shadcn-radix"],
+  ] as const)(
+    "leaves the UI kit out of a %s app that opts out of %s",
+    async (stack, uiKit) => {
+      const dir = await freshInstall({ ...defaultChoices, uiKit });
 
       await addApp(dir, { ...notes, stack, uiKit: false });
 
