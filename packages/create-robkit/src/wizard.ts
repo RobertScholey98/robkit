@@ -10,15 +10,14 @@ import {
 import * as choices from "./choices.ts";
 import { folderInUse } from "./write.ts";
 
-/** init's answers, as the flags that make the same install. */
-export interface Answers {
+/**
+ * init's answers, as the flags that make the same install. The choice flags
+ * come in the order init asks them, which is the order the command prints.
+ */
+export type Answers = { [Flag in keyof choices.Flags]-?: string } & {
   folder: string;
-  pm: string;
-  orm: string;
-  generators: string;
-  tools: string;
   install: boolean;
-}
+};
 
 /** What init calls each option whose value isn't its name. */
 const labels: Record<string, string> = {
@@ -160,18 +159,20 @@ export async function askInit(folder?: string): Promise<Answers> {
     folder: where,
     pm,
     orm,
-    generators: generators.join(","),
-    tools: tools.length > 0 ? tools.join(",") : "none",
+    generators: choices.listFlag(generators),
+    tools: choices.listFlag(tools),
     install,
   };
 }
 
 /** The command that makes the same install without asking. */
-export function commandFor(answers: Answers, link = false): string {
-  const { folder, pm, orm, generators, tools, install } = answers;
+export function commandFor(
+  { folder, install, ...flags }: Answers,
+  link = false,
+): string {
   return [
     `npm create robkit@latest ${shellWord(folder) ?? folder} --`,
-    `--pm ${pm} --orm ${orm} --generators ${generators} --tools ${tools}`,
+    ...Object.entries(flags).map(([flag, value]) => `--${flag} ${value}`),
     ...(install ? ["--install"] : []),
     ...(link ? ["--link"] : []),
   ].join(" ");
