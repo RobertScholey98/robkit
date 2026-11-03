@@ -94,9 +94,16 @@ function AppList({
         <li key={app.slug}>
           <a
             href={appOrigin(location.href, app.slug)}
-            className="block rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-xs transition-colors hover:border-neutral-300 hover:bg-neutral-50"
+            className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-xs transition-colors hover:border-neutral-300 hover:bg-neutral-50"
           >
-            <span className="font-medium">{app.name}</span>
+            {app.icon !== null && (
+              <span aria-hidden="true" className="text-xl leading-none">
+                {app.icon}
+              </span>
+            )}
+            <span className="font-medium" data-testid="app-name">
+              {app.name}
+            </span>
           </a>
         </li>
       ))}
