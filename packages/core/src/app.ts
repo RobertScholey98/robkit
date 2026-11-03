@@ -17,7 +17,13 @@ import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
 import { accessOf, launcherApps, listApps, setAccess } from "./apps.ts";
 import { createRateLimiter } from "./rate-limit.ts";
-import { createRole, listRoles, setRoleCodes, type NewRole } from "./roles.ts";
+import {
+  createRole,
+  listRoles,
+  readCodeIds,
+  readNewRole,
+  setRoleCodes,
+} from "./roles.ts";
 import {
   claimInstall,
   readSession,
@@ -118,40 +124,6 @@ async function accessFrom(c: Context): Promise<AccessRule | { error: string }> {
   return fields.kind === "roles"
     ? { error: "Pick at least one role." }
     : { error: "Pick open, roles or owner." };
-}
-
-function readCodeIds(
-  fields: Record<string, unknown>,
-): { codeIds: string[] } | { error: string } {
-  const { codeIds } = fields;
-  if (
-    !Array.isArray(codeIds) ||
-    !codeIds.every((id): id is string => typeof id === "string")
-  ) {
-    return { error: "Send codeIds, a list of code ids." };
-  }
-  return { codeIds };
-}
-
-/** The codes the owner ticked for a role, or why they won't do. */
-async function codeIdsFrom(
-  c: Context,
-): Promise<{ codeIds: string[] } | { error: string }> {
-  const fields = await fieldsOf(c);
-  if (!fields) return { error: "Send a valid JSON body." };
-  return readCodeIds(fields);
-}
-
-/** The role's name and the codes the owner ticked, or why they won't do. */
-async function newRoleFrom(c: Context): Promise<NewRole | { error: string }> {
-  const fields = await fieldsOf(c);
-  if (!fields) return { error: "Send a valid JSON body." };
-  const name = typeof fields.name === "string" ? fields.name.trim() : "";
-  if (name.length < 1 || name.length > 40) {
-    return { error: "Give the role a name of 1 to 40 characters." };
-  }
-  const holders = readCodeIds(fields);
-  return "error" in holders ? holders : { name, ...holders };
 }
 
 /** Why a new owner's username or password won't do, if it won't. */
@@ -472,7 +444,7 @@ export function createApp({
   app.get("/roles", owner, async (c) => c.json({ roles: await listRoles(db) }));
 
   app.post("/roles", owner, async (c) => {
-    const request = await newRoleFrom(c);
+    const request = await readBody(c, readNewRole);
     if ("error" in request) return c.json(request, 400);
     const creation = await createRole(db, request, now());
     switch (creation.outcome) {
@@ -486,7 +458,7 @@ export function createApp({
   });
 
   app.post("/roles/:id/codes", owner, async (c) => {
-    const request = await codeIdsFrom(c);
+    const request = await readBody(c, readCodeIds);
     if ("error" in request) return c.json(request, 400);
     const change = await setRoleCodes(db, c.req.param("id"), request.codeIds);
     switch (change.outcome) {
