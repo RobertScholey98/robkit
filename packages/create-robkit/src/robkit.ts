@@ -14,12 +14,39 @@ import {
   appChoicesFromFlags,
   askAdd,
 } from "./add-wizard.ts";
+import { checkInstall, describeProblem } from "./check.ts";
 import { installDependencies } from "./set-up.ts";
 
 /** Where an install's apps answer under pnpm dev. */
 const dev = addresses({ domain: defaultDomain, port: defaultDevPort });
 
+const usage = `${addUsage}
+
+Usage: robkit check
+
+Checks that every app in the install keeps to the layer rule, and names
+each place one breaks it.`;
+
 try {
+  const [command] = process.argv.slice(2);
+  await (command === "check" ? check() : add());
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exitCode = 1;
+}
+
+async function check(): Promise<void> {
+  const { positionals } = parseArgs({ allowPositionals: true });
+  if (positionals.length > 1) throw new Error(usage);
+  const root = process.cwd();
+  // Refuses a folder that isn't an install.
+  await readInstallChoices(root);
+  const problems = await checkInstall(root);
+  for (const problem of problems) console.log(describeProblem(problem));
+  if (problems.length > 0) process.exitCode = 1;
+}
+
+async function add(): Promise<void> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
@@ -30,7 +57,7 @@ try {
     },
   });
   const [command, given, ...rest] = positionals;
-  if (command !== "add" || rest.length > 0) throw new Error(addUsage);
+  if (command !== "add" || rest.length > 0) throw new Error(usage);
   const root = process.cwd();
   const installed = await readInstallChoices(root);
   const asked = Object.keys(values).length === 0;
@@ -55,9 +82,6 @@ The same app without the questions:
 
   ${addCommandFor(choices)}`);
   }
-} catch (error) {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
 }
 
 function fail(message: string): never {
