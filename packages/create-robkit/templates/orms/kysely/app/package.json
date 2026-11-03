@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "migrate": "node src/migrate.ts"
+  },
+  "dependencies": {
+    "kysely": "catalog:",
+    "pg": "catalog:"
+  },
+  "devDependencies": {
+    "@types/pg": "catalog:"
+  }
+}
