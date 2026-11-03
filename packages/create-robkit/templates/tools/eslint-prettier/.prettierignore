@@ -1,4 +1,6 @@
 pnpm-lock.yaml
+# Prisma generates its client.
+**/generated/prisma/
 # drizzle-kit writes these.
 **/drizzle/meta/
 # TanStack Router writes these.

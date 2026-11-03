@@ -21,6 +21,12 @@ export interface Option {
    * every app's `AGENTS.md`.
    */
   readonly appGuide?: string;
+  /**
+   * The dependencies the option adds that have install scripts: `true` for
+   * one the install must run, `false` for one it can skip. The package
+   * manager runs no other.
+   */
+  readonly builds?: Readonly<Record<string, boolean>>;
   /** Shown by the wizard but not selectable, until a later release builds it. */
   readonly comingLater?: true;
 }
@@ -70,7 +76,15 @@ export const choiceTable = {
         appLayer: "orms/drizzle/app",
         appGuide: "orms/drizzle/AGENTS.md",
       },
-      { value: "prisma", label: "Prisma", comingLater: true },
+      {
+        value: "prisma",
+        label: "Prisma",
+        appLayer: "orms/prisma/app",
+        appGuide: "orms/prisma/AGENTS.md",
+        // The engines' script fetches the schema engine migrate runs.
+        // Prisma's own only checks the Node version.
+        builds: { "@prisma/engines": true, prisma: false },
+      },
       { value: "kysely", label: "Kysely", comingLater: true },
     ],
   },
