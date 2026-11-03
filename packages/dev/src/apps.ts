@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { install, isPlatformApp } from "@robkit/session/addresses";
 import type { Route } from "./proxy.ts";
 import { slugProblem } from "./slug.ts";
 
@@ -70,14 +71,11 @@ export async function discoverApps(
 
 export function routesFor(apps: readonly App[], domain: string): Route[] {
   return apps.map(({ slug, port }) => ({
-    host: `${slug}.${domain}`,
+    host: install({ domain }).host(slug),
     app: slug,
     port,
   }));
 }
-
-/** Core, the hub and admin, which core's catalog doesn't list. */
-const platformApps = new Set(["core", "hub", "admin"]);
 
 /**
  * `ROBKIT_APPS` for core: the owner's apps, by slug, comma-separated. Core
@@ -86,6 +84,6 @@ const platformApps = new Set(["core", "hub", "admin"]);
 export function catalogOf(apps: readonly App[]): string {
   return apps
     .map((app) => app.slug)
-    .filter((slug) => !platformApps.has(slug))
+    .filter((slug) => !isPlatformApp(slug))
     .join(",");
 }

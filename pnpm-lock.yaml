@@ -172,6 +172,9 @@ importers:
 
   packages/dev:
     dependencies:
+      '@robkit/session':
+        specifier: workspace:*
+        version: link:../session
       postgres:
         specifier: 'catalog:'
         version: 3.4.9

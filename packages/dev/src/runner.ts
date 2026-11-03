@@ -1,5 +1,10 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import {
+  defaultDevPort,
+  defaultDomain,
+  install,
+} from "@robkit/session/addresses";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { exec, prefixLines } from "./exec.ts";
 import { createProxy } from "./proxy.ts";
@@ -49,8 +54,9 @@ export async function runDev(
   root: string,
   env: NodeJS.ProcessEnv,
 ): Promise<number> {
-  const domain = env.ROBKIT_DOMAIN ?? "robkit.localhost";
-  const devPort = Number(env.ROBKIT_DEV_PORT ?? 3000);
+  const domain = env.ROBKIT_DOMAIN ?? defaultDomain;
+  const devPort = Number(env.ROBKIT_DEV_PORT ?? defaultDevPort);
+  const addresses = install({ domain, port: devPort });
   const adminUrl =
     env.ROBKIT_DATABASE_URL ??
     `postgres://postgres:postgres@127.0.0.1:${env.ROBKIT_POSTGRES_PORT ?? "54320"}/robkit`;
@@ -64,7 +70,7 @@ export async function runDev(
   const appEnv: NodeJS.ProcessEnv = {
     ...env,
     ROBKIT_DOMAIN: domain,
-    ROBKIT_CORE_URL: `http://core.${domain}:${String(devPort)}`,
+    ROBKIT_CORE_URL: addresses.origin("core"),
     ROBKIT_APPS: catalogOf(apps),
   };
   delete appEnv.ROBKIT_DATABASE_URL;
@@ -128,7 +134,7 @@ export async function runDev(
       await once(proxy, "listening");
       console.log("\nrobkit is running:");
       for (const app of apps) {
-        console.log(`  http://${app.slug}.${domain}:${String(devPort)}`);
+        console.log(`  ${addresses.origin(app.slug)}`);
       }
       console.log();
     }
