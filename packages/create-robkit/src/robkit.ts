@@ -15,6 +15,7 @@ import {
   askAdd,
 } from "./add-wizard.ts";
 import { checkInstall, describeProblem } from "./check.ts";
+import { databaseUrls } from "./deployment.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
@@ -32,11 +33,22 @@ Usage: robkit vendor
 
 In an install made with --link, packs the robkit packages it links to into
 ${vendorDir} and points the install at them, so it builds without the
-checkout.`;
+checkout.
+
+Usage: robkit database-urls
+
+Prints the DATABASE_URL of each app with a database, as KEY=value lines to
+set once as shared variables on the host. Reads the host's Postgres admin
+URL from ROBKIT_ADMIN_DATABASE_URL and the install's database secret from
+ROBKIT_DB_SECRET.`;
 
 try {
   const [command] = process.argv.slice(2);
-  const commands: Record<string, () => Promise<void>> = { check, vendor };
+  const commands: Record<string, () => Promise<void>> = {
+    check,
+    vendor,
+    "database-urls": printDatabaseUrls,
+  };
   await (commands[command ?? ""] ?? add)();
 } catch (error) {
   console.error(error instanceof Error ? error.message : error);
@@ -66,6 +78,23 @@ async function vendor(): Promise<void> {
   console.log(
     `Packed robkit's packages into ${vendorDir}. Commit it with the install.`,
   );
+}
+
+async function printDatabaseUrls(): Promise<void> {
+  const { positionals } = parseArgs({ allowPositionals: true });
+  if (positionals.length > 1) throw new Error(usage);
+  const root = process.cwd();
+  await readInstallChoices(root);
+  const adminUrl = process.env.ROBKIT_ADMIN_DATABASE_URL;
+  const secret = process.env.ROBKIT_DB_SECRET;
+  if (!adminUrl || !secret) {
+    throw new Error(
+      "Set ROBKIT_ADMIN_DATABASE_URL to the host's Postgres admin URL and ROBKIT_DB_SECRET to the install's database secret.",
+    );
+  }
+  for (const [name, url] of await databaseUrls(root, { adminUrl, secret })) {
+    console.log(`${name}=${url}`);
+  }
 }
 
 async function add(): Promise<void> {

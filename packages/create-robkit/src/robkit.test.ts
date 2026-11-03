@@ -161,3 +161,36 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
     });
   });
 });
+
+describe("robkit database-urls", { timeout: 30_000 }, () => {
+  it("prints each database app's URL for the host, from the admin URL and secret", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["database-urls"], [], {
+      ROBKIT_ADMIN_DATABASE_URL: "postgres://postgres:pw@db:5432/robkit",
+      ROBKIT_DB_SECRET: "correct horse battery staple, 32+",
+    });
+
+    expect(code).toBe(0);
+    expect(output.split("\n").map((line) => line.split("=")[0])).toEqual([
+      "CORE_DATABASE_URL",
+      "EXAMPLE_DATABASE_URL",
+      "",
+    ]);
+  });
+
+  it("says what to set when the admin URL or secret is missing", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["database-urls"], [], {
+      ROBKIT_ADMIN_DATABASE_URL: "",
+      ROBKIT_DB_SECRET: "",
+    });
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output:
+        "Set ROBKIT_ADMIN_DATABASE_URL to the host's Postgres admin URL and ROBKIT_DB_SECRET to the install's database secret.\n",
+    });
+  });
+});

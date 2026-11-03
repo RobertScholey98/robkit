@@ -19,16 +19,20 @@ export interface Run {
 /**
  * Runs the command line at `bin` in `cwd` with `args`. For each question in
  * `answers`, waits for it to show, then types its keys. Kills it if a
- * question doesn't show.
+ * question doesn't show. `env` adds to its environment.
  */
 export function drive(
   bin: string,
   cwd: string,
   args: string[],
   answers: [question: string, keys: string][] = [],
+  env: NodeJS.ProcessEnv = {},
 ): Promise<Run> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [bin, ...args], { cwd });
+    const child = spawn(process.execPath, [bin, ...args], {
+      cwd,
+      env: { ...process.env, ...env },
+    });
     const pending = [...answers];
     let output = "";
     let unseen = "";
