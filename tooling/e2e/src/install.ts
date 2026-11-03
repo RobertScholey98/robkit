@@ -3,9 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   defaultChoices,
-  generateInstall,
-  installDependencies,
-  writeInstall,
+  init,
   type Choices,
   type Generator,
 } from "create-robkit";
@@ -22,9 +20,9 @@ declare module "vitest" {
 }
 
 /**
- * Generates an install whose example app is on `stack` in a temp folder,
- * linked to this checkout's `@robkit/*` packages, and installs its
- * dependencies.
+ * Makes an install whose example app is on `stack` in a temp folder, as
+ * init with `--install --link` does: linked to this checkout's `@robkit/*`
+ * packages, with its dependencies installed and git initialised.
  */
 async function createInstall(stack: Generator): Promise<string> {
   const choices: Choices = {
@@ -35,8 +33,7 @@ async function createInstall(stack: Generator): Promise<string> {
     ],
   };
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
-  await writeInstall(dir, await generateInstall(choices, { link: true }));
-  await installDependencies(dir, choices.packageManager);
+  await init(choices, dir, { link: true, install: true });
   return dir;
 }
 

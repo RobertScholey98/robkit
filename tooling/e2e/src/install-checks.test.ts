@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { rm, writeFile } from "node:fs/promises";
+import { realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, inject, it } from "vitest";
@@ -7,6 +7,16 @@ import { describe, expect, inject, it } from "vitest";
 const run = promisify(execFile);
 
 describe("the default install", () => {
+  it("is its own git repository, as init with --install leaves it", async () => {
+    const dir = inject("installs").start;
+
+    const { stdout } = await run("git", ["rev-parse", "--show-toplevel"], {
+      cwd: dir,
+    });
+
+    expect(stdout.trim()).toBe(await realpath(dir));
+  });
+
   // A failing script rejects with its output.
   it.each(["lint", "typecheck", "test", "format:check"])(
     "passes its own %s",
