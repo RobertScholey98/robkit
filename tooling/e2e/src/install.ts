@@ -1,18 +1,15 @@
-import { execFile } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import {
   defaultChoices,
   generateInstall,
+  installDependencies,
   writeInstall,
   type Choices,
   type Generator,
 } from "create-robkit";
 import type { TestProject } from "vitest/node";
-
-const run = promisify(execFile);
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -39,8 +36,7 @@ async function createInstall(stack: Generator): Promise<string> {
   };
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
   await writeInstall(dir, await generateInstall(choices, { link: true }));
-  // There's no lockfile yet, which pnpm refuses on CI unless told.
-  await run("pnpm", ["install", "--no-frozen-lockfile"], { cwd: dir });
+  await installDependencies(dir, choices.packageManager);
   return dir;
 }
 
