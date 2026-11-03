@@ -18,7 +18,10 @@ function filesUnder(files: Files, prefix: string, extension: string) {
 }
 
 describe("the install's theme tokens", () => {
-  const installs: [string, Choices][] = [["no UI kit", defaultChoices]];
+  const installs: [string, Choices][] = [
+    ["no UI kit", defaultChoices],
+    ["shadcn on Base UI", { ...defaultChoices, uiKit: "shadcn-base-ui" }],
+  ];
 
   describe.each(installs)("with %s", (_, choices) => {
     it("sets them in packages/theme and nowhere else", async () => {
@@ -34,7 +37,7 @@ describe("the install's theme tokens", () => {
 
     it.each(Object.entries(platformApps))(
       "styles the %s with the tokens, not Tailwind's palette",
-      async (app, folder) => {
+      async (_app, folder) => {
         const files = await generateInstall(choices);
         const palette = filesUnder(files, folder, ".tsx").flatMap(
           ([path, text]) =>
@@ -42,23 +45,47 @@ describe("the install's theme tokens", () => {
               ([match]) => `${path}: ${match}`,
             ),
         );
-        const manifest = JSON.parse(
-          files.get(`apps/${app}/package.json`) ?? "{}",
-        ) as { dependencies: Record<string, string> };
-
         expect(palette).toEqual([]);
-        expect(stylesheetImports(files, folder)).toContain(
-          "@internal/theme/theme.css",
+        expect(stylesheetsRead(files, folder)).toContain(
+          "packages/theme/theme.css",
         );
-        expect(manifest.dependencies["@internal/theme"]).toBe("workspace:*");
       },
     );
   });
 });
 
-/** Every stylesheet the app's own CSS imports. */
-function stylesheetImports(files: Files, folder: string): string[] {
-  return filesUnder(files, folder, ".css").flatMap(([, text]) =>
-    [...text.matchAll(/@import\s+"([^"]+)"/g)].map(([, name]) => name ?? ""),
-  );
+/** The file an `@internal/<package>/<subpath>` import names, if any. */
+function resolve(files: Files, specifier: string): string | undefined {
+  const [, name, subpath] = /^(@internal\/[^/]+)\/(.+)$/.exec(specifier) ?? [];
+  if (name === undefined || subpath === undefined) return undefined;
+  for (const [path, text] of files) {
+    if (!/^packages\/[^/]+\/package\.json$/.test(path)) continue;
+    const manifest = JSON.parse(text) as {
+      name: string;
+      exports?: Record<string, string>;
+    };
+    const target = manifest.exports?.[`./${subpath}`];
+    if (manifest.name === name && target !== undefined) {
+      return `${path.slice(0, -"package.json".length)}${target.slice(2)}`;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Every stylesheet of the install's own that the app's CSS reads, following
+ * imports through the install's packages.
+ */
+function stylesheetsRead(files: Files, folder: string): string[] {
+  const read = new Set<string>();
+  const follow = (text: string) => {
+    for (const [, specifier = ""] of text.matchAll(/@import\s+"([^"]+)"/g)) {
+      const path = resolve(files, specifier);
+      if (path === undefined || read.has(path)) continue;
+      read.add(path);
+      follow(files.get(path) ?? "");
+    }
+  };
+  for (const [, text] of filesUnder(files, folder, ".css")) follow(text);
+  return [...read];
 }

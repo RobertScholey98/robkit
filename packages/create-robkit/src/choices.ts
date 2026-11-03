@@ -99,6 +99,8 @@ export const choiceTable = {
     about: "shared React UI kit",
     takes: "one",
     options: [
+      // The no-kit hub and admin. A kit's layer goes over this one,
+      // replacing their controls and adding packages/ui.
       {
         value: "none",
         label: "No",
@@ -108,7 +110,7 @@ export const choiceTable = {
       {
         value: "shadcn-base-ui",
         label: "shadcn on Base UI",
-        comingLater: true,
+        layer: "ui-kits/shadcn-base-ui",
       },
       { value: "shadcn-radix", label: "shadcn on Radix", comingLater: true },
       { value: "chakra", label: "Chakra UI", comingLater: true },
@@ -161,6 +163,7 @@ type Ready<C extends Choice> = Exclude<
 
 export type PackageManager = Ready<Table["packageManager"]>;
 export type Orm = Ready<Table["orm"]>;
+export type UiKit = Exclude<Ready<Table["uiKit"]>, "none">;
 export type Generator = Ready<Table["generators"]>;
 export type Tool = Ready<Table["tools"]>;
 
@@ -180,10 +183,10 @@ export interface Choices {
   packageManager: PackageManager;
   orm: Orm;
   /**
-   * `null` when the hub and admin are plain JSX and Tailwind, which
-   * `--ui-kit none` asks for. No kit is ready yet, so it's always `null`.
+   * The shared React UI kit, or `null` when the hub and admin are plain
+   * JSX and Tailwind, which `--ui-kit none` asks for.
    */
-  uiKit: null;
+  uiKit: UiKit | null;
   tools: Tool[];
   /** The stacks `robkit add` offers. The first one makes the example app. */
   generators: NonEmpty<Generator>;
@@ -238,15 +241,14 @@ export function choicesFromFlags(flags: Flags): Choices {
   const uiKit = given(t.uiKit);
   const tools = given(t.tools);
   const generators = given(t.generators);
-  // Refuses anything but none, the only ready option.
-  if (uiKit !== undefined) oneOf(t.uiKit, uiKit);
+  const kit = uiKit === undefined ? "none" : oneOf(t.uiKit, uiKit);
   return {
     packageManager:
       pm === undefined
         ? defaultChoices.packageManager
         : oneOf(t.packageManager, pm),
     orm: orm === undefined ? defaultChoices.orm : oneOf(t.orm, orm),
-    uiKit: null,
+    uiKit: kit === "none" ? null : kit,
     tools: tools === undefined ? defaultChoices.tools : listOf(t.tools, tools),
     generators:
       generators === undefined

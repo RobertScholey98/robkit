@@ -39,10 +39,14 @@ describe("choicesFromFlags", () => {
     );
   });
 
-  it("reads --ui-kit none as no UI kit", () => {
+  it("reads --ui-kit as the kit, and none as no UI kit", () => {
+    expect(choicesFromFlags({ "ui-kit": "shadcn-base-ui" }).uiKit).toBe(
+      "shadcn-base-ui",
+    );
     expect(choicesFromFlags({ "ui-kit": "none" }).uiKit).toBeNull();
+    expect(choicesFromFlags({}).uiKit).toBeNull();
     expect(() => choicesFromFlags({ "ui-kit": "chakra" })).toThrow(
-      "--ui-kit chakra isn't an option. Choose from: none.",
+      "--ui-kit chakra isn't an option. Choose from: none, shadcn-base-ui.",
     );
   });
 

@@ -124,9 +124,9 @@ function layersFor(choices: Choices): string[] {
     "base",
     layerOf(t.packageManager, choices.packageManager),
     layerOf(t.orm, choices.orm),
-    // `Choices` has no UI kit to read until one is ready, so the hub and
-    // admin come from the no-kit option's layer.
+    // The hub and admin, then the kit's controls over them.
     layerOf(t.uiKit, "none"),
+    choices.uiKit === null ? undefined : layerOf(t.uiKit, choices.uiKit),
     ...choices.tools.map((tool) => layerOf(t.tools, tool)),
   ].filter((layer) => layer !== undefined);
 }
