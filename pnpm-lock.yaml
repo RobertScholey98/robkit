@@ -483,9 +483,6 @@ importers:
       '@robkit/guard':
         specifier: workspace:*
         version: link:../../packages/guard
-      '@robkit/session':
-        specifier: workspace:*
-        version: link:../../packages/session
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
