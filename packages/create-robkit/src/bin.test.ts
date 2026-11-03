@@ -165,6 +165,18 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     );
   });
 
+  it("refuses a folder name the printed command couldn't repeat", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(cwd, ["family&friends"]);
+
+    expect(code).toBe(1);
+    expect(output).toContain(
+      "family&friends can't be the folder. Use letters, digits, spaces, dots, dashes, underscores and slashes.",
+    );
+    expect(await readdir(cwd)).toEqual([]);
+  });
+
   it("writes nothing when cancelled", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
 

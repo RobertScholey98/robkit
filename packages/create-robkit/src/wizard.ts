@@ -69,8 +69,17 @@ function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
   return answer;
 }
 
+/**
+ * Characters a folder can hold and still be pasted into any shell from the
+ * printed command, quoted only when it has a space.
+ */
+const shellSafe = /^[\p{L}\p{N} ._/\\:-]+$/u;
+
 function folderProblem(folder: string | undefined): string | undefined {
   if (!folder) return undefined;
+  if (!shellSafe.test(folder)) {
+    return `${folder} can't be the folder. Use letters, digits, spaces, dots, dashes, underscores and slashes.`;
+  }
   try {
     if (readdirSync(resolve(folder)).length > 0) {
       return `${folder} isn't empty. Choose a new folder.`;
@@ -83,6 +92,8 @@ function folderProblem(folder: string | undefined): string | undefined {
 
 /** Asks init's questions, skipping the folder when it's already given. */
 export async function askInit(folder?: string): Promise<Answers> {
+  const problem = folderProblem(folder);
+  if (problem) throw new Error(problem);
   intro("robkit");
   const where =
     folder ??
