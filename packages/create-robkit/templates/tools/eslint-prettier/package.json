@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "lint": "eslint .",
+    "lint": "robkit check && eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

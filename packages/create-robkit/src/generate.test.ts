@@ -84,7 +84,7 @@ describe("generateInstall", () => {
         dev: "robkit-dev",
         typecheck: "turbo run typecheck",
         test: "turbo run test",
-        lint: "eslint .",
+        lint: "robkit check && eslint .",
         format: "prettier --write .",
         "format:check": "prettier --check .",
         robkit: "robkit",
@@ -102,6 +102,20 @@ describe("generateInstall", () => {
       },
       packageManager: "pnpm@11.28.9",
     });
+  });
+
+  it("lints with robkit check, without ESLint too", async () => {
+    const withEslint = await generateInstall(defaultChoices);
+    const without = await generateInstall({ ...defaultChoices, tools: [] });
+
+    expect(
+      [withEslint, without].map(
+        (files) => (json(files, "package.json") as { scripts: object }).scripts,
+      ),
+    ).toMatchObject([
+      { lint: "robkit check && eslint ." },
+      { lint: "robkit check" },
+    ]);
   });
 
   it("pins every catalog dependency at robkit's version", async () => {

@@ -41,10 +41,10 @@ exports[`generateInstall > writes the default install > package.json 1`] = `
   },
   "scripts": {
     "dev": "robkit-dev",
+    "lint": "robkit check && eslint .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "robkit": "robkit",
-    "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

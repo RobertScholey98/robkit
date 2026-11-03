@@ -25,21 +25,29 @@ describe("the default install", () => {
     },
   );
 
-  it("fails lint when an app other than core imports @robkit/core", async () => {
+  it.each([
+    [
+      "an app other than core imports @robkit/core",
+      'export * from "@robkit/core";\n',
+      "apps/hub/src/reach.ts:1:15  Layer rule: an app reaches core over HTTP only, never through @robkit/core.",
+    ],
+    [
+      "an app imports another app",
+      'export * from "../../example/src/start.ts";\n',
+      "apps/hub/src/reach.ts:1:15  Layer rule: an app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.",
+    ],
+  ])("fails lint when %s", async (_, text, problem) => {
     const dir = inject("installs").start;
-    const file = "apps/hub/src/reach-core.ts";
-    await writeFile(join(dir, file), 'export * from "@robkit/core";\n');
+    const file = join(dir, "apps/hub/src/reach.ts");
+    await writeFile(file, text);
     try {
-      const lint = run("pnpm", ["exec", "eslint", file], { cwd: dir });
+      const lint = run("pnpm", ["run", "lint"], { cwd: dir });
 
-      // ESLint's formatter drops the message's last full stop.
       await expect(lint).rejects.toMatchObject({
-        stdout: expect.stringContaining(
-          "Layer rule: only apps/core imports @robkit/core. Code reaches core over HTTP only",
-        ) as string,
+        stdout: expect.stringContaining(problem) as string,
       });
     } finally {
-      await rm(join(dir, file));
+      await rm(file);
     }
   });
 });
