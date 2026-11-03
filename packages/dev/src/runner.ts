@@ -69,7 +69,8 @@ function errorMessage(error: unknown): string {
 }
 
 /**
- * `robkit-dev`: runs the install in `root` for local development. Starts
+ * `robkit-dev`: runs the install in `root` for local development. Finds the
+ * apps, refusing any folder that isn't a slug before it starts anything. Starts
  * Postgres, provisions and migrates every app with a database, starts every
  * app and puts the proxy in front. Stops it all on SIGINT or SIGTERM, or as
  * soon as any app exits.
@@ -85,7 +86,13 @@ export async function runDev(
   const adminUrl =
     env.ROBKIT_DATABASE_URL ??
     `postgres://postgres:postgres@127.0.0.1:${env.ROBKIT_POSTGRES_PORT ?? "54320"}/robkit`;
-  const apps = await discoverApps(root, devPort + 1);
+  let apps: App[];
+  try {
+    apps = await discoverApps(root, devPort + 1);
+  } catch (error) {
+    console.error(errorMessage(error));
+    return 1;
+  }
   const appEnv: NodeJS.ProcessEnv = {
     ...env,
     ROBKIT_DOMAIN: domain,
