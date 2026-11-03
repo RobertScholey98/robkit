@@ -10,7 +10,7 @@ function leaveFor({ location }: SessionLapsed): void {
   addEventListener("pageshow", (event) => {
     if (event.persisted) leaving = false;
   });
-  // The guard only knows the URL it was called on. Come back to the page.
+  // The guard leaves next to the page, which knows where to come back to.
   const target = new URL(location);
   target.searchParams.set("next", globalThis.location.href);
   globalThis.location.assign(target.href);

@@ -8,12 +8,12 @@ const page = "http://start.robkit.localhost:3000/notes?x=1";
 const refresh: SessionLapsed = {
   outcome: "refresh",
   error: "Your session needs refreshing.",
-  location: `http://core.robkit.localhost:3000/refresh?next=${encodeURIComponent("http://start.robkit.localhost:3000/_serverFn/abc")}`,
+  location: "http://core.robkit.localhost:3000/refresh",
 };
 const login: SessionLapsed = {
   outcome: "login",
   error: "Sign in to use this app.",
-  location: `http://hub.robkit.localhost:3000/?next=${encodeURIComponent("http://start.robkit.localhost:3000/api/notes")}`,
+  location: "http://hub.robkit.localhost:3000/",
 };
 
 /** The guard's answer to a call once the session has lapsed. */

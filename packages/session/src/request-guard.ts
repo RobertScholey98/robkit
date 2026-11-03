@@ -149,8 +149,8 @@ export function requestGuard(
       case "refresh": {
         const { app, path, error } = elsewhere[decision.outcome];
         const location = new URL(path, origins[app]);
-        location.searchParams.set("next", publicUrl(request).href);
         if (!isNavigation(request)) {
+          // A call doesn't know the page it came from. The page adds next.
           return {
             response: sessionLapsedResponse({
               outcome: decision.outcome,
@@ -159,6 +159,7 @@ export function requestGuard(
             }),
           };
         }
+        location.searchParams.set("next", publicUrl(request).href);
         return {
           response: new Response(null, {
             status: 302,

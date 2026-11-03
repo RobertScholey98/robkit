@@ -110,7 +110,7 @@ describe("requestGuard, on a page load", () => {
 });
 
 describe("requestGuard, on a call from the page or a server", () => {
-  it("answers with the 401 the page reads as the guard's, not a redirect", async () => {
+  it("answers with the 401 the page reads as the guard's, leaving next to the page", async () => {
     const core = await fakeCore();
     const open = guardedBy(core);
 
@@ -125,12 +125,12 @@ describe("requestGuard, on a call from the page or a server", () => {
     expect(await readSessionLapsed(loggedOut)).toEqual({
       outcome: "login",
       error: "Sign in to use this app.",
-      location: elsewhere(core).login,
+      location: `${core.origin.replace("//core.", "//hub.")}/`,
     });
     expect(await readSessionLapsed(expired)).toEqual({
       outcome: "refresh",
       error: "Your session needs refreshing.",
-      location: elsewhere(core).refresh,
+      location: `${core.origin}/refresh`,
     });
   });
 
