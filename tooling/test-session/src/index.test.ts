@@ -146,7 +146,10 @@ describe("fakeCore", () => {
 describe("conformanceAnswer", () => {
   const page = "http://example.robkit.localhost:3000/notes?x=1";
   const next = encodeURIComponent(page);
-  const core = "http://core.robkit.localhost:3000";
+  const core = {
+    origin: "http://core.robkit.localhost:3000",
+    hub: "http://hub.robkit.localhost:3000",
+  };
   const answer = (start: string) => {
     const asking = conformanceCases.find((c) => c.name.startsWith(start));
     if (!asking) throw new Error(`No conformance case starts "${start}".`);

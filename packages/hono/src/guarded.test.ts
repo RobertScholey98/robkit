@@ -27,7 +27,7 @@ describe("guarded", () => {
       status: res.status,
       location: res.headers.get("location"),
       viewer: res.status === 200 ? await res.json() : undefined,
-    }).toEqual(conformanceAnswer(asking, page, core.origin));
+    }).toEqual(conformanceAnswer(asking, page, core));
   });
 
   it("answers a call from the page with the guard's 401", async () => {

@@ -42,8 +42,10 @@ const cookie = (token: string) => ({ cookie: `robkit_session=${token}` });
 /** Where the guard sends a visitor to log in, and to refresh, from `url`. */
 function elsewhere(core: FakeCore, url = page) {
   const next = `?next=${encodeURIComponent(url)}`;
-  const hub = core.origin.replace("//core.", "//hub.");
-  return { login: `${hub}/${next}`, refresh: `${core.origin}/refresh${next}` };
+  return {
+    login: `${core.hub}/${next}`,
+    refresh: `${core.origin}/refresh${next}`,
+  };
 }
 
 describe("requestGuard, on a page load", () => {
@@ -59,7 +61,7 @@ describe("requestGuard, on a page load", () => {
       status: res.status,
       location: res.headers.get("location"),
       viewer: res.status === 200 ? await res.json() : undefined,
-    }).toEqual(conformanceAnswer(asking, page, core.origin));
+    }).toEqual(conformanceAnswer(asking, page, core));
   });
 
   it("treats a token core didn't sign as no token", async () => {
@@ -125,7 +127,7 @@ describe("requestGuard, on a call from the page or a server", () => {
     expect(await readSessionLapsed(loggedOut)).toEqual({
       outcome: "login",
       error: "Sign in to use this app.",
-      location: `${core.origin.replace("//core.", "//hub.")}/`,
+      location: `${core.hub}/`,
     });
     expect(await readSessionLapsed(expired)).toEqual({
       outcome: "refresh",
