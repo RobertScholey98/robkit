@@ -32,7 +32,6 @@
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "hono": "catalog:",
-    "jose": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
