@@ -12,6 +12,7 @@
   "files": [
     "src",
     "!src/**/*.test.ts",
+    "!src/test",
     "!src/**/__snapshots__",
     "templates"
   ],
