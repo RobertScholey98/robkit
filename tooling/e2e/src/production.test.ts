@@ -39,7 +39,8 @@ const installs: [string, Choices][] = [
   ["default", defaultChoices],
   // Each ORM migrates as its app's container starts.
   ["Prisma", { ...defaultChoices, orm: "prisma" }],
-  ["Kysely", { ...defaultChoices, orm: "kysely" }],
+  // Its apps draw with the UI kit, so each serves the kit's stylesheet.
+  ["Kysely", { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" }],
 ];
 
 // Each install, deployed as on Coolify: an image per app from its
@@ -91,6 +92,7 @@ describe.each(installs)("the %s install in production", (_, choices) => {
       greeting: "Signed in as Grandma",
       openedAt: `${stack.addresses.origin("example")}/`,
       heading: "Signed in as a guest",
+      stylesheets: choices.uiKit ? [200] : [],
     });
   });
 
@@ -119,6 +121,7 @@ describe.each(installs)("the %s install in production", (_, choices) => {
       greeting: "Signed in as Grandma",
       openedAt: `${stack.addresses.origin(later)}/`,
       heading: "Signed in as a guest",
+      stylesheets: choices.uiKit ? [200] : [],
     });
   });
 });
