@@ -15,5 +15,5 @@ export function slugProblem(name: string): string | undefined {
   ) {
     return undefined;
   }
-  return `"${name}" can't be a database role. Use lowercase letters, digits and underscores, start with a letter, and avoid public, postgres and pg_ names.`;
+  return `"${name}" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters, digits and underscores, start with a letter, and avoid public, postgres and pg_ names.`;
 }

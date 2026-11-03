@@ -80,6 +80,6 @@ describe("provisionDatabase", () => {
   it("refuses a name that can't be a slug", async () => {
     await expect(
       provisionDatabase(adminUrl, "drop table x;--"),
-    ).rejects.toThrow(/can't be a database role/);
+    ).rejects.toThrow(/can't be an app's slug/);
   });
 });
