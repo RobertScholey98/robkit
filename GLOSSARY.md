@@ -111,5 +111,5 @@ _Avoid_: plugin, integration
 
 - "Grant" once meant permission for a guest to open one app. Resolved: **Roles** replaced grants (2026-10-28).
 - In robnet, "hub" sometimes meant the backend. Resolved: the **Hub** is the frontend and **Core** is the backend (2026-10-28).
-- Open: "generator" means two things. `robkit.json`'s `generators` lists the **Stacks** `add` offers, and build ticket 08 calls the template engine "the generator".
+- Open: "generator" means two things. `robkit.json`'s `generators` lists the **Stacks** `add` offers, and the build tickets call the template engine "the generator".
 - Open: "layer" means two things. The template engine merges template layers, and the layer rule is about which code may import which.
