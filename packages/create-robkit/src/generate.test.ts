@@ -1,8 +1,8 @@
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { generateInstall, type Files } from "./generate.ts";
-import { robkitRoot } from "./robkit-repo.ts";
 
 function json(files: Files, path: string): unknown {
   return JSON.parse(files.get(path) ?? "null");
@@ -118,8 +118,9 @@ describe("generateInstall", () => {
     const { overrides } = workspace(
       await generateInstall(defaultChoices, { link: true }),
     );
+    const checkout = fileURLToPath(new URL("../../../", import.meta.url));
     const at = (dir: string) =>
-      `link:${robkitRoot.replaceAll("\\", "/")}packages/${dir}`;
+      `link:${checkout.replaceAll("\\", "/")}packages/${dir}`;
 
     expect(overrides).toEqual({
       "@robkit/core": at("core"),

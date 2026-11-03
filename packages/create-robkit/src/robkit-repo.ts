@@ -16,7 +16,7 @@ export interface RobkitRepo {
   packages: Map<string, { version: string; dir: string }>;
 }
 
-export const robkitRoot = fileURLToPath(new URL("../../../", import.meta.url));
+const robkitRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
 interface Manifest {
   name?: string;

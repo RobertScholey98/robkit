@@ -18,7 +18,7 @@ export interface GenerateOptions {
 }
 
 /** The slug init gives the app it adds from the first generator. */
-export const exampleSlug = "example";
+const exampleSlug = "example";
 
 const templatesDir = fileURLToPath(new URL("../templates/", import.meta.url));
 
