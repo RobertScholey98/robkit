@@ -193,6 +193,7 @@ exports[`generateInstall > writes the default install 1`] = `
   "apps/hub/tsconfig.json",
   "apps/hub/vite.config.ts",
   "compose.yaml",
+  "docs/deploy.md",
   "eslint.config.js",
   "package.json",
   "packages/core-client/package.json",

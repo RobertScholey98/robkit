@@ -11,6 +11,7 @@ pnpm lint                    # robkit check, then the linter if the install has 
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 ```
 
 ## Layout
@@ -31,4 +32,8 @@ pnpm build
 
 ## Databases
 
-`pnpm dev` and the provision step before a deploy give each app with a `migrate` script its own schema and role, then run that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time.
+`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time.
+
+## Production
+
+Each app has a `start` script, which migrates its database if it has one and then serves, and a `build` script where it needs one. The `Dockerfile` builds any app's image, named by the `ROBKIT_APP` build argument. In production, core's container gives every app its database before core starts, with a password derived from the install's secret, so each app's `DATABASE_URL` is set once on the host. `docs/deploy.md` describes the deploy and its one-time setup.
