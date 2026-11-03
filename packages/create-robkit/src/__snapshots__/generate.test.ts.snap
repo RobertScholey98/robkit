@@ -34,6 +34,9 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
     "drizzle-kit": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
+  },
+  "robkit": {
+    "icon": "📦"
   }
 }
 "

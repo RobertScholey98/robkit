@@ -74,6 +74,14 @@ describe("generateInstall", () => {
     });
   });
 
+  it("gives the example app the icon robkit add gives an app by default", async () => {
+    const files = await generateInstall(defaultChoices);
+
+    expect(json(files, "apps/example/package.json")).toMatchObject({
+      robkit: { icon: "📦" },
+    });
+  });
+
   it("merges each layer's scripts and dependencies into the root manifest", async () => {
     const files = await generateInstall(defaultChoices);
 
