@@ -32,7 +32,7 @@ export async function serverFunctionJourney({
   username,
   password,
 }: JourneyOptions): Promise<ServerFunctionJourney> {
-  const app = `http://start.robkit.localhost:${String(devPort)}/`;
+  const app = `http://example.robkit.localhost:${String(devPort)}/`;
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext();

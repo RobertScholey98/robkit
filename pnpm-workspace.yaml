@@ -1,5 +1,4 @@
 packages:
-  - apps/*
   - packages/*
   - tooling/*
 
@@ -35,6 +34,7 @@ catalog:
   typescript-eslint: 8.72.1
   vite: 8.3.5
   vitest: 5.0.5
+  yaml: 2.9.1
 
 # esbuild ships its binary as an optional dependency, so its install script
 # has nothing to do.

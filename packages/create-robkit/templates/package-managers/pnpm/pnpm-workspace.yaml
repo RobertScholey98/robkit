@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - tooling/*
+
+# Manifests say `catalog:`, so every external version lives in the catalog.
+catalogMode: strict
+
+# esbuild ships its binary as an optional dependency, so its install script
+# has nothing to do.
+allowBuilds:
+  esbuild: false

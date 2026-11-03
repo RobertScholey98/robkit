@@ -1,6 +1,6 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "globalDependencies": ["compose.yaml"],
+  "globalDependencies": ["packages/create-robkit/templates/base/compose.yaml"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

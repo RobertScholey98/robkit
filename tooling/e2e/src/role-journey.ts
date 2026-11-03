@@ -2,13 +2,13 @@ import { chromium, type Browser, type Locator, type Page } from "playwright";
 import type { Answer } from "./guest-journey.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
-/** What a guest holding Family saw as the owner gated both example apps. */
+/** What a guest holding Family saw as the owner gated the example app. */
 export interface RoleJourney {
   /** Who a new role listed once the owner created it with select all. */
   createdWith: string;
   /** Who it listed once the owner edited it, from deselect all. */
   editedTo: string;
-  /** The apps the hub listed once both examples were gated to Family. */
+  /** The apps the hub listed once the example was gated to Family. */
   launcherGatedToFamily: string[];
   /** Where the launcher's link took the guest, and the page's heading. */
   openedAt: string;
@@ -17,8 +17,6 @@ export interface RoleJourney {
   launcherGatedToFriends: string[];
   /** How the example app then answered the guest. */
   example: Answer;
-  /** How the Start example answered the guest gated to Family, then Friends. */
-  start: [number | undefined, Answer];
 }
 
 /** An app keeps its rule this long, so a change in admin waits this out. */
@@ -70,27 +68,25 @@ async function openUntil(
   }
 }
 
-/** The owner gates both example apps to `role` in admin. */
-async function gateExamples(owner: Page, role: string): Promise<void> {
-  for (const slug of ["example", "start"]) {
-    const app = owner.getByRole("listitem", { name: slug, exact: true });
-    await app.getByLabel("Guests with a role").check();
-    for (const box of await app.getByRole("checkbox").all()) {
-      await box.uncheck();
-    }
-    await app.getByLabel(role, { exact: true }).check();
-    await app.getByRole("button", { name: "Save access" }).click();
-    await app.getByRole("status").waitFor();
+/** The owner gates the example app to `role` in admin. */
+async function gateExample(owner: Page, role: string): Promise<void> {
+  const app = owner.getByRole("listitem", { name: "example", exact: true });
+  await app.getByLabel("Guests with a role").check();
+  for (const box of await app.getByRole("checkbox").all()) {
+    await box.uncheck();
   }
+  await app.getByLabel(role, { exact: true }).check();
+  await app.getByRole("button", { name: "Save access" }).click();
+  await app.getByRole("status").waitFor();
 }
 
 /**
  * The owner mints codes for Sam and Alex, creates Neighbours with select
  * all, then edits it down to Sam from deselect all. Sam gets Family too,
- * and the owner gates both example apps to Family. Sam's launcher lists
- * them, and a link opens one. The owner gates them to Friends instead, and
- * the launcher Sam has open drops them without a reload. The apps then
- * answer Sam with the 404.
+ * and the owner gates the example app to Family. Sam's launcher lists it,
+ * and its link opens it. The owner gates it to Friends instead, and the
+ * launcher Sam has open drops it without a reload. The app then answers Sam
+ * with the 404.
  */
 export async function roleJourney({
   devPort,
@@ -134,7 +130,7 @@ export async function roleJourney({
     await family.getByRole("button", { name: "Edit guests" }).click();
     await family.getByLabel(/^Sam/).check();
     await saveGuests(family);
-    await gateExamples(owner, "Family");
+    await gateExample(owner, "Family");
 
     const guest = await freshPage(browser);
     await guest.goto(at("hub"));
@@ -143,7 +139,6 @@ export async function roleJourney({
     await guest.getByText("Signed in as Sam").waitFor();
     const launcherGatedToFamily = await launcherApps(guest, at("hub"));
     await openUntil(guest, at("example"), 200);
-    const startWithFamily = await openUntil(guest, at("start"), 200);
     await guest.goto(at("hub"));
     await guest.getByRole("link", { name: "example" }).click();
     await guest.waitForURL(at("example"));
@@ -153,22 +148,16 @@ export async function roleJourney({
     await guest.goto(at("hub"));
     const link = guest.getByRole("main").getByRole("link", { name: "example" });
     await link.waitFor();
-    await gateExamples(owner, "Friends");
+    await gateExample(owner, "Friends");
     await link.waitFor({
       state: "detached",
       timeout: launcherRefreshMs + 15_000,
     });
-    // The two gates may land either side of one launcher refresh.
-    await guest
-      .getByRole("main")
-      .getByRole("link", { name: "start" })
-      .waitFor({ state: "detached", timeout: launcherRefreshMs + 15_000 });
     const launcherGatedToFriends = await guest
       .getByRole("main")
       .getByRole("link")
       .allTextContents();
     const example = await openUntil(guest, at("example"), 404);
-    const start = await openUntil(guest, at("start"), 404);
 
     return {
       createdWith,
@@ -178,7 +167,6 @@ export async function roleJourney({
       heading,
       launcherGatedToFriends,
       example,
-      start: [startWithFamily.status, start],
     };
   } finally {
     await browser.close();

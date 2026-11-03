@@ -28,28 +28,17 @@ function lint(workspace, code) {
     .map((m) => m.message);
 }
 
-const onlyCore =
-  "Layer rule: only apps/core imports @robkit/core. Code reaches core over HTTP only.";
 const adapters =
   "Layer rule: adapters never import @robkit/core. Code reaches core over HTTP only.";
 const noIo = "Layer rule: @robkit/guard does no I/O.";
-const noApps = "Layer rule: packages never import from apps or examples.";
 
 describe("the layer rule", () => {
-  it("lets only apps/core import @robkit/core", () => {
-    expect(lint("apps/hub", 'import "@robkit/core";')).toEqual([onlyCore]);
-    expect(lint("apps/core", 'import "@robkit/core";')).toEqual([]);
-  });
-
   it.each(["packages/hono", "packages/start", "packages/react"])(
     "keeps the %s adapter off @robkit/core",
     (adapter) => {
       expect(lint(adapter, 'import { app } from "@robkit/core";')).toEqual([
         adapters,
       ]);
-      expect(lint("apps/core", 'import { app } from "@robkit/core";')).toEqual(
-        [],
-      );
     },
   );
 
@@ -60,16 +49,12 @@ describe("the layer rule", () => {
     expect(lint("packages/hono", 'export * from "@robkit/core";')).toEqual([
       adapters,
     ]);
-    expect(lint("apps/core", 'await import("@robkit/core");')).toEqual([]);
   });
 
   it("catches a relative path into core's source", () => {
     expect(lint("packages/hono", 'import "../../core/src/app.ts";')).toEqual([
       adapters,
     ]);
-    expect(
-      lint("apps/hub", 'import "../../../packages/core/src/app.ts";'),
-    ).toEqual([onlyCore]);
     expect(lint("packages/hono", 'import "./guard.ts";')).toEqual([]);
   });
 
@@ -123,23 +108,5 @@ describe("the layer rule", () => {
   it("lets the guard shadow a banned global with its own name", () => {
     expect(lint("packages/guard", "const fetch = 1; fetch;")).toEqual([]);
     expect(lint("packages/guard", "fetch;")).toEqual([noIo]);
-  });
-
-  it.each([
-    'import "@internal/hub-app";',
-    'import "../../../apps/hub/src/App.tsx";',
-    'await import("../../../examples/notes/src/index.ts");',
-  ])("keeps packages from `%s`", (code) => {
-    expect(lint("packages/dev", code)).toEqual([noApps]);
-    expect(lint("tooling/e2e", code)).toEqual([]);
-  });
-
-  it("lets a package import its own folder named apps", () => {
-    expect(
-      lint("packages/dev", 'import "./test/fixture-install/apps/alpha/x.ts";'),
-    ).toEqual([]);
-    expect(
-      lint("packages/dev", 'import "../../../apps/hub/src/App.tsx";'),
-    ).toEqual([noApps]);
   });
 });

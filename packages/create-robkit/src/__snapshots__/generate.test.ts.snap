@@ -1,0 +1,184 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`generateInstall > writes the default install > apps/example/package.json 1`] = `
+"{
+  "name": "@internal/example-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "migrate": "node src/migrate.ts",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@robkit/react": "catalog:",
+    "@robkit/start": "catalog:",
+    "@tanstack/react-router": "catalog:",
+    "@tanstack/react-start": "catalog:",
+    "postgres": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@internal/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}
+"
+`;
+
+exports[`generateInstall > writes the default install > package.json 1`] = `
+"{
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "robkit-dev",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@robkit/dev": "catalog:",
+    "eslint": "catalog:",
+    "globals": "catalog:",
+    "prettier": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
+  },
+  "packageManager": "pnpm@11.28.9"
+}
+"
+`;
+
+exports[`generateInstall > writes the default install > pnpm-workspace.yaml 1`] = `
+"packages:
+  - apps/*
+  - tooling/*
+
+# Manifests say \`catalog:\`, so every external version lives in the catalog.
+catalogMode: strict
+
+# esbuild ships its binary as an optional dependency, so its install script
+# has nothing to do.
+allowBuilds:
+  esbuild: false
+catalog:
+  "@eslint/js": 10.0.1
+  "@hono/node-server": 2.1.5
+  "@hono/vite-dev-server": 0.26.1
+  "@robkit/core": 0.0.0
+  "@robkit/dev": 0.0.0
+  "@robkit/guard": 0.0.0
+  "@robkit/hono": 0.0.0
+  "@robkit/react": 0.0.0
+  "@robkit/start": 0.0.0
+  "@tailwindcss/vite": 4.3.3
+  "@tanstack/react-router": 1.170.46
+  "@tanstack/react-start": 1.169.4
+  "@types/node": 26.6.5
+  "@types/react": 19.3.0
+  "@types/react-dom": 19.3.0
+  "@vitejs/plugin-react": 6.1.2
+  eslint: 10.13.0
+  globals: 17.13.0
+  hono: 4.13.14
+  postgres: 3.4.9
+  prettier: 3.9.10
+  react: 19.3.1
+  react-dom: 19.3.1
+  tailwindcss: 4.3.3
+  turbo: 2.11.10
+  typescript: 6.0.3
+  typescript-eslint: 8.72.1
+  vite: 8.3.5
+  vitest: 5.0.5
+"
+`;
+
+exports[`generateInstall > writes the default install > robkit.json 1`] = `
+"{
+  "packageManager": "pnpm",
+  "orm": "drizzle",
+  "uiKit": null,
+  "tools": ["eslint-prettier"],
+  "generators": ["start", "react-hono"]
+}
+"
+`;
+
+exports[`generateInstall > writes the default install 1`] = `
+[
+  ".gitignore",
+  ".prettierignore",
+  "apps/admin/package.json",
+  "apps/admin/src/client/Admin.tsx",
+  "apps/admin/src/client/access-api.test.ts",
+  "apps/admin/src/client/access-api.ts",
+  "apps/admin/src/client/apps.tsx",
+  "apps/admin/src/client/code-picker.tsx",
+  "apps/admin/src/client/codes-api.test.ts",
+  "apps/admin/src/client/codes-api.ts",
+  "apps/admin/src/client/core-call.ts",
+  "apps/admin/src/client/index.css",
+  "apps/admin/src/client/main.tsx",
+  "apps/admin/src/client/roles.tsx",
+  "apps/admin/src/client/ui.tsx",
+  "apps/admin/src/server.ts",
+  "apps/admin/tsconfig.json",
+  "apps/admin/vite.config.ts",
+  "apps/admin/vitest.config.ts",
+  "apps/core/package.json",
+  "apps/core/src/main.ts",
+  "apps/core/src/migrate.ts",
+  "apps/core/tsconfig.json",
+  "apps/example/package.json",
+  "apps/example/src/migrate.ts",
+  "apps/example/src/routeTree.gen.ts",
+  "apps/example/src/router.tsx",
+  "apps/example/src/routes/__root.tsx",
+  "apps/example/src/routes/index.tsx",
+  "apps/example/src/server.ts",
+  "apps/example/src/start.ts",
+  "apps/example/src/visits.ts",
+  "apps/example/tsconfig.json",
+  "apps/example/vite.config.ts",
+  "apps/hub/index.html",
+  "apps/hub/package.json",
+  "apps/hub/src/App.tsx",
+  "apps/hub/src/core-api.test.ts",
+  "apps/hub/src/core-api.ts",
+  "apps/hub/src/core-origin.test.ts",
+  "apps/hub/src/core-origin.ts",
+  "apps/hub/src/forms.tsx",
+  "apps/hub/src/index.css",
+  "apps/hub/src/intro-link.test.ts",
+  "apps/hub/src/intro-link.ts",
+  "apps/hub/src/launcher-api.test.ts",
+  "apps/hub/src/launcher-api.ts",
+  "apps/hub/src/launcher.tsx",
+  "apps/hub/src/main.tsx",
+  "apps/hub/src/ui.tsx",
+  "apps/hub/tsconfig.json",
+  "apps/hub/vite.config.ts",
+  "compose.yaml",
+  "eslint.config.js",
+  "package.json",
+  "pnpm-workspace.yaml",
+  "robkit.json",
+  "tooling/typescript/base.json",
+  "tooling/typescript/package.json",
+  "turbo.json",
+]
+`;

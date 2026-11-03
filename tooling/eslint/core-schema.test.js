@@ -33,7 +33,7 @@ describe("core's schema rule", () => {
     const code = 'import { pgTable, uuid } from "drizzle-orm/pg-core";';
 
     expect(lint("packages/core", code)).toEqual([message]);
-    expect(lint("apps/notes", code)).toEqual([]);
+    expect(lint("packages/dev", code)).toEqual([]);
   });
 
   it.each([
@@ -45,7 +45,7 @@ describe("core's schema rule", () => {
     'import * as pg from "drizzle-orm/pg-core"; pg.pgTable("t", {});',
   ])("refuses `%s` in core", (code) => {
     expect(lint("packages/core", code)).toEqual([message]);
-    expect(lint("apps/notes", code)).toEqual([]);
+    expect(lint("packages/dev", code)).toEqual([]);
   });
 
   it("leaves a pgSchema that isn't Drizzle's alone", () => {

@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "robkit-dev",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "@robkit/dev": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
+  }
+}
