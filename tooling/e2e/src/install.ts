@@ -8,32 +8,35 @@ import {
   generateInstall,
   writeInstall,
   type Choices,
+  type Generator,
 } from "create-robkit";
 import type { TestProject } from "vitest/node";
 
 const run = promisify(execFile);
 
-/** The installs the suites run against, by name. */
-export const installs = {
-  /** The default install, whose example app is on TanStack Start. */
-  start: defaultChoices,
-  reactHono: { ...defaultChoices, generators: ["react-hono", "start"] },
-} satisfies Record<string, Choices>;
-
-export type InstallName = keyof typeof installs;
-
 declare module "vitest" {
   export interface ProvidedContext {
-    /** Each install's folder, by name. */
-    installs: Record<InstallName, string>;
+    /**
+     * One install per stack, whose example app is on that stack, by stack.
+     * The `start` one is the default install.
+     */
+    installs: Record<Generator, string>;
   }
 }
 
 /**
- * Generates an install for `choices` in a temp folder, linked to this
- * checkout's `@robkit/*` packages, and installs its dependencies.
+ * Generates an install whose example app is on `stack` in a temp folder,
+ * linked to this checkout's `@robkit/*` packages, and installs its
+ * dependencies.
  */
-async function createInstall(choices: Choices): Promise<string> {
+async function createInstall(stack: Generator): Promise<string> {
+  const choices: Choices = {
+    ...defaultChoices,
+    generators: [
+      stack,
+      ...defaultChoices.generators.filter((other) => other !== stack),
+    ],
+  };
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
   await writeInstall(dir, await generateInstall(choices, { link: true }));
   // There's no lockfile yet, which pnpm refuses on CI unless told.
@@ -47,20 +50,19 @@ async function createInstall(choices: Choices): Promise<string> {
  * the files under its core, and `node --watch` restarts core mid-journey.
  */
 export default async function setup(project: TestProject) {
-  const names = Object.keys(installs) as InstallName[];
-  const dirs = await Promise.all(
-    names.map((name) => createInstall(installs[name])),
-  );
-  project.provide(
-    "installs",
-    Object.fromEntries(names.map((name, i) => [name, dirs[i]])) as Record<
-      InstallName,
-      string
-    >,
-  );
+  const installs = Object.fromEntries(
+    await Promise.all(
+      defaultChoices.generators.map(
+        async (stack) => [stack, await createInstall(stack)] as const,
+      ),
+    ),
+  ) as Record<Generator, string>;
+  project.provide("installs", installs);
   return async () => {
     await Promise.all(
-      dirs.map((dir) => rm(dir, { recursive: true, force: true })),
+      Object.values(installs).map((dir) =>
+        rm(dir, { recursive: true, force: true }),
+      ),
     );
   };
 }

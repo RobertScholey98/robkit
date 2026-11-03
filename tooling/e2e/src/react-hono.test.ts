@@ -1,3 +1,3 @@
 import { describeJourneys } from "./install-journeys.ts";
 
-describeJourneys("reactHono");
+describeJourneys("react-hono");

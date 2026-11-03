@@ -5,9 +5,9 @@ import { connect } from "node:net";
 import { promisify } from "node:util";
 import { freePort, freePortBlock } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
+import type { Generator } from "create-robkit";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { guestJourney } from "./guest-journey.ts";
-import { installs, type InstallName } from "./install.ts";
 import { ownerJourney } from "./owner-journey.ts";
 import { roleJourney } from "./role-journey.ts";
 import { serverFunctionJourney } from "./server-function-journey.ts";
@@ -93,12 +93,11 @@ function isListening(port: number): Promise<boolean> {
 }
 
 /**
- * Runs `pnpm dev` in the install `name`, and takes the owner and guests
- * through it in a browser.
+ * Runs `pnpm dev` in the install whose example app is on `stack`, and takes
+ * the owner and guests through it in a browser.
  */
-export function describeJourneys(name: InstallName): void {
-  const [stack] = installs[name].generators;
-  const dir = inject("installs")[name];
+export function describeJourneys(stack: Generator): void {
+  const dir = inject("installs")[stack];
   const project = `robkit-e2e-${stack}-${String(process.pid)}`;
 
   beforeAll(async () => {
