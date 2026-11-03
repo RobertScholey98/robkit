@@ -1,10 +1,21 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import {
+  defaultDevPort,
+  defaultDomain,
+  install as addresses,
+} from "@robkit/session/addresses";
 import { choicesFromFlags, choiceTable } from "./choices.ts";
 import { init } from "./init.ts";
 import { usage } from "./usage.ts";
 import { askInit, commandFor } from "./wizard.ts";
+
+/** Where a fresh install's hub answers under pnpm dev. */
+const hubOrigin = addresses({
+  domain: defaultDomain,
+  port: defaultDevPort,
+}).origin("hub");
 
 /** Each choice's flag, from the table, as `parseArgs` takes it. */
 const choiceFlags = Object.fromEntries(
@@ -49,7 +60,7 @@ try {
   cd ${folder}${install ? "" : `\n  ${pm} install`}
   ${pm} dev
 
-Then open http://hub.robkit.localhost:3000, claim the install as its owner,
+Then open ${hubOrigin}, claim the install as its owner,
 or sign in as a guest with the code test.`);
   if (answers) {
     console.log(`
