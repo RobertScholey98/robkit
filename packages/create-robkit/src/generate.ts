@@ -236,7 +236,12 @@ export async function generateInstall(
   if (example === undefined) throw new Error("init needs a generator");
   overlay(files, appFiles(example, exampleSlug), `apps/${exampleSlug}/`);
 
-  const names = catalogued(files);
+  // The catalog covers every stack robkit add offers, so adding an app
+  // needs no version the install lacks.
+  const names = catalogued([
+    ...files,
+    ...stacks.flatMap((stack) => [...stack]),
+  ]);
   await renderPnpm(files, names, await readRobkitRepo(), options);
   files.set(
     "robkit.json",

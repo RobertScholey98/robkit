@@ -121,6 +121,15 @@ describe("generateInstall", () => {
     expect(overrides).toBeUndefined();
   });
 
+  it("catalogs every stack robkit add offers, not only the example's", async () => {
+    const { catalog } = workspace(await generateInstall(honoFirst));
+
+    expect(catalog).toMatchObject({
+      "@robkit/start": "0.0.0",
+      "@tanstack/react-start": "1.169.4",
+    });
+  });
+
   it("links the @robkit packages to this checkout when asked", async () => {
     const { overrides } = workspace(
       await generateInstall(defaultChoices, { link: true }),
