@@ -8,13 +8,17 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
   "scripts": {
     "dev": "vite dev",
     "migrate": "node src/migrate.ts",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "build": "vite build",
+    "start": "node src/migrate.ts && node src/serve.ts"
   },
   "dependencies": {
+    "@hono/node-server": "catalog:",
     "@robkit/react": "catalog:",
     "@robkit/start": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "hono": "catalog:",
     "postgres": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
@@ -143,6 +147,7 @@ exports[`generateInstall > writes the default install 1`] = `
   "apps/admin/src/client/main.tsx",
   "apps/admin/src/client/roles.tsx",
   "apps/admin/src/client/ui.tsx",
+  "apps/admin/src/serve.ts",
   "apps/admin/src/server.ts",
   "apps/admin/tsconfig.json",
   "apps/admin/vite.config.ts",
@@ -150,6 +155,7 @@ exports[`generateInstall > writes the default install 1`] = `
   "apps/core/package.json",
   "apps/core/src/main.ts",
   "apps/core/src/migrate.ts",
+  "apps/core/src/provision.ts",
   "apps/core/tsconfig.json",
   "apps/example/AGENTS.md",
   "apps/example/CLAUDE.md",
@@ -159,6 +165,7 @@ exports[`generateInstall > writes the default install 1`] = `
   "apps/example/src/router.tsx",
   "apps/example/src/routes/__root.tsx",
   "apps/example/src/routes/index.tsx",
+  "apps/example/src/serve.ts",
   "apps/example/src/server.ts",
   "apps/example/src/start.ts",
   "apps/example/src/visits.ts",
@@ -166,6 +173,7 @@ exports[`generateInstall > writes the default install 1`] = `
   "apps/example/vite.config.ts",
   "apps/hub/index.html",
   "apps/hub/package.json",
+  "apps/hub/serve.ts",
   "apps/hub/src/App.tsx",
   "apps/hub/src/core-api.test.ts",
   "apps/hub/src/core-api.ts",

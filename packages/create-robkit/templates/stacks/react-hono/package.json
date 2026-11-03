@@ -4,9 +4,12 @@
   "scripts": {
     "dev": "vite",
     "migrate": "node src/migrate.ts",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "build": "vite build",
+    "start": "node src/migrate.ts && node dist/serve.js"
   },
   "dependencies": {
+    "@hono/node-server": "catalog:",
     "@robkit/hono": "catalog:",
     "hono": "catalog:",
     "postgres": "catalog:",

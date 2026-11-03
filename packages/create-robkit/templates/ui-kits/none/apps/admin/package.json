@@ -5,9 +5,12 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build": "vite build",
+    "start": "node src/serve.ts"
   },
   "dependencies": {
+    "@hono/node-server": "catalog:",
     "@internal/core-client": "workspace:*",
     "@robkit/guard": "catalog:",
     "@robkit/hono": "catalog:",

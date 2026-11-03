@@ -17,6 +17,8 @@ export default defineConfig(({ command }) => {
     plugins: [
       devServer({ entry: "src/server.tsx", injectClientScript: false }),
     ],
+    // The production build: the server, ready for Node, as dist/serve.js.
+    build: { ssr: "src/serve.ts", outDir: "dist" },
     server: {
       host: "127.0.0.1",
       ...(process.env.PORT && {
