@@ -69,14 +69,18 @@ function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
 }
 
 /**
- * Characters a folder can hold and still be pasted into any shell from the
- * printed command, quoted only when it has a space.
+ * The folder as the printed command spells it, so it reads back the same in
+ * bash, PowerShell and cmd, or undefined for a name no quoting would keep.
+ * Shells share no escape, so only double quotes, around these characters.
  */
-const shellSafe = /^[\p{L}\p{N} ._/\\:-]+$/u;
+function shellWord(folder: string): string | undefined {
+  if (!/^[\p{L}\p{N} ._/\\:-]+$/u.test(folder)) return undefined;
+  return /^[\p{L}\p{N}._/-]+$/u.test(folder) ? folder : `"${folder}"`;
+}
 
 function folderProblem(folder: string | undefined): string | undefined {
   if (!folder) return undefined;
-  if (!shellSafe.test(folder)) {
+  if (shellWord(folder) === undefined) {
     return `${folder} can't be the folder. Use letters, digits, spaces, dots, dashes, underscores and slashes.`;
   }
   return folderInUse(folder);
@@ -166,7 +170,7 @@ export async function askInit(folder?: string): Promise<Answers> {
 export function commandFor(answers: Answers, link = false): string {
   const { folder, pm, orm, generators, tools, install } = answers;
   return [
-    `npm create robkit@latest ${/\s/.test(folder) ? `"${folder}"` : folder} --`,
+    `npm create robkit@latest ${shellWord(folder) ?? folder} --`,
     `--pm ${pm} --orm ${orm} --generators ${generators} --tools ${tools}`,
     ...(install ? ["--install"] : []),
     ...(link ? ["--link"] : []),
