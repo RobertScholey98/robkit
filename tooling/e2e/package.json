@@ -6,7 +6,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:production": "vitest run --config vitest.production.config.ts"
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
