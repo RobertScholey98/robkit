@@ -5,6 +5,11 @@ import { connect } from "node:net";
 import { promisify } from "node:util";
 import { freePort, freePortBlock } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
+import {
+  defaultDomain,
+  install,
+  type Install,
+} from "@robkit/session/addresses";
 import type { Generator } from "create-robkit";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { guestJourney } from "./guest-journey.ts";
@@ -14,6 +19,16 @@ import { serverFunctionJourney } from "./server-function-journey.ts";
 
 const run = promisify(execFile);
 
+/** The Host header that reaches `slug` through the dev proxy. */
+function hostOf(slug: string): string {
+  return new URL(addresses.origin(slug)).host;
+}
+
+/** A URL on `slug`, as the browser sees it. */
+function at(slug: string, path = "/"): string {
+  return `${addresses.origin(slug)}${path}`;
+}
+
 interface Reply {
   status: number;
   headers: IncomingHttpHeaders;
@@ -22,6 +37,7 @@ interface Reply {
 
 let dev: ChildProcess;
 let devPort: number;
+let addresses: Install;
 let postgresPort: number;
 let output = "";
 
@@ -102,6 +118,7 @@ export function describeJourneys(stack: Generator): void {
 
   beforeAll(async () => {
     devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
+    addresses = install({ domain: defaultDomain, port: devPort });
     postgresPort = await freePort();
     dev = spawn("pnpm", ["dev"], {
       cwd: dir,
@@ -129,19 +146,17 @@ export function describeJourneys(stack: Generator): void {
 
   describe(`pnpm dev in an install with the ${stack} example`, () => {
     it("serves the hub on hub.robkit.localhost", async () => {
-      const hub = await eventually(() =>
-        get(`hub.robkit.localhost:${String(devPort)}`),
-      );
+      const hub = await eventually(() => get(hostOf("hub")));
 
       expect(hub.headers["content-type"]).toMatch(/text\/html/);
       expect(hub.body).toContain('<div id="root">');
     });
 
     it("serves core on core.robkit.localhost, open to the hub", async () => {
-      const hubOrigin = `http://hub.robkit.localhost:${String(devPort)}`;
+      const hubOrigin = addresses.origin("hub");
 
       const status = await eventually(() =>
-        get(`core.robkit.localhost:${String(devPort)}`, "/status", {
+        get(hostOf("core"), "/status", {
           origin: hubOrigin,
         }),
       );
@@ -151,8 +166,8 @@ export function describeJourneys(stack: Generator): void {
     });
 
     it("lets the owner claim the install and stay signed in", async () => {
-      const core = `core.robkit.localhost:${String(devPort)}`;
-      const origin = `http://hub.robkit.localhost:${String(devPort)}`;
+      const core = hostOf("core");
+      const origin = addresses.origin("hub");
 
       const before = await get(core, "/session", { origin });
       const setup = await send(core, "/setup", {
@@ -172,7 +187,7 @@ export function describeJourneys(stack: Generator): void {
       expect(JSON.parse(before.body)).toEqual({ state: "unclaimed" });
       expect(setup.status).toBe(201);
       expect(cookie).toMatch(/^robkit_session=[\w-]+\.[\w-]+\.[\w-]+;/);
-      expect(cookie).toContain("; Domain=robkit.localhost;");
+      expect(cookie).toContain(`; Domain=${addresses.domain};`);
       expect(cookie).not.toContain("Secure");
       expect(JSON.parse(after.body)).toEqual({
         state: "signed-in",
@@ -185,18 +200,13 @@ export function describeJourneys(stack: Generator): void {
     });
 
     it("guards the example app: login, return and refresh bounce", async () => {
-      const at = (slug: string, path = "/") =>
-        `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
       const example = at("example");
       // pnpm dev waits for no app. Until the guard answers a signed-out
       // fetch with 401, the proxy may still be answering 502.
-      await eventually(
-        () => get(`example.robkit.localhost:${String(devPort)}`),
-        401,
-      );
+      await eventually(() => get(hostOf("example")), 401);
 
       const journey = await ownerJourney({
-        devPort,
+        install: addresses,
         adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
         username: "rob",
         password: "correct horse battery",
@@ -222,12 +232,10 @@ export function describeJourneys(stack: Generator): void {
     it.runIf(stack === "start")(
       "sends a server function call with an expired session through core's refresh",
       async () => {
-        const at = (slug: string, path = "/") =>
-          `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
         const example = at("example");
 
         const journey = await serverFunctionJourney({
-          devPort,
+          install: addresses,
           adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
           username: "rob",
           password: "correct horse battery",
@@ -248,13 +256,11 @@ export function describeJourneys(stack: Generator): void {
     );
 
     it("signs guests in with codes, keeps them out of owner-only apps, and ends a revoked code's session", async () => {
-      const at = (slug: string, path = "/") =>
-        `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
       const example = at("example");
       const notFound = { status: 404, body: "Not found" };
 
       const journey = await guestJourney({
-        devPort,
+        install: addresses,
         adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
         username: "rob",
         password: "correct horse battery",
@@ -289,11 +295,8 @@ export function describeJourneys(stack: Generator): void {
         timeout: 300_000,
       },
       async () => {
-        const at = (slug: string, path = "/") =>
-          `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
-
         const journey = await roleJourney({
-          devPort,
+          install: addresses,
           adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
           username: "rob",
           password: "correct horse battery",

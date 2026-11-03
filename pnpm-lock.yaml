@@ -381,6 +381,9 @@ importers:
       '@robkit/dev':
         specifier: workspace:*
         version: link:../../packages/dev
+      '@robkit/session':
+        specifier: workspace:*
+        version: link:../../packages/session
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5

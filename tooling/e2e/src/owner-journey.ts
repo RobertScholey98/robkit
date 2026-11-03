@@ -1,10 +1,11 @@
 import { decodeJwt, importJWK, SignJWT, type JWK } from "jose";
 import { chromium, type Page } from "playwright";
 import postgres from "postgres";
+import type { Install } from "@robkit/session/addresses";
 
 export interface JourneyOptions {
-  /** The dev proxy's port. */
-  devPort: number;
+  /** The install's addresses under pnpm dev. */
+  install: Install;
   /** A superuser URL for the install's database. */
   adminUrl: string;
   username: string;
@@ -71,12 +72,12 @@ export function mainFrameRequests(page: Page): string[] {
  * opens it again with an expired token.
  */
 export async function ownerJourney({
-  devPort,
+  install,
   adminUrl,
   username,
   password,
 }: JourneyOptions): Promise<Journey> {
-  const example = `http://example.robkit.localhost:${String(devPort)}/`;
+  const example = `${install.origin("example")}/`;
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext();
