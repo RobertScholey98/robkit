@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./addresses": "./src/install-addresses.ts",
     "./lapsed": "./src/session-lapsed.ts"
   },
   "files": [
