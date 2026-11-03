@@ -130,11 +130,13 @@ exports[`generateInstall > writes the default install > robkit.json 1`] = `
 
 exports[`generateInstall > writes the default install 1`] = `
 [
+  ".dockerignore",
   ".github/workflows/ci.yml",
   ".gitignore",
   ".prettierignore",
   "AGENTS.md",
   "CLAUDE.md",
+  "Dockerfile",
   "apps/admin/package.json",
   "apps/admin/src/client/Admin.tsx",
   "apps/admin/src/client/access-api.test.ts",
