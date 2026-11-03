@@ -1,11 +1,6 @@
+import type { Result } from "@internal/core-client";
 import { useState, type SubmitEvent } from "react";
-import {
-  setUp,
-  signIn,
-  signInWithCode,
-  type CoreResult,
-  type Session,
-} from "./core-api.ts";
+import { setUp, signIn, signInWithCode, type Session } from "./core-api.ts";
 import { Button, Card, Field, FormError, Heading } from "./ui.tsx";
 
 export type Sending =
@@ -25,10 +20,10 @@ export function useSend(
     setSending({ state: "failed", error });
   }
 
-  async function send(request: () => Promise<CoreResult>) {
+  async function send(request: () => Promise<Result<Session>>) {
     setSending({ state: "sending" });
     const result = await request();
-    if (result.ok) onSession(result.session);
+    if (result.ok) onSession(result.value);
     else fail(result.error);
   }
 

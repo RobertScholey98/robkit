@@ -1,7 +1,8 @@
+import type { Result } from "@internal/core-client";
 import { useEffect, useState } from "react";
 import { signOut, type Session, type Viewer } from "./core-api.ts";
 import { appOrigin } from "./core-origin.ts";
-import { listLauncherApps, type LauncherResult } from "./launcher-api.ts";
+import { listLauncherApps, type LauncherApp } from "./launcher-api.ts";
 import { useSend } from "./forms.tsx";
 import { Button, FormError } from "./ui.tsx";
 
@@ -18,7 +19,7 @@ export function Launcher({
   onSession: (session: Session) => void;
 }) {
   const { sending, send } = useSend(onSession);
-  const [listing, setListing] = useState<LauncherResult | undefined>();
+  const [listing, setListing] = useState<Result<LauncherApp[]> | undefined>();
 
   // Asks again while the tab stays open, so an app the owner closes to this
   // viewer drops off without a reload.
@@ -80,16 +81,16 @@ function AppList({
   listing,
 }: {
   viewer: Viewer;
-  listing: LauncherResult | undefined;
+  listing: Result<LauncherApp[]> | undefined;
 }) {
   if (listing === undefined) {
     return <p className="text-sm text-neutral-500">Loading apps…</p>;
   }
   if (!listing.ok) return <FormError>{listing.error}</FormError>;
-  if (listing.apps.length === 0) return <NoApps viewer={viewer} />;
+  if (listing.value.length === 0) return <NoApps viewer={viewer} />;
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {listing.apps.map((app) => (
+      {listing.value.map((app) => (
         <li key={app.slug}>
           <a
             href={appOrigin(location.href, app.slug)}
