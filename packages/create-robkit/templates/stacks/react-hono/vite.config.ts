@@ -2,7 +2,6 @@ import devServer from "@hono/vite-dev-server";
 import { defineConfig } from "vite";
 
 const domain = process.env.ROBKIT_DOMAIN;
-const slug = process.env.ROBKIT_APP;
 
 // robkit-dev assigns PORT and serves the app on <slug>.<domain> through its
 // proxy. Every request but Vite's own goes through the Hono app, so the
@@ -24,7 +23,7 @@ export default defineConfig(({ command }) => {
         port: Number(process.env.PORT),
         strictPort: true,
       }),
-      ...(domain && slug && { allowedHosts: [`${slug}.${domain}`] }),
+      ...(domain && { allowedHosts: [`.${domain}`] }),
     },
   };
 });

@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 const domain = process.env.ROBKIT_DOMAIN;
-const slug = process.env.ROBKIT_APP;
 
 // robkit-dev assigns PORT and serves the app on <slug>.<domain> through its
 // proxy. src/server.ts puts robkit's guard in front of Start.
@@ -22,7 +21,7 @@ export default defineConfig(({ command }) => {
         port: Number(process.env.PORT),
         strictPort: true,
       }),
-      ...(domain && slug && { allowedHosts: [`${slug}.${domain}`] }),
+      ...(domain && { allowedHosts: [`.${domain}`] }),
     },
   };
 });

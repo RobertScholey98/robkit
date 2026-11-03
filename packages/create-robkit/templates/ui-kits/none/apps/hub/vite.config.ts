@@ -13,6 +13,6 @@ export default defineConfig({
       port: Number(process.env.PORT),
       strictPort: true,
     }),
-    ...(domain && { allowedHosts: [`hub.${domain}`] }),
+    ...(domain && { allowedHosts: [`.${domain}`] }),
   },
 });

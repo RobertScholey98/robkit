@@ -24,7 +24,7 @@ export default defineConfig(({ command }) => {
         port: Number(process.env.PORT),
         strictPort: true,
       }),
-      ...(domain && { allowedHosts: [`admin.${domain}`] }),
+      ...(domain && { allowedHosts: [`.${domain}`] }),
     },
   };
 });
