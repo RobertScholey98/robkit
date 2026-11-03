@@ -116,7 +116,7 @@ export const choiceTable = {
         value: "shadcn-base-ui",
         label: "shadcn on Base UI",
         layer: "ui-kits/shadcn-base-ui/install",
-        optInLayer: "ui-kits/shadcn-base-ui/app",
+        optInLayer: "ui-kits/shadcn/app",
       },
       { value: "shadcn-radix", label: "shadcn on Radix", comingLater: true },
       { value: "chakra", label: "Chakra UI", comingLater: true },
