@@ -33,7 +33,7 @@ describe("provisionDatabase", () => {
   });
 
   it("keeps the app out of the public schema", async () => {
-    const app = connect(await provisionDatabase(adminUrl, "public_probe"));
+    const app = connect(await provisionDatabase(adminUrl, "publicprobe"));
 
     await expect(app`create table public.leak (id int)`).rejects.toThrow(
       /permission denied for schema public/,

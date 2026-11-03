@@ -202,7 +202,7 @@ describe("robkit-dev", () => {
 
     expect(await exitCode(dev.child)).toBe(1);
     expect(dev.output()).toBe(
-      `apps/my-app: "my-app" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters, digits and underscores, start with a letter, and avoid public, postgres and pg_ names.\n`,
+      `apps/my-app: "my-app" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.\n`,
     );
     expect(await startedApps(dev.root)).toEqual([]);
     expect(await createdContainers(dev.root)).toBe("");
