@@ -24,6 +24,7 @@ import {
 import { ownerJourney } from "./owner-journey.ts";
 import { roleJourney } from "./role-journey.ts";
 import { serverFunctionJourney } from "./server-function-journey.ts";
+import { themeJourney } from "./theme-journey.ts";
 
 const run = promisify(execFile);
 
@@ -322,6 +323,25 @@ export function describeJourneys(
         icon: addedIcon,
         openedAt: at(addedSlug),
         heading: "Signed in as a guest",
+      });
+    });
+
+    // Every kit, and no kit, draws from the same theme variables, so the
+    // same change restyles each install the same way.
+    it("draws the hub from the theme's variables", async () => {
+      const journey = await themeJourney({ install: addresses });
+
+      expect(journey).toEqual({
+        before: {
+          buttonBackground: "oklch(0.205 0 0)",
+          buttonText: "oklch(0.985 0 0)",
+          cardRadius: "14px",
+        },
+        after: {
+          buttonBackground: "rgb(200, 30, 60)",
+          buttonText: "rgb(250, 240, 200)",
+          cardRadius: "28px",
+        },
       });
     });
 

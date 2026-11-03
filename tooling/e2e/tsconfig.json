@@ -1,6 +1,8 @@
 {
   "extends": "@internal/tsconfig/base.json",
   "compilerOptions": {
+    // The journeys run some of their code in the browser's page.
+    "lib": ["es2024", "dom"],
     "types": ["node"]
   },
   "include": ["src", "*.js", "*.ts"]
