@@ -39,19 +39,24 @@ describe("packProblems", () => {
 describe("every published package, packed", () => {
   // Node won't strip types under node_modules, so an install that takes the
   // packages from npm or a tarball needs them as JS.
-  it("points every export and bin at JS in the tarball", async () => {
-    const packed = await Promise.all((await publishedPackages()).map(pack));
+  // Packing takes about a second alone, and far longer beside the e2e suite.
+  it(
+    "points every export and bin at JS in the tarball",
+    { timeout: 60_000 },
+    async () => {
+      const packed = await Promise.all((await publishedPackages()).map(pack));
 
-    expect(packed.map(({ name }) => name).sort()).toEqual([
-      "@robkit/core",
-      "@robkit/dev",
-      "@robkit/guard",
-      "@robkit/hono",
-      "@robkit/react",
-      "@robkit/session",
-      "@robkit/start",
-      "create-robkit",
-    ]);
-    expect(packed.flatMap(packProblems)).toEqual([]);
-  });
+      expect(packed.map(({ name }) => name).sort()).toEqual([
+        "@robkit/core",
+        "@robkit/dev",
+        "@robkit/guard",
+        "@robkit/hono",
+        "@robkit/react",
+        "@robkit/session",
+        "@robkit/start",
+        "create-robkit",
+      ]);
+      expect(packed.flatMap(packProblems)).toEqual([]);
+    },
+  );
 });
