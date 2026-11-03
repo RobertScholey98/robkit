@@ -448,9 +448,33 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../typescript
+      '@robkit/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@robkit/dev':
+        specifier: workspace:*
+        version: link:../../packages/dev
+      '@robkit/guard':
+        specifier: workspace:*
+        version: link:../../packages/guard
+      '@robkit/hono':
+        specifier: workspace:*
+        version: link:../../packages/hono
+      '@robkit/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@robkit/session':
+        specifier: workspace:*
+        version: link:../../packages/session
+      '@robkit/start':
+        specifier: workspace:*
+        version: link:../../packages/start
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
+      create-robkit:
+        specifier: workspace:*
+        version: link:../../packages/create-robkit
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)

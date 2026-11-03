@@ -8,7 +8,24 @@
     "./addresses": "./src/install-addresses.ts",
     "./lapsed": "./src/session-lapsed.ts"
   },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./addresses": {
+        "types": "./dist/install-addresses.d.ts",
+        "default": "./dist/install-addresses.js"
+      },
+      "./lapsed": {
+        "types": "./dist/session-lapsed.d.ts",
+        "default": "./dist/session-lapsed.js"
+      }
+    }
+  },
   "files": [
+    "dist",
     "src",
     "!src/**/*.test.ts"
   ],
@@ -16,6 +33,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run"

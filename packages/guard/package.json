@@ -8,7 +8,21 @@
     "./conformance": "./src/conformance.ts",
     "./conformance.json": "./conformance.json"
   },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/src/index.d.ts",
+        "default": "./dist/src/index.js"
+      },
+      "./conformance": {
+        "types": "./dist/src/conformance.d.ts",
+        "default": "./dist/src/conformance.js"
+      },
+      "./conformance.json": "./conformance.json"
+    }
+  },
   "files": [
+    "dist",
     "src",
     "!src/**/*.test.ts",
     "conformance.json"
@@ -17,6 +31,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run"
