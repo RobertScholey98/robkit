@@ -37,9 +37,9 @@ async function deployApps(stack: Stack, slugs: string[]): Promise<void> {
 
 const installs: [string, Choices][] = [
   ["default", defaultChoices],
-  // Each ORM migrates as its app's container starts.
-  ["Prisma", { ...defaultChoices, orm: "prisma" }],
-  // Its apps draw with the UI kit, so each serves the kit's stylesheet.
+  // Each ORM migrates as its app's container starts, and each UI kit's apps
+  // serve its stylesheet.
+  ["Prisma", { ...defaultChoices, orm: "prisma", uiKit: "shadcn-radix" }],
   ["Kysely", { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" }],
 ];
 
