@@ -24,3 +24,9 @@ Notes carried over from the finished tickets 02 to 09, which were deleted once d
 - **Production servers.** The Start app runs under `vite dev` only, and needs a production server for `dist/server/server.js`. The react-hono example has no production build yet. (04, 07)
 - **First boot.** Core needs a migrated database to boot. On an unmigrated one it exits 1 with a raw Drizzle error. A friendlier message is still to do. (03)
 - **Published packages.** `@robkit/*` export `.ts` source, which Node won't strip under `node_modules`, and the generator reads the catalog from the checkout it runs from. A deploy that doesn't link a checkout needs built packages and a catalog shipped in `create-robkit`. (02, 08)
+
+Notes from ticket 10:
+
+- **Role passwords (R, 2026-11-03).** In production each app's role password is derived from one install secret, `ROBKIT_DB_SECRET`, held only by the provision step: an HMAC of the slug. robkit prints each app's `DATABASE_URL` so the owner sets it once on the host. The provision step today sets a fresh random password on every run, which is right for local dev only; this ticket adds the derived one.
+- **`ROBKIT_APPS` is JSON now.** Core reads a JSON list of `{ slug, access?, icon? }`, each app's manifest from the `robkit` field of its `package.json`. `catalogOf(await discoverApps(root))` in `@robkit/dev` builds it. Core refuses to start on one it can't read.
+- **`robkit add` in an install** is `pnpm robkit add`, from `create-robkit` as a dev dependency. An app it adds after the first deploy needs its container, its `DATABASE_URL`, a provision run, and core restarted with the new `ROBKIT_APPS`.
