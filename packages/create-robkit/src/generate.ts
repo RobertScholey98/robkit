@@ -8,6 +8,7 @@ import {
   type Choice,
   type Choices,
   type Generator,
+  type Orm,
 } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
@@ -124,13 +125,31 @@ function layersFor(choices: Choices): string[] {
   ].filter((layer) => layer !== undefined);
 }
 
-/** The template robkit ships for `stack`: an app's files, from its folder. */
-export function stackTemplate(stack: Generator): Promise<Files> {
+/**
+ * The template robkit ships for `stack`: an app's files, from its folder.
+ * Its `AGENTS.md` ends with the section the install's ORM adds.
+ */
+export async function stackTemplate(
+  stack: Generator,
+  orm: Orm,
+): Promise<Files> {
   const layer = layerOf(choiceTable.generators, stack);
   if (layer === undefined) {
     throw new Error(`the ${stack} stack has no template`);
   }
-  return readLayer(layer);
+  const files = await readLayer(layer);
+  const guide = choiceTable.orm.options.find(
+    (option) => option.value === orm,
+  )?.appGuide;
+  const agents = files.get("AGENTS.md");
+  if (guide !== undefined && agents !== undefined) {
+    // A Windows checkout may hold the templates with CRLF endings.
+    const section = (
+      await readFile(join(templatesDir, guide), "utf8")
+    ).replaceAll("\r\n", "\n");
+    files.set("AGENTS.md", `${agents}\n${section}`);
+  }
+  return files;
 }
 
 /**
@@ -231,7 +250,9 @@ export async function generateInstall(
     overlay(files, await readLayer(layer));
   }
 
-  const stacks = await Promise.all(choices.generators.map(stackTemplate));
+  const stacks = await Promise.all(
+    choices.generators.map((stack) => stackTemplate(stack, choices.orm)),
+  );
   const [example] = stacks;
   if (example === undefined) throw new Error("init needs a generator");
   overlay(files, appFiles(example, exampleSlug), `apps/${exampleSlug}/`);

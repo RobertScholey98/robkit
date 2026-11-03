@@ -11,6 +11,11 @@ export interface Option {
    * install. An option with none adds no files of its own.
    */
   readonly layer?: string;
+  /**
+   * A section, as a file under `templates/`, the option adds to the end of
+   * every app's `AGENTS.md`.
+   */
+  readonly appGuide?: string;
   /** Shown by the wizard but not selectable, until a later release builds it. */
   readonly comingLater?: true;
 }
@@ -56,7 +61,11 @@ export const choiceTable = {
     options: [
       // Drizzle adds no files: core keeps it inside @robkit/core, and the
       // example apps query Postgres directly.
-      { value: "drizzle", label: "Drizzle" },
+      {
+        value: "drizzle",
+        label: "Drizzle",
+        appGuide: "orms/drizzle/AGENTS.md",
+      },
       { value: "prisma", label: "Prisma", comingLater: true },
       { value: "kysely", label: "Kysely", comingLater: true },
     ],

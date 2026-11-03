@@ -149,6 +149,8 @@ exports[`generateInstall > writes the default install 1`] = `
   "apps/core/src/main.ts",
   "apps/core/src/migrate.ts",
   "apps/core/tsconfig.json",
+  "apps/example/AGENTS.md",
+  "apps/example/CLAUDE.md",
   "apps/example/package.json",
   "apps/example/src/migrate.ts",
   "apps/example/src/routeTree.gen.ts",
