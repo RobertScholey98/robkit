@@ -59,6 +59,23 @@ describe("discoverApps", () => {
     expect(hub?.port).toBe(4101);
   });
 
+  it("refuses an app folder whose name can't be a slug", async () => {
+    const root = await installWith({
+      hub: { dev: "vite" },
+      "my-app": { dev: "vite" },
+    });
+
+    await expect(discoverApps(root)).rejects.toThrow(
+      `apps/my-app: "my-app" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters, digits and underscores, start with a letter, and avoid public, postgres and pg_ names.`,
+    );
+  });
+
+  it("ignores a folder without a package.json, whatever its name", async () => {
+    const root = await installWith({ hub: { dev: "vite" }, ".cache": null });
+
+    expect((await discoverApps(root)).map((app) => app.slug)).toEqual(["hub"]);
+  });
+
   it("finds nothing in an install without apps", async () => {
     const root = await mkdtemp(join(tmpdir(), "robkit-apps-"));
 

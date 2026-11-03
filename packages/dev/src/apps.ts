@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Route } from "./proxy.ts";
+import { slugProblem } from "./slug.ts";
 
 /**
  * One folder under `apps/`. Its folder name is its slug, which is also its
@@ -31,7 +32,8 @@ async function readManifest(dir: string): Promise<PackageJson | undefined> {
 
 /**
  * Finds the install's apps, giving them ports from `firstPort` upward in slug
- * order so each app gets the same port on every run.
+ * order so each app gets the same port on every run. Throws, naming the
+ * folder, if an app's folder name can't be a slug.
  */
 export async function discoverApps(
   root: string,
@@ -54,6 +56,8 @@ export async function discoverApps(
     const dir = join(appsDir, slug);
     const manifest = await readManifest(dir);
     if (!manifest) continue;
+    const problem = slugProblem(slug);
+    if (problem) throw new Error(`apps/${slug}: ${problem}`);
     apps.push({
       slug,
       dir,
