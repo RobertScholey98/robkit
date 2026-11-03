@@ -119,6 +119,38 @@ describe("generateInstall", () => {
     expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
   });
 
+  it("writes a CI job that deploys main once its checks pass", async () => {
+    const files = await generateInstall(defaultChoices);
+    const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+      jobs: Record<
+        string,
+        {
+          if?: string;
+          needs?: string;
+          steps: { run?: string; env?: Record<string, string> }[];
+        }
+      >;
+    };
+
+    const deploy = workflow.jobs.deploy;
+
+    expect(deploy?.needs).toBe("check");
+    expect(deploy?.if).toBe(
+      "github.event_name == 'push' && github.ref == 'refs/heads/main'",
+    );
+    expect(deploy?.steps.flatMap((step) => step.run ?? [])).toEqual([
+      "pnpm install --frozen-lockfile",
+      "pnpm robkit deploy",
+    ]);
+    expect(Object.keys(deploy?.steps.at(-1)?.env ?? {})).toEqual([
+      "TURBO_SCM_BASE",
+      "COOLIFY_URL",
+      "COOLIFY_TOKEN",
+      "CF_ACCESS_CLIENT_ID",
+      "CF_ACCESS_CLIENT_SECRET",
+    ]);
+  });
+
   it("writes a CI workflow that installs, then runs the install's own scripts", async () => {
     const files = await generateInstall(defaultChoices);
     const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
@@ -128,9 +160,7 @@ describe("generateInstall", () => {
       scripts: Record<string, string>;
     };
 
-    const runs = Object.values(workflow.jobs).flatMap((job) =>
-      job.steps.flatMap((step) => step.run ?? []),
-    );
+    const runs = workflow.jobs.check?.steps.flatMap((step) => step.run ?? []);
 
     expect(runs).toEqual([
       "pnpm install --frozen-lockfile",

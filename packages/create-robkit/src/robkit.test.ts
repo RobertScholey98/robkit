@@ -209,7 +209,9 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
   it("says how to set up an install with no coolify.json", async () => {
     const dir = await freshInstall();
 
-    const { code, output } = await drive(bin, dir, ["deploy"]);
+    const { code, output } = await drive(bin, dir, ["deploy"], [], {
+      COOLIFY_URL: "https://coolify.example",
+    });
 
     expect({ code, output }).toEqual({
       code: 1,

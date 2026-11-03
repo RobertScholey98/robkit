@@ -120,6 +120,13 @@ async function deployInstall(): Promise<void> {
   if (positionals.length > 1) throw new Error(usage);
   const root = process.cwd();
   await readInstallChoices(root);
+  const { COOLIFY_URL: url, COOLIFY_TOKEN: token } = process.env;
+  const dryRun = values["dry-run"];
+  // An install's CI deploys from its first push, before Coolify is set up.
+  if (!url && !dryRun) {
+    console.log("COOLIFY_URL is not set, so nothing was deployed.");
+    return;
+  }
   const configPath = join(root, "coolify.json");
   if (!existsSync(configPath)) {
     throw new Error(
@@ -129,7 +136,7 @@ async function deployInstall(): Promise<void> {
   const config = readCoolifyConfig(await readFile(configPath, "utf8"));
   const deployments = await deploymentOf(root, { domain: config.domain });
 
-  if (values["dry-run"]) {
+  if (dryRun || !url) {
     for (const { slug, env } of deployments) {
       console.log(`${slug}:`);
       for (const [key, value] of Object.entries(env)) {
@@ -138,11 +145,6 @@ async function deployInstall(): Promise<void> {
         console.log(`  ${key}=${shown}`);
       }
     }
-    return;
-  }
-  const { COOLIFY_URL: url, COOLIFY_TOKEN: token } = process.env;
-  if (!url) {
-    console.log("COOLIFY_URL is not set, so nothing was deployed.");
     return;
   }
   if (!token) throw new Error("Set COOLIFY_TOKEN to deploy.");
