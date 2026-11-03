@@ -21,6 +21,7 @@ import {
   readAccess,
   setAccess,
 } from "./apps.ts";
+import { readCredentials, readNewOwner } from "./owner.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import {
   createRole,
@@ -79,11 +80,6 @@ function isJson(contentType: string | undefined): boolean {
   return mediaType === "application/json";
 }
 
-interface Credentials {
-  username: string;
-  password: string;
-}
-
 type Fields = Record<string, unknown>;
 
 /** The fields of the JSON object a POST sent, or undefined if it isn't JSON. */
@@ -105,31 +101,7 @@ async function readBody<T>(
   return fields ? read(fields) : { error: "Send a valid JSON body." };
 }
 
-/** The username, trimmed, and password a POST sent, or why it won't do. */
-async function credentialsFrom(
-  c: Context,
-): Promise<Credentials | { error: string }> {
-  const fields = await fieldsOf(c);
-  if (!fields) return { error: "Send a valid JSON body." };
-  const { username, password } = fields;
-  if (typeof username !== "string" || typeof password !== "string") {
-    return { error: "Send a username and a password." };
-  }
-  return { username: username.trim(), password };
-}
-
 const unknownCode = "One of those codes doesn't exist.";
-
-/** Why a new owner's username or password won't do, if it won't. */
-function problemWith({ username, password }: Credentials): string | undefined {
-  if (username.length < 1 || username.length > 64) {
-    return "Pick a username of 1 to 64 characters.";
-  }
-  if (password.length < 12) {
-    return "Pick a password of at least 12 characters.";
-  }
-  return undefined;
-}
 
 /**
  * Who is asking, for rate limiting. Traefik in production and the dev proxy
@@ -304,10 +276,8 @@ export function createApp({
   );
 
   app.post("/setup", async (c) => {
-    const credentials = await credentialsFrom(c);
+    const credentials = await readBody(c, readNewOwner);
     if ("error" in credentials) return c.json(credentials, 400);
-    const problem = problemWith(credentials);
-    if (problem) return c.json({ error: problem }, 400);
 
     const claim = await claimInstall(
       ctx,
@@ -325,7 +295,7 @@ export function createApp({
   });
 
   app.post("/login", async (c) => {
-    const credentials = await credentialsFrom(c);
+    const credentials = await readBody(c, readCredentials);
     if ("error" in credentials) return c.json(credentials, 400);
 
     const client = clientOf(c);
