@@ -2,7 +2,7 @@
 
 **What to build:** An install generated on the default choices deploys to robkit.dev using R's Coolify method: each app in its own container, provisioning and migrate commands as pre-deploy steps, and `ROBKIT_DOMAIN` set to robkit.dev. The owner claims the install through the first-run setup screen, mints a code, and a guest signs in with it on the hub and opens an app on its subdomain over HTTPS. This comes before the other ORMs, package managers and kits so they build on a Dockerfile, env and migrate setup that has already met production. Time-box it, and move what doesn't fit into follow-up tickets.
 
-**Blocked by:** 10
+**Blocked by:** 10, 23, 28
 
 **Status:** ready-for-agent
 

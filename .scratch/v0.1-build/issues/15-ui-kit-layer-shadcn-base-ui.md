@@ -2,7 +2,7 @@
 
 **What to build:** Choosing shadcn on Base UI at init adds `packages/ui` through `shadcn init --base` and restyles the hub, admin and any app that opted in. This ticket builds the kit layer itself, so 16 and 17 only add a kit. With no kit, the hub and admin keep the plain JSX + Tailwind look styled like robnet's shadcn default. Theme tokens are the shared contract between the kit and the no-kit version.
 
-**Blocked by:** 10
+**Blocked by:** 10, 25, 29
 
 **Status:** ready-for-agent
 

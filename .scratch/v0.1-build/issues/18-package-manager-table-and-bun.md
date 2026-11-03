@@ -2,7 +2,7 @@
 
 **What to build:** A small adapter table renders everything that differs per package manager: where the catalog lives, the lockfile, install and filter commands, settings, and one Dockerfile per manager. bun is the first entry after pnpm. Choosing bun at init produces an install that installs, runs `dev` and builds.
 
-**Blocked by:** 11
+**Blocked by:** 11, 24, 25
 
 **Status:** ready-for-agent
 

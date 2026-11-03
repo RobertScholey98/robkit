@@ -2,7 +2,7 @@
 
 **What to build:** In an install, `robkit add` offers only the generators enabled in `robkit.json` and asks for the name, who can open it (anyone, roles, owner only), the UI kit opt-in when relevant, and an icon. It writes `apps/<slug>` and the app's manifest. After `pnpm dev`, the new app opens at `<slug>.robkit.localhost`, gated as chosen.
 
-**Blocked by:** 08
+**Blocked by:** 08, 22, 23, 25
 
 **Status:** needs-info
 
