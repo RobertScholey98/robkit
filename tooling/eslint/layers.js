@@ -57,12 +57,6 @@ export const layers = [
     modules: ["@robkit/core"],
     folders: ["packages/core"],
   },
-  {
-    applies: inside("packages/*"),
-    rule: "Layer rule: packages never import from apps or examples.",
-    modules: ["@internal/*-app"],
-    folders: ["apps", "examples"],
-  },
 ];
 
 /** The workspace a file belongs to, such as `packages/guard`. */

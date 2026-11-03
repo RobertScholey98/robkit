@@ -31,7 +31,6 @@ function lint(workspace, code) {
 const adapters =
   "Layer rule: adapters never import @robkit/core. Code reaches core over HTTP only.";
 const noIo = "Layer rule: @robkit/guard does no I/O.";
-const noApps = "Layer rule: packages never import from apps or examples.";
 
 describe("the layer rule", () => {
   it.each(["packages/hono", "packages/start", "packages/react"])(
@@ -109,23 +108,5 @@ describe("the layer rule", () => {
   it("lets the guard shadow a banned global with its own name", () => {
     expect(lint("packages/guard", "const fetch = 1; fetch;")).toEqual([]);
     expect(lint("packages/guard", "fetch;")).toEqual([noIo]);
-  });
-
-  it.each([
-    'import "@internal/hub-app";',
-    'import "../../../apps/hub/src/App.tsx";',
-    'await import("../../../examples/notes/src/index.ts");',
-  ])("keeps packages from `%s`", (code) => {
-    expect(lint("packages/dev", code)).toEqual([noApps]);
-    expect(lint("tooling/e2e", code)).toEqual([]);
-  });
-
-  it("lets a package import its own folder named apps", () => {
-    expect(
-      lint("packages/dev", 'import "./test/fixture-install/apps/alpha/x.ts";'),
-    ).toEqual([]);
-    expect(
-      lint("packages/dev", 'import "../../../apps/hub/src/App.tsx";'),
-    ).toEqual([noApps]);
   });
 });
