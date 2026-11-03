@@ -82,7 +82,9 @@ export function choicesFromFlags(flags: Flags): Choices {
     tools:
       flags.tools === undefined
         ? defaultChoices.tools
-        : listOf("tools", flags.tools, tools),
+        : flags.tools === "none"
+          ? []
+          : listOf("tools", flags.tools, tools),
     generators:
       flags.generators === undefined
         ? defaultChoices.generators

@@ -9,7 +9,7 @@ const usage = `Usage: npm create robkit <folder> -- [options]
 
   --pm <name>             package manager: pnpm
   --orm <name>            ORM: drizzle
-  --tools <list>          dev tools: eslint-prettier
+  --tools <list>          dev tools: eslint-prettier, or none
   --generators <list>     stacks robkit add offers, the first making the
                           example app: start, react-hono
   --link                  link the @robkit packages to the robkit checkout
