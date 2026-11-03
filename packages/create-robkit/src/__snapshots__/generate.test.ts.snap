@@ -44,6 +44,7 @@ exports[`generateInstall > writes the default install > package.json 1`] = `
     "lint": "robkit check && eslint .",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "build": "turbo run build",
     "robkit": "robkit",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -125,6 +126,7 @@ exports[`generateInstall > writes the default install > robkit.json 1`] = `
 
 exports[`generateInstall > writes the default install 1`] = `
 [
+  ".github/workflows/ci.yml",
   ".gitignore",
   ".prettierignore",
   "AGENTS.md",

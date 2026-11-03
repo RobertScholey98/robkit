@@ -85,6 +85,7 @@ describe("generateInstall", () => {
         dev: "robkit-dev",
         typecheck: "turbo run typecheck",
         test: "turbo run test",
+        build: "turbo run build",
         lint: "robkit check && eslint .",
         format: "prettier --write .",
         "format:check": "prettier --check .",
@@ -116,6 +117,38 @@ describe("generateInstall", () => {
       expect(agents).toContain(`- ${stated}`);
     }
     expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
+  });
+
+  it("writes a CI workflow that installs, then runs the install's own scripts", async () => {
+    const files = await generateInstall(defaultChoices);
+    const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+      jobs: Record<string, { steps: { run?: string }[] }>;
+    };
+    const { scripts } = json(files, "package.json") as {
+      scripts: Record<string, string>;
+    };
+
+    const runs = Object.values(workflow.jobs).flatMap((job) =>
+      job.steps.flatMap((step) => step.run ?? []),
+    );
+
+    expect(runs).toEqual([
+      "pnpm install --frozen-lockfile",
+      "pnpm lint",
+      "pnpm run --if-present format:check",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+    ]);
+    expect(Object.keys(scripts)).toEqual(
+      expect.arrayContaining([
+        "lint",
+        "format:check",
+        "typecheck",
+        "test",
+        "build",
+      ]),
+    );
   });
 
   it("lints with robkit check, without ESLint too", async () => {

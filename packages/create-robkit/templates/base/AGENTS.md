@@ -10,6 +10,7 @@ pnpm robkit add              # add an app; asks for its stack, name, who can ope
 pnpm lint                    # robkit check, then the linter if the install has one
 pnpm typecheck
 pnpm test
+pnpm build
 ```
 
 ## Layout
