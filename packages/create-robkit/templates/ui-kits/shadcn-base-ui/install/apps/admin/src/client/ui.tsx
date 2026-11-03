@@ -70,7 +70,7 @@ export function Table({
   head,
   children,
 }: {
-  head: readonly string[];
+  head: readonly ReactNode[];
   children: ReactNode;
 }) {
   return (

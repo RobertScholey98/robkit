@@ -65,6 +65,7 @@ export function Launcher({
         </div>
       </header>
       <main className="mx-auto max-w-4xl px-6 py-10">
+        <h1 className="sr-only">Your apps</h1>
         {sending.state === "failed" && (
           <div className="mb-6">
             <FormError>{sending.error}</FormError>
@@ -111,7 +112,7 @@ function AppList({
 function NoApps({ viewer }: { viewer: Viewer }) {
   return (
     <div className="rounded-xl border border-dashed bg-card px-6 py-16 text-center">
-      <h1 className="text-lg font-semibold tracking-tight">No apps yet.</h1>
+      <h2 className="text-lg font-semibold tracking-tight">No apps yet.</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         {viewer.kind === "owner" ? (
           <>

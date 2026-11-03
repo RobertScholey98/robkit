@@ -218,7 +218,16 @@ function Codes({
     case "loaded":
       return (
         <Table
-          head={["Guest", "Code", "Intro link", "Works until", "Standing", ""]}
+          head={[
+            "Guest",
+            "Code",
+            "Intro link",
+            "Works until",
+            "Standing",
+            <span key="actions" className="sr-only">
+              Actions
+            </span>,
+          ]}
         >
           {listing.codes.map((code) => (
             <CodeRow
