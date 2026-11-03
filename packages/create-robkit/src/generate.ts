@@ -3,7 +3,7 @@ import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
-import type { Choices } from "./choices.ts";
+import { choiceTable, type Choice, type Choices } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -96,17 +96,32 @@ function editJson(files: Files, path: string, edit: (json: Json) => Json) {
   files.set(path, toJson(edit(JSON.parse(text) as Json)));
 }
 
+/** The template folder the table gives one choice's answer, if it adds one. */
+function layerOf(choice: Choice, value: string): string | undefined {
+  return choice.options.find((option) => option.value === value)?.layer;
+}
+
 /** The template folders for `choices`, in the order they're laid down. */
 function layersFor(choices: Choices): string[] {
-  // Drizzle has no layer yet: core keeps it inside @robkit/core, and the
-  // example apps query Postgres directly. No UI kit exists yet either, so
-  // the hub and admin always come from the no-kit layer.
+  const t = choiceTable;
   return [
     "base",
-    `package-managers/${choices.packageManager}`,
-    "ui-kits/none",
-    ...choices.tools.map((tool) => `tools/${tool}`),
-  ];
+    layerOf(t.packageManager, choices.packageManager),
+    layerOf(t.orm, choices.orm),
+    // `Choices` has no UI kit to read until one is ready, so the hub and
+    // admin come from the no-kit option's layer.
+    layerOf(t.uiKit, "none"),
+    ...choices.tools.map((tool) => layerOf(t.tools, tool)),
+  ].filter((layer) => layer !== undefined);
+}
+
+/** The template folder of the stack that makes the example app. */
+function exampleLayer(choices: Choices): string {
+  const [stack] = choices.generators;
+  const layer = layerOf(choiceTable.generators, stack);
+  if (layer === undefined)
+    throw new Error(`the ${stack} stack has no template`);
+  return layer;
 }
 
 /** Every dependency the install's manifests take from the catalog. */
@@ -178,7 +193,7 @@ export async function generateInstall(
   }
 
   const appDir = `apps/${exampleSlug}/`;
-  overlay(files, await readLayer(`stacks/${choices.generators[0]}`), appDir);
+  overlay(files, await readLayer(exampleLayer(choices)), appDir);
   editJson(files, `${appDir}package.json`, (json) => ({
     name: `@internal/${exampleSlug}-app`,
     ...json,
