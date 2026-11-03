@@ -20,6 +20,10 @@ With no options, init asks for each one.
   --link                  link the @robkit packages to the robkit checkout
                           this runs from, instead of installing them from npm`;
 
+function fail(message: string): never {
+  throw new Error(message);
+}
+
 try {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -34,14 +38,18 @@ try {
   });
   if (positionals.length > 1) throw new Error(usage);
   const { link = false, ...flags } = values;
-  const asking = Object.keys(flags).length === 0;
   const [given] = positionals;
-  if (!asking && !given) throw new Error(usage);
-
-  const answers = asking ? await askInit(given) : undefined;
-  const folder = answers?.folder ?? given ?? "";
-  const install = answers?.install ?? flags.install ?? false;
-  const choices = choicesFromFlags(answers ?? flags);
+  const answers =
+    Object.keys(flags).length === 0 ? await askInit(given) : undefined;
+  const {
+    folder,
+    install = false,
+    ...picked
+  } = answers ?? {
+    ...flags,
+    folder: given ?? fail(usage),
+  };
+  const choices = choicesFromFlags(picked);
   const pm = choices.packageManager;
   const dir = resolve(folder);
   await writeInstall(dir, await generateInstall(choices, { link }));
