@@ -39,6 +39,7 @@ const installs: [string, Choices][] = [
   ["default", defaultChoices],
   // Each ORM migrates as its app's container starts.
   ["Prisma", { ...defaultChoices, orm: "prisma" }],
+  ["Kysely", { ...defaultChoices, orm: "kysely" }],
 ];
 
 // Each install, deployed as on Coolify: an image per app from its
