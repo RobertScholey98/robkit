@@ -4,7 +4,6 @@ import { bodyLimit } from "hono/body-limit";
 import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
-import { readAccessRule, type AccessRule } from "@robkit/guard";
 import { sessionCookie } from "@robkit/session";
 import {
   listCodes,
@@ -15,7 +14,13 @@ import {
 } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
-import { accessOf, launcherApps, listApps, setAccess } from "./apps.ts";
+import {
+  accessOf,
+  launcherApps,
+  listApps,
+  readAccess,
+  setAccess,
+} from "./apps.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import {
   createRole,
@@ -114,17 +119,6 @@ async function credentialsFrom(
 }
 
 const unknownCode = "One of those codes doesn't exist.";
-
-/** The rule the owner sent for an app, or why it won't do. */
-async function accessFrom(c: Context): Promise<AccessRule | { error: string }> {
-  const fields = await fieldsOf(c);
-  if (!fields) return { error: "Send a valid JSON body." };
-  const rule = readAccessRule(fields);
-  if (rule && !(rule.kind === "roles" && rule.roles.length === 0)) return rule;
-  return fields.kind === "roles"
-    ? { error: "Pick at least one role." }
-    : { error: "Pick open, roles or owner." };
-}
 
 /** Why a new owner's username or password won't do, if it won't. */
 function problemWith({ username, password }: Credentials): string | undefined {
@@ -428,7 +422,7 @@ export function createApp({
   app.get("/apps", owner, async (c) => c.json({ apps: await listApps(db) }));
 
   app.post("/apps/:slug/access", owner, async (c) => {
-    const rule = await accessFrom(c);
+    const rule = await readBody(c, readAccess);
     if ("error" in rule) return c.json(rule, 400);
     const change = await setAccess(db, c.req.param("slug"), rule);
     switch (change.outcome) {

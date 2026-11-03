@@ -1,4 +1,9 @@
-import { guard, type AccessRule, type SessionState } from "@robkit/guard";
+import {
+  guard,
+  readAccessRule,
+  type AccessRule,
+  type SessionState,
+} from "@robkit/guard";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -15,6 +20,17 @@ export type AccessChange =
   | { outcome: "changed"; access: AccessRule }
   | { outcome: "unknown-app" }
   | { outcome: "unknown-role" };
+
+/** The rule the owner sent for an app, or why it won't do. */
+export function readAccess(
+  fields: Record<string, unknown>,
+): AccessRule | { error: string } {
+  const rule = readAccessRule(fields);
+  if (rule && !(rule.kind === "roles" && rule.roles.length === 0)) return rule;
+  return fields.kind === "roles"
+    ? { error: "Pick at least one role." }
+    : { error: "Pick open, roles or owner." };
+}
 
 /**
  * Adds each app core doesn't know yet, as owner-only and named after its
