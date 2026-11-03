@@ -3,12 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import {
-  defaultChoices,
-  init,
-  type Choices,
-  type Generator,
-} from "create-robkit";
+import { defaultChoices, init, type Choices } from "create-robkit";
 import type { TestProject } from "vitest/node";
 
 const run = promisify(execFile);
@@ -19,32 +14,36 @@ export const addedSlug = "added";
 /** The emoji robkit add gives that app. */
 export const addedIcon = "🧪";
 
+/**
+ * The installs the suites run, by name. Each one's example app is on its
+ * first generator, and robkit add gives it an app on its second.
+ */
+export const installChoices = {
+  // The default install.
+  start: defaultChoices,
+  "react-hono": { ...defaultChoices, generators: ["react-hono", "start"] },
+  prisma: { ...defaultChoices, orm: "prisma" },
+} satisfies Record<string, Choices>;
+
+export type InstallName = keyof typeof installChoices;
+
 declare module "vitest" {
   export interface ProvidedContext {
-    /**
-     * One install per stack, whose example app is on that stack, by stack.
-     * The `start` one is the default install. Each also has an app on the
-     * other stack, added with robkit add and open to anyone.
-     */
-    installs: Record<Generator, string>;
+    /** Each install in `installChoices`, made in a temp folder, by name. */
+    installs: Record<InstallName, string>;
   }
 }
 
 /**
- * Makes an install whose example app is on `stack` in a temp folder, as
- * init with `--install --link` does: linked to this checkout's `@robkit/*`
- * packages, with its dependencies installed and git initialised. Then adds
- * an app on the other stack, as the owner would with robkit add's flags.
+ * Makes an install for `choices` in a temp folder, as init with
+ * `--install --link` does: linked to this checkout's `@robkit/*` packages,
+ * with its dependencies installed and git initialised. Then adds an app on
+ * its second generator, as the owner would with robkit add's flags.
  */
-async function createInstall(stack: Generator): Promise<string> {
-  const others = defaultChoices.generators.filter((other) => other !== stack);
-  const choices: Choices = {
-    ...defaultChoices,
-    generators: [stack, ...others],
-  };
+async function createInstall(choices: Choices): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
   await init(choices, dir, { link: true, install: true });
-  const [other = stack] = others;
+  const [stack, other = stack] = choices.generators;
   await run(
     "pnpm",
     [
@@ -71,11 +70,12 @@ async function createInstall(stack: Generator): Promise<string> {
 export default async function setup(project: TestProject) {
   const installs = Object.fromEntries(
     await Promise.all(
-      defaultChoices.generators.map(
-        async (stack) => [stack, await createInstall(stack)] as const,
+      Object.entries(installChoices).map(
+        async ([name, choices]) =>
+          [name, await createInstall(choices)] as const,
       ),
     ),
-  ) as Record<Generator, string>;
+  ) as Record<InstallName, string>;
   project.provide("installs", installs);
   return async () => {
     await Promise.all(

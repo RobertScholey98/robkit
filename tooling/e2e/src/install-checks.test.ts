@@ -17,9 +17,11 @@ describe("the default install", () => {
 
     expect(stdout.trim()).toBe(await realpath(dir));
   });
+});
 
+describe.each(["start", "prisma"] as const)("the %s install", (name) => {
   it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
-    const dir = inject("installs").start;
+    const dir = inject("installs")[name];
     const workflow = parse(
       await readFile(join(dir, ".github/workflows/ci.yml"), "utf8"),
     ) as { jobs: Record<string, { steps: { run?: string }[] }> };
@@ -36,7 +38,9 @@ describe("the default install", () => {
       await run("sh", ["-c", step], { cwd: dir });
     }
   });
+});
 
+describe("the default install's lint", () => {
   it.each([
     [
       "an app other than core imports @robkit/core",
