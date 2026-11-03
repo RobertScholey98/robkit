@@ -35,18 +35,21 @@ describe("discoverApps", () => {
         dir: join(root, "apps", "core"),
         port: 3001,
         migrates: true,
+        declares: {},
       },
       {
         slug: "hub",
         dir: join(root, "apps", "hub"),
         port: 3002,
         migrates: false,
+        declares: {},
       },
       {
         slug: "notes",
         dir: join(root, "apps", "notes"),
         port: 3003,
         migrates: false,
+        declares: {},
       },
     ]);
   });
@@ -87,8 +90,20 @@ describe("routesFor", () => {
   it("routes <slug>.<domain> to each app's port", () => {
     const routes = routesFor(
       [
-        { slug: "core", dir: "/x/apps/core", port: 3001, migrates: true },
-        { slug: "hub", dir: "/x/apps/hub", port: 3002, migrates: false },
+        {
+          slug: "core",
+          dir: "/x/apps/core",
+          port: 3001,
+          migrates: true,
+          declares: {},
+        },
+        {
+          slug: "hub",
+          dir: "/x/apps/hub",
+          port: 3002,
+          migrates: false,
+          declares: {},
+        },
       ],
       "robkit.test",
     );
@@ -101,16 +116,50 @@ describe("routesFor", () => {
 });
 
 describe("catalogOf", () => {
-  it("lists the owner's apps for core's catalog, leaving out the platform apps", () => {
-    const app = (slug: string) => ({
-      slug,
-      dir: `/x/apps/${slug}`,
-      port: 3001,
-      migrates: false,
-    });
+  const app = (slug: string, declares = {}) => ({
+    slug,
+    dir: `/x/apps/${slug}`,
+    port: 3001,
+    migrates: false,
+    declares,
+  });
 
+  it("lists the owner's apps for core's catalog, leaving out the platform apps", () => {
     expect(
-      catalogOf(["admin", "core", "example", "hub", "notes"].map(app)),
-    ).toBe("example,notes");
+      JSON.parse(
+        catalogOf(
+          ["admin", "core", "example", "hub", "notes"].map((s) => app(s)),
+        ),
+      ),
+    ).toEqual([{ slug: "example" }, { slug: "notes" }]);
+  });
+
+  it("passes on what each app's manifest declares", () => {
+    expect(
+      JSON.parse(
+        catalogOf([app("notes", { access: { kind: "open" }, icon: "📝" })]),
+      ),
+    ).toEqual([{ slug: "notes", access: { kind: "open" }, icon: "📝" }]);
+  });
+});
+
+describe("discoverApps reading a manifest's robkit field", () => {
+  it("keeps what the app declares for core", async () => {
+    const root = await mkdtemp(join(tmpdir(), "robkit-apps-"));
+    await mkdir(join(root, "apps", "notes"), { recursive: true });
+    await writeFile(
+      join(root, "apps", "notes", "package.json"),
+      JSON.stringify({
+        name: "notes",
+        robkit: { access: { kind: "roles", roles: ["Family"] }, icon: "📝" },
+      }),
+    );
+
+    const [notes] = await discoverApps(root);
+
+    expect(notes?.declares).toEqual({
+      access: { kind: "roles", roles: ["Family"] },
+      icon: "📝",
+    });
   });
 });

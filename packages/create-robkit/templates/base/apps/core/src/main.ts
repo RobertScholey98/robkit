@@ -3,6 +3,7 @@ import {
   createApp,
   createDatabase,
   ensureSigningKey,
+  readDeclaredApps,
   registerApps,
 } from "@robkit/core";
 
@@ -14,11 +15,9 @@ function env(name: string): string {
 
 const db = createDatabase(env("DATABASE_URL"));
 await ensureSigningKey(db);
-// The owner's apps, by slug. Core adds any it doesn't know as owner-only.
-await registerApps(
-  db,
-  (process.env.ROBKIT_APPS ?? "").split(",").filter((slug) => slug !== ""),
-);
+// The owner's apps, as each declares itself. Core adds any it doesn't know,
+// with the rule it declares or as owner-only.
+await registerApps(db, readDeclaredApps(process.env.ROBKIT_APPS));
 const app = createApp({ db, domain: env("ROBKIT_DOMAIN") });
 
 // Core trusts the proxy's X-Forwarded-For, so only the proxy may reach it.

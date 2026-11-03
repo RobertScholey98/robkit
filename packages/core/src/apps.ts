@@ -9,10 +9,11 @@ import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { appRoles, apps, roles } from "./schema.ts";
 
-/** An app as core lists it: its slug, name and who may open it. */
+/** An app as core lists it: its slug, name, icon and who may open it. */
 export interface AppView {
   slug: string;
   name: string;
+  icon: string | null;
   access: AccessRule;
 }
 
@@ -33,18 +34,117 @@ export function readAccess(
 }
 
 /**
- * Adds each app core doesn't know yet, as owner-only and named after its
- * slug. An app core knows keeps the rule the owner gave it.
+ * An app as the install declares it in its manifest, which the dev runner
+ * hands core as `ROBKIT_APPS`. A rule's roles are named, not ids.
  */
+export interface DeclaredApp {
+  slug: string;
+  /** Who may open the app once core adds it. Owner-only if left out. */
+  access?: AccessRule;
+  /** An emoji the launcher shows. */
+  icon?: string;
+}
+
+function readDeclaredApp(value: unknown): DeclaredApp | string {
+  if (typeof value !== "object" || value === null) return "isn't an object";
+  const { slug, access, icon } = value as Record<string, unknown>;
+  if (typeof slug !== "string" || slug === "") return "has no slug";
+  const app: DeclaredApp = { slug };
+  if (access !== undefined) {
+    const rule = readAccess(isRecord(access) ? access : {});
+    if ("error" in rule) return `${slug}'s access: ${rule.error}`;
+    app.access = rule;
+  }
+  if (icon !== undefined) {
+    if (typeof icon !== "string" || icon === "" || icon.length > 16) {
+      return `${slug}'s icon should be an emoji`;
+    }
+    app.icon = icon;
+  }
+  return app;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Reads `ROBKIT_APPS`: a JSON list of the install's apps as they declare
+ * themselves. Empty or unset means none. Throws, saying what's wrong, rather
+ * than letting core start with a catalog it misread.
+ */
+export function readDeclaredApps(text: string | undefined): DeclaredApp[] {
+  if (text === undefined || text.trim() === "") return [];
+  let list: unknown;
+  try {
+    list = JSON.parse(text);
+  } catch {
+    throw new Error("ROBKIT_APPS isn't JSON.");
+  }
+  if (!Array.isArray(list)) throw new Error("ROBKIT_APPS isn't a list.");
+  return list.map((value, index) => {
+    const app = readDeclaredApp(value);
+    if (typeof app === "string") {
+      throw new Error(`ROBKIT_APPS: app ${String(index + 1)} ${app}.`);
+    }
+    return app;
+  });
+}
+
+/**
+ * Adds each app core doesn't know yet, named after its slug, with the rule
+ * it declares, or owner-only. A rule's roles are found by name, and created
+ * if the owner has none of that name. An app core knows keeps the rule the
+ * owner gave it, and takes the icon it declares now.
+ */
+const owner: AccessRule = { kind: "owner" };
+
 export async function registerApps(
   db: Database,
-  slugs: readonly string[],
+  declared: readonly DeclaredApp[],
 ): Promise<void> {
-  if (slugs.length === 0) return;
-  await db
-    .insert(apps)
-    .values(slugs.map((slug) => ({ slug, name: slug })))
-    .onConflictDoNothing({ target: apps.slug });
+  if (declared.length === 0) return;
+  await db.transaction(async (tx) => {
+    const known = new Set(
+      (
+        await tx
+          .select({ slug: apps.slug })
+          .from(apps)
+          .where(
+            inArray(
+              apps.slug,
+              declared.map((app) => app.slug),
+            ),
+          )
+      ).map((row) => row.slug),
+    );
+    for (const { slug, access = owner, icon } of declared) {
+      if (known.has(slug)) {
+        await tx
+          .update(apps)
+          .set({ icon: icon ?? null })
+          .where(eq(apps.slug, slug));
+        continue;
+      }
+      await tx
+        .insert(apps)
+        .values({ slug, name: slug, access: access.kind, icon: icon ?? null });
+      if (access.kind !== "roles") continue;
+      for (const name of new Set(access.roles)) {
+        await tx
+          .insert(roles)
+          .values({ name })
+          .onConflictDoNothing({ target: roles.name });
+        const [role] = await tx
+          .select({ id: roles.id })
+          .from(roles)
+          .where(eq(roles.name, name));
+        if (role) {
+          await tx.insert(appRoles).values({ appSlug: slug, roleId: role.id });
+        }
+      }
+    }
+  });
 }
 
 /** Every app core knows, by slug, with its rule. */
@@ -57,9 +157,10 @@ export async function listApps(db: Database): Promise<AppView[]> {
       .innerJoin(roles, eq(appRoles.roleId, roles.id))
       .orderBy(asc(roles.name)),
   ]);
-  return rows.map(({ slug, name, access }) => ({
+  return rows.map(({ slug, name, icon, access }) => ({
     slug,
     name,
+    icon,
     access: ruleOf(
       access,
       gates.filter((gate) => gate.appSlug === slug).map((gate) => gate.roleId),
@@ -128,6 +229,7 @@ export async function setAccess(
 export interface LauncherApp {
   slug: string;
   name: string;
+  icon: string | null;
 }
 
 /**
@@ -140,5 +242,5 @@ export async function launcherApps(
 ): Promise<LauncherApp[]> {
   return (await listApps(db))
     .filter((app) => guard(app.access, session).outcome === "allow")
-    .map(({ slug, name }) => ({ slug, name }));
+    .map(({ slug, name, icon }) => ({ slug, name, icon }));
 }

@@ -75,6 +75,8 @@ export const apps = core.table(
     access: text("access", { enum: ["open", "roles", "owner"] })
       .notNull()
       .default("owner"),
+    // An emoji the launcher shows, from the app's manifest.
+    icon: text("icon"),
     createdAt: createdAt(),
   },
   (table) => [

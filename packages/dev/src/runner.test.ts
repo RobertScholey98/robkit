@@ -160,7 +160,7 @@ describe("robkit-dev", () => {
       domain: "robkit.localhost",
       core: `http://core.robkit.localhost:${String(dev.port)}`,
       app: "alpha",
-      apps: "alpha,beta",
+      apps: JSON.stringify([{ slug: "alpha" }, { slug: "beta" }]),
       database: true,
     });
     expect(beta).toEqual({
@@ -168,7 +168,7 @@ describe("robkit-dev", () => {
       domain: "robkit.localhost",
       core: `http://core.robkit.localhost:${String(dev.port)}`,
       app: "beta",
-      apps: "alpha,beta",
+      apps: JSON.stringify([{ slug: "alpha" }, { slug: "beta" }]),
       database: false,
     });
     expect(dev.output()).toMatch(/^\[alpha\] .*listening on \d+$/m);

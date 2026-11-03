@@ -1,0 +1,1 @@
+ALTER TABLE "core"."apps" ADD COLUMN "icon" text;

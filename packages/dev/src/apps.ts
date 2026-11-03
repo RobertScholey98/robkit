@@ -14,10 +14,21 @@ export interface App {
   dir: string;
   port: number;
   migrates: boolean;
+  /**
+   * What the manifest's `robkit` field declares for core's catalog: who may
+   * open the app once core adds it, and its icon. Core checks both.
+   */
+  declares: Declares;
+}
+
+export interface Declares {
+  access?: unknown;
+  icon?: unknown;
 }
 
 interface PackageJson {
   scripts?: Record<string, string>;
+  robkit?: Declares;
 }
 
 async function readManifest(dir: string): Promise<PackageJson | undefined> {
@@ -64,6 +75,10 @@ export async function discoverApps(
       dir,
       port: firstPort + apps.length,
       migrates: manifest.scripts?.migrate !== undefined,
+      declares: {
+        access: manifest.robkit?.access,
+        icon: manifest.robkit?.icon,
+      },
     });
   }
   return apps;
@@ -78,12 +93,14 @@ export function routesFor(apps: readonly App[], domain: string): Route[] {
 }
 
 /**
- * `ROBKIT_APPS` for core: the owner's apps, by slug, comma-separated. Core
- * adds any it doesn't know to its catalog when it starts.
+ * `ROBKIT_APPS` for core: the owner's apps as JSON, each with what its
+ * manifest declares. Core adds any it doesn't know to its catalog when it
+ * starts.
  */
 export function catalogOf(apps: readonly App[]): string {
-  return apps
-    .map((app) => app.slug)
-    .filter((slug) => !isPlatformApp(slug))
-    .join(",");
+  return JSON.stringify(
+    apps
+      .filter((app) => !isPlatformApp(app.slug))
+      .map(({ slug, declares }) => ({ slug, ...declares })),
+  );
 }
