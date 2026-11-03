@@ -10,7 +10,8 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
     "typecheck": "tsc",
     "build": "vite build",
     "start": "node --run migrate && node src/serve.ts",
-    "migrate": "node src/migrate.ts"
+    "migrate": "node src/migrate.ts",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
@@ -18,6 +19,7 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
     "@robkit/start": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "drizzle-orm": "catalog:",
     "hono": "catalog:",
     "postgres": "catalog:",
     "react": "catalog:",
@@ -29,6 +31,7 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "drizzle-kit": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }
@@ -101,6 +104,8 @@ catalog:
   "@types/react-dom": 19.3.0
   "@vitejs/plugin-react": 6.1.2
   create-robkit: 0.0.0
+  drizzle-kit: 0.31.11
+  drizzle-orm: 0.45.4
   eslint: 10.13.0
   globals: 17.13.0
   hono: 4.13.14
@@ -161,12 +166,18 @@ exports[`generateInstall > writes the default install 1`] = `
   "apps/core/tsconfig.json",
   "apps/example/AGENTS.md",
   "apps/example/CLAUDE.md",
+  "apps/example/drizzle.config.ts",
+  "apps/example/drizzle/0000_init.sql",
+  "apps/example/drizzle/meta/0000_snapshot.json",
+  "apps/example/drizzle/meta/_journal.json",
   "apps/example/package.json",
+  "apps/example/src/database.ts",
   "apps/example/src/migrate.ts",
   "apps/example/src/routeTree.gen.ts",
   "apps/example/src/router.tsx",
   "apps/example/src/routes/__root.tsx",
   "apps/example/src/routes/index.tsx",
+  "apps/example/src/schema.ts",
   "apps/example/src/serve.ts",
   "apps/example/src/server.ts",
   "apps/example/src/start.ts",

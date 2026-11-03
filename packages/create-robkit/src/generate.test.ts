@@ -206,11 +206,12 @@ describe("generateInstall", () => {
       "@robkit/start": "0.0.0",
       "@tanstack/react-start": "1.169.4",
       "create-robkit": "0.0.0",
+      "drizzle-orm": "0.45.4",
       hono: "4.13.14",
       prettier: "3.9.10",
     });
     // Only what the install uses: robkit's own tooling stays out.
-    expect(catalog).not.toHaveProperty("drizzle-kit");
+    expect(catalog).not.toHaveProperty("@clack/prompts");
     expect(catalog).not.toHaveProperty("playwright");
     expect(overrides).toBeUndefined();
   });
@@ -297,7 +298,7 @@ describe("generateInstall", () => {
       expect(agents).toContain(
         "over HTTP from the server at `process.env.ROBKIT_CORE_URL`",
       );
-      expect(agents).toContain("`src/migrate.ts` is the app's migration.");
+      expect(agents).toContain("`src/migrate.ts` applies the migrations");
       expect(agents.endsWith(ormSection.replaceAll("\r\n", "\n"))).toBe(true);
       expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
     },
@@ -309,11 +310,14 @@ describe("generateInstall", () => {
       const files = await stackTemplate(stack, "drizzle");
       const manifest = JSON.parse(files.get("package.json") ?? "{}") as {
         scripts: Record<string, string>;
+        dependencies: Record<string, string>;
       };
 
       expect(files.has("src/migrate.ts")).toBe(true);
       expect(files.has("src/visits.ts")).toBe(true);
+      expect(files.has("drizzle/0000_init.sql")).toBe(true);
       expect(manifest.scripts.migrate).toBe("node src/migrate.ts");
+      expect(manifest.dependencies["drizzle-orm"]).toBe("catalog:");
       expect(manifest.scripts.start).toMatch(/^node --run migrate && /);
     },
   );
