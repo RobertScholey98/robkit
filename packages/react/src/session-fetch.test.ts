@@ -1,23 +1,23 @@
+import {
+  sessionLapsedResponse,
+  type SessionLapsed,
+} from "@robkit/session/lapsed";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const page = "http://start.robkit.localhost:3000/notes?x=1";
-const refresh = {
+const refresh: SessionLapsed = {
+  outcome: "refresh",
   error: "Your session needs refreshing.",
   location: `http://core.robkit.localhost:3000/refresh?next=${encodeURIComponent("http://start.robkit.localhost:3000/_serverFn/abc")}`,
 };
-const login = {
+const login: SessionLapsed = {
+  outcome: "login",
   error: "Sign in to use this app.",
   location: `http://hub.robkit.localhost:3000/?next=${encodeURIComponent("http://start.robkit.localhost:3000/api/notes")}`,
 };
 
 /** The guard's answer to a call once the session has lapsed. */
-function guardSays(body: typeof refresh): Response {
-  const outcome = body === login ? "login" : "refresh";
-  return Response.json(body, {
-    status: 401,
-    headers: { "robkit-session": outcome },
-  });
-}
+const guardSays = (lapsed: SessionLapsed) => sessionLapsedResponse(lapsed);
 
 /** The browser around the page: where it went, and its pageshow listeners. */
 let visited: string[];
