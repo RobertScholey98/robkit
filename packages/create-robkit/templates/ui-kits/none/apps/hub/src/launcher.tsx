@@ -4,7 +4,7 @@ import { signOut, type Session, type Viewer } from "./core-api.ts";
 import { appOrigin } from "./core-origin.ts";
 import { listLauncherApps, type LauncherApp } from "./launcher-api.ts";
 import { useSend } from "./forms.tsx";
-import { Button, FormError } from "./ui.tsx";
+import { Button, FormError, InlineCode, Tile } from "./ui.tsx";
 
 /** How often an open launcher asks core for the viewer's apps again. */
 const refreshMs = 30_000;
@@ -92,10 +92,7 @@ function AppList({
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {listing.value.map((app) => (
         <li key={app.slug}>
-          <a
-            href={appOrigin(location.href, app.slug)}
-            className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-xs transition-colors hover:border-neutral-300 hover:bg-neutral-50"
-          >
+          <Tile href={appOrigin(location.href, app.slug)}>
             {app.icon !== null && (
               <span aria-hidden="true" className="text-xl leading-none">
                 {app.icon}
@@ -104,7 +101,7 @@ function AppList({
             <span className="font-medium" data-testid="app-name">
               {app.name}
             </span>
-          </a>
+          </Tile>
         </li>
       ))}
     </ul>
@@ -118,11 +115,7 @@ function NoApps({ viewer }: { viewer: Viewer }) {
       <p className="mt-2 text-sm text-neutral-500">
         {viewer.kind === "owner" ? (
           <>
-            Apps you add with{" "}
-            <code className="rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs text-neutral-700">
-              robkit add
-            </code>{" "}
-            show up here.
+            Apps you add with <InlineCode>robkit add</InlineCode> show up here.
           </>
         ) : (
           "Apps shared with you show up here."

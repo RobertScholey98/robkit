@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useState, type SubmitEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+  type ComponentProps,
+  type SubmitEvent,
+} from "react";
 import { listApps, listRoles, type App, type Role } from "./access-api.ts";
 import { Apps } from "./apps.tsx";
 import {
@@ -11,7 +17,7 @@ import {
   type Standing,
 } from "./codes-api.ts";
 import { Roles } from "./roles.tsx";
-import { Button, Field, FormError } from "./ui.tsx";
+import { Badge, Button, Cell, Field, FormError, Panel, Table } from "./ui.tsx";
 
 type Listing =
   | { state: "loading" }
@@ -146,42 +152,42 @@ function MintForm({
   }
 
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-      <h2 className="text-lg font-semibold tracking-tight">Mint a code</h2>
-      <p className="mt-1 text-sm text-neutral-500">
-        Give a guest the code, or send them its intro link.
-      </p>
-      <form
-        onSubmit={(event) => void onSubmit(event)}
-        className="mt-6 grid items-end gap-4 sm:grid-cols-[1fr_1fr_auto_auto]"
-      >
-        <Field label="Guest's name" name="name" required maxLength={80} />
-        <Field
-          label="Code"
-          name="code"
-          placeholder="Leave blank to generate one"
-          autoComplete="off"
-          spellCheck={false}
-        />
-        <Field
-          label="Last day"
-          name="last-day"
-          type="date"
-          min={localDay(new Date())}
-        />
-        <Button
-          look="primary"
-          type="submit"
-          disabled={sending.state === "sending"}
-        >
-          Mint code
-        </Button>
-      </form>
-      {sending.state === "failed" && (
-        <div className="mt-4">
-          <FormError>{sending.error}</FormError>
+    <section>
+      <Panel>
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">Mint a code</h2>
+          <p className="mt-1 text-sm text-neutral-500">
+            Give a guest the code, or send them its intro link.
+          </p>
         </div>
-      )}
+        <form
+          onSubmit={(event) => void onSubmit(event)}
+          className="mt-2 grid items-end gap-4 sm:grid-cols-[1fr_1fr_auto_auto]"
+        >
+          <Field label="Guest's name" name="name" required maxLength={80} />
+          <Field
+            label="Code"
+            name="code"
+            placeholder="Leave blank to generate one"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <Field
+            label="Last day"
+            name="last-day"
+            type="date"
+            min={localDay(new Date())}
+          />
+          <Button
+            look="primary"
+            type="submit"
+            disabled={sending.state === "sending"}
+          >
+            Mint code
+          </Button>
+        </form>
+        {sending.state === "failed" && <FormError>{sending.error}</FormError>}
+      </Panel>
     </section>
   );
 }
@@ -202,36 +208,20 @@ function Codes({
       return <FormError>{listing.error}</FormError>;
     case "loaded":
       return (
-        <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-neutral-200 text-neutral-500">
-              <tr>
-                <Heading>Guest</Heading>
-                <Heading>Code</Heading>
-                <Heading>Intro link</Heading>
-                <Heading>Works until</Heading>
-                <Heading>Standing</Heading>
-                <th />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {listing.codes.map((code) => (
-                <CodeRow
-                  key={code.id}
-                  core={core}
-                  code={code}
-                  onChange={onChange}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          head={["Guest", "Code", "Intro link", "Works until", "Standing", ""]}
+        >
+          {listing.codes.map((code) => (
+            <CodeRow
+              key={code.id}
+              core={core}
+              code={code}
+              onChange={onChange}
+            />
+          ))}
+        </Table>
       );
   }
-}
-
-function Heading({ children }: { children: string }) {
-  return <th className="px-4 py-2 font-medium">{children}</th>;
 }
 
 function CodeRow({
@@ -258,9 +248,9 @@ function CodeRow({
 
   return (
     <tr>
-      <td className="px-4 py-3 font-medium">{code.name}</td>
-      <td className="px-4 py-3 font-mono">{code.code}</td>
-      <td className="px-4 py-3">
+      <Cell look="strong">{code.name}</Cell>
+      <Cell look="code">{code.code}</Cell>
+      <Cell>
         <div className="flex items-center gap-2">
           <code
             data-testid="intro-link"
@@ -270,14 +260,12 @@ function CodeRow({
           </code>
           <CopyButton text={link} />
         </div>
-      </td>
-      <td className="px-4 py-3 text-neutral-700">
-        {code.expiresAt ? lastDayOf(code.expiresAt) : "No expiry"}
-      </td>
-      <td className="px-4 py-3">
+      </Cell>
+      <Cell>{code.expiresAt ? lastDayOf(code.expiresAt) : "No expiry"}</Cell>
+      <Cell>
         <StandingBadge standing={code.standing} />
-      </td>
-      <td className="px-4 py-3 text-right">
+      </Cell>
+      <Cell look="end">
         {code.standing === "live" && (
           <Button
             look="outline"
@@ -289,7 +277,7 @@ function CodeRow({
           </Button>
         )}
         {revoking.state === "failed" && <FormError>{revoking.error}</FormError>}
-      </td>
+      </Cell>
     </tr>
   );
 }
@@ -314,22 +302,19 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-const standingLook: Record<Standing, { label: string; className: string }> = {
-  live: { label: "Live", className: "bg-emerald-50 text-emerald-700" },
-  revoked: { label: "Revoked", className: "bg-neutral-100 text-neutral-600" },
-  expired: { label: "Expired", className: "bg-amber-50 text-amber-700" },
-  "local-only": { label: "Local only", className: "bg-sky-50 text-sky-700" },
+const standingLook: Record<
+  Standing,
+  { label: string; look: ComponentProps<typeof Badge>["look"] }
+> = {
+  live: { label: "Live", look: "primary" },
+  revoked: { label: "Revoked", look: "secondary" },
+  expired: { label: "Expired", look: "destructive" },
+  "local-only": { label: "Local only", look: "outline" },
 };
 
 function StandingBadge({ standing }: { standing: Standing }) {
-  const { label, className } = standingLook[standing];
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-xs font-medium ${className}`}
-    >
-      {label}
-    </span>
-  );
+  const { label, look } = standingLook[standing];
+  return <Badge look={look}>{label}</Badge>;
 }
 
 /** The last day a code works, from the moment it stops working. */

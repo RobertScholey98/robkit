@@ -192,13 +192,11 @@ function Switch({
   children: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mt-4 text-sm text-neutral-500 underline-offset-4 hover:text-neutral-900 hover:underline"
-    >
-      {children}
-    </button>
+    <div className="mt-4">
+      <Button look="link" type="button" onClick={onClick}>
+        {children}
+      </Button>
+    </div>
   );
 }
 

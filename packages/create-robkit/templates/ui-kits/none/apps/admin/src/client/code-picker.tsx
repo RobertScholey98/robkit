@@ -1,5 +1,5 @@
 import type { Code } from "./codes-api.ts";
-import { Button } from "./ui.tsx";
+import { Button, Check } from "./ui.tsx";
 
 /**
  * Codes the owner can tick for a role: every code but the test code, which
@@ -62,19 +62,17 @@ export function CodePicker({
         <ul className="grid gap-1 sm:grid-cols-2">
           {choices.map((code) => (
             <li key={code.id}>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={picked.has(code.id)}
-                  onChange={(event) => {
-                    toggle(code.id, event.currentTarget.checked);
-                  }}
-                />
+              <Check
+                checked={picked.has(code.id)}
+                onCheckedChange={(checked) => {
+                  toggle(code.id, checked);
+                }}
+              >
                 {code.name}
                 <span className="font-mono text-xs text-neutral-500">
                   {code.code}
                 </span>
-              </label>
+              </Check>
             </li>
           ))}
         </ul>
