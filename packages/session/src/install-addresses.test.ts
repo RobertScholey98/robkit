@@ -4,6 +4,7 @@ import {
   defaultDomain,
   install,
   installAt,
+  isPlatformApp,
   platformApps,
 } from "./install-addresses.ts";
 
@@ -37,6 +38,9 @@ describe("an install's addresses", () => {
 
   it("names the platform apps", () => {
     expect(platformApps).toEqual(["core", "hub", "admin"]);
+    expect(
+      ["core", "hub", "admin", "notes", "hubs"].map(isPlatformApp),
+    ).toEqual([true, true, true, false, false]);
   });
 });
 

@@ -6,6 +6,11 @@
 /** Core, the hub and admin. Core's app catalog doesn't list them. */
 export const platformApps = ["core", "hub", "admin"] as const;
 
+/** Whether `slug` is a platform app rather than one of the owner's apps. */
+export function isPlatformApp(slug: string): boolean {
+  return (platformApps as readonly string[]).includes(slug);
+}
+
 /** The domain an install answers on when `ROBKIT_DOMAIN` isn't set. */
 export const defaultDomain = "robkit.localhost";
 
