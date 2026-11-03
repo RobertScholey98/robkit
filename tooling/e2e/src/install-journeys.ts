@@ -12,7 +12,9 @@ import {
 } from "@robkit/session/addresses";
 import type { Generator } from "create-robkit";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { addedAppJourney } from "./added-app-journey.ts";
 import { guestJourney } from "./guest-journey.ts";
+import { addedIcon, addedSlug } from "./install.ts";
 import { ownerJourney } from "./owner-journey.ts";
 import { roleJourney } from "./role-journey.ts";
 import { serverFunctionJourney } from "./server-function-journey.ts";
@@ -287,6 +289,22 @@ export function describeJourneys(stack: Generator): void {
       });
     });
 
+    it("lets a guest open the app robkit add made, open to anyone", async () => {
+      // Open lets a signed-out visitor in too.
+      await eventually(() => get(hostOf(addedSlug)));
+
+      const journey = await addedAppJourney({
+        install: addresses,
+        slug: addedSlug,
+      });
+
+      expect(journey).toEqual({
+        icon: addedIcon,
+        openedAt: at(addedSlug),
+        heading: "Signed in as a guest",
+      });
+    });
+
     // The example app keeps its rule for a minute, and this journey waits it
     // out twice.
     it(
@@ -305,10 +323,10 @@ export function describeJourneys(stack: Generator): void {
         expect(journey).toEqual({
           createdWith: "Alex, Sam",
           editedTo: "Sam",
-          launcherGatedToFamily: ["example"],
+          launcherGatedToFamily: [addedSlug, "example"],
           openedAt: at("example"),
           heading: "Signed in as a guest",
-          launcherGatedToFriends: [],
+          launcherGatedToFriends: [addedSlug],
           example: { status: 404, body: "Not found" },
         });
       },
