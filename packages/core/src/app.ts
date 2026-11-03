@@ -21,7 +21,7 @@ import {
   readAccess,
   setAccess,
 } from "./apps.ts";
-import { readCredentials, readNewOwner } from "./owner.ts";
+import { claimInstall, readCredentials, readNewOwner } from "./owner.ts";
 import { createRateLimiter } from "./rate-limit.ts";
 import {
   createRole,
@@ -31,7 +31,6 @@ import {
   setRoleCodes,
 } from "./roles.ts";
 import {
-  claimInstall,
   readSession,
   signOut,
   sessionLifetimeSeconds,
