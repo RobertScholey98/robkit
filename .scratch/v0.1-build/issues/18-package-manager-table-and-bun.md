@@ -19,3 +19,7 @@ Notes carried over from the finished tickets 02 and 09, which were deleted once 
 - The dev runner always calls `pnpm run`. (02)
 - init's install step reads a per-manager command table. Add bun's install there. It runs `pnpm install --no-frozen-lockfile`, because pnpm on CI refuses an install with no lockfile. (09)
 - The wizard offers whatever `packageManagers` lists, so adding bun there offers it with no wizard change. (09)
+
+Notes from ticket 12:
+
+- **CI and AGENTS.md.** The install's CI workflow lives in the `package-managers/pnpm` layer, because its commands are pnpm's; each manager needs its own. The root `AGENTS.md` in `base` lists pnpm commands; render them from the table.

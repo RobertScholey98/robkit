@@ -10,3 +10,9 @@
 - [ ] Kysely's migrate command runs as the app's pre-start step locally and as its pre-deploy step, following ticket 11's notes
 
 Source: the robkit v0.1 spec, https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5
+
+## Comments
+
+Notes from ticket 12:
+
+- **The app's AGENTS.md.** Each app's `AGENTS.md` ends with the ORM's section, `templates/orms/<orm>/AGENTS.md`, which the choice table names as the option's `appGuide`. Write `orms/kysely/AGENTS.md`, as ticket 13 does for Prisma.
