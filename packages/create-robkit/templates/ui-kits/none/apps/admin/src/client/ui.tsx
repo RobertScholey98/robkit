@@ -133,6 +133,7 @@ export function Check({
     <label className="flex items-center gap-2 text-sm">
       <input
         type="checkbox"
+        className="accent-primary"
         checked={checked}
         onChange={(event) => {
           onCheckedChange(event.currentTarget.checked);
@@ -166,6 +167,7 @@ export function Choices<Value extends string>({
           <label key={option.value} className="flex items-center gap-2 text-sm">
             <input
               type="radio"
+              className="accent-primary"
               name={name}
               checked={value === option.value}
               onChange={() => {
