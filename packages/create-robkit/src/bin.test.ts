@@ -134,7 +134,7 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       "Install dependencies and initialise git?",
     ]);
     const command =
-      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --generators react-hono --tools eslint-prettier";
+      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --ui-kit none --generators react-hono --tools eslint-prettier";
     expect(output).toContain(command);
 
     // npm hands create-robkit the arguments after the --.
@@ -162,7 +162,7 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     expect(code).toBe(0);
     expect(questionsAsked(output)[0]).toBe("Which package manager?");
     expect(output).toContain(
-      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --generators start,react-hono --tools eslint-prettier --link",
+      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --ui-kit none --generators start,react-hono --tools eslint-prettier --link",
     );
   });
 

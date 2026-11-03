@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { choicesFromFlags } from "./choices.ts";
+import { choicesFromFlags, choiceTable } from "./choices.ts";
 import { init } from "./init.ts";
 import { askInit, commandFor } from "./wizard.ts";
 
@@ -18,6 +18,14 @@ With no options, init asks for each one.
   --link                  link the @robkit packages to the robkit checkout
                           this runs from, instead of installing them from npm`;
 
+/** Each choice's flag, from the table, as `parseArgs` takes it. */
+const choiceFlags = Object.fromEntries(
+  Object.values(choiceTable).map(({ flag }) => [
+    flag,
+    { type: "string" } as const,
+  ]),
+);
+
 function fail(message: string): never {
   throw new Error(message);
 }
@@ -26,10 +34,7 @@ try {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
-      pm: { type: "string" },
-      orm: { type: "string" },
-      generators: { type: "string" },
-      tools: { type: "string" },
+      ...choiceFlags,
       install: { type: "boolean" },
       link: { type: "boolean" },
     },

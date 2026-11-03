@@ -33,6 +33,19 @@ describe("choicesFromFlags", () => {
     );
   });
 
+  it("refuses an option that's coming later", () => {
+    expect(() => choicesFromFlags({ orm: "prisma" })).toThrow(
+      "--orm prisma isn't an option. Choose from: drizzle.",
+    );
+  });
+
+  it("reads --ui-kit none as no UI kit", () => {
+    expect(choicesFromFlags({ "ui-kit": "none" }).uiKit).toBeNull();
+    expect(() => choicesFromFlags({ "ui-kit": "chakra" })).toThrow(
+      "--ui-kit chakra isn't an option. Choose from: none.",
+    );
+  });
+
   it("reads --tools none as no dev tools", () => {
     expect(choicesFromFlags({ tools: "none" }).tools).toEqual([]);
   });
