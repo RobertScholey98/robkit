@@ -9,21 +9,54 @@ import { describe, expect, it } from "vitest";
 
 const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
 
-const keys = { enter: "\r", down: "\x1b[B", space: " ", no: "n" };
+const keys = {
+  enter: "\r",
+  down: "\x1b[B",
+  space: " ",
+  no: "n",
+  ctrlC: "\x03",
+};
+
+const defaultAnswers: [question: string, keys: string][] = [
+  ["Which package manager?", keys.enter],
+  ["Which ORM?", keys.enter],
+  ["Add a shared React UI kit?", keys.enter],
+  ["Which app generators should robkit add offer?", keys.enter],
+  ["Which dev tools?", keys.enter],
+  ["Install dependencies and initialise git?", keys.no + keys.enter],
+];
+
+interface Run {
+  code: number | null;
+  /** What init printed, without colours or cursor moves. */
+  output: string;
+}
 
 /**
  * Runs init in `cwd` with `args`. For each question in `answers`, waits for
- * it to show, then types its keys. Resolves with what init printed.
+ * it to show, then types its keys. Kills init if a question doesn't show.
  */
 function init(
   cwd: string,
   args: string[],
   answers: [question: string, keys: string][] = [],
-): Promise<string> {
+): Promise<Run> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [bin, ...args], { cwd });
     let output = "";
     let unseen = "";
+    const stuck = setTimeout(() => {
+      child.kill();
+      const waiting = answers[0]?.[0];
+      const problem = waiting
+        ? `init never asked "${waiting}"`
+        : "init didn't finish";
+      reject(
+        new Error(`${problem}:
+${output}`),
+      );
+    }, 20_000);
+    if (answers.length === 0) child.stdin.end();
     child.stdout.on("data", (chunk: Buffer) => {
       output += chunk.toString();
       unseen += chunk.toString();
@@ -38,8 +71,8 @@ function init(
     child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
     child.on("error", reject);
     child.on("exit", (code) => {
-      if (code === 0) resolve(stripVTControlCharacters(output));
-      else reject(new Error(`init exited with ${String(code)}:\n${output}`));
+      clearTimeout(stuck);
+      resolve({ code, output: stripVTControlCharacters(output) });
     });
   });
 }
@@ -67,11 +100,11 @@ async function readTree(dir: string): Promise<Map<string, string>> {
   );
 }
 
-describe("init with no flags", () => {
+describe("init with no flags", { timeout: 30_000 }, () => {
   it("asks init's questions and prints the command that skips them", async () => {
     const asked = await mkdtemp(join(tmpdir(), "robkit-"));
 
-    const output = await init(
+    const { code, output } = await init(
       asked,
       [],
       [
@@ -89,6 +122,7 @@ describe("init with no flags", () => {
       ],
     );
 
+    expect(code).toBe(0);
     expect(questionsAsked(output)).toEqual([
       "Where should robkit create the install?",
       "Which package manager?",
@@ -108,10 +142,43 @@ describe("init with no flags", () => {
       .split(" ")
       .slice(3)
       .filter((arg) => arg !== "--");
-    await init(flagged, args);
+    expect((await init(flagged, args)).code).toBe(0);
 
     const fromAnswers = await readTree(join(asked, "my-app"));
     expect(fromAnswers.get("robkit.json")).toContain(`["react-hono"]`);
     expect(await readTree(join(flagged, "my-app"))).toEqual(fromAnswers);
+  });
+
+  it("skips the folder question for a folder it's given, keeping --link", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(
+      cwd,
+      ["my-app", "--link"],
+      [...defaultAnswers],
+    );
+
+    expect(code).toBe(0);
+    expect(questionsAsked(output)[0]).toBe("Which package manager?");
+    expect(output).toContain(
+      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --generators start,react-hono --tools eslint-prettier --link",
+    );
+  });
+
+  it("writes nothing when cancelled", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(
+      cwd,
+      [],
+      [
+        ["Where should robkit create the install?", `my-app${keys.enter}`],
+        ["Which package manager?", keys.ctrlC],
+      ],
+    );
+
+    expect(code).toBe(1);
+    expect(output).toContain("Cancelled. Nothing was written.");
+    expect(await readdir(cwd)).toEqual([]);
   });
 });
