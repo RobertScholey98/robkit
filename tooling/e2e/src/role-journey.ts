@@ -71,11 +71,11 @@ async function openUntil(
 /** The owner gates the example app to `role` in admin. */
 async function gateExample(owner: Page, role: string): Promise<void> {
   const app = owner.getByRole("listitem", { name: "example", exact: true });
-  await app.getByLabel("Guests with a role").check();
+  await app.getByRole("radio", { name: "Guests with a role" }).check();
   for (const box of await app.getByRole("checkbox").all()) {
     await box.uncheck();
   }
-  await app.getByLabel(role, { exact: true }).check();
+  await app.getByRole("checkbox", { name: role, exact: true }).check();
   await app.getByRole("button", { name: "Save access" }).click();
   await app.getByRole("status").waitFor();
 }
@@ -122,12 +122,12 @@ export async function roleJourney({
     await neighbours
       .getByRole("button", { name: "Deselect all", exact: true })
       .click();
-    await neighbours.getByLabel(/^Sam/).check();
+    await neighbours.getByRole("checkbox", { name: /^Sam/ }).check();
     const editedTo = await saveGuests(neighbours);
 
     const family = owner.getByRole("listitem", { name: "Family", exact: true });
     await family.getByRole("button", { name: "Edit guests" }).click();
-    await family.getByLabel(/^Sam/).check();
+    await family.getByRole("checkbox", { name: /^Sam/ }).check();
     await saveGuests(family);
     await gateExample(owner, "Family");
 
