@@ -1,0 +1,10 @@
+{
+  "extends": "@internal/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "jsx": "react-jsx",
+    // shadcn's CLI finds where to write a component through this alias.
+    "paths": { "@internal/ui/*": ["./src/*"] }
+  },
+  "include": ["src"]
+}

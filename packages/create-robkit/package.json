@@ -37,7 +37,8 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "shadcn-kit": "node scripts/shadcn-kit.ts"
   },
   "dependencies": {
     "@clack/prompts": "catalog:",
