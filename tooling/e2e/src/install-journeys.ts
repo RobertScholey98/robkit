@@ -12,6 +12,7 @@ import {
 } from "@robkit/session/addresses";
 import type { Choices } from "create-robkit";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import { a11yJourney } from "./a11y-journey.ts";
 import { addedAppJourney } from "./added-app-journey.ts";
 import { guestJourney } from "./guest-journey.ts";
 import {
@@ -321,6 +322,26 @@ export function describeJourneys(
         icon: addedIcon,
         openedAt: at(addedSlug),
         heading: "Signed in as a guest",
+      });
+    });
+
+    // E2E_SCREENSHOTS names a folder to save each page in, to look at.
+    it("draws every page with no accessibility violations axe finds", async () => {
+      const dir = process.env.E2E_SCREENSHOTS;
+      const journey = await a11yJourney({
+        install: addresses,
+        username: "rob",
+        password: "correct horse battery",
+        slug: addedSlug,
+        screenshots: dir ? { dir, prefix: name } : undefined,
+      });
+
+      expect(journey).toEqual({
+        "hub-sign-in": [],
+        launcher: [],
+        admin: [],
+        example: [],
+        added: [],
       });
     });
 

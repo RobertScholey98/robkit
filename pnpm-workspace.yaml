@@ -6,6 +6,7 @@ packages:
 catalogMode: strict
 
 catalog:
+  "@axe-core/playwright": 4.14.0
   "@base-ui/react": 1.9.0
   "@clack/prompts": 1.8.1
   "@eslint/js": 10.0.1

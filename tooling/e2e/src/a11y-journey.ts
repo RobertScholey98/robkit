@@ -1,0 +1,69 @@
+import { join } from "node:path";
+import { AxeBuilder } from "@axe-core/playwright";
+import { chromium, type Page } from "playwright";
+import type { JourneyOptions } from "./owner-journey.ts";
+
+/** The axe rules each page broke, by page. */
+export type A11yJourney = Record<string, string[]>;
+
+/**
+ * Opens the hub signed out, then signs in as the owner and opens the
+ * launcher, admin, the example app and the app robkit add made. axe checks
+ * each page as it stands. With `screenshots`, each page is saved there too,
+ * named `<prefix>-<page>.png`.
+ */
+export async function a11yJourney({
+  install,
+  username,
+  password,
+  slug,
+  screenshots,
+}: Omit<JourneyOptions, "adminUrl"> & {
+  slug: string;
+  screenshots?: { dir: string; prefix: string } | undefined;
+}): Promise<A11yJourney> {
+  const at = (app: string) => `${install.origin(app)}/`;
+  const broken: A11yJourney = {};
+  const check = async (page: Page, name: string) => {
+    const { violations } = await new AxeBuilder({ page }).analyze();
+    broken[name] = violations.map((violation) => violation.id);
+    if (screenshots) {
+      await page.screenshot({
+        path: join(screenshots.dir, `${screenshots.prefix}-${name}.png`),
+        fullPage: true,
+      });
+    }
+  };
+
+  const browser = await chromium.launch();
+  try {
+    const page = await (await browser.newContext()).newPage();
+    await page.goto(at("hub"));
+    await page.getByLabel("Access code").waitFor();
+    await check(page, "hub-sign-in");
+
+    await page.getByRole("button", { name: "I'm the owner" }).click();
+    await page.getByLabel("Username").fill(username);
+    await page.getByLabel("Password").fill(password);
+    await page.getByRole("button", { name: "Sign in" }).click();
+    await page.getByRole("button", { name: "Sign out" }).waitFor();
+    await page.getByText("Loading apps…").waitFor({ state: "detached" });
+    await check(page, "launcher");
+
+    await page.goto(at("admin"));
+    await page.getByRole("heading", { name: "Access codes" }).waitFor();
+    await page.getByRole("heading", { name: "Roles" }).waitFor();
+    await check(page, "admin");
+
+    await page.goto(at("example"));
+    await page.getByTestId("viewer-id").waitFor();
+    await check(page, "example");
+
+    await page.goto(at(slug));
+    await page.getByRole("heading").waitFor();
+    await check(page, "added");
+    return broken;
+  } finally {
+    await browser.close();
+  }
+}
