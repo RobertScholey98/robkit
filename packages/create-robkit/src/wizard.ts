@@ -1,5 +1,3 @@
-import { readdirSync } from "node:fs";
-import { resolve } from "node:path";
 import {
   CANCEL_SYMBOL,
   confirm,
@@ -10,6 +8,7 @@ import {
   text,
 } from "@clack/prompts";
 import * as choices from "./choices.ts";
+import { folderInUse } from "./write.ts";
 
 /** init's answers, as the flags that make the same install. */
 export interface Answers {
@@ -80,15 +79,10 @@ function folderProblem(folder: string | undefined): string | undefined {
   if (!shellSafe.test(folder)) {
     return `${folder} can't be the folder. Use letters, digits, spaces, dots, dashes, underscores and slashes.`;
   }
-  try {
-    if (readdirSync(resolve(folder)).length > 0) {
-      return `${folder} isn't empty. Choose a new folder.`;
-    }
-  } catch {
-    // A folder that doesn't exist yet is the usual answer.
-  }
-  return undefined;
+  return folderInUse(folder);
 }
+
+const defaultFolder = "my-robkit";
 
 /** Asks init's questions, skipping the folder when it's already given. */
 export async function askInit(folder?: string): Promise<Answers> {
@@ -100,9 +94,10 @@ export async function askInit(folder?: string): Promise<Answers> {
     answered(
       await text({
         message: "Where should robkit create the install?",
-        placeholder: "my-robkit",
-        defaultValue: "my-robkit",
-        validate: folderProblem,
+        placeholder: defaultFolder,
+        defaultValue: defaultFolder,
+        // An empty answer takes the default, which clack doesn't validate.
+        validate: (answer) => folderProblem(answer ?? defaultFolder),
       }),
     );
   const pm = answered(

@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -175,6 +175,25 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       "family&friends can't be the folder. Use letters, digits, spaces, dots, dashes, underscores and slashes.",
     );
     expect(await readdir(cwd)).toEqual([]);
+  });
+
+  it("checks the default folder before asking anything else", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+    await mkdir(join(cwd, "my-robkit"));
+    await writeFile(join(cwd, "my-robkit", "notes.txt"), "mine");
+
+    const { code, output } = await init(
+      cwd,
+      [],
+      [
+        ["Where should robkit create the install?", keys.enter],
+        ["my-robkit isn't empty. Choose a new folder.", keys.ctrlC],
+      ],
+    );
+
+    expect(code).toBe(1);
+    expect(output).toContain("Cancelled. Nothing was written.");
+    expect(await readdir(join(cwd, "my-robkit"))).toEqual(["notes.txt"]);
   });
 
   it("writes nothing when cancelled", async () => {
