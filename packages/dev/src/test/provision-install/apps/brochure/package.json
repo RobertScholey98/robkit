@@ -1,0 +1,8 @@
+{
+  "name": "brochure",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node -e \"\""
+  }
+}
