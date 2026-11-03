@@ -43,11 +43,12 @@ function init(
 ): Promise<Run> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [bin, ...args], { cwd });
+    const pending = [...answers];
     let output = "";
     let unseen = "";
     const stuck = setTimeout(() => {
       child.kill();
-      const waiting = answers[0]?.[0];
+      const waiting = pending[0]?.[0];
       const problem = waiting
         ? `init never asked "${waiting}"`
         : "init didn't finish";
@@ -56,16 +57,16 @@ function init(
 ${output}`),
       );
     }, 20_000);
-    if (answers.length === 0) child.stdin.end();
+    if (pending.length === 0) child.stdin.end();
     child.stdout.on("data", (chunk: Buffer) => {
       output += chunk.toString();
       unseen += chunk.toString();
-      const next = answers[0];
+      const next = pending[0];
       if (next && stripVTControlCharacters(unseen).includes(next[0])) {
-        answers.shift();
+        pending.shift();
         unseen = "";
         child.stdin.write(next[1]);
-        if (answers.length === 0) child.stdin.end();
+        if (pending.length === 0) child.stdin.end();
       }
     });
     child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
@@ -155,7 +156,7 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     const { code, output } = await init(
       cwd,
       ["my-app", "--link"],
-      [...defaultAnswers],
+      defaultAnswers,
     );
 
     expect(code).toBe(0);
