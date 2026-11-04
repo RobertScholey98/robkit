@@ -65,6 +65,7 @@ exports[`generateInstall > writes the default install > package.json 1`] = `
 exports[`generateInstall > writes the default install > pnpm-workspace.yaml 1`] = `
 "packages:
   - apps/*
+  - packages/*
   - tooling/*
 
 # Manifests say \`catalog:\`, so every external version lives in the catalog.
@@ -131,7 +132,6 @@ exports[`generateInstall > writes the default install 1`] = `
   "apps/admin/src/client/code-picker.tsx",
   "apps/admin/src/client/codes-api.test.ts",
   "apps/admin/src/client/codes-api.ts",
-  "apps/admin/src/client/core-call.ts",
   "apps/admin/src/client/index.css",
   "apps/admin/src/client/main.tsx",
   "apps/admin/src/client/roles.tsx",
@@ -176,6 +176,11 @@ exports[`generateInstall > writes the default install 1`] = `
   "compose.yaml",
   "eslint.config.js",
   "package.json",
+  "packages/core-client/package.json",
+  "packages/core-client/src/call-core.test.ts",
+  "packages/core-client/src/call-core.ts",
+  "packages/core-client/src/fake-core.ts",
+  "packages/core-client/tsconfig.json",
   "pnpm-workspace.yaml",
   "robkit.json",
   "tooling/typescript/base.json",

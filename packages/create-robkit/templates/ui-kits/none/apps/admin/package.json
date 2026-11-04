@@ -8,6 +8,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@internal/core-client": "workspace:*",
     "@robkit/guard": "catalog:",
     "@robkit/hono": "catalog:",
     "@robkit/session": "catalog:",

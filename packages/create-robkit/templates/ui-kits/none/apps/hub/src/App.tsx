@@ -34,7 +34,7 @@ function Hub({ core }: { core: string }) {
         if (!current) return;
         setScreen(
           result.ok
-            ? result.session
+            ? result.value
             : { state: "unreachable", reason: result.error },
         );
       });
@@ -46,7 +46,7 @@ function Hub({ core }: { core: string }) {
         if (!current) return;
         setScreen(
           result.ok
-            ? result.session
+            ? result.value
             : { state: "code-refused", error: result.error },
         );
       });

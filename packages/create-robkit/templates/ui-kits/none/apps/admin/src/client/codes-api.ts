@@ -1,5 +1,5 @@
 import { installAt } from "@robkit/session/addresses";
-import { call, isRecord, post, readWith, type Result } from "./core-call.ts";
+import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
 
 /** Whether a code signs a guest in, and if not, why not. */
 export type Standing = "live" | "revoked" | "expired" | "local-only";
@@ -22,31 +22,21 @@ export interface NewCode {
   expiresAt?: Date;
 }
 
-export async function listCodes(core: string): Promise<Result<Code[]>> {
-  return readWith(await call(core, "/codes", { method: "GET" }), (body) => {
-    if (!isRecord(body) || !Array.isArray(body.codes)) return undefined;
-    const codes = body.codes.map(readCode);
-    return codes.every((code) => code !== undefined) ? codes : undefined;
+export function listCodes(core: string): Promise<Result<Code[]>> {
+  return callCore(core, "GET", "/codes", {
+    read: (body) => (isRecord(body) ? listOf(body.codes, readCode) : undefined),
   });
 }
 
-export async function mintCode(
-  core: string,
-  code: NewCode,
-): Promise<Result<Code>> {
-  return readWith(await call(core, "/codes", post(code)), readCode);
+export function mintCode(core: string, code: NewCode): Promise<Result<Code>> {
+  return callCore(core, "POST", "/codes", { body: code, read: readCode });
 }
 
-export async function revokeCode(
+export function revokeCode(
   core: string,
   id: string,
 ): Promise<Result<undefined>> {
-  const result = await call(
-    core,
-    `/codes/${encodeURIComponent(id)}/revoke`,
-    post(),
-  );
-  return result.ok ? { ok: true, value: undefined } : result;
+  return callCore(core, "POST", `/codes/${encodeURIComponent(id)}/revoke`);
 }
 
 /** The link that signs a guest in with `code`, on the hub beside core. */

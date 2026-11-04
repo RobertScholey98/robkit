@@ -1,5 +1,6 @@
 packages:
   - apps/*
+  - packages/*
   - tooling/*
 
 # Manifests say `catalog:`, so every external version lives in the catalog.

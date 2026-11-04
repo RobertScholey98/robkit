@@ -1,3 +1,4 @@
+import { fakeCore, unreachable } from "@internal/core-client/fake-core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createRole,
@@ -11,54 +12,48 @@ import {
 const core = "https://core.example.com";
 const family = { id: "r_1", name: "Family", codeIds: ["c_1", "c_2"] };
 
-function coreAnswers(status: number, body?: unknown) {
-  const fetch = vi.fn<typeof globalThis.fetch>(() =>
-    Promise.resolve(
-      new Response(body === undefined ? null : JSON.stringify(body), {
-        status,
-      }),
-    ),
-  );
-  vi.stubGlobal("fetch", fetch);
-  return fetch;
-}
-
-function posted(body: unknown) {
-  return {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-    credentials: "include",
-  };
-}
-
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe("listRoles", () => {
   it("reads every role and the codes that hold it", async () => {
-    const fetch = coreAnswers(200, { roles: [family] });
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, { "GET /roles": () => ({ body: { roles: [family] } }) }),
+    );
 
     expect(await listRoles(core)).toEqual({ ok: true, value: [family] });
-    expect(fetch.mock.calls).toEqual([
-      [`${core}/roles`, { method: "GET", credentials: "include" }],
-    ]);
   });
 
   it("refuses a role it can't read", async () => {
-    coreAnswers(200, { roles: [{ ...family, codeIds: "c_1" }] });
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, {
+        "GET /roles": () => ({
+          body: { roles: [{ ...family, codeIds: "c_1" }] },
+        }),
+      }),
+    );
 
     expect(await listRoles(core)).toEqual({
       ok: false,
-      error: "Core sent an answer admin can't read.",
+      error: "Core sent an answer this page can't read.",
     });
   });
 });
 
 describe("createRole", () => {
-  it("sends the name and the ticked codes", async () => {
-    const fetch = coreAnswers(201, family);
+  it("sends the name and the ticked codes, and reads the new role", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, {
+        "POST /roles": ({ body }) => ({
+          status: 201,
+          body: { id: "r_1", ...(body as object) },
+        }),
+      }),
+    );
 
     const result = await createRole(core, {
       name: "Family",
@@ -66,13 +61,18 @@ describe("createRole", () => {
     });
 
     expect(result).toEqual({ ok: true, value: family });
-    expect(fetch.mock.calls).toEqual([
-      [`${core}/roles`, posted({ name: "Family", codeIds: ["c_1", "c_2"] })],
-    ]);
   });
 
   it("passes on core's refusal", async () => {
-    coreAnswers(409, { error: "There's a role with that name." });
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, {
+        "POST /roles": () => ({
+          status: 409,
+          body: { error: "There's a role with that name." },
+        }),
+      }),
+    );
 
     expect(await createRole(core, { name: "Family", codeIds: [] })).toEqual({
       ok: false,
@@ -82,18 +82,20 @@ describe("createRole", () => {
 });
 
 describe("setRoleCodes", () => {
-  it("sends the codes that should hold the role", async () => {
-    const fetch = coreAnswers(200, { ...family, codeIds: ["c_2"] });
+  it("sends the codes that should hold the role, and reads the role", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, {
+        "POST /roles/r%2F1/codes": ({ body }) => ({
+          body: { ...family, ...(body as object) },
+        }),
+      }),
+    );
 
-    const result = await setRoleCodes(core, "r/1", ["c_2"]);
-
-    expect(result).toEqual({
+    expect(await setRoleCodes(core, "r/1", ["c_2"])).toEqual({
       ok: true,
       value: { ...family, codeIds: ["c_2"] },
     });
-    expect(fetch.mock.calls).toEqual([
-      [`${core}/roles/r%2F1/codes`, posted({ codeIds: ["c_2"] })],
-    ]);
   });
 });
 
@@ -107,31 +109,82 @@ describe("listApps", () => {
         access: { kind: "roles", roles: ["r_1"] },
       },
     ];
-    coreAnswers(200, { apps });
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, { "GET /apps": () => ({ body: { apps } }) }),
+    );
 
     expect(await listApps(core)).toEqual({ ok: true, value: apps });
   });
 
   it("refuses an app whose rule it can't read", async () => {
-    coreAnswers(200, {
-      apps: [{ slug: "example", name: "example", access: { kind: "all" } }],
-    });
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, {
+        "GET /apps": () => ({
+          body: {
+            apps: [
+              { slug: "example", name: "example", access: { kind: "all" } },
+            ],
+          },
+        }),
+      }),
+    );
 
-    expect((await listApps(core)).ok).toBe(false);
+    expect(await listApps(core)).toEqual({
+      ok: false,
+      error: "Core sent an answer this page can't read.",
+    });
   });
 });
 
 describe("setAccess", () => {
-  it("sends the app's new rule", async () => {
+  it("sends the app's new rule, and reads the rule core kept", async () => {
     const rule: AccessRule = { kind: "roles", roles: ["r_1"] };
-    const fetch = coreAnswers(200, rule);
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, {
+        "POST /apps/example/access": ({ body }) => ({ body }),
+      }),
+    );
 
     expect(await setAccess(core, "example", rule)).toEqual({
       ok: true,
       value: rule,
     });
-    expect(fetch.mock.calls).toEqual([
-      [`${core}/apps/example/access`, posted(rule)],
-    ]);
+  });
+
+  it("passes on core's refusal", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, {
+        "POST /apps/example/access": () => ({
+          status: 400,
+          body: { error: "That role doesn't exist." },
+        }),
+      }),
+    );
+
+    expect(await setAccess(core, "example", { kind: "owner" })).toEqual({
+      ok: false,
+      error: "That role doesn't exist.",
+    });
+  });
+});
+
+describe("every call", () => {
+  it.each([
+    ["listRoles", () => listRoles(core)],
+    ["createRole", () => createRole(core, { name: "Family", codeIds: [] })],
+    ["setRoleCodes", () => setRoleCodes(core, "r_1", [])],
+    ["listApps", () => listApps(core)],
+    ["setAccess", () => setAccess(core, "example", { kind: "owner" })],
+  ])("%s says when core can't be reached", async (_, call) => {
+    vi.stubGlobal("fetch", unreachable);
+
+    expect(await call()).toEqual({
+      ok: false,
+      error: "Couldn't reach core at https://core.example.com.",
+    });
   });
 });
