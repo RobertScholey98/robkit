@@ -13,6 +13,7 @@ import {
   parseAccessCode,
   readNewCode,
 } from "./access-codes.ts";
+import { clientOf } from "./client.ts";
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
 import {
@@ -94,18 +95,6 @@ async function readBody<T>(
 }
 
 const unknownCode = "One of those codes doesn't exist.";
-
-/**
- * Who is asking, for rate limiting. Traefik in production and the dev proxy
- * locally each append the address they saw, so only the last entry is
- * something the client can't forge.
- */
-function clientOf(c: Context): string {
-  const forwarded = c.req.header("x-forwarded-for")?.split(",").at(-1)?.trim();
-  // An empty header counts as no header.
-  if (forwarded) return forwarded;
-  return "unknown";
-}
 
 function tooManyAttempts(c: Context, retryAfter: number): Response {
   const minutes = Math.ceil(retryAfter / 60);
