@@ -201,7 +201,12 @@ export const choiceTable = {
           dependencies: ["vitest"],
         },
       },
-      { value: "playwright", label: "Playwright", comingLater: true },
+      {
+        value: "playwright",
+        label: "Playwright",
+        layer: "tools/playwright",
+        guide: "tools/playwright.md",
+      },
       {
         value: "husky",
         label: "Husky + lint-staged",

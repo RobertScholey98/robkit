@@ -3,7 +3,7 @@
 exports[`generateInstall > keeps every file of Chakra with Hono first pnpm install 1`] = `
 {
   ".dockerignore": "73e515acaa56c38b",
-  ".github/workflows/ci.yml": "075fe6fa0dc6a198",
+  ".github/workflows/ci.yml": "ddda08d7bc48ea89",
   ".gitignore": "1c8e3db7cfa4d809",
   ".prettierignore": "4af16908b0174710",
   "AGENTS.md": "5881560c5ffbd898",
@@ -97,7 +97,7 @@ exports[`generateInstall > keeps every file of Chakra with Hono first pnpm insta
 exports[`generateInstall > keeps every file of Kysely on Base UI pnpm install 1`] = `
 {
   ".dockerignore": "73e515acaa56c38b",
-  ".github/workflows/ci.yml": "075fe6fa0dc6a198",
+  ".github/workflows/ci.yml": "ddda08d7bc48ea89",
   ".gitignore": "1c8e3db7cfa4d809",
   ".prettierignore": "4af16908b0174710",
   "AGENTS.md": "5881560c5ffbd898",
@@ -200,7 +200,7 @@ exports[`generateInstall > keeps every file of Kysely on Base UI pnpm install 1`
 exports[`generateInstall > keeps every file of Prisma on Radix pnpm install 1`] = `
 {
   ".dockerignore": "73e515acaa56c38b",
-  ".github/workflows/ci.yml": "075fe6fa0dc6a198",
+  ".github/workflows/ci.yml": "ddda08d7bc48ea89",
   ".gitignore": "1c8e3db7cfa4d809",
   ".prettierignore": "4af16908b0174710",
   "AGENTS.md": "5881560c5ffbd898",
@@ -313,7 +313,7 @@ exports[`generateInstall > keeps every file of Prisma on Radix pnpm install 1`] 
 exports[`generateInstall > keeps every file of no tools pnpm install 1`] = `
 {
   ".dockerignore": "73e515acaa56c38b",
-  ".github/workflows/ci.yml": "075fe6fa0dc6a198",
+  ".github/workflows/ci.yml": "ddda08d7bc48ea89",
   ".gitignore": "1c8e3db7cfa4d809",
   "AGENTS.md": "b19eb0c32f94d58a",
   "CLAUDE.md": "336cc4fbf19beaad",
@@ -392,7 +392,7 @@ exports[`generateInstall > keeps every file of no tools pnpm install 1`] = `
 exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
 {
   ".dockerignore": "73e515acaa56c38b",
-  ".github/workflows/ci.yml": "075fe6fa0dc6a198",
+  ".github/workflows/ci.yml": "ddda08d7bc48ea89",
   ".gitignore": "1c8e3db7cfa4d809",
   ".prettierignore": "4af16908b0174710",
   "AGENTS.md": "5881560c5ffbd898",

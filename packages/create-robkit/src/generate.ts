@@ -31,8 +31,20 @@ const exampleSlug = "example";
 
 const templatesDir = fileURLToPath(new URL("../templates/", import.meta.url));
 
-/** npm drops these from a published package, so templates store them renamed. */
+/**
+ * npm drops these from a published package, in any folder, so templates
+ * store them renamed.
+ */
 const storedAs = new Map([["gitignore", ".gitignore"]]);
+
+/** `path` as the install names it, restoring a name npm would drop. */
+function restored(path: string): string {
+  const name = basename(path);
+  const stored = storedAs.get(name);
+  return stored === undefined
+    ? path
+    : `${path.slice(0, -name.length)}${stored}`;
+}
 
 type Json = Record<string, unknown>;
 
@@ -46,7 +58,7 @@ export async function readFolder(dir: string): Promise<Files> {
     const path = relative(dir, file).replaceAll("\\", "/");
     // A Windows checkout may hold the templates with CRLF endings.
     const text = (await readFile(file, "utf8")).replaceAll("\r\n", "\n");
-    files.set(storedAs.get(path) ?? path, text);
+    files.set(restored(path), text);
   }
   return files;
 }
