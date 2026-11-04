@@ -26,9 +26,14 @@ services:
           "-d",
           "robkit",
         ]
-      interval: 1s
-      timeout: 3s
-      retries: 30
+      # Every second while Postgres starts, which takes longer on a busy
+      # machine, then every 10 seconds. Docker runs each check as an exec, and
+      # on Docker Desktop a stream of them slows every other Docker command.
+      start_period: 120s
+      start_interval: 1s
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
   postgres:
