@@ -28,7 +28,13 @@ export const installChoices = {
     uiKit: "chakra",
   },
   prisma: { ...defaultChoices, orm: "prisma", uiKit: "shadcn-radix" },
-  kysely: { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" },
+  // On bun, which runs its scripts and installs its dependencies.
+  kysely: {
+    ...defaultChoices,
+    packageManager: "bun",
+    orm: "kysely",
+    uiKit: "shadcn-base-ui",
+  },
 } satisfies Record<string, Choices>;
 
 export type InstallName = keyof typeof installChoices;
@@ -58,8 +64,9 @@ async function createInstall(choices: Choices, kit: boolean): Promise<string> {
   await init(choices, dir, { link: true, install: true });
   const [stack, other = stack] = choices.generators;
   await run(
-    "pnpm",
+    choices.packageManager,
     [
+      "run",
       "robkit",
       "add",
       addedSlug,
@@ -77,9 +84,10 @@ async function createInstall(choices: Choices, kit: boolean): Promise<string> {
 }
 
 /**
- * Makes every install before any suite starts. pnpm hard-links packages
- * from one shared store, so an install beside a running `pnpm dev` touches
- * the files under its core, and `node --watch` restarts core mid-journey.
+ * Makes every install before any suite starts. pnpm and bun hard-link
+ * packages from one shared store, so an install beside a running dev stack
+ * touches the files under its core, and `node --watch` restarts core
+ * mid-journey.
  */
 export default async function setup(project: TestProject) {
   const installs = Object.fromEntries(

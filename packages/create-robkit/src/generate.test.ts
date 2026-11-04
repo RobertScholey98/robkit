@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -522,6 +523,140 @@ describe("generateInstall", () => {
       'from "@internal/ui"',
     );
   });
+
+  it.each<[string, Choices]>([
+    ["the default", defaultChoices],
+    ["no tools", { ...defaultChoices, tools: [] }],
+    [
+      "Prisma on Radix",
+      { ...defaultChoices, orm: "prisma", uiKit: "shadcn-radix" },
+    ],
+    [
+      "Kysely on Base UI",
+      { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" },
+    ],
+    ["Chakra with Hono first", { ...honoFirst, uiKit: "chakra" }],
+  ])("keeps every file of %s pnpm install", async (_, choices) => {
+    const files = await generateInstall(choices);
+
+    // A digest per file: any change to a pnpm install's output fails here.
+    expect(
+      Object.fromEntries(
+        [...files].map(([path, text]) => [
+          path,
+          createHash("sha256").update(text).digest("hex").slice(0, 16),
+        ]),
+      ),
+    ).toMatchSnapshot();
+  });
+
+  describe("for bun", () => {
+    const bunChoices: Choices = {
+      ...defaultChoices,
+      packageManager: "bun",
+      orm: "prisma",
+    };
+
+    it("keeps its workspaces, catalog and trusted scripts in package.json", async () => {
+      const files = await generateInstall(bunChoices);
+      const manifest = json(files, "package.json") as {
+        packageManager: string;
+        workspaces: { packages: string[]; catalog: Record<string, string> };
+        trustedDependencies: string[];
+        overrides?: object;
+      };
+
+      expect(files.has("pnpm-workspace.yaml")).toBe(false);
+      expect(manifest.packageManager).toBe("bun@1.4.4");
+      expect(manifest.workspaces.packages).toEqual([
+        "apps/*",
+        "packages/*",
+        "tooling/*",
+      ]);
+      expect(manifest.workspaces.catalog).toMatchObject({
+        "@robkit/core": "0.0.0",
+        "@prisma/client": "7.10.1",
+        turbo: "2.11.10",
+      });
+      // Only the scripts the install must run: esbuild's is skipped.
+      expect(manifest.trustedDependencies).toEqual(["@prisma/engines"]);
+      expect(manifest.overrides).toBeUndefined();
+      expect(files.get("bunfig.toml")).toContain("minimumReleaseAge = 86400");
+    });
+
+    it("links the @robkit packages to this checkout when asked", async () => {
+      const files = await generateInstall(bunChoices, { link: true });
+      const { overrides } = json(files, "package.json") as {
+        overrides: Record<string, string>;
+      };
+      const checkout = fileURLToPath(new URL("../../../", import.meta.url));
+
+      expect(overrides["@robkit/core"]).toBe(
+        `link:${checkout.replaceAll("\\", "/")}packages/core`,
+      );
+      expect(Object.keys(overrides)).toHaveLength(8);
+    });
+
+    it("names bun's commands and files, never pnpm's", async () => {
+      const files = await generateInstall({
+        ...bunChoices,
+        uiKit: "shadcn-base-ui",
+      });
+
+      const mentions = [...files].filter(([, text]) => text.includes("pnpm"));
+
+      expect(mentions.map(([path]) => path)).toEqual([]);
+      expect(files.get("AGENTS.md")).toContain(
+        "bun run dev                  # Postgres, core, the hub",
+      );
+      expect(files.get("AGENTS.md")).toContain("`bun run lint` runs it");
+      expect(files.get("packages/ui/AGENTS.md")).toContain(
+        "bunx shadcn add <component>",
+      );
+      expect(files.get("packages/ui/AGENTS.md")).toContain(
+        "under `workspaces.catalog` in `package.json`",
+      );
+      expect(files.get(".prettierignore")).toContain("bun.lock");
+    });
+
+    it("writes a CI workflow that runs the install's scripts with bun", async () => {
+      const files = await generateInstall(bunChoices);
+      const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+        jobs: Record<string, { steps: { run?: string }[] }>;
+      };
+
+      expect(
+        workflow.jobs.check?.steps.flatMap((step) => step.run ?? []),
+      ).toEqual([
+        "bun install --frozen-lockfile",
+        "bun run lint",
+        "bun run --if-present format:check",
+        "bun run typecheck",
+        "bun run test",
+        "bun run build",
+      ]);
+      expect(
+        workflow.jobs.deploy?.steps.flatMap((step) => step.run ?? []),
+      ).toContain("bun run robkit deploy");
+    });
+  });
+
+  it.each(["pnpm", "bun"] as const)(
+    "builds %s's images without Corepack, from a pruned frozen install",
+    async (packageManager) => {
+      const files = await generateInstall({
+        ...defaultChoices,
+        packageManager,
+      });
+      const dockerfile = files.get("Dockerfile") ?? "";
+
+      expect(dockerfile.toLowerCase()).not.toMatch(/^run .*corepack/m);
+      expect(dockerfile).toContain("turbo prune");
+      expect(dockerfile).toContain(
+        `${packageManager} install --frozen-lockfile`,
+      );
+    },
+  );
 
   it("gives the example app its stack's agent files", async () => {
     const files = await generateInstall(defaultChoices);

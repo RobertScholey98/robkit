@@ -3,10 +3,11 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { slugProblem } from "@robkit/dev";
 import { isPlatformApp, platformApps } from "@robkit/session/addresses";
-import type { Choices, Generator, Orm, UiKit } from "./choices.ts";
+import type { Choices, Generator, UiKit } from "./choices.ts";
 import {
   appFiles,
   readFolder,
+  spellFor,
   stackTemplate,
   type Declares,
 } from "./generate.ts";
@@ -83,13 +84,14 @@ export function newSlugProblem(root: string, slug: string): string | undefined {
 async function templateFor(
   root: string,
   stack: Generator,
-  orm: Orm,
+  { orm, packageManager }: Choices,
   uiKit: UiKit | null,
 ) {
   const own = join(root, "robkit", "templates", stack);
-  return (await exists(own))
-    ? readFolder(own)
-    : stackTemplate(stack, orm, uiKit);
+  if (await exists(own)) return readFolder(own);
+  const template = await stackTemplate(stack, orm, uiKit);
+  await spellFor(template, packageManager);
+  return template;
 }
 
 /**
@@ -99,7 +101,8 @@ async function templateFor(
  * it to its catalog with the rule it declares.
  */
 export async function addApp(root: string, choices: AppChoices): Promise<void> {
-  const { generators, orm, uiKit } = await readInstallChoices(root);
+  const installed = await readInstallChoices(root);
+  const { generators, uiKit } = installed;
   if (choices.uiKit === true && uiKit === null) {
     throw new Error("This install has no UI kit. Leave out --ui-kit.");
   }
@@ -113,7 +116,7 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   const template = await templateFor(
     root,
     choices.stack,
-    orm,
+    installed,
     choices.uiKit === true ? uiKit : null,
   );
   await writeInstall(

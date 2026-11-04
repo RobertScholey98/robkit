@@ -19,7 +19,10 @@ describe("the default install", () => {
   });
 });
 
-/** The installs whose own CI steps run: the default and one per other ORM. */
+/**
+ * The installs whose own CI steps run: the default and one per other ORM.
+ * The Kysely install runs bun's workflow.
+ */
 const ciInstalls = ["start", "prisma", "kysely"] as const;
 
 describe.each(ciInstalls)("the %s install", (name) => {
@@ -34,8 +37,10 @@ describe.each(ciInstalls)("the %s install", (name) => {
 
     // init already installed the dependencies. Installing again beside the
     // running journeys would touch the files under their core and restart it.
-    const steps = runs.filter((step) => !step.startsWith("pnpm install"));
-    expect(steps).toContain("pnpm build");
+    const steps = runs.filter((step) => !/^\w+ install\b/.test(step));
+    expect(steps).toContainEqual(
+      expect.stringMatching(/^(pnpm|bun run) build$/),
+    );
     for (const step of steps) {
       // A failing step rejects with its output.
       await run("sh", ["-c", step], { cwd: dir });

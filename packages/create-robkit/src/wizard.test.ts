@@ -33,7 +33,7 @@ describe("optionsFor", () => {
   it("offers the table's ready options, then the ones coming later", () => {
     expect(optionsFor(choiceTable.packageManager, "pnpm")).toEqual([
       { value: "pnpm", label: "pnpm", hint: "recommended" },
-      { value: "bun", label: "bun", hint: "coming later", disabled: true },
+      { value: "bun", label: "bun" },
       { value: "yarn", label: "yarn", hint: "coming later", disabled: true },
     ]);
   });

@@ -143,7 +143,7 @@ export function describeJourneys(
     devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
     addresses = install({ domain: defaultDomain, port: devPort });
     postgresPort = await freePort();
-    dev = spawn("pnpm", ["dev"], {
+    dev = spawn(choices.packageManager, ["run", "dev"], {
       cwd: dir,
       env: {
         ...process.env,
@@ -167,7 +167,7 @@ export function describeJourneys(
     });
   });
 
-  describe(`pnpm dev in an install with the ${stack} example on ${choices.orm}`, () => {
+  describe(`${choices.packageManager} run dev in an install with the ${stack} example on ${choices.orm}`, () => {
     it("serves the hub on hub.robkit.localhost", async () => {
       const hub = await eventually(() => get(hostOf("hub")));
 
@@ -395,7 +395,7 @@ export function describeJourneys(
     // Last, since it stops the stack.
     it("stops every app and Postgres on Ctrl-C", async () => {
       const apps = await discoverApps(dir, devPort + 1);
-      if (!dev.pid) throw new Error("pnpm dev never started");
+      if (!dev.pid) throw new Error("dev never started");
 
       process.kill(-dev.pid, "SIGINT");
       const [code] = (await once(dev, "exit")) as [number | null];

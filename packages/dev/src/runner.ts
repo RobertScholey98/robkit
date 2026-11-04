@@ -7,6 +7,7 @@ import {
 } from "@robkit/session/addresses";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { exec, prefixLines } from "./exec.ts";
+import { packageManagerOf } from "./package-manager.ts";
 import { createProxy } from "./proxy.ts";
 import { provisionApps } from "./provision.ts";
 
@@ -61,8 +62,10 @@ export async function runDev(
     env.ROBKIT_DATABASE_URL ??
     `postgres://postgres:postgres@127.0.0.1:${env.ROBKIT_POSTGRES_PORT ?? "54320"}/robkit`;
   let apps: App[];
+  let pm: string;
   try {
     apps = await discoverApps(root, devPort + 1);
+    pm = await packageManagerOf(root);
   } catch (error) {
     console.error(errorMessage(error));
     return 1;
@@ -97,7 +100,7 @@ export async function runDev(
   const proxy = createProxy(routesFor(apps, domain));
 
   const start = (app: App, databaseUrl: string | undefined) => {
-    const child = spawn("pnpm", ["run", "dev"], {
+    const child = spawn(pm, ["run", "dev"], {
       cwd: app.dir,
       env: {
         ...appEnv,

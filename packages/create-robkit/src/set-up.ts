@@ -1,13 +1,6 @@
 import { spawn } from "node:child_process";
 import type { PackageManager } from "./choices.ts";
-
-/**
- * Each package manager's install for a new install. It has no lockfile yet,
- * which pnpm refuses on CI unless told.
- */
-const installCommands: Record<PackageManager, string> = {
-  pnpm: "pnpm install --no-frozen-lockfile",
-};
+import { packageManagers } from "./package-managers.ts";
 
 /** Runs `command` in `dir`, showing its output, and fails if it does. */
 function run(command: string, dir: string): Promise<void> {
@@ -26,7 +19,7 @@ export function installDependencies(
   dir: string,
   packageManager: PackageManager,
 ): Promise<void> {
-  return run(installCommands[packageManager], dir);
+  return run(packageManagers[packageManager].install, dir);
 }
 
 export function initGit(dir: string): Promise<void> {
