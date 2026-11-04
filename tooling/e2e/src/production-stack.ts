@@ -5,7 +5,7 @@ import { request } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { freePort } from "@internal/test-postgres";
+import { freePort, removeWhenGone } from "@internal/test-postgres";
 import { packageManagerOf } from "@robkit/dev";
 import { install, type Install } from "@robkit/session/addresses";
 import { deploymentOf } from "create-robkit";
@@ -21,8 +21,14 @@ const adminUrl = "postgres://postgres:postgres@postgres:5432/robkit";
 /** The install's database secret on this host. */
 const secret = "the production e2e's database secret, 32+ characters";
 
-/** Names the network and labels everything the stack makes. */
+/**
+ * Prefixes and labels everything the stack makes: its network, containers
+ * and images.
+ */
 export const stackName = `robkit-prod-${String(process.pid)}`;
+
+/** The stack's network, named under its prefix. */
+const network = `${stackName}-network`;
 
 /**
  * A production-like host in Docker: a network with Postgres, and Caddy in
@@ -30,7 +36,7 @@ export const stackName = `robkit-prod-${String(process.pid)}`;
  * Traefik fronts each container on Coolify.
  */
 export interface Stack {
-  /** Names the network and labels every container. */
+  /** Prefixes and labels every container and image. */
   name: string;
   /** The install, built from its root. */
   dir: string;
@@ -82,17 +88,19 @@ function caddyfile(port: number): string {
  */
 export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
   const name = stackName;
+  // Its containers, images and network go even if this process is killed.
+  removeWhenGone({ docker: name });
   const port = await freePort();
   const caDir = await mkdtemp(join(tmpdir(), "robkit-caddy-"));
   await writeFile(join(caDir, "Caddyfile"), caddyfile(port));
-  await docker("network", "create", "--label", name, name);
+  await docker("network", "create", "--label", name, network);
   await docker(
     "run",
     "-d",
     "--label",
     name,
     "--network",
-    name,
+    network,
     "--name",
     `${name}-postgres`,
     "--network-alias",
@@ -109,7 +117,7 @@ export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
     "--label",
     name,
     "--network",
-    name,
+    network,
     "--name",
     `${name}-caddy`,
     ...slugs.flatMap((slug) => ["--network-alias", `${slug}.${domain}`]),
@@ -161,7 +169,7 @@ export async function stopStack(): Promise<void> {
     .split("\n")
     .filter(Boolean);
   if (images.length > 0) await docker("rmi", "-f", ...images);
-  await docker("network", "rm", name).catch(() => undefined);
+  await docker("network", "rm", network).catch(() => undefined);
 }
 
 /** Builds `slug`'s image from the install's Dockerfile, as Coolify does. */
@@ -277,7 +285,7 @@ export async function startApp(
     "--label",
     stack.name,
     "--network",
-    stack.name,
+    network,
     "--name",
     container,
     "--network-alias",
