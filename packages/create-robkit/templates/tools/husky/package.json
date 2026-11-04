@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "postinstall": "husky"
+    "postinstall": "husky || true"
   },
   "devDependencies": {
     "husky": "catalog:",

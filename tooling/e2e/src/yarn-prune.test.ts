@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { copyFile, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,9 +12,13 @@ import { serveTarballs, type FakeRegistry } from "./fake-registry.ts";
 const exec = promisify(execFile);
 
 /** Runs a command, and fails with the end of its output if it does. */
-async function run(command: string, args: string[], { cwd }: { cwd: string }) {
+async function run(
+  command: string,
+  args: string[],
+  { cwd, env }: { cwd: string; env?: NodeJS.ProcessEnv },
+) {
   try {
-    return await exec(command, args, { cwd, maxBuffer: 1 << 26 });
+    return await exec(command, args, { cwd, env, maxBuffer: 1 << 26 });
   } catch (error) {
     const { stdout = "", stderr = "" } = error as {
       stdout?: string;
@@ -28,6 +33,11 @@ async function run(command: string, args: string[], { cwd }: { cwd: string }) {
 
 /** A yarn install's dependencies, installed as yarn's Dockerfile does. */
 const frozenInstall = ["install", "--immutable"];
+
+/** Then the app's production dependencies alone, for its runtime image. */
+function productionInstall(slug: string): string[] {
+  return ["workspaces", "focus", "--production", `@internal/${slug}-app`];
+}
 
 // turbo can't prune a yarn lockfile that takes robkit's packages from a
 // path, as --link and robkit vendor do, since yarn ties each path to the
@@ -72,7 +82,7 @@ describe("a yarn install that takes robkit's packages from a registry", () => {
   });
 
   it.each(["core", "hub", "admin", "example"])(
-    "prunes %s with turbo, and the pruned install passes frozen",
+    "prunes %s with turbo, and the pruned install passes frozen and production-only",
     { timeout: 300_000 },
     async (slug) => {
       const out = join(dir, `out-${slug}`);
@@ -94,6 +104,16 @@ describe("a yarn install that takes robkit's packages from a registry", () => {
       await expect(
         run("yarn", frozenInstall, { cwd: join(out, "json") }),
       ).resolves.toBeDefined();
+      expect(existsSync(join(out, "json/node_modules/typescript"))).toBe(true);
+
+      await rm(join(out, "json/node_modules"), { recursive: true });
+      await run("yarn", productionInstall(slug), {
+        cwd: join(out, "json"),
+        env: { ...process.env, NODE_ENV: "production" },
+      });
+
+      expect(existsSync(join(out, "json/node_modules/typescript"))).toBe(false);
+      expect(existsSync(join(out, "json/node_modules/hono"))).toBe(true);
     },
   );
 });

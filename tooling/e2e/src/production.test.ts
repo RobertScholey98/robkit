@@ -14,6 +14,7 @@ import {
 import {
   answers,
   buildApp,
+  extraneousPackages,
   hostEnv,
   startApp,
   startStack,
@@ -122,6 +123,13 @@ describe.each(installs)("the %s install in production", (_, choices) => {
       stylesheets: choices.uiKit ? [200] : [],
     });
   });
+
+  it.each(["core", "hub", "admin", "example"])(
+    "builds %s's image with no package production doesn't need",
+    async (slug) => {
+      expect(await extraneousPackages(stack, slug)).toEqual([]);
+    },
+  );
 
   it("refuses the test code", async () => {
     expect(await testCodeAnswer(stack.addresses)).toBe(
