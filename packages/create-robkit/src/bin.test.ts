@@ -48,8 +48,7 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       [],
       [
         ["Where should robkit create the install?", `my-app${keys.enter}`],
-        // bun and yarn come later, so down stays on pnpm.
-        ["Which package manager?", keys.down + keys.enter],
+        ["Which package manager?", keys.enter],
         ["Which ORM?", keys.enter],
         ["Add a shared React UI kit?", keys.enter],
         [

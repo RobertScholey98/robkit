@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { format } from "prettier";
+import { format, getFileInfo } from "prettier";
 import {
   choiceTable,
   type Choice,
@@ -285,6 +285,28 @@ async function renderSettings(
   }));
 }
 
+/**
+ * Spells the pnpm commands and files in `files` for `packageManager`, and
+ * formats each file that changed, so its lines still fit Prettier's width.
+ */
+export async function spellFor(
+  files: Files,
+  packageManager: PackageManager,
+): Promise<void> {
+  const pm = packageManagers[packageManager];
+  for (const [path, text] of files) {
+    const spelled = pm.spell(text);
+    if (spelled === text) continue;
+    const { inferredParser } = await getFileInfo(path);
+    files.set(
+      path,
+      inferredParser === null
+        ? spelled
+        : await format(spelled, { filepath: path }),
+    );
+  }
+}
+
 /** The install init writes for `choices`, file by file. */
 export async function generateInstall(
   choices: Choices,
@@ -308,6 +330,7 @@ export async function generateInstall(
     appFiles(example, exampleSlug, { icon: defaultIcon }),
     `apps/${exampleSlug}/`,
   );
+  await spellFor(files, choices.packageManager);
 
   // The catalog covers every stack robkit add offers, so adding an app
   // needs no version the install lacks.

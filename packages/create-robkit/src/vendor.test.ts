@@ -31,6 +31,23 @@ describe("vendorPackages", () => {
     }
   }, 120_000);
 
+  it("points a bun install's overrides in package.json at the tarballs", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
+    await init({ ...defaultChoices, packageManager: "bun" }, dir, {
+      link: true,
+    });
+
+    await vendorPackages(dir);
+
+    const { overrides } = JSON.parse(
+      await readFile(join(dir, "package.json"), "utf8"),
+    ) as { overrides: Record<string, string> };
+    expect(overrides["@robkit/core"]).toBe(
+      "file:vendor/robkit/robkit-core-0.0.0.tgz",
+    );
+    expect(Object.keys(overrides)).toHaveLength(8);
+  }, 120_000);
+
   it("refuses an install that isn't linked to a robkit checkout", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
     await init(defaultChoices, dir);
