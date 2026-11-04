@@ -21,7 +21,7 @@ describe("the default install", () => {
 
 /**
  * The installs whose own CI steps run: the default and one per other ORM.
- * The Kysely install runs bun's workflow.
+ * The Prisma install runs yarn's workflow and the Kysely install bun's.
  */
 const ciInstalls = ["start", "prisma", "kysely"] as const;
 
@@ -39,7 +39,7 @@ describe.each(ciInstalls)("the %s install", (name) => {
     // running journeys would touch the files under their core and restart it.
     const steps = runs.filter((step) => !/^\w+ install\b/.test(step));
     expect(steps).toContainEqual(
-      expect.stringMatching(/^(pnpm|bun run) build$/),
+      expect.stringMatching(/^(pnpm|(bun|yarn) run) build$/),
     );
     for (const step of steps) {
       // A failing step rejects with its output.

@@ -42,6 +42,9 @@ const installs: [string, Choices][] = [
   // Base UI stands for both, and Chakra's server-rendered styles get a run.
   ["Prisma", { ...defaultChoices, orm: "prisma", uiKit: "chakra" }],
   // bun installs the Kysely install, so its Dockerfile gets a run too.
+  // yarn's can't yet: turbo can't prune a yarn lockfile that takes
+  // robkit's packages from vendored tarballs, so a yarn install deploys
+  // once they're on npm. yarn-prune.test.ts checks its prune instead.
   [
     "Kysely on bun",
     {

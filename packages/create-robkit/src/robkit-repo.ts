@@ -13,7 +13,14 @@ export interface RobkitRepo {
   /** The root manifest's `packageManager`, such as `pnpm@11.28.9`. */
   packageManager: string;
   /** The `@robkit/*` packages and create-robkit, by name. */
-  packages: Map<string, { version: string; dir: string }>;
+  packages: Map<string, RobkitPackage>;
+}
+
+export interface RobkitPackage {
+  version: string;
+  dir: string;
+  /** Its `dependencies`, as its manifest writes them, such as `catalog:`. */
+  dependencies: Record<string, string>;
 }
 
 const robkitRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -22,6 +29,7 @@ interface Manifest {
   name?: string;
   version?: string;
   packageManager?: string;
+  dependencies?: Record<string, string>;
 }
 
 async function readManifest(dir: string): Promise<Manifest> {
@@ -41,15 +49,15 @@ export async function readRobkitRepo(): Promise<RobkitRepo> {
     throw new Error("robkit's package.json has no packageManager");
   }
 
-  const packages = new Map<string, { version: string; dir: string }>();
+  const packages = new Map<string, RobkitPackage>();
   const packagesDir = join(robkitRoot, "packages");
   for (const entry of await readdir(packagesDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const dir = join(packagesDir, entry.name);
-    const { name, version } = await readManifest(dir);
+    const { name, version, dependencies = {} } = await readManifest(dir);
     // An install takes create-robkit for robkit add.
     if ((name?.startsWith("@robkit/") || name === "create-robkit") && version) {
-      packages.set(name, { version, dir });
+      packages.set(name, { version, dir, dependencies });
     }
   }
 

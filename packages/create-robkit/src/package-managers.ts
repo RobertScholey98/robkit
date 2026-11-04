@@ -1,6 +1,7 @@
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import type { PackageManager } from "./choices.ts";
+import type { Files } from "./generate.ts";
 import type { RobkitRepo } from "./robkit-repo.ts";
 
 /**
@@ -21,20 +22,26 @@ export interface Settings {
 
 /** Everything about an install that differs per package manager. */
 export interface PackageManagerAdapter {
-  /** The file that holds the manager's settings. */
-  readonly settingsFile: string;
+  /** The files that hold the manager's settings. */
+  readonly settingsFiles: readonly string[];
   /** The lockfile an install writes. */
   readonly lockfile: string;
+  /**
+   * How `--link` points the install at a package in a robkit checkout.
+   * `portal` installs the package's own dependencies from the install's
+   * catalog, and links its bins, as a package from npm does.
+   */
+  readonly linkProtocol: "link" | "portal";
   /** Installs a new install's dependencies, which have no lockfile yet. */
   readonly install: string;
   /** How a person runs one of the install's scripts, arguments included. */
   run(script: string): string;
   /** The root manifest's `packageManager`, such as `pnpm@11.28.9`. */
   packageManagerOf(repo: RobkitRepo): string;
-  /** The settings file's text with each of `settings` written into it. */
-  writeSettings(text: string, settings: Settings): Promise<string>;
-  /** The overrides the settings file's text holds. */
-  overridesIn(text: string): Record<string, string>;
+  /** Writes each of `settings` into its settings file in `files`. */
+  writeSettings(files: Files, settings: Settings): Promise<void>;
+  /** The overrides the settings files in `files` hold. */
+  overridesIn(files: Files): Record<string, string>;
   /**
    * A template file's text with the pnpm commands and files it names
    * spelled for this manager. The templates are written for pnpm.
@@ -42,15 +49,18 @@ export interface PackageManagerAdapter {
   spell(text: string): string;
 }
 
+const pnpmSettings = "pnpm-workspace.yaml";
+
 const pnpm: PackageManagerAdapter = {
-  settingsFile: "pnpm-workspace.yaml",
+  settingsFiles: [pnpmSettings],
+  linkProtocol: "link",
   lockfile: "pnpm-lock.yaml",
   // pnpm on CI refuses an install with no lockfile unless told.
   install: "pnpm install --no-frozen-lockfile",
   run: (script) => `pnpm ${script}`,
   packageManagerOf: (repo) => repo.packageManager,
-  async writeSettings(text, { catalog, builds, overrides }) {
-    const workspace = parseDocument(text);
+  async writeSettings(files, { catalog, builds, overrides }) {
+    const workspace = parseDocument(files.get(pnpmSettings) ?? "");
     for (const [name, allowed] of Object.entries(builds ?? {})) {
       workspace.setIn(["allowBuilds", name], allowed);
     }
@@ -58,10 +68,13 @@ const pnpm: PackageManagerAdapter = {
     for (const [name, spec] of Object.entries(overrides ?? {})) {
       workspace.setIn(["overrides", name], spec);
     }
-    return format(workspace.toString(), { filepath: this.settingsFile });
+    files.set(
+      pnpmSettings,
+      await format(workspace.toString(), { filepath: pnpmSettings }),
+    );
   },
-  overridesIn(text) {
-    const workspace = parseDocument(text).toJS() as {
+  overridesIn(files) {
+    const workspace = parseDocument(files.get(pnpmSettings) ?? "").toJS() as {
       overrides?: Record<string, string>;
     };
     return workspace.overrides ?? {};
@@ -70,6 +83,16 @@ const pnpm: PackageManagerAdapter = {
 };
 
 type Json = Record<string, unknown>;
+
+/** The install's root manifest in `files`. */
+function manifestIn(files: Files): Json {
+  return JSON.parse(files.get("package.json") ?? "{}") as Json;
+}
+
+/** `json` as Prettier writes a `package.json`. */
+function formatJson(json: Json): Promise<string> {
+  return format(JSON.stringify(json), { filepath: "package.json" });
+}
 
 /**
  * How bun spells what the templates name for pnpm, in the order they apply.
@@ -89,13 +112,20 @@ const bunSpellings: [RegExp, string][] = [
 ];
 
 /**
- * Spells one line for bun. A line that lines its comment up, as a command
- * list does, keeps the comment in the same column.
+ * Spells `text` with `spellings`, line by line. A line that lines its
+ * comment up, as a command list does, keeps the comment in the same column.
  */
-function spellLineForBun(line: string): string {
+function spellWith(spellings: [RegExp, string][], text: string): string {
+  return text
+    .split("\n")
+    .map((line) => spellLine(spellings, line))
+    .join("\n");
+}
+
+function spellLine(spellings: [RegExp, string][], line: string): string {
   let spelled = line;
-  for (const [pnpmSpelling, bunSpelling] of bunSpellings) {
-    spelled = spelled.replace(pnpmSpelling, bunSpelling);
+  for (const [pnpmSpelling, spelling] of spellings) {
+    spelled = spelled.replace(pnpmSpelling, spelling);
   }
   const comment = linedUpComment.exec(line);
   return comment === null || spelled === line
@@ -116,7 +146,8 @@ function alignComment(line: string, column: number): string {
 }
 
 const bun: PackageManagerAdapter = {
-  settingsFile: "package.json",
+  settingsFiles: ["package.json"],
+  linkProtocol: "link",
   lockfile: "bun.lock",
   install: "bun install",
   run: (script) => `bun run ${script}`,
@@ -126,8 +157,8 @@ const bun: PackageManagerAdapter = {
       throw new Error("bun has no version in robkit's catalog");
     return `bun@${version}`;
   },
-  async writeSettings(text, { catalog, builds, overrides }) {
-    const manifest = JSON.parse(text) as Json;
+  async writeSettings(files, { catalog, builds, overrides }) {
+    const manifest = manifestIn(files);
     if (catalog) {
       manifest.workspaces = {
         ...(manifest.workspaces as Json | undefined),
@@ -148,15 +179,84 @@ const bun: PackageManagerAdapter = {
         ...overrides,
       };
     }
-    return format(JSON.stringify(manifest), { filepath: this.settingsFile });
+    files.set("package.json", await formatJson(manifest));
   },
-  overridesIn(text) {
-    const { overrides } = JSON.parse(text) as {
+  overridesIn(files) {
+    const { overrides } = manifestIn(files) as {
       overrides?: Record<string, string>;
     };
     return overrides ?? {};
   },
-  spell: (text) => text.split("\n").map(spellLineForBun).join("\n"),
+  spell: (text) => spellWith(bunSpellings, text),
+};
+
+/**
+ * How yarn spells what the templates name for pnpm, in the order they
+ * apply. yarn runs a script as `yarn run <script>` and a dependency's
+ * binary as `yarn <binary>`.
+ */
+const yarnSpellings: [RegExp, string][] = [
+  [/pnpm-workspace\.yaml/g, ".yarnrc.yml"],
+  [/pnpm-lock\.yaml/g, "yarn.lock"],
+  [/\bpnpm exec /g, "yarn "],
+  [/\bpnpm install --frozen-lockfile\b/g, "yarn install --immutable"],
+  [/\bpnpm install\b/g, "yarn install"],
+  [/\bpnpm (run )?(?=[\w:-])/g, "yarn run "],
+];
+
+const yarnSettings = ".yarnrc.yml";
+
+const yarn: PackageManagerAdapter = {
+  settingsFiles: [yarnSettings, "package.json"],
+  // yarn links no bins from a link: package, and an install runs
+  // robkit-dev and robkit.
+  linkProtocol: "portal",
+  lockfile: "yarn.lock",
+  // yarn on CI refuses to write a lockfile unless told.
+  install: "yarn install --no-immutable",
+  run: (script) => `yarn run ${script}`,
+  packageManagerOf(repo) {
+    // yarn's own bundle, which npm installs without Corepack.
+    const version = repo.catalog.get("@yarnpkg/cli-dist");
+    if (version === undefined)
+      throw new Error("yarn has no version in robkit's catalog");
+    return `yarn@${version}`;
+  },
+  async writeSettings(files, { catalog, builds, overrides }) {
+    if (catalog) {
+      const settings = parseDocument(files.get(yarnSettings) ?? "");
+      settings.set("catalog", catalog);
+      files.set(
+        yarnSettings,
+        await format(settings.toString(), { filepath: yarnSettings }),
+      );
+    }
+    const manifest = manifestIn(files);
+    if (builds && Object.keys(builds).length > 0) {
+      // .yarnrc.yml turns install scripts off, and these turn each back on
+      // or keep it off.
+      manifest.dependenciesMeta = {
+        ...(manifest.dependenciesMeta as Json | undefined),
+        ...Object.fromEntries(
+          Object.entries(builds).map(([name, built]) => [name, { built }]),
+        ),
+      };
+    }
+    if (overrides) {
+      manifest.resolutions = {
+        ...(manifest.resolutions as Json | undefined),
+        ...overrides,
+      };
+    }
+    files.set("package.json", await formatJson(manifest));
+  },
+  overridesIn(files) {
+    const { resolutions } = manifestIn(files) as {
+      resolutions?: Record<string, string>;
+    };
+    return resolutions ?? {};
+  },
+  spell: (text) => spellWith(yarnSpellings, text),
 };
 
 /**
@@ -167,4 +267,5 @@ const bun: PackageManagerAdapter = {
 export const packageManagers: Record<PackageManager, PackageManagerAdapter> = {
   pnpm,
   bun,
+  yarn,
 };

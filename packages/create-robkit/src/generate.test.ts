@@ -641,9 +641,131 @@ describe("generateInstall", () => {
     });
   });
 
-  it.each(["pnpm", "bun"] as const)(
+  describe("for yarn", () => {
+    const yarnChoices: Choices = {
+      ...defaultChoices,
+      packageManager: "yarn",
+      orm: "prisma",
+    };
+
+    it("keeps its catalog in .yarnrc.yml, and its workspaces, builds and resolutions in package.json", async () => {
+      const files = await generateInstall(yarnChoices);
+      const manifest = json(files, "package.json") as {
+        packageManager: string;
+        workspaces: string[];
+        dependenciesMeta: Record<string, { built: boolean }>;
+        resolutions?: object;
+      };
+      const settings = parse(files.get(".yarnrc.yml") ?? "") as {
+        nodeLinker: string;
+        enableScripts: boolean;
+        npmMinimalAgeGate: string;
+        catalog: Record<string, string>;
+      };
+
+      expect(files.has("pnpm-workspace.yaml")).toBe(false);
+      expect(manifest.packageManager).toBe("yarn@4.18.1");
+      expect(manifest.workspaces).toEqual([
+        "apps/*",
+        "packages/*",
+        "tooling/*",
+      ]);
+      expect(settings.nodeLinker).toBe("node-modules");
+      expect(settings.npmMinimalAgeGate).toBe("1d");
+      expect(settings.catalog).toMatchObject({
+        "@robkit/core": "0.0.0",
+        "@prisma/client": "7.10.1",
+        turbo: "2.11.10",
+      });
+      // Only the scripts dependenciesMeta allows run.
+      expect(settings.enableScripts).toBe(false);
+      expect(manifest.dependenciesMeta).toEqual({
+        "@prisma/engines": { built: true },
+        prisma: { built: false },
+      });
+      expect(manifest.resolutions).toBeUndefined();
+    });
+
+    it("links the @robkit packages to this checkout with portals, and catalogs what they depend on", async () => {
+      const files = await generateInstall(yarnChoices, { link: true });
+      const { resolutions } = json(files, "package.json") as {
+        resolutions: Record<string, string>;
+      };
+      const { catalog } = parse(files.get(".yarnrc.yml") ?? "") as {
+        catalog: Record<string, string>;
+      };
+      const checkout = fileURLToPath(new URL("../../../", import.meta.url));
+
+      // yarn links no bins from a link: package, and an install runs
+      // robkit-dev and robkit. A portal installs the package's own
+      // dependencies, as a package from npm does.
+      expect(resolutions["@robkit/core"]).toBe(
+        `portal:${checkout.replaceAll("\\", "/")}packages/core`,
+      );
+      expect(Object.keys(resolutions)).toHaveLength(8);
+      // Core's ORM, which this Prisma install's apps don't use.
+      expect(catalog["drizzle-orm"]).toBeDefined();
+    });
+
+    it("catalogs only what its apps use when not linked", async () => {
+      const files = await generateInstall(yarnChoices);
+      const { catalog } = parse(files.get(".yarnrc.yml") ?? "") as {
+        catalog: Record<string, string>;
+      };
+
+      expect(catalog["drizzle-orm"]).toBeUndefined();
+    });
+
+    it("names yarn's commands and files, never pnpm's", async () => {
+      const files = await generateInstall({
+        ...yarnChoices,
+        uiKit: "shadcn-base-ui",
+      });
+
+      const mentions = [...files].filter(([, text]) => text.includes("pnpm"));
+
+      expect(mentions.map(([path]) => path)).toEqual([]);
+      expect(files.get("AGENTS.md")).toContain(
+        "yarn run dev                 # Postgres, core, the hub",
+      );
+      expect(files.get("AGENTS.md")).toContain("`yarn run lint` runs it");
+      expect(files.get("packages/ui/AGENTS.md")).toContain(
+        "yarn shadcn add <component>",
+      );
+      expect(files.get("packages/ui/AGENTS.md")).toContain(
+        "under `catalog:` in `.yarnrc.yml`",
+      );
+      expect(files.get(".prettierignore")).toContain("yarn.lock");
+    });
+
+    it("writes a CI workflow that installs yarn with npm and runs the install's scripts with it", async () => {
+      const files = await generateInstall(yarnChoices);
+      const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+        jobs: Record<string, { steps: { run?: string }[] }>;
+      };
+      const runs = (job: string) =>
+        workflow.jobs[job]?.steps.flatMap((step) => step.run?.trim() ?? []);
+
+      expect(runs("check")).toEqual([
+        expect.stringMatching(/^npm install --global --force .*cli-dist/),
+        "yarn install --immutable",
+        "yarn run lint",
+        expect.stringContaining("yarn run format:check"),
+        "yarn run typecheck",
+        "yarn run test",
+        "yarn run build",
+      ]);
+      expect(runs("deploy")).toContain("yarn run robkit deploy");
+    });
+  });
+
+  it.each([
+    ["pnpm", "pnpm install --frozen-lockfile"],
+    ["bun", "bun install --frozen-lockfile"],
+    ["yarn", "yarn install --immutable"],
+  ] as const)(
     "builds %s's images without Corepack, from a pruned frozen install",
-    async (packageManager) => {
+    async (packageManager, frozenInstall) => {
       const files = await generateInstall({
         ...defaultChoices,
         packageManager,
@@ -652,9 +774,7 @@ describe("generateInstall", () => {
 
       expect(dockerfile.toLowerCase()).not.toMatch(/^run .*corepack/m);
       expect(dockerfile).toContain("turbo prune");
-      expect(dockerfile).toContain(
-        `${packageManager} install --frozen-lockfile`,
-      );
+      expect(dockerfile).toContain(frozenInstall);
     },
   );
 
