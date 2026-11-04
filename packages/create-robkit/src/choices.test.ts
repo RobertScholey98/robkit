@@ -7,7 +7,7 @@ describe("choicesFromFlags", () => {
       packageManager: "pnpm",
       orm: "drizzle",
       uiKit: null,
-      tools: ["eslint-prettier"],
+      tools: ["eslint-prettier", "vitest"],
       generators: ["start", "react-hono"],
     });
   });

@@ -133,6 +133,54 @@ function layersFor(choices: Choices): string[] {
   ].filter((layer) => layer !== undefined);
 }
 
+/**
+ * Drops from `files` what each dev tool `tools` doesn't name leaves out: its
+ * files, its dependencies, and each script that runs one of them.
+ */
+export function leaveOutTools(files: Files, tools: readonly string[]): void {
+  for (const option of choiceTable.tools.options as readonly Option[]) {
+    const { withoutIt } = option;
+    if (withoutIt === undefined || tools.includes(option.value)) continue;
+    for (const path of [...files.keys()]) {
+      if (withoutIt.files.some((end) => `/${path}`.endsWith(end))) {
+        files.delete(path);
+      } else if (basename(path) === "package.json") {
+        editJson(files, path, (json) =>
+          withoutDependencies(json, withoutIt.dependencies),
+        );
+      }
+    }
+  }
+}
+
+/** A manifest without `dependencies`, or any script that runs one. */
+function withoutDependencies(json: Json, dependencies: readonly string[]) {
+  const runsOne = (command: unknown) =>
+    typeof command === "string" &&
+    dependencies.includes(command.split(" ")[0] ?? "");
+  const without = (
+    field: unknown,
+    drop: (key: string, value: unknown) => boolean,
+  ) =>
+    isJson(field)
+      ? Object.fromEntries(
+          Object.entries(field).filter(([key, value]) => !drop(key, value)),
+        )
+      : field;
+  const edited: Json = { ...json };
+  for (const field of ["dependencies", "devDependencies"]) {
+    if (field in edited) {
+      edited[field] = without(edited[field], (name) =>
+        dependencies.includes(name),
+      );
+    }
+  }
+  if ("scripts" in edited) {
+    edited.scripts = without(edited.scripts, (_, command) => runsOne(command));
+  }
+  return edited;
+}
+
 /** The install scripts every answer in `choices` needs, by dependency. */
 function buildsFor(choices: Choices): Record<string, boolean> {
   const t = choiceTable;
@@ -352,6 +400,7 @@ export async function generateInstall(
       stackTemplate(stack, choices.orm, choices.uiKit),
     ),
   );
+  for (const stack of stacks) leaveOutTools(stack, choices.tools);
   const [example] = stacks;
   if (example === undefined) throw new Error("init needs a generator");
   overlay(
@@ -359,6 +408,7 @@ export async function generateInstall(
     appFiles(example, exampleSlug, { icon: defaultIcon }),
     `apps/${exampleSlug}/`,
   );
+  leaveOutTools(files, choices.tools);
   await spellFor(files, choices.packageManager);
 
   // The catalog covers every stack robkit add offers, so adding an app

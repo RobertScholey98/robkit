@@ -55,7 +55,7 @@ describe("generateInstall", () => {
   "packageManager": "pnpm",
   "orm": "drizzle",
   "uiKit": null,
-  "tools": ["eslint-prettier"],
+  "tools": ["eslint-prettier", "vitest"],
   "generators": ["react-hono", "start"]
 }
 `);
@@ -202,6 +202,50 @@ describe("generateInstall", () => {
       { lint: "robkit check && eslint ." },
       { lint: "robkit check" },
     ]);
+  });
+
+  describe("with Vitest off", () => {
+    const isTestFile = (path: string) =>
+      /\.test\.tsx?$|(^|\/)vitest\.config\.ts$/.test(path);
+
+    it.each<[string, Choices]>([
+      ["no kit", { ...defaultChoices, tools: ["eslint-prettier"] }],
+      ["Chakra", { ...defaultChoices, tools: [], uiKit: "chakra" }],
+    ])("leaves the tests and their runner out, with %s", async (_, choices) => {
+      const files = await generateInstall(choices);
+
+      expect([...files.keys()].filter(isTestFile)).toEqual([]);
+      for (const [path, text] of files) {
+        if (!path.endsWith("package.json")) continue;
+        expect(text, path).not.toContain("vitest");
+      }
+      expect(workspace(files).catalog).not.toHaveProperty("vitest");
+      // The root still has a test script, which runs no tasks.
+      expect(json(files, "package.json")).toMatchObject({
+        scripts: { test: "turbo run test" },
+      });
+    });
+
+    it("keeps them when Vitest is on", async () => {
+      const files = await generateInstall({
+        ...defaultChoices,
+        tools: ["vitest"],
+        uiKit: "chakra",
+      });
+
+      expect([...files.keys()].filter(isTestFile)).toEqual(
+        expect.arrayContaining([
+          "apps/admin/vitest.config.ts",
+          "apps/hub/src/core-api.test.ts",
+          "packages/core-client/src/call-core.test.ts",
+          "packages/ui/src/provider.test.tsx",
+        ]),
+      );
+      expect(json(files, "apps/hub/package.json")).toMatchObject({
+        scripts: { test: "vitest run" },
+        devDependencies: { vitest: "catalog:" },
+      });
+    });
   });
 
   it("pins every catalog dependency at robkit's version", async () => {
