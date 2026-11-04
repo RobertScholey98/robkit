@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -521,6 +522,32 @@ describe("generateInstall", () => {
     expect(chakra.get("apps/example/src/routes/index.tsx")).toContain(
       'from "@internal/ui"',
     );
+  });
+
+  it.each<[string, Choices]>([
+    ["the default", defaultChoices],
+    ["no tools", { ...defaultChoices, tools: [] }],
+    [
+      "Prisma on Radix",
+      { ...defaultChoices, orm: "prisma", uiKit: "shadcn-radix" },
+    ],
+    [
+      "Kysely on Base UI",
+      { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" },
+    ],
+    ["Chakra with Hono first", { ...honoFirst, uiKit: "chakra" }],
+  ])("keeps every file of %s pnpm install", async (_, choices) => {
+    const files = await generateInstall(choices);
+
+    // A digest per file: any change to a pnpm install's output fails here.
+    expect(
+      Object.fromEntries(
+        [...files].map(([path, text]) => [
+          path,
+          createHash("sha256").update(text).digest("hex").slice(0, 16),
+        ]),
+      ),
+    ).toMatchSnapshot();
   });
 
   it("gives the example app its stack's agent files", async () => {
