@@ -8,6 +8,7 @@ import {
 } from "@robkit/session/addresses";
 import { choicesFromFlags, choiceTable } from "./choices.ts";
 import { init } from "./init.ts";
+import { packageManagers } from "./package-managers.ts";
 import { usage } from "./usage.ts";
 import { askInit, commandFor } from "./wizard.ts";
 
@@ -52,13 +53,13 @@ try {
     folder: given ?? fail(usage),
   };
   const choices = choicesFromFlags(picked);
-  const pm = choices.packageManager;
+  const pm = packageManagers[choices.packageManager];
   const dir = resolve(folder);
   await init(choices, dir, { link, install });
   console.log(`Wrote a robkit install in ${dir}. Next:
 
-  cd ${folder}${install ? "" : `\n  ${pm} install`}
-  ${pm} dev
+  cd ${folder}${install ? "" : `\n  ${choices.packageManager} install`}
+  ${pm.run("dev")}
 
 Then open ${hubOrigin}, claim the install as its owner,
 or sign in as a guest with the code test.`);

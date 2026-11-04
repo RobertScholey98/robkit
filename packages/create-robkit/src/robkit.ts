@@ -19,6 +19,7 @@ import {
 import { checkInstall, describeProblem } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
+import { packageManagers } from "./package-managers.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
@@ -210,17 +211,17 @@ async function add(): Promise<void> {
   if (hasDependencies) {
     await installDependencies(root, installed.packageManager);
   }
-  const pm = installed.packageManager;
+  const pm = packageManagers[installed.packageManager];
   console.log(`Added apps/${choices.slug}. Next:
-${hasDependencies ? "" : `\n  ${pm} install`}
-  ${pm} dev
+${hasDependencies ? "" : `\n  ${installed.packageManager} install`}
+  ${pm.run("dev")}
 
 Then open ${dev.origin(choices.slug)}.`);
   if (asked) {
     console.log(`
 The same app without the questions:
 
-  ${addCommandFor(choices)}`);
+  ${pm.run(addCommandFor(choices))}`);
   }
 }
 

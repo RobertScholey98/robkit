@@ -74,7 +74,10 @@ export function appChoicesFromFlags(
   };
 }
 
-/** The command that adds the same app without asking. */
+/**
+ * The robkit command that adds the same app without asking, as the
+ * install's `robkit` script takes it.
+ */
 export function addCommandFor({
   stack,
   slug,
@@ -83,7 +86,7 @@ export function addCommandFor({
   uiKit,
 }: AppChoices) {
   return [
-    `pnpm robkit add ${slug}`,
+    `robkit add ${slug}`,
     `--stack ${stack}`,
     `--access ${access.kind}`,
     ...(access.kind === "roles" ? [`--roles "${access.roles.join(",")}"`] : []),
