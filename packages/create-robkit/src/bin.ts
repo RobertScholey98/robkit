@@ -1,22 +1,18 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { choicesFromFlags } from "./choices.ts";
+import { choicesFromFlags, choiceTable } from "./choices.ts";
 import { init } from "./init.ts";
+import { usage } from "./usage.ts";
 import { askInit, commandFor } from "./wizard.ts";
 
-const usage = `Usage: npm create robkit [folder] -- [options]
-
-With no options, init asks for each one.
-
-  --pm <name>             package manager: pnpm
-  --orm <name>            ORM: drizzle
-  --generators <list>     stacks robkit add offers, the first making the
-                          example app: start, react-hono
-  --tools <list>          dev tools: eslint-prettier, or none
-  --install               install dependencies and initialise git
-  --link                  link the @robkit packages to the robkit checkout
-                          this runs from, instead of installing them from npm`;
+/** Each choice's flag, from the table, as `parseArgs` takes it. */
+const choiceFlags = Object.fromEntries(
+  Object.values(choiceTable).map(({ flag }) => [
+    flag,
+    { type: "string" } as const,
+  ]),
+);
 
 function fail(message: string): never {
   throw new Error(message);
@@ -26,10 +22,7 @@ try {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
-      pm: { type: "string" },
-      orm: { type: "string" },
-      generators: { type: "string" },
-      tools: { type: "string" },
+      ...choiceFlags,
       install: { type: "boolean" },
       link: { type: "boolean" },
     },

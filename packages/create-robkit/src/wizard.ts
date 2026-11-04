@@ -7,59 +7,89 @@ import {
   select,
   text,
 } from "@clack/prompts";
-import * as choices from "./choices.ts";
+import {
+  choiceTable,
+  defaultChoices,
+  listFlag,
+  type Choice,
+  type Option,
+  type Flags,
+} from "./choices.ts";
 import { folderInUse } from "./write.ts";
 
 /**
  * init's answers, as the flags that make the same install. The choice flags
  * come in the order init asks them, which is the order the command prints.
  */
-export type Answers = { [Flag in keyof choices.Flags]-?: string } & {
+export type Answers = { [Flag in keyof Flags]-?: string } & {
   folder: string;
   install: boolean;
 };
 
-/** What init calls each option whose value isn't its name. */
-const labels: Record<string, string> = {
-  drizzle: "Drizzle",
-  prisma: "Prisma",
-  kysely: "Kysely",
-  start: "TanStack Start",
-  "react-hono": "React + Hono",
-  next: "Next.js",
-  express: "React + Express",
-  go: "React + Go",
-  "eslint-prettier": "ESLint + Prettier",
-  vitest: "Vitest",
-  playwright: "Playwright",
-  husky: "Husky + lint-staged",
-};
+/**
+ * The options init offers for `choice`, from the table: the ones it can
+ * make, then the ones a later release adds, shown but not yet selectable.
+ */
+export function optionsFor(choice: Choice, recommended?: string) {
+  const ready = choice.options.filter((option) => !option.comingLater);
+  const later = choice.options.filter((option) => option.comingLater);
+  return [
+    ...ready.map(({ value, label, hint }) => ({
+      value,
+      label,
+      ...(value === recommended
+        ? { hint: "recommended" }
+        : hint !== undefined && { hint }),
+    })),
+    ...later.map(({ value, label }) => ({
+      value,
+      label,
+      hint: "coming later",
+      disabled: true,
+    })),
+  ];
+}
+
+/** "a, b or c". */
+function orList(items: string[]): string {
+  const last = items.at(-1) ?? "";
+  return items.length > 1
+    ? `${items.slice(0, -1).join(", ")} or ${last}`
+    : last;
+}
 
 /**
- * The options init offers: the ones it can make, then the ones a later
- * release adds, shown but not yet selectable.
+ * Asks whether to add a UI kit, then which, and answers as `--ui-kit` takes
+ * it. Yes is disabled until a kit is ready.
  */
-function optionsFor(
-  ready: readonly string[],
-  comingLater: string[],
-  recommended?: string,
-) {
-  const label = (value: string) => labels[value] ?? value;
-  return [
-    ...ready.map((value) => ({
-      value,
-      label: label(value),
-      ...(value === recommended && { hint: "recommended" }),
-    })),
-    ...comingLater
-      .filter((value) => !ready.includes(value))
-      .map((value) => ({
-        value,
-        label: label(value),
-        hint: "coming later",
-        disabled: true,
-      })),
-  ];
+async function askUiKit(): Promise<string> {
+  // Widened from the table's literal types, which know no kit is ready yet.
+  const uiKit: Choice = choiceTable.uiKit;
+  const [none, ...kits] = uiKit.options as [Option, ...Option[]];
+  const ready = kits.filter((kit) => !kit.comingLater);
+  const answer = answered(
+    await select({
+      message: uiKit.question,
+      options: [
+        ...optionsFor({ ...uiKit, options: [none] }),
+        {
+          value: "yes",
+          label: "Yes",
+          ...(ready.length === 0 && {
+            hint: `${orList(kits.map((kit) => kit.label))}, coming later`,
+            disabled: true,
+          }),
+        },
+      ],
+    }),
+  );
+  if (answer === none.value) return none.value;
+  return answered(
+    await select({
+      message: "Which UI kit?",
+      options: optionsFor({ ...uiKit, options: kits }),
+    }),
+  );
 }
 
 function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
@@ -103,52 +133,32 @@ export async function askInit(folder?: string): Promise<Answers> {
         validate: (answer) => folderProblem(answer ?? defaultFolder),
       }),
     );
+  const { packageManager, orm, generators, tools } = choiceTable;
   const pm = answered(
     await select({
-      message: "Which package manager?",
-      options: optionsFor(
-        choices.packageManagers,
-        ["bun", "yarn"],
-        choices.defaultChoices.packageManager,
-      ),
+      message: packageManager.question,
+      options: optionsFor(packageManager, defaultChoices.packageManager),
     }),
   );
-  const orm = answered(
+  const ormAnswer = answered(
     await select({
-      message: "Which ORM?",
-      options: optionsFor(
-        choices.orms,
-        ["prisma", "kysely"],
-        choices.defaultChoices.orm,
-      ),
+      message: orm.question,
+      options: optionsFor(orm, defaultChoices.orm),
     }),
   );
-  answered(
-    await select({
-      message: "Add a shared React UI kit?",
-      options: [
-        { value: "no", label: "No", hint: "the hub and admin use Tailwind" },
-        {
-          value: "yes",
-          label: "Yes",
-          hint: "shadcn or Chakra UI, coming later",
-          disabled: true,
-        },
-      ],
-    }),
-  );
-  const generators = answered(
+  const uiKit = await askUiKit();
+  const stacks = answered(
     await multiselect({
-      message: "Which app generators should robkit add offer?",
-      options: optionsFor(choices.generators, ["next", "express", "go"]),
-      initialValues: [...choices.defaultChoices.generators],
+      message: generators.question,
+      options: optionsFor(generators),
+      initialValues: [...defaultChoices.generators],
     }),
   );
-  const tools = answered(
+  const devTools = answered(
     await multiselect({
-      message: "Which dev tools?",
-      options: optionsFor(choices.tools, ["vitest", "playwright", "husky"]),
-      initialValues: [...choices.defaultChoices.tools],
+      message: tools.question,
+      options: optionsFor(tools),
+      initialValues: [...defaultChoices.tools],
       required: false,
     }),
   );
@@ -158,9 +168,10 @@ export async function askInit(folder?: string): Promise<Answers> {
   return {
     folder: where,
     pm,
-    orm,
-    generators: choices.listFlag(generators),
-    tools: choices.listFlag(tools),
+    orm: ormAnswer,
+    "ui-kit": uiKit,
+    generators: listFlag(stacks),
+    tools: listFlag(devTools),
     install,
   };
 }

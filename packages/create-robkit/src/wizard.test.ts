@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { commandFor, type Answers } from "./wizard.ts";
+import { choiceTable } from "./choices.ts";
+import { commandFor, optionsFor, type Answers } from "./wizard.ts";
 
 const answers: Answers = {
   folder: "family-apps",
   pm: "pnpm",
   orm: "drizzle",
+  "ui-kit": "none",
   generators: "start",
   tools: "none",
   install: true,
@@ -13,7 +15,7 @@ const answers: Answers = {
 describe("commandFor", () => {
   it("asks for the install", () => {
     expect(commandFor(answers)).toBe(
-      "npm create robkit@latest family-apps -- --pm pnpm --orm drizzle --generators start --tools none --install",
+      "npm create robkit@latest family-apps -- --pm pnpm --orm drizzle --ui-kit none --generators start --tools none --install",
     );
   });
 
@@ -24,5 +26,33 @@ describe("commandFor", () => {
     expect(
       commandFor({ ...answers, folder: String.raw`C:\apps\family` }),
     ).toContain(String.raw`npm create robkit@latest "C:\apps\family" --`);
+  });
+});
+
+describe("optionsFor", () => {
+  it("offers the table's ready options, then the ones coming later", () => {
+    expect(optionsFor(choiceTable.orm, "drizzle")).toEqual([
+      { value: "drizzle", label: "Drizzle", hint: "recommended" },
+      {
+        value: "prisma",
+        label: "Prisma",
+        hint: "coming later",
+        disabled: true,
+      },
+      {
+        value: "kysely",
+        label: "Kysely",
+        hint: "coming later",
+        disabled: true,
+      },
+    ]);
+  });
+
+  it("shows an option's own hint", () => {
+    expect(optionsFor(choiceTable.uiKit)[0]).toEqual({
+      value: "none",
+      label: "No",
+      hint: "the hub and admin use Tailwind",
+    });
   });
 });

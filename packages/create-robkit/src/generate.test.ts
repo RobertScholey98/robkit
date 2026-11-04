@@ -1,7 +1,14 @@
+import { stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { defaultChoices, type Choices } from "./choices.ts";
+import {
+  choiceTable,
+  defaultChoices,
+  readyOptions,
+  type Choice,
+  type Choices,
+} from "./choices.ts";
 import { generateInstall, type Files } from "./generate.ts";
 
 function json(files: Files, path: string): unknown {
@@ -137,5 +144,21 @@ describe("generateInstall", () => {
 
     expect(files.get(".gitignore")).toContain("node_modules/");
     expect(files.has("gitignore")).toBe(false);
+  });
+
+  it("has a template folder for every layer the choice table names", async () => {
+    const table: Choice[] = Object.values(choiceTable);
+    const layers = table.flatMap((choice) =>
+      readyOptions(choice).flatMap((option) => option.layer ?? []),
+    );
+
+    expect(layers).toContain("stacks/start");
+    for (const layer of layers) {
+      const dir = new URL(`../templates/${layer}/`, import.meta.url);
+      expect((await stat(dir)).isDirectory(), layer).toBe(true);
+    }
+    for (const stack of readyOptions(choiceTable.generators)) {
+      expect(stack.layer, stack.value).toBeDefined();
+    }
   });
 });
