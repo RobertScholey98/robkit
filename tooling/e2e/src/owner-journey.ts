@@ -1,5 +1,6 @@
 import { decodeJwt, importJWK, SignJWT, type JWK } from "jose";
-import { chromium, type Page } from "playwright";
+import type { Page } from "playwright";
+import { launch } from "./browser.ts";
 import postgres from "postgres";
 import type { Install } from "@robkit/session/addresses";
 
@@ -78,7 +79,7 @@ export async function ownerJourney({
   password,
 }: JourneyOptions): Promise<Journey> {
   const example = `${install.origin("example")}/`;
-  const browser = await chromium.launch();
+  const browser = await launch();
   try {
     const context = await browser.newContext();
     const page = await context.newPage();

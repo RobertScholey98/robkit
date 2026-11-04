@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
 /** How the hub's sign-in page draws its card and its primary button. */
@@ -32,7 +32,7 @@ export const changedTheme = {
 export async function themeJourney({
   install,
 }: Pick<JourneyOptions, "install">): Promise<ThemeJourney> {
-  const browser = await chromium.launch();
+  const browser = await launch();
   try {
     const page = await (await browser.newContext()).newPage();
     await page.goto(`${install.origin("hub")}/`);
