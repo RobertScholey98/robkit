@@ -227,6 +227,70 @@ describe("generateInstall", () => {
     expect(none.get("AGENTS.md")).not.toContain("Vitest");
   });
 
+  describe("with Husky", () => {
+    it("sets up a pre-commit hook that runs lint-staged as the install installs", async () => {
+      const files = await generateInstall({
+        ...defaultChoices,
+        tools: ["husky"],
+      });
+
+      expect(files.get(".husky/pre-commit")).toBe("pnpm exec lint-staged\n");
+      expect(json(files, "package.json")).toMatchObject({
+        scripts: { postinstall: "husky" },
+        devDependencies: { husky: "catalog:", "lint-staged": "catalog:" },
+      });
+      expect(workspace(files).catalog).toMatchObject({
+        husky: "9.1.7",
+        "lint-staged": "17.6.0",
+      });
+    });
+
+    it("checks the layer rule before each commit, and ESLint and Prettier the staged files when the install has them", async () => {
+      const alone = await generateInstall({
+        ...defaultChoices,
+        tools: ["husky"],
+      });
+      const withEslint = await generateInstall({
+        ...defaultChoices,
+        tools: ["eslint-prettier", "husky"],
+      });
+
+      expect(alone.get("lint-staged.config.js")).toContain(
+        '() => "robkit check"',
+      );
+      expect(alone.get("lint-staged.config.js")).not.toMatch(/eslint|prettier/);
+      expect(withEslint.get("lint-staged.config.js")).toContain(
+        '() => "robkit check"',
+      );
+      expect(withEslint.get("lint-staged.config.js")).toContain("eslint --fix");
+      expect(withEslint.get("lint-staged.config.js")).toContain(
+        "prettier --write",
+      );
+    });
+
+    it("spells the hook for the install's package manager", async () => {
+      const hookFor = async (packageManager: Choices["packageManager"]) =>
+        (
+          await generateInstall({
+            ...defaultChoices,
+            packageManager,
+            tools: ["husky"],
+          })
+        ).get(".husky/pre-commit");
+
+      expect(await hookFor("bun")).toBe("bunx lint-staged\n");
+      expect(await hookFor("yarn")).toBe("yarn lint-staged\n");
+    });
+
+    it("leaves Husky out of an install without it", async () => {
+      const files = await generateInstall(defaultChoices);
+
+      expect(files.has(".husky/pre-commit")).toBe(false);
+      expect(files.has("lint-staged.config.js")).toBe(false);
+      expect(files.get("package.json")).not.toMatch(/husky|lint-staged/);
+    });
+  });
+
   describe("with Vitest off", () => {
     const isTestFile = (path: string) =>
       /\.test\.tsx?$|(^|\/)vitest\.config\.ts$/.test(path);
@@ -331,10 +395,14 @@ describe("generateInstall", () => {
   it("has a template folder for every layer the choice table names", async () => {
     const table: Choice[] = Object.values(choiceTable);
     const layers = table.flatMap((choice) =>
-      readyOptions(choice).flatMap((option) => option.layer ?? []),
+      readyOptions(choice).flatMap((option: Option) => [
+        ...(option.layer === undefined ? [] : [option.layer]),
+        ...Object.values(option.with ?? {}),
+      ]),
     );
 
     expect(layers).toContain("stacks/start");
+    expect(layers).toContain("tools/husky-eslint-prettier");
     for (const layer of layers) {
       const dir = new URL(`../templates/${layer}/`, import.meta.url);
       expect((await stat(dir)).isDirectory(), layer).toBe(true);

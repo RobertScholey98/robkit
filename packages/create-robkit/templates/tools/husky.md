@@ -1,0 +1,1 @@
+- **Husky and lint-staged.** Before each commit, a hook in `.husky/pre-commit` runs lint-staged, which runs what `lint-staged.config.js` names on the staged files and refuses the commit if any of it fails. `pnpm install` sets the hook up.

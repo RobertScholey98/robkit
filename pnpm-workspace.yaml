@@ -37,8 +37,10 @@ catalog:
   eslint: 10.13.0
   globals: 17.13.0
   hono: 4.13.14
+  husky: 9.1.7
   jose: 6.2.13
   kysely: 0.29.8
+  lint-staged: 17.6.0
   lucide-react: 1.66.0
   pg: 8.23.1
   playwright: 1.64.1

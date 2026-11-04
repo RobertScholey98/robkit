@@ -130,6 +130,12 @@ function layersFor(choices: Choices): string[] {
     layerOf(t.uiKit, "none"),
     choices.uiKit === null ? undefined : layerOf(t.uiKit, choices.uiKit),
     ...choices.tools.map((tool) => layerOf(t.tools, tool)),
+    ...choices.tools.flatMap((tool) =>
+      Object.entries(optionOf(t.tools, tool)?.with ?? {}).flatMap(
+        ([other, layer]) =>
+          (choices.tools as readonly string[]).includes(other) ? [layer] : [],
+      ),
+    ),
   ].filter((layer) => layer !== undefined);
 }
 

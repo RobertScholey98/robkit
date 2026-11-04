@@ -33,6 +33,12 @@ export interface Option {
    */
   readonly builds?: Readonly<Record<string, boolean>>;
   /**
+   * For a dev tool: the template folders, under `templates/`, it lays over
+   * the install when the install has another tool too, by that tool. They
+   * go down after every tool's own layer.
+   */
+  readonly with?: Readonly<Record<string, string>>;
+  /**
    * A section, as a file under `templates/`, the option adds to the end of
    * the install's root `AGENTS.md`.
    */
@@ -196,7 +202,14 @@ export const choiceTable = {
         },
       },
       { value: "playwright", label: "Playwright", comingLater: true },
-      { value: "husky", label: "Husky + lint-staged", comingLater: true },
+      {
+        value: "husky",
+        label: "Husky + lint-staged",
+        layer: "tools/husky",
+        // The hook also runs ESLint and Prettier on the staged files.
+        with: { "eslint-prettier": "tools/husky-eslint-prettier" },
+        guide: "tools/husky.md",
+      },
     ],
   },
 } as const satisfies Record<string, Choice>;
