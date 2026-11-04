@@ -4,6 +4,9 @@ import { createServer } from "node:net";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { removeWhenGone } from "./clean-up.ts";
+
+export { removeWhenGone, testTag, type Leftover } from "./clean-up.ts";
 
 const run = promisify(execFile);
 
@@ -15,9 +18,22 @@ export const composeFile = fileURLToPath(
   ),
 );
 
+const inMemory = fileURLToPath(new URL("../in-memory.yaml", import.meta.url));
+
+/**
+ * COMPOSE_FILE for a test's Postgres: the install's `compose.yaml`, or the
+ * files COMPOSE_FILE already names (CI adds host-network.yaml), followed by
+ * in-memory.yaml, which keeps the database off the disk.
+ */
+export function testComposeFiles(env: NodeJS.ProcessEnv = process.env): string {
+  return [env.COMPOSE_FILE ?? "compose.yaml", inMemory].join(":");
+}
+
 export interface TestPostgres {
   /** Superuser URL for the `robkit` database. */
   adminUrl: string;
+  /** The Compose project the container runs under. */
+  project: string;
   /** Removes the container and its volume. */
   stop: () => Promise<void>;
 }
@@ -39,6 +55,27 @@ function listenOn(port: number): Promise<number> {
 /** Asks the OS for a port nothing is listening on. */
 export function freePort(): Promise<number> {
   return listenOn(0);
+}
+
+/** The host ports Docker publishes for running containers. */
+export async function publishedPorts(): Promise<Set<number>> {
+  const { stdout } = await run("docker", ["ps", "--format", "{{.Ports}}"]);
+  return new Set(
+    [...stdout.matchAll(/:(\d+)->/g)].map(([, port]) => Number(port)),
+  );
+}
+
+/**
+ * A port for a Postgres container to publish. Docker Desktop publishes ports
+ * from its own VM, so a port another container already has still looks free
+ * here; this also skips every port Docker publishes.
+ */
+export async function freePostgresPort(): Promise<number> {
+  const taken = await publishedPorts();
+  for (;;) {
+    const port = await freePort();
+    if (!taken.has(port)) return port;
+  }
 }
 
 /**
@@ -64,11 +101,16 @@ export async function freePortBlock(size: number): Promise<number> {
  * project name, so parallel test suites never share a database.
  */
 export async function startPostgres(): Promise<TestPostgres> {
-  const port = await freePort();
+  const port = await freePostgresPort();
   const project = `robkit-test-${randomBytes(4).toString("hex")}`;
-  const env = { ...process.env, ROBKIT_POSTGRES_PORT: String(port) };
-  // From the template's folder rather than with -f, so COMPOSE_FILE can add
-  // to it here as it does for an install's pnpm dev.
+  removeWhenGone({ docker: project });
+  const env = {
+    ...process.env,
+    ROBKIT_POSTGRES_PORT: String(port),
+    COMPOSE_FILE: testComposeFiles(),
+  };
+  // From the template's folder rather than with -f, so COMPOSE_FILE adds to
+  // it here as it does for an install's pnpm dev.
   const compose = (...args: string[]) =>
     run("docker", ["compose", "-p", project, ...args], {
       cwd: dirname(composeFile),
@@ -88,6 +130,7 @@ export async function startPostgres(): Promise<TestPostgres> {
 
   return {
     adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(port)}/robkit`,
+    project,
     stop,
   };
 }

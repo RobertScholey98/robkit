@@ -3,7 +3,13 @@ import { once } from "node:events";
 import { request, type IncomingHttpHeaders } from "node:http";
 import { connect } from "node:net";
 import { promisify } from "node:util";
-import { freePort, freePortBlock } from "@internal/test-postgres";
+import {
+  freePortBlock,
+  freePostgresPort,
+  removeWhenGone,
+  testComposeFiles,
+  testTag,
+} from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import {
   defaultDomain,
@@ -151,13 +157,17 @@ export function describeJourneys(
   beforeAll(async () => {
     devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
     addresses = install({ domain: defaultDomain, port: devPort });
-    postgresPort = await freePort();
+    postgresPort = await freePostgresPort();
+    const tag = testTag();
+    removeWhenGone({ tagged: tag }, { docker: project });
     dev = spawn(choices.packageManager, ["run", "dev"], {
       cwd: dir,
       env: {
         ...process.env,
         ROBKIT_DEV_PORT: String(devPort),
         ROBKIT_POSTGRES_PORT: String(postgresPort),
+        COMPOSE_FILE: testComposeFiles(),
+        ROBKIT_TEST_TAG: tag,
         COMPOSE_PROJECT_NAME: project,
       },
       // Its own process group, like a terminal's foreground job, so SIGINT

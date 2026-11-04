@@ -7,7 +7,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { composeFile, freePort, freePortBlock } from "@internal/test-postgres";
+import {
+  composeFile,
+  freePortBlock,
+  freePostgresPort,
+  removeWhenGone,
+  testComposeFiles,
+  testTag,
+} from "@internal/test-postgres";
 import { afterEach, describe, expect, it } from "vitest";
 
 const run = promisify(execFile);
@@ -25,9 +32,19 @@ const projects: { root: string; project: string }[] = [];
 const children: ChildProcess[] = [];
 
 afterEach(async () => {
-  for (const child of children.splice(0)) {
-    if (child.exitCode === null) child.kill("SIGKILL");
-  }
+  // SIGTERM, as a terminal's close would, so robkit-dev stops the apps it
+  // started; SIGKILL would leave them running in their own process groups.
+  await Promise.all(
+    children.splice(0).map(async (child) => {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      child.kill("SIGTERM");
+      const exited = once(child, "exit");
+      const timeout = new Promise((resolve) => setTimeout(resolve, 15_000));
+      if ((await Promise.race([exited, timeout])) === undefined) {
+        child.kill("SIGKILL");
+      }
+    }),
+  );
   await Promise.all(
     projects
       .splice(0)
@@ -48,13 +65,17 @@ async function startDev(
   const port = await freePortBlock(3);
   const project = `robkit-test-${String(port)}`;
   projects.push({ root, project });
+  const tag = testTag();
+  removeWhenGone({ tagged: tag }, { docker: project });
 
   const child = spawn(process.execPath, [bin], {
     cwd: root,
     env: {
       ...process.env,
       ROBKIT_DEV_PORT: String(port),
-      ROBKIT_POSTGRES_PORT: String(await freePort()),
+      ROBKIT_POSTGRES_PORT: String(await freePostgresPort()),
+      COMPOSE_FILE: testComposeFiles(),
+      ROBKIT_TEST_TAG: tag,
       COMPOSE_PROJECT_NAME: project,
       ...env,
     },
