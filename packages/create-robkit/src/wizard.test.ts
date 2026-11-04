@@ -31,15 +31,10 @@ describe("commandFor", () => {
 
 describe("optionsFor", () => {
   it("offers the table's ready options, then the ones coming later", () => {
-    expect(optionsFor(choiceTable.orm, "drizzle")).toEqual([
-      { value: "drizzle", label: "Drizzle", hint: "recommended" },
-      { value: "prisma", label: "Prisma" },
-      {
-        value: "kysely",
-        label: "Kysely",
-        hint: "coming later",
-        disabled: true,
-      },
+    expect(optionsFor(choiceTable.packageManager, "pnpm")).toEqual([
+      { value: "pnpm", label: "pnpm", hint: "recommended" },
+      { value: "bun", label: "bun", hint: "coming later", disabled: true },
+      { value: "yarn", label: "yarn", hint: "coming later", disabled: true },
     ]);
   });
 

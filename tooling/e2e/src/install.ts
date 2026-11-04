@@ -23,6 +23,7 @@ export const installChoices = {
   start: defaultChoices,
   "react-hono": { ...defaultChoices, generators: ["react-hono", "start"] },
   prisma: { ...defaultChoices, orm: "prisma" },
+  kysely: { ...defaultChoices, orm: "kysely" },
 } satisfies Record<string, Choices>;
 
 export type InstallName = keyof typeof installChoices;

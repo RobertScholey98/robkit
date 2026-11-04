@@ -34,8 +34,8 @@ describe("choicesFromFlags", () => {
   });
 
   it("refuses an option that's coming later", () => {
-    expect(() => choicesFromFlags({ orm: "kysely" })).toThrow(
-      "--orm kysely isn't an option. Choose from: drizzle, prisma.",
+    expect(() => choicesFromFlags({ pm: "bun" })).toThrow(
+      "--pm bun isn't an option. Choose from: pnpm.",
     );
   });
 

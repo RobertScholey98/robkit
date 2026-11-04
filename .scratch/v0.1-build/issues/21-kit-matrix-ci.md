@@ -18,3 +18,8 @@ Notes from ticket 13:
 
 - The whole-stack test makes its installs from `installChoices` in `tooling/e2e/src/install.ts`, and `describeJourneys(name, { roles })` runs the journeys on one. The role journey takes about two minutes and tests only core and the guard, so run it on one install per stack, not on every combination.
 - `pnpm test:production` loops over `installs` in `production.test.ts`, about three and a half minutes each. A nightly job can take the full list, and a PR one only the default.
+
+Notes from ticket 14:
+
+- Every ORM is now ready, and the whole-stack test runs four installs: the default, React + Hono first, Prisma and Kysely. The pairwise set can replace the last two. Keep one install where both apps share a non-Drizzle ORM: Kysely's migrator found another app's tables until `migrate` named its schema, and only two apps on one ORM catch that.
+- `pnpm test:production` deploys three installs, about three minutes each.

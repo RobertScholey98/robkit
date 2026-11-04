@@ -19,7 +19,10 @@ describe("the default install", () => {
   });
 });
 
-describe.each(["start", "prisma"] as const)("the %s install", (name) => {
+/** The installs whose own CI steps run: the default and one per other ORM. */
+const ciInstalls = ["start", "prisma", "kysely"] as const;
+
+describe.each(ciInstalls)("the %s install", (name) => {
   it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
     const dir = inject("installs")[name];
     const workflow = parse(

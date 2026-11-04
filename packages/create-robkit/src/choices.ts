@@ -85,7 +85,12 @@ export const choiceTable = {
         // Prisma's own only checks the Node version.
         builds: { "@prisma/engines": true, prisma: false },
       },
-      { value: "kysely", label: "Kysely", comingLater: true },
+      {
+        value: "kysely",
+        label: "Kysely",
+        appLayer: "orms/kysely/app",
+        appGuide: "orms/kysely/AGENTS.md",
+      },
     ],
   },
   uiKit: {
