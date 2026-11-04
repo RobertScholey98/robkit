@@ -172,6 +172,22 @@ describe("POST /login's rate limit", () => {
     expect(other.status).toBe(200);
   });
 
+  it("ignores CF-Connecting-IP unless core trusts Cloudflare", async () => {
+    const { app } = await freshCore();
+    await claim(app);
+    const via = (visitor: string) => ({
+      "cf-connecting-ip": visitor,
+      "x-forwarded-for": "172.18.0.5",
+    });
+    for (let i = 0; i < 5; i++) {
+      await postJson(app, "/login", wrong, via(`198.51.100.${String(i)}`));
+    }
+
+    const res = await postJson(app, "/login", rob, via("198.51.100.99"));
+
+    expect(res.status).toBe(429);
+  });
+
   it("treats requests without X-Forwarded-For as one client", async () => {
     const { app } = await freshCore();
     await claim(app);
@@ -183,6 +199,49 @@ describe("POST /login's rate limit", () => {
     expect(anonymous.status).toBe(429);
     expect(forwarded.status).toBe(200);
   });
+
+  describe("behind a Cloudflare tunnel", () => {
+    // The tunnel reaches Traefik from one address, so every visitor's
+    // X-Forwarded-For ends the same way. Cloudflare names the visitor.
+    const via = (visitor: string) => ({
+      "cf-connecting-ip": visitor,
+      "x-forwarded-for": `${visitor}, 172.18.0.5`,
+    });
+
+    it("counts each visitor's failures on their own", async () => {
+      const { app } = await freshCore({ trustedProxy: "cloudflare" });
+      await claim(app);
+      await failFiveTimesVia(app, via("203.0.113.7"));
+
+      const blocked = await postJson(app, "/login", rob, via("203.0.113.7"));
+      const other = await postJson(app, "/login", rob, via("198.51.100.1"));
+
+      expect(blocked.status).toBe(429);
+      expect(other.status).toBe(200);
+    });
+
+    it("treats requests that didn't come through Cloudflare as one client", async () => {
+      const { app } = await freshCore({ trustedProxy: "cloudflare" });
+      await claim(app);
+      await failFiveTimesVia(app, from("172.18.0.9"));
+
+      const direct = await postJson(app, "/login", rob, from("172.18.0.10"));
+      const tunnelled = await postJson(app, "/login", rob, via("203.0.113.7"));
+
+      expect(direct.status).toBe(429);
+      expect(tunnelled.status).toBe(200);
+    });
+  });
+
+  async function failFiveTimesVia(
+    app: Parameters<typeof claim>[0],
+    headers: Record<string, string>,
+  ): Promise<void> {
+    for (let i = 0; i < 5; i++) {
+      const res = await postJson(app, "/login", wrong, headers);
+      expect(res.status).toBe(401);
+    }
+  }
 
   it("clears a client's failures when it signs in", async () => {
     const { app } = await freshCore();

@@ -240,6 +240,33 @@ describe("POST /login/code's rate limit", () => {
     ]);
   });
 
+  it("counts each visitor apart behind a Cloudflare tunnel", async () => {
+    const { app } = await freshCore({ trustedProxy: "cloudflare" });
+    const { code } = await ownerMints(app);
+    const via = (visitor: string) => ({
+      "cf-connecting-ip": visitor,
+      "x-forwarded-for": `${visitor}, 172.18.0.5`,
+    });
+    for (let i = 0; i < 10; i++) {
+      await postJson(app, "/login/code", { code: "NOPE2" }, via("203.0.113.7"));
+    }
+
+    const blocked = await postJson(
+      app,
+      "/login/code",
+      { code },
+      via("203.0.113.7"),
+    );
+    const other = await postJson(
+      app,
+      "/login/code",
+      { code },
+      via("198.51.100.1"),
+    );
+
+    expect([blocked.status, other.status]).toEqual([429, 200]);
+  });
+
   it("counts apart from the owner's password limit", async () => {
     const { app } = await freshCore();
     await ownerMints(app);

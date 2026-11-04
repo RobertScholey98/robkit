@@ -41,6 +41,12 @@ function removeDocker(prefix: string): void {
   if (networks.length > 0) docker("network", "rm", ...networks);
   const volumes = docker("volume", "ls", "--format", "{{.Name}}").filter(mine);
   if (volumes.length > 0) docker("volume", "rm", "-f", ...volumes);
+  const images = docker(
+    "images",
+    "--format",
+    "{{.Repository}}:{{.Tag}}",
+  ).filter((image) => image.startsWith(`${prefix}/`));
+  if (images.length > 0) docker("rmi", "-f", ...images);
 }
 
 /** The pids of every process whose environment holds `ROBKIT_TEST_TAG=<tag>`. */

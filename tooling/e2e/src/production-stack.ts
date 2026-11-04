@@ -1,11 +1,11 @@
 import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { request } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { freePort } from "@internal/test-postgres";
+import { freePort, removeWhenGone } from "@internal/test-postgres";
 import { packageManagerOf } from "@robkit/dev";
 import { install, type Install } from "@robkit/session/addresses";
 import { deploymentOf } from "create-robkit";
@@ -21,8 +21,14 @@ const adminUrl = "postgres://postgres:postgres@postgres:5432/robkit";
 /** The install's database secret on this host. */
 const secret = "the production e2e's database secret, 32+ characters";
 
-/** Names the network and labels everything the stack makes. */
+/**
+ * Prefixes and labels everything the stack makes: its network, containers
+ * and images.
+ */
 export const stackName = `robkit-prod-${String(process.pid)}`;
+
+/** The stack's network, named under its prefix. */
+const network = `${stackName}-network`;
 
 /**
  * A production-like host in Docker: a network with Postgres, and Caddy in
@@ -30,7 +36,7 @@ export const stackName = `robkit-prod-${String(process.pid)}`;
  * Traefik fronts each container on Coolify.
  */
 export interface Stack {
-  /** Names the network and labels every container. */
+  /** Prefixes and labels every container and image. */
   name: string;
   /** The install, built from its root. */
   dir: string;
@@ -39,6 +45,8 @@ export interface Stack {
   /** Holds the Caddyfile and Caddy's root certificate. */
   caDir: string;
   addresses: Install;
+  /** Names the install's layers in the build cache, when there is one. */
+  cacheScope: string;
 }
 
 async function docker(...args: string[]): Promise<string> {
@@ -61,15 +69,34 @@ async function until(attempt: () => Promise<unknown>): Promise<void> {
   }
 }
 
+/** Where the tunnel delivers requests to the stand-in for Traefik. */
+const tunnelPort = 8080;
+
+/**
+ * Caddy plays both of R's hosts' proxies. Its https site is Cloudflare: it
+ * ends TLS and names the visitor in `CF-Connecting-IP`, replacing any value
+ * the visitor sent. It hands every request through one hop, as the tunnel
+ * does, to its plain http site, which is Traefik. Traefik appends the hop's
+ * own address to `X-Forwarded-For`, so every visitor's ends the same way.
+ */
 function caddyfile(port: number): string {
   return `{
   local_certs
   skip_install_trust
   https_port ${String(port)}
+  servers :${String(tunnelPort)} {
+    trusted_proxies static private_ranges
+  }
 }
 
 *.${domain} {
   tls internal
+  reverse_proxy 127.0.0.1:${String(tunnelPort)} {
+    header_up CF-Connecting-IP {remote_host}
+  }
+}
+
+http://*.${domain}:${String(tunnelPort)} {
   reverse_proxy {labels.2}:3000
 }
 `;
@@ -80,19 +107,25 @@ function caddyfile(port: number): string {
  * `slugs` inside the network too, so the apps reach core over https as
  * they would on Coolify.
  */
-export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
+export async function startStack(
+  dir: string,
+  slugs: string[],
+  cacheScope: string,
+): Promise<Stack> {
   const name = stackName;
+  // Its containers, images and network go even if this process is killed.
+  removeWhenGone({ docker: name });
   const port = await freePort();
   const caDir = await mkdtemp(join(tmpdir(), "robkit-caddy-"));
   await writeFile(join(caDir, "Caddyfile"), caddyfile(port));
-  await docker("network", "create", "--label", name, name);
+  await docker("network", "create", "--label", name, network);
   await docker(
     "run",
     "-d",
     "--label",
     name,
     "--network",
-    name,
+    network,
     "--name",
     `${name}-postgres`,
     "--network-alias",
@@ -109,7 +142,7 @@ export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
     "--label",
     name,
     "--network",
-    name,
+    network,
     "--name",
     `${name}-caddy`,
     ...slugs.flatMap((slug) => ["--network-alias", `${slug}.${domain}`]),
@@ -122,6 +155,10 @@ export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
   const root = "/data/caddy/pki/authorities/local/root.crt";
   await until(() => docker("exec", `${name}-caddy`, "test", "-f", root));
   await docker("cp", `${name}-caddy:${root}`, join(caDir, "root.crt"));
+  // docker cp keeps Caddy's 0600, owned by whoever runs the test. The apps
+  // run as node, uid 1000, which reads it only when the two happen to match,
+  // as in WSL but not on GitHub's runners. The certificate is public.
+  await chmod(join(caDir, "root.crt"), 0o644);
   // Over TCP, as Compose checks it: the first-run server is socket-only.
   await until(() =>
     docker(
@@ -142,6 +179,7 @@ export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
     port,
     caDir,
     addresses: install({ domain, protocol: "https", port }),
+    cacheScope,
   };
 }
 
@@ -161,15 +199,36 @@ export async function stopStack(): Promise<void> {
     .split("\n")
     .filter(Boolean);
   if (images.length > 0) await docker("rmi", "-f", ...images);
-  await docker("network", "rm", name).catch(() => undefined);
+  await docker("network", "rm", network).catch(() => undefined);
 }
 
-/** Builds `slug`'s image from the install's Dockerfile, as Coolify does. */
+/**
+ * Builds `slug`'s image from the install's Dockerfile, as Coolify does.
+ *
+ * With `ROBKIT_BUILD_CACHE` set to a BuildKit cache backend, such as
+ * `type=gha` on GitHub's runners, the build reads and writes its layers
+ * there, one scope per install and app, so a run after one that built the
+ * same install reuses them. Without it, the local Docker's own cache
+ * serves, as it does between runs on a laptop.
+ */
 export async function buildApp(stack: Stack, slug: string): Promise<void> {
-  await run(
+  const cache = process.env.ROBKIT_BUILD_CACHE;
+  const scope = `scope=${stack.cacheScope}-${slug}`;
+  const { stderr } = await run(
     "docker",
     [
-      "build",
+      ...(cache
+        ? [
+            "buildx",
+            "build",
+            "--load",
+            "--cache-from",
+            `${cache},${scope}`,
+            "--cache-to",
+            `${cache},mode=max,${scope}`,
+          ]
+        : ["build"]),
+      "--progress=plain",
       "--build-arg",
       `ROBKIT_APP=${slug}`,
       "-t",
@@ -178,6 +237,26 @@ export async function buildApp(stack: Stack, slug: string): Promise<void> {
     ],
     { cwd: stack.dir, maxBuffer: 64 * 1024 * 1024 },
   );
+  console.log(`${stack.cacheScope} ${slug}: ${cachedSteps(stderr)}`);
+}
+
+/**
+ * How many of a build's Dockerfile steps came from the cache, from
+ * BuildKit's plain progress, where each step is `#<n> [stage i/n]` and a
+ * reused one also prints `#<n> CACHED`.
+ */
+export function cachedSteps(progress: string): string {
+  const steps = new Set<string>();
+  const cached = new Set<string>();
+  for (const line of progress.split("\n")) {
+    // A Dockerfile step names its stage and place: `[build 3/5]`.
+    const step = /^#(\d+) \[[^\]]*\d+\/\d+\]/.exec(line);
+    if (step?.[1]) steps.add(step[1]);
+    const hit = /^#(\d+) CACHED/.exec(line);
+    if (hit?.[1]) cached.add(hit[1]);
+  }
+  const reused = [...steps].filter((step) => cached.has(step)).length;
+  return `${String(reused)} of ${String(steps.size)} steps cached`;
 }
 
 /**
@@ -241,9 +320,11 @@ export async function hostEnv(
     const at = line.indexOf("=");
     shared.set(line.slice(0, at), line.slice(at + 1));
   }
+  // Caddy stands in for Cloudflare's tunnel, as on R's hosts.
   const deployments = await deploymentOf(stack.dir, {
     domain,
     port: stack.port,
+    trustedProxy: "cloudflare",
   });
   return new Map(
     deployments.map(({ slug, env }) => [
@@ -277,7 +358,7 @@ export async function startApp(
     "--label",
     stack.name,
     "--network",
-    stack.name,
+    network,
     "--name",
     container,
     "--network-alias",
@@ -314,6 +395,35 @@ function status(stack: Stack, slug: string, path: string): Promise<number> {
   });
 }
 
+/**
+ * Each of the stack's containers with its state and the end of its logs,
+ * for a failed journey to print beside what the browser saw.
+ */
+export async function stackReport(stack: Stack): Promise<string> {
+  const containers = (
+    await docker(
+      "ps",
+      "-a",
+      "--filter",
+      `label=${stack.name}`,
+      "--format",
+      "{{.Names}}\t{{.Status}}",
+    )
+  )
+    .split("\n")
+    .filter(Boolean);
+  const reports = await Promise.all(
+    containers.map(async (line) => {
+      const [container = ""] = line.split("\t");
+      const logs = await run("docker", ["logs", "--tail", "40", container])
+        .then(({ stdout, stderr }) => stdout + stderr)
+        .catch((error: unknown) => String(error));
+      return `${line}\n${logs}`;
+    }),
+  );
+  return reports.join("\n");
+}
+
 /** Waits until `slug` answers `path` with `expected`, naming its logs if not. */
 export async function answers(
   stack: Stack,
@@ -337,5 +447,87 @@ export async function answers(
       );
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+/** One sign-in attempt by a visitor, with any headers it adds itself. */
+export interface Attempt {
+  password: string;
+  headers?: Record<string, string>;
+}
+
+/** Someone on their own address, signing in at core through Caddy. */
+export interface Visitor {
+  /** Makes each attempt in turn and gets each answer's status. */
+  signsIn: (attempts: Attempt[]) => Promise<number[]>;
+}
+
+/**
+ * Runs `use` with `count` visitors, each a container of its own on the
+ * stack's network. They all run until `use` is done, so Docker gives each
+ * its own address and Caddy sees them as Cloudflare sees different people.
+ */
+export async function withVisitors<T>(
+  stack: Stack,
+  count: number,
+  use: (visitors: Visitor[]) => Promise<T>,
+): Promise<T> {
+  const containers = Array.from(
+    { length: count },
+    (_, i) => `${stack.name}-visitor-${String(i + 1)}`,
+  );
+  for (const container of containers) {
+    await docker(
+      "run",
+      "-d",
+      "--label",
+      stack.name,
+      "--network",
+      network,
+      "--name",
+      container,
+      "-v",
+      `${join(stack.caDir, "root.crt")}:/ca.crt:ro`,
+      "-e",
+      "NODE_EXTRA_CA_CERTS=/ca.crt",
+      "--entrypoint",
+      "sleep",
+      `${stack.name}/core`,
+      "600",
+    );
+  }
+  const login = `${stack.addresses.origin("core")}/login`;
+  const signsIn = async (container: string, attempts: Attempt[]) => {
+    const script = `
+const statuses = [];
+for (const { password, headers } of ${JSON.stringify(attempts)}) {
+  const res = await fetch(${JSON.stringify(login)}, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify({ username: "owner", password }),
+  });
+  await res.arrayBuffer();
+  statuses.push(res.status);
+}
+console.log(JSON.stringify(statuses));
+`;
+    const output = await docker(
+      "exec",
+      container,
+      "node",
+      "--input-type=module",
+      "-e",
+      script,
+    );
+    return JSON.parse(output.trim().split("\n").at(-1) ?? "[]") as number[];
+  };
+  try {
+    return await use(
+      containers.map((container) => ({
+        signsIn: (attempts) => signsIn(container, attempts),
+      })),
+    );
+  } finally {
+    await docker("rm", "-f", ...containers).catch(() => undefined);
   }
 }

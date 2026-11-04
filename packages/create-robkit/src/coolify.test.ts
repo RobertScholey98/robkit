@@ -69,6 +69,23 @@ describe("readCoolifyConfig", () => {
       readCoolifyConfig(JSON.stringify({ ...config, githubApp: "" })),
     ).toThrow("coolify.json needs a non-empty string `githubApp`.");
   });
+
+  it("reads a trusted proxy when the install sits behind Cloudflare", () => {
+    expect(
+      readCoolifyConfig(
+        JSON.stringify({ ...config, trustedProxy: "cloudflare" }),
+      ),
+    ).toEqual({ ...config, trustedProxy: "cloudflare" });
+    expect(readCoolifyConfig(JSON.stringify(config))).toEqual(config);
+  });
+
+  it("refuses a trusted proxy it doesn't know", () => {
+    expect(() =>
+      readCoolifyConfig(JSON.stringify({ ...config, trustedProxy: "traefik" })),
+    ).toThrow(
+      'coolify.json\'s `trustedProxy` must be "cloudflare" or left out.',
+    );
+  });
 });
 
 describe("deploy", () => {

@@ -1,12 +1,49 @@
+import { execFile } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
+import { promisify } from "node:util";
 import type { Browser, Page } from "playwright";
 import { launch as launchChromium } from "./browser.ts";
 import type { Install } from "@robkit/session/addresses";
+
+const run = promisify(execFile);
+
+/** The host's interfaces and their addresses, or nothing without `ip`. */
+async function hostInterfaces(): Promise<string> {
+  const [links, addresses] = await Promise.all([
+    run("ip", ["-o", "link"]).then(({ stdout }) => stdout),
+    run("ip", ["-o", "addr"]).then(({ stdout }) => stdout),
+  ]).catch(() => ["", ""]);
+  return links + addresses;
+}
+
+/**
+ * Waits until the host's interfaces have stayed the same for 3 seconds, or
+ * 30 seconds have passed. Where Docker's networks are the host's own, as on
+ * GitHub's runners, a container that just started keeps changing them for
+ * a moment: its veth comes up, then gets its IPv6 address. Chromium fails
+ * in-flight requests with ERR_NETWORK_CHANGED on each change, so no
+ * journey's browser opens until they stop.
+ */
+async function networkSettled(): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  let last = await hostInterfaces();
+  let since = Date.now();
+  while (Date.now() - since < 3_000 && Date.now() < deadline) {
+    await sleep(250);
+    const now = await hostInterfaces();
+    if (now !== last) {
+      last = now;
+      since = Date.now();
+    }
+  }
+}
 
 /**
  * Chromium sends every robkit.test name to Caddy on this machine, and takes
  * Caddy's certificates, as a browser takes a real host's.
  */
 async function launch(): Promise<Browser> {
+  await networkSettled();
   return launchChromium({
     args: ["--host-resolver-rules=MAP *.robkit.test 127.0.0.1"],
   });

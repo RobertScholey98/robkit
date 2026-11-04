@@ -14,7 +14,9 @@ export type Leftover =
   | { tagged: string }
   /**
    * Docker containers, networks and volumes named `<prefix>-…` or
-   * `<prefix>_…`, as a Compose project names everything it makes.
+   * `<prefix>_…`, as a Compose project names everything it makes, and
+   * images named `<prefix>/…`, as the production e2e names the ones it
+   * builds.
    */
   | { docker: string };
 

@@ -8,6 +8,15 @@ import { describe, expect, it } from "vitest";
 const run = promisify(execFile);
 const cleanUp = fileURLToPath(new URL("./clean-up.ts", import.meta.url));
 
+async function imageNames(prefix: string): Promise<string[]> {
+  const { stdout } = await run("docker", [
+    "images",
+    "--format",
+    "{{.Repository}}",
+  ]);
+  return stdout.split("\n").filter((name) => name.startsWith(`${prefix}/`));
+}
+
 async function containerNames(prefix: string): Promise<string[]> {
   const { stdout } = await run("docker", [
     "ps",
@@ -36,7 +45,7 @@ async function eventually(check: () => Promise<boolean> | boolean) {
 }
 
 describe("removeWhenGone", () => {
-  it("removes a killed test's containers and every process it tagged", async () => {
+  it("removes a killed test's containers, images and every process it tagged", async () => {
     const prefix = `robkit-test-gone${randomBytes(3).toString("hex")}`;
     // A stand-in for a test worker. It starts a container, and a tagged
     // parent that starts an app in a session of its own and then dies, as
@@ -51,6 +60,7 @@ describe("removeWhenGone", () => {
         import { once } from "node:events";
         import { removeWhenGone, testTag } from ${JSON.stringify(cleanUp)};
         execFileSync("docker", ["run", "-d", "--name", ${JSON.stringify(`${prefix}-postgres-1`)}, "postgres:18-alpine", "sleep", "600"]);
+        execFileSync("docker", ["tag", "postgres:18-alpine", ${JSON.stringify(`${prefix}/app`)}]);
         const tag = testTag();
         const parent = spawn(
           "sh",
@@ -70,11 +80,13 @@ describe("removeWhenGone", () => {
     const app = Number(line.toString().trim());
 
     expect(await containerNames(prefix)).toEqual([`${prefix}-postgres-1`]);
+    expect(await imageNames(prefix)).toEqual([`${prefix}/app`]);
     expect(alive(app)).toBe(true);
 
     owner.kill("SIGKILL");
 
     await eventually(async () => (await containerNames(prefix)).length === 0);
+    await eventually(async () => (await imageNames(prefix)).length === 0);
     await eventually(() => !alive(app));
   });
 });
