@@ -101,7 +101,8 @@ function chosen(): [string, Choices][] {
 // Docker networks are its own, as on GitHub's runners, each one changes
 // the host's interfaces, and Chromium fails in-flight requests with
 // ERR_NETWORK_CHANGED. So every deploy below finishes before the journey
-// after it launches a browser, and each journey closes its browser.
+// after it launches a browser, each launch waits for the host's interfaces
+// to settle, and each journey closes its browser.
 describe.each(chosen())("the %s install in production", (key, choices) => {
   let dir: string;
   let stack: Stack;
