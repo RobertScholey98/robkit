@@ -10,6 +10,8 @@ import {
   withSession,
 } from "./test/fresh-app.ts";
 
+const minute = 60_000;
+
 async function accessOf(app: Hono, slug: string) {
   const res = await app.request(`/apps/${slug}/access`);
   return { status: res.status, body: await res.json() };
@@ -64,6 +66,27 @@ describe("GET /apps/:slug/access", () => {
     const res = await app.request("/apps/example/access");
 
     expect(res.status).toBe(200);
+  });
+
+  it("answers a guest and the owner as it answers anyone", async () => {
+    const { app, db } = await freshCore({ domain: "robkit.localhost" });
+    const owner = await claim(app);
+    await registerApps(db, ["example"]);
+    const signIn = await postJson(app, "/login/code", { code: "test" });
+    const guest = sessionCookieOf(signIn)?.value ?? "";
+
+    const answers = await Promise.all(
+      [{}, withSession(guest), withSession(owner)].map(async (headers) => {
+        const res = await app.request("/apps/example/access", { headers });
+        return { status: res.status, body: await res.json() };
+      }),
+    );
+
+    expect(answers).toEqual([
+      { status: 200, body: { kind: "owner" } },
+      { status: 200, body: { kind: "owner" } },
+      { status: 200, body: { kind: "owner" } },
+    ]);
   });
 });
 
@@ -141,6 +164,27 @@ describe("POST /apps/:slug/access", () => {
 
     expect(answers.map((res) => res.status)).toEqual([404, 404, 404]);
     expect((await accessOf(app, "example")).body).toEqual({ kind: "owner" });
+  });
+
+  it("renews no cookie for a guest it refuses", async () => {
+    const { app, db, advance } = await freshCore({
+      domain: "robkit.localhost",
+    });
+    await claim(app);
+    await registerApps(db, ["example"]);
+    const signIn = await postJson(app, "/login/code", { code: "test" });
+    const guest = withSession(sessionCookieOf(signIn)?.value ?? "");
+    advance(16 * minute);
+
+    const res = await postJson(
+      app,
+      "/apps/example/access",
+      { kind: "open" },
+      guest,
+    );
+
+    expect(res.status).toBe(404);
+    expect(sessionCookieOf(res)).toBeUndefined();
   });
 });
 

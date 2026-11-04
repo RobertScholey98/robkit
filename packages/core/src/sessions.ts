@@ -3,7 +3,7 @@ import type { SessionState, SignedInViewer } from "@robkit/guard";
 import { readSessionToken, type SessionTokenClaims } from "@robkit/session";
 import { standingOf, type AccessCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
-import { dummyPasswordHash, hashPassword, verifyPassword } from "./password.ts";
+import { dummyPasswordHash, verifyPassword } from "./password.ts";
 import { accessCodes, owner, sessions } from "./schema.ts";
 import { mintSessionToken } from "./session-token.ts";
 import { rolesOf } from "./roles.ts";
@@ -47,8 +47,6 @@ export interface SignedIn {
   sessionToken: string;
 }
 
-export type Claim = ({ outcome: "claimed" } & SignedIn) | { outcome: "taken" };
-
 export type SignIn =
   | ({ outcome: "signed-in" } & SignedIn)
   | { outcome: "wrong" }
@@ -89,7 +87,8 @@ function claimsFor(
     : { kind: viewer.kind, id: viewer.id, sessionId, roles };
 }
 
-async function startSession(
+/** Starts a session for its holder, in the caller's transaction. */
+export async function startSession(
   ctx: SessionContext,
   tx: Transaction,
   holder: Holder,
@@ -115,47 +114,6 @@ async function startSession(
       now,
     ),
   };
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  for (let e = error; e instanceof Error; e = e.cause) {
-    if ("code" in e && e.code === "23505") return true;
-  }
-  return false;
-}
-
-/**
- * Makes the first caller the install's owner and signs them in. The database
- * holds at most one owner, so of two racing claims one is `taken`.
- */
-export async function claimInstall(
-  ctx: SessionContext,
-  username: string,
-  password: string,
-): Promise<Claim> {
-  if ((await ctx.db.select({ id: owner.id }).from(owner)).length > 0) {
-    return { outcome: "taken" };
-  }
-  const passwordHash = await hashPassword(password);
-  try {
-    return await ctx.db.transaction(async (tx) => {
-      const [created] = await tx
-        .insert(owner)
-        .values({ username, passwordHash, createdAt: ctx.now() })
-        .returning({ id: owner.id, username: owner.username });
-      if (!created) throw new Error("Core couldn't store the owner.");
-      return {
-        outcome: "claimed",
-        ...(await startSession(ctx, tx, {
-          viewer: { kind: "owner", ...created },
-          roles: [],
-        })),
-      };
-    });
-  } catch (error) {
-    if (isUniqueViolation(error)) return { outcome: "taken" };
-    throw error;
-  }
 }
 
 /** Signs the owner in if the username and password are theirs. */

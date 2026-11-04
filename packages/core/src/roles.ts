@@ -16,6 +16,32 @@ export interface NewRole {
   codeIds: string[];
 }
 
+/** The codes the owner ticked for a role, or why they won't do. */
+export function readCodeIds(
+  fields: Record<string, unknown>,
+): { codeIds: string[] } | { error: string } {
+  const { codeIds } = fields;
+  if (
+    !Array.isArray(codeIds) ||
+    !codeIds.every((id): id is string => typeof id === "string")
+  ) {
+    return { error: "Send codeIds, a list of code ids." };
+  }
+  return { codeIds };
+}
+
+/** The role's name and the codes the owner ticked, or why they won't do. */
+export function readNewRole(
+  fields: Record<string, unknown>,
+): NewRole | { error: string } {
+  const name = typeof fields.name === "string" ? fields.name.trim() : "";
+  if (name.length < 1 || name.length > 40) {
+    return { error: "Give the role a name of 1 to 40 characters." };
+  }
+  const holders = readCodeIds(fields);
+  return "error" in holders ? holders : { name, ...holders };
+}
+
 export type RoleCreation =
   | { outcome: "created"; role: RoleView }
   | { outcome: "taken" }

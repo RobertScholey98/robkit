@@ -88,6 +88,34 @@ export interface NewCode {
   expiresAt: Date | null;
 }
 
+/** The guest's name, code and expiry the owner sent, or why they won't do. */
+export function readNewCode(
+  fields: Record<string, unknown>,
+  now: Date,
+): NewCode | { error: string } {
+  const name = typeof fields.name === "string" ? fields.name.trim() : "";
+  if (name.length < 1 || name.length > 80) {
+    return { error: "Give the guest a name of 1 to 80 characters." };
+  }
+  let code: AccessCode | undefined;
+  if (fields.code !== undefined && fields.code !== null) {
+    code =
+      typeof fields.code === "string"
+        ? parseAccessCode(fields.code)
+        : undefined;
+    if (!code) return { error: "Use 3 to 32 letters or digits for the code." };
+  }
+  let expiresAt: Date | null = null;
+  if (fields.expiresAt !== undefined && fields.expiresAt !== null) {
+    expiresAt =
+      typeof fields.expiresAt === "string" ? new Date(fields.expiresAt) : null;
+    if (!expiresAt || !(expiresAt > now)) {
+      return { error: "Pick an expiry in the future." };
+    }
+  }
+  return code ? { name, code, expiresAt } : { name, expiresAt };
+}
+
 export type Mint = { outcome: "minted"; code: CodeView } | { outcome: "taken" };
 
 export async function listCodes(
