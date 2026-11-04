@@ -15,6 +15,11 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      # Every test Postgres runs on the host's network, so starting one adds
+      # no interface and Chromium's pages don't fail with ERR_NETWORK_CHANGED.
+      # See the file for why.
+      COMPOSE_FILE: compose.yaml:${{ github.workspace }}/tooling/test-postgres/host-network.yaml
     steps:
       - uses: actions/checkout@v7
       # Reads the pnpm version from packageManager in package.json.
