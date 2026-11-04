@@ -1,6 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { request } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -136,6 +136,10 @@ export async function startStack(
   const root = "/data/caddy/pki/authorities/local/root.crt";
   await until(() => docker("exec", `${name}-caddy`, "test", "-f", root));
   await docker("cp", `${name}-caddy:${root}`, join(caDir, "root.crt"));
+  // docker cp keeps Caddy's 0600, owned by whoever runs the test. The apps
+  // run as node, uid 1000, which reads it only when the two happen to match,
+  // as in WSL but not on GitHub's runners. The certificate is public.
+  await chmod(join(caDir, "root.crt"), 0o644);
   // Over TCP, as Compose checks it: the first-run server is socket-only.
   await until(() =>
     docker(
