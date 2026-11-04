@@ -1,0 +1,16 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # Every package manager, ORM, UI option and first stack: 72 installs.
+  kit-matrix:
+    uses: ./.github/workflows/kit-matrix.yml
+    with:
+      set: nightly

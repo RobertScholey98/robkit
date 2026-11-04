@@ -1,12 +1,10 @@
 import { execFile } from "node:child_process";
-import { access, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { freePort, freePortBlock } from "@internal/test-postgres";
-import { discoverApps } from "@robkit/dev";
 import { describe, expect, inject, it } from "vitest";
-import { parse } from "yaml";
 import { installChoices, type InstallName } from "./install.ts";
+import { ownCiSteps, runOwnCi } from "./own-ci.ts";
 
 const run = promisify(execFile);
 
@@ -22,27 +20,6 @@ describe("the default install", () => {
   });
 });
 
-interface Step {
-  if?: string;
-  "working-directory"?: string;
-  run?: string;
-}
-
-/**
- * Whether a step's `if` holds in `dir`. The workflows' only condition is
- * that a file exists, as `hashFiles(<path>) != ''`.
- */
-async function holds(condition: string | undefined, dir: string) {
-  if (condition === undefined) return true;
-  const path = /^hashFiles\('([^']+)'\) != ''$/.exec(condition)?.[1];
-  if (path === undefined)
-    throw new Error(`can't read the step's if: ${condition}`);
-  return access(join(dir, path)).then(
-    () => true,
-    () => false,
-  );
-}
-
 /**
  * The installs whose own CI steps run: the default and one per other ORM.
  * The Prisma install runs yarn's workflow with every dev tool, and the
@@ -53,25 +30,7 @@ const ciInstalls = ["start", "prisma", "kysely"] as const;
 describe.each(ciInstalls)("the %s install", (name) => {
   it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
     const dir = inject("installs")[name];
-    const workflow = parse(
-      await readFile(join(dir, ".github/workflows/ci.yml"), "utf8"),
-    ) as { jobs: Record<string, { steps: Step[] }> };
-    const steps: Step[] = [];
-    for (const step of Object.values(workflow.jobs).flatMap(
-      (job) => job.steps,
-    )) {
-      if (step.run !== undefined && (await holds(step.if, dir)))
-        steps.push(step);
-    }
-    // The browser tests run the install's own pnpm dev beside the journeys,
-    // so they get free ports.
-    const env = {
-      ...process.env,
-      ROBKIT_E2E_PORT: String(
-        await freePortBlock(1 + (await discoverApps(dir)).length),
-      ),
-      ROBKIT_E2E_POSTGRES_PORT: String(await freePort()),
-    };
+    const steps = await ownCiSteps(dir);
 
     const runs = steps.flatMap((step) => step.run ?? []);
     expect(runs).toContainEqual(
@@ -81,18 +40,8 @@ describe.each(ciInstalls)("the %s install", (name) => {
     expect(runs.some((step) => step.endsWith(" test:e2e"))).toBe(
       tools.includes("playwright"),
     );
-    for (const step of steps) {
-      // init already installed the dependencies. Installing again beside
-      // the running journeys would touch the files under their core and
-      // restart it. The browsers are this checkout's own Playwright's, and
-      // installing their system packages needs root.
-      if (/^\w+ install\b|playwright install\b/.test(step.run ?? "")) continue;
-      // A failing step rejects with its output.
-      await run("sh", ["-c", step.run ?? ""], {
-        cwd: join(dir, step["working-directory"] ?? ""),
-        env,
-      });
-    }
+    // A failing step rejects with its output.
+    await runOwnCi(dir, steps);
   });
 });
 

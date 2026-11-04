@@ -18,6 +18,11 @@
     "@internal/e2e#test": {
       "dependsOn": ["^build"],
       "cache": false
+    },
+    "@internal/e2e#test:combination": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "passThroughEnv": ["E2E_COMBINATION"]
     }
   }
 }

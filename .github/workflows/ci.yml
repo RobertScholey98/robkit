@@ -33,3 +33,9 @@ jobs:
       # The end-to-end journey drives the stack in Chromium.
       - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
       - run: pnpm turbo run lint typecheck test
+
+  # A pairwise set of generated installs, each passing its own CI.
+  kit-matrix:
+    uses: ./.github/workflows/kit-matrix.yml
+    with:
+      set: pull-request
