@@ -38,6 +38,7 @@ catalog:
   postgres: 3.4.9
   prettier: 3.9.10
   prisma: 7.10.1
+  radix-ui: 1.8.1
   react: 19.3.1
   react-dom: 19.3.1
   shadcn: 4.23.0

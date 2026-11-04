@@ -46,7 +46,7 @@ describe("choicesFromFlags", () => {
     expect(choicesFromFlags({ "ui-kit": "none" }).uiKit).toBeNull();
     expect(choicesFromFlags({}).uiKit).toBeNull();
     expect(() => choicesFromFlags({ "ui-kit": "chakra" })).toThrow(
-      "--ui-kit chakra isn't an option. Choose from: none, shadcn-base-ui.",
+      "--ui-kit chakra isn't an option. Choose from: none, shadcn-base-ui, shadcn-radix.",
     );
   });
 

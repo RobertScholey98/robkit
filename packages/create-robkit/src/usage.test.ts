@@ -32,7 +32,8 @@ With no options, init asks for each one.
 
   --pm <name>             package manager: pnpm
   --orm <name>            ORM: drizzle, prisma, kysely
-  --ui-kit <name>         shared React UI kit: none, shadcn-base-ui
+  --ui-kit <name>         shared React UI kit: none, shadcn-base-ui,
+                          shadcn-radix
   --generators <list>     stacks robkit add offers, the first making the
                           example app: start, react-hono
   --tools <list>          dev tools: eslint-prettier, or none

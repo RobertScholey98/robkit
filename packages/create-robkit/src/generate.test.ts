@@ -74,6 +74,14 @@ describe("generateInstall", () => {
     });
   });
 
+  it("gives the example app the icon robkit add gives an app by default", async () => {
+    const files = await generateInstall(defaultChoices);
+
+    expect(json(files, "apps/example/package.json")).toMatchObject({
+      robkit: { icon: "📦" },
+    });
+  });
+
   it("merges each layer's scripts and dependencies into the root manifest", async () => {
     const files = await generateInstall(defaultChoices);
 
@@ -437,6 +445,38 @@ describe("generateInstall", () => {
       "@base-ui/react": "1.9.0",
       shadcn: "4.23.0",
     });
+  });
+
+  it("lays shadcn on Radix the same way, drawing on radix-ui", async () => {
+    const baseUi = await generateInstall({
+      ...defaultChoices,
+      uiKit: "shadcn-base-ui",
+    });
+    const radix = await generateInstall({
+      ...defaultChoices,
+      uiKit: "shadcn-radix",
+    });
+    const ui = json(radix, "packages/ui/package.json") as {
+      dependencies: Record<string, string>;
+    };
+    const { catalog } = workspace(radix);
+
+    expect(ui.dependencies).toHaveProperty("radix-ui", "catalog:");
+    expect(ui.dependencies).not.toHaveProperty("@base-ui/react");
+    expect(catalog).toMatchObject({ "radix-ui": "1.8.1" });
+    expect(catalog).not.toHaveProperty("@base-ui/react");
+    expect(radix.get("packages/ui/src/components/ui/checkbox.tsx")).toContain(
+      'from "radix-ui"',
+    );
+    // Both shadcn kits share the screens, the theme and the app layer.
+    for (const path of [
+      "apps/hub/src/forms.tsx",
+      "apps/admin/src/client/Admin.tsx",
+      "packages/theme/theme.css",
+      "apps/example/src/styles.css",
+    ]) {
+      expect(radix.get(path)).toBe(baseUi.get(path));
+    }
   });
 
   it("gives the example app its stack's agent files", async () => {

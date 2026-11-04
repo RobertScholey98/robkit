@@ -8,9 +8,7 @@ import {
 } from "@clack/prompts";
 import { newSlugProblem, type AppChoices } from "./add.ts";
 import { choiceTable, type Choices, type Generator } from "./choices.ts";
-
-/** The icon an app gets when nobody picks one. */
-export const defaultIcon = "📦";
+import { defaultIcon } from "./generate.ts";
 
 /** Who may open a new app, as `--access` spells it and the wizard asks it. */
 const accessOptions = [

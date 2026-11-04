@@ -51,7 +51,7 @@ describe("deploymentOf", () => {
           ROBKIT_APPS: {
             literal: JSON.stringify([
               { slug: "brochure", access: { kind: "open" }, icon: "📰" },
-              { slug: "example" },
+              { slug: "example", icon: "📦" },
             ]),
           },
           ROBKIT_DATABASES: { literal: "brochure,core,example" },

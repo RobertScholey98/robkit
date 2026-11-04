@@ -199,6 +199,9 @@ export interface Declares {
   icon?: string;
 }
 
+/** The icon an app gets when nobody picks one, the example app included. */
+export const defaultIcon = "📦";
+
 /**
  * The files of an app at `apps/<slug>` made from a stack's template, by
  * their path from the app's folder. Its manifest is named after the slug,
@@ -301,7 +304,11 @@ export async function generateInstall(
   );
   const [example] = stacks;
   if (example === undefined) throw new Error("init needs a generator");
-  overlay(files, appFiles(example, exampleSlug), `apps/${exampleSlug}/`);
+  overlay(
+    files,
+    appFiles(example, exampleSlug, { icon: defaultIcon }),
+    `apps/${exampleSlug}/`,
+  );
 
   // The catalog covers every stack robkit add offers, so adding an app
   // needs no version the install lacks.

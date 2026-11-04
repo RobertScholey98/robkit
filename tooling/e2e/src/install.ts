@@ -17,13 +17,13 @@ export const addedIcon = "🧪";
 /**
  * The installs the suites run, by name. Each one's example app is on its
  * first generator, and robkit add gives it an app on its second. In the
- * install with a UI kit, the example app uses it and the added app doesn't.
+ * installs with a UI kit, the example app uses it and the added app doesn't.
  */
 export const installChoices = {
   // The default install.
   start: defaultChoices,
   "react-hono": { ...defaultChoices, generators: ["react-hono", "start"] },
-  prisma: { ...defaultChoices, orm: "prisma" },
+  prisma: { ...defaultChoices, orm: "prisma", uiKit: "shadcn-radix" },
   kysely: { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" },
 } satisfies Record<string, Choices>;
 
