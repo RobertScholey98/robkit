@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { readInstallChoices } from "./add.ts";
+import type { Files } from "./generate.ts";
 import { packageManagers } from "./package-managers.ts";
 
 const exec = promisify(execCallback);
@@ -19,9 +20,15 @@ export const vendorDir = "vendor/robkit";
  */
 export async function vendorPackages(root: string): Promise<void> {
   const pm = packageManagers[(await readInstallChoices(root)).packageManager];
-  const path = join(root, pm.settingsFile);
-  const text = await readFile(path, "utf8");
-  const linked = Object.entries(pm.overridesIn(text)).filter(([, spec]) =>
+  const settings: Files = new Map(
+    await Promise.all(
+      pm.settingsFiles.map(
+        async (path) =>
+          [path, await readFile(join(root, path), "utf8")] as const,
+      ),
+    ),
+  );
+  const linked = Object.entries(pm.overridesIn(settings)).filter(([, spec]) =>
     spec.startsWith("link:"),
   );
   if (linked.length === 0) {
@@ -45,5 +52,8 @@ export async function vendorPackages(root: string): Promise<void> {
     const { filename } = JSON.parse(stdout) as { filename: string };
     overrides[name] = `file:${vendorDir}/${basename(filename)}`;
   }
-  await writeFile(path, await pm.writeSettings(text, { overrides }));
+  await pm.writeSettings(settings, { overrides });
+  for (const [path, text] of settings) {
+    await writeFile(join(root, path), text);
+  }
 }

@@ -1,6 +1,7 @@
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import type { PackageManager } from "./choices.ts";
+import type { Files } from "./generate.ts";
 import type { RobkitRepo } from "./robkit-repo.ts";
 
 /**
@@ -21,8 +22,8 @@ export interface Settings {
 
 /** Everything about an install that differs per package manager. */
 export interface PackageManagerAdapter {
-  /** The file that holds the manager's settings. */
-  readonly settingsFile: string;
+  /** The files that hold the manager's settings. */
+  readonly settingsFiles: readonly string[];
   /** The lockfile an install writes. */
   readonly lockfile: string;
   /** Installs a new install's dependencies, which have no lockfile yet. */
@@ -31,10 +32,10 @@ export interface PackageManagerAdapter {
   run(script: string): string;
   /** The root manifest's `packageManager`, such as `pnpm@11.28.9`. */
   packageManagerOf(repo: RobkitRepo): string;
-  /** The settings file's text with each of `settings` written into it. */
-  writeSettings(text: string, settings: Settings): Promise<string>;
-  /** The overrides the settings file's text holds. */
-  overridesIn(text: string): Record<string, string>;
+  /** Writes each of `settings` into its settings file in `files`. */
+  writeSettings(files: Files, settings: Settings): Promise<void>;
+  /** The overrides the settings files in `files` hold. */
+  overridesIn(files: Files): Record<string, string>;
   /**
    * A template file's text with the pnpm commands and files it names
    * spelled for this manager. The templates are written for pnpm.
@@ -42,15 +43,17 @@ export interface PackageManagerAdapter {
   spell(text: string): string;
 }
 
+const pnpmSettings = "pnpm-workspace.yaml";
+
 const pnpm: PackageManagerAdapter = {
-  settingsFile: "pnpm-workspace.yaml",
+  settingsFiles: [pnpmSettings],
   lockfile: "pnpm-lock.yaml",
   // pnpm on CI refuses an install with no lockfile unless told.
   install: "pnpm install --no-frozen-lockfile",
   run: (script) => `pnpm ${script}`,
   packageManagerOf: (repo) => repo.packageManager,
-  async writeSettings(text, { catalog, builds, overrides }) {
-    const workspace = parseDocument(text);
+  async writeSettings(files, { catalog, builds, overrides }) {
+    const workspace = parseDocument(files.get(pnpmSettings) ?? "");
     for (const [name, allowed] of Object.entries(builds ?? {})) {
       workspace.setIn(["allowBuilds", name], allowed);
     }
@@ -58,10 +61,13 @@ const pnpm: PackageManagerAdapter = {
     for (const [name, spec] of Object.entries(overrides ?? {})) {
       workspace.setIn(["overrides", name], spec);
     }
-    return format(workspace.toString(), { filepath: this.settingsFile });
+    files.set(
+      pnpmSettings,
+      await format(workspace.toString(), { filepath: pnpmSettings }),
+    );
   },
-  overridesIn(text) {
-    const workspace = parseDocument(text).toJS() as {
+  overridesIn(files) {
+    const workspace = parseDocument(files.get(pnpmSettings) ?? "").toJS() as {
       overrides?: Record<string, string>;
     };
     return workspace.overrides ?? {};
@@ -70,6 +76,16 @@ const pnpm: PackageManagerAdapter = {
 };
 
 type Json = Record<string, unknown>;
+
+/** The install's root manifest in `files`. */
+function manifestIn(files: Files): Json {
+  return JSON.parse(files.get("package.json") ?? "{}") as Json;
+}
+
+/** `json` as Prettier writes a `package.json`. */
+function formatJson(json: Json): Promise<string> {
+  return format(JSON.stringify(json), { filepath: "package.json" });
+}
 
 /**
  * How bun spells what the templates name for pnpm, in the order they apply.
@@ -116,7 +132,7 @@ function alignComment(line: string, column: number): string {
 }
 
 const bun: PackageManagerAdapter = {
-  settingsFile: "package.json",
+  settingsFiles: ["package.json"],
   lockfile: "bun.lock",
   install: "bun install",
   run: (script) => `bun run ${script}`,
@@ -126,8 +142,8 @@ const bun: PackageManagerAdapter = {
       throw new Error("bun has no version in robkit's catalog");
     return `bun@${version}`;
   },
-  async writeSettings(text, { catalog, builds, overrides }) {
-    const manifest = JSON.parse(text) as Json;
+  async writeSettings(files, { catalog, builds, overrides }) {
+    const manifest = manifestIn(files);
     if (catalog) {
       manifest.workspaces = {
         ...(manifest.workspaces as Json | undefined),
@@ -148,10 +164,10 @@ const bun: PackageManagerAdapter = {
         ...overrides,
       };
     }
-    return format(JSON.stringify(manifest), { filepath: this.settingsFile });
+    files.set("package.json", await formatJson(manifest));
   },
-  overridesIn(text) {
-    const { overrides } = JSON.parse(text) as {
+  overridesIn(files) {
+    const { overrides } = manifestIn(files) as {
       overrides?: Record<string, string>;
     };
     return overrides ?? {};

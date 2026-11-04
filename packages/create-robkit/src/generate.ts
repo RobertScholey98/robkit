@@ -275,10 +275,7 @@ async function renderSettings(
       }),
     );
   }
-  files.set(
-    pm.settingsFile,
-    await pm.writeSettings(files.get(pm.settingsFile) ?? "", settings),
-  );
+  await pm.writeSettings(files, settings);
   editJson(files, "package.json", (json) => ({
     ...json,
     packageManager: pm.packageManagerOf(repo),
