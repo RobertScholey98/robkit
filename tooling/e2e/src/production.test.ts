@@ -35,12 +35,23 @@ async function deployApps(stack: Stack, slugs: string[]): Promise<void> {
   }
 }
 
+/** Every dev tool, so their builds run Husky's postinstall with no git. */
+const allTools: Choices["tools"] = [
+  "eslint-prettier",
+  "vitest",
+  "playwright",
+  "husky",
+];
+
 const installs: [string, Choices][] = [
   ["default", defaultChoices],
   // Each ORM migrates as its app's container starts, and each UI kit's apps
   // serve its stylesheet. The two shadcn kits share their apps' layer, so
   // Base UI stands for both, and Chakra's server-rendered styles get a run.
-  ["Prisma", { ...defaultChoices, orm: "prisma", uiKit: "chakra" }],
+  [
+    "Prisma",
+    { ...defaultChoices, orm: "prisma", uiKit: "chakra", tools: allTools },
+  ],
   // bun installs the Kysely install, so its Dockerfile gets a run too.
   // yarn's can't yet: turbo can't prune a yarn lockfile that takes
   // robkit's packages from vendored tarballs, so a yarn install deploys
@@ -52,6 +63,7 @@ const installs: [string, Choices][] = [
       packageManager: "bun",
       orm: "kysely",
       uiKit: "shadcn-base-ui",
+      tools: allTools,
     },
   ],
 ];
