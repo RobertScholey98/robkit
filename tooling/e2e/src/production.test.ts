@@ -41,7 +41,16 @@ const installs: [string, Choices][] = [
   // serve its stylesheet. The two shadcn kits share their apps' layer, so
   // Base UI stands for both, and Chakra's server-rendered styles get a run.
   ["Prisma", { ...defaultChoices, orm: "prisma", uiKit: "chakra" }],
-  ["Kysely", { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" }],
+  // bun installs the Kysely install, so its Dockerfile gets a run too.
+  [
+    "Kysely on bun",
+    {
+      ...defaultChoices,
+      packageManager: "bun",
+      orm: "kysely",
+      uiKit: "shadcn-base-ui",
+    },
+  ],
 ];
 
 // Each install, deployed as on Coolify: an image per app from its
@@ -56,7 +65,9 @@ describe.each(installs)("the %s install in production", (_, choices) => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
     await init(choices, dir, { link: true, install: true });
     // A host can't reach this checkout, so the install takes tarballs.
-    await run("pnpm", ["robkit", "vendor"], { cwd: dir });
+    await run(choices.packageManager, ["run", "robkit", "vendor"], {
+      cwd: dir,
+    });
     stack = await startStack(dir, ["core", "hub", "admin", "example", later]);
     await deployApps(stack, ["core"]);
     await answers(stack, "core", 200, "/status");
@@ -105,8 +116,17 @@ describe.each(installs)("the %s install in production", (_, choices) => {
 
   it("serves an app added with robkit add after its next deploy", async () => {
     await run(
-      "pnpm",
-      ["robkit", "add", later, "--stack", "react-hono", "--access", "open"],
+      choices.packageManager,
+      [
+        "run",
+        "robkit",
+        "add",
+        later,
+        "--stack",
+        "react-hono",
+        "--access",
+        "open",
+      ],
       { cwd: dir },
     );
     // The next deploy: core picks up the new app and provisions its

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { freePort } from "@internal/test-postgres";
+import { packageManagerOf } from "@robkit/dev";
 import { install, type Install } from "@robkit/session/addresses";
 import { deploymentOf } from "create-robkit";
 
@@ -186,7 +187,8 @@ export async function buildApp(stack: Stack, slug: string): Promise<void> {
 export async function hostEnv(
   stack: Stack,
 ): Promise<Map<string, Record<string, string>>> {
-  const { stdout } = await run("pnpm", ["robkit", "database-urls"], {
+  const pm = await packageManagerOf(stack.dir);
+  const { stdout } = await run(pm, ["run", "robkit", "database-urls"], {
     cwd: stack.dir,
     env: {
       ...process.env,
