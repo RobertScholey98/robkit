@@ -45,6 +45,8 @@ export interface Stack {
   /** Holds the Caddyfile and Caddy's root certificate. */
   caDir: string;
   addresses: Install;
+  /** Names the install's layers in the build cache, when there is one. */
+  cacheScope: string;
 }
 
 async function docker(...args: string[]): Promise<string> {
@@ -86,7 +88,11 @@ function caddyfile(port: number): string {
  * `slugs` inside the network too, so the apps reach core over https as
  * they would on Coolify.
  */
-export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
+export async function startStack(
+  dir: string,
+  slugs: string[],
+  cacheScope: string,
+): Promise<Stack> {
   const name = stackName;
   // Its containers, images and network go even if this process is killed.
   removeWhenGone({ docker: name });
@@ -150,6 +156,7 @@ export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
     port,
     caDir,
     addresses: install({ domain, protocol: "https", port }),
+    cacheScope,
   };
 }
 
@@ -172,12 +179,33 @@ export async function stopStack(): Promise<void> {
   await docker("network", "rm", network).catch(() => undefined);
 }
 
-/** Builds `slug`'s image from the install's Dockerfile, as Coolify does. */
+/**
+ * Builds `slug`'s image from the install's Dockerfile, as Coolify does.
+ *
+ * With `ROBKIT_BUILD_CACHE` set to a BuildKit cache backend, such as
+ * `type=gha` on GitHub's runners, the build reads and writes its layers
+ * there, one scope per install and app, so a run after one that built the
+ * same install reuses them. Without it, the local Docker's own cache
+ * serves, as it does between runs on a laptop.
+ */
 export async function buildApp(stack: Stack, slug: string): Promise<void> {
-  await run(
+  const cache = process.env.ROBKIT_BUILD_CACHE;
+  const scope = `scope=${stack.cacheScope}-${slug}`;
+  const { stderr } = await run(
     "docker",
     [
-      "build",
+      ...(cache
+        ? [
+            "buildx",
+            "build",
+            "--load",
+            "--cache-from",
+            `${cache},${scope}`,
+            "--cache-to",
+            `${cache},mode=max,${scope}`,
+          ]
+        : ["build"]),
+      "--progress=plain",
       "--build-arg",
       `ROBKIT_APP=${slug}`,
       "-t",
@@ -186,6 +214,26 @@ export async function buildApp(stack: Stack, slug: string): Promise<void> {
     ],
     { cwd: stack.dir, maxBuffer: 64 * 1024 * 1024 },
   );
+  console.log(`${stack.cacheScope} ${slug}: ${cachedSteps(stderr)}`);
+}
+
+/**
+ * How many of a build's Dockerfile steps came from the cache, from
+ * BuildKit's plain progress, where each step is `#<n> [stage i/n]` and a
+ * reused one also prints `#<n> CACHED`.
+ */
+export function cachedSteps(progress: string): string {
+  const steps = new Set<string>();
+  const cached = new Set<string>();
+  for (const line of progress.split("\n")) {
+    // A Dockerfile step names its stage and place: `[build 3/5]`.
+    const step = /^#(\d+) \[[^\]]*\d+\/\d+\]/.exec(line);
+    if (step?.[1]) steps.add(step[1]);
+    const hit = /^#(\d+) CACHED/.exec(line);
+    if (hit?.[1]) cached.add(hit[1]);
+  }
+  const reused = [...steps].filter((step) => cached.has(step)).length;
+  return `${String(reused)} of ${String(steps.size)} steps cached`;
 }
 
 /**

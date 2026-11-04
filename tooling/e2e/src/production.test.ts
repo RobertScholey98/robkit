@@ -96,7 +96,7 @@ function chosen(): [string, Choices][] {
 // the host's interfaces, and Chromium fails in-flight requests with
 // ERR_NETWORK_CHANGED. So every deploy below finishes before the journey
 // after it launches a browser, and each journey closes its browser.
-describe.each(chosen())("the %s install in production", (_, choices) => {
+describe.each(chosen())("the %s install in production", (key, choices) => {
   let dir: string;
   let stack: Stack;
   let setUp: OwnerSetUp;
@@ -108,7 +108,11 @@ describe.each(chosen())("the %s install in production", (_, choices) => {
     await run(choices.packageManager, ["run", "robkit", "vendor"], {
       cwd: dir,
     });
-    stack = await startStack(dir, ["core", "hub", "admin", "example", later]);
+    stack = await startStack(
+      dir,
+      ["core", "hub", "admin", "example", later],
+      key,
+    );
     await deployApps(stack, ["core"]);
     await answers(stack, "core", 200, "/status");
     await deployApps(stack, ["hub", "admin"]);
