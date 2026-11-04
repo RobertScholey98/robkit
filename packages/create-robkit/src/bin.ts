@@ -2,10 +2,8 @@
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { choicesFromFlags } from "./choices.ts";
-import { generateInstall } from "./generate.ts";
-import { initGit, installDependencies } from "./set-up.ts";
+import { init } from "./init.ts";
 import { askInit, commandFor } from "./wizard.ts";
-import { writeInstall } from "./write.ts";
 
 const usage = `Usage: npm create robkit [folder] -- [options]
 
@@ -52,11 +50,7 @@ try {
   const choices = choicesFromFlags(picked);
   const pm = choices.packageManager;
   const dir = resolve(folder);
-  await writeInstall(dir, await generateInstall(choices, { link }));
-  if (install) {
-    await installDependencies(dir, pm);
-    await initGit(dir);
-  }
+  await init(choices, dir, { link, install });
   console.log(`Wrote a robkit install in ${dir}. Next:
 
   cd ${folder}${install ? "" : `\n  ${pm} install`}
