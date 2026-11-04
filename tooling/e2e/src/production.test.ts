@@ -17,6 +17,7 @@ import {
   buildApp,
   extraneousPackages,
   hostEnv,
+  stackReport,
   startApp,
   startStack,
   stopStack,
@@ -35,6 +36,11 @@ async function deployApps(stack: Stack, slugs: string[]): Promise<void> {
   for (const slug of slugs) {
     await startApp(stack, slug, env.get(slug) ?? {});
   }
+}
+
+/** What the browser saw, then each container's state and its last logs. */
+async function whatWentWrong(stack: Stack): Promise<string> {
+  return `What the browser saw:\n${takeBrowserLog()}\n\nThe stack's containers:\n${await stackReport(stack)}`;
 }
 
 /** Every dev tool, so their builds run Husky's postinstall with no git. */
@@ -120,8 +126,8 @@ describe.each(chosen())("the %s install in production", (key, choices) => {
     // The owner opens the example to anyone before it starts, so its guard
     // never keeps the owner-only rule it would start with.
     setUp = await ownerSetsUp(stack.addresses, "example").catch(
-      (error: unknown) => {
-        console.error(`What the browser saw:\n${takeBrowserLog()}`);
+      async (error: unknown) => {
+        console.error(await whatWentWrong(stack));
         throw error;
       },
     );
@@ -132,8 +138,8 @@ describe.each(chosen())("the %s install in production", (key, choices) => {
   // A journey that times out says only what it waited for.
   beforeEach(({ onTestFailed }) => {
     takeBrowserLog();
-    onTestFailed(() => {
-      console.error(`What the browser saw:\n${takeBrowserLog()}`);
+    onTestFailed(async () => {
+      console.error(await whatWentWrong(stack));
     });
   });
 

@@ -370,6 +370,35 @@ function status(stack: Stack, slug: string, path: string): Promise<number> {
   });
 }
 
+/**
+ * Each of the stack's containers with its state and the end of its logs,
+ * for a failed journey to print beside what the browser saw.
+ */
+export async function stackReport(stack: Stack): Promise<string> {
+  const containers = (
+    await docker(
+      "ps",
+      "-a",
+      "--filter",
+      `label=${stack.name}`,
+      "--format",
+      "{{.Names}}\t{{.Status}}",
+    )
+  )
+    .split("\n")
+    .filter(Boolean);
+  const reports = await Promise.all(
+    containers.map(async (line) => {
+      const [container = ""] = line.split("\t");
+      const logs = await run("docker", ["logs", "--tail", "40", container])
+        .then(({ stdout, stderr }) => stdout + stderr)
+        .catch((error: unknown) => String(error));
+      return `${line}\n${logs}`;
+    }),
+  );
+  return reports.join("\n");
+}
+
 /** Waits until `slug` answers `path` with `expected`, naming its logs if not. */
 export async function answers(
   stack: Stack,
