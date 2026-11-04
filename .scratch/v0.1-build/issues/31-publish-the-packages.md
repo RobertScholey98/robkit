@@ -17,3 +17,7 @@
 - pnpm 11 refuses packages published in the last day, so an install made right after a release fails to install. Whether the release waits a day, or installs exempt `@robkit/*` and `create-robkit`.
 
 Source: the build of ticket 11 (2026-11-03)
+
+Notes from ticket 19:
+
+- A yarn install can't deploy from vendored tarballs yet. yarn ties a `file:` path to the workspace that names it (`::locator=…` in `yarn.lock`), and turbo 2.11.10 can't prune that lockfile: "Unable to find any locator". Once the packages are on npm, add a yarn install to `test:production`. Until then `tooling/e2e/src/yarn-prune.test.ts` serves the packed packages from a local registry and checks the prune and the frozen install.
