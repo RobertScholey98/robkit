@@ -59,4 +59,6 @@ catalog:
 # esbuild ships its binary as an optional dependency, so its install script
 # has nothing to do.
 allowBuilds:
+  # Its install script puts the platform binary in place.
+  bun: true
   esbuild: false
