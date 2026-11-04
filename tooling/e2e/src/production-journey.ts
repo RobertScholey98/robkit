@@ -37,6 +37,8 @@ export async function ownerSetsUp(
   try {
     const owner = await freshPage(browser);
     await owner.goto(install.origin("hub"));
+    // The hub asks core where the install stands before it shows a screen.
+    await owner.getByText("Checking core…").waitFor({ state: "detached" });
     const firstVisit = await owner.getByRole("heading").first().textContent();
     await owner.getByLabel("Username").fill("rob");
     await owner.getByLabel("Password", { exact: true }).fill("correct horse");
