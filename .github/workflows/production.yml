@@ -1,0 +1,52 @@
+name: Production
+
+# Deploys generated installs as on Coolify, an image per app behind TLS on
+# a domain that isn't localhost, and takes the owner and a guest through
+# them over https: pnpm --filter @internal/e2e test:production, one job
+# per install. It runs on every push to main, each night through
+# nightly.yml, and on a pull request labelled production.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  production:
+    # A pull request runs it once labelled production, and again on each
+    # push. Adding some other label doesn't start it again.
+    if: github.event_name != 'pull_request' || (contains(github.event.pull_request.labels.*.name, 'production') && (github.event.action != 'labeled' || github.event.label.name == 'production'))
+    name: Production (${{ matrix.install }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    concurrency:
+      group: production-${{ github.event_name }}-${{ github.ref }}-${{ matrix.install }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        # The installs production.test.ts deploys, by their keys.
+        install: [default, prisma, kysely-on-bun]
+    env:
+      E2E_PRODUCTION_INSTALL: ${{ matrix.install }}
+      # Each image's layers, kept in GitHub's cache from one run to the
+      # next, one scope per install and app.
+      ROBKIT_BUILD_CACHE: type=gha
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
+      # The docker driver can't export a cache. buildx's own builder can.
+      - uses: docker/setup-buildx-action@v4
+      # Hands the build the cache service's URL and token.
+      - uses: crazy-max/ghaction-github-runtime@v4
+      - run: pnpm --filter @internal/e2e test:production

@@ -14,3 +14,7 @@ jobs:
     uses: ./.github/workflows/kit-matrix.yml
     with:
       set: nightly
+
+  # Every production install, deployed and taken through over https.
+  production:
+    uses: ./.github/workflows/production.yml
