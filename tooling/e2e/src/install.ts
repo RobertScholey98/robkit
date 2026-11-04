@@ -69,7 +69,10 @@ declare module "vitest" {
  * its second generator, as the owner would with robkit add's flags, using
  * the install's UI kit if `kit` is set.
  */
-async function createInstall(choices: Choices, kit: boolean): Promise<string> {
+export async function createInstall(
+  choices: Choices,
+  kit: boolean,
+): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
   await init(choices, dir, { link: true, install: true });
   const [stack, other = stack] = choices.generators;

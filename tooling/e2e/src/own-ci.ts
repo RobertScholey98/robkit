@@ -69,6 +69,18 @@ export async function runOwnCi(
     await run("sh", ["-c", step.run ?? ""], {
       cwd: join(dir, step["working-directory"] ?? ""),
       env: withPorts,
+      maxBuffer: 64 * 1024 * 1024,
+    }).catch((error: unknown) => {
+      // Lint and typecheck print their problems on stdout, which the
+      // error's message leaves out.
+      const { stdout = "", stderr = "" } = error as {
+        stdout?: string;
+        stderr?: string;
+      };
+      throw new Error(
+        `\`${step.run ?? ""}\` failed:\n${stdout.slice(-20_000)}\n${stderr.slice(-20_000)}`,
+        { cause: error },
+      );
     });
   }
 }
