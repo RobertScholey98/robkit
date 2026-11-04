@@ -1,6 +1,7 @@
 import type { Hono } from "hono";
 import { onTestFinished } from "vitest";
 import { createApp } from "../app.ts";
+import type { TrustedProxy } from "../client.ts";
 import { createDatabase, type Database } from "../database.ts";
 import { migrate } from "../migrate.ts";
 import { freshDatabase } from "./fresh-database.ts";
@@ -23,7 +24,11 @@ export interface FreshCore {
  */
 export async function freshCore({
   domain = "robkit.test",
-}: { domain?: string } = {}): Promise<FreshCore> {
+  trustedProxy,
+}: {
+  domain?: string;
+  trustedProxy?: TrustedProxy | undefined;
+} = {}): Promise<FreshCore> {
   const databaseUrl = await freshDatabase();
   await migrate(databaseUrl);
   const db = createDatabase(databaseUrl);
@@ -32,7 +37,7 @@ export async function freshCore({
   let now = clockStart.getTime();
   const clock = () => new Date(now);
   return {
-    app: createApp({ db, domain, now: clock }),
+    app: createApp({ db, domain, now: clock, trustedProxy }),
     db,
     now: clock,
     advance: (ms) => {
