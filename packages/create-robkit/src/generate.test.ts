@@ -597,8 +597,9 @@ describe("generateInstall", () => {
       ...defaultChoices,
       uiKit: "shadcn-base-ui",
     });
+    // Vite bundles the kit into the hub, so it is a build-time package.
     const hub = json(kit, "apps/hub/package.json") as {
-      dependencies: Record<string, string>;
+      devDependencies: Record<string, string>;
     };
     const { catalog } = workspace(kit);
 
@@ -626,7 +627,7 @@ describe("generateInstall", () => {
     expect(kit.get("apps/admin/src/client/Admin.tsx")).toBe(
       plain.get("apps/admin/src/client/Admin.tsx"),
     );
-    expect(hub.dependencies["@internal/ui"]).toBe("workspace:*");
+    expect(hub.devDependencies["@internal/ui"]).toBe("workspace:*");
     // The example app shows the kit off; robkit add asks each app.
     expect(kit.get("apps/example/src/styles.css")).toContain(
       "@internal/ui/styles.css",

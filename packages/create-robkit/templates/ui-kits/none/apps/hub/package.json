@@ -11,20 +11,20 @@
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
-    "@internal/core-client": "workspace:*",
-    "@internal/theme": "workspace:*",
-    "@robkit/session": "catalog:",
-    "hono": "catalog:",
-    "react": "catalog:",
-    "react-dom": "catalog:"
+    "hono": "catalog:"
   },
   "devDependencies": {
+    "@internal/core-client": "workspace:*",
+    "@internal/theme": "workspace:*",
     "@internal/tsconfig": "workspace:*",
+    "@robkit/session": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
