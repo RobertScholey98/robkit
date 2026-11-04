@@ -43,9 +43,18 @@ RUN --mount=type=cache,id=bun-cache,target=/root/.bun/install/cache \
       --filter "@internal/${ROBKIT_APP}-app" \
  && rm -rf vendor
 
-FROM node:24-alpine
+# Node alone: the apps never run npm, Yarn or Corepack. Deleting them in a
+# later layer wouldn't shrink the image, so the runtime starts from scratch.
+FROM node:24-alpine AS node
+RUN rm -rf /usr/local/lib/node_modules /usr/local/include /opt/yarn-* \
+      /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+      /usr/local/bin/yarn /usr/local/bin/yarnpkg
+
+FROM scratch
+COPY --from=node / /
 ARG ROBKIT_APP
-ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 ROBKIT_APP=${ROBKIT_APP}
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    NODE_ENV=production HOST=0.0.0.0 PORT=3000 ROBKIT_APP=${ROBKIT_APP}
 COPY --from=production --chown=node:node /install /install
 WORKDIR /install/apps/${ROBKIT_APP}
 USER node
