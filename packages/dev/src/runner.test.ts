@@ -11,6 +11,7 @@ import {
   composeFile,
   freePortBlock,
   freePostgresPort,
+  removeWhenGone,
 } from "@internal/test-postgres";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -62,9 +63,12 @@ async function startDev(
       COMPOSE_PROJECT_NAME: project,
       ...env,
     },
+    // Its own process group, so removeWhenGone can stop it and nothing else.
+    detached: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
   children.push(child);
+  removeWhenGone({ group: child.pid ?? 0 }, { docker: project });
   let output = "";
   child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
   child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));

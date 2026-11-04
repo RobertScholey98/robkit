@@ -3,7 +3,11 @@ import { once } from "node:events";
 import { request, type IncomingHttpHeaders } from "node:http";
 import { connect } from "node:net";
 import { promisify } from "node:util";
-import { freePortBlock, freePostgresPort } from "@internal/test-postgres";
+import {
+  freePortBlock,
+  freePostgresPort,
+  removeWhenGone,
+} from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import {
   defaultDomain,
@@ -165,6 +169,7 @@ export function describeJourneys(
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
+    removeWhenGone({ group: dev.pid ?? 0 }, { docker: project });
     dev.stdout?.on("data", (chunk: Buffer) => (output += chunk.toString()));
     dev.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
   });

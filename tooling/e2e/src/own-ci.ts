@@ -1,8 +1,12 @@
 import { execFile } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { promisify } from "node:util";
-import { freePortBlock, freePostgresPort } from "@internal/test-postgres";
+import {
+  freePortBlock,
+  freePostgresPort,
+  removeWhenGone,
+} from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import { parse } from "yaml";
 
@@ -64,6 +68,13 @@ export async function runOwnCi(
     ),
     ROBKIT_E2E_POSTGRES_PORT: String(await freePostgresPort()),
   };
+  // The install's browser tests name their Compose project after its folder,
+  // as its tooling/e2e/src/stack.ts does.
+  removeWhenGone({
+    docker: `${basename(dir)
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "")}-e2e`,
+  });
   for (const step of steps) {
     if (/^\w+ install\b|playwright install\b/.test(step.run ?? "")) continue;
     await run("sh", ["-c", step.run ?? ""], {

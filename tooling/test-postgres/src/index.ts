@@ -4,6 +4,9 @@ import { createServer } from "node:net";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { removeWhenGone } from "./clean-up.ts";
+
+export { removeWhenGone, type Leftover } from "./clean-up.ts";
 
 const run = promisify(execFile);
 
@@ -87,6 +90,7 @@ export async function freePortBlock(size: number): Promise<number> {
 export async function startPostgres(): Promise<TestPostgres> {
   const port = await freePostgresPort();
   const project = `robkit-test-${randomBytes(4).toString("hex")}`;
+  removeWhenGone({ docker: project });
   const env = { ...process.env, ROBKIT_POSTGRES_PORT: String(port) };
   // From the template's folder rather than with -f, so COMPOSE_FILE can add
   // to it here as it does for an install's pnpm dev.
