@@ -6,11 +6,8 @@ import {
 } from "@robkit/guard";
 import { coreAccess } from "./core-access.ts";
 import { coreKeys } from "./core-keys.ts";
-import {
-  readSessionToken,
-  sessionCookie,
-  type VerifyKey,
-} from "./session-token.ts";
+import { sessionLapsedResponse } from "./session-lapsed.ts";
+import { readSessionToken, sessionCookie } from "./session-token.ts";
 
 /** Who may open the app: a rule of its own, or the one the owner set in admin. */
 export type GuardedRule =
@@ -33,8 +30,6 @@ export type GuardedOptions = GuardedRule & {
    * request can't choose whose keys the app trusts.
    */
   core: string;
-  /** Core's public keys. By default they come from core's JWKS, once. */
-  keys?: VerifyKey;
 };
 
 /** What the app does with a request: serve it to the viewer, or answer it. */
@@ -107,9 +102,8 @@ const text = (body: string, status: number) =>
 export function requestGuard(
   options: GuardedOptions,
 ): (request: Request) => Promise<RequestDecision> {
-  const { core, keys } = options;
-  const origins = platformOrigins(core);
-  const verifyKey = keys ?? coreKeys(origins.core);
+  const origins = platformOrigins(options.core);
+  const verifyKey = coreKeys(origins.core);
   const ruleOf =
     "access" in options
       ? () => Promise.resolve(options.access)
@@ -155,24 +149,21 @@ export function requestGuard(
       case "refresh": {
         const { app, path, error } = elsewhere[decision.outcome];
         const location = new URL(path, origins[app]);
-        location.searchParams.set("next", publicUrl(request).href);
-        const headers = { "cache-control": "no-store" };
         if (!isNavigation(request)) {
-          // The header tells the page this 401 is the guard's, not the app's.
+          // A call doesn't know the page it came from. The page adds next.
           return {
-            response: Response.json(
-              { error, location: location.href },
-              {
-                status: 401,
-                headers: { ...headers, "robkit-session": decision.outcome },
-              },
-            ),
+            response: sessionLapsedResponse({
+              outcome: decision.outcome,
+              error,
+              location: location.href,
+            }),
           };
         }
+        location.searchParams.set("next", publicUrl(request).href);
         return {
           response: new Response(null, {
             status: 302,
-            headers: { ...headers, location: location.href },
+            headers: { "cache-control": "no-store", location: location.href },
           }),
         };
       }

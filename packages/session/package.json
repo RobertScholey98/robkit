@@ -4,7 +4,8 @@
   "description": "robkit's session token: its claims, its cookie and how apps verify it.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./lapsed": "./src/session-lapsed.ts"
   },
   "files": [
     "src",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
+    "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "eslint": "catalog:",

@@ -1,28 +1,4 @@
-/** What a robkit adapter answers a call with once the session has lapsed. */
-interface SessionLapsed {
-  error: string;
-  /** Where the browser goes: core's refresh, or the hub to log in. */
-  location: string;
-}
-
-/** The header the guard sets on its 401, naming login or refresh. */
-const guardHeader = "robkit-session";
-
-async function lapsed(response: Response): Promise<SessionLapsed | undefined> {
-  if (response.status !== 401 || !response.headers.has(guardHeader)) {
-    return undefined;
-  }
-  const body: unknown = await response
-    .clone()
-    .json()
-    .catch(() => undefined);
-  if (typeof body !== "object" || body === null) return undefined;
-  const { error, location } = body as Record<string, unknown>;
-  if (typeof error !== "string" || typeof location !== "string") {
-    return undefined;
-  }
-  return URL.canParse(location) ? { error, location } : undefined;
-}
+import { readSessionLapsed, type SessionLapsed } from "@robkit/session/lapsed";
 
 let leaving = false;
 
@@ -34,7 +10,7 @@ function leaveFor({ location }: SessionLapsed): void {
   addEventListener("pageshow", (event) => {
     if (event.persisted) leaving = false;
   });
-  // The adapter only knows the URL it was called on. Come back to the page.
+  // The guard leaves next to the page, which knows where to come back to.
   const target = new URL(location);
   target.searchParams.set("next", globalThis.location.href);
   globalThis.location.assign(target.href);
@@ -50,8 +26,8 @@ function leaveFor({ location }: SessionLapsed): void {
  */
 export const sessionFetch: typeof fetch = async (input, init) => {
   const response = await fetch(input, init);
-  const elsewhere = await lapsed(response);
-  if (!elsewhere) return response;
-  leaveFor(elsewhere);
+  const lapsed = await readSessionLapsed(response);
+  if (!lapsed) return response;
+  leaveFor(lapsed);
   return new Promise<never>(() => undefined);
 };

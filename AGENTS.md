@@ -22,13 +22,13 @@ pnpm --filter <package> test              # one package
 - In an install, each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`, and an app with a `migrate` script gets its own schema and role from the provision step, `provisionApps` in `@robkit/dev`, which then runs that script. `pnpm dev` runs the step before it starts the apps. The dev runner tells each app its slug as `ROBKIT_APP`, and hands core the owner's apps as `ROBKIT_APPS`. Core adds new ones to its app catalog, where admin sets who may open each one.
 - `packages/` holds the published `@robkit/*` packages:
   - `@robkit/core`, the backend.
-  - `@robkit/session`, the session token's claims and cookie, `coreKeys`, which fetches core's public key once so apps verify tokens locally, `coreAccess`, which loads an app's access rule from core and keeps it for a minute, and `requestGuard`, which runs the guard on a web-standard `Request` for the server adapters.
+  - `@robkit/session`, the session token's claims and cookie, and `requestGuard`, which runs the guard on a web-standard `Request` for the server adapters. It fetches core's public key once, so apps verify tokens locally, and keeps an app's access rule from core for a minute. `@robkit/session/lapsed` is the guard's 401 for a call whose session has lapsed, which `sessionFetch` reads. It imports nothing, so the browser can load it.
   - `@robkit/guard`, the pure guard, and `conformance.json`, the cases the guard and every adapter pass.
   - `@robkit/hono`, the Hono adapter.
   - `@robkit/start`, the TanStack Start adapter. It wraps the app's server entry, so routes and server functions get the viewer as `context.viewer`.
   - `@robkit/react`, the client helper. Its `sessionFetch` sends the browser through core's `/refresh` when a call finds the session lapsed, and hands every other answer to the caller.
   - `@robkit/dev`, the `robkit-dev` runner and proxy behind an install's `pnpm dev`.
-- `tooling/` holds private workspace packages: the shared tsconfig, the shared ESLint config, repo checks that run as tests, a per-suite test Postgres, `@internal/test-session`, which signs session tokens for the adapters' tests, and the whole-stack test. It generates installs linked to this checkout, runs each one's own checks, and takes a browser through each stack's example app in Chromium.
+- `tooling/` holds private workspace packages: the shared tsconfig, the shared ESLint config, repo checks that run as tests, a per-suite test Postgres, `@internal/test-session`, which signs session tokens and runs a fake core for the guard's and adapters' tests, and the whole-stack test. It generates installs linked to this checkout, runs each one's own checks, and takes a browser through each stack's example app in Chromium.
 
 ## The layer rule
 

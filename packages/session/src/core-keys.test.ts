@@ -3,7 +3,8 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { coreKeys, readSessionToken } from "./index.ts";
+import { coreKeys } from "./core-keys.ts";
+import { readSessionToken } from "./index.ts";
 
 const now = new Date("2026-11-01T12:00:00Z");
 const servers: Server[] = [];
