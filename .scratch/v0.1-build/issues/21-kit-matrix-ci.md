@@ -39,3 +39,9 @@ Notes from ticket 20:
 
 - The tools are one more dimension of the pairwise set. Keep one install with every tool and one with none, since Playwright's CI steps and Husky's hook are only exercised in an install that has them.
 - The install-checks test reads a step's `if` only in the `hashFiles(<path>) != ''` form, honours `working-directory`, and skips every install step, including `playwright install --with-deps`, which needs root. Robkit's own Playwright installs the same Chromium, since `@playwright/test` is cataloged at `playwright`'s version.
+
+Notes from ticket 34:
+
+- Every job that runs journeys on a Linux runner needs CI's `COMPOSE_FILE`, which puts each test Postgres on the host's network. Without it, any compose project starting or stopping beside a journey fails that page's in-flight requests with `ERR_NETWORK_CHANGED`. A new job must keep the job-level `env` in `ci.yml`, and anything new that starts containers during journeys must avoid new networks too.
+- A failed journey prints what its browser saw and what the dev runner said, so read that before rerunning.
+- One CI job runs the gate in about 8 to 9 minutes on `ubuntu-latest`. Five of them ran in parallel without trouble, so splitting the pairwise set across a job matrix is cheap.

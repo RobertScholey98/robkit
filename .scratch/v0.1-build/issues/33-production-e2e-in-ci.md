@@ -11,3 +11,7 @@
 - [ ] A second run with no install changes reuses cached image layers
 
 Source: the build of ticket 11 (2026-11-03)
+
+## Comments
+
+- From ticket 34: the production stack makes its own Docker network and starts containers on it, and its journey redeploys an app while the browser is open. On CI's runner each network and container adds host interfaces, which makes Chromium fail in-flight requests with `ERR_NETWORK_CHANGED`. Start every container the journey needs before the browser opens a page, or keep the browser out of the way of those changes, and read the failed journey's browser log if a page never draws.
