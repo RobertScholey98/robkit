@@ -2,6 +2,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import postgres from "postgres";
 import { discoverApps } from "./apps.ts";
 import { exec } from "./exec.ts";
+import { packageManagerOf } from "./package-manager.ts";
 import { slugProblem } from "./slug.ts";
 
 export interface ProvisionOptions {
@@ -26,11 +27,12 @@ export async function provisionApps(
   { adminUrl, env = process.env, signal }: ProvisionOptions,
 ): Promise<Map<string, string>> {
   const databaseUrls = new Map<string, string>();
+  const pm = await packageManagerOf(root);
   for (const app of await discoverApps(root)) {
     if (signal?.aborted) break;
     if (!app.migrates) continue;
     const databaseUrl = await provisionDatabase(adminUrl, app.slug);
-    await exec("pnpm", ["run", "migrate"], {
+    await exec(pm, ["run", "migrate"], {
       cwd: app.dir,
       env: { ...env, DATABASE_URL: databaseUrl },
       slug: app.slug,
