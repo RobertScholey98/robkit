@@ -8,6 +8,7 @@ import {
   freePostgresPort,
   removeWhenGone,
   testComposeFiles,
+  testTag,
 } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import {
@@ -157,6 +158,8 @@ export function describeJourneys(
     devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
     addresses = install({ domain: defaultDomain, port: devPort });
     postgresPort = await freePostgresPort();
+    const tag = testTag();
+    removeWhenGone({ tagged: tag }, { docker: project });
     dev = spawn(choices.packageManager, ["run", "dev"], {
       cwd: dir,
       env: {
@@ -164,6 +167,7 @@ export function describeJourneys(
         ROBKIT_DEV_PORT: String(devPort),
         ROBKIT_POSTGRES_PORT: String(postgresPort),
         COMPOSE_FILE: testComposeFiles(),
+        ROBKIT_TEST_TAG: tag,
         COMPOSE_PROJECT_NAME: project,
       },
       // Its own process group, like a terminal's foreground job, so SIGINT
@@ -171,7 +175,6 @@ export function describeJourneys(
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    removeWhenGone({ group: dev.pid ?? 0 }, { docker: project });
     dev.stdout?.on("data", (chunk: Buffer) => (output += chunk.toString()));
     dev.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
   });

@@ -13,6 +13,7 @@ import {
   freePostgresPort,
   removeWhenGone,
   testComposeFiles,
+  testTag,
 } from "@internal/test-postgres";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -64,6 +65,8 @@ async function startDev(
   const port = await freePortBlock(3);
   const project = `robkit-test-${String(port)}`;
   projects.push({ root, project });
+  const tag = testTag();
+  removeWhenGone({ tagged: tag }, { docker: project });
 
   const child = spawn(process.execPath, [bin], {
     cwd: root,
@@ -72,15 +75,13 @@ async function startDev(
       ROBKIT_DEV_PORT: String(port),
       ROBKIT_POSTGRES_PORT: String(await freePostgresPort()),
       COMPOSE_FILE: testComposeFiles(),
+      ROBKIT_TEST_TAG: tag,
       COMPOSE_PROJECT_NAME: project,
       ...env,
     },
-    // Its own process group, so removeWhenGone can stop it and nothing else.
-    detached: true,
     stdio: ["ignore", "pipe", "pipe"],
   });
   children.push(child);
-  removeWhenGone({ group: child.pid ?? 0 }, { docker: project });
   let output = "";
   child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
   child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));

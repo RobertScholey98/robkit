@@ -18,9 +18,9 @@ async function containerNames(prefix: string): Promise<string[]> {
   return stdout.split("\n").filter((name) => name.startsWith(prefix));
 }
 
-function groupAlive(pid: number): boolean {
+function alive(pid: number): boolean {
   try {
-    process.kill(-pid, 0);
+    process.kill(pid, 0);
     return true;
   } catch {
     return false;
@@ -36,10 +36,11 @@ async function eventually(check: () => Promise<boolean> | boolean) {
 }
 
 describe("removeWhenGone", () => {
-  it("removes a killed test's containers and process groups", async () => {
+  it("removes a killed test's containers and every process it tagged", async () => {
     const prefix = `robkit-test-gone${randomBytes(3).toString("hex")}`;
-    // A stand-in for a test worker: starts a container and a detached process
-    // group, registers both, then waits to be killed.
+    // A stand-in for a test worker. It starts a container, and a tagged
+    // parent that starts an app in a session of its own and then dies, as
+    // robkit-dev can when its worker is killed. Then it waits to be killed.
     const owner = spawn(
       process.execPath,
       [
@@ -47,25 +48,33 @@ describe("removeWhenGone", () => {
         "-e",
         `
         import { execFileSync, spawn } from "node:child_process";
-        import { removeWhenGone } from ${JSON.stringify(cleanUp)};
+        import { once } from "node:events";
+        import { removeWhenGone, testTag } from ${JSON.stringify(cleanUp)};
         execFileSync("docker", ["run", "-d", "--name", ${JSON.stringify(`${prefix}-postgres-1`)}, "postgres:18-alpine", "sleep", "600"]);
-        const dev = spawn("sleep", ["600"], { detached: true, stdio: "ignore" });
-        removeWhenGone({ group: dev.pid }, { docker: ${JSON.stringify(prefix)} });
-        console.log(dev.pid);
+        const tag = testTag();
+        const parent = spawn(
+          "sh",
+          ["-c", "sleep 600 > /dev/null 2>&1 < /dev/null & echo $!"],
+          { env: { ...process.env, ROBKIT_TEST_TAG: tag } },
+        );
+        const [app] = await once(parent.stdout, "data");
+        await once(parent, "exit");
+        removeWhenGone({ tagged: tag }, { docker: ${JSON.stringify(prefix)} });
+        console.log(String(app).trim());
         setInterval(() => {}, 1000);
         `,
       ],
       { stdio: ["ignore", "pipe", "inherit"] },
     );
     const [line] = (await once(owner.stdout, "data")) as [Buffer];
-    const group = Number(line.toString().trim());
+    const app = Number(line.toString().trim());
 
     expect(await containerNames(prefix)).toEqual([`${prefix}-postgres-1`]);
-    expect(groupAlive(group)).toBe(true);
+    expect(alive(app)).toBe(true);
 
     owner.kill("SIGKILL");
 
     await eventually(async () => (await containerNames(prefix)).length === 0);
-    await eventually(() => !groupAlive(group));
+    await eventually(() => !alive(app));
   });
 });

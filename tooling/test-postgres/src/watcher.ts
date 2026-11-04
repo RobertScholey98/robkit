@@ -43,30 +43,44 @@ function removeDocker(prefix: string): void {
   if (volumes.length > 0) docker("volume", "rm", "-f", ...volumes);
 }
 
-function signalGroup(group: number, signal: NodeJS.Signals | 0): boolean {
-  try {
-    process.kill(-group, signal);
-    return true;
-  } catch {
-    return false;
+/** The pids of every process whose environment holds `ROBKIT_TEST_TAG=<tag>`. */
+function tagged(tag: string): number[] {
+  // `e` appends each process's environment to its command, on Linux and macOS.
+  const lines = execFileSync("ps", ["axeww", "-o", "pid=,command="], {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "ignore"],
+  }).split("\n");
+  const marker = new RegExp(`(^|\\s)ROBKIT_TEST_TAG=${tag}(\\s|$)`);
+  return lines
+    .filter((line) => marker.test(line))
+    .map((line) => Number.parseInt(line, 10))
+    .filter((pid) => pid !== process.pid);
+}
+
+function signal(pids: number[], name: NodeJS.Signals): void {
+  for (const pid of pids) {
+    try {
+      process.kill(pid, name);
+    } catch {
+      // Already gone.
+    }
   }
 }
 
 /**
- * SIGTERM first, so a `robkit-dev` in the group stops the apps it started in
- * groups of their own, then SIGKILL whatever is left.
+ * SIGTERM first, so a robkit-dev can stop the apps it started, then SIGKILL
+ * whatever is left after 15 seconds.
  */
-async function stopGroup(group: number): Promise<void> {
-  // -0 would be the watcher's own group.
-  if (!(group > 0) || !signalGroup(group, "SIGTERM")) return;
+async function stopTagged(tag: string): Promise<void> {
+  signal(tagged(tag), "SIGTERM");
   const deadline = Date.now() + 15_000;
-  while (signalGroup(group, 0) && Date.now() < deadline) await sleep(250);
-  signalGroup(group, "SIGKILL");
+  while (tagged(tag).length > 0 && Date.now() < deadline) await sleep(250);
+  signal(tagged(tag), "SIGKILL");
 }
 
 while (alive(owner)) await sleep(1000);
 
 for (const leftover of leftovers) {
-  if ("group" in leftover) await stopGroup(leftover.group);
+  if ("tagged" in leftover) await stopTagged(leftover.tagged);
   else removeDocker(leftover.docker);
 }
