@@ -23,3 +23,8 @@ Notes from ticket 14:
 
 - Every ORM is now ready, and the whole-stack test runs four installs: the default, React + Hono first, Prisma and Kysely. The pairwise set can replace the last two. Keep one install where both apps share a non-Drizzle ORM: Kysely's migrator found another app's tables until `migrate` named its schema, and only two apps on one ORM catch that.
 - `pnpm test:production` deploys three installs, about three minutes each.
+
+Notes from ticket 18:
+
+- bun is ready. The whole-stack test's Kysely install runs on bun, and so does the Kysely install in `test:production`. The package manager is one more dimension of the pairwise set: the generator's pnpm pin, in `generate.test.ts`, covers five pnpm installs file by file.
+- A bun install's dev stack, CI steps and Docker build all need bun. In CI it comes from the e2e package's cataloged `bun`, so robkit's own workflow needs no setup step for it.
