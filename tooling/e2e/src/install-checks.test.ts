@@ -128,3 +128,62 @@ describe.each(lintInstalls)("the %s install's lint", (name) => {
     }
   });
 });
+
+describe("the prisma install's pre-commit hook", () => {
+  const commit = (dir: string, ...args: string[]) =>
+    run(
+      "git",
+      [
+        "-c",
+        "user.name=robkit",
+        "-c",
+        "user.email=robkit@example.com",
+        ...args,
+      ],
+      { cwd: dir },
+    );
+
+  it("is set up by init's install", async () => {
+    const dir = inject("installs").prisma;
+
+    const { stdout } = await run("git", ["config", "core.hooksPath"], {
+      cwd: dir,
+    });
+
+    expect(stdout.trim()).toBe(".husky/_");
+  });
+
+  it("refuses a commit that breaks the layer rule", async () => {
+    const dir = inject("installs").prisma;
+    const path = "apps/hub/src/reach.ts";
+    await writeFile(join(dir, path), 'export * from "@robkit/core";\n');
+    try {
+      await commit(dir, "add", path);
+
+      const committing = commit(dir, "commit", "-m", "Reach into core");
+
+      // lint-staged shows the failing task's output on stderr.
+      await expect(committing).rejects.toMatchObject({
+        stderr: expect.stringContaining(
+          "apps/hub/src/reach.ts:1:15  Layer rule: an app reaches core over HTTP only, never through @robkit/core.",
+        ) as string,
+      });
+    } finally {
+      await commit(dir, "rm", "--cached", "--quiet", path);
+      await rm(join(dir, path));
+    }
+  });
+
+  it("takes a commit that keeps it, formatting what it stages", async () => {
+    const dir = inject("installs").prisma;
+    await writeFile(join(dir, "notes.md"), "# Notes\n*   one\n");
+    await commit(dir, "add", "notes.md");
+
+    await commit(dir, "commit", "-m", "Add notes");
+
+    const { stdout } = await run("git", ["show", "HEAD:notes.md"], {
+      cwd: dir,
+    });
+    expect(stdout).toBe("# Notes\n\n- one\n");
+  });
+});
