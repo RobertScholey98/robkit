@@ -1,4 +1,5 @@
-import { chromium, type Page } from "playwright";
+import type { Page } from "playwright";
+import { launch } from "./browser.ts";
 import {
   expiredTwin,
   mainFrameRequests,
@@ -33,7 +34,7 @@ export async function serverFunctionJourney({
   password,
 }: JourneyOptions): Promise<ServerFunctionJourney> {
   const app = `${install.origin("example")}/`;
-  const browser = await chromium.launch();
+  const browser = await launch();
   try {
     const context = await browser.newContext();
     const page = await context.newPage();

@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
+import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -66,8 +67,11 @@ export async function startPostgres(): Promise<TestPostgres> {
   const port = await freePort();
   const project = `robkit-test-${randomBytes(4).toString("hex")}`;
   const env = { ...process.env, ROBKIT_POSTGRES_PORT: String(port) };
+  // From the template's folder rather than with -f, so COMPOSE_FILE can add
+  // to it here as it does for an install's pnpm dev.
   const compose = (...args: string[]) =>
-    run("docker", ["compose", "-f", composeFile, "-p", project, ...args], {
+    run("docker", ["compose", "-p", project, ...args], {
+      cwd: dirname(composeFile),
       env,
     });
 

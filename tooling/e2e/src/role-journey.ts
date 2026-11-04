@@ -1,4 +1,5 @@
-import { chromium, type Browser, type Locator, type Page } from "playwright";
+import type { Browser, Locator, Page } from "playwright";
+import { launch } from "./browser.ts";
 import type { Answer } from "./guest-journey.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
@@ -94,7 +95,7 @@ export async function roleJourney({
   password,
 }: JourneyOptions): Promise<RoleJourney> {
   const at = (slug: string, path = "/") => `${install.origin(slug)}${path}`;
-  const browser = await chromium.launch();
+  const browser = await launch();
   try {
     const owner = await freshPage(browser);
     await owner.goto(at("admin"));

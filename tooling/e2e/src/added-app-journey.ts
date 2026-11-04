@@ -1,4 +1,4 @@
-import { chromium } from "playwright";
+import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
 /** What a guest saw of the app robkit add made, open to anyone. */
@@ -21,7 +21,7 @@ export async function addedAppJourney({
   slug: string;
 }): Promise<AddedAppJourney> {
   const at = (app: string) => `${install.origin(app)}/`;
-  const browser = await chromium.launch();
+  const browser = await launch();
   try {
     const guest = await (await browser.newContext()).newPage();
     await guest.goto(at("hub"));

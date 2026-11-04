@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
-import { chromium, type Page } from "playwright";
+import type { Page } from "playwright";
+import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
 /** The axe rules each page broke, by page. */
@@ -35,7 +36,7 @@ export async function a11yJourney({
     }
   };
 
-  const browser = await chromium.launch();
+  const browser = await launch();
   try {
     const page = await (await browser.newContext()).newPage();
     await page.goto(at("hub"));

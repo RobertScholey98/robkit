@@ -1,4 +1,5 @@
-import { chromium, type Browser, type Page } from "playwright";
+import type { Browser, Page } from "playwright";
+import { launch } from "./browser.ts";
 import {
   expiredTwin,
   mainFrameRequests,
@@ -58,7 +59,7 @@ export async function guestJourney({
   password,
 }: JourneyOptions): Promise<GuestJourney> {
   const at = (slug: string, path = "/") => `${install.origin(slug)}${path}`;
-  const browser = await chromium.launch();
+  const browser = await launch();
   try {
     const owner = await freshPage(browser);
     await owner.goto(at("admin"));

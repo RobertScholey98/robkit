@@ -1,0 +1,17 @@
+# Runs an install's Postgres on the host's network, for tests on Linux.
+#
+# On a machine whose Docker runs natively, as on CI, each compose project's
+# network adds interfaces to the host when it starts and removes them when it
+# stops. Chromium takes that as the network changing and fails the requests it
+# has in flight with ERR_NETWORK_CHANGED, so a journey's page loses a module
+# and never draws. On the host's network Postgres adds no interface.
+#
+# CI names this file after the install's own in COMPOSE_FILE.
+services:
+  postgres:
+    network_mode: host
+    ports: !reset []
+    environment:
+      # Postgres listens on the port the install would have published.
+      PGPORT: ${ROBKIT_POSTGRES_PORT:-54320}
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1"]

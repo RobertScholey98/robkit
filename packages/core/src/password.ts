@@ -39,26 +39,48 @@ export async function hashPassword(password: string): Promise<string> {
   ].join("$");
 }
 
-/** Checks a password against a hash from `hashPassword`, in constant time. */
+// The most memory a stored hash may ask scrypt for: 8 times what
+// hashPassword uses, so a damaged row can't make sign-in allocate gigabytes.
+const maxMemory = 8 * 128 * cost.N * cost.r;
+
+/** A stored hash's scrypt parameters, if scrypt can run with them. */
+function readCost(
+  N: string | undefined,
+  r: string | undefined,
+  p: string | undefined,
+): ScryptOptions | undefined {
+  const read = { N: Number(N), r: Number(r), p: Number(p) };
+  const whole = Object.values(read).every(
+    (value) => Number.isSafeInteger(value) && value > 0,
+  );
+  const powerOfTwo = read.N > 1 && (read.N & (read.N - 1)) === 0;
+  if (!whole || !powerOfTwo || 128 * read.N * read.r > maxMemory) {
+    return undefined;
+  }
+  return read;
+}
+
+/**
+ * Checks a password against a hash from `hashPassword`, in constant time. A
+ * hash it can't read refuses every password. Any other failure throws, so
+ * the right password is never refused because scrypt failed.
+ */
 export async function verifyPassword(
   password: string,
   stored: string,
 ): Promise<boolean> {
   const [scheme, N, r, p, salt, hash, ...rest] = stored.split("$");
   if (scheme !== "scrypt" || !salt || !hash || rest.length > 0) return false;
+  const options = readCost(N, r, p);
   const expected = Buffer.from(hash, "base64");
-  if (expected.length === 0) return false;
-  try {
-    const actual = await derive(
-      password,
-      Buffer.from(salt, "base64"),
-      expected.length,
-      { N: Number(N), r: Number(r), p: Number(p) },
-    );
-    return timingSafeEqual(actual, expected);
-  } catch {
-    return false;
-  }
+  if (!options || expected.length === 0) return false;
+  const actual = await derive(
+    password,
+    Buffer.from(salt, "base64"),
+    expected.length,
+    options,
+  );
+  return timingSafeEqual(actual, expected);
 }
 
 /**

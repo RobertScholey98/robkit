@@ -11,9 +11,18 @@ import {
   type Install,
 } from "@robkit/session/addresses";
 import type { Choices } from "create-robkit";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  inject,
+  it,
+} from "vitest";
 import { a11yJourney } from "./a11y-journey.ts";
 import { addedAppJourney } from "./added-app-journey.ts";
+import { takeBrowserLog } from "./browser.ts";
 import { guestJourney } from "./guest-journey.ts";
 import {
   addedIcon,
@@ -158,6 +167,18 @@ export function describeJourneys(
     });
     dev.stdout?.on("data", (chunk: Buffer) => (output += chunk.toString()));
     dev.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
+  });
+
+  // A journey that times out says only what it waited for. Print what the
+  // browser saw and what the dev runner said meanwhile.
+  beforeEach(({ onTestFailed }) => {
+    takeBrowserLog();
+    const outputFrom = output.length;
+    onTestFailed(() => {
+      console.error(
+        `What the browser saw:\n${takeBrowserLog()}\n\nWhat ${choices.packageManager} run dev said meanwhile:\n${output.slice(outputFrom).slice(-8000)}`,
+      );
+    });
   });
 
   afterAll(async () => {

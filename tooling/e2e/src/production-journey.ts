@@ -1,4 +1,5 @@
-import { chromium, type Browser, type Page } from "playwright";
+import type { Browser, Page } from "playwright";
+import { launch as launchChromium } from "./browser.ts";
 import type { Install } from "@robkit/session/addresses";
 
 /**
@@ -6,7 +7,7 @@ import type { Install } from "@robkit/session/addresses";
  * Caddy's certificates, as a browser takes a real host's.
  */
 async function launch(): Promise<Browser> {
-  return chromium.launch({
+  return launchChromium({
     args: ["--host-resolver-rules=MAP *.robkit.test 127.0.0.1"],
   });
 }
