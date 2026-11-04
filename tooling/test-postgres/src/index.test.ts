@@ -1,9 +1,15 @@
 import { execFile } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { promisify } from "node:util";
 import postgres from "postgres";
 import { describe, expect, it } from "vitest";
 import { createServer } from "node:net";
-import { freePortBlock, publishedPorts, startPostgres } from "./index.ts";
+import {
+  freePortBlock,
+  publishedPorts,
+  removeWhenGone,
+  startPostgres,
+} from "./index.ts";
 
 const run = promisify(execFile);
 
@@ -58,13 +64,29 @@ describe("a test Postgres", () => {
 });
 
 describe("publishedPorts", () => {
-  it("lists the port a running Postgres publishes", async () => {
-    const { adminUrl, stop } = await startPostgres();
+  // A container of its own rather than startPostgres(), since CI runs that on
+  // the host network, where it publishes no port.
+  it("lists the port a running container publishes", async () => {
+    const name = `robkit-test-ports${randomBytes(3).toString("hex")}`;
+    removeWhenGone({ docker: name });
+    await run("docker", [
+      "run",
+      "-d",
+      "--name",
+      name,
+      "-p",
+      "127.0.0.1::5432",
+      "postgres:18-alpine",
+      "sleep",
+      "600",
+    ]);
     try {
-      const port = Number(new URL(adminUrl).port);
+      const { stdout } = await run("docker", ["port", name, "5432"]);
+      const port = Number(stdout.trim().split(":").at(-1));
+      expect(port).toBeGreaterThan(0);
       expect(await publishedPorts()).toContain(port);
     } finally {
-      await stop();
+      await run("docker", ["rm", "-f", "-v", name]);
     }
   });
 });
