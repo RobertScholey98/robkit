@@ -1,5 +1,6 @@
-import { execFile } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { execFile, spawn } from "node:child_process";
+import { once } from "node:events";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { request } from "node:https";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -177,6 +178,42 @@ export async function buildApp(stack: Stack, slug: string): Promise<void> {
     ],
     { cwd: stack.dir, maxBuffer: 64 * 1024 * 1024 },
   );
+}
+
+/**
+ * The packages in `slug`'s image that nothing in production needs, as
+ * `name@version`, found by `extraneous-packages.js` running in the image.
+ */
+export async function extraneousPackages(
+  stack: Stack,
+  slug: string,
+): Promise<string[]> {
+  const script = await readFile(
+    new URL("extraneous-packages.js", import.meta.url),
+  );
+  const docker = spawn(
+    "docker",
+    [
+      "run",
+      "--rm",
+      "-i",
+      "--entrypoint",
+      "node",
+      `${stack.name}/${slug}`,
+      "--input-type=module",
+      "-",
+    ],
+    { stdio: ["pipe", "pipe", "inherit"] },
+  );
+  docker.stdin.end(script);
+  let output = "";
+  docker.stdout.setEncoding("utf8").on("data", (chunk: string) => {
+    output += chunk;
+  });
+  const [code] = (await once(docker, "close")) as [number | null];
+  if (code !== 0)
+    throw new Error(`the check in ${slug}'s image exited ${String(code)}`);
+  return output.split("\n").filter(Boolean);
 }
 
 /**
