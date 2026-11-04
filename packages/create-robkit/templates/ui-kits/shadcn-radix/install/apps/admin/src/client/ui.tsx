@@ -189,3 +189,11 @@ export function Choices<Value extends string>({
     </fieldset>
   );
 }
+
+/**
+ * Wraps the whole page, for a kit that needs setting up first. These
+ * controls need none.
+ */
+export function Root({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+}

@@ -87,3 +87,11 @@ export function InlineCode({ children }: { children: string }) {
     </code>
   );
 }
+
+/**
+ * Wraps the whole page, for a kit that needs setting up first. These
+ * controls need none.
+ */
+export function Root({ children }: { children: ReactNode }) {
+  return <>{children}</>;
+}

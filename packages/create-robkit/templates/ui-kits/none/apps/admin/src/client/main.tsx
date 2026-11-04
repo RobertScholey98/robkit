@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Admin } from "./Admin.tsx";
+import { Root } from "./ui.tsx";
 import "./index.css";
 
 const root = document.getElementById("root");
@@ -11,6 +12,8 @@ if (!root || !core) throw new Error("admin's page has no #root or core origin");
 
 createRoot(root).render(
   <StrictMode>
-    <Admin core={core} />
+    <Root>
+      <Admin core={core} />
+    </Root>
   </StrictMode>,
 );

@@ -1,0 +1,8 @@
+/*
+ * The UI kit's stylesheet: Tailwind, for the layout around Chakra's
+ * components, and the install's theme tokens, which Chakra's theme reads
+ * in src/system.ts. An app that uses the kit imports this instead of
+ * Tailwind.
+ */
+@import "tailwindcss";
+@import "@internal/theme/theme.css";

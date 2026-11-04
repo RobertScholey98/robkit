@@ -124,7 +124,12 @@ export const choiceTable = {
         layer: "ui-kits/shadcn-radix/install",
         optInLayer: "ui-kits/shadcn/app",
       },
-      { value: "chakra", label: "Chakra UI", comingLater: true },
+      {
+        value: "chakra",
+        label: "Chakra UI",
+        layer: "ui-kits/chakra/install",
+        optInLayer: "ui-kits/chakra/app",
+      },
     ],
   },
   generators: {

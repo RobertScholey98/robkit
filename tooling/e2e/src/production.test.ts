@@ -38,8 +38,9 @@ async function deployApps(stack: Stack, slugs: string[]): Promise<void> {
 const installs: [string, Choices][] = [
   ["default", defaultChoices],
   // Each ORM migrates as its app's container starts, and each UI kit's apps
-  // serve its stylesheet.
-  ["Prisma", { ...defaultChoices, orm: "prisma", uiKit: "shadcn-radix" }],
+  // serve its stylesheet. The two shadcn kits share their apps' layer, so
+  // Base UI stands for both, and Chakra's server-rendered styles get a run.
+  ["Prisma", { ...defaultChoices, orm: "prisma", uiKit: "chakra" }],
   ["Kysely", { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" }],
 ];
 

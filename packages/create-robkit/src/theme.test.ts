@@ -6,6 +6,10 @@ import { generateInstall, type Files } from "./generate.ts";
 const paletteColour =
   /\b(?:bg|text|border|ring|outline|divide|fill|stroke|placeholder|from|via|to|shadow|accent|caret|decoration)-(?:white|black|(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d+)\b/g;
 
+/** A colour from Chakra's own palette, such as `gray.500`, rather than a theme token. */
+const chakraColour =
+  /\b(?:gray|red|orange|yellow|green|teal|blue|cyan|purple|pink)\.\d+\b/g;
+
 /** A line that sets one of the theme's colour or radius tokens. */
 const tokenSetting = /^\s*--(?:background|foreground|primary|radius)\s*:/m;
 
@@ -22,6 +26,7 @@ describe("the install's theme tokens", () => {
     ["no UI kit", defaultChoices],
     ["shadcn on Base UI", { ...defaultChoices, uiKit: "shadcn-base-ui" }],
     ["shadcn on Radix", { ...defaultChoices, uiKit: "shadcn-radix" }],
+    ["Chakra", { ...defaultChoices, uiKit: "chakra" }],
   ];
 
   describe.each(installs)("with %s", (_, choices) => {
@@ -42,9 +47,10 @@ describe("the install's theme tokens", () => {
         const files = await generateInstall(choices);
         const palette = filesUnder(files, folder, ".tsx").flatMap(
           ([path, text]) =>
-            [...text.matchAll(paletteColour)].map(
-              ([match]) => `${path}: ${match}`,
-            ),
+            [
+              ...text.matchAll(paletteColour),
+              ...text.matchAll(chakraColour),
+            ].map(([match]) => `${path}: ${match}`),
         );
         expect(palette).toEqual([]);
         expect(stylesheetsRead(files, folder)).toContain(
@@ -52,6 +58,21 @@ describe("the install's theme tokens", () => {
         );
       },
     );
+  });
+
+  it("gives Chakra's theme the theme's variables, not values of its own", async () => {
+    const files = await generateInstall({ ...defaultChoices, uiKit: "chakra" });
+    const system = files.get("packages/ui/src/system.ts") ?? "";
+
+    // Every token is `var(--…)`, a tint of one, or a multiple of --radius.
+    expect(
+      system.match(/\bvalue: (?!`|"\{radii\.|"inherit"|"white")\S+/g),
+    ).toBe(null);
+    expect(system).not.toMatch(
+      /oklch\(|#[0-9a-f]{3,6}\b|rgba?\(|\d+(?:px|rem)/,
+    );
+    expect(system).toContain('bg: {\n          DEFAULT: theme("background")');
+    expect(system).toContain('solid: theme("primary")');
   });
 });
 
