@@ -12,6 +12,7 @@ import {
   freePortBlock,
   freePostgresPort,
   removeWhenGone,
+  testComposeFiles,
 } from "@internal/test-postgres";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -70,6 +71,7 @@ async function startDev(
       ...process.env,
       ROBKIT_DEV_PORT: String(port),
       ROBKIT_POSTGRES_PORT: String(await freePostgresPort()),
+      COMPOSE_FILE: testComposeFiles(),
       COMPOSE_PROJECT_NAME: project,
       ...env,
     },

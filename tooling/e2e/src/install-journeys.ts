@@ -7,6 +7,7 @@ import {
   freePortBlock,
   freePostgresPort,
   removeWhenGone,
+  testComposeFiles,
 } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import {
@@ -162,6 +163,7 @@ export function describeJourneys(
         ...process.env,
         ROBKIT_DEV_PORT: String(devPort),
         ROBKIT_POSTGRES_PORT: String(postgresPort),
+        COMPOSE_FILE: testComposeFiles(),
         COMPOSE_PROJECT_NAME: project,
       },
       // Its own process group, like a terminal's foreground job, so SIGINT

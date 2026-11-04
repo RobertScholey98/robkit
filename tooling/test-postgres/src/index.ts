@@ -18,9 +18,22 @@ export const composeFile = fileURLToPath(
   ),
 );
 
+const inMemory = fileURLToPath(new URL("../in-memory.yaml", import.meta.url));
+
+/**
+ * COMPOSE_FILE for a test's Postgres: the install's `compose.yaml`, or the
+ * files COMPOSE_FILE already names (CI adds host-network.yaml), followed by
+ * in-memory.yaml, which keeps the database off the disk.
+ */
+export function testComposeFiles(env: NodeJS.ProcessEnv = process.env): string {
+  return [env.COMPOSE_FILE ?? "compose.yaml", inMemory].join(":");
+}
+
 export interface TestPostgres {
   /** Superuser URL for the `robkit` database. */
   adminUrl: string;
+  /** The Compose project the container runs under. */
+  project: string;
   /** Removes the container and its volume. */
   stop: () => Promise<void>;
 }
@@ -91,9 +104,13 @@ export async function startPostgres(): Promise<TestPostgres> {
   const port = await freePostgresPort();
   const project = `robkit-test-${randomBytes(4).toString("hex")}`;
   removeWhenGone({ docker: project });
-  const env = { ...process.env, ROBKIT_POSTGRES_PORT: String(port) };
-  // From the template's folder rather than with -f, so COMPOSE_FILE can add
-  // to it here as it does for an install's pnpm dev.
+  const env = {
+    ...process.env,
+    ROBKIT_POSTGRES_PORT: String(port),
+    COMPOSE_FILE: testComposeFiles(),
+  };
+  // From the template's folder rather than with -f, so COMPOSE_FILE adds to
+  // it here as it does for an install's pnpm dev.
   const compose = (...args: string[]) =>
     run("docker", ["compose", "-p", project, ...args], {
       cwd: dirname(composeFile),
@@ -113,6 +130,7 @@ export async function startPostgres(): Promise<TestPostgres> {
 
   return {
     adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(port)}/robkit`,
+    project,
     stop,
   };
 }

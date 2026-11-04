@@ -6,6 +6,7 @@ import {
   freePortBlock,
   freePostgresPort,
   removeWhenGone,
+  testComposeFiles,
 } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import { parse } from "yaml";
@@ -67,6 +68,7 @@ export async function runOwnCi(
       await freePortBlock(1 + (await discoverApps(dir)).length),
     ),
     ROBKIT_E2E_POSTGRES_PORT: String(await freePostgresPort()),
+    COMPOSE_FILE: testComposeFiles(env),
   };
   // The install's browser tests name their Compose project after its folder,
   // as its tooling/e2e/src/stack.ts does.

@@ -1,0 +1,15 @@
+# Keeps a test Postgres's data in memory, for every Postgres the tests start.
+#
+# The full gate starts dozens of Postgres containers, and each first boot
+# syncs a new database to disk. On a dev machine whose Docker shares a disk
+# with everything else, as Docker Desktop in WSL does, those syncs stalled
+# the rest of the gate on IO, Docker's own daemon included. On tmpfs a sync
+# costs nothing. The data is gone once the container stops, which no test
+# needs to survive.
+#
+# Tests add this file to COMPOSE_FILE through testComposeFiles().
+services:
+  postgres:
+    volumes: !override
+      - type: tmpfs
+        target: /var/lib/postgresql

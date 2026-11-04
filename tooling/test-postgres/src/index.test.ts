@@ -1,7 +1,11 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import postgres from "postgres";
 import { describe, expect, it } from "vitest";
 import { createServer } from "node:net";
 import { freePortBlock, publishedPorts, startPostgres } from "./index.ts";
+
+const run = promisify(execFile);
 
 async function selectOne(url: string): Promise<unknown> {
   const sql = postgres(url, { max: 1, connect_timeout: 2 });
@@ -32,6 +36,23 @@ describe("startPostgres", () => {
       expect(await selectOne(b.adminUrl)).toBe(1);
     } finally {
       await Promise.all([a.stop(), b.stop()]);
+    }
+  });
+});
+
+describe("a test Postgres", () => {
+  it("keeps its database in memory, off the disk", async () => {
+    const { project, stop } = await startPostgres();
+    try {
+      const { stdout } = await run("docker", [
+        "inspect",
+        "--format",
+        "{{range .Mounts}}{{.Type}} {{.Destination}}{{println}}{{end}}",
+        `${project}-postgres-1`,
+      ]);
+      expect(stdout.trim()).toBe("tmpfs /var/lib/postgresql");
+    } finally {
+      await stop();
     }
   });
 });
