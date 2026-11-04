@@ -40,8 +40,17 @@ const installs: [string, Choices][] = [
   // Each ORM migrates as its app's container starts, and each UI kit's apps
   // serve its stylesheet. The two shadcn kits share their apps' layer, so
   // Base UI stands for both, and Chakra's server-rendered styles get a run.
-  ["Prisma", { ...defaultChoices, orm: "prisma", uiKit: "chakra" }],
-  // bun installs the Kysely install, so its Dockerfile gets a run too.
+  // yarn installs the Prisma install and bun the Kysely install, so each
+  // manager's Dockerfile gets a run.
+  [
+    "Prisma on yarn",
+    {
+      ...defaultChoices,
+      packageManager: "yarn",
+      orm: "prisma",
+      uiKit: "chakra",
+    },
+  ],
   [
     "Kysely on bun",
     {
