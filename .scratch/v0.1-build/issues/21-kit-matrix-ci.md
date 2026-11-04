@@ -34,3 +34,8 @@ Notes from ticket 19:
 - yarn is ready, so every package manager is. The whole-stack test runs pnpm on the default and React + Hono installs, yarn on Prisma and bun on Kysely. `test:production` deploys pnpm and bun installs only: a yarn install deploys once the packages are on npm (ticket 31), and `yarn-prune.test.ts` checks its prune against a local registry meanwhile. The pairwise set can pair managers with ORMs and kits more freely than that.
 - Run each install's checks on a clean `PATH`. A linked yarn install once lacked the `robkit` and `robkit-dev` bins, since yarn's `link:` links none, yet passed, because the e2e package's own `node_modules/.bin` leaked into its scripts. `portal:` fixed it. The matrix should run installs from a shell that can't see robkit's bins.
 - yarn comes from the e2e package's cataloged `@yarnpkg/cli-dist`, so robkit's own workflow needs no setup step for it. A generated yarn install's workflow installs yarn with `npm install --global --force`, which the install-checks test skips, as it skips every install step.
+
+Notes from ticket 20:
+
+- The tools are one more dimension of the pairwise set. Keep one install with every tool and one with none, since Playwright's CI steps and Husky's hook are only exercised in an install that has them.
+- The install-checks test reads a step's `if` only in the `hashFiles(<path>) != ''` form, honours `working-directory`, and skips every install step, including `playwright install --with-deps`, which needs root. Robkit's own Playwright installs the same Chromium, since `@playwright/test` is cataloged at `playwright`'s version.
