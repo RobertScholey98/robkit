@@ -5,7 +5,7 @@ import {
   type App,
   type Role,
 } from "./access-api.ts";
-import { Button, FormError } from "./ui.tsx";
+import { Button, Check, Choices, FormError, Panel } from "./ui.tsx";
 
 type Sending =
   | { state: "idle" }
@@ -13,10 +13,10 @@ type Sending =
   | { state: "saved" }
   | { state: "failed"; error: string };
 
-const kinds: { kind: AccessRule["kind"]; label: string }[] = [
-  { kind: "open", label: "Anyone" },
-  { kind: "roles", label: "Guests with a role" },
-  { kind: "owner", label: "Only me" },
+const kinds: { value: AccessRule["kind"]; label: string }[] = [
+  { value: "open", label: "Anyone" },
+  { value: "roles", label: "Guests with a role" },
+  { value: "owner", label: "Only me" },
 ];
 
 export function Apps({
@@ -34,7 +34,7 @@ export function Apps({
     <section className="grid gap-4">
       <h1 className="text-lg font-semibold tracking-tight">Apps</h1>
       {apps.length === 0 ? (
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-muted-foreground">
           Apps you add with robkit add show up here.
         </p>
       ) : (
@@ -85,74 +85,56 @@ function AppRow({
   }
 
   return (
-    <li
-      aria-label={app.name}
-      className="grid gap-3 rounded-xl border border-neutral-200 bg-white px-6 py-4"
-    >
-      <h2 className="font-medium">{app.name}</h2>
-      <fieldset className="grid gap-2">
-        <legend className="text-sm font-medium text-neutral-700">
-          Who can open it
-        </legend>
-        <div className="flex flex-wrap gap-4">
-          {kinds.map((choice) => (
-            <label
-              key={choice.kind}
-              className="flex items-center gap-2 text-sm"
-            >
-              <input
-                type="radio"
-                name={`access-${app.slug}`}
-                checked={kind === choice.kind}
-                onChange={() => {
-                  setKind(choice.kind);
-                }}
-              />
-              {choice.label}
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      {kind === "roles" && (
-        <fieldset className="grid gap-2">
-          <legend className="text-sm font-medium text-neutral-700">
-            Roles
-          </legend>
-          <div className="flex flex-wrap gap-4">
-            {roles.map((role) => (
-              <label key={role.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+    <li aria-label={app.name}>
+      <Panel>
+        <h2 className="font-medium">{app.name}</h2>
+        <Choices
+          legend="Who can open it"
+          name={`access-${app.slug}`}
+          value={kind}
+          options={kinds}
+          onValueChange={setKind}
+        />
+        {kind === "roles" && (
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium text-foreground">
+              Roles
+            </legend>
+            <div className="flex flex-wrap gap-4">
+              {roles.map((role) => (
+                <Check
+                  key={role.id}
                   checked={picked.has(role.id)}
-                  onChange={(event) => {
+                  onCheckedChange={(checked) => {
                     const next = new Set(picked);
-                    if (event.currentTarget.checked) next.add(role.id);
+                    if (checked) next.add(role.id);
                     else next.delete(role.id);
                     setPicked(next);
                   }}
-                />
-                {role.name}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-      )}
-      <div className="flex items-center gap-3">
-        <Button
-          look="primary"
-          type="button"
-          disabled={sending.state === "sending"}
-          onClick={() => void save()}
-        >
-          Save access
-        </Button>
-        {sending.state === "saved" && (
-          <p role="status" className="text-sm text-neutral-500">
-            Saved. The app picks it up within a minute.
-          </p>
+                >
+                  {role.name}
+                </Check>
+              ))}
+            </div>
+          </fieldset>
         )}
-      </div>
-      {sending.state === "failed" && <FormError>{sending.error}</FormError>}
+        <div className="flex items-center gap-3">
+          <Button
+            look="primary"
+            type="button"
+            disabled={sending.state === "sending"}
+            onClick={() => void save()}
+          >
+            Save access
+          </Button>
+          {sending.state === "saved" && (
+            <p role="status" className="text-sm text-muted-foreground">
+              Saved. The app picks it up within a minute.
+            </p>
+          )}
+        </div>
+        {sending.state === "failed" && <FormError>{sending.error}</FormError>}
+      </Panel>
     </li>
   );
 }

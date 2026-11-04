@@ -266,6 +266,19 @@ describe("generateInstall", () => {
     for (const stack of readyOptions(choiceTable.generators)) {
       expect(stack.layer, stack.value).toBeDefined();
     }
+    for (const kit of readyOptions(choiceTable.uiKit)) {
+      if (kit.optInLayer === undefined) continue;
+      for (const stack of readyOptions(choiceTable.generators)) {
+        const dir = new URL(
+          `../templates/${kit.optInLayer}/${stack.value}/`,
+          import.meta.url,
+        );
+        expect(
+          (await stat(dir)).isDirectory(),
+          `${kit.value} ${stack.value}`,
+        ).toBe(true);
+      }
+    }
     for (const orm of readyOptions(choiceTable.orm)) {
       const appLayer = new URL(
         `../templates/${orm.appLayer ?? ""}/`,
@@ -377,6 +390,53 @@ describe("generateInstall", () => {
     expect(files.get("apps/example/AGENTS.md")).toContain(
       "src/migrations/index.ts",
     );
+  });
+
+  it("lays a UI kit's packages/ui and controls over the no-kit hub and admin", async () => {
+    const plain = await generateInstall(defaultChoices);
+    const kit = await generateInstall({
+      ...defaultChoices,
+      uiKit: "shadcn-base-ui",
+    });
+    const hub = json(kit, "apps/hub/package.json") as {
+      dependencies: Record<string, string>;
+    };
+    const { catalog } = workspace(kit);
+
+    expect(
+      [...plain.keys()].some((path) => path.startsWith("packages/ui/")),
+    ).toBe(false);
+    expect(kit.has("packages/ui/src/components/ui/button.tsx")).toBe(true);
+    // Only the install: the kit keeps its apps' files out of it.
+    expect(
+      [...kit.keys()].filter(
+        (path) =>
+          !/^(?:apps|packages|tooling|docs|\.github)\/|^[^/]+$/.test(path),
+      ),
+    ).toEqual([]);
+    expect(kit.get("apps/hub/src/ui.tsx")).toContain(
+      'from "@internal/ui/components/ui/button"',
+    );
+    expect(kit.get("apps/admin/src/client/ui.tsx")).toContain(
+      'from "@internal/ui/components/ui/checkbox"',
+    );
+    // The screens are the no-kit ones; only their controls change.
+    expect(kit.get("apps/hub/src/forms.tsx")).toBe(
+      plain.get("apps/hub/src/forms.tsx"),
+    );
+    expect(kit.get("apps/admin/src/client/Admin.tsx")).toBe(
+      plain.get("apps/admin/src/client/Admin.tsx"),
+    );
+    expect(hub.dependencies["@internal/ui"]).toBe("workspace:*");
+    // The example app shows the kit off; robkit add asks each app.
+    expect(kit.get("apps/example/src/styles.css")).toContain(
+      "@internal/ui/styles.css",
+    );
+    expect(plain.has("apps/example/src/styles.css")).toBe(false);
+    expect(catalog).toMatchObject({
+      "@base-ui/react": "1.9.0",
+      shadcn: "4.23.0",
+    });
   });
 
   it("gives the example app its stack's agent files", async () => {

@@ -52,11 +52,13 @@ function Page({
         <title>Example</title>
       </head>
       <body>
-        <h1>{heading}</h1>
-        <p>
-          Viewer id: <code data-testid="viewer-id">{viewerId}</code>
-        </p>
-        <p data-testid="visits">Visits: {visits}</p>
+        <main>
+          <h1>{heading}</h1>
+          <p>
+            Viewer id: <code data-testid="viewer-id">{viewerId}</code>
+          </p>
+          <p data-testid="visits">Visits: {visits}</p>
+        </main>
       </body>
     </html>
   );

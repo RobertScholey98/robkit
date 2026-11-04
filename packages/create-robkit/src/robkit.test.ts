@@ -3,17 +3,26 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { defaultChoices } from "./choices.ts";
+import { defaultChoices, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
 import { drive, keys, questionsAsked } from "./test/drive.ts";
 
 const bin = fileURLToPath(new URL("robkit.ts", import.meta.url));
 
 /** A written install, without its dependencies, so add installs nothing. */
-async function freshInstall(): Promise<string> {
+async function freshInstall(choices: Choices = defaultChoices) {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
-  await init(defaultChoices, dir);
+  await init(choices, dir);
   return dir;
+}
+
+const kitChoices: Choices = { ...defaultChoices, uiKit: "shadcn-base-ui" };
+
+async function usesKit(dir: string, slug: string): Promise<boolean> {
+  const manifest = JSON.parse(
+    await readFile(join(dir, "apps", slug, "package.json"), "utf8"),
+  ) as { dependencies: Record<string, string> };
+  return "@internal/ui" in manifest.dependencies;
 }
 
 async function declared(dir: string, slug: string): Promise<unknown> {
@@ -71,8 +80,23 @@ Then open http://notes.robkit.localhost:3000.
     ).toContain("Signed in as");
   });
 
+  it("uses the install's UI kit unless told --no-ui-kit", async () => {
+    const dir = await freshInstall(kitChoices);
+
+    const kit = await drive(bin, dir, ["add", "notes", "--access", "open"]);
+    const plain = await drive(bin, dir, ["add", "recipes", "--no-ui-kit"]);
+
+    expect([kit.code, plain.code]).toEqual([0, 0]);
+    expect(await usesKit(dir, "notes")).toBe(true);
+    expect(await usesKit(dir, "recipes")).toBe(false);
+  });
+
   it.each([
     [["add", "--access", "open"], "Usage: robkit add [name]"],
+    [
+      ["add", "notes", "--ui-kit"],
+      "This install has no UI kit. Leave out --ui-kit.",
+    ],
     [
       ["add", "notes", "--access", "everyone"],
       "--access everyone isn't an option. Choose from: owner, open, roles.",
@@ -148,6 +172,29 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
       access: { kind: "roles", roles: ["Family"] },
       icon: "🍳",
     });
+  });
+
+  it("asks whether to use the UI kit in an install that has one", async () => {
+    const dir = await freshInstall(kitChoices);
+
+    const { code, output } = await drive(
+      bin,
+      dir,
+      ["add", "recipes"],
+      [
+        ["Which stack?", keys.enter],
+        ["Who can open it?", keys.enter],
+        ["Which emoji should the launcher show?", keys.enter],
+        ["Use the install's UI kit?", keys.no + keys.enter],
+      ],
+    );
+
+    expect(code).toBe(0);
+    expect(questionsAsked(output).at(-1)).toBe("Use the install's UI kit?");
+    expect(output).toContain(
+      "pnpm robkit add recipes --stack start --access owner --icon 📦 --no-ui-kit",
+    );
+    expect(await usesKit(dir, "recipes")).toBe(false);
   });
 
   it("refuses a name that's taken before asking anything", async () => {

@@ -16,14 +16,15 @@ export const addedIcon = "🧪";
 
 /**
  * The installs the suites run, by name. Each one's example app is on its
- * first generator, and robkit add gives it an app on its second.
+ * first generator, and robkit add gives it an app on its second. In the
+ * install with a UI kit, the example app uses it and the added app doesn't.
  */
 export const installChoices = {
   // The default install.
   start: defaultChoices,
   "react-hono": { ...defaultChoices, generators: ["react-hono", "start"] },
   prisma: { ...defaultChoices, orm: "prisma" },
-  kysely: { ...defaultChoices, orm: "kysely" },
+  kysely: { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" },
 } satisfies Record<string, Choices>;
 
 export type InstallName = keyof typeof installChoices;
@@ -57,6 +58,7 @@ async function createInstall(choices: Choices): Promise<string> {
       "open",
       "--icon",
       addedIcon,
+      ...(choices.uiKit ? ["--no-ui-kit"] : []),
     ],
     { cwd: dir },
   );

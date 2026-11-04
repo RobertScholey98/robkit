@@ -56,7 +56,7 @@ export async function ownerSetsUp(
     const code = await row.getByRole("cell").nth(1).textContent();
 
     const app = owner.getByRole("listitem", { name: slug, exact: true });
-    await app.getByLabel("Anyone").check();
+    await app.getByRole("radio", { name: "Anyone" }).check();
     await app.getByRole("button", { name: "Save access" }).click();
     await app.getByRole("status").waitFor();
     return { firstVisit, setupAfterClaim, code };
@@ -70,6 +70,8 @@ export interface GuestVisit {
   greeting: string | null;
   openedAt: string;
   heading: string | null;
+  /** How the app answered each stylesheet its page linked. */
+  stylesheets: (number | undefined)[];
 }
 
 /**
@@ -88,12 +90,19 @@ export async function guestOpens(
     await guest.getByLabel("Access code").fill(code);
     await guest.getByRole("button", { name: "Sign in" }).click();
     const greeting = await guest.getByText("Signed in as").textContent();
+    const stylesheets: Promise<number | undefined>[] = [];
+    guest.on("requestfinished", (request) => {
+      if (request.resourceType() === "stylesheet") {
+        stylesheets.push(request.response().then((res) => res?.status()));
+      }
+    });
     await guest.getByRole("main").getByRole("link", { name: slug }).click();
-    await guest.waitForURL(`${install.origin(slug)}/`);
+    await guest.waitForURL(`${install.origin(slug)}/`, { waitUntil: "load" });
     return {
       greeting,
       openedAt: guest.url(),
       heading: await guest.getByRole("heading").textContent(),
+      stylesheets: await Promise.all(stylesheets),
     };
   } finally {
     await browser.close();

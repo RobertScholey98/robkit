@@ -59,7 +59,7 @@ export function Setup({ core, onSession }: FormProps) {
   return (
     <Card>
       <Heading>Set up this install</Heading>
-      <p className="mt-2 text-sm text-neutral-500">
+      <p className="mt-2 text-sm text-muted-foreground">
         Whoever sets up a new install becomes its owner. Pick the username and
         password you'll sign in with.
       </p>
@@ -192,13 +192,11 @@ function Switch({
   children: string;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mt-4 text-sm text-neutral-500 underline-offset-4 hover:text-neutral-900 hover:underline"
-    >
-      {children}
-    </button>
+    <div className="mt-4">
+      <Button look="link" type="button" onClick={onClick}>
+        {children}
+      </Button>
+    </div>
   );
 }
 

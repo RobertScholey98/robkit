@@ -19,6 +19,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 - `apps/<slug>` is an app. Its folder name is its slug, its subdomain (`<slug>.robkit.localhost` locally) and its Postgres role and schema. A slug is lowercase letters and digits, starting with a letter. Each app has its own `AGENTS.md` for its stack.
 - `apps/core` runs `@robkit/core`, the backend. `apps/hub` and `apps/admin` are the platform's own apps.
 - `packages/` holds code the apps share, such as `packages/core-client`, which the hub and admin call core through.
+- `packages/theme/theme.css` holds the install's look: its colour, radius and font variables. The hub and admin draw with Tailwind classes named after them, such as `bg-primary`, so changing a variable restyles both. Every control they draw comes from their own `ui.tsx`. If the install has a UI kit, it is `packages/ui`, with its own `AGENTS.md`.
 - `robkit.json` records the choices this install was made with. `robkit add` reads it.
 - An app's `package.json` may declare a `robkit` field: who may open it when core first sees it, and the emoji the launcher shows. After that, the owner sets who may open it in admin.
 

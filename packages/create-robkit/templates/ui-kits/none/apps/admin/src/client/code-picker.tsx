@@ -1,5 +1,5 @@
 import type { Code } from "./codes-api.ts";
-import { Button } from "./ui.tsx";
+import { Button, Check } from "./ui.tsx";
 
 /**
  * Codes the owner can tick for a role: every code but the test code, which
@@ -32,7 +32,7 @@ export function CodePicker({
   return (
     <fieldset className="grid gap-2">
       <div className="flex items-center justify-between gap-4">
-        <legend className="text-sm font-medium text-neutral-700">Guests</legend>
+        <legend className="text-sm font-medium text-foreground">Guests</legend>
         <div className="flex gap-2">
           <Button
             look="outline"
@@ -55,31 +55,29 @@ export function CodePicker({
         </div>
       </div>
       {choices.length === 0 ? (
-        <p className="text-sm text-neutral-500">
+        <p className="text-sm text-muted-foreground">
           Mint a code first, then give it roles here.
         </p>
       ) : (
         <ul className="grid gap-1 sm:grid-cols-2">
           {choices.map((code) => (
             <li key={code.id}>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={picked.has(code.id)}
-                  onChange={(event) => {
-                    toggle(code.id, event.currentTarget.checked);
-                  }}
-                />
+              <Check
+                checked={picked.has(code.id)}
+                onCheckedChange={(checked) => {
+                  toggle(code.id, checked);
+                }}
+              >
                 {code.name}
-                <span className="font-mono text-xs text-neutral-500">
+                <span className="font-mono text-xs text-muted-foreground">
                   {code.code}
                 </span>
-              </label>
+              </Check>
             </li>
           ))}
         </ul>
       )}
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-muted-foreground">
         The test code holds every role.
       </p>
     </fieldset>

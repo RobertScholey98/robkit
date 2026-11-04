@@ -10,6 +10,7 @@
     "test:production": "vitest run --config vitest.production.config.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "catalog:",
     "@internal/eslint-config": "workspace:*",
     "@internal/test-postgres": "workspace:*",
     "@internal/tsconfig": "workspace:*",

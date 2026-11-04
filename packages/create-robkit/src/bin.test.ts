@@ -104,6 +104,30 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     );
   });
 
+  it("asks which UI kit after a yes, and records it", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(
+      cwd,
+      ["my-app"],
+      [
+        ["Which package manager?", keys.enter],
+        ["Which ORM?", keys.enter],
+        ["Add a shared React UI kit?", keys.down + keys.enter],
+        ["Which UI kit?", keys.enter],
+        ["Which app generators should robkit add offer?", keys.enter],
+        ["Which dev tools?", keys.enter],
+        ["Install dependencies and initialise git?", keys.no + keys.enter],
+      ],
+    );
+
+    expect(code).toBe(0);
+    expect(output).toContain("--ui-kit shadcn-base-ui");
+    const tree = await readTree(join(cwd, "my-app"));
+    expect(tree.get("robkit.json")).toContain(`"uiKit": "shadcn-base-ui"`);
+    expect(tree.has(join("packages", "ui", "package.json"))).toBe(true);
+  });
+
   it("refuses a folder name the printed command couldn't repeat", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
 
