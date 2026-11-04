@@ -7,7 +7,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { composeFile, freePort, freePortBlock } from "@internal/test-postgres";
+import {
+  composeFile,
+  freePortBlock,
+  freePostgresPort,
+} from "@internal/test-postgres";
 import { afterEach, describe, expect, it } from "vitest";
 
 const run = promisify(execFile);
@@ -54,7 +58,7 @@ async function startDev(
     env: {
       ...process.env,
       ROBKIT_DEV_PORT: String(port),
-      ROBKIT_POSTGRES_PORT: String(await freePort()),
+      ROBKIT_POSTGRES_PORT: String(await freePostgresPort()),
       COMPOSE_PROJECT_NAME: project,
       ...env,
     },

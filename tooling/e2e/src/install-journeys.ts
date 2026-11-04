@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { request, type IncomingHttpHeaders } from "node:http";
 import { connect } from "node:net";
 import { promisify } from "node:util";
-import { freePort, freePortBlock } from "@internal/test-postgres";
+import { freePortBlock, freePostgresPort } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import {
   defaultDomain,
@@ -151,7 +151,7 @@ export function describeJourneys(
   beforeAll(async () => {
     devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
     addresses = install({ domain: defaultDomain, port: devPort });
-    postgresPort = await freePort();
+    postgresPort = await freePostgresPort();
     dev = spawn(choices.packageManager, ["run", "dev"], {
       cwd: dir,
       env: {

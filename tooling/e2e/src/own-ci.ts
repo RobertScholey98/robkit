@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { freePort, freePortBlock } from "@internal/test-postgres";
+import { freePortBlock, freePostgresPort } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import { parse } from "yaml";
 
@@ -62,7 +62,7 @@ export async function runOwnCi(
     ROBKIT_E2E_PORT: String(
       await freePortBlock(1 + (await discoverApps(dir)).length),
     ),
-    ROBKIT_E2E_POSTGRES_PORT: String(await freePort()),
+    ROBKIT_E2E_POSTGRES_PORT: String(await freePostgresPort()),
   };
   for (const step of steps) {
     if (/^\w+ install\b|playwright install\b/.test(step.run ?? "")) continue;

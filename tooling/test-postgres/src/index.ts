@@ -41,6 +41,27 @@ export function freePort(): Promise<number> {
   return listenOn(0);
 }
 
+/** The host ports Docker publishes for running containers. */
+export async function publishedPorts(): Promise<Set<number>> {
+  const { stdout } = await run("docker", ["ps", "--format", "{{.Ports}}"]);
+  return new Set(
+    [...stdout.matchAll(/:(\d+)->/g)].map(([, port]) => Number(port)),
+  );
+}
+
+/**
+ * A port for a Postgres container to publish. Docker Desktop publishes ports
+ * from its own VM, so a port another container already has still looks free
+ * here; this also skips every port Docker publishes.
+ */
+export async function freePostgresPort(): Promise<number> {
+  const taken = await publishedPorts();
+  for (;;) {
+    const port = await freePort();
+    if (!taken.has(port)) return port;
+  }
+}
+
 /**
  * Finds `size` consecutive free ports, for robkit-dev's proxy port and the
  * app ports that follow it. The block sits below the OS's ephemeral range,
@@ -64,7 +85,7 @@ export async function freePortBlock(size: number): Promise<number> {
  * project name, so parallel test suites never share a database.
  */
 export async function startPostgres(): Promise<TestPostgres> {
-  const port = await freePort();
+  const port = await freePostgresPort();
   const project = `robkit-test-${randomBytes(4).toString("hex")}`;
   const env = { ...process.env, ROBKIT_POSTGRES_PORT: String(port) };
   // From the template's folder rather than with -f, so COMPOSE_FILE can add
