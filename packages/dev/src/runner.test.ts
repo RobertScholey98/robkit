@@ -30,9 +30,19 @@ const projects: { root: string; project: string }[] = [];
 const children: ChildProcess[] = [];
 
 afterEach(async () => {
-  for (const child of children.splice(0)) {
-    if (child.exitCode === null) child.kill("SIGKILL");
-  }
+  // SIGTERM, as a terminal's close would, so robkit-dev stops the apps it
+  // started; SIGKILL would leave them running in their own process groups.
+  await Promise.all(
+    children.splice(0).map(async (child) => {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      child.kill("SIGTERM");
+      const exited = once(child, "exit");
+      const timeout = new Promise((resolve) => setTimeout(resolve, 15_000));
+      if ((await Promise.race([exited, timeout])) === undefined) {
+        child.kill("SIGKILL");
+      }
+    }),
+  );
   await Promise.all(
     projects
       .splice(0)
