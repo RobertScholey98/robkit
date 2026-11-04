@@ -1,9 +1,9 @@
 ## The database
 
-The app talks to Postgres through the `postgres` client over `DATABASE_URL`. Its role has the app's own schema first on its search path, so a table named without a schema lands there. The role can't reach core's schema or another app's.
+The app talks to Postgres with Drizzle over `DATABASE_URL`, as its own role. The role has the app's own schema first on its search path, so a table named without a schema lands there. The role can't reach core's schema or another app's.
 
-`src/migrate.ts` is the app's migration. `pnpm dev`, and the provision step before a deploy, run it after the app's schema and role exist and before the app starts. It runs every time, so each statement must be safe to run again:
+- `src/schema.ts` declares the tables. Use `pgTable`, never `pgSchema`: the app's schema is the role's, and naming another one fails.
+- `src/database.ts` gives queries the database, connected on first use. `src/visits.ts` shows a query.
+- `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run.
 
-- To add a table, add a `create table if not exists` statement.
-- To add a column, add `alter table ... add column if not exists`.
-- To change data once, guard the statement so a second run changes nothing.
+`src/migrate.ts` applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It follows Drizzle's migrator but skips its `CREATE SCHEMA`, which the app's role may not run, and keeps its journal table in the app's schema.

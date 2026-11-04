@@ -8,6 +8,7 @@ import {
   type Choice,
   type Choices,
   type Generator,
+  type Option,
   type Orm,
 } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
@@ -106,9 +107,14 @@ function editJson(files: Files, path: string, edit: (json: Json) => Json) {
   files.set(path, toJson(edit(JSON.parse(text) as Json)));
 }
 
+/** The table's entry for one choice's answer. */
+function optionOf(choice: Choice, value: string): Option | undefined {
+  return choice.options.find((option) => option.value === value);
+}
+
 /** The template folder the table gives one choice's answer, if it adds one. */
 function layerOf(choice: Choice, value: string): string | undefined {
-  return choice.options.find((option) => option.value === value)?.layer;
+  return optionOf(choice, value)?.layer;
 }
 
 /** The template folders for `choices`, in the order they're laid down. */
@@ -125,9 +131,29 @@ function layersFor(choices: Choices): string[] {
   ].filter((layer) => layer !== undefined);
 }
 
+/** The install scripts every answer in `choices` needs, by dependency. */
+function buildsFor(choices: Choices): Record<string, boolean> {
+  const t = choiceTable;
+  const answers: [Choice, string][] = [
+    [t.packageManager, choices.packageManager],
+    [t.orm, choices.orm],
+    ...choices.tools.map((tool): [Choice, string] => [t.tools, tool]),
+    ...choices.generators.map((stack): [Choice, string] => [
+      t.generators,
+      stack,
+    ]),
+  ];
+  return Object.fromEntries(
+    answers.flatMap(([choice, value]) =>
+      Object.entries(optionOf(choice, value)?.builds ?? {}),
+    ),
+  );
+}
+
 /**
- * The template robkit ships for `stack`: an app's files, from its folder.
- * Its `AGENTS.md` ends with the section the install's ORM adds.
+ * The template robkit ships for `stack`: an app's files, from its folder,
+ * with the install's ORM's app files laid over them. Its `AGENTS.md` ends
+ * with the section the ORM adds.
  */
 export async function stackTemplate(
   stack: Generator,
@@ -138,9 +164,12 @@ export async function stackTemplate(
     throw new Error(`the ${stack} stack has no template`);
   }
   const files = await readLayer(layer);
-  const guide = choiceTable.orm.options.find(
+  const ormOption: Option | undefined = choiceTable.orm.options.find(
     (option) => option.value === orm,
-  )?.appGuide;
+  );
+  const appLayer = ormOption?.appLayer;
+  if (appLayer !== undefined) overlay(files, await readLayer(appLayer));
+  const guide = ormOption?.appGuide;
   const agents = files.get("AGENTS.md");
   if (guide !== undefined && agents !== undefined) {
     // A Windows checkout may hold the templates with CRLF endings.
@@ -207,14 +236,21 @@ function versionOf(repo: RobkitRepo, name: string): string {
   return version;
 }
 
-/** Writes the catalog, and the links to robkit's packages when asked. */
+/**
+ * Writes the catalog, the install scripts pnpm may run, and the links to
+ * robkit's packages when asked.
+ */
 async function renderPnpm(
   files: Files,
   names: string[],
+  builds: Record<string, boolean>,
   repo: RobkitRepo,
   { link = false }: GenerateOptions,
 ): Promise<void> {
   const workspace = parseDocument(files.get("pnpm-workspace.yaml") ?? "");
+  for (const [name, allowed] of Object.entries(builds)) {
+    workspace.setIn(["allowBuilds", name], allowed);
+  }
   workspace.set(
     "catalog",
     Object.fromEntries(names.map((name) => [name, versionOf(repo, name)])),
@@ -263,7 +299,13 @@ export async function generateInstall(
     ...files,
     ...stacks.flatMap((stack) => [...stack]),
   ]);
-  await renderPnpm(files, names, await readRobkitRepo(), options);
+  await renderPnpm(
+    files,
+    names,
+    buildsFor(choices),
+    await readRobkitRepo(),
+    options,
+  );
   files.set(
     "robkit.json",
     await format(JSON.stringify(choices), { filepath: "robkit.json" }),

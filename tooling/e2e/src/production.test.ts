@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { defaultChoices, init } from "create-robkit";
+import { defaultChoices, init, type Choices } from "create-robkit";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   guestOpens,
@@ -35,17 +35,23 @@ async function deployApps(stack: Stack, slugs: string[]): Promise<void> {
   }
 }
 
-// The default install, deployed as on Coolify: an image per app from its
+const installs: [string, Choices][] = [
+  ["default", defaultChoices],
+  // Each ORM migrates as its app's container starts.
+  ["Prisma", { ...defaultChoices, orm: "prisma" }],
+];
+
+// Each install, deployed as on Coolify: an image per app from its
 // Dockerfile, core first, every app behind TLS on its own subdomain of a
 // domain that isn't localhost. Opt in with pnpm test:production.
-describe("the default install in production", () => {
+describe.each(installs)("the %s install in production", (_, choices) => {
   let dir: string;
   let stack: Stack;
   let setUp: OwnerSetUp;
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
-    await init(defaultChoices, dir, { link: true, install: true });
+    await init(choices, dir, { link: true, install: true });
     // A host can't reach this checkout, so the install takes tarballs.
     await run("pnpm", ["robkit", "vendor"], { cwd: dir });
     stack = await startStack(dir, ["core", "hub", "admin", "example", later]);

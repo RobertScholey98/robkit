@@ -206,11 +206,12 @@ describe("generateInstall", () => {
       "@robkit/start": "0.0.0",
       "@tanstack/react-start": "1.169.4",
       "create-robkit": "0.0.0",
+      "drizzle-orm": "0.45.4",
       hono: "4.13.14",
       prettier: "3.9.10",
     });
     // Only what the install uses: robkit's own tooling stays out.
-    expect(catalog).not.toHaveProperty("drizzle-kit");
+    expect(catalog).not.toHaveProperty("@clack/prompts");
     expect(catalog).not.toHaveProperty("playwright");
     expect(overrides).toBeUndefined();
   });
@@ -266,6 +267,11 @@ describe("generateInstall", () => {
       expect(stack.layer, stack.value).toBeDefined();
     }
     for (const orm of readyOptions(choiceTable.orm)) {
+      const appLayer = new URL(
+        `../templates/${orm.appLayer ?? ""}/`,
+        import.meta.url,
+      );
+      expect((await stat(appLayer)).isDirectory(), orm.value).toBe(true);
       const guide = new URL(
         `../templates/${orm.appGuide ?? ""}`,
         import.meta.url,
@@ -292,11 +298,61 @@ describe("generateInstall", () => {
       expect(agents).toContain(
         "over HTTP from the server at `process.env.ROBKIT_CORE_URL`",
       );
-      expect(agents).toContain("`src/migrate.ts` is the app's migration.");
+      expect(agents).toContain("`src/migrate.ts` applies the migrations");
       expect(agents.endsWith(ormSection.replaceAll("\r\n", "\n"))).toBe(true);
       expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
     },
   );
+
+  it.each(["start", "react-hono"] as const)(
+    "lays the ORM's app files over a %s app",
+    async (stack) => {
+      const files = await stackTemplate(stack, "drizzle");
+      const manifest = JSON.parse(files.get("package.json") ?? "{}") as {
+        scripts: Record<string, string>;
+        dependencies: Record<string, string>;
+      };
+
+      expect(files.has("src/migrate.ts")).toBe(true);
+      expect(files.has("src/visits.ts")).toBe(true);
+      expect(files.has("drizzle/0000_init.sql")).toBe(true);
+      expect(manifest.scripts.migrate).toBe("node src/migrate.ts");
+      expect(manifest.dependencies["drizzle-orm"]).toBe("catalog:");
+      expect(manifest.scripts.start).toMatch(/^node --run migrate && /);
+    },
+  );
+
+  it("lays Prisma's app files over a Prisma install's apps, and lets its engines install", async () => {
+    const files = await generateInstall({ ...defaultChoices, orm: "prisma" });
+    const manifest = JSON.parse(
+      files.get("apps/example/package.json") ?? "{}",
+    ) as {
+      scripts: Record<string, string>;
+      dependencies: Record<string, string>;
+    };
+    const { catalog } = workspace(files);
+    const { allowBuilds } = parse(files.get("pnpm-workspace.yaml") ?? "") as {
+      allowBuilds: Record<string, boolean>;
+    };
+
+    expect(files.has("apps/example/prisma/schema.prisma")).toBe(true);
+    expect(files.has("apps/example/src/generated/prisma/client.ts")).toBe(true);
+    expect(files.has("apps/example/drizzle/0000_init.sql")).toBe(false);
+    expect(manifest.scripts.migrate).toBe("prisma migrate deploy");
+    expect(manifest.dependencies).toMatchObject({
+      "@prisma/adapter-pg": "catalog:",
+      "@prisma/client": "catalog:",
+      prisma: "catalog:",
+    });
+    expect(manifest.dependencies).not.toHaveProperty("drizzle-orm");
+    expect(catalog).toMatchObject({ prisma: "7.10.1" });
+    expect(allowBuilds).toEqual({
+      esbuild: false,
+      "@prisma/engines": true,
+      prisma: false,
+    });
+    expect(files.get("apps/example/AGENTS.md")).toContain("pnpm db:migration");
+  });
 
   it("gives the example app its stack's agent files", async () => {
     const files = await generateInstall(defaultChoices);

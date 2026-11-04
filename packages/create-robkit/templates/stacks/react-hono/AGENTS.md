@@ -27,4 +27,4 @@ The guard already asks core for what it needs: core's public key and this app's 
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
-The example's queries are in its `/` handler in `src/server.tsx`.
+The example's queries are in `src/visits.ts`, and its `/` handler in `src/server.tsx` calls them.

@@ -1,0 +1,20 @@
+// The app's tables. Prisma keeps them in the app's own Postgres schema,
+// named after its slug, which prisma.config.ts and src/database.ts set.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// One row per page load, by whoever made it.
+model Visit {
+  id     Int      @id @default(autoincrement())
+  viewer String
+  at     DateTime @default(now()) @db.Timestamptz
+
+  @@map("visit")
+}

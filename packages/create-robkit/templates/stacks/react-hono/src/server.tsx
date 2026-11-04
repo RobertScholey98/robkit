@@ -1,15 +1,13 @@
 import { guarded, type GuardedEnv, type Viewer } from "@robkit/hono";
 import { Hono } from "hono";
-import postgres from "postgres";
 import { renderToString } from "react-dom/server";
+import { recordVisit } from "./visits.ts";
 
 function env(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set`);
   return value;
 }
-
-const sql = postgres(env("DATABASE_URL"), { max: 2 });
 
 const app = new Hono<GuardedEnv>();
 
@@ -19,17 +17,10 @@ app.use(guarded({ app: env("ROBKIT_APP"), core: env("ROBKIT_CORE_URL") }));
 app.get("/", async (c) => {
   const { viewer } = c.var;
   const id = viewer.kind === "nobody" ? "nobody" : viewer.id;
-  await sql`insert into visit (viewer) values (${id})`;
-  const [counted] = await sql<{ visits: number }[]>`
-    select count(*)::int as visits from visit where viewer = ${id}
-  `;
+  const visits = await recordVisit(id);
   return c.html(
     `<!doctype html>${renderToString(
-      <Page
-        heading={headingFor(viewer.kind)}
-        viewerId={id}
-        visits={counted?.visits ?? 0}
-      />,
+      <Page heading={headingFor(viewer.kind)} viewerId={id} visits={visits} />,
     )}`,
   );
 });

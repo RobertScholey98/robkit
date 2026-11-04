@@ -11,3 +11,10 @@
 - [ ] A broken combination fails CI with the combination named
 
 Source: the robkit v0.1 spec, https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5
+
+## Comments
+
+Notes from ticket 13:
+
+- The whole-stack test makes its installs from `installChoices` in `tooling/e2e/src/install.ts`, and `describeJourneys(name, { roles })` runs the journeys on one. The role journey takes about two minutes and tests only core and the guard, so run it on one install per stack, not on every combination.
+- `pnpm test:production` loops over `installs` in `production.test.ts`, about three and a half minutes each. A nightly job can take the full list, and a PR one only the default.

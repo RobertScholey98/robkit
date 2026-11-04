@@ -8,10 +8,11 @@ import { recordVisit } from "../visits.ts";
 const visit = createServerFn({ method: "POST" }).handler(
   async ({ context }) => {
     const { viewer } = context;
+    const viewerId = viewer.kind === "nobody" ? "nobody" : viewer.id;
     return {
       kind: viewer.kind,
-      viewerId: viewer.kind === "nobody" ? "nobody" : viewer.id,
-      visits: await recordVisit(viewer),
+      viewerId,
+      visits: await recordVisit(viewerId),
     };
   },
 );

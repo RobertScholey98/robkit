@@ -10,11 +10,16 @@ import {
   install,
   type Install,
 } from "@robkit/session/addresses";
-import type { Generator } from "create-robkit";
+import type { Choices } from "create-robkit";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { addedAppJourney } from "./added-app-journey.ts";
 import { guestJourney } from "./guest-journey.ts";
-import { addedIcon, addedSlug } from "./install.ts";
+import {
+  addedIcon,
+  addedSlug,
+  installChoices,
+  type InstallName,
+} from "./install.ts";
 import { ownerJourney } from "./owner-journey.ts";
 import { roleJourney } from "./role-journey.ts";
 import { serverFunctionJourney } from "./server-function-journey.ts";
@@ -110,13 +115,27 @@ function isListening(port: number): Promise<boolean> {
   });
 }
 
+export interface JourneyOptions {
+  /**
+   * Whether to run the role journey, which waits out the app's cached rule
+   * twice and takes nearly two minutes. It tests core and the guard, which
+   * every install shares.
+   */
+  roles?: boolean;
+}
+
 /**
- * Runs `pnpm dev` in the install whose example app is on `stack`, and takes
- * the owner and guests through it in a browser.
+ * Runs `pnpm dev` in the install `name`, and takes the owner and guests
+ * through it in a browser.
  */
-export function describeJourneys(stack: Generator): void {
-  const dir = inject("installs")[stack];
-  const project = `robkit-e2e-${stack}-${String(process.pid)}`;
+export function describeJourneys(
+  name: InstallName,
+  { roles = true }: JourneyOptions = {},
+): void {
+  const dir = inject("installs")[name];
+  const choices: Choices = installChoices[name];
+  const [stack] = choices.generators;
+  const project = `robkit-e2e-${name}-${String(process.pid)}`;
 
   beforeAll(async () => {
     devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
@@ -146,7 +165,7 @@ export function describeJourneys(stack: Generator): void {
     });
   });
 
-  describe(`pnpm dev in an install with the ${stack} example`, () => {
+  describe(`pnpm dev in an install with the ${stack} example on ${choices.orm}`, () => {
     it("serves the hub on hub.robkit.localhost", async () => {
       const hub = await eventually(() => get(hostOf("hub")));
 
@@ -307,7 +326,7 @@ export function describeJourneys(stack: Generator): void {
 
     // The example app keeps its rule for a minute, and this journey waits it
     // out twice.
-    it(
+    it.runIf(roles)(
       "lets a guest open an app through a role, and not once it's gated to another",
       {
         timeout: 300_000,

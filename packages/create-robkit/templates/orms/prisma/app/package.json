@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "migrate": "prisma migrate deploy",
+    "db:migration": "node src/new-migration.ts",
+    "db:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "catalog:",
+    "@prisma/client": "catalog:",
+    "prisma": "catalog:"
+  }
+}
