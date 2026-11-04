@@ -1,4 +1,16 @@
-export { defaultChoices, type Choices, type Generator } from "./choices.ts";
+export {
+  choicesFromFlags,
+  choiceTable,
+  defaultChoices,
+  listFlag,
+  readyOptions,
+  type Choice,
+  type ChoiceName,
+  type Choices,
+  type Flags,
+  type Generator,
+  type Option,
+} from "./choices.ts";
 export {
   deploymentOf,
   type Deployment,
