@@ -1,0 +1,8 @@
+{
+  "name": "ledger",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "node ../../migrate.js"
+  }
+}

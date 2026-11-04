@@ -1,6 +1,44 @@
 import { randomBytes } from "node:crypto";
 import postgres from "postgres";
+import { discoverApps } from "./apps.ts";
+import { exec } from "./exec.ts";
 import { slugProblem } from "./slug.ts";
+
+export interface ProvisionOptions {
+  /** A superuser URL for the install's database. */
+  adminUrl: string;
+  /** The environment each app's `migrate` script runs in, plus its `DATABASE_URL`. */
+  env?: NodeJS.ProcessEnv;
+  /** Once aborted, no further app is provisioned. */
+  signal?: AbortSignal;
+}
+
+/**
+ * The provision step: gives every app in the install at `root` that has a
+ * `migrate` script its database, then runs that script as the app. Apps go
+ * one at a time in slug order, and the step stops at the first failure. Safe
+ * to run on every start: a second run changes nothing but the passwords.
+ *
+ * @returns each provisioned app's `DATABASE_URL`, by slug
+ */
+export async function provisionApps(
+  root: string,
+  { adminUrl, env = process.env, signal }: ProvisionOptions,
+): Promise<Map<string, string>> {
+  const databaseUrls = new Map<string, string>();
+  for (const app of await discoverApps(root)) {
+    if (signal?.aborted) break;
+    if (!app.migrates) continue;
+    const databaseUrl = await provisionDatabase(adminUrl, app.slug);
+    await exec("pnpm", ["run", "migrate"], {
+      cwd: app.dir,
+      env: { ...env, DATABASE_URL: databaseUrl },
+      slug: app.slug,
+    });
+    databaseUrls.set(app.slug, databaseUrl);
+  }
+  return databaseUrls;
+}
 
 /**
  * Gives an app its own schema and a login role that can touch nothing else,
