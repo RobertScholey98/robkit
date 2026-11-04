@@ -32,8 +32,35 @@ export interface Option {
    * manager runs no other.
    */
   readonly builds?: Readonly<Record<string, boolean>>;
+  /**
+   * For a dev tool: the template folders, under `templates/`, it lays over
+   * the install when the install has another tool too, by that tool. They
+   * go down after every tool's own layer.
+   */
+  readonly with?: Readonly<Record<string, string>>;
+  /**
+   * A section, as a file under `templates/`, the option adds to the end of
+   * the install's root `AGENTS.md`.
+   */
+  readonly guide?: string;
+  /**
+   * For a dev tool whose files the templates write beside the code they
+   * cover, as tests are: what an install without the tool leaves out.
+   */
+  readonly withoutIt?: LeftOut;
   /** Shown by the wizard but not selectable, until a later release builds it. */
   readonly comingLater?: true;
+}
+
+/** What an install leaves out when it doesn't take a tool. */
+export interface LeftOut {
+  /** Files to drop, matched against the end of their path. */
+  readonly files: readonly string[];
+  /**
+   * Dependencies to drop from every manifest, with each script that runs
+   * one of them.
+   */
+  readonly dependencies: readonly string[];
 }
 
 /** One of init's questions. */
@@ -160,10 +187,34 @@ export const choiceTable = {
         value: "eslint-prettier",
         label: "ESLint + Prettier",
         layer: "tools/eslint-prettier",
+        guide: "tools/eslint-prettier.md",
       },
-      { value: "vitest", label: "Vitest", comingLater: true },
-      { value: "playwright", label: "Playwright", comingLater: true },
-      { value: "husky", label: "Husky + lint-staged", comingLater: true },
+      // The templates write each test beside the code it covers, so an
+      // install without Vitest leaves them out rather than one with it
+      // laying them down.
+      {
+        value: "vitest",
+        label: "Vitest",
+        guide: "tools/vitest.md",
+        withoutIt: {
+          files: [".test.ts", ".test.tsx", "/vitest.config.ts"],
+          dependencies: ["vitest"],
+        },
+      },
+      {
+        value: "playwright",
+        label: "Playwright",
+        layer: "tools/playwright",
+        guide: "tools/playwright.md",
+      },
+      {
+        value: "husky",
+        label: "Husky + lint-staged",
+        layer: "tools/husky",
+        // The hook also runs ESLint and Prettier on the staged files.
+        with: { "eslint-prettier": "tools/husky-eslint-prettier" },
+        guide: "tools/husky.md",
+      },
     ],
   },
 } as const satisfies Record<string, Choice>;
@@ -212,7 +263,7 @@ export const defaultChoices: Choices = {
   packageManager: "pnpm",
   orm: "drizzle",
   uiKit: null,
-  tools: ["eslint-prettier"],
+  tools: ["eslint-prettier", "vitest"],
   generators: ["start", "react-hono"],
 };
 

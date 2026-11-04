@@ -1,0 +1,9 @@
+{
+  "scripts": {
+    "postinstall": "husky"
+  },
+  "devDependencies": {
+    "husky": "catalog:",
+    "lint-staged": "catalog:"
+  }
+}

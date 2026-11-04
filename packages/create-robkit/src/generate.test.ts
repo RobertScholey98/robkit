@@ -9,6 +9,7 @@ import {
   readyOptions,
   type Choice,
   type Choices,
+  type Option,
 } from "./choices.ts";
 import { layerRule } from "./check.ts";
 import { generateInstall, stackTemplate, type Files } from "./generate.ts";
@@ -55,7 +56,7 @@ describe("generateInstall", () => {
   "packageManager": "pnpm",
   "orm": "drizzle",
   "uiKit": null,
-  "tools": ["eslint-prettier"],
+  "tools": ["eslint-prettier", "vitest"],
   "generators": ["react-hono", "start"]
 }
 `);
@@ -178,6 +179,8 @@ describe("generateInstall", () => {
       "pnpm typecheck",
       "pnpm test",
       "pnpm build",
+      "pnpm exec playwright install --with-deps chromium",
+      "pnpm test:e2e",
     ]);
     expect(Object.keys(scripts)).toEqual(
       expect.arrayContaining([
@@ -202,6 +205,189 @@ describe("generateInstall", () => {
       { lint: "robkit check && eslint ." },
       { lint: "robkit check" },
     ]);
+  });
+
+  it("tells the root AGENTS.md about each dev tool the install has", async () => {
+    const tools: readonly Option[] = readyOptions(choiceTable.tools);
+    const all = await generateInstall({
+      ...defaultChoices,
+      tools: tools.map((tool) => tool.value) as Choices["tools"],
+    });
+    const none = await generateInstall({ ...defaultChoices, tools: [] });
+    const agents = all.get("AGENTS.md") ?? "";
+
+    expect(agents).toContain("\n## Dev tools\n\n");
+    for (const { value, guide } of tools) {
+      expect(guide, value).toBeDefined();
+      const text = await readFile(
+        new URL(`../templates/${guide ?? ""}`, import.meta.url),
+        "utf8",
+      );
+      expect(agents, value).toContain(text.replaceAll("\r\n", "\n"));
+    }
+    expect(none.get("AGENTS.md")).not.toContain("## Dev tools");
+    expect(none.get("AGENTS.md")).not.toContain("Vitest");
+  });
+
+  describe("with Playwright", () => {
+    const withPlaywright: Choices = {
+      ...defaultChoices,
+      tools: ["playwright"],
+    };
+
+    it("adds browser tests in tooling/e2e, and a test:e2e script that runs them", async () => {
+      const files = await generateInstall(withPlaywright);
+
+      expect(files.has("tooling/e2e/playwright.config.ts")).toBe(true);
+      expect(files.has("tooling/e2e/src/sign-in.spec.ts")).toBe(true);
+      expect(files.get("tooling/e2e/.gitignore")).toContain("test-results/");
+      expect(files.has("tooling/e2e/gitignore")).toBe(false);
+      expect(json(files, "package.json")).toMatchObject({
+        scripts: {
+          "test:e2e": "cd tooling/e2e && pnpm exec playwright test",
+        },
+      });
+      expect(workspace(files).catalog).toMatchObject({
+        "@playwright/test": "1.64.1",
+      });
+    });
+
+    it("runs them in CI only when the install has them", async () => {
+      const files = await generateInstall(withPlaywright);
+      const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+        jobs: Record<string, { steps: { if?: string; run?: string }[] }>;
+      };
+
+      const steps = workflow.jobs.check?.steps ?? [];
+      const browserSteps = steps.filter((step) => step.if !== undefined);
+
+      expect(browserSteps.map((step) => step.run)).toEqual([
+        "pnpm exec playwright install --with-deps chromium",
+        "pnpm test:e2e",
+      ]);
+      for (const step of browserSteps) {
+        expect(step.if).toBe(
+          "hashFiles('tooling/e2e/playwright.config.ts') != ''",
+        );
+      }
+    });
+
+    it("leaves them out of an install without it", async () => {
+      const files = await generateInstall(defaultChoices);
+
+      expect(
+        [...files.keys()].some((path) => path.startsWith("tooling/e2e/")),
+      ).toBe(false);
+      expect(files.get("package.json")).not.toContain("test:e2e");
+    });
+  });
+
+  describe("with Husky", () => {
+    it("sets up a pre-commit hook that runs lint-staged as the install installs", async () => {
+      const files = await generateInstall({
+        ...defaultChoices,
+        tools: ["husky"],
+      });
+
+      expect(files.get(".husky/pre-commit")).toBe("pnpm exec lint-staged\n");
+      expect(json(files, "package.json")).toMatchObject({
+        scripts: { postinstall: "husky" },
+        devDependencies: { husky: "catalog:", "lint-staged": "catalog:" },
+      });
+      expect(workspace(files).catalog).toMatchObject({
+        husky: "9.1.7",
+        "lint-staged": "17.6.0",
+      });
+    });
+
+    it("checks the layer rule before each commit, and ESLint and Prettier the staged files when the install has them", async () => {
+      const alone = await generateInstall({
+        ...defaultChoices,
+        tools: ["husky"],
+      });
+      const withEslint = await generateInstall({
+        ...defaultChoices,
+        tools: ["eslint-prettier", "husky"],
+      });
+
+      expect(alone.get("lint-staged.config.js")).toContain(
+        '() => "robkit check"',
+      );
+      expect(alone.get("lint-staged.config.js")).not.toMatch(/eslint|prettier/);
+      expect(withEslint.get("lint-staged.config.js")).toContain(
+        '() => "robkit check"',
+      );
+      expect(withEslint.get("lint-staged.config.js")).toContain("eslint --fix");
+      expect(withEslint.get("lint-staged.config.js")).toContain(
+        "prettier --write",
+      );
+    });
+
+    it("spells the hook for the install's package manager", async () => {
+      const hookFor = async (packageManager: Choices["packageManager"]) =>
+        (
+          await generateInstall({
+            ...defaultChoices,
+            packageManager,
+            tools: ["husky"],
+          })
+        ).get(".husky/pre-commit");
+
+      expect(await hookFor("bun")).toBe("bunx lint-staged\n");
+      expect(await hookFor("yarn")).toBe("yarn lint-staged\n");
+    });
+
+    it("leaves Husky out of an install without it", async () => {
+      const files = await generateInstall(defaultChoices);
+
+      expect(files.has(".husky/pre-commit")).toBe(false);
+      expect(files.has("lint-staged.config.js")).toBe(false);
+      expect(files.get("package.json")).not.toMatch(/husky|lint-staged/);
+    });
+  });
+
+  describe("with Vitest off", () => {
+    const isTestFile = (path: string) =>
+      /\.test\.tsx?$|(^|\/)vitest\.config\.ts$/.test(path);
+
+    it.each<[string, Choices]>([
+      ["no kit", { ...defaultChoices, tools: ["eslint-prettier"] }],
+      ["Chakra", { ...defaultChoices, tools: [], uiKit: "chakra" }],
+    ])("leaves the tests and their runner out, with %s", async (_, choices) => {
+      const files = await generateInstall(choices);
+
+      expect([...files.keys()].filter(isTestFile)).toEqual([]);
+      for (const [path, text] of files) {
+        if (!path.endsWith("package.json")) continue;
+        expect(text, path).not.toContain("vitest");
+      }
+      expect(workspace(files).catalog).not.toHaveProperty("vitest");
+      // The root still has a test script, which runs no tasks.
+      expect(json(files, "package.json")).toMatchObject({
+        scripts: { test: "turbo run test" },
+      });
+    });
+
+    it("keeps them when Vitest is on", async () => {
+      const files = await generateInstall({
+        ...defaultChoices,
+        tools: ["vitest"],
+        uiKit: "chakra",
+      });
+
+      expect([...files.keys()].filter(isTestFile)).toEqual(
+        expect.arrayContaining([
+          "apps/admin/vitest.config.ts",
+          "apps/hub/src/core-api.test.ts",
+          "packages/core-client/src/call-core.test.ts",
+          "packages/ui/src/provider.test.tsx",
+        ]),
+      );
+      expect(json(files, "apps/hub/package.json")).toMatchObject({
+        scripts: { test: "vitest run" },
+        devDependencies: { vitest: "catalog:" },
+      });
+    });
   });
 
   it("pins every catalog dependency at robkit's version", async () => {
@@ -264,10 +450,14 @@ describe("generateInstall", () => {
   it("has a template folder for every layer the choice table names", async () => {
     const table: Choice[] = Object.values(choiceTable);
     const layers = table.flatMap((choice) =>
-      readyOptions(choice).flatMap((option) => option.layer ?? []),
+      readyOptions(choice).flatMap((option: Option) => [
+        ...(option.layer === undefined ? [] : [option.layer]),
+        ...Object.values(option.with ?? {}),
+      ]),
     );
 
     expect(layers).toContain("stacks/start");
+    expect(layers).toContain("tools/husky-eslint-prettier");
     for (const layer of layers) {
       const dir = new URL(`../templates/${layer}/`, import.meta.url);
       expect((await stat(dir)).isDirectory(), layer).toBe(true);
@@ -634,6 +824,8 @@ describe("generateInstall", () => {
         "bun run typecheck",
         "bun run test",
         "bun run build",
+        "bunx playwright install --with-deps chromium",
+        "bun run test:e2e",
       ]);
       expect(
         workflow.jobs.deploy?.steps.flatMap((step) => step.run ?? []),
@@ -754,6 +946,8 @@ describe("generateInstall", () => {
         "yarn run typecheck",
         "yarn run test",
         "yarn run build",
+        "yarn playwright install --with-deps chromium",
+        "yarn run test:e2e",
       ]);
       expect(runs("deploy")).toContain("yarn run robkit deploy");
     });

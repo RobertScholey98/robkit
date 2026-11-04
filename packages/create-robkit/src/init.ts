@@ -5,7 +5,7 @@ import { writeInstall } from "./write.ts";
 
 export interface InitOptions extends GenerateOptions {
   /**
-   * Install the dependencies and initialise git once the install is written.
+   * Initialise git and install the dependencies once the install is written.
    * Off by default, as on the command line without `--install`.
    */
   install?: boolean;
@@ -14,8 +14,10 @@ export interface InitOptions extends GenerateOptions {
 /**
  * Takes init's choices to a finished install in `dir`, which must be empty
  * or not exist yet. It generates the install, writes it, and with `install`
- * installs its dependencies and initialises git, in that order. The command
- * line and the whole-stack test both make their installs with it.
+ * initialises git and installs its dependencies, in that order, so an
+ * install script that sets up git hooks, as Husky's does, finds the
+ * repository. The command line and the whole-stack test both make their
+ * installs with it.
  */
 export async function init(
   choices: Choices,
@@ -24,6 +26,6 @@ export async function init(
 ): Promise<void> {
   await writeInstall(dir, await generateInstall(choices, options));
   if (!install) return;
-  await installDependencies(dir, choices.packageManager);
   await initGit(dir);
+  await installDependencies(dir, choices.packageManager);
 }

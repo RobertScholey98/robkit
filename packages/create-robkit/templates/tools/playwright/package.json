@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "test:e2e": "cd tooling/e2e && pnpm exec playwright test"
+  }
+}

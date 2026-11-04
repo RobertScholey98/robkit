@@ -27,12 +27,15 @@ export const installChoices = {
     generators: ["react-hono", "start"],
     uiKit: "chakra",
   },
-  // On yarn, which runs its scripts and installs its dependencies.
+  // On yarn, which runs its scripts and installs its dependencies. It has
+  // every dev tool, and the Kysely install none, so each tool's CI steps
+  // run with the tool on and off.
   prisma: {
     ...defaultChoices,
     packageManager: "yarn",
     orm: "prisma",
     uiKit: "shadcn-radix",
+    tools: ["eslint-prettier", "vitest", "playwright", "husky"],
   },
   // On bun, which runs its scripts and installs its dependencies.
   kysely: {
@@ -40,6 +43,7 @@ export const installChoices = {
     packageManager: "bun",
     orm: "kysely",
     uiKit: "shadcn-base-ui",
+    tools: [],
   },
 } satisfies Record<string, Choices>;
 

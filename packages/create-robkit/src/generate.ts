@@ -31,8 +31,20 @@ const exampleSlug = "example";
 
 const templatesDir = fileURLToPath(new URL("../templates/", import.meta.url));
 
-/** npm drops these from a published package, so templates store them renamed. */
+/**
+ * npm drops these from a published package, in any folder, so templates
+ * store them renamed.
+ */
 const storedAs = new Map([["gitignore", ".gitignore"]]);
+
+/** `path` as the install names it, restoring a name npm would drop. */
+function restored(path: string): string {
+  const name = basename(path);
+  const stored = storedAs.get(name);
+  return stored === undefined
+    ? path
+    : `${path.slice(0, -name.length)}${stored}`;
+}
 
 type Json = Record<string, unknown>;
 
@@ -46,7 +58,7 @@ export async function readFolder(dir: string): Promise<Files> {
     const path = relative(dir, file).replaceAll("\\", "/");
     // A Windows checkout may hold the templates with CRLF endings.
     const text = (await readFile(file, "utf8")).replaceAll("\r\n", "\n");
-    files.set(storedAs.get(path) ?? path, text);
+    files.set(restored(path), text);
   }
   return files;
 }
@@ -130,7 +142,92 @@ function layersFor(choices: Choices): string[] {
     layerOf(t.uiKit, "none"),
     choices.uiKit === null ? undefined : layerOf(t.uiKit, choices.uiKit),
     ...choices.tools.map((tool) => layerOf(t.tools, tool)),
+    ...choices.tools.flatMap((tool) =>
+      Object.entries(optionOf(t.tools, tool)?.with ?? {}).flatMap(
+        ([other, layer]) =>
+          (choices.tools as readonly string[]).includes(other) ? [layer] : [],
+      ),
+    ),
   ].filter((layer) => layer !== undefined);
+}
+
+/**
+ * Drops from `files` what each dev tool `tools` doesn't name leaves out: its
+ * files, its dependencies, and each script that runs one of them.
+ */
+export function leaveOutTools(files: Files, tools: readonly string[]): void {
+  for (const option of choiceTable.tools.options as readonly Option[]) {
+    const { withoutIt } = option;
+    if (withoutIt === undefined || tools.includes(option.value)) continue;
+    for (const path of [...files.keys()]) {
+      if (withoutIt.files.some((end) => `/${path}`.endsWith(end))) {
+        files.delete(path);
+      } else if (basename(path) === "package.json") {
+        editJson(files, path, (json) =>
+          withoutDependencies(json, withoutIt.dependencies),
+        );
+      }
+    }
+  }
+}
+
+/** A manifest without `dependencies`, or any script that runs one. */
+function withoutDependencies(json: Json, dependencies: readonly string[]) {
+  const runsOne = (command: unknown) =>
+    typeof command === "string" &&
+    dependencies.includes(command.split(" ")[0] ?? "");
+  const without = (
+    field: unknown,
+    drop: (key: string, value: unknown) => boolean,
+  ) =>
+    isJson(field)
+      ? Object.fromEntries(
+          Object.entries(field).filter(([key, value]) => !drop(key, value)),
+        )
+      : field;
+  const edited: Json = { ...json };
+  for (const field of ["dependencies", "devDependencies"]) {
+    if (field in edited) {
+      edited[field] = without(edited[field], (name) =>
+        dependencies.includes(name),
+      );
+    }
+  }
+  if ("scripts" in edited) {
+    edited.scripts = without(edited.scripts, (_, command) => runsOne(command));
+  }
+  return edited;
+}
+
+/** A file under `templates/`, with LF endings. */
+async function readTemplate(path: string): Promise<string> {
+  // A Windows checkout may hold the templates with CRLF endings.
+  return (await readFile(join(templatesDir, path), "utf8")).replaceAll(
+    "\r\n",
+    "\n",
+  );
+}
+
+/**
+ * Ends the root `AGENTS.md` with a Dev tools section: each line a tool in
+ * `tools` adds, in the order the choice table lists them.
+ */
+async function addToolGuides(
+  files: Files,
+  tools: readonly string[],
+): Promise<void> {
+  const guides = (choiceTable.tools.options as readonly Option[]).flatMap(
+    (option) =>
+      option.guide !== undefined && tools.includes(option.value)
+        ? [option.guide]
+        : [],
+  );
+  if (guides.length === 0) return;
+  const lines = await Promise.all(guides.map(readTemplate));
+  files.set(
+    "AGENTS.md",
+    `${files.get("AGENTS.md") ?? ""}\n## Dev tools\n\n${lines.join("")}`,
+  );
 }
 
 /** The install scripts every answer in `choices` needs, by dependency. */
@@ -180,11 +277,7 @@ export async function stackTemplate(
   const guide = ormOption?.appGuide;
   const agents = files.get("AGENTS.md");
   if (guide !== undefined && agents !== undefined) {
-    // A Windows checkout may hold the templates with CRLF endings.
-    const section = (
-      await readFile(join(templatesDir, guide), "utf8")
-    ).replaceAll("\r\n", "\n");
-    files.set("AGENTS.md", `${agents}\n${section}`);
+    files.set("AGENTS.md", `${agents}\n${await readTemplate(guide)}`);
   }
   return files;
 }
@@ -352,6 +445,7 @@ export async function generateInstall(
       stackTemplate(stack, choices.orm, choices.uiKit),
     ),
   );
+  for (const stack of stacks) leaveOutTools(stack, choices.tools);
   const [example] = stacks;
   if (example === undefined) throw new Error("init needs a generator");
   overlay(
@@ -359,6 +453,8 @@ export async function generateInstall(
     appFiles(example, exampleSlug, { icon: defaultIcon }),
     `apps/${exampleSlug}/`,
   );
+  leaveOutTools(files, choices.tools);
+  await addToolGuides(files, choices.tools);
   await spellFor(files, choices.packageManager);
 
   // The catalog covers every stack robkit add offers, so adding an app

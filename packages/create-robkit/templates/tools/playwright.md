@@ -1,0 +1,1 @@
+- **Playwright.** `pnpm test:e2e` runs the browser tests in `tooling/e2e/src` against the install's own `pnpm dev`, on ports and a database of their own, so it never touches the stack you develop on. It needs Docker, as `pnpm dev` does. The tests start at the example app, so change them as your apps change.
