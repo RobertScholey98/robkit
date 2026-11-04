@@ -89,12 +89,11 @@ async function gateExample(owner: Page, role: string): Promise<void> {
  * with the 404.
  */
 export async function roleJourney({
-  devPort,
+  install,
   username,
   password,
 }: JourneyOptions): Promise<RoleJourney> {
-  const at = (slug: string, path = "/") =>
-    `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
+  const at = (slug: string, path = "/") => `${install.origin(slug)}${path}`;
   const browser = await chromium.launch();
   try {
     const owner = await freshPage(browser);

@@ -1,3 +1,4 @@
+import { installAt } from "@robkit/session/addresses";
 import { call, isRecord, post, readWith, type Result } from "./core-call.ts";
 
 /** Whether a code signs a guest in, and if not, why not. */
@@ -50,9 +51,9 @@ export async function revokeCode(
 
 /** The link that signs a guest in with `code`, on the hub beside core. */
 export function introLink(core: string, code: string): string {
-  const hub = new URL(core);
-  hub.hostname = `hub.${hub.hostname.slice("core.".length)}`;
-  return new URL(`/i/${code}`, hub.origin).href;
+  const hub = installAt(core, "core")?.origin("hub");
+  if (!hub) throw new Error(`core must be on core.<domain>, not ${core}`);
+  return new URL(`/i/${code}`, hub).href;
 }
 
 /**

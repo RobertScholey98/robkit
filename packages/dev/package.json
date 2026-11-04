@@ -23,6 +23,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@robkit/session": "workspace:*",
     "postgres": "catalog:"
   },
   "devDependencies": {

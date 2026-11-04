@@ -73,6 +73,8 @@ export async function signingKey(): Promise<SigningKey> {
 export interface FakeCore {
   /** Core's public origin, `http://core.robkit.localhost:<port>`. */
   origin: string;
+  /** The hub's origin beside it, `http://hub.robkit.localhost:<port>`. */
+  hub: string;
   /** The key core signs sessions with. */
   key: SigningKey;
   /** Each app's rule in core's catalog, by slug. */
@@ -97,6 +99,7 @@ export async function fakeCore(): Promise<FakeCore> {
   };
   const core: FakeCore = {
     origin: "",
+    hub: "",
     key,
     rules: {},
     status: 200,
@@ -124,6 +127,7 @@ export async function fakeCore(): Promise<FakeCore> {
   });
   const { port } = server.address() as AddressInfo;
   core.origin = `http://core.robkit.localhost:${String(port)}`;
+  core.hub = `http://hub.robkit.localhost:${String(port)}`;
   return core;
 }
 
@@ -137,16 +141,13 @@ export interface PageAnswer {
 
 /**
  * The answer every adapter must give a conformance case's visitor loading
- * `page`, behind the core at `coreOrigin`.
+ * `page`, behind `core`.
  */
 export function conformanceAnswer(
   { session, guestRoles, outcome }: ConformanceCase,
   page: string,
-  coreOrigin: string,
+  core: Pick<FakeCore, "origin" | "hub">,
 ): PageAnswer {
-  const core = new URL(coreOrigin);
-  const hub = new URL(coreOrigin);
-  hub.hostname = hub.hostname.replace(/^core\./, "hub.");
   const next = `?next=${encodeURIComponent(page)}`;
   switch (outcome) {
     case "allow": {
@@ -161,7 +162,7 @@ export function conformanceAnswer(
     case "login":
       return {
         status: 302,
-        location: `${hub.origin}/${next}`,
+        location: `${core.hub}/${next}`,
         viewer: undefined,
       };
     case "refresh":

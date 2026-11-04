@@ -10,6 +10,7 @@
   "dependencies": {
     "@robkit/guard": "catalog:",
     "@robkit/hono": "catalog:",
+    "@robkit/session": "catalog:",
     "hono": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"

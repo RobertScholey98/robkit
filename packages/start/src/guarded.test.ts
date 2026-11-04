@@ -41,7 +41,7 @@ describe("guarded", () => {
       status: res.status,
       location: res.headers.get("location"),
       viewer: body?.viewer,
-    }).toEqual(conformanceAnswer(asking, page, core.origin));
+    }).toEqual(conformanceAnswer(asking, page, core));
   });
 
   it("answers a server function call with an expired session with the guard's 401", async () => {

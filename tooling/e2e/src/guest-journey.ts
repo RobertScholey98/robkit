@@ -52,13 +52,12 @@ async function freshPage(browser: Browser): Promise<Page> {
  * signs them out.
  */
 export async function guestJourney({
-  devPort,
+  install,
   adminUrl,
   username,
   password,
 }: JourneyOptions): Promise<GuestJourney> {
-  const at = (slug: string, path = "/") =>
-    `http://${slug}.robkit.localhost:${String(devPort)}${path}`;
+  const at = (slug: string, path = "/") => `${install.origin(slug)}${path}`;
   const browser = await chromium.launch();
   try {
     const owner = await freshPage(browser);

@@ -27,12 +27,12 @@ async function visitsOn(page: Page): Promise<number> {
  * sends the browser through core's refresh and back to the page.
  */
 export async function serverFunctionJourney({
-  devPort,
+  install,
   adminUrl,
   username,
   password,
 }: JourneyOptions): Promise<ServerFunctionJourney> {
-  const app = `http://example.robkit.localhost:${String(devPort)}/`;
+  const app = `${install.origin("example")}/`;
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext();

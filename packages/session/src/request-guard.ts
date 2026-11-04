@@ -6,6 +6,7 @@ import {
 } from "@robkit/guard";
 import { coreAccess } from "./core-access.ts";
 import { coreKeys } from "./core-keys.ts";
+import { installAt } from "./install-addresses.ts";
 import { sessionLapsedResponse } from "./session-lapsed.ts";
 import { readSessionToken, sessionCookie } from "./session-token.ts";
 
@@ -45,16 +46,13 @@ function publicUrl(request: Request): URL {
 
 /** Core's origin and the hub's beside it, from core's public origin. */
 function platformOrigins(core: string): { core: string; hub: string } {
-  const url = URL.canParse(core) ? new URL(core) : undefined;
-  const web = url?.protocol === "https:" || url?.protocol === "http:";
-  if (!url || !web || !url.hostname.startsWith("core.")) {
+  const install = installAt(core, "core");
+  if (!install) {
     throw new Error(
       `core must be core's public origin, such as http://core.robkit.localhost:3000, not ${core}`,
     );
   }
-  const hub = new URL(url.origin);
-  hub.hostname = `hub.${url.hostname.slice("core.".length)}`;
-  return { core: url.origin, hub: hub.origin };
+  return { core: install.origin("core"), hub: install.origin("hub") };
 }
 
 /**

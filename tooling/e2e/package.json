@@ -12,6 +12,7 @@
     "@internal/test-postgres": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@robkit/dev": "workspace:*",
+    "@robkit/session": "workspace:*",
     "@types/node": "catalog:",
     "create-robkit": "workspace:*",
     "eslint": "catalog:",

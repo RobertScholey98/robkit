@@ -5,6 +5,7 @@ import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
 import { sessionCookie } from "@robkit/session";
+import { install, platformApps } from "@robkit/session/addresses";
 import {
   listCodes,
   mintCode,
@@ -56,7 +57,7 @@ interface CoreEnv {
 }
 
 /** The platform apps that call core from the browser with the session cookie. */
-const trustedApps = ["hub", "admin"];
+const trustedApps = platformApps.filter((slug) => slug !== "core");
 
 function hostnameOf(origin: string): string | undefined {
   try {
@@ -64,14 +65,6 @@ function hostnameOf(origin: string): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-/** `next` if it is an http(s) URL on one of the install's subdomains. */
-function appUrl(next: string | undefined, domain: string): string | undefined {
-  if (next === undefined || !URL.canParse(next)) return undefined;
-  const url = new URL(next);
-  const web = url.protocol === "https:" || url.protocol === "http:";
-  return web && url.hostname.endsWith(`.${domain}`) ? url.href : undefined;
 }
 
 function isJson(contentType: string | undefined): boolean {
@@ -137,6 +130,7 @@ export function createApp({
   now = () => new Date(),
 }: CoreOptions): Hono {
   const app = new Hono();
+  const addresses = install({ domain });
   const signingKey: () => Promise<SigningKey> = memoize(() =>
     ensureSigningKey(db),
   );
@@ -202,7 +196,7 @@ export function createApp({
   // Admin manages the install over CORS with the owner's cookie.
   const owner = viewer({ ownerOnly: true });
 
-  const trustedHosts = new Set(trustedApps.map((slug) => `${slug}.${domain}`));
+  const trustedHosts = new Set(trustedApps.map((slug) => addresses.host(slug)));
 
   app.use(
     cors({
@@ -259,7 +253,7 @@ export function createApp({
   app.get(
     "/refresh",
     validator("query", (_, c) => {
-      const next = appUrl(c.req.query("next"), domain);
+      const next = addresses.onInstall(c.req.query("next"));
       return next
         ? { next }
         : c.json(
