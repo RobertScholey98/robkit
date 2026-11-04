@@ -20,6 +20,7 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "shadcn": "catalog:",
+    "tailwindcss": "catalog:",
     "tw-animate-css": "catalog:"
   },
   "devDependencies": {
