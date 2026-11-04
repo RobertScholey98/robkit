@@ -291,7 +291,7 @@ describe("generateInstall", () => {
 
       expect(files.get(".husky/pre-commit")).toBe("pnpm exec lint-staged\n");
       expect(json(files, "package.json")).toMatchObject({
-        scripts: { postinstall: "husky" },
+        scripts: { postinstall: "husky || true" },
         devDependencies: { husky: "catalog:", "lint-staged": "catalog:" },
       });
       expect(workspace(files).catalog).toMatchObject({
