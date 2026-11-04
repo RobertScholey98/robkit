@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { defaultChoices, init, type Choices } from "create-robkit";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { takeBrowserLog } from "./browser.ts";
 import {
   guestOpens,
   ownerSetsUp,
@@ -44,13 +45,14 @@ const allTools: Choices["tools"] = [
   "husky",
 ];
 
+/** Each install by the key `E2E_PRODUCTION_INSTALL` picks it by. */
 const installs: [string, Choices][] = [
   ["default", defaultChoices],
   // Each ORM migrates as its app's container starts, and each UI kit's apps
   // serve its stylesheet. The two shadcn kits share their apps' layer, so
   // Base UI stands for both, and Chakra's server-rendered styles get a run.
   [
-    "Prisma",
+    "prisma",
     { ...defaultChoices, orm: "prisma", uiKit: "chakra", tools: allTools },
   ],
   // bun installs the Kysely install, so its Dockerfile gets a run too.
@@ -58,7 +60,7 @@ const installs: [string, Choices][] = [
   // robkit's packages from vendored tarballs, so a yarn install deploys
   // once they're on npm. yarn-prune.test.ts checks its prune instead.
   [
-    "Kysely on bun",
+    "kysely-on-bun",
     {
       ...defaultChoices,
       packageManager: "bun",
@@ -69,10 +71,32 @@ const installs: [string, Choices][] = [
   ],
 ];
 
+/**
+ * The installs this run deploys: every one, or the one
+ * `E2E_PRODUCTION_INSTALL` names, as each CI job runs one.
+ */
+function chosen(): [string, Choices][] {
+  const key = process.env.E2E_PRODUCTION_INSTALL;
+  if (!key) return installs;
+  const picked = installs.filter(([name]) => name === key);
+  if (picked.length === 0) {
+    throw new Error(
+      `E2E_PRODUCTION_INSTALL is ${key}, not one of ${installs.map(([name]) => name).join(", ")}`,
+    );
+  }
+  return picked;
+}
+
 // Each install, deployed as on Coolify: an image per app from its
 // Dockerfile, core first, every app behind TLS on its own subdomain of a
 // domain that isn't localhost. Opt in with pnpm test:production.
-describe.each(installs)("the %s install in production", (_, choices) => {
+//
+// No container starts or stops while a browser is open. On a host whose
+// Docker networks are its own, as on GitHub's runners, each one changes
+// the host's interfaces, and Chromium fails in-flight requests with
+// ERR_NETWORK_CHANGED. So every deploy below finishes before the journey
+// after it launches a browser, and each journey closes its browser.
+describe.each(chosen())("the %s install in production", (_, choices) => {
   let dir: string;
   let stack: Stack;
   let setUp: OwnerSetUp;
@@ -91,9 +115,22 @@ describe.each(installs)("the %s install in production", (_, choices) => {
     await answers(stack, "hub", 200);
     // The owner opens the example to anyone before it starts, so its guard
     // never keeps the owner-only rule it would start with.
-    setUp = await ownerSetsUp(stack.addresses, "example");
+    setUp = await ownerSetsUp(stack.addresses, "example").catch(
+      (error: unknown) => {
+        console.error(`What the browser saw:\n${takeBrowserLog()}`);
+        throw error;
+      },
+    );
     await deployApps(stack, ["example"]);
     await answers(stack, "example", 200);
+  });
+
+  // A journey that times out says only what it waited for.
+  beforeEach(({ onTestFailed }) => {
+    takeBrowserLog();
+    onTestFailed(() => {
+      console.error(`What the browser saw:\n${takeBrowserLog()}`);
+    });
   });
 
   afterAll(async () => {
