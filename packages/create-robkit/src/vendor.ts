@@ -28,8 +28,9 @@ export async function vendorPackages(root: string): Promise<void> {
       ),
     ),
   );
+  const protocol = `${pm.linkProtocol}:`;
   const linked = Object.entries(pm.overridesIn(settings)).filter(([, spec]) =>
-    spec.startsWith("link:"),
+    spec.startsWith(protocol),
   );
   if (linked.length === 0) {
     throw new Error(
@@ -41,7 +42,7 @@ export async function vendorPackages(root: string): Promise<void> {
   await mkdir(out, { recursive: true });
   const overrides: Record<string, string> = {};
   for (const [name, spec] of linked) {
-    const dir = spec.slice("link:".length);
+    const dir = spec.slice(protocol.length);
     // The checkout is robkit's own, which pnpm runs. A shell finds pnpm.cmd
     // on Windows. The commands are fixed strings.
     await exec("pnpm run build", { cwd: dir });

@@ -26,6 +26,12 @@ export interface PackageManagerAdapter {
   readonly settingsFiles: readonly string[];
   /** The lockfile an install writes. */
   readonly lockfile: string;
+  /**
+   * How `--link` points the install at a package in a robkit checkout.
+   * `portal` installs the package's own dependencies from the install's
+   * catalog, and links its bins, as a package from npm does.
+   */
+  readonly linkProtocol: "link" | "portal";
   /** Installs a new install's dependencies, which have no lockfile yet. */
   readonly install: string;
   /** How a person runs one of the install's scripts, arguments included. */
@@ -47,6 +53,7 @@ const pnpmSettings = "pnpm-workspace.yaml";
 
 const pnpm: PackageManagerAdapter = {
   settingsFiles: [pnpmSettings],
+  linkProtocol: "link",
   lockfile: "pnpm-lock.yaml",
   // pnpm on CI refuses an install with no lockfile unless told.
   install: "pnpm install --no-frozen-lockfile",
@@ -140,6 +147,7 @@ function alignComment(line: string, column: number): string {
 
 const bun: PackageManagerAdapter = {
   settingsFiles: ["package.json"],
+  linkProtocol: "link",
   lockfile: "bun.lock",
   install: "bun install",
   run: (script) => `bun run ${script}`,
@@ -200,6 +208,9 @@ const yarnSettings = ".yarnrc.yml";
 
 const yarn: PackageManagerAdapter = {
   settingsFiles: [yarnSettings, "package.json"],
+  // yarn links no bins from a link: package, and an install runs
+  // robkit-dev and robkit.
+  linkProtocol: "portal",
   lockfile: "yarn.lock",
   // yarn on CI refuses to write a lockfile unless told.
   install: "yarn install --no-immutable",

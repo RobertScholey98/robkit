@@ -686,17 +686,34 @@ describe("generateInstall", () => {
       expect(manifest.resolutions).toBeUndefined();
     });
 
-    it("links the @robkit packages to this checkout when asked", async () => {
+    it("links the @robkit packages to this checkout with portals, and catalogs what they depend on", async () => {
       const files = await generateInstall(yarnChoices, { link: true });
       const { resolutions } = json(files, "package.json") as {
         resolutions: Record<string, string>;
       };
+      const { catalog } = parse(files.get(".yarnrc.yml") ?? "") as {
+        catalog: Record<string, string>;
+      };
       const checkout = fileURLToPath(new URL("../../../", import.meta.url));
 
+      // yarn links no bins from a link: package, and an install runs
+      // robkit-dev and robkit. A portal installs the package's own
+      // dependencies, as a package from npm does.
       expect(resolutions["@robkit/core"]).toBe(
-        `link:${checkout.replaceAll("\\", "/")}packages/core`,
+        `portal:${checkout.replaceAll("\\", "/")}packages/core`,
       );
       expect(Object.keys(resolutions)).toHaveLength(8);
+      // Core's ORM, which this Prisma install's apps don't use.
+      expect(catalog["drizzle-orm"]).toBeDefined();
+    });
+
+    it("catalogs only what its apps use when not linked", async () => {
+      const files = await generateInstall(yarnChoices);
+      const { catalog } = parse(files.get(".yarnrc.yml") ?? "") as {
+        catalog: Record<string, string>;
+      };
+
+      expect(catalog["drizzle-orm"]).toBeUndefined();
     });
 
     it("names yarn's commands and files, never pnpm's", async () => {
