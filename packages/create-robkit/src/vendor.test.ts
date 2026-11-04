@@ -48,6 +48,27 @@ describe("vendorPackages", () => {
     expect(Object.keys(overrides)).toHaveLength(8);
   }, 120_000);
 
+  it("points a yarn install's resolutions in package.json at the tarballs", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
+    await init({ ...defaultChoices, packageManager: "yarn" }, dir, {
+      link: true,
+    });
+
+    await vendorPackages(dir);
+
+    const { resolutions } = JSON.parse(
+      await readFile(join(dir, "package.json"), "utf8"),
+    ) as { resolutions: Record<string, string> };
+    expect(resolutions["@robkit/core"]).toBe(
+      "file:vendor/robkit/robkit-core-0.0.0.tgz",
+    );
+    expect(Object.keys(resolutions)).toHaveLength(8);
+    // The catalog in .yarnrc.yml is left as init wrote it.
+    expect(await readFile(join(dir, ".yarnrc.yml"), "utf8")).toContain(
+      "catalog:",
+    );
+  }, 120_000);
+
   it("refuses an install that isn't linked to a robkit checkout", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
     await init(defaultChoices, dir);

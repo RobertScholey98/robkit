@@ -23,7 +23,7 @@ describe("choicesFromFlags", () => {
 
   it("names the options when a flag's value isn't one", () => {
     expect(() => choicesFromFlags({ pm: "npm" })).toThrow(
-      "--pm npm isn't an option. Choose from: pnpm, bun.",
+      "--pm npm isn't an option. Choose from: pnpm, bun, yarn.",
     );
     expect(() => choicesFromFlags({ generators: "start,next" })).toThrow(
       "--generators next isn't an option. Choose from: start, react-hono.",
@@ -34,8 +34,8 @@ describe("choicesFromFlags", () => {
   });
 
   it("refuses an option that's coming later", () => {
-    expect(() => choicesFromFlags({ pm: "yarn" })).toThrow(
-      "--pm yarn isn't an option. Choose from: pnpm, bun.",
+    expect(() => choicesFromFlags({ generators: "next" })).toThrow(
+      "--generators next isn't an option. Choose from: start, react-hono.",
     );
   });
 

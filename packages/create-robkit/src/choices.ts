@@ -66,7 +66,7 @@ export const choiceTable = {
     options: [
       { value: "pnpm", label: "pnpm", layer: "package-managers/pnpm" },
       { value: "bun", label: "bun", layer: "package-managers/bun" },
-      { value: "yarn", label: "yarn", comingLater: true },
+      { value: "yarn", label: "yarn", layer: "package-managers/yarn" },
     ],
   },
   orm: {

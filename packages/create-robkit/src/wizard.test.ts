@@ -31,10 +31,27 @@ describe("commandFor", () => {
 
 describe("optionsFor", () => {
   it("offers the table's ready options, then the ones coming later", () => {
-    expect(optionsFor(choiceTable.packageManager, "pnpm")).toEqual([
-      { value: "pnpm", label: "pnpm", hint: "recommended" },
-      { value: "bun", label: "bun" },
-      { value: "yarn", label: "yarn", hint: "coming later", disabled: true },
+    expect(optionsFor(choiceTable.generators, "start")).toEqual([
+      { value: "start", label: "TanStack Start", hint: "recommended" },
+      { value: "react-hono", label: "React + Hono" },
+      {
+        value: "next",
+        label: "Next.js",
+        hint: "coming later",
+        disabled: true,
+      },
+      {
+        value: "express",
+        label: "React + Express",
+        hint: "coming later",
+        disabled: true,
+      },
+      {
+        value: "go",
+        label: "React + Go",
+        hint: "coming later",
+        disabled: true,
+      },
     ]);
   });
 
