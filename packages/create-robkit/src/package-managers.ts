@@ -105,13 +105,20 @@ const bunSpellings: [RegExp, string][] = [
 ];
 
 /**
- * Spells one line for bun. A line that lines its comment up, as a command
- * list does, keeps the comment in the same column.
+ * Spells `text` with `spellings`, line by line. A line that lines its
+ * comment up, as a command list does, keeps the comment in the same column.
  */
-function spellLineForBun(line: string): string {
+function spellWith(spellings: [RegExp, string][], text: string): string {
+  return text
+    .split("\n")
+    .map((line) => spellLine(spellings, line))
+    .join("\n");
+}
+
+function spellLine(spellings: [RegExp, string][], line: string): string {
   let spelled = line;
-  for (const [pnpmSpelling, bunSpelling] of bunSpellings) {
-    spelled = spelled.replace(pnpmSpelling, bunSpelling);
+  for (const [pnpmSpelling, spelling] of spellings) {
+    spelled = spelled.replace(pnpmSpelling, spelling);
   }
   const comment = linedUpComment.exec(line);
   return comment === null || spelled === line
@@ -172,7 +179,7 @@ const bun: PackageManagerAdapter = {
     };
     return overrides ?? {};
   },
-  spell: (text) => text.split("\n").map(spellLineForBun).join("\n"),
+  spell: (text) => spellWith(bunSpellings, text),
 };
 
 /**
