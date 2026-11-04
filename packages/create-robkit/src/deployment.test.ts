@@ -74,6 +74,23 @@ describe("deploymentOf", () => {
     ]);
   });
 
+  it("tells only core to trust Cloudflare when the install sits behind it", async () => {
+    const apps = await deploymentOf(await install(), {
+      domain: "robkit.dev",
+      trustedProxy: "cloudflare",
+    });
+
+    expect(
+      apps.map(({ slug, env }) => [slug, env.ROBKIT_TRUSTED_PROXY]),
+    ).toEqual([
+      ["admin", undefined],
+      ["brochure", undefined],
+      ["core", { literal: "cloudflare" }],
+      ["example", undefined],
+      ["hub", undefined],
+    ]);
+  });
+
   it("puts a public port in core's URL when the install has one", async () => {
     const [admin] = await deploymentOf(await install(), {
       domain: "robkit.test",

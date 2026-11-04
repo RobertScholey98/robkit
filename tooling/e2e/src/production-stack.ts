@@ -69,15 +69,34 @@ async function until(attempt: () => Promise<unknown>): Promise<void> {
   }
 }
 
+/** Where the tunnel delivers requests to the stand-in for Traefik. */
+const tunnelPort = 8080;
+
+/**
+ * Caddy plays both of R's hosts' proxies. Its https site is Cloudflare: it
+ * ends TLS and names the visitor in `CF-Connecting-IP`, replacing any value
+ * the visitor sent. It hands every request through one hop, as the tunnel
+ * does, to its plain http site, which is Traefik. Traefik appends the hop's
+ * own address to `X-Forwarded-For`, so every visitor's ends the same way.
+ */
 function caddyfile(port: number): string {
   return `{
   local_certs
   skip_install_trust
   https_port ${String(port)}
+  servers :${String(tunnelPort)} {
+    trusted_proxies static private_ranges
+  }
 }
 
 *.${domain} {
   tls internal
+  reverse_proxy 127.0.0.1:${String(tunnelPort)} {
+    header_up CF-Connecting-IP {remote_host}
+  }
+}
+
+http://*.${domain}:${String(tunnelPort)} {
   reverse_proxy {labels.2}:3000
 }
 `;
@@ -301,9 +320,11 @@ export async function hostEnv(
     const at = line.indexOf("=");
     shared.set(line.slice(0, at), line.slice(at + 1));
   }
+  // Caddy stands in for Cloudflare's tunnel, as on R's hosts.
   const deployments = await deploymentOf(stack.dir, {
     domain,
     port: stack.port,
+    trustedProxy: "cloudflare",
   });
   return new Map(
     deployments.map(({ slug, env }) => [
@@ -426,5 +447,87 @@ export async function answers(
       );
     }
     await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+}
+
+/** One sign-in attempt by a visitor, with any headers it adds itself. */
+export interface Attempt {
+  password: string;
+  headers?: Record<string, string>;
+}
+
+/** Someone on their own address, signing in at core through Caddy. */
+export interface Visitor {
+  /** Makes each attempt in turn and gets each answer's status. */
+  signsIn: (attempts: Attempt[]) => Promise<number[]>;
+}
+
+/**
+ * Runs `use` with `count` visitors, each a container of its own on the
+ * stack's network. They all run until `use` is done, so Docker gives each
+ * its own address and Caddy sees them as Cloudflare sees different people.
+ */
+export async function withVisitors<T>(
+  stack: Stack,
+  count: number,
+  use: (visitors: Visitor[]) => Promise<T>,
+): Promise<T> {
+  const containers = Array.from(
+    { length: count },
+    (_, i) => `${stack.name}-visitor-${String(i + 1)}`,
+  );
+  for (const container of containers) {
+    await docker(
+      "run",
+      "-d",
+      "--label",
+      stack.name,
+      "--network",
+      network,
+      "--name",
+      container,
+      "-v",
+      `${join(stack.caDir, "root.crt")}:/ca.crt:ro`,
+      "-e",
+      "NODE_EXTRA_CA_CERTS=/ca.crt",
+      "--entrypoint",
+      "sleep",
+      `${stack.name}/core`,
+      "600",
+    );
+  }
+  const login = `${stack.addresses.origin("core")}/login`;
+  const signsIn = async (container: string, attempts: Attempt[]) => {
+    const script = `
+const statuses = [];
+for (const { password, headers } of ${JSON.stringify(attempts)}) {
+  const res = await fetch(${JSON.stringify(login)}, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify({ username: "owner", password }),
+  });
+  await res.arrayBuffer();
+  statuses.push(res.status);
+}
+console.log(JSON.stringify(statuses));
+`;
+    const output = await docker(
+      "exec",
+      container,
+      "node",
+      "--input-type=module",
+      "-e",
+      script,
+    );
+    return JSON.parse(output.trim().split("\n").at(-1) ?? "[]") as number[];
+  };
+  try {
+    return await use(
+      containers.map((container) => ({
+        signsIn: (attempts) => signsIn(container, attempts),
+      })),
+    );
+  } finally {
+    await docker("rm", "-f", ...containers).catch(() => undefined);
   }
 }

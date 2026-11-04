@@ -135,7 +135,10 @@ async function deployInstall(): Promise<void> {
     );
   }
   const config = readCoolifyConfig(await readFile(configPath, "utf8"));
-  const deployments = await deploymentOf(root, { domain: config.domain });
+  const deployments = await deploymentOf(root, {
+    domain: config.domain,
+    trustedProxy: config.trustedProxy,
+  });
 
   if (dryRun || !url) {
     for (const { slug, env } of deployments) {

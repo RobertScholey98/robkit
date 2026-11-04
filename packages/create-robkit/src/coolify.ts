@@ -1,5 +1,10 @@
 import { install } from "@robkit/session/addresses";
-import { containerPort, type Deployment, type Value } from "./deployment.ts";
+import {
+  containerPort,
+  type Deployment,
+  type TrustedProxy,
+  type Value,
+} from "./deployment.ts";
 
 // robkit deploy: R's Coolify method, adapted from robnet's deploy job. Each
 // app is a Coolify application built from the install's one Dockerfile. A
@@ -18,6 +23,8 @@ export interface CoolifyConfig {
   branch: string;
   /** The domain the install answers on, such as `robkit.dev`. */
   domain: string;
+  /** `cloudflare` when only a Cloudflare tunnel reaches the host. */
+  trustedProxy?: TrustedProxy;
 }
 
 const configKeys = [
@@ -39,6 +46,15 @@ export function readCoolifyConfig(text: string): CoolifyConfig {
       throw new Error(`coolify.json needs a non-empty string \`${key}\`.`);
     }
     config[key] = value;
+  }
+  const { trustedProxy } = input;
+  if (trustedProxy !== undefined) {
+    if (trustedProxy !== "cloudflare") {
+      throw new Error(
+        'coolify.json\'s `trustedProxy` must be "cloudflare" or left out.',
+      );
+    }
+    config.trustedProxy = trustedProxy;
   }
   return config as CoolifyConfig;
 }

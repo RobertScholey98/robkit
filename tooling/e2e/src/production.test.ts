@@ -22,6 +22,7 @@ import {
   startStack,
   stopStack,
   type Stack,
+  withVisitors,
 } from "./production-stack.ts";
 
 const run = promisify(execFile);
@@ -183,6 +184,32 @@ describe.each(chosen())("the %s install in production", (key, choices) => {
     expect(await testCodeAnswer(stack.addresses)).toBe(
       "That code doesn't work.",
     );
+  });
+
+  it("counts each visitor's failed sign-ins on their own behind the tunnel, whatever headers they send", async () => {
+    // The first visitor forges a fresh address on every attempt, in both
+    // headers a proxy might trust. Cloudflare replaces its own header, and
+    // core reads nothing else, so all six count against the one visitor.
+    const forged = Array.from({ length: 6 }, (_, i) => ({
+      password: "not the password",
+      headers: {
+        "cf-connecting-ip": `198.51.100.${String(i + 1)}`,
+        "x-forwarded-for": `198.51.100.${String(i + 1)}`,
+      },
+    }));
+    const { first, second } = await withVisitors(
+      stack,
+      2,
+      async ([one, two]) => ({
+        first: await one?.signsIn(forged),
+        second: await two?.signsIn([{ password: "not the password" }]),
+      }),
+    );
+
+    expect({ first, second }).toEqual({
+      first: [401, 401, 401, 401, 401, 429],
+      second: [401],
+    });
   });
 
   it("serves an app added with robkit add after its next deploy", async () => {

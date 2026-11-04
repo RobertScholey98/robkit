@@ -13,6 +13,7 @@ import {
   parseAccessCode,
   readNewCode,
 } from "./access-codes.ts";
+import { clientOf, type TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
 import { isLocal } from "./domain.ts";
 import {
@@ -49,6 +50,11 @@ export interface CoreOptions {
   domain: string;
   /** Core's clock, for token times, session expiry and rate limits. */
   now?: () => Date;
+  /**
+   * A proxy further out that names each visitor, such as Cloudflare in front
+   * of a tunnel. Set only when nothing else can reach the host.
+   */
+  trustedProxy?: TrustedProxy | undefined;
 }
 
 /** What a route that needs the viewer finds in `c.var`. */
@@ -95,18 +101,6 @@ async function readBody<T>(
 
 const unknownCode = "One of those codes doesn't exist.";
 
-/**
- * Who is asking, for rate limiting. Traefik in production and the dev proxy
- * locally each append the address they saw, so only the last entry is
- * something the client can't forge.
- */
-function clientOf(c: Context): string {
-  const forwarded = c.req.header("x-forwarded-for")?.split(",").at(-1)?.trim();
-  // An empty header counts as no header.
-  if (forwarded) return forwarded;
-  return "unknown";
-}
-
 function tooManyAttempts(c: Context, retryAfter: number): Response {
   const minutes = Math.ceil(retryAfter / 60);
   const wait = minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;
@@ -128,6 +122,7 @@ export function createApp({
   db,
   domain,
   now = () => new Date(),
+  trustedProxy,
 }: CoreOptions): Hono {
   const app = new Hono();
   const addresses = install({ domain });
@@ -291,7 +286,7 @@ export function createApp({
     const credentials = await readBody(c, readCredentials);
     if ("error" in credentials) return c.json(credentials, 400);
 
-    const client = clientOf(c);
+    const client = clientOf(c, trustedProxy);
     const retryAfter = loginLimiter.retryAfter(client);
     if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
 
@@ -320,7 +315,7 @@ export function createApp({
     if (typeof fields?.code !== "string") {
       return c.json({ error: "Send a code." }, 400);
     }
-    const client = clientOf(c);
+    const client = clientOf(c, trustedProxy);
     const retryAfter = codeLimiter.retryAfter(client);
     if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
 

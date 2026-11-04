@@ -25,7 +25,7 @@ The deploy sets these on each app:
 | `PORT`            | `3000`                                                                    |
 | `DATABASE_URL`    | `{{environment.<SLUG>_DATABASE_URL}}`, for an app with a `migrate` script |
 
-Core also gets `ROBKIT_APPS` (the app catalog), `ROBKIT_DATABASES` (the apps to provision), `ROBKIT_ADMIN_DATABASE_URL` and `ROBKIT_DB_SECRET`. The last two are references to shared variables, so no secret lives in this repository or in CI. Core's server starts without them; only the provision step sees them.
+Core also gets `ROBKIT_APPS` (the app catalog), `ROBKIT_DATABASES` (the apps to provision), `ROBKIT_ADMIN_DATABASE_URL` and `ROBKIT_DB_SECRET`. The last two are references to shared variables, so no secret lives in this repository or in CI. Core's server starts without them; only the provision step sees them. When `coolify.json` sets `trustedProxy`, core also gets `ROBKIT_TRUSTED_PROXY` (see [Behind a Cloudflare tunnel](#behind-a-cloudflare-tunnel)).
 
 ## One-time setup
 
@@ -50,14 +50,32 @@ Core also gets `ROBKIT_APPS` (the app catalog), `ROBKIT_DATABASES` (the apps to 
      "githubApp": "<the GitHub App's name>",
      "repository": "<owner>/<repo>",
      "branch": "main",
-     "domain": "<your domain>"
+     "domain": "<your domain>",
+     "trustedProxy": "cloudflare"
    }
    ```
+
+   Leave out `trustedProxy` unless the host is reachable only through a Cloudflare tunnel. See [Behind a Cloudflare tunnel](#behind-a-cloudflare-tunnel).
 
 8. Point `*.<domain>` at Coolify. With a Cloudflare tunnel, Cloudflare terminates TLS and the tunnel carries plain http to Traefik, which is why the deploy sets `http://` domains with force-HTTPS off.
 9. In Coolify, create an API token with `read`, `write` and `deploy`. Add it to the repository's secrets as `COOLIFY_TOKEN`, with `COOLIFY_URL`. If Cloudflare Access guards Coolify, add a service token as `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`.
 10. Until the `@robkit/*` packages are on npm, an install made with `--link` must carry them: run `pnpm robkit vendor`, then commit `vendor/robkit` and the lockfile.
 11. Deploy everything once: `pnpm robkit deploy --all` with the same variables set, or push to `main`.
+
+## Behind a Cloudflare tunnel
+
+Core limits failed sign-ins per visitor: 5 wrong passwords, or 10 wrong codes, in 15 minutes. It needs to know who each visitor is. By default it takes the last `X-Forwarded-For` entry, the address Traefik saw. Behind a tunnel, Traefik sees the tunnel for every visitor, so they all share one limit, and anyone can lock the owner out by failing on purpose.
+
+With `"trustedProxy": "cloudflare"` in `coolify.json`, core names each visitor by Cloudflare's `CF-Connecting-IP` header instead. Cloudflare sets that header itself and replaces any value a visitor sends, and Traefik passes it to core unchanged. A request without it didn't come through Cloudflare, and all such requests share one limit.
+
+Set it only when nothing but the tunnel reaches the host. If Traefik also answers on the server's public address, anyone can go around Cloudflare and send their own `CF-Connecting-IP`. They then get endless guesses by naming a new address each time, and can lock out a real visitor by naming theirs. Close ports 80 and 443 to the internet, or leave `trustedProxy` out and accept the shared limit.
+
+Two things the setting doesn't cover:
+
+- Apps call core at its public URL, so through Cloudflare too. Cloudflare names the server's own address for them, and they never sign in, so that's harmless.
+- Every container on Coolify's network can reach core directly, skipping Traefik and Cloudflare, and could send either header. Only your own apps run there.
+
+After the first deploy, check it: fail to sign in five times from one network, then sign in from another, such as a phone off Wi-Fi. The second should get in.
 
 ## First visit
 
