@@ -53,10 +53,11 @@ Build tickets 01 to 09 were deleted once done (R, 2026-11-03). Their notes for l
 - **Slugs and production passwords** (R, 2026-11-03, ticket 10's open questions): a slug is lowercase letters and digits, starting with a letter, so it's a valid hostname label and a plain Postgres identifier. In production each app's role password is an HMAC of its slug under one install secret, `ROBKIT_DB_SECRET`, held only by the provision step, and robkit prints each app's `DATABASE_URL` for the owner to set once on the host. Ticket 11 builds the derivation.
 - **`robkit add`** (build ticket 10, chosen in the build, awaiting R's review): `create-robkit` ships a second command, `robkit`, which an install runs as `pnpm robkit add`. It writes `apps/<slug>` from a stack `robkit.json` enables, or from the install's own `robkit/templates/<stack>`, which replaces it whole, and writes files only. An app's manifest is the `robkit` field of its `package.json`: who may open it, with roles named, and an emoji. The dev runner hands core every manifest as JSON in `ROBKIT_APPS`; core adds a new app with its declared rule, creating any role it names, and keeps the owner's rule after that. The launcher shows the icon. With no flags `add` asks its questions and prints the flags that skip them. The generator catalogs every enabled stack's dependencies, so an added app needs no new versions.
 - **Agent files and the layer rule** (build ticket 12, chosen in the build, awaiting R's review): an install's layer rule is the ticket's three rules, and `robkit check` is its only implementation. It reads each app's files with TypeScript's parser, so it holds without ESLint, and the install's `lint` script runs it. The root `AGENTS.md` states the rule word for word, each app's `AGENTS.md` covers its stack and ends with its ORM's section, and each `CLAUDE.md` imports its `AGENTS.md`. Every install has a CI workflow that lints, typechecks, tests and builds.
+- **The hosted install** (build ticket 11, chosen in the build, awaiting R's review; the live deploy waits for R): every app runs from the install's one `Dockerfile`, built with `turbo prune` and a frozen install, with `ROBKIT_APP` as its build argument. Each container migrates its app's database as it starts, and core's first runs the provision step, whose passwords are the HMAC of each slug under `ROBKIT_DB_SECRET`. `pnpm robkit database-urls` prints each app's `DATABASE_URL` for the owner to set once as a shared variable on Coolify. `pnpm robkit deploy` creates or adopts each app's Coolify application, sets its variables, and deploys core first, then each changed or new app; the install's CI runs it on every push to `main`. The `@robkit/*` packages ship JS in `dist`, and until they're on npm `pnpm robkit vendor` packs them into the install. `pnpm test:production` in `tooling/e2e` proves the install end to end behind Caddy TLS on `robkit.test`. The runbook is the install's `docs/deploy.md`.
 
 ## Known gaps
 
-Left open by build tickets 02 to 09, with no ticket yet:
+Left open by build tickets 02 to 11, with no ticket yet:
 
 - If an app's clock runs more than the 15-minute token lifetime ahead of core's, the app and `/refresh` redirect to each other forever. There's no loop guard. (04)
 - For up to a minute after the owner changes an app's rule, the launcher and the app can disagree. (06)
@@ -67,10 +68,10 @@ Left open by build tickets 02 to 09, with no ticket yet:
 - Vite prints `http://127.0.0.1:<port>`, which shows nothing, since each app answers only on its subdomain. (02)
 - Running `pnpm install` anywhere on the machine touches the hard-linked files under a running core, and `node --watch` restarts it. (08)
 - `pnpm dev`, the runner tests, the whole-stack test, `repo-checks` and one `migrate.test.ts` case need Linux or macOS. The whole suite passes in WSL. (04 to 09)
+- In production, apps reach core over its public URL, through Cloudflare and back, not over Coolify's Docker network. (11)
 
 ## Not yet specified
 
-- How a generated app's Dockerfile and env plug into R's Coolify setup (settled by build ticket 11).
 - Naming and publishing: the npm scope (`@robkit/*`), the CLI name, licence, versioning and release flow.
 - The robkit.dev website and its docs, including the later deployment cookbook.
 - Backups, observability and secret rotation for a running install.

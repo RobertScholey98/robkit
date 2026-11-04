@@ -5,11 +5,13 @@
   "scripts": {
     "dev": "node --watch src/main.ts",
     "migrate": "node src/migrate.ts",
-    "typecheck": "tsc"
+    "typecheck": "tsc",
+    "start": "node src/provision.ts && node src/migrate.ts && env -u ROBKIT_ADMIN_DATABASE_URL -u ROBKIT_DB_SECRET node src/main.ts"
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
-    "@robkit/core": "catalog:"
+    "@robkit/core": "catalog:",
+    "@robkit/dev": "catalog:"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",

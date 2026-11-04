@@ -4,7 +4,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { afterAll, describe, expect, inject, it } from "vitest";
-import { provisionApps, provisionDatabase } from "./provision.ts";
+import {
+  databasePassword,
+  databaseUrl,
+  provisionApps,
+  provisionDatabase,
+  provisionDatabases,
+} from "./provision.ts";
 
 const adminUrl = inject("adminUrl");
 const clients: postgres.Sql[] = [];
@@ -88,6 +94,58 @@ describe("provisionDatabase", () => {
     await expect(
       provisionDatabase(adminUrl, "drop table x;--"),
     ).rejects.toThrow(/can't be an app's slug/);
+  });
+});
+
+const secret = "correct horse battery staple, 32+";
+
+describe("databasePassword", () => {
+  it("is the HMAC of the slug under the install's secret", () => {
+    expect(databasePassword(secret, "notes")).toBe(
+      "5c693a1b5df2ff9abbcbe9142b079cd6e490c362f4f7876cc89f696705028a96",
+    );
+  });
+
+  it("refuses a secret shorter than 32 characters", () => {
+    expect(() => databasePassword("short", "notes")).toThrow(
+      "The database secret must be at least 32 characters.",
+    );
+  });
+});
+
+describe("provisionDatabases", () => {
+  it("gives each app a role whose password comes from the secret", async () => {
+    const urls = await provisionDatabases({
+      adminUrl,
+      secret,
+      slugs: ["derived", "derivedtoo"],
+    });
+
+    expect([...urls.keys()]).toEqual(["derived", "derivedtoo"]);
+    for (const slug of ["derived", "derivedtoo"]) {
+      const url = databaseUrl(adminUrl, slug, databasePassword(secret, slug));
+      expect(urls.get(slug)).toBe(url);
+      const app = connect(url);
+      expect(await app`select current_user as role`).toEqual([{ role: slug }]);
+    }
+  });
+
+  it("leaves every app's URL working when run again", async () => {
+    await provisionDatabases({ adminUrl, secret, slugs: ["steady"] });
+    const first = connect(
+      databaseUrl(adminUrl, "steady", databasePassword(secret, "steady")),
+    );
+    await first`create table kept (id int)`;
+    await first.end();
+
+    await provisionDatabases({ adminUrl, secret, slugs: ["steady"] });
+
+    const again = connect(
+      databaseUrl(adminUrl, "steady", databasePassword(secret, "steady")),
+    );
+    expect(await again`select count(*)::int as n from kept`).toEqual([
+      { n: 0 },
+    ]);
   });
 });
 

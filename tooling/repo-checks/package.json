@@ -1,5 +1,6 @@
 {
   "name": "@internal/repo-checks",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +11,15 @@
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",
+    "@robkit/core": "workspace:*",
+    "@robkit/dev": "workspace:*",
+    "@robkit/guard": "workspace:*",
+    "@robkit/hono": "workspace:*",
+    "@robkit/react": "workspace:*",
+    "@robkit/session": "workspace:*",
+    "@robkit/start": "workspace:*",
     "@types/node": "catalog:",
+    "create-robkit": "workspace:*",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
