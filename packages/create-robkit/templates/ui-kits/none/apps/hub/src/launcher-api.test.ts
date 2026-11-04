@@ -10,7 +10,10 @@ afterEach(() => {
 
 describe("listLauncherApps", () => {
   it("reads the apps core lists for the viewer", async () => {
-    const apps = [{ slug: "example", name: "Example" }];
+    const apps = [
+      { slug: "example", name: "Example", icon: null },
+      { slug: "notes", name: "Notes", icon: "📝" },
+    ];
     vi.stubGlobal(
       "fetch",
       fakeCore(core, { "GET /launcher": () => ({ body: { apps } }) }),
@@ -22,6 +25,11 @@ describe("listLauncherApps", () => {
   it.each([
     [500, { error: "Down" }, "Down"],
     [200, { apps: [{ slug: 1 }] }, "Core sent an answer this page can't read."],
+    [
+      200,
+      { apps: [{ slug: "notes", name: "Notes", icon: 7 }] },
+      "Core sent an answer this page can't read.",
+    ],
   ])(
     "says what went wrong when core answers %i",
     async (status, body, error) => {

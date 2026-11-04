@@ -1,0 +1,163 @@
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { defaultChoices } from "./choices.ts";
+import { init } from "./init.ts";
+import { drive, keys, questionsAsked } from "./test/drive.ts";
+
+const bin = fileURLToPath(new URL("robkit.ts", import.meta.url));
+
+/** A written install, without its dependencies, so add installs nothing. */
+async function freshInstall(): Promise<string> {
+  const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
+  await init(defaultChoices, dir);
+  return dir;
+}
+
+async function declared(dir: string, slug: string): Promise<unknown> {
+  const manifest = JSON.parse(
+    await readFile(join(dir, "apps", slug, "package.json"), "utf8"),
+  ) as { robkit?: unknown };
+  return manifest.robkit;
+}
+
+describe("robkit add with flags", { timeout: 30_000 }, () => {
+  it("adds the app without asking anything", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, [
+      "add",
+      "notes",
+      "--stack",
+      "react-hono",
+      "--access",
+      "roles",
+      "--roles",
+      "Family, Cooks",
+      "--icon",
+      "📝",
+    ]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: `Added apps/notes. Next:
+
+  pnpm install
+  pnpm dev
+
+Then open http://notes.robkit.localhost:3000.
+`,
+    });
+    expect(await declared(dir, "notes")).toEqual({
+      access: { kind: "roles", roles: ["Family", "Cooks"] },
+      icon: "📝",
+    });
+  });
+
+  it("takes the first stack, owner only and the default icon for flags left out", async () => {
+    const dir = await freshInstall();
+
+    const { code } = await drive(bin, dir, ["add", "notes", "--icon", "🗒️"]);
+
+    expect(code).toBe(0);
+    expect(await declared(dir, "notes")).toEqual({
+      access: { kind: "owner" },
+      icon: "🗒️",
+    });
+    expect(
+      await readFile(join(dir, "apps/notes/src/routes/index.tsx"), "utf8"),
+    ).toContain("Signed in as");
+  });
+
+  it.each([
+    [["add", "--access", "open"], "Usage: robkit add [name]"],
+    [
+      ["add", "notes", "--access", "everyone"],
+      "--access everyone isn't an option. Choose from: owner, open, roles.",
+    ],
+    [
+      ["add", "notes", "--access", "roles"],
+      "--access roles needs --roles, naming at least one.",
+    ],
+    [
+      ["add", "notes", "--roles", "Family"],
+      "--roles only goes with --access roles.",
+    ],
+    [
+      ["add", "my_notes", "--access", "open"],
+      `"my_notes" can't be an app's slug`,
+    ],
+    [["remove", "notes"], "Usage: robkit add [name]"],
+  ])("refuses %j", async (args, message) => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, args);
+
+    expect(code).toBe(1);
+    expect(output).toContain(message);
+  });
+
+  it("refuses to run outside an install", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await drive(bin, dir, [
+      "add",
+      "notes",
+      "--access",
+      "open",
+    ]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output: `${dir} has no robkit.json. Run robkit add in an install's folder.\n`,
+    });
+  });
+});
+
+describe("robkit add with no flags", { timeout: 30_000 }, () => {
+  it("asks for the stack, name, access, roles and icon, then prints the command that skips them", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(
+      bin,
+      dir,
+      ["add"],
+      [
+        ["Which stack?", keys.down + keys.enter],
+        ["What's the app called?", `recipes${keys.enter}`],
+        ["Who can open it?", keys.down + keys.down + keys.enter],
+        ["Which roles?", `Family${keys.enter}`],
+        ["Which emoji should the launcher show?", `🍳${keys.enter}`],
+      ],
+    );
+
+    expect(code).toBe(0);
+    expect(questionsAsked(output)).toEqual([
+      "Which stack?",
+      "What's the app called?",
+      "Who can open it?",
+      "Which roles? Separate them with commas.",
+      "Which emoji should the launcher show?",
+    ]);
+    expect(output).toContain(
+      'pnpm robkit add recipes --stack react-hono --access roles --roles "Family" --icon 🍳',
+    );
+    expect(await declared(dir, "recipes")).toEqual({
+      access: { kind: "roles", roles: ["Family"] },
+      icon: "🍳",
+    });
+  });
+
+  it("refuses a name that's taken before asking anything", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["add", "example"]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output: "apps/example already exists. Choose another name.\n",
+    });
+  });
+});

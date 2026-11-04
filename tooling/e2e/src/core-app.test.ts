@@ -118,9 +118,14 @@ describe("the default install's apps/core", () => {
     expect(await signingKeyIds()).toEqual(afterFirstBoot);
   });
 
-  it("adds the apps in ROBKIT_APPS to its catalog as owner-only", async () => {
+  it("adds the apps in ROBKIT_APPS to its catalog with the rules they declare", async () => {
     const port = await freePort();
-    boot(port, { ROBKIT_APPS: "example,notes" });
+    boot(port, {
+      ROBKIT_APPS: JSON.stringify([
+        { slug: "example" },
+        { slug: "notes", access: { kind: "open" }, icon: "📝" },
+      ]),
+    });
     expect(await statusOf(port)).toBe(200);
 
     const access = await Promise.all(
@@ -134,7 +139,7 @@ describe("the default install's apps/core", () => {
 
     expect(access).toEqual([
       ["example", 200, { kind: "owner" }],
-      ["notes", 200, { kind: "owner" }],
+      ["notes", 200, { kind: "open" }],
       ["other", 404, { error: "Not found" }],
     ]);
   });

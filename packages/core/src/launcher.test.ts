@@ -28,7 +28,12 @@ async function install() {
   const core = await freshCore();
   const { app, db } = core;
   const owner = await claim(app);
-  await registerApps(db, ["family", "friends", "open", "private"]);
+  await registerApps(db, [
+    { slug: "family" },
+    { slug: "friends" },
+    { slug: "open" },
+    { slug: "private" },
+  ]);
   const ids = await roleIdsByName(app, owner);
   const roleId = (name: string) => ids[name] ?? "";
   const gate = (slug: string, access: unknown) =>
@@ -67,6 +72,23 @@ describe("GET /launcher", () => {
     ]);
   });
 
+  it("gives each app's name and icon", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [{ slug: "notes", icon: "📝" }, { slug: "diary" }]);
+
+    const res = await app.request("/launcher", {
+      headers: withSession(owner),
+    });
+
+    expect(await res.json()).toEqual({
+      apps: [
+        { slug: "diary", name: "diary", icon: null },
+        { slug: "notes", name: "notes", icon: "📝" },
+      ],
+    });
+  });
+
   it("lists a guest only the apps their roles and open rules let in", async () => {
     const { app, guest } = await install();
 
@@ -98,8 +120,8 @@ describe("GET /launcher", () => {
 
     expect(await res.json()).toEqual({
       apps: [
-        { slug: "family", name: "family" },
-        { slug: "open", name: "open" },
+        { slug: "family", name: "family", icon: null },
+        { slug: "open", name: "open", icon: null },
       ],
     });
     expect(sessionCookieOf(res)?.value).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);

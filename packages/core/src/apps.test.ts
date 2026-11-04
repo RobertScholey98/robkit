@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { registerApps } from "./apps.ts";
+import { readDeclaredApps, registerApps } from "./apps.ts";
 import {
   claim,
   freshCore,
@@ -25,7 +25,7 @@ describe("registerApps", () => {
   it("adds each new app as owner-only, named after its slug", async () => {
     const { app, db } = await freshCore();
 
-    await registerApps(db, ["example", "notes"]);
+    await registerApps(db, [{ slug: "example" }, { slug: "notes" }]);
 
     expect(await accessOf(app, "example")).toEqual({
       status: 200,
@@ -40,12 +40,111 @@ describe("registerApps", () => {
   it("keeps the rule the owner set when it runs again", async () => {
     const { app, db } = await freshCore();
     const owner = await claim(app);
-    await registerApps(db, ["example"]);
+    await registerApps(db, [{ slug: "example" }]);
     await setAccess(app, owner, "example", { kind: "open" });
 
-    await registerApps(db, ["example"]);
+    await registerApps(db, [{ slug: "example" }]);
 
     expect((await accessOf(app, "example")).body).toEqual({ kind: "open" });
+  });
+
+  it("adds a new app with the rule it declares", async () => {
+    const { app, db } = await freshCore();
+
+    await registerApps(db, [
+      { slug: "notes", access: { kind: "open" } },
+      { slug: "diary", access: { kind: "owner" } },
+    ]);
+
+    expect((await accessOf(app, "notes")).body).toEqual({ kind: "open" });
+    expect((await accessOf(app, "diary")).body).toEqual({ kind: "owner" });
+  });
+
+  it("gates a new app to the roles it names, creating any the owner lacks", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+
+    await registerApps(db, [
+      {
+        slug: "recipes",
+        access: { kind: "roles", roles: ["Family", "Cooks", "Cooks"] },
+      },
+    ]);
+
+    const ids = await roleIdsByName(app, owner);
+    expect(Object.keys(ids).sort()).toEqual(["Cooks", "Family", "Friends"]);
+    const { body } = await accessOf(app, "recipes");
+    expect(body).toEqual({ kind: "roles", roles: expect.any(Array) as never });
+    expect(new Set((body as { roles: string[] }).roles)).toEqual(
+      new Set([ids.Family, ids.Cooks]),
+    );
+  });
+
+  it("keeps the owner's rule but takes the icon an app declares now", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [{ slug: "notes", access: { kind: "open" } }]);
+    await setAccess(app, owner, "notes", { kind: "owner" });
+
+    await registerApps(db, [
+      { slug: "notes", access: { kind: "open" }, icon: "📝" },
+    ]);
+
+    const res = await app.request("/apps", { headers: withSession(owner) });
+    expect(await res.json()).toEqual({
+      apps: [
+        { slug: "notes", name: "notes", icon: "📝", access: { kind: "owner" } },
+      ],
+    });
+  });
+});
+
+describe("readDeclaredApps", () => {
+  it("reads nothing from an unset or empty ROBKIT_APPS", () => {
+    expect(readDeclaredApps(undefined)).toEqual([]);
+    expect(readDeclaredApps("")).toEqual([]);
+  });
+
+  it("reads each app's slug, rule and icon", () => {
+    expect(
+      readDeclaredApps(
+        JSON.stringify([
+          { slug: "example" },
+          {
+            slug: "recipes",
+            access: { kind: "roles", roles: ["Family"] },
+            icon: "🍳",
+          },
+        ]),
+      ),
+    ).toEqual([
+      { slug: "example" },
+      {
+        slug: "recipes",
+        access: { kind: "roles", roles: ["Family"] },
+        icon: "🍳",
+      },
+    ]);
+  });
+
+  it.each([
+    ["example,notes", "ROBKIT_APPS isn't JSON."],
+    ['{"slug":"notes"}', "ROBKIT_APPS isn't a list."],
+    ['[{"slug":""}]', "ROBKIT_APPS: app 1 has no slug."],
+    [
+      '[{"slug":"a"},{"slug":"b","access":{"kind":"everyone"}}]',
+      "ROBKIT_APPS: app 2 b's access: Pick open, roles or owner.",
+    ],
+    [
+      '[{"slug":"a","access":{"kind":"roles","roles":[]}}]',
+      "ROBKIT_APPS: app 1 a's access: Pick at least one role.",
+    ],
+    [
+      '[{"slug":"a","icon":""}]',
+      "ROBKIT_APPS: app 1 a's icon should be an emoji.",
+    ],
+  ])("refuses %s", (text, message) => {
+    expect(() => readDeclaredApps(text)).toThrow(message);
   });
 });
 
@@ -61,7 +160,7 @@ describe("GET /apps/:slug/access", () => {
 
   it("needs no cookie", async () => {
     const { app, db } = await freshCore();
-    await registerApps(db, ["example"]);
+    await registerApps(db, [{ slug: "example" }]);
 
     const res = await app.request("/apps/example/access");
 
@@ -71,7 +170,7 @@ describe("GET /apps/:slug/access", () => {
   it("answers a guest and the owner as it answers anyone", async () => {
     const { app, db } = await freshCore({ domain: "robkit.localhost" });
     const owner = await claim(app);
-    await registerApps(db, ["example"]);
+    await registerApps(db, [{ slug: "example" }]);
     const signIn = await postJson(app, "/login/code", { code: "test" });
     const guest = sessionCookieOf(signIn)?.value ?? "";
 
@@ -94,7 +193,7 @@ describe("POST /apps/:slug/access", () => {
   it("gates an app to roles, then opens it to anyone", async () => {
     const { app, db } = await freshCore();
     const owner = await claim(app);
-    await registerApps(db, ["example"]);
+    await registerApps(db, [{ slug: "example" }]);
     const { Family, Friends } = await roleIdsByName(app, owner);
 
     const gated = await setAccess(app, owner, "example", {
@@ -129,7 +228,7 @@ describe("POST /apps/:slug/access", () => {
   ])("refuses %j", async (access, error) => {
     const { app, db } = await freshCore();
     const owner = await claim(app);
-    await registerApps(db, ["example"]);
+    await registerApps(db, [{ slug: "example" }]);
 
     const res = await setAccess(app, owner, "example", access);
 
@@ -152,7 +251,7 @@ describe("POST /apps/:slug/access", () => {
   it("answers anyone but the owner with 404", async () => {
     const { app, db } = await freshCore({ domain: "robkit.localhost" });
     await claim(app);
-    await registerApps(db, ["example"]);
+    await registerApps(db, [{ slug: "example" }]);
     const signIn = await postJson(app, "/login/code", { code: "test" });
     const guest = withSession(sessionCookieOf(signIn)?.value ?? "");
 
@@ -171,7 +270,7 @@ describe("POST /apps/:slug/access", () => {
       domain: "robkit.localhost",
     });
     await claim(app);
-    await registerApps(db, ["example"]);
+    await registerApps(db, [{ slug: "example" }]);
     const signIn = await postJson(app, "/login/code", { code: "test" });
     const guest = withSession(sessionCookieOf(signIn)?.value ?? "");
     advance(16 * minute);
@@ -192,15 +291,20 @@ describe("GET /apps", () => {
   it("lists every app with its name and rule for the owner", async () => {
     const { app, db } = await freshCore();
     const owner = await claim(app);
-    await registerApps(db, ["notes", "example"]);
+    await registerApps(db, [{ slug: "notes" }, { slug: "example" }]);
     await setAccess(app, owner, "notes", { kind: "open" });
 
     const res = await app.request("/apps", { headers: withSession(owner) });
 
     expect(await res.json()).toEqual({
       apps: [
-        { slug: "example", name: "example", access: { kind: "owner" } },
-        { slug: "notes", name: "notes", access: { kind: "open" } },
+        {
+          slug: "example",
+          name: "example",
+          icon: null,
+          access: { kind: "owner" },
+        },
+        { slug: "notes", name: "notes", icon: null, access: { kind: "open" } },
       ],
     });
   });

@@ -1,21 +1,11 @@
-import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { stripVTControlCharacters } from "node:util";
-import { S_STEP_SUBMIT } from "@clack/prompts";
 import { describe, expect, it } from "vitest";
+import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 
 const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
-
-const keys = {
-  enter: "\r",
-  down: "\x1b[B",
-  space: " ",
-  no: "n",
-  ctrlC: "\x03",
-};
 
 const defaultAnswers: [question: string, keys: string][] = [
   ["Which package manager?", keys.enter],
@@ -26,65 +16,13 @@ const defaultAnswers: [question: string, keys: string][] = [
   ["Install dependencies and initialise git?", keys.no + keys.enter],
 ];
 
-interface Run {
-  code: number | null;
-  /** What init printed, without colours or cursor moves. */
-  output: string;
-}
-
-/**
- * Runs init in `cwd` with `args`. For each question in `answers`, waits for
- * it to show, then types its keys. Kills init if a question doesn't show.
- */
+/** Runs init in `cwd` with `args`, answering its questions. */
 function init(
   cwd: string,
   args: string[],
   answers: [question: string, keys: string][] = [],
 ): Promise<Run> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [bin, ...args], { cwd });
-    const pending = [...answers];
-    let output = "";
-    let unseen = "";
-    const stuck = setTimeout(() => {
-      child.kill();
-      const waiting = pending[0]?.[0];
-      const problem = waiting
-        ? `init never asked "${waiting}"`
-        : "init didn't finish";
-      reject(
-        new Error(`${problem}:
-${output}`),
-      );
-    }, 20_000);
-    if (pending.length === 0) child.stdin.end();
-    child.stdout.on("data", (chunk: Buffer) => {
-      output += chunk.toString();
-      unseen += chunk.toString();
-      const next = pending[0];
-      if (next && stripVTControlCharacters(unseen).includes(next[0])) {
-        pending.shift();
-        unseen = "";
-        child.stdin.write(next[1]);
-        if (pending.length === 0) child.stdin.end();
-      }
-    });
-    child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      clearTimeout(stuck);
-      resolve({ code, output: stripVTControlCharacters(output) });
-    });
-  });
-}
-
-/**
- * Each question init asked, in order, as it shows once answered. A prompt
- * redraws in place, so an answered question can start mid-line.
- */
-function questionsAsked(output: string): string[] {
-  const answered = new RegExp(`${S_STEP_SUBMIT}  (.+)`, "g");
-  return [...new Set([...output.matchAll(answered)].map(([, q]) => q ?? ""))];
+  return drive(bin, cwd, args, answers);
 }
 
 async function readTree(dir: string): Promise<Map<string, string>> {

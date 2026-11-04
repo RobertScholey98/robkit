@@ -87,9 +87,11 @@ describe("generateInstall", () => {
         lint: "eslint .",
         format: "prettier --write .",
         "format:check": "prettier --check .",
+        robkit: "robkit",
       },
       devDependencies: {
         "@robkit/dev": "catalog:",
+        "create-robkit": "catalog:",
         turbo: "catalog:",
         typescript: "catalog:",
         "@eslint/js": "catalog:",
@@ -112,6 +114,7 @@ describe("generateInstall", () => {
       "@robkit/dev": "0.0.0",
       "@robkit/start": "0.0.0",
       "@tanstack/react-start": "1.169.4",
+      "create-robkit": "0.0.0",
       hono: "4.13.14",
       prettier: "3.9.10",
     });
@@ -119,6 +122,15 @@ describe("generateInstall", () => {
     expect(catalog).not.toHaveProperty("drizzle-kit");
     expect(catalog).not.toHaveProperty("playwright");
     expect(overrides).toBeUndefined();
+  });
+
+  it("catalogs every stack robkit add offers, not only the example's", async () => {
+    const { catalog } = workspace(await generateInstall(honoFirst));
+
+    expect(catalog).toMatchObject({
+      "@robkit/start": "0.0.0",
+      "@tanstack/react-start": "1.169.4",
+    });
   });
 
   it("links the @robkit packages to this checkout when asked", async () => {
@@ -137,6 +149,7 @@ describe("generateInstall", () => {
       "@robkit/react": at("react"),
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),
+      "create-robkit": at("create-robkit"),
     });
   });
 

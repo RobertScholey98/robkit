@@ -3,7 +3,12 @@ import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
-import { choiceTable, type Choice, type Choices } from "./choices.ts";
+import {
+  choiceTable,
+  type Choice,
+  type Choices,
+  type Generator,
+} from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -27,8 +32,8 @@ const storedAs = new Map([["gitignore", ".gitignore"]]);
 
 type Json = Record<string, unknown>;
 
-async function readLayer(layer: string): Promise<Files> {
-  const dir = join(templatesDir, layer);
+/** Every file under `dir`, by its path from `dir`. */
+export async function readFolder(dir: string): Promise<Files> {
   const entries = await readdir(dir, { recursive: true, withFileTypes: true });
   const files: Files = new Map();
   for (const entry of entries) {
@@ -40,6 +45,10 @@ async function readLayer(layer: string): Promise<Files> {
     files.set(storedAs.get(path) ?? path, text);
   }
   return files;
+}
+
+function readLayer(layer: string): Promise<Files> {
+  return readFolder(join(templatesDir, layer));
 }
 
 function isJson(value: unknown): value is Json {
@@ -115,17 +124,47 @@ function layersFor(choices: Choices): string[] {
   ].filter((layer) => layer !== undefined);
 }
 
-/** The template folder of the stack that makes the example app. */
-function exampleLayer(choices: Choices): string {
-  const [stack] = choices.generators;
+/** The template robkit ships for `stack`: an app's files, from its folder. */
+export function stackTemplate(stack: Generator): Promise<Files> {
   const layer = layerOf(choiceTable.generators, stack);
-  if (layer === undefined)
+  if (layer === undefined) {
     throw new Error(`the ${stack} stack has no template`);
-  return layer;
+  }
+  return readLayer(layer);
 }
 
-/** Every dependency the install's manifests take from the catalog. */
-function catalogued(files: Files): string[] {
+/**
+ * What an app's manifest declares for core's catalog, in its `robkit`
+ * field: who may open it once core adds it, with roles named, and the emoji
+ * the launcher shows.
+ */
+export interface Declares {
+  access?:
+    { kind: "open" } | { kind: "owner" } | { kind: "roles"; roles: string[] };
+  icon?: string;
+}
+
+/**
+ * The files of an app at `apps/<slug>` made from a stack's template, by
+ * their path from the app's folder. Its manifest is named after the slug,
+ * and carries what the app declares, if anything.
+ */
+export function appFiles(
+  template: Files,
+  slug: string,
+  declares: Declares = {},
+): Files {
+  const files: Files = new Map(template);
+  editJson(files, "package.json", (json) => ({
+    name: `@internal/${slug}-app`,
+    ...json,
+    ...(Object.keys(declares).length > 0 && { robkit: declares }),
+  }));
+  return files;
+}
+
+/** Every dependency the manifests among `files` take from the catalog. */
+function catalogued(files: Iterable<[string, string]>): string[] {
   const names = new Set<string>();
   for (const [path, text] of files) {
     if (basename(path) !== "package.json") continue;
@@ -152,10 +191,10 @@ function versionOf(repo: RobkitRepo, name: string): string {
 /** Writes the catalog, and the links to robkit's packages when asked. */
 async function renderPnpm(
   files: Files,
+  names: string[],
   repo: RobkitRepo,
   { link = false }: GenerateOptions,
 ): Promise<void> {
-  const names = catalogued(files);
   const workspace = parseDocument(files.get("pnpm-workspace.yaml") ?? "");
   workspace.set(
     "catalog",
@@ -192,14 +231,18 @@ export async function generateInstall(
     overlay(files, await readLayer(layer));
   }
 
-  const appDir = `apps/${exampleSlug}/`;
-  overlay(files, await readLayer(exampleLayer(choices)), appDir);
-  editJson(files, `${appDir}package.json`, (json) => ({
-    name: `@internal/${exampleSlug}-app`,
-    ...json,
-  }));
+  const stacks = await Promise.all(choices.generators.map(stackTemplate));
+  const [example] = stacks;
+  if (example === undefined) throw new Error("init needs a generator");
+  overlay(files, appFiles(example, exampleSlug), `apps/${exampleSlug}/`);
 
-  await renderPnpm(files, await readRobkitRepo(), options);
+  // The catalog covers every stack robkit add offers, so adding an app
+  // needs no version the install lacks.
+  const names = catalogued([
+    ...files,
+    ...stacks.flatMap((stack) => [...stack]),
+  ]);
+  await renderPnpm(files, names, await readRobkitRepo(), options);
   files.set(
     "robkit.json",
     await format(JSON.stringify(choices), { filepath: "robkit.json" }),

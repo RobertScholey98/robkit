@@ -34,7 +34,7 @@ async function launcherApps(page: Page, hub: string): Promise<string[]> {
   // The launcher shows its loading line in the same render as Sign out.
   await page.getByRole("button", { name: "Sign out" }).waitFor();
   await page.getByText("Loading apps…").waitFor({ state: "detached" });
-  return page.getByRole("main").getByRole("link").allTextContents();
+  return page.getByRole("main").getByTestId("app-name").allTextContents();
 }
 
 /** Saves a role's guests and reads them back once admin shows the change. */
@@ -154,7 +154,7 @@ export async function roleJourney({
     });
     const launcherGatedToFriends = await guest
       .getByRole("main")
-      .getByRole("link")
+      .getByTestId("app-name")
       .allTextContents();
     const example = await openUntil(guest, at("example"), 404);
 

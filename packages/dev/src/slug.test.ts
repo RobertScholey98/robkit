@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { slugProblem } from "./slug.ts";
 
 describe("slugProblem", () => {
-  it.each(["notes", "start", "my_app", "a1", "x".repeat(63)])(
+  it.each(["notes", "start", "blog2", "a1", "x".repeat(63)])(
     "accepts %j",
     (name) => {
       expect(slugProblem(name)).toBeUndefined();
@@ -12,6 +12,7 @@ describe("slugProblem", () => {
   it.each([
     "My-App",
     "my-app",
+    "my_app",
     "1notes",
     "_notes",
     "drop table x;--",
@@ -22,7 +23,7 @@ describe("slugProblem", () => {
     "",
   ])("refuses %j", (name) => {
     expect(slugProblem(name)).toBe(
-      `"${name}" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters, digits and underscores, start with a letter, and avoid public, postgres and pg_ names.`,
+      `"${name}" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
     );
   });
 });

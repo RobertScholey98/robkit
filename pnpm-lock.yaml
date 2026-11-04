@@ -141,6 +141,9 @@ importers:
       '@clack/prompts':
         specifier: 'catalog:'
         version: 1.8.1
+      '@robkit/dev':
+        specifier: workspace:*
+        version: link:../dev
       '@robkit/session':
         specifier: workspace:*
         version: link:../session

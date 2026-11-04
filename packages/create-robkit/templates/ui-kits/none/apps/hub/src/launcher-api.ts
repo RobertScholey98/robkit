@@ -4,6 +4,8 @@ import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
 export interface LauncherApp {
   slug: string;
   name: string;
+  /** An emoji, if the app's manifest declares one. */
+  icon: string | null;
 }
 
 export function listLauncherApps(core: string): Promise<Result<LauncherApp[]>> {
@@ -15,8 +17,10 @@ export function listLauncherApps(core: string): Promise<Result<LauncherApp[]>> {
 
 function readLauncherApp(value: unknown): LauncherApp | undefined {
   if (!isRecord(value)) return undefined;
-  const { slug, name } = value;
-  return typeof slug === "string" && typeof name === "string"
-    ? { slug, name }
+  const { slug, name, icon = null } = value;
+  return typeof slug === "string" &&
+    typeof name === "string" &&
+    (icon === null || typeof icon === "string")
+    ? { slug, name, icon }
     : undefined;
 }

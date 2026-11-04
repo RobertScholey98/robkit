@@ -12,7 +12,7 @@ export interface RobkitRepo {
   catalog: Map<string, string>;
   /** The root manifest's `packageManager`, such as `pnpm@11.28.9`. */
   packageManager: string;
-  /** The `@robkit/*` packages, by name. */
+  /** The `@robkit/*` packages and create-robkit, by name. */
   packages: Map<string, { version: string; dir: string }>;
 }
 
@@ -47,7 +47,8 @@ export async function readRobkitRepo(): Promise<RobkitRepo> {
     if (!entry.isDirectory()) continue;
     const dir = join(packagesDir, entry.name);
     const { name, version } = await readManifest(dir);
-    if (name?.startsWith("@robkit/") && version) {
+    // An install takes create-robkit for robkit add.
+    if ((name?.startsWith("@robkit/") || name === "create-robkit") && version) {
       packages.set(name, { version, dir });
     }
   }
