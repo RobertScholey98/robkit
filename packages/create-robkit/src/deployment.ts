@@ -18,11 +18,20 @@ export interface Deployment {
   env: Record<string, Value>;
 }
 
+/**
+ * A proxy further out than the host's own, which names each visitor to
+ * core: `cloudflare` behind a Cloudflare tunnel. Core's
+ * `ROBKIT_TRUSTED_PROXY` takes the same values.
+ */
+export type TrustedProxy = "cloudflare";
+
 export interface DeploymentOptions {
   /** The domain the install answers on, such as `robkit.dev`. */
   domain: string;
   /** The public https port, when it isn't 443. */
   port?: number;
+  /** Set only when nothing but that proxy can reach the host. */
+  trustedProxy?: TrustedProxy | undefined;
 }
 
 /** The port every app's container listens on. */
@@ -42,7 +51,7 @@ export function databaseUrlVariable(slug: string): string {
  */
 export async function deploymentOf(
   root: string,
-  { domain, port }: DeploymentOptions,
+  { domain, port, trustedProxy }: DeploymentOptions,
 ): Promise<Deployment[]> {
   const apps = await discoverApps(root);
   const addresses = install({ domain, protocol: "https", port });
@@ -60,6 +69,7 @@ export async function deploymentOf(
       env.ROBKIT_DATABASES = { literal: databases.join(",") };
       env.ROBKIT_ADMIN_DATABASE_URL = { shared: "ROBKIT_ADMIN_DATABASE_URL" };
       env.ROBKIT_DB_SECRET = { shared: "ROBKIT_DB_SECRET" };
+      if (trustedProxy) env.ROBKIT_TRUSTED_PROXY = { literal: trustedProxy };
     }
     return { slug, env };
   });
