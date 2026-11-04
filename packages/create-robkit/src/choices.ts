@@ -181,6 +181,7 @@ export const choiceTable = {
         value: "eslint-prettier",
         label: "ESLint + Prettier",
         layer: "tools/eslint-prettier",
+        guide: "tools/eslint-prettier.md",
       },
       // The templates write each test beside the code it covers, so an
       // install without Vitest leaves them out rather than one with it
@@ -188,6 +189,7 @@ export const choiceTable = {
       {
         value: "vitest",
         label: "Vitest",
+        guide: "tools/vitest.md",
         withoutIt: {
           files: [".test.ts", ".test.tsx", "/vitest.config.ts"],
           dependencies: ["vitest"],

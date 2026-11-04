@@ -181,6 +181,37 @@ function withoutDependencies(json: Json, dependencies: readonly string[]) {
   return edited;
 }
 
+/** A file under `templates/`, with LF endings. */
+async function readTemplate(path: string): Promise<string> {
+  // A Windows checkout may hold the templates with CRLF endings.
+  return (await readFile(join(templatesDir, path), "utf8")).replaceAll(
+    "\r\n",
+    "\n",
+  );
+}
+
+/**
+ * Ends the root `AGENTS.md` with a Dev tools section: each line a tool in
+ * `tools` adds, in the order the choice table lists them.
+ */
+async function addToolGuides(
+  files: Files,
+  tools: readonly string[],
+): Promise<void> {
+  const guides = (choiceTable.tools.options as readonly Option[]).flatMap(
+    (option) =>
+      option.guide !== undefined && tools.includes(option.value)
+        ? [option.guide]
+        : [],
+  );
+  if (guides.length === 0) return;
+  const lines = await Promise.all(guides.map(readTemplate));
+  files.set(
+    "AGENTS.md",
+    `${files.get("AGENTS.md") ?? ""}\n## Dev tools\n\n${lines.join("")}`,
+  );
+}
+
 /** The install scripts every answer in `choices` needs, by dependency. */
 function buildsFor(choices: Choices): Record<string, boolean> {
   const t = choiceTable;
@@ -228,11 +259,7 @@ export async function stackTemplate(
   const guide = ormOption?.appGuide;
   const agents = files.get("AGENTS.md");
   if (guide !== undefined && agents !== undefined) {
-    // A Windows checkout may hold the templates with CRLF endings.
-    const section = (
-      await readFile(join(templatesDir, guide), "utf8")
-    ).replaceAll("\r\n", "\n");
-    files.set("AGENTS.md", `${agents}\n${section}`);
+    files.set("AGENTS.md", `${agents}\n${await readTemplate(guide)}`);
   }
   return files;
 }
@@ -409,6 +436,7 @@ export async function generateInstall(
     `apps/${exampleSlug}/`,
   );
   leaveOutTools(files, choices.tools);
+  await addToolGuides(files, choices.tools);
   await spellFor(files, choices.packageManager);
 
   // The catalog covers every stack robkit add offers, so adding an app

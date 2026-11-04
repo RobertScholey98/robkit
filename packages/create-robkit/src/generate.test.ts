@@ -9,6 +9,7 @@ import {
   readyOptions,
   type Choice,
   type Choices,
+  type Option,
 } from "./choices.ts";
 import { layerRule } from "./check.ts";
 import { generateInstall, stackTemplate, type Files } from "./generate.ts";
@@ -202,6 +203,28 @@ describe("generateInstall", () => {
       { lint: "robkit check && eslint ." },
       { lint: "robkit check" },
     ]);
+  });
+
+  it("tells the root AGENTS.md about each dev tool the install has", async () => {
+    const tools: readonly Option[] = readyOptions(choiceTable.tools);
+    const all = await generateInstall({
+      ...defaultChoices,
+      tools: tools.map((tool) => tool.value) as Choices["tools"],
+    });
+    const none = await generateInstall({ ...defaultChoices, tools: [] });
+    const agents = all.get("AGENTS.md") ?? "";
+
+    expect(agents).toContain("\n## Dev tools\n\n");
+    for (const { value, guide } of tools) {
+      expect(guide, value).toBeDefined();
+      const text = await readFile(
+        new URL(`../templates/${guide ?? ""}`, import.meta.url),
+        "utf8",
+      );
+      expect(agents, value).toContain(text.replaceAll("\r\n", "\n"));
+    }
+    expect(none.get("AGENTS.md")).not.toContain("## Dev tools");
+    expect(none.get("AGENTS.md")).not.toContain("Vitest");
   });
 
   describe("with Vitest off", () => {

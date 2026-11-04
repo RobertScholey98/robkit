@@ -1,0 +1,1 @@
+- **ESLint and Prettier.** `pnpm lint` runs ESLint after `robkit check`, with the rules in `eslint.config.js`. `pnpm format` formats the install with Prettier, and CI fails on a file Prettier would change.
