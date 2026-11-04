@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -9,7 +9,8 @@ import {
   type Choice,
   type Choices,
 } from "./choices.ts";
-import { generateInstall, type Files } from "./generate.ts";
+import { layerRule } from "./check.ts";
+import { generateInstall, stackTemplate, type Files } from "./generate.ts";
 
 function json(files: Files, path: string): unknown {
   return JSON.parse(files.get(path) ?? "null");
@@ -84,7 +85,8 @@ describe("generateInstall", () => {
         dev: "robkit-dev",
         typecheck: "turbo run typecheck",
         test: "turbo run test",
-        lint: "eslint .",
+        build: "turbo run build",
+        lint: "robkit check && eslint .",
         format: "prettier --write .",
         "format:check": "prettier --check .",
         robkit: "robkit",
@@ -102,6 +104,65 @@ describe("generateInstall", () => {
       },
       packageManager: "pnpm@11.28.9",
     });
+  });
+
+  it("states each rule robkit check enforces in the root AGENTS.md", async () => {
+    const files = await generateInstall(defaultChoices);
+    const agents = files.get("AGENTS.md") ?? "";
+
+    for (const { rule } of layerRule) {
+      const stated = rule.replace(/^Layer rule: (.)/, (_, first: string) =>
+        first.toUpperCase(),
+      );
+      expect(agents).toContain(`- ${stated}`);
+    }
+    expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
+  });
+
+  it("writes a CI workflow that installs, then runs the install's own scripts", async () => {
+    const files = await generateInstall(defaultChoices);
+    const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+      jobs: Record<string, { steps: { run?: string }[] }>;
+    };
+    const { scripts } = json(files, "package.json") as {
+      scripts: Record<string, string>;
+    };
+
+    const runs = Object.values(workflow.jobs).flatMap((job) =>
+      job.steps.flatMap((step) => step.run ?? []),
+    );
+
+    expect(runs).toEqual([
+      "pnpm install --frozen-lockfile",
+      "pnpm lint",
+      "pnpm run --if-present format:check",
+      "pnpm typecheck",
+      "pnpm test",
+      "pnpm build",
+    ]);
+    expect(Object.keys(scripts)).toEqual(
+      expect.arrayContaining([
+        "lint",
+        "format:check",
+        "typecheck",
+        "test",
+        "build",
+      ]),
+    );
+  });
+
+  it("lints with robkit check, without ESLint too", async () => {
+    const withEslint = await generateInstall(defaultChoices);
+    const without = await generateInstall({ ...defaultChoices, tools: [] });
+
+    expect(
+      [withEslint, without].map(
+        (files) => (json(files, "package.json") as { scripts: object }).scripts,
+      ),
+    ).toMatchObject([
+      { lint: "robkit check && eslint ." },
+      { lint: "robkit check" },
+    ]);
   });
 
   it("pins every catalog dependency at robkit's version", async () => {
@@ -174,5 +235,44 @@ describe("generateInstall", () => {
     for (const stack of readyOptions(choiceTable.generators)) {
       expect(stack.layer, stack.value).toBeDefined();
     }
+    for (const orm of readyOptions(choiceTable.orm)) {
+      const guide = new URL(
+        `../templates/${orm.appGuide ?? ""}`,
+        import.meta.url,
+      );
+      expect((await stat(guide)).isFile(), orm.value).toBe(true);
+    }
+  });
+
+  it.each([
+    ["start", "context.viewer"],
+    ["react-hono", "c.var.viewer"],
+  ] as const)(
+    "gives a %s app an AGENTS.md for its stack and the ORM, which CLAUDE.md points at",
+    async (stack, viewer) => {
+      const files = await stackTemplate(stack, "drizzle");
+      const agents = files.get("AGENTS.md") ?? "";
+      const ormSection = await readFile(
+        new URL("../templates/orms/drizzle/AGENTS.md", import.meta.url),
+        "utf8",
+      );
+
+      // How to read the viewer, call core and add a migration.
+      expect(agents).toContain(`read who is asking as \`${viewer}\``);
+      expect(agents).toContain(
+        "over HTTP from the server at `process.env.ROBKIT_CORE_URL`",
+      );
+      expect(agents).toContain("`src/migrate.ts` is the app's migration.");
+      expect(agents.endsWith(ormSection.replaceAll("\r\n", "\n"))).toBe(true);
+      expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
+    },
+  );
+
+  it("gives the example app its stack's agent files", async () => {
+    const files = await generateInstall(defaultChoices);
+    const template = await stackTemplate("start", "drizzle");
+
+    expect(files.get("apps/example/AGENTS.md")).toBe(template.get("AGENTS.md"));
+    expect(files.get("apps/example/CLAUDE.md")).toBe("@AGENTS.md\n");
   });
 });

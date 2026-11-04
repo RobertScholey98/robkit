@@ -3,7 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { slugProblem } from "@robkit/dev";
 import { isPlatformApp, platformApps } from "@robkit/session/addresses";
-import type { Choices, Generator } from "./choices.ts";
+import type { Choices, Generator, Orm } from "./choices.ts";
 import {
   appFiles,
   readFolder,
@@ -75,9 +75,9 @@ export function newSlugProblem(root: string, slug: string): string | undefined {
  * install's own `robkit/templates/<stack>` folder if it has one, which
  * replaces robkit's template whole, or else robkit's.
  */
-async function templateFor(root: string, stack: Generator) {
+async function templateFor(root: string, stack: Generator, orm: Orm) {
   const own = join(root, "robkit", "templates", stack);
-  return (await exists(own)) ? readFolder(own) : stackTemplate(stack);
+  return (await exists(own)) ? readFolder(own) : stackTemplate(stack, orm);
 }
 
 /**
@@ -87,7 +87,7 @@ async function templateFor(root: string, stack: Generator) {
  * it to its catalog with the rule it declares.
  */
 export async function addApp(root: string, choices: AppChoices): Promise<void> {
-  const { generators } = await readInstallChoices(root);
+  const { generators, orm } = await readInstallChoices(root);
   if (!generators.includes(choices.stack)) {
     throw new Error(
       `This install's robkit add offers ${andList(generators)}, not ${choices.stack}.`,
@@ -95,7 +95,7 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   }
   const problem = newSlugProblem(root, choices.slug);
   if (problem) throw new Error(problem);
-  const template = await templateFor(root, choices.stack);
+  const template = await templateFor(root, choices.stack, orm);
   await writeInstall(
     join(root, "apps", choices.slug),
     appFiles(template, choices.slug, {

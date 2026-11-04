@@ -1,8 +1,9 @@
 import { execFile } from "node:child_process";
-import { realpath, rm, writeFile } from "node:fs/promises";
+import { readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, inject, it } from "vitest";
+import { parse } from "yaml";
 
 const run = promisify(execFile);
 
@@ -17,29 +18,48 @@ describe("the default install", () => {
     expect(stdout.trim()).toBe(await realpath(dir));
   });
 
-  // A failing script rejects with its output.
-  it.each(["lint", "typecheck", "test", "format:check"])(
-    "passes its own %s",
-    async (script) => {
-      await run("pnpm", ["run", script], { cwd: inject("installs").start });
-    },
-  );
-
-  it("fails lint when an app other than core imports @robkit/core", async () => {
+  it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
     const dir = inject("installs").start;
-    const file = "apps/hub/src/reach-core.ts";
-    await writeFile(join(dir, file), 'export * from "@robkit/core";\n');
-    try {
-      const lint = run("pnpm", ["exec", "eslint", file], { cwd: dir });
+    const workflow = parse(
+      await readFile(join(dir, ".github/workflows/ci.yml"), "utf8"),
+    ) as { jobs: Record<string, { steps: { run?: string }[] }> };
+    const runs = Object.values(workflow.jobs).flatMap((job) =>
+      job.steps.flatMap((step) => step.run ?? []),
+    );
 
-      // ESLint's formatter drops the message's last full stop.
+    // init already installed the dependencies. Installing again beside the
+    // running journeys would touch the files under their core and restart it.
+    const steps = runs.filter((step) => !step.startsWith("pnpm install"));
+    expect(steps).toContain("pnpm build");
+    for (const step of steps) {
+      // A failing step rejects with its output.
+      await run("sh", ["-c", step], { cwd: dir });
+    }
+  });
+
+  it.each([
+    [
+      "an app other than core imports @robkit/core",
+      'export * from "@robkit/core";\n',
+      "apps/hub/src/reach.ts:1:15  Layer rule: an app reaches core over HTTP only, never through @robkit/core.",
+    ],
+    [
+      "an app imports another app",
+      'export * from "../../example/src/start.ts";\n',
+      "apps/hub/src/reach.ts:1:15  Layer rule: an app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.",
+    ],
+  ])("fails lint when %s", async (_, text, problem) => {
+    const dir = inject("installs").start;
+    const file = join(dir, "apps/hub/src/reach.ts");
+    await writeFile(file, text);
+    try {
+      const lint = run("pnpm", ["run", "lint"], { cwd: dir });
+
       await expect(lint).rejects.toMatchObject({
-        stdout: expect.stringContaining(
-          "Layer rule: only apps/core imports @robkit/core. Code reaches core over HTTP only",
-        ) as string,
+        stdout: expect.stringContaining(problem) as string,
       });
     } finally {
-      await rm(join(dir, file));
+      await rm(file);
     }
   });
 });

@@ -46,6 +46,12 @@ describe("addApp", () => {
         "utf8",
       ),
     );
+    expect(await readFile(join(dir, "apps/notes/AGENTS.md"), "utf8")).toContain(
+      "A React app on a Hono server in a robkit install.",
+    );
+    expect(await readFile(join(dir, "apps/notes/CLAUDE.md"), "utf8")).toBe(
+      "@AGENTS.md\n",
+    );
   });
 
   it("names a rule's roles, as core finds them", async () => {

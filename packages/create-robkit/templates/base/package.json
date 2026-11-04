@@ -6,8 +6,10 @@
   },
   "scripts": {
     "dev": "robkit-dev",
+    "lint": "robkit check",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "build": "turbo run build",
     "robkit": "robkit"
   },
   "devDependencies": {
