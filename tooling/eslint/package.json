@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "catalog:",
     "@eslint/js": "catalog:",
     "globals": "catalog:",
     "typescript-eslint": "catalog:"
