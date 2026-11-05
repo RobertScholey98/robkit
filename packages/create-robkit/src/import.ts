@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, join, resolve } from "node:path";
@@ -11,7 +11,7 @@ import { readInstallChoices } from "./add.ts";
 import { checkInstall, describeProblem } from "./check.ts";
 import { runsContracts } from "./contract.ts";
 import { sharedFolder, writtenByExport } from "./export.ts";
-import { pnpmSettings } from "./generate.ts";
+import { pnpmSettings, type ImportRecord } from "./generate.ts";
 import {
   appPackageName,
   dependenciesOf,
@@ -75,14 +75,46 @@ function isGitUrl(source: string): boolean {
   );
 }
 
-/** The app's files from a folder, or from a fresh clone of a git URL. */
-async function fetchApp(
-  root: string,
-  source: string,
-): Promise<{ tree: Tree; folder: string }> {
+async function git(dir: string, ...args: string[]): Promise<string> {
+  const { stdout } = await run("git", args, { cwd: dir });
+  return stdout.trim();
+}
+
+/**
+ * The commit `dir` is at, if it's the top of a git repository with nothing
+ * uncommitted, so that commit holds exactly what an import reads.
+ */
+async function cleanCommit(dir: string): Promise<string | undefined> {
+  try {
+    const top = await git(dir, "rev-parse", "--show-toplevel");
+    if (realpathSync(top) !== realpathSync(dir)) return undefined;
+    if ((await git(dir, "status", "--porcelain")) !== "") return undefined;
+    return await git(dir, "rev-parse", "HEAD");
+  } catch {
+    return undefined;
+  }
+}
+
+/** An app's repo as fetched: its files, its folder's name and its origin. */
+export interface Fetched {
+  tree: Tree;
+  folder: string;
+  record: ImportRecord;
+}
+
+/**
+ * The app's files from a folder, or from a fresh clone of a git URL, and
+ * where they came from.
+ */
+export async function fetchApp(root: string, source: string): Promise<Fetched> {
   const local = resolve(root, source);
   if (existsSync(local) && statSync(local).isDirectory()) {
-    return { tree: await readTree(local), folder: basename(local) };
+    const commit = await cleanCommit(local);
+    return {
+      tree: await readTree(local),
+      folder: basename(local),
+      record: { from: local, ...(commit !== undefined && { commit }) },
+    };
   }
   if (!isGitUrl(source)) {
     throw new Error(`There's no folder at ${source}, and it isn't a git URL.`);
@@ -94,6 +126,7 @@ async function fetchApp(
     return {
       tree: await readTree(clone),
       folder: basename(source.replace(/\/+$/, "")).replace(/\.git$/, ""),
+      record: { from: source, commit: await git(clone, "rev-parse", "HEAD") },
     };
   } finally {
     await rm(temp, { recursive: true, force: true });
@@ -207,13 +240,13 @@ function renamed(text: string, renames: Map<string, string>): string {
 
 /**
  * The app's files and manifests as the install holds them: shared packages
- * the install has mapped onto its own, the rest kept and renamed, and every
- * version back in the catalog.
+ * the install has mapped onto its own, the rest kept and renamed, every
+ * version back in the catalog, and in its manifest where it came from.
  */
-async function intoInstall(
+export async function intoInstall(
   root: string,
   slug: string,
-  repo: Tree,
+  { tree: repo, record }: Pick<Fetched, "tree" | "record">,
   workspace: Workspace,
 ): Promise<{
   tree: Tree;
@@ -300,6 +333,7 @@ async function intoInstall(
       if (path === "package.json") {
         edited.name = appPackageName(slug);
         delete edited.packageManager;
+        edited.robkit = { ...edited.robkit, imported: record };
       }
       tree.set(path, manifestBytes(edited));
     } else if (renames.size > 0 && rewritten.test(path)) {
@@ -359,10 +393,10 @@ export async function importApp(
 ): Promise<Imported> {
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
-  const { tree: repo, folder } = await fetchApp(root, source);
-  const manifest = parseManifest(repo.get("package.json"), source);
+  const fetched = await fetchApp(root, source);
+  const manifest = parseManifest(fetched.tree.get("package.json"), source);
   checkContract(manifest, source);
-  const slug = as ?? slugOfPackage(manifest.name) ?? folder;
+  const slug = as ?? slugOfPackage(manifest.name) ?? fetched.folder;
   const refusal = slugRefusal(root, slug, as !== undefined);
   if (refusal) throw new Error(refusal);
 
@@ -370,7 +404,7 @@ export async function importApp(
   const { tree, mapped, kept, additions, differences } = await intoInstall(
     root,
     slug,
-    repo,
+    fetched,
     workspace,
   );
   const dir = join(root, "apps", slug);

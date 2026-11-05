@@ -142,7 +142,8 @@ export function stackTemplate(stack: Stack): Promise<Files> {
  * `package.json`: its name, the stack it was made on, the robkit contract
  * version it was made for, who may open it once core adds it, with roles
  * named, and the emoji the launcher shows. Core's catalog takes the access
- * rule and icon. Export and import read the rest.
+ * rule and icon. Export and import read the rest, and import records where
+ * the app came from.
  */
 export interface Declares {
   name?: string;
@@ -152,6 +153,17 @@ export interface Declares {
   access?:
     { kind: "open" } | { kind: "owner" } | { kind: "roles"; roles: string[] };
   icon?: string;
+  /** Where robkit import took the app from, for robkit update. */
+  imported?: ImportRecord;
+}
+
+/**
+ * Where an imported app came from: the folder or git URL, and the commit it
+ * was at, when it was a clean git repository. robkit update merges from it.
+ */
+export interface ImportRecord {
+  from: string;
+  commit?: string;
 }
 
 /** The icon an app gets when nobody picks one, the example app included. */

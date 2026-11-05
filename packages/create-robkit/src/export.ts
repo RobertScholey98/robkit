@@ -209,6 +209,9 @@ function repoManifest(
     needs(["vitest"]);
   }
   const { packageManager } = rootManifest;
+  // Where an import took it from means nothing to the next install.
+  const declares = { ...manifest.robkit };
+  delete declares.imported;
   return withVersions(
     {
       ...manifest,
@@ -219,8 +222,8 @@ function repoManifest(
       devDependencies,
       robkit: {
         name: slug,
-        ...manifest.robkit,
-        contract: manifest.robkit?.contract ?? contractVersion,
+        ...declares,
+        contract: declares.contract ?? contractVersion,
       },
     },
     workspace,

@@ -116,6 +116,10 @@ describe("importApp", { timeout: 30_000 }, () => {
         eslint: "catalog:",
         vitest: "catalog:",
       }) as unknown,
+      robkit: {
+        ...(original.robkit as object),
+        imported: expect.objectContaining({ from: repo }) as unknown,
+      },
     });
   });
 
@@ -267,6 +271,47 @@ describe("importApp", { timeout: 30_000 }, () => {
 
     await expect(importApp(a, repo)).rejects.toThrow(
       "apps/notes already exists. To update it to this export, remove apps/notes and import again: its schema and data stay, the next pnpm dev runs only the migrations it hasn't run yet, and its seed doesn't run again. Commit the install first, so git diff shows what the update changed. To add it as another app instead, use --as <name>.",
+    );
+  });
+
+  it("records where the app came from and which commit it was", async () => {
+    const { repo } = await exported();
+    const b = await freshInstall("b");
+    const { stdout: commit } = await run("git", ["rev-parse", "HEAD"], {
+      cwd: repo,
+    });
+
+    await importApp(b, repo);
+
+    expect(await json(b, "apps/notes/package.json")).toMatchObject({
+      robkit: { imported: { from: repo, commit: commit.trim() } },
+    });
+  });
+
+  it("records no commit for a folder with uncommitted changes", async () => {
+    const { repo } = await exported();
+    await writeFile(join(repo, "src/extra.ts"), "export const extra = 1;\n");
+    const b = await freshInstall("b");
+
+    await importApp(b, repo);
+
+    expect((await json(b, "apps/notes/package.json")).robkit).toHaveProperty(
+      "imported",
+      { from: repo },
+    );
+  });
+
+  it("leaves the record of where it came from out of the next export", async () => {
+    const { repo } = await exported();
+    const b = await freshInstall("b");
+    await importApp(b, repo);
+
+    const again = await exportApp(b, "notes", {
+      out: join(b, "..", "notes-from-b"),
+    });
+
+    expect((await json(again.dir, "package.json")).robkit).not.toHaveProperty(
+      "imported",
     );
   });
 
