@@ -1,0 +1,181 @@
+# Architecture
+
+This page shows how an install fits together: how a request reaches an app, how session tokens move between core and the apps, which package depends on which, and where to look for each concern. The words are the ones in [`GLOSSARY.md`](../GLOSSARY.md). The reasons behind each choice are in [`docs/adr/`](adr/README.md).
+
+## An install
+
+An install is one domain, one Postgres, core, the hub, admin and the owner's apps. Each app answers on its own subdomain, `<slug>.<domain>`. One proxy sits in front of them all: `robkit-dev`'s proxy on port 3000 in local dev, and Traefik behind Coolify in production.
+
+```mermaid
+flowchart LR
+  browser([Browser])
+  proxy[Proxy<br/>robkit-dev locally, Traefik in production]
+  core[core.&lt;domain&gt;<br/>Core]
+  hub[hub.&lt;domain&gt;<br/>Hub]
+  admin[admin.&lt;domain&gt;<br/>Admin]
+  app[&lt;slug&gt;.&lt;domain&gt;<br/>An app]
+  pg[(Postgres<br/>a schema per app)]
+
+  browser --> proxy
+  proxy --> core & hub & admin & app
+  core --> pg
+  app --> pg
+  hub -. HTTP .-> core
+  admin -. HTTP .-> core
+  app -. HTTP .-> core
+```
+
+- **Core** is the only code that reads or writes the core tables and the only holder of the signing key ([ADR 0001](adr/0001-core-owns-the-core-tables.md)).
+- **The hub** is where people sign in and launch apps. **Admin** is where the owner manages access codes, roles and apps. Both are React pages that call core from the browser through `callCore`.
+- **An app** has its own Postgres schema and role ([ADR 0007](adr/0007-one-schema-and-role-per-app.md)) and reaches core over HTTP only.
+- Only the proxy may reach core, because core trusts its forwarded headers for the sign-in limit ([ADR 0012](adr/0012-only-the-proxy-reaches-core.md)).
+
+## How a request flows
+
+Every request to an app passes through its adapter, which runs `requestGuard` from `@robkit/session`. `requestGuard` reads the app's cookie, verifies the app token against core's public key, gets the app's access rule from core, and asks the pure guard what to do. The app's handlers only run when the guard allows the request, and they get the viewer from the adapter.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant P as Proxy
+  participant A as Adapter (@robkit/hono or @robkit/start)
+  participant R as requestGuard (@robkit/session)
+  participant G as guard (@robkit/guard)
+  participant C as Core
+  participant H as App's handler
+
+  B->>P: GET https://notes.example.com/
+  P->>A: request, with X-Forwarded-For
+  A->>R: check(request)
+  R->>C: GET /.well-known/jwks.json (once)
+  R->>C: GET /apps/notes/access (at most once a minute)
+  R->>G: guard(rule, session state)
+  G-->>R: allow, login, refresh or not-found
+  alt allow
+    R-->>A: { viewer }
+    A->>H: request, with the viewer
+    H-->>B: the page
+  else login, refresh or not-found
+    R-->>A: { response }
+    A-->>B: redirect to the hub or core, 401 for a call, or 404
+  end
+```
+
+The guard's four outcomes come from one table in `packages/guard/src/guard.ts`:
+
+| Who is asking          | Open    | Gated to roles | Owner only |
+| ---------------------- | ------- | -------------- | ---------- |
+| Unknown (no token yet) | refresh | refresh        | refresh    |
+| Token expired          | refresh | refresh        | refresh    |
+| Core said signed out   | allow   | login          | login      |
+| The owner              | allow   | allow          | allow      |
+| A guest with a role    | allow   | allow          | not-found  |
+| A guest without one    | allow   | not-found      | not-found  |
+
+A page load that gets `login` or `refresh` is redirected. A call from the page (a `fetch`, or a Start server function) gets a 401 with a `Robkit-Session` header instead, and `sessionFetch` from `@robkit/react` sends the browser on. `not-found` is a real 404, so a guest can't tell an app they may not open from one that doesn't exist.
+
+## How tokens flow
+
+Core keeps each session. Core's own session token, with the audience `core`, sits in a host-only cookie on `core.<domain>`. Each app, admin included, holds its own app token, with its slug as the audience, in a host-only cookie on its own host. No cookie goes on the parent domain ([ADR 0004](adr/0004-per-app-tokens.md)). Tokens last 15 minutes; a session lasts 30 days.
+
+### Signing in and getting an app token
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant A as App's guard
+  participant C as Core
+  participant H as Hub
+
+  B->>A: GET / (no app token)
+  A-->>B: 302 to core /refresh?next=…&state=…, state kept in a cookie
+  B->>C: GET /refresh (no core cookie)
+  C-->>B: 302 to the app's /_robkit/session, with no token
+  B->>A: GET /_robkit/session?state=…
+  A-->>B: checks the state, notes "signed out" in its cookie, 302 to next
+  B->>A: GET / (signed out)
+  A-->>B: the rule needs someone signed in: 302 to the hub, with next
+  B->>H: sign in with an access code
+  H->>C: POST /login/code
+  C-->>B: core's token, in a cookie on core's host
+  H-->>B: back to next
+  B->>A: GET / (still no app token)
+  A-->>B: 302 to core /refresh
+  B->>C: GET /refresh, with core's cookie
+  C-->>B: 302 to the app's /_robkit/session?token=…&state=…
+  B->>A: GET /_robkit/session
+  A-->>B: checks the state, sets the app token cookie, 302 to next
+```
+
+If the app is open to anyone and nobody is signed in, the guard keeps core's word that nobody is signed in for a minute and lets the visitor in as nobody.
+
+### Refreshing a lapsed token
+
+When an app token expires, a page load goes back through core's `/refresh` as above, and core mints a fresh one while the session lives. A call from the page gets the guard's 401 instead. `sessionFetch` sends the browser to the app's `/_robkit/refresh`, which goes through core and comes back to the page. Core renews only from its own cookie, never from an app token, and core's own token is reissued on every `/refresh`.
+
+## The package map
+
+Arrows point from a package to what it imports. Adapters never import core: code reaches core over HTTP only. `tooling/eslint` enforces each arrow that is a rule (see [`AGENTS.md`](../AGENTS.md#the-layer-rule)).
+
+```mermaid
+flowchart TD
+  guard["@robkit/guard<br/>pure guard, no I/O"]
+  session["@robkit/session<br/>tokens, requestGuard, addresses"]
+  hono["@robkit/hono<br/>adapter"]
+  start["@robkit/start<br/>adapter"]
+  react["@robkit/react<br/>sessionFetch"]
+  core["@robkit/core<br/>the backend"]
+  dev["@robkit/dev<br/>robkit-dev, provision step"]
+  create["create-robkit<br/>init and the robkit command"]
+
+  session --> guard
+  hono --> session
+  hono --> guard
+  start --> session
+  start --> guard
+  react --> session
+  core --> session
+  core --> guard
+  dev --> session
+  create --> session
+  create --> dev
+```
+
+In an install, the app side has its own layer rule, which `robkit check` enforces:
+
+```mermaid
+flowchart TD
+  app["apps/&lt;slug&gt;"]
+  coreApp["apps/core"]
+  shared["packages/* (core-client, theme, ui)"]
+  adapters["@robkit/hono, @robkit/start, @robkit/react"]
+  robkitCore["@robkit/core"]
+
+  app --> shared
+  app --> adapters
+  coreApp --> robkitCore
+  app -. HTTP only .-> coreApp
+```
+
+## Where to look
+
+| Concern                                         | Where                                                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Who may open an app                             | `packages/guard/src/guard.ts`, and the cases in `packages/guard/conformance.json`          |
+| Reading cookies, verifying tokens, `/_robkit/*` | `packages/session/src/request-guard.ts`                                                    |
+| Token claims and cookies                        | `packages/session/src/session-token.ts`                                                    |
+| An install's addresses                          | `packages/session/src/install-addresses.ts` (`@robkit/session/addresses`)                  |
+| Core's routes                                   | `packages/core/src/app.ts`                                                                 |
+| Core's tables                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                      |
+| Sessions, refresh and minting app tokens        | `packages/core/src/sessions.ts`, `packages/core/src/session-token.ts`                      |
+| Access codes, roles and the app catalog         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                 |
+| The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`                                             |
+| `pnpm dev`: finding apps, the proxy, the runner | `packages/dev/src/apps.ts`, `proxy.ts`, `runner.ts`                                        |
+| Each app's schema and role                      | `packages/dev/src/provision.ts`                                                            |
+| What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/` |
+| `robkit add`                                    | `packages/create-robkit/src/add.ts`, `add-wizard.ts`                                       |
+| The install's layer rule                        | `packages/create-robkit/src/check.ts`                                                      |
+| Deploying to Coolify                            | `packages/create-robkit/src/coolify.ts`, `deployment.ts`                                   |
+| The hub and admin                               | `packages/create-robkit/templates/base/apps/hub`, `apps/admin`                             |
+| robkit's own layer rule                         | `tooling/eslint/layers.js`, `core-schema.js`                                               |
+| The whole-stack test                            | `tooling/e2e/src/`                                                                         |

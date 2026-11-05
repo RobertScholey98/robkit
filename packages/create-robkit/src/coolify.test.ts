@@ -1,11 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { deploy, readCoolifyConfig, type CoolifyConfig } from "./coolify.ts";
+import {
+  deploy,
+  readCoolifyConfig,
+  type CoolifyConfig,
+  type DeployOptions,
+} from "./coolify.ts";
 import type { Deployment } from "./deployment.ts";
 import {
   fakeCoolify,
   fakeFetch,
   type FakeCoolify,
 } from "./test/fake-coolify.ts";
+import { slug } from "./test/slug.ts";
 
 const config: CoolifyConfig = {
   project: "robkit",
@@ -29,7 +35,7 @@ const apps: Deployment[] = [
   },
   { slug: "hub", env: { ROBKIT_APP: { literal: "hub" } } },
   {
-    slug: "notes",
+    slug: slug("notes"),
     env: {
       ROBKIT_APP: { literal: "notes" },
       DATABASE_URL: { shared: "NOTES_DATABASE_URL" },
@@ -48,43 +54,69 @@ function existing(slug: string, uuid: string): Record<string, unknown> {
 
 async function run(
   state: FakeCoolify,
-  affected: string[] | "all",
+  affected: readonly string[] | "all",
+  options: Pick<DeployOptions, "requestTimeoutMs" | "timeoutMs"> = {},
 ): Promise<{ ok: boolean; log: string[] }> {
   const log: string[] = [];
   const ok = await deploy({
     coolify,
     config,
     deployments: apps,
-    affected,
+    affected: affected === "all" ? "all" : affected.map(slug),
     fetch: fakeFetch(state),
     log: (line) => log.push(line),
     intervalMs: 0,
+    ...options,
   });
   return { ok, log };
 }
 
 describe("readCoolifyConfig", () => {
-  it("names a setting that's missing", () => {
-    expect(() =>
-      readCoolifyConfig(JSON.stringify({ ...config, githubApp: "" })),
-    ).toThrow("coolify.json needs a non-empty string `githubApp`.");
+  it("reads where the install deploys", () => {
+    expect(readCoolifyConfig(config)).toEqual(config);
   });
 
   it("reads a trusted proxy when the install sits behind Cloudflare", () => {
     expect(
-      readCoolifyConfig(
-        JSON.stringify({ ...config, trustedProxy: "cloudflare" }),
-      ),
+      readCoolifyConfig({ ...config, trustedProxy: "cloudflare" }),
     ).toEqual({ ...config, trustedProxy: "cloudflare" });
-    expect(readCoolifyConfig(JSON.stringify(config))).toEqual(config);
+  });
+
+  it.each([null, [], "robkit"])("refuses %j", (value) => {
+    expect(readCoolifyConfig(value)).toEqual({
+      error:
+        "coolify.json must be a JSON object with project, environment, server, githubApp, repository, branch and domain. See docs/deploy.md.",
+    });
+  });
+
+  it.each([
+    [
+      "githubApp",
+      undefined,
+      "the GitHub App Coolify builds the repository through",
+    ],
+    ["githubApp", "", "the GitHub App Coolify builds the repository through"],
+    ["branch", 1, "the branch to deploy, such as main"],
+    ["project", null, "the Coolify project's name"],
+  ])("names %s when it is %j", (key, value, what) => {
+    expect(readCoolifyConfig({ ...config, [key]: value })).toEqual({
+      error: `coolify.json: ${key} must be a non-empty string: ${what}.`,
+    });
+  });
+
+  it("refuses a domain with a scheme", () => {
+    expect(
+      readCoolifyConfig({ ...config, domain: "https://robkit.dev" }),
+    ).toEqual({
+      error: `coolify.json: domain is "https://robkit.dev", which isn't a domain. Set it to the domain the install answers on alone, such as robkit.dev.`,
+    });
   });
 
   it("refuses a trusted proxy it doesn't know", () => {
-    expect(() =>
-      readCoolifyConfig(JSON.stringify({ ...config, trustedProxy: "traefik" })),
-    ).toThrow(
-      'coolify.json\'s `trustedProxy` must be "cloudflare" or left out.',
-    );
+    expect(readCoolifyConfig({ ...config, trustedProxy: "traefik" })).toEqual({
+      error:
+        'coolify.json: trustedProxy must be "cloudflare", when only a Cloudflare tunnel reaches the host, or left out.',
+    });
   });
 });
 
@@ -197,7 +229,64 @@ describe("deploy", () => {
     const { ok, log } = await run(state, "all");
 
     expect(ok).toBe(false);
-    expect(log).toContain("- core: failed, failed");
+    expect(log).toContain(
+      "- core: failed, failed. Check the deployment's log in Coolify.",
+    );
     expect(log).toContain("- hub: not started, an earlier deploy failed");
+  });
+
+  it("gives up on a request Coolify never answers, and says what to check", async () => {
+    const state = fakeCoolify({
+      answer: (route) => (route === "GET /servers" ? "hang" : undefined),
+    });
+
+    await expect(run(state, "all", { requestTimeoutMs: 20 })).rejects.toThrow(
+      "Couldn't read Coolify's servers: no answer in 20 ms. Check COOLIFY_URL and that Coolify is up.",
+    );
+  });
+
+  it("stops waiting at its deadline, even while a request hangs", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c")],
+      answer: (route) =>
+        route.startsWith("GET /deployments/") ? "hang" : undefined,
+    });
+
+    const { ok, log } = await run(state, ["core"], { timeoutMs: 50 });
+
+    expect(ok).toBe(false);
+    expect(log).toContain(
+      "- core: failed, still queued after 50 ms. Check the deployment's log in Coolify.",
+    );
+  });
+
+  it("names the app, the step and what to check when Coolify refuses one", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c"), existing("hub", "h")],
+      answer: (route) =>
+        route === "PATCH /applications/h/envs/bulk"
+          ? { status: 401, body: { message: "Unauthenticated." } }
+          : undefined,
+    });
+
+    const { ok, log } = await run(state, "all");
+
+    expect(ok).toBe(false);
+    expect(log).toContain(
+      '| hub | failed | saving its variables: HTTP 401 {"message":"Unauthenticated."}. Check COOLIFY_TOKEN, and that it may deploy. |',
+    );
+  });
+
+  it("names a failed deployment and where to look", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c")],
+      outcomes: { c: "failed" },
+    });
+
+    const { log } = await run(state, ["core"]);
+
+    expect(log).toContain(
+      "- core: failed, failed. Check the deployment's log in Coolify.",
+    );
   });
 });

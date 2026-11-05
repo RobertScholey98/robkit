@@ -6,13 +6,14 @@ import { addApp } from "./add.ts";
 import { defaultChoices } from "./choices.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { init } from "./init.ts";
+import { slug } from "./test/slug.ts";
 
 /** The default install, plus `brochure` on react-hono, open to anyone. */
 async function install(): Promise<string> {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
   await init(defaultChoices, dir);
   await addApp(dir, {
-    slug: "brochure",
+    slug: slug("brochure"),
     stack: "react-hono",
     access: { kind: "open" },
     icon: "📰",

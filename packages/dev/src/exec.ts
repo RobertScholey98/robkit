@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
+import { Problem } from "./cli.ts";
 
 /** Copies each line from `from` to `to`, prefixed with the app's slug. */
 export function prefixLines(
@@ -34,9 +35,10 @@ export async function exec(
     prefixLines(options.slug, child.stdout, process.stdout);
     prefixLines(options.slug, child.stderr, process.stderr);
   }
-  const [code] = (await once(child, "exit")) as [number | null];
+  const exited: unknown[] = await once(child, "exit");
+  const [code] = exited;
   if (code !== 0) {
-    throw new Error(
+    throw new Problem(
       `${[command, ...args].join(" ")} exited with ${String(code)}`,
     );
   }

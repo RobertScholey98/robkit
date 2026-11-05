@@ -32,6 +32,7 @@ function alive(pid: number): boolean {
     process.kill(pid, 0);
     return true;
   } catch {
+    // Signal 0 throws only when the process is gone.
     return false;
   }
 }

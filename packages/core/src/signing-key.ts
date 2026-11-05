@@ -10,6 +10,15 @@ import {
 import type { Database } from "./database.ts";
 import { signingKeys } from "./schema.ts";
 
+/** A stored EdDSA key, ready to sign or verify with. */
+async function importKey(jwk: JWK): Promise<CryptoKey> {
+  const key = await importJWK(jwk, "EdDSA");
+  if (key instanceof Uint8Array) {
+    throw new Error("Core's stored signing key is a secret, not an EdDSA key.");
+  }
+  return key;
+}
+
 /** Core's Ed25519 key, which signs every session token. */
 export interface SigningKey {
   kid: string;
@@ -54,8 +63,8 @@ export async function ensureSigningKey(db: Database): Promise<SigningKey> {
 
   return {
     kid: row.kid,
-    privateKey: (await importJWK(row.privateJwk, "EdDSA")) as CryptoKey,
-    publicKey: (await importJWK(row.publicJwk, "EdDSA")) as CryptoKey,
+    privateKey: await importKey(row.privateJwk),
+    publicKey: await importKey(row.publicJwk),
     publicJwk: row.publicJwk,
   };
 }

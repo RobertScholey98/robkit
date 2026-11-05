@@ -10,6 +10,9 @@ export interface CallOptions<T> {
   read?: Reader<T>;
 }
 
+/** How long a call waits for core before giving up. */
+const timeoutSeconds = 10;
+
 /**
  * Calls core at `core` with the viewer's cookie. A failed call answers with
  * core's `{ error }` sentence, or one saying what went wrong instead.
@@ -44,9 +47,17 @@ export async function callCore<T>(
         headers: { "content-type": "application/json" },
       }),
       ...(body && { body: JSON.stringify(body) }),
+      signal: AbortSignal.timeout(timeoutSeconds * 1000),
     });
-  } catch {
-    return { ok: false, error: `Couldn't reach core at ${core}.` };
+  } catch (error) {
+    const timedOut =
+      error instanceof DOMException && error.name === "TimeoutError";
+    return {
+      ok: false,
+      error: timedOut
+        ? `Core at ${core} didn't answer in ${String(timeoutSeconds)} seconds. Try again.`
+        : `Couldn't reach core at ${core}.`,
+    };
   }
   const answer: unknown =
     res.status === 204 ? undefined : await res.json().catch(() => undefined);

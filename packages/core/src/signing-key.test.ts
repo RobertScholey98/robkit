@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
+import { signingKeys } from "./schema.ts";
 import { ensureSigningKey } from "./signing-key.ts";
 import { freshCore } from "./test/fresh-app.ts";
 
@@ -26,6 +27,20 @@ describe("ensureSigningKey", () => {
         sql`select count(*)::int as count from core.signing_keys`,
       ),
     ).toEqual([{ count: 1 }]);
+  });
+
+  it("refuses a stored key that is a shared secret, not an EdDSA key", async () => {
+    const { db } = await freshCore();
+    const secret = { kty: "oct", k: "c2VjcmV0LXNlY3JldC1zZWNyZXQtc2VjcmV0" };
+    await db.insert(signingKeys).values({
+      kid: "secret",
+      privateJwk: secret,
+      publicJwk: secret,
+    });
+
+    await expect(ensureSigningKey(db)).rejects.toThrow(
+      "Core's stored signing key is a secret, not an EdDSA key.",
+    );
   });
 });
 

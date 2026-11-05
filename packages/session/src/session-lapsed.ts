@@ -40,12 +40,14 @@ export async function readSessionLapsed(
   const outcome = response.headers.get(sessionLapsedHeader);
   if (response.status !== 401) return undefined;
   if (outcome !== "login" && outcome !== "refresh") return undefined;
+  // A body that isn't JSON isn't the guard's 401, so the caller gets it.
   const body: unknown = await response
     .clone()
     .json()
     .catch(() => undefined);
   if (typeof body !== "object" || body === null) return undefined;
-  const { error, location } = body as Record<string, unknown>;
+  const error = "error" in body ? body.error : undefined;
+  const location = "location" in body ? body.location : undefined;
   if (typeof error !== "string" || typeof location !== "string") {
     return undefined;
   }

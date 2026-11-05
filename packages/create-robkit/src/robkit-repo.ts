@@ -1,7 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isRecord } from "@robkit/session/input";
 import { parse } from "yaml";
+import { jsonObject, stringsIn } from "./json.ts";
 
 /**
  * What an install takes from the robkit checkout the generator runs from, so
@@ -23,24 +25,18 @@ export interface RobkitPackage {
 
 const robkitRoot = fileURLToPath(new URL("../../../", import.meta.url));
 
-interface Manifest {
-  name?: string;
-  version?: string;
-  packageManager?: string;
-}
-
-async function readManifest(dir: string): Promise<Manifest> {
-  return JSON.parse(
-    await readFile(join(dir, "package.json"), "utf8"),
-  ) as Manifest;
+/** A manifest's string fields, such as its name and version. */
+async function readManifest(dir: string): Promise<Record<string, string>> {
+  const path = join(dir, "package.json");
+  return stringsIn(jsonObject(await readFile(path, "utf8"), path));
 }
 
 export async function readRobkitRepo(): Promise<RobkitRepo> {
   // Failsafe reads every scalar as a string, so 1.10 stays a version.
-  const workspace = parse(
+  const workspace: unknown = parse(
     await readFile(join(robkitRoot, "pnpm-workspace.yaml"), "utf8"),
     { schema: "failsafe" },
-  ) as { catalog: Record<string, string> };
+  );
   const root = await readManifest(robkitRoot);
   if (!root.packageManager) {
     throw new Error("robkit's package.json has no packageManager");
@@ -59,7 +55,9 @@ export async function readRobkitRepo(): Promise<RobkitRepo> {
   }
 
   return {
-    catalog: new Map(Object.entries(workspace.catalog)),
+    catalog: new Map(
+      Object.entries(isRecord(workspace) ? stringsIn(workspace.catalog) : {}),
+    ),
     packageManager: root.packageManager,
     packages,
   };

@@ -58,12 +58,16 @@ export function expiryAfter(day: string): Date | undefined {
   return new Date(year, month - 1, date + 1);
 }
 
-const standings = new Set<unknown>([
+const standings: readonly Standing[] = [
   "live",
   "revoked",
   "expired",
   "local-only",
-]);
+];
+
+function isStanding(value: unknown): value is Standing {
+  return standings.some((standing) => standing === value);
+}
 
 function readCode(body: unknown): Code | undefined {
   if (!isRecord(body)) return undefined;
@@ -75,7 +79,7 @@ function readCode(body: unknown): Code | undefined {
     typeof id !== "string" ||
     typeof code !== "string" ||
     typeof name !== "string" ||
-    !standings.has(standing) ||
+    !isStanding(standing) ||
     expiresAt === undefined ||
     revokedAt === undefined ||
     createdAt === undefined ||
@@ -90,7 +94,7 @@ function readCode(body: unknown): Code | undefined {
     expiresAt,
     revokedAt,
     createdAt,
-    standing: standing as Standing,
+    standing,
   };
 }
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { Problem, runCommand } from "@robkit/dev";
 import {
   defaultDevPort,
   defaultDomain,
@@ -18,10 +19,10 @@ const hubOrigin = addresses({
 }).origin("hub");
 
 function fail(message: string): never {
-  throw new Error(message);
+  throw new Problem(message);
 }
 
-try {
+process.exitCode = await runCommand(async () => {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
@@ -30,7 +31,7 @@ try {
       link: { type: "boolean", default: false },
     },
   });
-  if (positionals.length > 1) throw new Error(usage);
+  if (positionals.length > 1) throw new Problem(usage);
   const { install, link } = values;
   const [given] = positionals;
   // --stack answers init's questions, so it needs the folder too.
@@ -59,7 +60,5 @@ The same install without the questions:
 
   ${commandFor(answers, { install, link })}`);
   }
-} catch (error) {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-}
+  return 0;
+});

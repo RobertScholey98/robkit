@@ -9,12 +9,13 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run --coverage"
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "postgres": "catalog:",
     "typescript": "catalog:",

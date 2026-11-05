@@ -1,7 +1,8 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { reportFaultsAt } from "@robkit/dev";
 import { describe, expect, it } from "vitest";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
@@ -116,6 +117,20 @@ Then open http://notes.robkit.localhost:3000.
   });
 });
 
+describe("robkit's failures", { timeout: 30_000 }, () => {
+  it("prints a fault it didn't expect whole, with where to report it", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+    await mkdir(join(dir, "robkit.json"));
+
+    const { code, output } = await drive(bin, dir, ["check"]);
+
+    expect(code).toBe(1);
+    expect(output).toContain("EISDIR");
+    expect(output).toMatch(/^ {4}at /m);
+    expect(output).toContain(reportFaultsAt);
+  });
+});
+
 describe("robkit add with no flags", { timeout: 30_000 }, () => {
   it("asks for the stack, name, access, roles and icon, then prints the command that skips them", async () => {
     const dir = await freshInstall();
@@ -190,7 +205,7 @@ describe("robkit database-urls", { timeout: 30_000 }, () => {
     expect({ code, output }).toEqual({
       code: 1,
       output:
-        "Set ROBKIT_ADMIN_DATABASE_URL to the host's Postgres admin URL and ROBKIT_DB_SECRET to the install's database secret.\n",
+        "ROBKIT_ADMIN_DATABASE_URL is not set. Set it to the host's Postgres admin URL.\nROBKIT_DB_SECRET is not set. Set it to the install's database secret, at least 32 characters, such as the output of openssl rand -hex 32.\n",
     });
   });
 });
@@ -211,6 +226,7 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
 
     const { code, output } = await drive(bin, dir, ["deploy"], [], {
       COOLIFY_URL: "https://coolify.example",
+      COOLIFY_TOKEN: "t",
     });
 
     expect({ code, output }).toEqual({
@@ -218,6 +234,19 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
       output:
         "This install has no coolify.json. See docs/deploy.md to set one up.\n",
     });
+  });
+
+  it.each([
+    ["{", /^coolify\.json isn't valid JSON \(.+\)\. Fix its syntax\.\n$/],
+    ["null", /^coolify\.json must be a JSON object with project/],
+  ])("names coolify.json when it holds %s", async (text, message) => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "coolify.json"), text);
+
+    const { code, output } = await drive(bin, dir, ["deploy", "--dry-run"]);
+
+    expect(code).toBe(1);
+    expect(output).toMatch(message);
   });
 
   it("prints each app's variables on a dry run", async () => {

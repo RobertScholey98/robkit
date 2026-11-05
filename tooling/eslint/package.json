@@ -4,18 +4,22 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.js"
+    ".": "./index.js",
+    "./layers": "./layers.js"
   },
   "scripts": {
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run --coverage"
   },
   "dependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "catalog:",
     "@eslint/js": "catalog:",
     "globals": "catalog:",
     "typescript-eslint": "catalog:"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

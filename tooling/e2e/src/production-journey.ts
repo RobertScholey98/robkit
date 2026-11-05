@@ -9,6 +9,7 @@ const run = promisify(execFile);
 
 /** The host's interfaces and their addresses, or nothing without `ip`. */
 async function hostInterfaces(): Promise<string> {
+  // Without `ip` there is nothing to compare, which the caller treats as settled.
   const [links, addresses] = await Promise.all([
     run("ip", ["-o", "link"]).then(({ stdout }) => stdout),
     run("ip", ["-o", "addr"]).then(({ stdout }) => stdout),

@@ -1,6 +1,9 @@
 import { generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { describe, expect, it } from "vitest";
 import { readAppToken, readSessionToken, sessionTokensIn } from "./index.ts";
+import { slug } from "./test/slug.ts";
+
+const notes = slug("notes");
 
 const issuedAt = new Date("2026-11-01T12:00:00Z");
 const minute = 60_000;
@@ -185,7 +188,7 @@ describe("readAppToken", () => {
       roles: ["role-1"],
     });
 
-    const read = await readAppToken(publicKey, guest, issuedAt, "notes");
+    const read = await readAppToken(publicKey, guest, issuedAt, notes);
 
     expect(read).toEqual({
       kind: "guest",
@@ -202,7 +205,7 @@ describe("readAppToken", () => {
       publicKey,
       await appToken(privateKey),
       new Date(issuedAt.getTime() + 16 * minute),
-      "notes",
+      notes,
     );
 
     expect(read).toEqual({ kind: "owner", id: "owner-1", expired: true });
@@ -217,12 +220,12 @@ describe("readAppToken", () => {
     const { privateKey, publicKey } = await keyPair();
     const token = await appToken(privateKey, claims);
 
-    const live = await readAppToken(publicKey, token, issuedAt, "notes");
+    const live = await readAppToken(publicKey, token, issuedAt, notes);
     const expired = await readAppToken(
       publicKey,
       token,
       new Date(issuedAt.getTime() + 16 * minute),
-      "notes",
+      notes,
     );
 
     expect([live, expired]).toEqual([undefined, undefined]);
@@ -237,7 +240,7 @@ describe("readAppToken", () => {
         core.publicKey,
         await appToken(forger.privateKey),
         issuedAt,
-        "notes",
+        notes,
       ),
     ).toBeUndefined();
   });

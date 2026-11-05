@@ -5,7 +5,9 @@ import {
   text,
   type CANCEL_SYMBOL,
 } from "@clack/prompts";
-import { newSlugProblem, type AppChoices } from "./add.ts";
+import { Problem } from "@robkit/dev";
+import { readSlug } from "@robkit/session/addresses";
+import { newSlugProblem, readNewSlug, type AppChoices } from "./add.ts";
 import {
   defaultChoices,
   readyStackOptions,
@@ -47,21 +49,23 @@ function accessFrom(
     .filter((role) => role !== "");
   if (access === "roles") {
     if (named.length === 0) {
-      throw new Error("--access roles needs --roles, naming at least one.");
+      throw new Problem("--access roles needs --roles, naming at least one.");
     }
-    return { kind: "roles", roles: named };
+    return { kind: "roles", roleNames: named };
   }
   if (roles !== undefined) {
-    throw new Error("--roles only goes with --access roles.");
+    throw new Problem("--roles only goes with --access roles.");
   }
   if (access === "open" || access === "owner") return { kind: access };
-  throw new Error(
+  throw new Problem(
     `--access ${access} isn't an option. Choose from: ${accessOptions.map((option) => option.value).join(", ")}.`,
   );
 }
 
 /** The app robkit add's flags describe, with a default for each left out. */
-export function appChoicesFromFlags(slug: string, flags: AddFlags): AppChoices {
+export function appChoicesFromFlags(name: string, flags: AddFlags): AppChoices {
+  const slug = readSlug(name);
+  if (typeof slug !== "string") throw new Problem(slug.error);
   return {
     stack: stackFrom(flags.stack ?? defaultChoices.exampleStack),
     slug,
@@ -79,13 +83,15 @@ export function addCommandFor({ stack, slug, access, icon }: AppChoices) {
     `robkit add ${slug}`,
     `--stack ${stack}`,
     `--access ${access.kind}`,
-    ...(access.kind === "roles" ? [`--roles "${access.roles.join(",")}"`] : []),
+    ...(access.kind === "roles"
+      ? [`--roles "${access.roleNames.join(",")}"`]
+      : []),
     `--icon ${icon}`,
   ].join(" ");
 }
 
 function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
-  if (isCancel(answer)) throw new Error("Cancelled. Nothing was written.");
+  if (isCancel(answer)) throw new Problem("Cancelled. Nothing was written.");
   return answer;
 }
 
@@ -99,7 +105,7 @@ export async function askAdd(
 ): Promise<AppChoices> {
   if (given !== undefined) {
     const problem = newSlugProblem(root, given);
-    if (problem) throw new Error(problem);
+    if (problem) throw new Problem(problem);
   }
   intro("robkit add");
   const stack = answered(
@@ -108,15 +114,18 @@ export async function askAdd(
       options: readyStackOptions,
     }),
   );
-  const slug =
+  const slug = readNewSlug(
+    root,
     given ??
-    answered(
-      await text({
-        message: "What's the app called?",
-        placeholder: "notes",
-        validate: (answer) => newSlugProblem(root, answer ?? ""),
-      }),
-    );
+      answered(
+        await text({
+          message: "What's the app called?",
+          placeholder: "notes",
+          validate: (answer) => newSlugProblem(root, answer ?? ""),
+        }),
+      ),
+  );
+  if (typeof slug !== "string") throw new Problem(slug.error);
   const access = answered(
     await select<Access>({
       message: "Who can open it?",

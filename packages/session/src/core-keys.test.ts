@@ -5,6 +5,9 @@ import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { coreKeys } from "./core-keys.ts";
 import { readAppToken } from "./index.ts";
+import { slug } from "./test/slug.ts";
+
+const notes = slug("notes");
 
 const now = new Date("2026-11-01T12:00:00Z");
 const servers: Server[] = [];
@@ -51,7 +54,7 @@ describe("coreKeys", () => {
     const { port, hosts, token } = await fakeCore();
     const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
 
-    const read = await readAppToken(keys, token, now, "notes");
+    const read = await readAppToken(keys, token, now, notes);
 
     expect(read).toEqual({
       kind: "owner",
@@ -69,7 +72,7 @@ describe("coreKeys", () => {
 
     const reads = [];
     for (let i = 0; i < 3; i++) {
-      reads.push((await readAppToken(keys, token, now, "notes"))?.id);
+      reads.push((await readAppToken(keys, token, now, notes))?.id);
     }
 
     expect(reads).toEqual(["owner-1", "owner-1", "owner-1"]);
@@ -81,7 +84,7 @@ describe("coreKeys", () => {
     answer.status = 503;
     const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
 
-    await expect(readAppToken(keys, token, now, "notes")).rejects.toThrow(
+    await expect(readAppToken(keys, token, now, notes)).rejects.toThrow(
       "Expected 200 OK from the JSON Web Key Set HTTP response",
     );
   });
@@ -90,8 +93,8 @@ describe("coreKeys", () => {
     const { port, token, sign } = await fakeCore();
     const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
 
-    const known = await readAppToken(keys, token, now, "notes");
-    const unknown = await readAppToken(keys, await sign("key-2"), now, "notes");
+    const known = await readAppToken(keys, token, now, notes);
+    const unknown = await readAppToken(keys, await sign("key-2"), now, notes);
 
     expect(known?.id).toBe("owner-1");
     expect(unknown).toBeUndefined();
@@ -100,14 +103,12 @@ describe("coreKeys", () => {
   it("keeps using a cached key while core can't answer", async () => {
     const { port, answer, token } = await fakeCore();
     const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
-    await readAppToken(keys, token, now, "notes");
+    await readAppToken(keys, token, now, notes);
     answer.status = 503;
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(Date.now() + 60 * 60_000);
     try {
-      expect((await readAppToken(keys, token, now, "notes"))?.id).toBe(
-        "owner-1",
-      );
+      expect((await readAppToken(keys, token, now, notes))?.id).toBe("owner-1");
     } finally {
       vi.useRealTimers();
     }
@@ -117,9 +118,12 @@ describe("coreKeys", () => {
     const { port, hosts, token } = await fakeCore();
     const keys = coreKeys(`https://core.robkit.localhost:${String(port)}`);
 
-    const read = readAppToken(keys, token, now, "notes");
+    const read = readAppToken(keys, token, now, notes);
 
-    await expect(read).rejects.toMatchObject({ code: "EPROTO" });
+    await expect(read).rejects.toMatchObject({
+      name: "CoreUnreachableError",
+      cause: { code: "EPROTO" },
+    });
     expect(hosts).toEqual([]);
   });
 });

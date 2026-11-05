@@ -143,4 +143,21 @@ describe("callCore", () => {
       error: "Couldn't reach core at https://core.example.com.",
     });
   });
+
+  it("gives up on core when it doesn't answer in time", async () => {
+    const signals: unknown[] = [];
+    vi.stubGlobal("fetch", (_: unknown, init?: RequestInit) => {
+      signals.push(init?.signal);
+      return Promise.reject(
+        new DOMException("The operation timed out.", "TimeoutError"),
+      );
+    });
+
+    expect(await callCore(core, "GET", "/me", { read: readName })).toEqual({
+      ok: false,
+      error:
+        "Core at https://core.example.com didn't answer in 10 seconds. Try again.",
+    });
+    expect(signals[0]).toBeInstanceOf(AbortSignal);
+  });
 });

@@ -3,9 +3,11 @@ import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
 import { appSessionUrl, sessionCookie, sessionTokensIn } from "@robkit/session";
 import { install, isLocal, platformApps } from "@robkit/session/addresses";
+import { isRecord } from "@robkit/session/input";
 import {
   listCodes,
   mintCode,
@@ -55,6 +57,11 @@ export interface CoreOptions {
    * of a tunnel. Set only when nothing else can reach the host.
    */
   trustedProxy?: TrustedProxy | undefined;
+  /**
+   * Where core reports what it can't answer usefully: an unexpected error in
+   * a route, or the database being unreachable. Defaults to console.error.
+   */
+  logError?: (message: string, cause: unknown) => void;
 }
 
 /** What a route that needs the viewer finds in `c.var`. */
@@ -69,6 +76,7 @@ function hostnameOf(origin: string): string | undefined {
   try {
     return new URL(origin).hostname;
   } catch {
+    // An Origin that isn't a URL names no host, so CORS refuses it.
     return undefined;
   }
 }
@@ -84,8 +92,9 @@ type Fields = Record<string, unknown>;
 async function fieldsOf(c: Context): Promise<Fields | undefined> {
   try {
     const body: unknown = await c.req.json();
-    return typeof body === "object" && body !== null ? (body as Fields) : {};
+    return isRecord(body) ? body : {};
   } catch {
+    // A body that isn't JSON is the caller's mistake, answered with a 400.
     return undefined;
   }
 }
@@ -123,8 +132,19 @@ export function createApp({
   domain,
   now = () => new Date(),
   trustedProxy,
+  logError = console.error,
 }: CoreOptions): Hono {
   const app = new Hono();
+  // Hono's own answer to a route that throws. The cause stays in core's log
+  // and the caller gets a generic error.
+  app.onError((error, c) => {
+    if (error instanceof HTTPException) return error.getResponse();
+    logError(`${c.req.method} ${c.req.path} failed.`, error);
+    return c.json(
+      { error: "Core hit an unexpected error. Its log says what went wrong." },
+      500,
+    );
+  });
   const addresses = install({ domain });
   const signingKey: () => Promise<SigningKey> = memoize(() =>
     ensureSigningKey(db),
@@ -228,7 +248,11 @@ export function createApp({
   app.get("/status", async (c) => {
     try {
       await db.execute(sql`select 1`);
-    } catch {
+    } catch (error) {
+      logError(
+        `${c.req.method} ${c.req.path}: the database is unreachable. Check DATABASE_URL and that Postgres is running.`,
+        error,
+      );
       return c.json({ status: "unavailable" }, 503);
     }
     return c.json({ status: "ok" });

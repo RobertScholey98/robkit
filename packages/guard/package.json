@@ -34,11 +34,13 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run --typecheck --coverage",
+    "test:unit": "vitest run --typecheck --coverage"
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

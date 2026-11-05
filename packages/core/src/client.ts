@@ -1,17 +1,19 @@
+import type { Env, InputProblem } from "@robkit/session/input";
 import type { Context } from "hono";
 
 /** A proxy in front of the one that reaches core, which names the visitor. */
 export type TrustedProxy = "cloudflare";
 
-/** `ROBKIT_TRUSTED_PROXY`'s value, or why core won't start with it. */
+/** `ROBKIT_TRUSTED_PROXY`, or why core won't start with it. */
 export function readTrustedProxy(
-  value: string | undefined,
-): TrustedProxy | undefined {
+  env: Env,
+): TrustedProxy | undefined | InputProblem {
+  const value = env.ROBKIT_TRUSTED_PROXY;
   if (!value) return undefined;
   if (value === "cloudflare") return value;
-  throw new Error(
-    `ROBKIT_TRUSTED_PROXY must be "cloudflare" or unset, not "${value}".`,
-  );
+  return {
+    error: `ROBKIT_TRUSTED_PROXY is "${value}". Set it to cloudflare when only a Cloudflare tunnel reaches the host, or leave it unset.`,
+  };
 }
 
 /**

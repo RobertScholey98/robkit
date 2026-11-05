@@ -1,13 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { guarded } from "@robkit/hono";
+import { isRecord, readCoreUrl } from "@robkit/session/input";
 import { Hono } from "hono";
 import { html } from "hono/html";
-
-function env(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
 
 /** The client's script and styles: Vite's own modules in dev, else the build. */
 async function clientAssets(): Promise<{ script: string; styles: string[] }> {
@@ -15,18 +10,24 @@ async function clientAssets(): Promise<{ script: string; styles: string[] }> {
   if (process.env.NODE_ENV !== "production") {
     return { script: `/${entry}`, styles: [] };
   }
-  const manifest = JSON.parse(
+  const manifest: unknown = JSON.parse(
     await readFile("dist/client/.vite/manifest.json", "utf8"),
-  ) as Record<string, { file: string; css?: string[] } | undefined>;
-  const built = manifest[entry];
-  if (!built) throw new Error(`Admin's build has no ${entry}. Run its build.`);
+  );
+  const built = isRecord(manifest) ? manifest[entry] : undefined;
+  if (!isRecord(built) || typeof built.file !== "string") {
+    throw new Error(`Admin's build has no ${entry}. Run its build.`);
+  }
+  const css: unknown[] = Array.isArray(built.css) ? built.css : [];
   return {
     script: `/${built.file}`,
-    styles: (built.css ?? []).map((file) => `/${file}`),
+    styles: css
+      .filter((file) => typeof file === "string")
+      .map((file) => `/${file}`),
   };
 }
 
-const core = env("ROBKIT_CORE_URL");
+const core = readCoreUrl(process.env);
+if (typeof core !== "string") throw new Error(core.error);
 const assets = await clientAssets();
 
 const app = new Hono();

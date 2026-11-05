@@ -1,15 +1,21 @@
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { slugProblem } from "@robkit/dev";
-import { isPlatformApp, platformApps } from "@robkit/session/addresses";
-import type { Choices, Stack } from "./choices.ts";
+import { Problem } from "@robkit/dev";
 import {
-  appFiles,
-  readFolder,
-  stackTemplate,
-  type Declares,
-} from "./generate.ts";
+  isPlatformApp,
+  platformApps,
+  readSlug,
+  type Slug,
+} from "@robkit/session/addresses";
+import {
+  isProblem,
+  parseJson,
+  type DeclaredAccess,
+} from "@robkit/session/input";
+import { readChoices, type Choices, type Stack } from "./choices.ts";
+import { isMissing } from "./files.ts";
+import { appFiles, readFolder, stackTemplate } from "./generate.ts";
 import { writeInstall } from "./write.ts";
 
 /**
@@ -18,9 +24,9 @@ import { writeInstall } from "./write.ts";
  */
 export interface AppChoices {
   stack: Stack;
-  slug: string;
+  slug: Slug;
   /** Who may open the app once core adds it. A rule's roles are named. */
-  access: NonNullable<Declares["access"]>;
+  access: DeclaredAccess;
   icon: string;
 }
 
@@ -30,13 +36,16 @@ export async function readInstallChoices(root: string): Promise<Choices> {
   try {
     text = await readFile(join(root, "robkit.json"), "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    throw new Error(
+    if (!isMissing(error)) throw error;
+    throw new Problem(
       `${root} has no robkit.json. Run robkit add in an install's folder.`,
       { cause: error },
     );
   }
-  return JSON.parse(text) as Choices;
+  const parsed = parseJson(text, "robkit.json");
+  const choices = isProblem(parsed) ? parsed : readChoices(parsed.json);
+  if (isProblem(choices)) throw new Problem(choices.error);
+  return choices;
 }
 
 /** "a, b and c". */
@@ -51,26 +60,37 @@ async function exists(path: string): Promise<boolean> {
   return stat(path).then(
     () => true,
     (error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      if (isMissing(error)) return false;
       throw error;
     },
   );
 }
 
-/**
- * Why `slug` can't name a new app in the install at `root`, or `undefined`.
- * Its shape fits a prompt's `validate`.
- */
-export function newSlugProblem(root: string, slug: string): string | undefined {
-  const problem = slugProblem(slug);
-  if (problem) return problem;
+/** `name` as the slug of a new app in the install at `root`, or why it can't be. */
+export function readNewSlug(
+  root: string,
+  name: string,
+): Slug | { error: string } {
+  const slug = readSlug(name);
+  if (typeof slug !== "string") return slug;
   if (isPlatformApp(slug)) {
-    return `${slug} is one of the platform apps: ${andList(platformApps)}.`;
+    return {
+      error: `${slug} is one of the platform apps: ${andList(platformApps)}.`,
+    };
   }
   if (existsSync(join(root, "apps", slug))) {
-    return `apps/${slug} already exists. Choose another name.`;
+    return { error: `apps/${slug} already exists. Choose another name.` };
   }
-  return undefined;
+  return slug;
+}
+
+/**
+ * Why `name` can't name a new app in the install at `root`, or `undefined`.
+ * Its shape fits a prompt's `validate`.
+ */
+export function newSlugProblem(root: string, name: string): string | undefined {
+  const slug = readNewSlug(root, name);
+  return typeof slug === "string" ? undefined : slug.error;
 }
 
 /**
@@ -94,7 +114,7 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
   const problem = newSlugProblem(root, choices.slug);
-  if (problem) throw new Error(problem);
+  if (problem) throw new Problem(problem);
   const template = await templateFor(root, choices.stack);
   await writeInstall(
     join(root, "apps", choices.slug),

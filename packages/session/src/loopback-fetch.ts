@@ -50,3 +50,24 @@ export const loopbackFetch: FetchImplementation = (url, options) => {
     req.end();
   });
 };
+
+/** Core didn't answer: the network failed, or the request timed out. */
+export class CoreUnreachableError extends Error {
+  override name = "CoreUnreachableError";
+}
+
+/**
+ * {@link loopbackFetch} for a call to core. A request that gets no answer
+ * rejects with a {@link CoreUnreachableError} naming core's origin, with the
+ * network's own error as its cause.
+ */
+export const coreFetch: FetchImplementation = async (url, options) => {
+  try {
+    return await loopbackFetch(url, options);
+  } catch (error) {
+    throw new CoreUnreachableError(
+      `Can't reach core at ${new URL(url).origin}.`,
+      { cause: error },
+    );
+  }
+};

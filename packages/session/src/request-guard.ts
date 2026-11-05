@@ -8,7 +8,13 @@ import {
 import { appRefreshPath, appSessionPath } from "./app-session.ts";
 import { coreAccess } from "./core-access.ts";
 import { coreKeys } from "./core-keys.ts";
-import { installAt, isLocal, type Install } from "./install-addresses.ts";
+import {
+  installAt,
+  isLocal,
+  type Install,
+  type Slug,
+} from "./install-addresses.ts";
+import { CoreUnreachableError } from "./loopback-fetch.ts";
 import { sessionLapsedResponse } from "./session-lapsed.ts";
 import {
   cookieValues,
@@ -22,7 +28,7 @@ export interface GuardedOptions {
    * The app's slug, which is also its subdomain. The guard accepts only a
    * token core minted for this slug.
    */
-  app: string;
+  app: Slug;
   /**
    * A fixed rule, for an app core's catalog doesn't hold, such as admin.
    * Without one, the rule comes from core's catalog and is kept for a
@@ -35,6 +41,40 @@ export interface GuardedOptions {
    * request can't choose whose keys the app trusts.
    */
   core: string;
+  /**
+   * Hears why the guard answered 503 because it couldn't check a request.
+   * By default it logs the app's slug, what failed and the cause.
+   */
+  onUnavailable?: ((fault: GuardFault) => void) | undefined;
+}
+
+/**
+ * Why the guard couldn't check a request, so answered 503 rather than
+ * treating the viewer as signed out.
+ */
+export interface GuardFault {
+  /** The app's slug. */
+  app: string;
+  /**
+   * What failed: checking the session against core's key, loading the
+   * app's access rule, or reaching core at all.
+   */
+  failed: "core-key" | "access-rule" | "network";
+  /** The error behind it. */
+  cause: unknown;
+}
+
+const whatFailed: Record<GuardFault["failed"], string> = {
+  "core-key": "couldn't check the session against core's key",
+  "access-rule": "couldn't load the app's access rule from core",
+  network: "couldn't reach core",
+};
+
+function logFault({ app, failed, cause }: GuardFault): void {
+  console.error(
+    `robkit guard for ${app} answered 503: ${whatFailed[failed]}.`,
+    cause,
+  );
 }
 
 /** What the app does with a request: serve it to the viewer, or answer it. */
@@ -181,13 +221,27 @@ const errors = {
 export function requestGuard(
   options: GuardedOptions,
 ): (request: Request) => Promise<RequestDecision> {
-  const { app, access } = options;
+  const { app, access, onUnavailable = logFault } = options;
   const install = installOf(options.core);
   const core = install.origin("core");
   const hub = install.origin("hub");
   const verifyKey = coreKeys(core);
   const ruleOf = access ? () => Promise.resolve(access) : coreAccess(core, app);
   const secure = !isLocal(install.domain);
+
+  /** A 503 for a check that failed, after telling `onUnavailable` why. */
+  const unavailable = (
+    failed: "core-key" | "access-rule",
+    cause: unknown,
+    body: string,
+  ): Response => {
+    onUnavailable({
+      app,
+      failed: cause instanceof CoreUnreachableError ? "network" : failed,
+      cause,
+    });
+    return text(body, 503);
+  };
 
   /** A host-only cookie on the app's own subdomain. */
   const cookie = (name: string, value: string, maxAge: number): string =>
@@ -245,8 +299,8 @@ export function requestGuard(
       let read;
       try {
         read = await readAppToken(verifyKey, token, new Date(), app);
-      } catch {
-        return text(errors.keys, 503);
+      } catch (error) {
+        return unavailable("core-key", error, errors.keys);
       }
       if (!read) {
         return text("Core's token for this app doesn't check out.", 400);
@@ -305,17 +359,21 @@ export function requestGuard(
     let session: SessionState;
     try {
       session = await sessionOf(request);
-    } catch {
+    } catch (error) {
       // Not knowing who is asking isn't the same as nobody asking, so the
       // browser isn't sent to log in.
-      return { response: text(errors.keys, 503) };
+      return { response: unavailable("core-key", error, errors.keys) };
     }
     let rule: AccessRule;
     try {
       rule = await ruleOf();
-    } catch {
+    } catch (error) {
       return {
-        response: text("Can't reach core to check who may open this app.", 503),
+        response: unavailable(
+          "access-rule",
+          error,
+          "Can't reach core to check who may open this app.",
+        ),
       };
     }
     const decision = guard(rule, session);
