@@ -1,5 +1,0 @@
-{
-  "devDependencies": {
-    "@internal/ui": "workspace:*"
-  }
-}

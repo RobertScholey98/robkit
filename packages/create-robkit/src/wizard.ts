@@ -1,94 +1,29 @@
-import {
-  CANCEL_SYMBOL,
-  confirm,
-  intro,
-  isCancel,
-  multiselect,
-  select,
-  text,
-} from "@clack/prompts";
-import {
-  choiceTable,
-  defaultChoices,
-  listFlag,
-  type Choice,
-  type Option,
-  type Flags,
-} from "./choices.ts";
+import { CANCEL_SYMBOL, intro, isCancel, select, text } from "@clack/prompts";
+import { defaultChoices, stackFrom, stacks, type Stack } from "./choices.ts";
 import { folderInUse } from "./write.ts";
 
-/**
- * init's answers, as the flags that make the same install. The choice flags
- * come in the order init asks them, which is the order the command prints.
- */
-export type Answers = { [Flag in keyof Flags]-?: string } & {
+/** init's answers: the install's folder and the example app's stack. */
+export interface Answers {
   folder: string;
-  install: boolean;
-};
-
-/**
- * The options init offers for `choice`, from the table: the ones it can
- * make, then the ones a later release adds, shown but not yet selectable.
- */
-export function optionsFor(choice: Choice, recommended?: string) {
-  const ready = choice.options.filter((option) => !option.comingLater);
-  const later = choice.options.filter((option) => option.comingLater);
-  return [
-    ...ready.map(({ value, label, hint }) => ({
-      value,
-      label,
-      ...(value === recommended
-        ? { hint: "recommended" }
-        : hint !== undefined && { hint }),
-    })),
-    ...later.map(({ value, label }) => ({
-      value,
-      label,
-      hint: "coming later",
-      disabled: true,
-    })),
-  ];
-}
-
-/** "a, b or c". */
-function orList(items: string[]): string {
-  const last = items.at(-1) ?? "";
-  return items.length > 1
-    ? `${items.slice(0, -1).join(", ")} or ${last}`
-    : last;
+  stack: Stack;
 }
 
 /**
- * Asks whether to add a UI kit, then which, and answers as `--ui-kit` takes
- * it. Yes is disabled until a kit is ready.
+ * The stacks init offers for the example app: the ones it can make, the
+ * default recommended, then the ones a later release adds, shown but not
+ * yet selectable.
  */
-async function askUiKit(): Promise<string> {
-  // Widened from the table's literal types, which know no kit is ready yet.
-  const uiKit: Choice = choiceTable.uiKit;
-  const [none, ...kits] = uiKit.options as [Option, ...Option[]];
-  const ready = kits.filter((kit) => !kit.comingLater);
-  const answer = answered(
-    await select({
-      message: uiKit.question,
-      options: [
-        ...optionsFor({ ...uiKit, options: [none] }),
-        {
-          value: "yes",
-          label: "Yes",
-          ...(ready.length === 0 && {
-            hint: `${orList(kits.map((kit) => kit.label))}, coming later`,
-            disabled: true,
+export function stackOptions() {
+  return stacks.map(({ value, label, ...stack }) =>
+    "comingLater" in stack
+      ? { value, label, hint: "coming later", disabled: true }
+      : {
+          value,
+          label,
+          ...(value === defaultChoices.exampleStack && {
+            hint: "recommended",
           }),
         },
-      ],
-    }),
-  );
-  if (answer === none.value) return none.value;
-  return answered(
-    await select({
-      message: "Which UI kit?",
-      options: optionsFor({ ...uiKit, options: kits }),
-    }),
   );
 }
 
@@ -133,57 +68,26 @@ export async function askInit(folder?: string): Promise<Answers> {
         validate: (answer) => folderProblem(answer ?? defaultFolder),
       }),
     );
-  const { packageManager, orm, generators, tools } = choiceTable;
-  const pm = answered(
-    await select({
-      message: packageManager.question,
-      options: optionsFor(packageManager, defaultChoices.packageManager),
-    }),
+  const stack = stackFrom(
+    answered(
+      await select({
+        message: "Which stack should the example app use?",
+        options: stackOptions(),
+        initialValue: defaultChoices.exampleStack,
+      }),
+    ),
   );
-  const ormAnswer = answered(
-    await select({
-      message: orm.question,
-      options: optionsFor(orm, defaultChoices.orm),
-    }),
-  );
-  const uiKit = await askUiKit();
-  const stacks = answered(
-    await multiselect({
-      message: generators.question,
-      options: optionsFor(generators),
-      initialValues: [...defaultChoices.generators],
-    }),
-  );
-  const devTools = answered(
-    await multiselect({
-      message: tools.question,
-      options: optionsFor(tools),
-      initialValues: [...defaultChoices.tools],
-      required: false,
-    }),
-  );
-  const install = answered(
-    await confirm({ message: "Install dependencies and initialise git?" }),
-  );
-  return {
-    folder: where,
-    pm,
-    orm: ormAnswer,
-    "ui-kit": uiKit,
-    generators: listFlag(stacks),
-    tools: listFlag(devTools),
-    install,
-  };
+  return { folder: where, stack };
 }
 
 /** The command that makes the same install without asking. */
 export function commandFor(
-  { folder, install, ...flags }: Answers,
-  link = false,
+  { folder, stack }: Answers,
+  { install = false, link = false } = {},
 ): string {
   return [
     `npm create robkit@latest ${shellWord(folder) ?? folder} --`,
-    ...Object.entries(flags).map(([flag, value]) => `--${flag} ${value}`),
+    `--stack ${stack}`,
     ...(install ? ["--install"] : []),
     ...(link ? ["--link"] : []),
   ].join(" ");

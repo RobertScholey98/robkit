@@ -8,31 +8,18 @@ catalogMode: strict
 catalog:
   "@axe-core/playwright": 4.14.0
   "@base-ui/react": 1.9.0
-  "@chakra-ui/react": 3.37.0
   "@clack/prompts": 1.8.1
-  "@emotion/react": 11.14.0
   "@eslint/js": 10.0.1
   "@fontsource-variable/geist": 5.3.0
   "@hono/node-server": 2.1.5
   "@hono/vite-dev-server": 0.26.1
-  # An install with Playwright runs it. Keep it at playwright's version, so
-  # both use the browsers the whole-stack test installs.
-  "@playwright/test": 1.64.1
-  "@prisma/adapter-pg": 7.10.1
-  "@prisma/client": 7.10.1
   "@tailwindcss/vite": 4.3.3
   "@tanstack/react-router": 1.170.46
   "@tanstack/react-start": 1.169.4
   "@types/node": 26.6.5
-  "@types/pg": 8.23.1
   "@types/react": 19.3.0
   "@types/react-dom": 19.3.0
   "@vitejs/plugin-react": 6.1.2
-  # yarn 4 itself, without Corepack. Only the whole-stack test runs it, for
-  # the yarn installs it makes.
-  "@yarnpkg/cli-dist": 4.18.1
-  # Only the whole-stack test runs it, for the bun installs it makes.
-  bun: 1.4.4
   class-variance-authority: 0.7.1
   cn: 0.5.2
   drizzle-kit: 0.31.11
@@ -42,15 +29,11 @@ catalog:
   hono: 4.13.14
   husky: 9.1.7
   jose: 6.2.13
-  kysely: 0.29.8
   lint-staged: 17.6.0
   lucide-react: 1.66.0
-  pg: 8.23.1
   playwright: 1.64.1
   postgres: 3.4.9
   prettier: 3.9.10
-  prisma: 7.10.1
-  radix-ui: 1.8.1
   react: 19.3.1
   react-dom: 19.3.1
   shadcn: 4.23.0
@@ -67,6 +50,4 @@ catalog:
 # esbuild ships its binary as an optional dependency, so its install script
 # has nothing to do.
 allowBuilds:
-  # Its install script puts the platform binary in place.
-  bun: true
   esbuild: false

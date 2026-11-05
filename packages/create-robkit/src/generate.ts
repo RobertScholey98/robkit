@@ -1,18 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { format, getFileInfo } from "prettier";
-import {
-  choiceTable,
-  type Choice,
-  type Choices,
-  type Generator,
-  type Option,
-  type Orm,
-  type PackageManager,
-  type UiKit,
-} from "./choices.ts";
-import { packageManagers, type Settings } from "./package-managers.ts";
+import { format } from "prettier";
+import { parseDocument } from "yaml";
+import { readyStacks, type Choices, type Stack } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -26,7 +17,7 @@ export interface GenerateOptions {
   link?: boolean;
 }
 
-/** The slug init gives the app it adds from the first generator. */
+/** The slug of the app init adds on the example's stack. */
 const exampleSlug = "example";
 
 const templatesDir = fileURLToPath(new URL("../templates/", import.meta.url));
@@ -121,165 +112,9 @@ function editJson(files: Files, path: string, edit: (json: Json) => Json) {
   files.set(path, toJson(edit(JSON.parse(text) as Json)));
 }
 
-/** The table's entry for one choice's answer. */
-function optionOf(choice: Choice, value: string): Option | undefined {
-  return choice.options.find((option) => option.value === value);
-}
-
-/** The template folder the table gives one choice's answer, if it adds one. */
-function layerOf(choice: Choice, value: string): string | undefined {
-  return optionOf(choice, value)?.layer;
-}
-
-/** The template folders for `choices`, in the order they're laid down. */
-function layersFor(choices: Choices): string[] {
-  const t = choiceTable;
-  return [
-    "base",
-    layerOf(t.packageManager, choices.packageManager),
-    layerOf(t.orm, choices.orm),
-    // The hub and admin, then the kit's controls over them.
-    layerOf(t.uiKit, "none"),
-    choices.uiKit === null ? undefined : layerOf(t.uiKit, choices.uiKit),
-    ...choices.tools.map((tool) => layerOf(t.tools, tool)),
-    ...choices.tools.flatMap((tool) =>
-      Object.entries(optionOf(t.tools, tool)?.with ?? {}).flatMap(
-        ([other, layer]) =>
-          (choices.tools as readonly string[]).includes(other) ? [layer] : [],
-      ),
-    ),
-  ].filter((layer) => layer !== undefined);
-}
-
-/**
- * Drops from `files` what each dev tool `tools` doesn't name leaves out: its
- * files, its dependencies, and each script that runs one of them.
- */
-export function leaveOutTools(files: Files, tools: readonly string[]): void {
-  for (const option of choiceTable.tools.options as readonly Option[]) {
-    const { withoutIt } = option;
-    if (withoutIt === undefined || tools.includes(option.value)) continue;
-    for (const path of [...files.keys()]) {
-      if (withoutIt.files.some((end) => `/${path}`.endsWith(end))) {
-        files.delete(path);
-      } else if (basename(path) === "package.json") {
-        editJson(files, path, (json) =>
-          withoutDependencies(json, withoutIt.dependencies),
-        );
-      }
-    }
-  }
-}
-
-/** A manifest without `dependencies`, or any script that runs one. */
-function withoutDependencies(json: Json, dependencies: readonly string[]) {
-  const runsOne = (command: unknown) =>
-    typeof command === "string" &&
-    dependencies.includes(command.split(" ")[0] ?? "");
-  const without = (
-    field: unknown,
-    drop: (key: string, value: unknown) => boolean,
-  ) =>
-    isJson(field)
-      ? Object.fromEntries(
-          Object.entries(field).filter(([key, value]) => !drop(key, value)),
-        )
-      : field;
-  const edited: Json = { ...json };
-  for (const field of ["dependencies", "devDependencies"]) {
-    if (field in edited) {
-      edited[field] = without(edited[field], (name) =>
-        dependencies.includes(name),
-      );
-    }
-  }
-  if ("scripts" in edited) {
-    edited.scripts = without(edited.scripts, (_, command) => runsOne(command));
-  }
-  return edited;
-}
-
-/** A file under `templates/`, with LF endings. */
-async function readTemplate(path: string): Promise<string> {
-  // A Windows checkout may hold the templates with CRLF endings.
-  return (await readFile(join(templatesDir, path), "utf8")).replaceAll(
-    "\r\n",
-    "\n",
-  );
-}
-
-/**
- * Ends the root `AGENTS.md` with a Dev tools section: each line a tool in
- * `tools` adds, in the order the choice table lists them.
- */
-async function addToolGuides(
-  files: Files,
-  tools: readonly string[],
-): Promise<void> {
-  const guides = (choiceTable.tools.options as readonly Option[]).flatMap(
-    (option) =>
-      option.guide !== undefined && tools.includes(option.value)
-        ? [option.guide]
-        : [],
-  );
-  if (guides.length === 0) return;
-  const lines = await Promise.all(guides.map(readTemplate));
-  files.set(
-    "AGENTS.md",
-    `${files.get("AGENTS.md") ?? ""}\n## Dev tools\n\n${lines.join("")}`,
-  );
-}
-
-/** The install scripts every answer in `choices` needs, by dependency. */
-function buildsFor(choices: Choices): Record<string, boolean> {
-  const t = choiceTable;
-  const answers: [Choice, string][] = [
-    [t.packageManager, choices.packageManager],
-    [t.orm, choices.orm],
-    ...choices.tools.map((tool): [Choice, string] => [t.tools, tool]),
-    ...choices.generators.map((stack): [Choice, string] => [
-      t.generators,
-      stack,
-    ]),
-  ];
-  return Object.fromEntries(
-    answers.flatMap(([choice, value]) =>
-      Object.entries(optionOf(choice, value)?.builds ?? {}),
-    ),
-  );
-}
-
-/**
- * The template robkit ships for `stack`: an app's files, from its folder,
- * with the install's ORM's app files laid over them, and the UI kit's when
- * the app uses one. Its `AGENTS.md` ends with the section the ORM adds.
- */
-export async function stackTemplate(
-  stack: Generator,
-  orm: Orm,
-  uiKit: UiKit | null = null,
-): Promise<Files> {
-  const layer = layerOf(choiceTable.generators, stack);
-  if (layer === undefined) {
-    throw new Error(`the ${stack} stack has no template`);
-  }
-  const files = await readLayer(layer);
-  const ormOption: Option | undefined = choiceTable.orm.options.find(
-    (option) => option.value === orm,
-  );
-  const appLayer = ormOption?.appLayer;
-  if (appLayer !== undefined) overlay(files, await readLayer(appLayer));
-  const kitLayer =
-    uiKit === null ? undefined : optionOf(choiceTable.uiKit, uiKit)?.optInLayer;
-  if (kitLayer !== undefined) {
-    overlay(files, await readLayer(`${kitLayer}/${stack}`));
-  }
-  const guide = ormOption?.appGuide;
-  const agents = files.get("AGENTS.md");
-  if (guide !== undefined && agents !== undefined) {
-    files.set("AGENTS.md", `${agents}\n${await readTemplate(guide)}`);
-  }
-  return files;
+/** The template robkit ships for `stack`: an app's files, from its folder. */
+export function stackTemplate(stack: Stack): Promise<Files> {
+  return readLayer(`stacks/${stack}`);
 }
 
 /**
@@ -340,93 +175,41 @@ function versionOf(repo: RobkitRepo, name: string): string {
   return version;
 }
 
-/**
- * The robkit packages among `names` with every robkit package they depend
- * on, and the dependencies they all take from the catalog.
- */
-function linkedClosure(
-  names: string[],
-  repo: RobkitRepo,
-): { packages: string[]; catalog: string[] } {
-  const packages = new Set<string>();
-  const catalog = new Set<string>();
-  const visit = (name: string) => {
-    const pkg = repo.packages.get(name);
-    if (pkg === undefined || packages.has(name)) return;
-    packages.add(name);
-    for (const [dependency, spec] of Object.entries(pkg.dependencies)) {
-      if (repo.packages.has(dependency)) visit(dependency);
-      else if (spec === "catalog:") catalog.add(dependency);
-    }
-  };
-  names.forEach(visit);
-  return { packages: [...packages].sort(), catalog: [...catalog].sort() };
-}
+/** Where pnpm keeps an install's settings. */
+export const pnpmSettings = "pnpm-workspace.yaml";
 
 /**
- * Writes the package manager's settings: the catalog, the install scripts
- * it may run, and the links to robkit's packages when asked. Then names the
- * manager in the root manifest.
+ * Writes pnpm's settings: the catalog, and the links to robkit's packages
+ * when asked. Then names pnpm's version in
+ * the root manifest.
  */
 async function renderSettings(
   files: Files,
-  packageManager: PackageManager,
   names: string[],
-  builds: Record<string, boolean>,
   repo: RobkitRepo,
   { link = false }: GenerateOptions,
 ): Promise<void> {
-  const pm = packageManagers[packageManager];
-  // A portal installs each linked package's own dependencies, so the
-  // install links every robkit package they need and catalogs the rest.
-  const portal = link && pm.linkProtocol === "portal";
-  const linked = portal
-    ? linkedClosure(names, repo)
-    : { packages: names, catalog: [] };
-  const catalogNames = [...new Set([...names, ...linked.catalog])].sort();
-  const settings: Settings = {
-    builds,
-    catalog: Object.fromEntries(
-      catalogNames.map((name) => [name, versionOf(repo, name)]),
-    ),
-  };
-  if (link) {
-    settings.overrides = Object.fromEntries(
-      linked.packages.flatMap((name) => {
-        const pkg = repo.packages.get(name);
-        if (pkg === undefined) return [];
-        const dir = pkg.dir.replaceAll("\\", "/");
-        return [[name, `${pm.linkProtocol}:${dir}`]];
-      }),
+  const workspace = parseDocument(files.get(pnpmSettings) ?? "");
+  workspace.set(
+    "catalog",
+    Object.fromEntries(names.map((name) => [name, versionOf(repo, name)])),
+  );
+  for (const name of link ? names : []) {
+    const pkg = repo.packages.get(name);
+    if (pkg === undefined) continue;
+    workspace.setIn(
+      ["overrides", name],
+      `link:${pkg.dir.replaceAll("\\", "/")}`,
     );
   }
-  await pm.writeSettings(files, settings);
+  files.set(
+    pnpmSettings,
+    await format(workspace.toString(), { filepath: pnpmSettings }),
+  );
   editJson(files, "package.json", (json) => ({
     ...json,
-    packageManager: pm.packageManagerOf(repo),
+    packageManager: repo.packageManager,
   }));
-}
-
-/**
- * Spells the pnpm commands and files in `files` for `packageManager`, and
- * formats each file that changed, so its lines still fit Prettier's width.
- */
-export async function spellFor(
-  files: Files,
-  packageManager: PackageManager,
-): Promise<void> {
-  const pm = packageManagers[packageManager];
-  for (const [path, text] of files) {
-    const spelled = pm.spell(text);
-    if (spelled === text) continue;
-    const { inferredParser } = await getFileInfo(path);
-    files.set(
-      path,
-      inferredParser === null
-        ? spelled
-        : await format(spelled, { filepath: path }),
-    );
-  }
 }
 
 /** The install init writes for `choices`, file by file. */
@@ -434,43 +217,24 @@ export async function generateInstall(
   choices: Choices,
   options: GenerateOptions = {},
 ): Promise<Files> {
-  const files: Files = new Map();
-  for (const layer of layersFor(choices)) {
-    overlay(files, await readLayer(layer));
-  }
+  const files = await readLayer("base");
 
-  const stacks = await Promise.all(
-    // The example shows the install's UI kit off, if it has one.
-    choices.generators.map((stack) =>
-      stackTemplate(stack, choices.orm, choices.uiKit),
-    ),
-  );
-  for (const stack of stacks) leaveOutTools(stack, choices.tools);
-  const [example] = stacks;
-  if (example === undefined) throw new Error("init needs a generator");
   overlay(
     files,
-    appFiles(example, exampleSlug, { icon: defaultIcon }),
+    appFiles(await stackTemplate(choices.exampleStack), exampleSlug, {
+      icon: defaultIcon,
+    }),
     `apps/${exampleSlug}/`,
   );
-  leaveOutTools(files, choices.tools);
-  await addToolGuides(files, choices.tools);
-  await spellFor(files, choices.packageManager);
 
   // The catalog covers every stack robkit add offers, so adding an app
   // needs no version the install lacks.
+  const stacks = await Promise.all(readyStacks.map(stackTemplate));
   const names = catalogued([
     ...files,
     ...stacks.flatMap((stack) => [...stack]),
   ]);
-  await renderSettings(
-    files,
-    choices.packageManager,
-    names,
-    buildsFor(choices),
-    await readRobkitRepo(),
-    options,
-  );
+  await renderSettings(files, names, await readRobkitRepo(), options);
   files.set(
     "robkit.json",
     await format(JSON.stringify(choices), { filepath: "robkit.json" }),

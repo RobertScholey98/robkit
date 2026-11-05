@@ -19,8 +19,6 @@ export interface RobkitRepo {
 export interface RobkitPackage {
   version: string;
   dir: string;
-  /** Its `dependencies`, as its manifest writes them, such as `catalog:`. */
-  dependencies: Record<string, string>;
 }
 
 const robkitRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -29,7 +27,6 @@ interface Manifest {
   name?: string;
   version?: string;
   packageManager?: string;
-  dependencies?: Record<string, string>;
 }
 
 async function readManifest(dir: string): Promise<Manifest> {
@@ -54,10 +51,10 @@ export async function readRobkitRepo(): Promise<RobkitRepo> {
   for (const entry of await readdir(packagesDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const dir = join(packagesDir, entry.name);
-    const { name, version, dependencies = {} } = await readManifest(dir);
+    const { name, version } = await readManifest(dir);
     // An install takes create-robkit for robkit add.
     if ((name?.startsWith("@robkit/") || name === "create-robkit") && version) {
-      packages.set(name, { version, dir, dependencies });
+      packages.set(name, { version, dir });
     }
   }
 

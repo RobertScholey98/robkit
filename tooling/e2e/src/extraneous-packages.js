@@ -3,8 +3,8 @@
 // node_modules that the app, or the install's root, doesn't reach through
 // dependencies, optional dependencies or peers. A workspace package the app
 // only builds with, such as packages/ui for the hub, is a dev dependency, so
-// its own dependencies count too. pnpm, bun and yarn lay node_modules out
-// differently, so it walks the files rather than asking a package manager.
+// its own dependencies count too. It walks the files
+// rather than asking pnpm.
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 
@@ -25,8 +25,8 @@ function installed(dir, found = new Set()) {
       installed(path, found);
       continue;
     }
-    // pnpm's and bun's stores hold each package's own node_modules.
-    if (entry.name === ".pnpm" || entry.name === ".bun") {
+    // pnpm's store holds each package's own node_modules.
+    if (entry.name === ".pnpm") {
       for (const stored of readdirSync(path)) {
         installed(join(path, stored, "node_modules"), found);
       }

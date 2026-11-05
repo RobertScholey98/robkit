@@ -1,5 +1,4 @@
 import {
-  confirm,
   intro,
   isCancel,
   select,
@@ -7,7 +6,12 @@ import {
   type CANCEL_SYMBOL,
 } from "@clack/prompts";
 import { newSlugProblem, type AppChoices } from "./add.ts";
-import { choiceTable, type Choices, type Generator } from "./choices.ts";
+import {
+  defaultChoices,
+  readyStackOptions,
+  stackFrom,
+  type Stack,
+} from "./choices.ts";
 import { defaultIcon } from "./generate.ts";
 
 /** Who may open a new app, as `--access` spells it and the wizard asks it. */
@@ -25,15 +29,13 @@ export interface AddFlags {
   access?: string | undefined;
   roles?: string | undefined;
   icon?: string | undefined;
-  "ui-kit"?: boolean | undefined;
 }
 
-export const addUsage = `Usage: robkit add [name] [--stack <stack>] [--access ${accessOptions.map((option) => option.value).join("|")}] [--roles <role,...>] [--icon <emoji>] [--ui-kit | --no-ui-kit]
+export const addUsage = `Usage: robkit add [name] [--stack <stack>] [--access ${accessOptions.map((option) => option.value).join("|")}] [--roles <role,...>] [--icon <emoji>]
 
 With no flags, robkit add asks for each. With flags, it asks nothing: the
-stack defaults to the first robkit.json offers, access to owner only, and
-the icon to ${defaultIcon}. In an install with a UI kit, the app uses it
-unless --no-ui-kit.`;
+stack defaults to ${defaultChoices.exampleStack}, access to owner only, and the icon
+to ${defaultIcon}.`;
 
 function accessFrom(
   access: string,
@@ -59,18 +61,12 @@ function accessFrom(
 }
 
 /** The app robkit add's flags describe, with a default for each left out. */
-export function appChoicesFromFlags(
-  slug: string,
-  flags: AddFlags,
-  { generators, uiKit }: Pick<Choices, "generators" | "uiKit">,
-): AppChoices {
-  const usesKit = flags["ui-kit"] ?? (uiKit === null ? undefined : true);
+export function appChoicesFromFlags(slug: string, flags: AddFlags): AppChoices {
   return {
-    stack: (flags.stack ?? generators[0]) as Generator,
+    stack: stackFrom(flags.stack ?? defaultChoices.exampleStack),
     slug,
     access: accessFrom(flags.access ?? "owner", flags.roles),
     icon: flags.icon ?? defaultIcon,
-    ...(usesKit !== undefined && { uiKit: usesKit }),
   };
 }
 
@@ -78,20 +74,13 @@ export function appChoicesFromFlags(
  * The robkit command that adds the same app without asking, as the
  * install's `robkit` script takes it.
  */
-export function addCommandFor({
-  stack,
-  slug,
-  access,
-  icon,
-  uiKit,
-}: AppChoices) {
+export function addCommandFor({ stack, slug, access, icon }: AppChoices) {
   return [
     `robkit add ${slug}`,
     `--stack ${stack}`,
     `--access ${access.kind}`,
     ...(access.kind === "roles" ? [`--roles "${access.roles.join(",")}"`] : []),
     `--icon ${icon}`,
-    ...(uiKit === undefined ? [] : [uiKit ? "--ui-kit" : "--no-ui-kit"]),
   ].join(" ");
 }
 
@@ -102,12 +91,10 @@ function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
 
 /**
  * Asks robkit add's questions for the install at `root`, skipping the name
- * when it's already given, the stack when robkit.json offers only one, and
- * the UI kit when the install has none.
+ * when it's already given.
  */
 export async function askAdd(
   root: string,
-  { generators, uiKit }: Pick<Choices, "generators" | "uiKit">,
   given?: string,
 ): Promise<AppChoices> {
   if (given !== undefined) {
@@ -115,25 +102,12 @@ export async function askAdd(
     if (problem) throw new Error(problem);
   }
   intro("robkit add");
-  const labels = new Map<string, string>(
-    choiceTable.generators.options.map((option) => [
-      option.value,
-      option.label,
-    ]),
+  const stack = answered(
+    await select<Stack>({
+      message: "Which stack?",
+      options: readyStackOptions,
+    }),
   );
-  const [first] = generators;
-  const stack =
-    generators.length === 1
-      ? first
-      : answered(
-          await select<Generator>({
-            message: "Which stack?",
-            options: generators.map((value) => ({
-              value,
-              label: labels.get(value) ?? value,
-            })),
-          }),
-        );
   const slug =
     given ??
     answered(
@@ -169,15 +143,10 @@ export async function askAdd(
       defaultValue: defaultIcon,
     }),
   );
-  const usesKit =
-    uiKit === null
-      ? undefined
-      : answered(await confirm({ message: "Use the install's UI kit?" }));
   return {
     stack,
     slug,
     access: accessFrom(access, roles),
     icon,
-    ...(usesKit !== undefined && { uiKit: usesKit }),
   };
 }

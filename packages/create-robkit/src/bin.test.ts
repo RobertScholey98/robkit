@@ -8,12 +8,7 @@ import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
 
 const defaultAnswers: [question: string, keys: string][] = [
-  ["Which package manager?", keys.enter],
-  ["Which ORM?", keys.enter],
-  ["Add a shared React UI kit?", keys.enter],
-  ["Which app generators should robkit add offer?", keys.enter],
-  ["Which dev tools?", keys.enter],
-  ["Install dependencies and initialise git?", keys.no + keys.enter],
+  ["Which stack should the example app use?", keys.enter],
 ];
 
 /** Runs init in `cwd` with `args`, answering its questions. */
@@ -48,30 +43,16 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       [],
       [
         ["Where should robkit create the install?", `my-app${keys.enter}`],
-        ["Which package manager?", keys.enter],
-        ["Which ORM?", keys.enter],
-        ["Add a shared React UI kit?", keys.enter],
-        [
-          "Which app generators should robkit add offer?",
-          keys.space + keys.enter,
-        ],
-        ["Which dev tools?", keys.enter],
-        ["Install dependencies and initialise git?", keys.no + keys.enter],
+        ["Which stack should the example app use?", keys.down + keys.enter],
       ],
     );
 
     expect(code).toBe(0);
     expect(questionsAsked(output)).toEqual([
       "Where should robkit create the install?",
-      "Which package manager?",
-      "Which ORM?",
-      "Add a shared React UI kit?",
-      "Which app generators should robkit add offer?",
-      "Which dev tools?",
-      "Install dependencies and initialise git?",
+      "Which stack should the example app use?",
     ]);
-    const command =
-      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --ui-kit none --generators react-hono --tools eslint-prettier,vitest";
+    const command = "npm create robkit@latest my-app -- --stack react-hono";
     expect(output).toContain(command);
 
     // npm hands create-robkit the arguments after the --.
@@ -83,7 +64,9 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     expect((await init(flagged, args)).code).toBe(0);
 
     const fromAnswers = await readTree(join(asked, "my-app"));
-    expect(fromAnswers.get("robkit.json")).toContain(`["react-hono"]`);
+    expect(fromAnswers.get("robkit.json")).toContain(
+      `"exampleStack": "react-hono"`,
+    );
     expect(await readTree(join(flagged, "my-app"))).toEqual(fromAnswers);
   });
 
@@ -97,34 +80,23 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     );
 
     expect(code).toBe(0);
-    expect(questionsAsked(output)[0]).toBe("Which package manager?");
+    expect(questionsAsked(output)).toEqual([
+      "Which stack should the example app use?",
+    ]);
     expect(output).toContain(
-      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --ui-kit none --generators start,react-hono --tools eslint-prettier,vitest --link",
+      "npm create robkit@latest my-app -- --stack start --link",
     );
   });
 
-  it("asks which UI kit after a yes, and records it", async () => {
+  it("tells the owner to initialise git before installing", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
 
-    const { code, output } = await init(
-      cwd,
-      ["my-app"],
-      [
-        ["Which package manager?", keys.enter],
-        ["Which ORM?", keys.enter],
-        ["Add a shared React UI kit?", keys.down + keys.enter],
-        ["Which UI kit?", keys.enter],
-        ["Which app generators should robkit add offer?", keys.enter],
-        ["Which dev tools?", keys.enter],
-        ["Install dependencies and initialise git?", keys.no + keys.enter],
-      ],
-    );
+    const { code, output } = await init(cwd, ["my-app"], defaultAnswers);
 
     expect(code).toBe(0);
-    expect(output).toContain("--ui-kit shadcn-base-ui");
-    const tree = await readTree(join(cwd, "my-app"));
-    expect(tree.get("robkit.json")).toContain(`"uiKit": "shadcn-base-ui"`);
-    expect(tree.has(join("packages", "ui", "package.json"))).toBe(true);
+    expect(output).toContain(
+      "Next:\n\n  cd my-app\n  git init\n  pnpm install\n  pnpm dev\n",
+    );
   });
 
   it("refuses a folder name the printed command couldn't repeat", async () => {
@@ -166,12 +138,46 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       [],
       [
         ["Where should robkit create the install?", `my-app${keys.enter}`],
-        ["Which package manager?", keys.ctrlC],
+        ["Which stack should the example app use?", keys.ctrlC],
       ],
     );
 
     expect(code).toBe(1);
     expect(output).toContain("Cancelled. Nothing was written.");
+    expect(await readdir(cwd)).toEqual([]);
+  });
+});
+
+describe("init with --stack", { timeout: 30_000 }, () => {
+  it("asks nothing", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(cwd, [
+      "my-app",
+      "--stack",
+      "react-hono",
+    ]);
+
+    expect(code).toBe(0);
+    expect(questionsAsked(output)).toEqual([]);
+    expect(
+      await readFile(join(cwd, "my-app", "robkit.json"), "utf8"),
+    ).toContain(`"exampleStack": "react-hono"`);
+  });
+
+  it.each([
+    [["--stack", "start"], "Usage: npm create robkit [folder]"],
+    [
+      ["my-app", "--stack", "next"],
+      "--stack next isn't an option. Choose from: start, react-hono.",
+    ],
+  ])("refuses %j", async (args, message) => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(cwd, args);
+
+    expect(code).toBe(1);
+    expect(output).toContain(message);
     expect(await readdir(cwd)).toEqual([]);
   });
 });

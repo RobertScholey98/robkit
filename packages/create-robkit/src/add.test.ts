@@ -91,15 +91,14 @@ describe("addApp", () => {
     });
   });
 
-  it("offers only the stacks robkit.json enables", async () => {
-    const dir = await freshInstall({
-      ...defaultChoices,
-      generators: ["start"],
-    });
+  it("adds an app on any stack, whatever the example's", async () => {
+    const dir = await freshInstall({ exampleStack: "react-hono" });
 
-    await expect(addApp(dir, notes)).rejects.toThrow(
-      "This install's robkit add offers start, not react-hono.",
-    );
+    await addApp(dir, { ...notes, stack: "start" });
+
+    expect(await manifest(dir, "notes")).toMatchObject({
+      dependencies: { "@robkit/start": "catalog:" },
+    });
   });
 
   it.each([
@@ -115,13 +114,10 @@ describe("addApp", () => {
     await expect(addApp(dir, { ...notes, slug })).rejects.toThrow(message);
   });
 
-  it("draws an app that opts in with the install's UI kit", async () => {
-    const dir = await freshInstall({
-      ...defaultChoices,
-      uiKit: "shadcn-base-ui",
-    });
+  it("draws the app with the install's UI kit", async () => {
+    const dir = await freshInstall();
 
-    await addApp(dir, { ...notes, uiKit: true });
+    await addApp(dir, notes);
 
     expect(await manifest(dir, "notes")).toMatchObject({
       dependencies: { "@internal/ui": "workspace:*" },
@@ -132,40 +128,6 @@ describe("addApp", () => {
     expect(
       await readFile(join(dir, "apps/notes/src/server.tsx"), "utf8"),
     ).toContain('from "@internal/ui/components/ui/card"');
-  });
-
-  it.each([
-    ["start", "shadcn-base-ui"],
-    ["react-hono", "shadcn-base-ui"],
-    ["start", "shadcn-radix"],
-    ["react-hono", "shadcn-radix"],
-    ["start", "chakra"],
-    ["react-hono", "chakra"],
-  ] as const)(
-    "leaves the UI kit out of a %s app that opts out of %s",
-    async (stack, uiKit) => {
-      const dir = await freshInstall({ ...defaultChoices, uiKit });
-
-      await addApp(dir, { ...notes, stack, uiKit: false });
-
-      const files = await readdir(join(dir, "apps/notes"), {
-        recursive: true,
-      });
-      const texts = await Promise.all(
-        files
-          .filter((file) => /.(?:tsx?|css|json)$/.test(file))
-          .map((file) => readFile(join(dir, "apps/notes", file), "utf8")),
-      );
-      expect(texts.filter((text) => text.includes("@internal/ui"))).toEqual([]);
-    },
-  );
-
-  it("refuses the UI kit in an install without one", async () => {
-    const dir = await freshInstall();
-
-    await expect(addApp(dir, { ...notes, uiKit: true })).rejects.toThrow(
-      "This install has no UI kit. Leave out --ui-kit.",
-    );
   });
 
   it("refuses a folder that isn't an install", async () => {

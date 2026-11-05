@@ -7,7 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "create-install": "node packages/create-robkit/src/bin.ts --link",
+    "create-install": "node packages/create-robkit/src/bin.ts --link --install",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

@@ -10,11 +10,11 @@ const run = promisify(execFile);
 
 // A real pnpm install takes about 5s on a cold CI runner.
 describe("installDependencies", { timeout: 30_000 }, () => {
-  it("installs with the install's package manager, writing its lockfile", async () => {
+  it("installs with pnpm, writing its lockfile", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-"));
     await writeFile(join(dir, "package.json"), `{ "private": true }\n`);
 
-    await installDependencies(dir, "pnpm");
+    await installDependencies(dir);
 
     expect(await readFile(join(dir, "pnpm-lock.yaml"), "utf8")).toContain(
       "lockfileVersion:",

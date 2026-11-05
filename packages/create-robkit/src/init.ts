@@ -27,5 +27,5 @@ export async function init(
   await writeInstall(dir, await generateInstall(choices, options));
   if (!install) return;
   await initGit(dir);
-  await installDependencies(dir, choices.packageManager);
+  await installDependencies(dir);
 }

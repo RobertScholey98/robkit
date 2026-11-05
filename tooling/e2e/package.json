@@ -7,8 +7,7 @@
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run",
-    "test:production": "vitest run --config vitest.production.config.ts",
-    "test:combination": "vitest run --config vitest.combination.config.ts"
+    "test:production": "vitest run --config vitest.production.config.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "catalog:",
@@ -18,8 +17,6 @@
     "@robkit/dev": "workspace:*",
     "@robkit/session": "workspace:*",
     "@types/node": "catalog:",
-    "@yarnpkg/cli-dist": "catalog:",
-    "bun": "catalog:",
     "create-robkit": "workspace:*",
     "eslint": "catalog:",
     "jose": "catalog:",
