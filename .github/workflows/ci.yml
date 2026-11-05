@@ -64,3 +64,16 @@ jobs:
       - run: node tooling/repo-checks/src/check-coverage-thresholds.ts "$BASE"
       # Fails when a published package's source changed without a changeset.
       - run: pnpm changeset status --since="$BASE"
+
+  # The one check branch protection requires. It passes only if every job
+  # above passed, or was skipped because it runs only on pull requests.
+  gate:
+    if: ${{ always() }}
+    needs: [check, pull-request]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: echo "$RESULTS"
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || (github.event_name == 'pull_request' && contains(needs.*.result, 'skipped')) }}
+        run: exit 1
