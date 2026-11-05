@@ -33,3 +33,11 @@ jobs:
       # The end-to-end journey drives the stack in Chromium.
       - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
       - run: pnpm turbo run lint typecheck test
+      # Each package's coverage report, to see what its tests miss.
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: coverage
+          path: |
+            packages/*/coverage/
+            tooling/*/coverage/
