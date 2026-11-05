@@ -180,7 +180,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
    git commit -m "Refuse a roles rule that names no role"
    ```
 
-6. **Add a changeset.** The change is in a published package's source, so run `pnpm changeset`, pick `@robkit/session` and `patch`, describe the change in a sentence, and commit the file it writes.
+6. **Add a changeset.** The change is in a published package's source, so run `pnpm changeset`, pick `@robkit/guard` and `patch`, describe the change in a sentence, and commit the file it writes.
 
 7. **Run the gates.** `pnpm check`, then `pnpm check:all`.
 
