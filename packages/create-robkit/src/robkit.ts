@@ -201,11 +201,12 @@ async function add(): Promise<void> {
   const [command, given, ...rest] = positionals;
   if (command !== "add" || rest.length > 0) throw new Error(usage);
   const root = process.cwd();
-  const installed = await readInstallChoices(root);
+  // Refuses a folder that isn't an install.
+  await readInstallChoices(root);
   const asked = Object.keys(values).length === 0;
   const choices = asked
-    ? await askAdd(root, installed, given)
-    : appChoicesFromFlags(given ?? fail(addUsage), values, installed);
+    ? await askAdd(root, given)
+    : appChoicesFromFlags(given ?? fail(addUsage), values);
   await addApp(root, choices);
   // An install whose dependencies are in keeps them in, new app included.
   const hasDependencies = existsSync(join(root, "node_modules"));

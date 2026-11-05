@@ -1,49 +1,35 @@
+import { CANCEL_SYMBOL, intro, isCancel, select, text } from "@clack/prompts";
 import {
-  CANCEL_SYMBOL,
-  confirm,
-  intro,
-  isCancel,
-  multiselect,
-  text,
-} from "@clack/prompts";
-import {
-  choiceTable,
   defaultChoices,
-  listFlag,
-  type Choice,
-  type Flags,
+  stackFrom,
+  stacks,
+  type Generator,
 } from "./choices.ts";
 import { folderInUse } from "./write.ts";
 
-/**
- * init's answers, as the flags that make the same install. The choice flags
- * come in the order init asks them, which is the order the command prints.
- */
-export type Answers = { [Flag in keyof Flags]-?: string } & {
+/** init's answers: the install's folder and the example app's stack. */
+export interface Answers {
   folder: string;
-  install: boolean;
-};
+  stack: Generator;
+}
 
 /**
- * The options init offers for `choice`, from the table: the ones it can
- * make, then the ones a later release adds, shown but not yet selectable.
+ * The stacks init offers for the example app: the ones it can make, the
+ * default recommended, then the ones a later release adds, shown but not
+ * yet selectable.
  */
-export function optionsFor(choice: Choice, recommended?: string) {
-  const ready = choice.options.filter((option) => !option.comingLater);
-  const later = choice.options.filter((option) => option.comingLater);
-  return [
-    ...ready.map(({ value, label }) => ({
-      value,
-      label,
-      ...(value === recommended && { hint: "recommended" }),
-    })),
-    ...later.map(({ value, label }) => ({
-      value,
-      label,
-      hint: "coming later",
-      disabled: true,
-    })),
-  ];
+export function stackOptions() {
+  return stacks.map(({ value, label, ...stack }) =>
+    "comingLater" in stack
+      ? { value, label, hint: "coming later", disabled: true }
+      : {
+          value,
+          label,
+          ...(value === defaultChoices.exampleStack && {
+            hint: "recommended",
+          }),
+        },
+  );
 }
 
 function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
@@ -87,32 +73,26 @@ export async function askInit(folder?: string): Promise<Answers> {
         validate: (answer) => folderProblem(answer ?? defaultFolder),
       }),
     );
-  const { generators } = choiceTable;
-  const stacks = answered(
-    await multiselect({
-      message: generators.question,
-      options: optionsFor(generators),
-      initialValues: [...defaultChoices.generators],
-    }),
+  const stack = stackFrom(
+    answered(
+      await select({
+        message: "Which stack should the example app use?",
+        options: stackOptions(),
+        initialValue: defaultChoices.exampleStack,
+      }),
+    ),
   );
-  const install = answered(
-    await confirm({ message: "Install dependencies and initialise git?" }),
-  );
-  return {
-    folder: where,
-    generators: listFlag(stacks),
-    install,
-  };
+  return { folder: where, stack };
 }
 
 /** The command that makes the same install without asking. */
 export function commandFor(
-  { folder, install, ...flags }: Answers,
-  link = false,
+  { folder, stack }: Answers,
+  { install = false, link = false } = {},
 ): string {
   return [
     `npm create robkit@latest ${shellWord(folder) ?? folder} --`,
-    ...Object.entries(flags).map(([flag, value]) => `--${flag} ${value}`),
+    `--stack ${stack}`,
     ...(install ? ["--install"] : []),
     ...(link ? ["--link"] : []),
   ].join(" ");

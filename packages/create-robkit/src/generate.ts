@@ -3,13 +3,7 @@ import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
-import {
-  choiceTable,
-  type Choice,
-  type Choices,
-  type Generator,
-  type Option,
-} from "./choices.ts";
+import { readyStacks, type Choices, type Generator } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -23,7 +17,7 @@ export interface GenerateOptions {
   link?: boolean;
 }
 
-/** The slug init gives the app it adds from the first generator. */
+/** The slug of the app init adds on the example's stack. */
 const exampleSlug = "example";
 
 const templatesDir = fileURLToPath(new URL("../templates/", import.meta.url));
@@ -118,23 +112,9 @@ function editJson(files: Files, path: string, edit: (json: Json) => Json) {
   files.set(path, toJson(edit(JSON.parse(text) as Json)));
 }
 
-/** The table's entry for one choice's answer. */
-function optionOf(choice: Choice, value: string): Option | undefined {
-  return choice.options.find((option) => option.value === value);
-}
-
-/** The template folder the table gives one choice's answer, if it adds one. */
-function layerOf(choice: Choice, value: string): string | undefined {
-  return optionOf(choice, value)?.layer;
-}
-
 /** The template robkit ships for `stack`: an app's files, from its folder. */
-export async function stackTemplate(stack: Generator): Promise<Files> {
-  const layer = layerOf(choiceTable.generators, stack);
-  if (layer === undefined) {
-    throw new Error(`the ${stack} stack has no template`);
-  }
-  return readLayer(layer);
+export function stackTemplate(stack: Generator): Promise<Files> {
+  return readLayer(`stacks/${stack}`);
 }
 
 /**
@@ -239,19 +219,17 @@ export async function generateInstall(
 ): Promise<Files> {
   const files = await readLayer("base");
 
-  const stacks = await Promise.all(
-    choices.generators.map((stack) => stackTemplate(stack)),
-  );
-  const [example] = stacks;
-  if (example === undefined) throw new Error("init needs a generator");
   overlay(
     files,
-    appFiles(example, exampleSlug, { icon: defaultIcon }),
+    appFiles(await stackTemplate(choices.exampleStack), exampleSlug, {
+      icon: defaultIcon,
+    }),
     `apps/${exampleSlug}/`,
   );
 
   // The catalog covers every stack robkit add offers, so adding an app
   // needs no version the install lacks.
+  const stacks = await Promise.all(readyStacks.map(stackTemplate));
   const names = catalogued([
     ...files,
     ...stacks.flatMap((stack) => [...stack]),

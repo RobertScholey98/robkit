@@ -85,19 +85,14 @@ async function templateFor(root: string, stack: Generator) {
 }
 
 /**
- * Writes a new app at `apps/<slug>` in the install at `root`, from one of the
- * stacks its robkit.json enables. It writes files only: `pnpm dev`, or the
+ * Writes a new app at `apps/<slug>` in the install at `root`, on one of
+ * robkit's stacks. It writes files only: `pnpm dev`, or the
  * provision step before a deploy, gives the app its database, and core adds
  * it to its catalog with the rule it declares.
  */
 export async function addApp(root: string, choices: AppChoices): Promise<void> {
-  const installed = await readInstallChoices(root);
-  const { generators } = installed;
-  if (!generators.includes(choices.stack)) {
-    throw new Error(
-      `This install's robkit add offers ${andList(generators)}, not ${choices.stack}.`,
-    );
-  }
+  // Refuses a folder that isn't an install.
+  await readInstallChoices(root);
   const problem = newSlugProblem(root, choices.slug);
   if (problem) throw new Error(problem);
   const template = await templateFor(root, choices.stack);

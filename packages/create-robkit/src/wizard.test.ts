@@ -1,17 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { choiceTable } from "./choices.ts";
-import { commandFor, optionsFor, type Answers } from "./wizard.ts";
+import { commandFor, stackOptions, type Answers } from "./wizard.ts";
 
-const answers: Answers = {
-  folder: "family-apps",
-  generators: "start",
-  install: true,
-};
+const answers: Answers = { folder: "family-apps", stack: "react-hono" };
 
 describe("commandFor", () => {
-  it("asks for the install", () => {
+  it("names the example's stack", () => {
     expect(commandFor(answers)).toBe(
-      "npm create robkit@latest family-apps -- --generators start --install",
+      "npm create robkit@latest family-apps -- --stack react-hono",
+    );
+  });
+
+  it("keeps --install and --link", () => {
+    expect(commandFor(answers, { install: true, link: true })).toBe(
+      "npm create robkit@latest family-apps -- --stack react-hono --install --link",
     );
   });
 
@@ -25,9 +26,9 @@ describe("commandFor", () => {
   });
 });
 
-describe("optionsFor", () => {
-  it("offers the table's ready options, then the ones coming later", () => {
-    expect(optionsFor(choiceTable.generators, "start")).toEqual([
+describe("stackOptions", () => {
+  it("offers the ready stacks, then the ones coming later", () => {
+    expect(stackOptions()).toEqual([
       { value: "start", label: "TanStack Start", hint: "recommended" },
       { value: "react-hono", label: "React + Hono" },
       {

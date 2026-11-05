@@ -1,15 +1,10 @@
 export {
-  choicesFromFlags,
-  choiceTable,
   defaultChoices,
-  listFlag,
-  readyOptions,
-  type Choice,
-  type ChoiceName,
+  readyStacks,
+  stackFrom,
+  stacks,
   type Choices,
-  type Flags,
   type Generator,
-  type Option,
 } from "./choices.ts";
 export {
   deploymentOf,

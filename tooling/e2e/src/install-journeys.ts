@@ -151,7 +151,7 @@ export function describeJourneys(
 ): void {
   const dir = inject("installs")[name];
   const choices: Choices = installChoices[name];
-  const [stack] = choices.generators;
+  const stack = choices.exampleStack;
   const project = `robkit-e2e-${name}-${String(process.pid)}`;
 
   beforeAll(async () => {

@@ -91,15 +91,14 @@ describe("addApp", () => {
     });
   });
 
-  it("offers only the stacks robkit.json enables", async () => {
-    const dir = await freshInstall({
-      ...defaultChoices,
-      generators: ["start"],
-    });
+  it("adds an app on any stack, whatever the example's", async () => {
+    const dir = await freshInstall({ exampleStack: "react-hono" });
 
-    await expect(addApp(dir, notes)).rejects.toThrow(
-      "This install's robkit add offers start, not react-hono.",
-    );
+    await addApp(dir, { ...notes, stack: "start" });
+
+    expect(await manifest(dir, "notes")).toMatchObject({
+      dependencies: { "@robkit/start": "catalog:" },
+    });
   });
 
   it.each([

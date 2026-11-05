@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`generateInstall > keeps every file of Hono first pnpm install 1`] = `
+exports[`generateInstall > keeps every file of the Hono example pnpm install 1`] = `
 {
   ".dockerignore": "73e515acaa56c38b",
   ".github/workflows/ci.yml": "075fe6fa0dc6a198",
@@ -95,7 +95,7 @@ exports[`generateInstall > keeps every file of Hono first pnpm install 1`] = `
   "packages/ui/src/styles.css": "2aa229637ff64d8b",
   "packages/ui/tsconfig.json": "c30d575a1e3f6273",
   "pnpm-workspace.yaml": "a48cf10ad1067584",
-  "robkit.json": "b3d1bd2fc4d80792",
+  "robkit.json": "145663a93b98fdc4",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -202,7 +202,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "packages/ui/src/styles.css": "2aa229637ff64d8b",
   "packages/ui/tsconfig.json": "c30d575a1e3f6273",
   "pnpm-workspace.yaml": "a48cf10ad1067584",
-  "robkit.json": "cef31f272ce77abb",
+  "robkit.json": "45c88fe10fbdc144",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -350,7 +350,7 @@ catalog:
 `;
 
 exports[`generateInstall > writes the default install > robkit.json 1`] = `
-"{ "generators": ["start", "react-hono"] }
+"{ "exampleStack": "start" }
 "
 `;
 

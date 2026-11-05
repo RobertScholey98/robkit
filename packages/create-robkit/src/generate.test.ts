@@ -3,14 +3,7 @@ import { stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import {
-  choiceTable,
-  defaultChoices,
-  readyOptions,
-  type Choice,
-  type Choices,
-  type Option,
-} from "./choices.ts";
+import { defaultChoices, readyStacks, type Choices } from "./choices.ts";
 import { layerRule } from "./check.ts";
 import { generateInstall, stackTemplate, type Files } from "./generate.ts";
 
@@ -27,10 +20,7 @@ function workspace(files: Files) {
   };
 }
 
-const honoFirst: Choices = {
-  ...defaultChoices,
-  generators: ["react-hono", "start"],
-};
+const honoExample: Choices = { exampleStack: "react-hono" };
 
 describe("generateInstall", () => {
   it("writes the default install", async () => {
@@ -49,17 +39,17 @@ describe("generateInstall", () => {
     }
   });
 
-  it("records every choice in robkit.json", async () => {
-    const files = await generateInstall(honoFirst);
+  it("records the example's stack in robkit.json", async () => {
+    const files = await generateInstall(honoExample);
 
     expect(JSON.parse(files.get("robkit.json") ?? "")).toEqual({
-      generators: ["react-hono", "start"],
+      exampleStack: "react-hono",
     });
   });
 
-  it("adds the example app from the first generator", async () => {
+  it("adds the example app on the stack asked for", async () => {
     const start = await generateInstall(defaultChoices);
-    const hono = await generateInstall(honoFirst);
+    const hono = await generateInstall(honoExample);
 
     expect(start.has("apps/example/src/routes/index.tsx")).toBe(true);
     expect(start.has("apps/example/src/server.tsx")).toBe(false);
@@ -272,7 +262,7 @@ describe("generateInstall", () => {
   });
 
   it("catalogs every stack robkit add offers, not only the example's", async () => {
-    const { catalog } = workspace(await generateInstall(honoFirst));
+    const { catalog } = workspace(await generateInstall(honoExample));
 
     expect(catalog).toMatchObject({
       "@robkit/start": "0.0.0",
@@ -307,21 +297,10 @@ describe("generateInstall", () => {
     expect(files.has("gitignore")).toBe(false);
   });
 
-  it("has a template folder for every layer the choice table names", async () => {
-    const table: Choice[] = Object.values(choiceTable);
-    const layers = table.flatMap((choice) =>
-      readyOptions(choice).flatMap((option: Option) =>
-        option.layer === undefined ? [] : [option.layer],
-      ),
-    );
-
-    expect(layers).toContain("stacks/start");
-    for (const layer of layers) {
-      const dir = new URL(`../templates/${layer}/`, import.meta.url);
-      expect((await stat(dir)).isDirectory(), layer).toBe(true);
-    }
-    for (const stack of readyOptions(choiceTable.generators)) {
-      expect(stack.layer, stack.value).toBeDefined();
+  it("has a template folder for every stack robkit can make", async () => {
+    for (const stack of readyStacks) {
+      const dir = new URL(`../templates/stacks/${stack}/`, import.meta.url);
+      expect((await stat(dir)).isDirectory(), stack).toBe(true);
     }
   });
 
@@ -399,7 +378,7 @@ describe("generateInstall", () => {
 
   it.each<[string, Choices]>([
     ["the default", defaultChoices],
-    ["Hono first", honoFirst],
+    ["the Hono example", honoExample],
   ])("keeps every file of %s pnpm install", async (_, choices) => {
     const files = await generateInstall(choices);
 
