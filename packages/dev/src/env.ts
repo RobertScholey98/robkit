@@ -12,7 +12,7 @@ import {
   readPort,
   readSet,
   type Env,
-  type Problem,
+  type InputProblem,
 } from "@robkit/session/input";
 
 /** What `robkit-dev` runs with, read from its environment. */
@@ -29,7 +29,7 @@ export interface DevConfig {
 }
 
 /** The dev runner's settings, or every variable that won't do. */
-export function readDevConfig(env: Env): DevConfig | Problem {
+export function readDevConfig(env: Env): DevConfig | InputProblem {
   const domain = readDomain(env, defaultDomain);
   const devPort = readPort(env, "ROBKIT_DEV_PORT", defaultDevPort);
   const databaseUrl = env.ROBKIT_DATABASE_URL
@@ -67,7 +67,7 @@ const fromHost =
   "robkit deploy sets it on core from the host's shared variable of that name.";
 
 /** The provision step's settings, or every variable that won't do. */
-export function readProvisionConfig(env: Env): ProvisionConfig | Problem {
+export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem {
   const adminUrl = readDatabaseUrl(env, "ROBKIT_ADMIN_DATABASE_URL", fromHost);
   const secret = readSet(env, "ROBKIT_DB_SECRET", fromHost);
   const slugs: Slug[] = [];

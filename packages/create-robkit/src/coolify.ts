@@ -5,7 +5,7 @@ import {
   isDomain,
   isProblem,
   isRecord,
-  type Problem as InputProblem,
+  type InputProblem,
 } from "@robkit/session/input";
 import {
   containerPort,

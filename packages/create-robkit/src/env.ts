@@ -6,7 +6,7 @@ import {
   readDatabaseUrl,
   readSet,
   type Env,
-  type Problem,
+  type InputProblem,
 } from "@robkit/session/input";
 import type { Coolify } from "./coolify.ts";
 
@@ -16,7 +16,7 @@ const secretFix =
 /** What robkit database-urls needs: the host's admin URL and the secret. */
 export function readDatabaseUrlsConfig(
   env: Env,
-): { adminUrl: string; secret: string } | Problem {
+): { adminUrl: string; secret: string } | InputProblem {
   const adminUrl = readDatabaseUrl(
     env,
     "ROBKIT_ADMIN_DATABASE_URL",
@@ -37,7 +37,7 @@ export function readDatabaseUrlsConfig(
  * How robkit deploy reaches Coolify, or undefined when `COOLIFY_URL` is
  * unset, as it is in an install's CI before Coolify is set up.
  */
-export function readCoolify(env: Env): Coolify | undefined | Problem {
+export function readCoolify(env: Env): Coolify | undefined | InputProblem {
   const url = env.COOLIFY_URL;
   if (!url) return undefined;
   const protocol = URL.canParse(url) ? new URL(url).protocol : "";
@@ -72,7 +72,7 @@ export function readCoolify(env: Env): Coolify | undefined | Problem {
 }
 
 /** `--apps`: a comma-separated list of slugs. */
-export function readAppList(value: string): Slug[] | Problem {
+export function readAppList(value: string): Slug[] | InputProblem {
   const slugs: Slug[] = [];
   for (const name of value.split(",")) {
     const slug = readSlug(name.trim());
@@ -86,7 +86,7 @@ export function readAppList(value: string): Slug[] | Problem {
  * The apps in what `turbo ls --affected --output json` printed, by slug.
  * Packages outside `apps/` aren't apps.
  */
-export function readAffectedApps(json: unknown): Slug[] | Problem {
+export function readAffectedApps(json: unknown): Slug[] | InputProblem {
   const problem = {
     error:
       "turbo ls --affected printed JSON robkit can't read. Name the apps to deploy with --apps, or deploy them all with --all.",

@@ -11,11 +11,7 @@ import {
   install as addresses,
   type Slug,
 } from "@robkit/session/addresses";
-import {
-  isProblem,
-  parseJson,
-  type Problem as InputProblem,
-} from "@robkit/session/input";
+import { isProblem, parseJson, type InputProblem } from "@robkit/session/input";
 import { addApp, readInstallChoices } from "./add.ts";
 import {
   addCommandFor,

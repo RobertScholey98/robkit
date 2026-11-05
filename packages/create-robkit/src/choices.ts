@@ -1,5 +1,5 @@
 import { Problem } from "@robkit/dev";
-import { isRecord, type Problem as InputProblem } from "@robkit/session/input";
+import { isRecord, type InputProblem } from "@robkit/session/input";
 
 /** A stack an app can be made on. */
 interface StackOption {

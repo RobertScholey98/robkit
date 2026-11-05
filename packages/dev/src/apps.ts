@@ -13,7 +13,7 @@ import {
   parseJson,
   readDeclares,
   type Declares,
-  type Problem as InputProblem,
+  type InputProblem,
 } from "@robkit/session/input";
 import { isMissing } from "./files.ts";
 import type { Route } from "./proxy.ts";

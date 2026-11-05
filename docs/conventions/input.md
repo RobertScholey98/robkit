@@ -4,17 +4,17 @@ Every value that comes from outside robkit's own code goes through a reader once
 
 ## The rule
 
-A reader takes the raw value and returns the typed value or a `Problem`:
+A reader takes the raw value and returns the typed value or an `InputProblem`:
 
 ```ts
-interface Problem {
+interface InputProblem {
   readonly error: string;
 }
 ```
 
 - The reader takes `unknown`, or `Env` for environment variables. It never casts. ESLint's `no-unsafe-type-assertion` refuses a cast in any file that isn't a test.
 - The problem's `error` names the file or variable, the key, and what to do about it. Write it for the person who has to fix the input.
-- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command prints it and exits 1, and an HTTP route answers 400.
+- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `Problem` from `@robkit/dev` (see `errors.md`), and an HTTP route answers 400.
 - When several values are read together, report every problem at once with `allProblems`, a line each, so one run shows everything to fix.
 - A value with a meaning beyond its type gets a brand that only its reader makes. A `Slug` comes only from `readSlug`, so a function that takes one can't be handed a string nobody checked.
 
@@ -27,7 +27,7 @@ The shared readers live in `@robkit/session/input` (environment variables, JSON,
 ```ts
 export function readServeEnv(
   env: Env,
-): { host: string; port: number } | Problem {
+): { host: string; port: number } | InputProblem {
   const host = readHost(env);
   const port = readPort(env, "PORT", 3000);
   if (isProblem(host) || isProblem(port)) {

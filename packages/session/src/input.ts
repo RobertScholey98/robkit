@@ -1,6 +1,6 @@
 // robkit's readers for what comes from outside its own code: environment
 // variables, JSON files, and the `robkit` field of an app's manifest. Each
-// takes the raw input and returns the typed value or a Problem that names the
+// takes the raw input and returns the typed value or a InputProblem that names the
 // variable or key and says what to do. The caller decides what a problem
 // means: core and the dev runner refuse to start, a command prints it. See
 // docs/conventions/input.md.
@@ -9,11 +9,11 @@ import { readAccessRule } from "@robkit/guard";
 import { installAt, readSlug, type Slug } from "./install-addresses.ts";
 
 /** Why some input won't do: where it is, what's wrong, and what to do. */
-export interface Problem {
+export interface InputProblem {
   readonly error: string;
 }
 
-export function isProblem(value: unknown): value is Problem {
+export function isProblem(value: unknown): value is InputProblem {
   return isRecord(value) && typeof value.error === "string";
 }
 
@@ -22,7 +22,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Every problem among `reads` as one, a line each. */
-export function allProblems(...reads: unknown[]): Problem {
+export function allProblems(...reads: unknown[]): InputProblem {
   return {
     error: reads
       .filter(isProblem)
@@ -40,12 +40,16 @@ function valueOf(env: Env, name: string): string | undefined {
   return value === "" ? undefined : value;
 }
 
-const notSet = (name: string, fix: string): Problem => ({
+const notSet = (name: string, fix: string): InputProblem => ({
   error: `${name} is not set. ${fix}`,
 });
 
 /** A variable that must be set, or what to do when it isn't. */
-export function readSet(env: Env, name: string, fix: string): string | Problem {
+export function readSet(
+  env: Env,
+  name: string,
+  fix: string,
+): string | InputProblem {
   return valueOf(env, name) ?? notSet(name, fix);
 }
 
@@ -54,7 +58,7 @@ export function readPort(
   env: Env,
   name = "PORT",
   fallback?: number,
-): number | Problem {
+): number | InputProblem {
   const value = valueOf(env, name);
   if (value === undefined) {
     return (
@@ -75,7 +79,7 @@ export function readPort(
 }
 
 /** The address to listen on: `HOST`, or loopback. */
-export function readHost(env: Env): string | Problem {
+export function readHost(env: Env): string | InputProblem {
   const value = valueOf(env, "HOST");
   if (value === undefined) return "127.0.0.1";
   if (/^[\w.:-]+$/.test(value) && !value.includes("//")) return value;
@@ -93,7 +97,7 @@ export function isDomain(value: string): boolean {
 }
 
 /** The install's domain: `ROBKIT_DOMAIN`, or `fallback`. */
-export function readDomain(env: Env, fallback?: string): string | Problem {
+export function readDomain(env: Env, fallback?: string): string | InputProblem {
   const value = valueOf(env, "ROBKIT_DOMAIN");
   if (value === undefined) {
     return (
@@ -111,7 +115,7 @@ export function readDomain(env: Env, fallback?: string): string | Problem {
 }
 
 /** Core's public origin, `ROBKIT_CORE_URL`, which an app's guard asks. */
-export function readCoreUrl(env: Env): string | Problem {
+export function readCoreUrl(env: Env): string | InputProblem {
   const value = valueOf(env, "ROBKIT_CORE_URL");
   if (value === undefined) {
     return notSet(
@@ -126,7 +130,7 @@ export function readCoreUrl(env: Env): string | Problem {
 }
 
 /** The app's own slug, `ROBKIT_APP`. */
-export function readAppSlug(env: Env): Slug | Problem {
+export function readAppSlug(env: Env): Slug | InputProblem {
   const value = valueOf(env, "ROBKIT_APP");
   if (value === undefined) {
     return notSet(
@@ -148,7 +152,7 @@ export function readDatabaseUrl(
   env: Env,
   name = "DATABASE_URL",
   unsetFix = "Run the app with pnpm dev, which sets it, or set it to a postgres:// URL.",
-): string | Problem {
+): string | InputProblem {
   const value = valueOf(env, name);
   if (value === undefined) return notSet(name, unsetFix);
   const protocol = URL.canParse(value) ? new URL(value).protocol : "";
@@ -161,7 +165,7 @@ export function readDatabaseUrl(
 /** Where a server listens: `HOST` and `PORT`, by default 127.0.0.1:3000. */
 export function readServeEnv(
   env: Env,
-): { host: string; port: number } | Problem {
+): { host: string; port: number } | InputProblem {
   const host = readHost(env);
   const port = readPort(env, "PORT", 3000);
   if (isProblem(host) || isProblem(port)) {
@@ -176,7 +180,7 @@ export function readServeEnv(
  */
 export function readDevServerEnv(
   env: Env,
-): { port?: number; domain?: string } | Problem {
+): { port?: number; domain?: string } | InputProblem {
   const port = valueOf(env, "PORT") === undefined ? undefined : readPort(env);
   const domain =
     valueOf(env, "ROBKIT_DOMAIN") === undefined ? undefined : readDomain(env);
@@ -188,7 +192,9 @@ export function readDevServerEnv(
 }
 
 /** What an app's guard needs: its slug and core's public origin. */
-export function readGuardEnv(env: Env): { app: Slug; core: string } | Problem {
+export function readGuardEnv(
+  env: Env,
+): { app: Slug; core: string } | InputProblem {
   const app = readAppSlug(env);
   const core = readCoreUrl(env);
   if (isProblem(app) || isProblem(core)) {
@@ -201,7 +207,7 @@ export function readGuardEnv(env: Env): { app: Slug; core: string } | Problem {
 export function parseJson(
   text: string,
   source: string,
-): { json: unknown } | Problem {
+): { json: unknown } | InputProblem {
   try {
     return { json: JSON.parse(text) };
   } catch (error) {
@@ -247,7 +253,7 @@ function readDeclaredAccess(value: unknown): DeclaredAccess | undefined {
 export function readDeclares(
   value: unknown,
   field = "robkit",
-): Declares | Problem {
+): Declares | InputProblem {
   if (value === undefined) return {};
   if (!isRecord(value)) {
     return {
@@ -294,7 +300,7 @@ export function declaresJson({
 export function readDeclaredApp(
   value: unknown,
   field: string,
-): DeclaredApp | Problem {
+): DeclaredApp | InputProblem {
   if (!isRecord(value)) {
     return {
       error: `${field} must be an object with the app's slug, such as {"slug": "notes"}.`,

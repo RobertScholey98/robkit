@@ -11,7 +11,7 @@ import {
   type DeclaredAccess,
   type DeclaredApp,
   type Env,
-  type Problem,
+  type InputProblem,
 } from "@robkit/session/input";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
@@ -47,7 +47,7 @@ export function readAccess(
  * themselves, which the dev runner and robkit deploy write from each app's
  * manifest. Empty or unset means none.
  */
-export function readDeclaredApps(env: Env): DeclaredApp[] | Problem {
+export function readDeclaredApps(env: Env): DeclaredApp[] | InputProblem {
   const text = env.ROBKIT_APPS;
   if (text === undefined || text.trim() === "") return [];
   const parsed = parseJson(text, "ROBKIT_APPS");

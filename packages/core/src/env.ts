@@ -7,7 +7,7 @@ import {
   readPort,
   type DeclaredApp,
   type Env,
-  type Problem,
+  type InputProblem,
 } from "@robkit/session/input";
 import { readDeclaredApps } from "./apps.ts";
 import { readTrustedProxy, type TrustedProxy } from "./client.ts";
@@ -32,7 +32,7 @@ export interface CoreConfig {
  * Core's environment, or every variable that won't do, one per line, so
  * core refuses to start rather than run on a setting it misread.
  */
-export function readCoreConfig(env: Env): CoreConfig | Problem {
+export function readCoreConfig(env: Env): CoreConfig | InputProblem {
   const databaseUrl = readDatabaseUrl(env);
   const domain = readDomain(env);
   const apps = readDeclaredApps(env);
