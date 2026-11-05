@@ -118,3 +118,25 @@ describe("whether a URL is on the install", () => {
     expect(hosted.onInstall(url)).toBeUndefined();
   });
 });
+
+describe("the app a URL is on", () => {
+  const hosted = install({ domain: "robkit.dev", protocol: "https" });
+
+  it.each([
+    ["https://notes.robkit.dev/list?x=1", "notes"],
+    ["http://admin.robkit.dev:8443/", "admin"],
+    ["https://core.robkit.dev/refresh", "core"],
+  ])("finds %s on %s", (url, slug) => {
+    expect(hosted.appOf(url)).toBe(slug);
+  });
+
+  it.each([
+    "https://robkit.dev/",
+    "https://a.notes.robkit.dev/",
+    "https://notes.robkit.dev.evil.com/",
+    "javascript://notes.robkit.dev/%0aalert(1)",
+    "/relative",
+  ])("finds no app for %s", (url) => {
+    expect(hosted.appOf(url)).toBeUndefined();
+  });
+});
