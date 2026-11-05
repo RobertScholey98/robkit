@@ -14,6 +14,7 @@ export {
 export {
   requestGuard,
   type GuardedOptions,
+  type GuardFault,
   type RequestDecision,
 } from "./request-guard.ts";
 export {
