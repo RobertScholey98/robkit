@@ -6,7 +6,7 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   ".github/workflows/ci.yml": "989da63cf0fdf455",
   ".gitignore": "1c8e3db7cfa4d809",
   ".husky/pre-commit": "aad3507759b5b03c",
-  ".prettierignore": "4fdf740819c3271e",
+  ".prettierignore": "e1006b3ab5973be5",
   "AGENTS.md": "77651e8662d850e2",
   "CLAUDE.md": "336cc4fbf19beaad",
   "Dockerfile": "13fcdf3d44094f23",
@@ -71,7 +71,7 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   "docs/deploy.md": "cb87a255748e31f7",
   "eslint.config.js": "1a465b635da72234",
   "lint-staged.config.js": "8508de0e3c78adba",
-  "package.json": "83fb855c1c1c5f25",
+  "package.json": "3ba4833f186d31ae",
   "packages/core-client/package.json": "4c9c579077c360c0",
   "packages/core-client/src/call-core.test.ts": "56b983ff0c794669",
   "packages/core-client/src/call-core.ts": "445798aa38d534c2",
@@ -99,7 +99,7 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   "robkit/fetch-app.js": "2f1d2ea299d23d4b",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
-  "turbo.json": "4bf2816c95dd9c9e",
+  "turbo.json": "8e49f9475e465e49",
 }
 `;
 
@@ -109,7 +109,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   ".github/workflows/ci.yml": "989da63cf0fdf455",
   ".gitignore": "1c8e3db7cfa4d809",
   ".husky/pre-commit": "aad3507759b5b03c",
-  ".prettierignore": "4fdf740819c3271e",
+  ".prettierignore": "e1006b3ab5973be5",
   "AGENTS.md": "77651e8662d850e2",
   "CLAUDE.md": "336cc4fbf19beaad",
   "Dockerfile": "13fcdf3d44094f23",
@@ -179,7 +179,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "docs/deploy.md": "cb87a255748e31f7",
   "eslint.config.js": "1a465b635da72234",
   "lint-staged.config.js": "8508de0e3c78adba",
-  "package.json": "83fb855c1c1c5f25",
+  "package.json": "3ba4833f186d31ae",
   "packages/core-client/package.json": "4c9c579077c360c0",
   "packages/core-client/src/call-core.test.ts": "56b983ff0c794669",
   "packages/core-client/src/call-core.ts": "445798aa38d534c2",
@@ -207,7 +207,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "robkit/fetch-app.js": "2f1d2ea299d23d4b",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
-  "turbo.json": "4bf2816c95dd9c9e",
+  "turbo.json": "8e49f9475e465e49",
 }
 `;
 
@@ -273,8 +273,8 @@ exports[`generateInstall > writes the default install > package.json 1`] = `
     "test": "turbo run test",
     "build": "turbo run build",
     "robkit": "robkit",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --ignore-path .prettierignore --write .",
+    "format:check": "prettier --ignore-path .prettierignore --check .",
     "postinstall": "husky || true"
   },
   "devDependencies": {

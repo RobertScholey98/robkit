@@ -1,3 +1,9 @@
+# Prettier reads only this file, not .gitignore, so it formats the app
+# repos the install ignores too.
+node_modules/
+dist/
+.turbo/
+vendor/
 pnpm-lock.yaml
 # drizzle-kit writes these.
 **/drizzle/meta/

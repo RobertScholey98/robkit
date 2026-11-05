@@ -82,8 +82,8 @@ describe("generateInstall", () => {
         test: "turbo run test",
         build: "turbo run build",
         lint: "robkit check && eslint .",
-        format: "prettier --write .",
-        "format:check": "prettier --check .",
+        format: "prettier --ignore-path .prettierignore --write .",
+        "format:check": "prettier --ignore-path .prettierignore --check .",
         robkit: "robkit",
         postinstall: "husky || true",
       },
@@ -179,6 +179,25 @@ describe("generateInstall", () => {
         "build",
       ]),
     );
+  });
+
+  it("has turbo hash every file of an app, though the install's git ignores app repos", async () => {
+    const files = await generateInstall(defaultChoices);
+    const { tasks } = json(files, "turbo.json") as {
+      tasks: Record<string, { inputs?: string[] }>;
+    };
+
+    // turbo's default inputs are the files git tracks, which would cache
+    // an app repo's checks for ever.
+    for (const task of ["build", "typecheck", "test"]) {
+      expect(tasks[task]?.inputs).toEqual([
+        "**",
+        "!node_modules/**",
+        "!.git/**",
+        "!.turbo/**",
+        "!dist/**",
+      ]);
+    }
   });
 
   it("lints with robkit check, then ESLint", async () => {

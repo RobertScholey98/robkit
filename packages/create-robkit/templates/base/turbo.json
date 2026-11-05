@@ -2,9 +2,20 @@
   "$schema": "https://turborepo.com/schema.json",
   "tasks": {
     "build": {
+      "inputs": [
+        "**",
+        "!node_modules/**",
+        "!.git/**",
+        "!.turbo/**",
+        "!dist/**"
+      ],
       "outputs": ["dist/**"]
     },
-    "typecheck": {},
-    "test": {}
+    "typecheck": {
+      "inputs": ["**", "!node_modules/**", "!.git/**", "!.turbo/**", "!dist/**"]
+    },
+    "test": {
+      "inputs": ["**", "!node_modules/**", "!.git/**", "!.turbo/**", "!dist/**"]
+    }
   }
 }
