@@ -8,9 +8,7 @@ catalogMode: strict
 catalog:
   "@axe-core/playwright": 4.14.0
   "@base-ui/react": 1.9.0
-  "@chakra-ui/react": 3.37.0
   "@clack/prompts": 1.8.1
-  "@emotion/react": 11.14.0
   "@eslint/js": 10.0.1
   "@fontsource-variable/geist": 5.3.0
   "@hono/node-server": 2.1.5

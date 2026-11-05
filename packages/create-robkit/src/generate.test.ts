@@ -459,55 +459,11 @@ describe("generateInstall", () => {
     }
   });
 
-  it("lays Chakra over the same screens, with its own packages/ui and app layer", async () => {
-    const plain = await generateInstall(defaultChoices);
-    const chakra = await generateInstall({
-      ...defaultChoices,
-      uiKit: "chakra",
-    });
-    const ui = json(chakra, "packages/ui/package.json") as {
-      dependencies: Record<string, string>;
-    };
-    const { catalog } = workspace(chakra);
-
-    expect(ui.dependencies).toMatchObject({
-      "@chakra-ui/react": "catalog:",
-      "@emotion/react": "catalog:",
-    });
-    expect(catalog).toMatchObject({
-      "@chakra-ui/react": "3.37.0",
-      "@emotion/react": "11.14.0",
-    });
-    expect(catalog).not.toHaveProperty("shadcn");
-    expect(chakra.has("packages/ui/src/components/ui/button.tsx")).toBe(false);
-    expect(chakra.get("apps/hub/src/ui.tsx")).toContain('from "@internal/ui"');
-    expect(chakra.get("apps/admin/src/client/ui.tsx")).toContain(
-      "<Checkbox.Root",
-    );
-    // The screens, the theme and the pages' entry points are the no-kit ones.
-    for (const path of [
-      "apps/hub/src/forms.tsx",
-      "apps/hub/src/main.tsx",
-      "apps/admin/src/client/Admin.tsx",
-      "apps/admin/src/client/main.tsx",
-      "packages/theme/theme.css",
-    ]) {
-      expect(chakra.get(path)).toBe(plain.get(path));
-    }
-    // The example app draws with Chakra, inside the kit's provider.
-    expect(chakra.get("apps/example/src/routes/__root.tsx")).toContain(
-      "<Provider>{children}</Provider>",
-    );
-    expect(chakra.get("apps/example/src/routes/index.tsx")).toContain(
-      'from "@internal/ui"',
-    );
-  });
-
   it.each<[string, Choices]>([
     ["the default", defaultChoices],
     ["Radix", { ...defaultChoices, uiKit: "shadcn-radix" }],
     ["Base UI", { ...defaultChoices, uiKit: "shadcn-base-ui" }],
-    ["Chakra with Hono first", { ...honoFirst, uiKit: "chakra" }],
+    ["Base UI with Hono first", { ...honoFirst, uiKit: "shadcn-base-ui" }],
   ])("keeps every file of %s pnpm install", async (_, choices) => {
     const files = await generateInstall(choices);
 

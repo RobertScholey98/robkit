@@ -25,7 +25,7 @@ export const installChoices = {
   "react-hono": {
     ...defaultChoices,
     generators: ["react-hono", "start"],
-    uiKit: "chakra",
+    uiKit: "shadcn-base-ui",
   },
 } satisfies Record<string, Choices>;
 

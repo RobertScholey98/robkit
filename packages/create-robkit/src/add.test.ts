@@ -139,8 +139,6 @@ describe("addApp", () => {
     ["react-hono", "shadcn-base-ui"],
     ["start", "shadcn-radix"],
     ["react-hono", "shadcn-radix"],
-    ["start", "chakra"],
-    ["react-hono", "chakra"],
   ] as const)(
     "leaves the UI kit out of a %s app that opts out of %s",
     async (stack, uiKit) => {
