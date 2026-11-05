@@ -8,7 +8,9 @@ import {
   defaultDevPort,
   defaultDomain,
   install as addresses,
+  type Slug,
 } from "@robkit/session/addresses";
+import { isProblem, parseJson, type Problem } from "@robkit/session/input";
 import { addApp, readInstallChoices } from "./add.ts";
 import {
   addCommandFor,
@@ -19,6 +21,12 @@ import {
 import { checkInstall, describeProblem } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
+import {
+  readAffectedApps,
+  readAppList,
+  readCoolify,
+  readDatabaseUrlsConfig,
+} from "./env.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
@@ -97,14 +105,9 @@ async function printDatabaseUrls(): Promise<void> {
   if (positionals.length > 1) throw new Error(usage);
   const root = process.cwd();
   await readInstallChoices(root);
-  const adminUrl = process.env.ROBKIT_ADMIN_DATABASE_URL;
-  const secret = process.env.ROBKIT_DB_SECRET;
-  if (!adminUrl || !secret) {
-    throw new Error(
-      "Set ROBKIT_ADMIN_DATABASE_URL to the host's Postgres admin URL and ROBKIT_DB_SECRET to the install's database secret.",
-    );
-  }
-  for (const [name, url] of await databaseUrls(root, { adminUrl, secret })) {
+  const config = readDatabaseUrlsConfig(process.env);
+  if (isProblem(config)) throw new Error(config.error);
+  for (const [name, url] of await databaseUrls(root, config)) {
     console.log(`${name}=${url}`);
   }
 }
@@ -121,10 +124,11 @@ async function deployInstall(): Promise<void> {
   if (positionals.length > 1) throw new Error(usage);
   const root = process.cwd();
   await readInstallChoices(root);
-  const { COOLIFY_URL: url, COOLIFY_TOKEN: token } = process.env;
   const dryRun = values["dry-run"];
+  const coolify = dryRun ? undefined : readCoolify(process.env);
+  if (isProblem(coolify)) throw new Error(coolify.error);
   // An install's CI deploys from its first push, before Coolify is set up.
-  if (!url && !dryRun) {
+  if (!coolify && !dryRun) {
     console.log("COOLIFY_URL is not set, so nothing was deployed.");
     return;
   }
@@ -134,13 +138,15 @@ async function deployInstall(): Promise<void> {
       "This install has no coolify.json. See docs/deploy.md to set one up.",
     );
   }
-  const config = readCoolifyConfig(await readFile(configPath, "utf8"));
+  const parsed = parseJson(await readFile(configPath, "utf8"), "coolify.json");
+  const config = isProblem(parsed) ? parsed : readCoolifyConfig(parsed.json);
+  if (isProblem(config)) throw new Error(config.error);
   const deployments = await deploymentOf(root, {
     domain: config.domain,
     trustedProxy: config.trustedProxy,
   });
 
-  if (dryRun || !url) {
+  if (!coolify) {
     for (const { slug, env } of deployments) {
       console.log(`${slug}:`);
       for (const [key, value] of Object.entries(env)) {
@@ -151,22 +157,14 @@ async function deployInstall(): Promise<void> {
     }
     return;
   }
-  if (!token) throw new Error("Set COOLIFY_TOKEN to deploy.");
-  const {
-    CF_ACCESS_CLIENT_ID: accessId,
-    CF_ACCESS_CLIENT_SECRET: accessSecret,
-  } = process.env;
-
   const affected = values.all
     ? "all"
-    : (values.apps?.split(",").map((app) => app.trim()) ??
-      (await affectedApps(root)));
+    : values.apps === undefined
+      ? await affectedApps(root)
+      : readAppList(values.apps);
+  if (isProblem(affected)) throw new Error(affected.error);
   const ok = await deploy({
-    coolify: {
-      url,
-      token,
-      ...(accessId && accessSecret && { accessId, accessSecret }),
-    },
+    coolify,
     config,
     deployments,
     affected,
@@ -175,17 +173,13 @@ async function deployInstall(): Promise<void> {
 }
 
 /** The apps turbo finds changed since TURBO_SCM_BASE, by slug. */
-async function affectedApps(root: string): Promise<string[]> {
+async function affectedApps(root: string): Promise<Slug[] | Problem> {
   const { stdout } = await promisify(exec)(
     "turbo ls --affected --output json",
     { cwd: root },
   );
-  const items =
-    (JSON.parse(stdout) as { packages?: { items?: { path?: string }[] } })
-      .packages?.items ?? [];
-  return items.flatMap(({ path }) =>
-    path?.startsWith("apps/") ? [path.slice("apps/".length)] : [],
-  );
+  const parsed = parseJson(stdout, "turbo ls --affected's output");
+  return isProblem(parsed) ? parsed : readAffectedApps(parsed.json);
 }
 
 async function add(): Promise<void> {

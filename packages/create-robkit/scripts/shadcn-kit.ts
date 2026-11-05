@@ -19,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { format } from "prettier";
+import { jsonObject, stringsIn } from "../src/json.ts";
 import { readRobkitRepo } from "../src/robkit-repo.ts";
 
 /** The components the hub's and admin's ui.tsx draw with. */
@@ -138,11 +139,12 @@ try {
   );
 
   // Where shadcn's CLI writes the components an owner adds later.
-  const config = JSON.parse(
+  const config = jsonObject(
     await readFile(join(dir, "components.json"), "utf8"),
-  ) as { aliases: Record<string, string> };
+    "components.json",
+  );
   config.aliases = Object.fromEntries(
-    Object.entries(config.aliases).map(([key, alias]) => [
+    Object.entries(stringsIn(config.aliases)).map(([key, alias]) => [
       key,
       alias.replace(/^@\//, "@internal/ui/"),
     ]),
@@ -167,17 +169,21 @@ try {
 
   // Every dependency shadcn added must be in the kit's manifest and the catalog.
   const added = Object.keys(
-    (
-      JSON.parse(await readFile(join(dir, "package.json"), "utf8")) as {
-        dependencies?: Record<string, string>;
-      }
-    ).dependencies ?? {},
+    stringsIn(
+      jsonObject(
+        await readFile(join(dir, "package.json"), "utf8"),
+        "shadcn's package.json",
+      ).dependencies,
+    ),
   );
-  const manifest = JSON.parse(
-    await readFile(join(ui, "package.json"), "utf8"),
-  ) as { dependencies: Record<string, string> };
+  const kitDependencies = stringsIn(
+    jsonObject(
+      await readFile(join(ui, "package.json"), "utf8"),
+      "packages/ui/package.json",
+    ).dependencies,
+  );
   const missing = added.filter(
-    (name) => !(name in manifest.dependencies) || !catalog.has(name),
+    (name) => !(name in kitDependencies) || !catalog.has(name),
   );
   if (missing.length > 0) {
     throw new Error(

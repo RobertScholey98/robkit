@@ -6,6 +6,7 @@ import { cors } from "hono/cors";
 import { validator } from "hono/validator";
 import { appSessionUrl, sessionCookie, sessionTokensIn } from "@robkit/session";
 import { install, isLocal, platformApps } from "@robkit/session/addresses";
+import { isRecord } from "@robkit/session/input";
 import {
   listCodes,
   mintCode,
@@ -84,7 +85,7 @@ type Fields = Record<string, unknown>;
 async function fieldsOf(c: Context): Promise<Fields | undefined> {
   try {
     const body: unknown = await c.req.json();
-    return typeof body === "object" && body !== null ? (body as Fields) : {};
+    return isRecord(body) ? body : {};
   } catch {
     return undefined;
   }

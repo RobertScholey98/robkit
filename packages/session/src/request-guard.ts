@@ -8,7 +8,12 @@ import {
 import { appRefreshPath, appSessionPath } from "./app-session.ts";
 import { coreAccess } from "./core-access.ts";
 import { coreKeys } from "./core-keys.ts";
-import { installAt, isLocal, type Install } from "./install-addresses.ts";
+import {
+  installAt,
+  isLocal,
+  type Install,
+  type Slug,
+} from "./install-addresses.ts";
 import { sessionLapsedResponse } from "./session-lapsed.ts";
 import {
   cookieValues,
@@ -22,7 +27,7 @@ export interface GuardedOptions {
    * The app's slug, which is also its subdomain. The guard accepts only a
    * token core minted for this slug.
    */
-  app: string;
+  app: Slug;
   /**
    * A fixed rule, for an app core's catalog doesn't hold, such as admin.
    * Without one, the rule comes from core's catalog and is kept for a

@@ -9,6 +9,7 @@ import {
   sessionCookieOf,
   withSession,
 } from "./test/fresh-app.ts";
+import { slug } from "./test/slug.ts";
 
 const minute = 60_000;
 
@@ -29,10 +30,10 @@ async function install() {
   const { app, db } = core;
   const owner = await claim(app);
   await registerApps(db, [
-    { slug: "family" },
-    { slug: "friends" },
-    { slug: "open" },
-    { slug: "private" },
+    { slug: slug("family") },
+    { slug: slug("friends") },
+    { slug: slug("open") },
+    { slug: slug("private") },
   ]);
   const ids = await roleIdsByName(app, owner);
   const roleId = (name: string) => ids[name] ?? "";
@@ -75,7 +76,10 @@ describe("GET /launcher", () => {
   it("gives each app's name and icon", async () => {
     const { app, db } = await freshCore();
     const owner = await claim(app);
-    await registerApps(db, [{ slug: "notes", icon: "📝" }, { slug: "diary" }]);
+    await registerApps(db, [
+      { slug: slug("notes"), icon: "📝" },
+      { slug: slug("diary") },
+    ]);
 
     const res = await app.request("/launcher", {
       headers: withSession(owner),
@@ -84,7 +88,7 @@ describe("GET /launcher", () => {
     expect(await res.json()).toEqual({
       apps: [
         { slug: "diary", name: "diary", icon: null },
-        { slug: "notes", name: "notes", icon: "📝" },
+        { slug: slug("notes"), name: "notes", icon: "📝" },
       ],
     });
   });
@@ -120,8 +124,8 @@ describe("GET /launcher", () => {
 
     expect(await res.json()).toEqual({
       apps: [
-        { slug: "family", name: "family", icon: null },
-        { slug: "open", name: "open", icon: null },
+        { slug: slug("family"), name: "family", icon: null },
+        { slug: slug("open"), name: "open", icon: null },
       ],
     });
     expect(sessionCookieOf(res)?.value).toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);

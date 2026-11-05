@@ -3,9 +3,11 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { format } from "prettier";
+import { isRecord } from "@robkit/session/input";
 import { parseDocument } from "yaml";
 import { readInstallChoices } from "./add.ts";
 import { pnpmSettings } from "./generate.ts";
+import { jsonObject, stringsIn } from "./json.ts";
 
 const exec = promisify(execCallback);
 
@@ -24,9 +26,8 @@ export async function vendorPackages(root: string): Promise<void> {
   await readInstallChoices(root);
   const path = join(root, pnpmSettings);
   const workspace = parseDocument(await readFile(path, "utf8"));
-  const { overrides = {} } = workspace.toJS() as {
-    overrides?: Record<string, string>;
-  };
+  const settings: unknown = workspace.toJS();
+  const overrides = isRecord(settings) ? stringsIn(settings.overrides) : {};
   const protocol = "link:";
   const linked = Object.entries(overrides).filter(([, spec]) =>
     spec.startsWith(protocol),
@@ -48,7 +49,10 @@ export async function vendorPackages(root: string): Promise<void> {
       `pnpm pack --json --pack-destination "${out}"`,
       { cwd: dir },
     );
-    const { filename } = JSON.parse(stdout) as { filename: string };
+    const { filename } = stringsIn(jsonObject(stdout, "pnpm pack --json"));
+    if (filename === undefined) {
+      throw new Error(`pnpm pack --json printed no filename for ${name}.`);
+    }
     workspace.setIn(
       ["overrides", name],
       `file:${vendorDir}/${basename(filename)}`,

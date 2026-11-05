@@ -8,6 +8,7 @@ import {
 import { conformanceCases } from "@robkit/guard/conformance";
 import { describe, expect, it } from "vitest";
 import { guarded, type GuardedOptions } from "./index.ts";
+import { slug } from "./test/slug.ts";
 
 // requestGuard's own tests cover the guard. These cover the Start glue: the
 // guard's answer goes out as is, and Start gets the viewer as context.
@@ -34,7 +35,7 @@ describe("guarded", () => {
     const core = await fakeCore();
 
     const res = await open(
-      { app: "start", access: asking.rule, core: core.origin },
+      { app: slug("start"), access: asking.rule, core: core.origin },
       page,
       {
         headers: {
@@ -63,7 +64,7 @@ describe("guarded", () => {
     });
 
     const res = await open(
-      { app: "start", access: { kind: "owner" }, core: core.origin },
+      { app: slug("start"), access: { kind: "owner" }, core: core.origin },
       serverFn,
       {
         method: "POST",
@@ -86,7 +87,7 @@ describe("guarded", () => {
     const token = await core.key.token({ audience: "start" });
 
     const res = await open(
-      { app: "start", access: { kind: "owner" }, core: core.origin },
+      { app: slug("start"), access: { kind: "owner" }, core: core.origin },
       serverFn,
       {
         method: "POST",
@@ -105,7 +106,7 @@ describe("guarded", () => {
   it("takes the app's token from core at the guard's callback, before Start sees it", async () => {
     const core = await fakeCore();
     const options = {
-      app: "start",
+      app: slug("start"),
       access: { kind: "owner" },
       core: core.origin,
     } as const;
