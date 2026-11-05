@@ -139,6 +139,24 @@ describe("addApp", () => {
     ).toContain('from "@internal/ui/components/ui/card"');
   });
 
+  it("refuses an install whose robkit.json isn't JSON, naming it", async () => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "robkit.json"), "{ nope");
+
+    await expect(addApp(dir, notes)).rejects.toThrow(
+      /^robkit\.json isn't valid JSON \(.+\)\. Fix its syntax\.$/,
+    );
+  });
+
+  it("refuses an install whose robkit.json has the wrong shape", async () => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "robkit.json"), "null");
+
+    await expect(addApp(dir, notes)).rejects.toThrow(
+      "robkit.json must be a JSON object",
+    );
+  });
+
   it("refuses a folder that isn't an install", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-"));
 

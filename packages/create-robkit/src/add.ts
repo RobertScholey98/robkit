@@ -7,8 +7,13 @@ import {
   readSlug,
   type Slug,
 } from "@robkit/session/addresses";
-import type { DeclaredAccess } from "@robkit/session/input";
-import type { Choices, Stack } from "./choices.ts";
+import {
+  isProblem,
+  parseJson,
+  type DeclaredAccess,
+} from "@robkit/session/input";
+import { readChoices, type Choices, type Stack } from "./choices.ts";
+import { isMissing } from "./files.ts";
 import { appFiles, readFolder, stackTemplate } from "./generate.ts";
 import { writeInstall } from "./write.ts";
 
@@ -30,13 +35,16 @@ export async function readInstallChoices(root: string): Promise<Choices> {
   try {
     text = await readFile(join(root, "robkit.json"), "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    if (!isMissing(error)) throw error;
     throw new Error(
       `${root} has no robkit.json. Run robkit add in an install's folder.`,
       { cause: error },
     );
   }
-  return JSON.parse(text) as Choices;
+  const parsed = parseJson(text, "robkit.json");
+  const choices = isProblem(parsed) ? parsed : readChoices(parsed.json);
+  if (isProblem(choices)) throw new Error(choices.error);
+  return choices;
 }
 
 /** "a, b and c". */
@@ -51,7 +59,7 @@ async function exists(path: string): Promise<boolean> {
   return stat(path).then(
     () => true,
     (error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      if (isMissing(error)) return false;
       throw error;
     },
   );
