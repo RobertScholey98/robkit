@@ -4,8 +4,12 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     globalSetup: ["./src/install.ts"],
-    // pnpm test:production runs this, with its own config.
-    exclude: ["src/production.test.ts", "**/node_modules/**"],
+    // pnpm test:production and vitest.share.config.ts run these.
+    exclude: [
+      "src/production.test.ts",
+      "src/share.test.ts",
+      "**/node_modules/**",
+    ],
     testTimeout: 180_000,
     hookTimeout: 180_000,
   },

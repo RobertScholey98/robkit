@@ -6,7 +6,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run",
+    "test": "vitest run && node --run test:share",
+    "test:share": "vitest run --config vitest.share.config.ts",
     "test:production": "vitest run --config vitest.production.config.ts"
   },
   "devDependencies": {
