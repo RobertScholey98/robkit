@@ -35,7 +35,13 @@ describe("addApp", () => {
       name: "@internal/notes-app",
       scripts: { migrate: "node src/migrate.ts" },
       dependencies: { "@robkit/hono": "catalog:" },
-      robkit: { access: { kind: "open" }, icon: "📝" },
+      robkit: {
+        name: "notes",
+        stack: "react-hono",
+        contract: 1,
+        access: { kind: "open" },
+        icon: "📝",
+      },
     });
     expect(await readFile(join(dir, "apps/notes/src/server.tsx"), "utf8")).toBe(
       await readFile(
@@ -87,7 +93,13 @@ describe("addApp", () => {
       name: "@internal/notes-app",
       private: true,
       scripts: { dev: "vite dev" },
-      robkit: { access: { kind: "open" }, icon: "📝" },
+      robkit: {
+        name: "notes",
+        stack: "start",
+        contract: 1,
+        access: { kind: "open" },
+        icon: "📝",
+      },
     });
   });
 

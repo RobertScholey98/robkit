@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readyStacks, type Choices, type Stack } from "./choices.ts";
+import { contractVersion } from "./contract.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -118,14 +119,23 @@ export function stackTemplate(stack: Stack): Promise<Files> {
 }
 
 /**
- * What an app's manifest declares for core's catalog, in its `robkit`
- * field: who may open it once core adds it, with roles named, and the emoji
- * the launcher shows.
+ * What an app's manifest declares, in the `robkit` field of its
+ * `package.json`: its name, the stack it was made on, the robkit contract
+ * version it was made for, who may open it once core adds it, with roles
+ * named, and the emoji the launcher shows. Core's catalog takes the access
+ * rule and icon. Export and import read the rest, and the provision step
+ * reads the seed.
  */
 export interface Declares {
+  name?: string;
+  description?: string;
+  stack?: string;
+  contract?: number;
   access?:
     { kind: "open" } | { kind: "owner" } | { kind: "roles"; roles: string[] };
   icon?: string;
+  /** A SQL file, from the app's folder, that runs once on a new schema. */
+  seed?: string;
 }
 
 /** The icon an app gets when nobody picks one, the example app included. */
@@ -222,6 +232,9 @@ export async function generateInstall(
   overlay(
     files,
     appFiles(await stackTemplate(choices.exampleStack), exampleSlug, {
+      name: exampleSlug,
+      stack: choices.exampleStack,
+      contract: contractVersion,
       icon: defaultIcon,
     }),
     `apps/${exampleSlug}/`,

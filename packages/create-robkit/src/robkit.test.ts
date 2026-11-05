@@ -51,6 +51,9 @@ Then open http://notes.robkit.localhost:3000.
 `,
     });
     expect(await declared(dir, "notes")).toEqual({
+      name: "notes",
+      stack: "react-hono",
+      contract: 1,
       access: { kind: "roles", roles: ["Family", "Cooks"] },
       icon: "📝",
     });
@@ -63,6 +66,9 @@ Then open http://notes.robkit.localhost:3000.
 
     expect(code).toBe(0);
     expect(await declared(dir, "notes")).toEqual({
+      name: "notes",
+      stack: "start",
+      contract: 1,
       access: { kind: "owner" },
       icon: "🗒️",
     });
@@ -145,6 +151,9 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
       'pnpm robkit add recipes --stack react-hono --access roles --roles "Family" --icon 🍳',
     );
     expect(await declared(dir, "recipes")).toEqual({
+      name: "recipes",
+      stack: "react-hono",
+      contract: 1,
       access: { kind: "roles", roles: ["Family"] },
       icon: "🍳",
     });
