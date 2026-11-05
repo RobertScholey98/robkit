@@ -24,7 +24,7 @@ describe("the default install", () => {
 /**
  * The installs whose own CI steps run: the default and one per other ORM.
  */
-const ciInstalls = ["start", "prisma", "kysely"] as const;
+const ciInstalls = ["start", "kysely"] as const;
 
 describe.each(ciInstalls)("the %s install", (name) => {
   it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
@@ -75,7 +75,7 @@ describe.each(lintInstalls)("the %s install's lint", (name) => {
   });
 });
 
-describe("the prisma install's pre-commit hook", () => {
+describe("the start install's pre-commit hook", () => {
   const commit = (dir: string, ...args: string[]) =>
     run(
       "git",
@@ -90,7 +90,7 @@ describe("the prisma install's pre-commit hook", () => {
     );
 
   it("is set up by init's install", async () => {
-    const dir = inject("installs").prisma;
+    const dir = inject("installs").start;
 
     const { stdout } = await run("git", ["config", "core.hooksPath"], {
       cwd: dir,
@@ -100,7 +100,7 @@ describe("the prisma install's pre-commit hook", () => {
   });
 
   it("refuses a commit that breaks the layer rule", async () => {
-    const dir = inject("installs").prisma;
+    const dir = inject("installs").start;
     const path = "apps/hub/src/reach.ts";
     await writeFile(join(dir, path), 'export * from "@robkit/core";\n');
     try {
@@ -121,7 +121,7 @@ describe("the prisma install's pre-commit hook", () => {
   });
 
   it("takes a commit that keeps it, formatting what it stages", async () => {
-    const dir = inject("installs").prisma;
+    const dir = inject("installs").start;
     await writeFile(join(dir, "notes.md"), "# Notes\n*   one\n");
     await commit(dir, "add", "notes.md");
 

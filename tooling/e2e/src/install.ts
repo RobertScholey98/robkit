@@ -27,11 +27,6 @@ export const installChoices = {
     generators: ["react-hono", "start"],
     uiKit: "chakra",
   },
-  prisma: {
-    ...defaultChoices,
-    orm: "prisma",
-    uiKit: "shadcn-radix",
-  },
   kysely: {
     ...defaultChoices,
     orm: "kysely",

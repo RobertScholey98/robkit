@@ -4,9 +4,8 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 export default defineConfig(
-  // TanStack Router writes routeTree.gen.ts from the files in src/routes,
-  // and Prisma its client from the schema.
-  { ignores: ["**/dist/", "**/routeTree.gen.ts", "**/generated/prisma/"] },
+  // TanStack Router writes routeTree.gen.ts from the files in src/routes.
+  { ignores: ["**/dist/", "**/routeTree.gen.ts"] },
   js.configs.recommended,
   tseslint.configs.strictTypeChecked,
   tseslint.configs.stylisticTypeChecked,

@@ -47,10 +47,8 @@ async function whatWentWrong(stack: Stack): Promise<string> {
 /** Each install by the key `E2E_PRODUCTION_INSTALL` picks it by. */
 const installs: [string, Choices][] = [
   ["default", defaultChoices],
-  // Each ORM migrates as its app's container starts, and each UI kit's apps
-  // serve its stylesheet. The two shadcn kits share their apps' layer, so
-  // Base UI stands for both, and Chakra's server-rendered styles get a run.
-  ["prisma", { ...defaultChoices, orm: "prisma", uiKit: "chakra" }],
+  // Kysely migrates as its app's container starts, and the kit's apps
+  // serve its stylesheet.
   ["kysely", { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" }],
 ];
 

@@ -394,38 +394,6 @@ describe("generateInstall", () => {
     },
   );
 
-  it("lays Prisma's app files over a Prisma install's apps, and lets its engines install", async () => {
-    const files = await generateInstall({ ...defaultChoices, orm: "prisma" });
-    const manifest = JSON.parse(
-      files.get("apps/example/package.json") ?? "{}",
-    ) as {
-      scripts: Record<string, string>;
-      dependencies: Record<string, string>;
-    };
-    const { catalog } = workspace(files);
-    const { allowBuilds } = parse(files.get("pnpm-workspace.yaml") ?? "") as {
-      allowBuilds: Record<string, boolean>;
-    };
-
-    expect(files.has("apps/example/prisma/schema.prisma")).toBe(true);
-    expect(files.has("apps/example/src/generated/prisma/client.ts")).toBe(true);
-    expect(files.has("apps/example/drizzle/0000_init.sql")).toBe(false);
-    expect(manifest.scripts.migrate).toBe("prisma migrate deploy");
-    expect(manifest.dependencies).toMatchObject({
-      "@prisma/adapter-pg": "catalog:",
-      "@prisma/client": "catalog:",
-      prisma: "catalog:",
-    });
-    expect(manifest.dependencies).not.toHaveProperty("drizzle-orm");
-    expect(catalog).toMatchObject({ prisma: "7.10.1" });
-    expect(allowBuilds).toEqual({
-      esbuild: false,
-      "@prisma/engines": true,
-      prisma: false,
-    });
-    expect(files.get("apps/example/AGENTS.md")).toContain("pnpm db:migration");
-  });
-
   it("lays Kysely's app files over a Kysely install's apps", async () => {
     const files = await generateInstall({ ...defaultChoices, orm: "kysely" });
     const manifest = JSON.parse(
@@ -579,10 +547,7 @@ describe("generateInstall", () => {
 
   it.each<[string, Choices]>([
     ["the default", defaultChoices],
-    [
-      "Prisma on Radix",
-      { ...defaultChoices, orm: "prisma", uiKit: "shadcn-radix" },
-    ],
+    ["Radix", { ...defaultChoices, uiKit: "shadcn-radix" }],
     [
       "Kysely on Base UI",
       { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" },

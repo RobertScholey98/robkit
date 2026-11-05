@@ -151,23 +151,6 @@ async function readTemplate(path: string): Promise<string> {
   );
 }
 
-/** The install scripts every answer in `choices` needs, by dependency. */
-function buildsFor(choices: Choices): Record<string, boolean> {
-  const t = choiceTable;
-  const answers: [Choice, string][] = [
-    [t.orm, choices.orm],
-    ...choices.generators.map((stack): [Choice, string] => [
-      t.generators,
-      stack,
-    ]),
-  ];
-  return Object.fromEntries(
-    answers.flatMap(([choice, value]) =>
-      Object.entries(optionOf(choice, value)?.builds ?? {}),
-    ),
-  );
-}
-
 /**
  * The template robkit ships for `stack`: an app's files, from its folder,
  * with the install's ORM's app files laid over them, and the UI kit's when
@@ -263,21 +246,17 @@ function versionOf(repo: RobkitRepo, name: string): string {
 export const pnpmSettings = "pnpm-workspace.yaml";
 
 /**
- * Writes pnpm's settings: the install scripts it may run, the catalog, and
- * the links to robkit's packages when asked. Then names pnpm's version in
+ * Writes pnpm's settings: the catalog, and the links to robkit's packages
+ * when asked. Then names pnpm's version in
  * the root manifest.
  */
 async function renderSettings(
   files: Files,
   names: string[],
-  builds: Record<string, boolean>,
   repo: RobkitRepo,
   { link = false }: GenerateOptions,
 ): Promise<void> {
   const workspace = parseDocument(files.get(pnpmSettings) ?? "");
-  for (const [name, allowed] of Object.entries(builds)) {
-    workspace.setIn(["allowBuilds", name], allowed);
-  }
   workspace.set(
     "catalog",
     Object.fromEntries(names.map((name) => [name, versionOf(repo, name)])),
@@ -330,13 +309,7 @@ export async function generateInstall(
     ...files,
     ...stacks.flatMap((stack) => [...stack]),
   ]);
-  await renderSettings(
-    files,
-    names,
-    buildsFor(choices),
-    await readRobkitRepo(),
-    options,
-  );
+  await renderSettings(files, names, await readRobkitRepo(), options);
   files.set(
     "robkit.json",
     await format(JSON.stringify(choices), { filepath: "robkit.json" }),

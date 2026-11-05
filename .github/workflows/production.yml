@@ -30,7 +30,7 @@ jobs:
       fail-fast: false
       matrix:
         # The installs production.test.ts deploys, by their keys.
-        install: [default, prisma, kysely]
+        install: [default, kysely]
     env:
       E2E_PRODUCTION_INSTALL: ${{ matrix.install }}
       # Each image's layers, kept in GitHub's cache from one run to the
