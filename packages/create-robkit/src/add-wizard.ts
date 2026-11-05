@@ -5,7 +5,7 @@ import {
   text,
   type CANCEL_SYMBOL,
 } from "@clack/prompts";
-import { newSlugProblem, type AppChoices } from "./add.ts";
+import type { AppChoices } from "./add.ts";
 import {
   defaultChoices,
   readyStackOptions,
@@ -13,6 +13,7 @@ import {
   type Stack,
 } from "./choices.ts";
 import { defaultIcon } from "./generate.ts";
+import { newSlugProblem } from "./new-slug.ts";
 
 /** Who may open a new app, as `--access` spells it and the wizard asks it. */
 const accessOptions = [
@@ -29,9 +30,10 @@ export interface AddFlags {
   access?: string | undefined;
   roles?: string | undefined;
   icon?: string | undefined;
+  description?: string | undefined;
 }
 
-export const addUsage = `Usage: robkit add [name] [--stack <stack>] [--access ${accessOptions.map((option) => option.value).join("|")}] [--roles <role,...>] [--icon <emoji>]
+export const addUsage = `Usage: robkit add [name] [--stack <stack>] [--access ${accessOptions.map((option) => option.value).join("|")}] [--roles <role,...>] [--icon <emoji>] [--description <text>]
 
 With no flags, robkit add asks for each. With flags, it asks nothing: the
 stack defaults to ${defaultChoices.exampleStack}, access to owner only, and the icon
@@ -67,6 +69,7 @@ export function appChoicesFromFlags(slug: string, flags: AddFlags): AppChoices {
     slug,
     access: accessFrom(flags.access ?? "owner", flags.roles),
     icon: flags.icon ?? defaultIcon,
+    description: flags.description,
   };
 }
 
@@ -74,14 +77,26 @@ export function appChoicesFromFlags(slug: string, flags: AddFlags): AppChoices {
  * The robkit command that adds the same app without asking, as the
  * install's `robkit` script takes it.
  */
-export function addCommandFor({ stack, slug, access, icon }: AppChoices) {
+export function addCommandFor({
+  stack,
+  slug,
+  description,
+  access,
+  icon,
+}: AppChoices) {
   return [
     `robkit add ${slug}`,
     `--stack ${stack}`,
     `--access ${access.kind}`,
     ...(access.kind === "roles" ? [`--roles "${access.roles.join(",")}"`] : []),
     `--icon ${icon}`,
+    ...(description ? [`--description ${quoted(description)}`] : []),
   ].join(" ");
+}
+
+/** `text` in double quotes, escaped as a POSIX shell reads it back. */
+function quoted(text: string): string {
+  return `"${text.replace(/["$`\\]/g, "\\$&")}"`;
 }
 
 function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
@@ -117,6 +132,13 @@ export async function askAdd(
         validate: (answer) => newSlugProblem(root, answer ?? ""),
       }),
     );
+  const description = answered(
+    await text({
+      message: "What does it do? One sentence, for the people who install it.",
+      placeholder: "Leave it empty to skip",
+      defaultValue: "",
+    }),
+  ).trim();
   const access = answered(
     await select<Access>({
       message: "Who can open it?",
@@ -146,6 +168,7 @@ export async function askAdd(
   return {
     stack,
     slug,
+    ...(description !== "" && { description }),
     access: accessFrom(access, roles),
     icon,
   };

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readyStacks, type Choices, type Stack } from "./choices.ts";
+import { contractVersion, packageNameOf, type Manifest } from "./manifest.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -15,6 +16,11 @@ export interface GenerateOptions {
    * installing them from npm.
    */
   link?: boolean;
+  /**
+   * The install's Compose project, which names its Postgres container and
+   * volume. Left out, Compose names it after the install's folder.
+   */
+  project?: string;
 }
 
 /** The slug of the app init adds on the example's stack. */
@@ -117,41 +123,47 @@ export function stackTemplate(stack: Stack): Promise<Files> {
   return readLayer(`stacks/${stack}`);
 }
 
-/**
- * What an app's manifest declares for core's catalog, in its `robkit`
- * field: who may open it once core adds it, with roles named, and the emoji
- * the launcher shows.
- */
-export interface Declares {
-  access?:
-    { kind: "open" } | { kind: "owner" } | { kind: "roles"; roles: string[] };
-  icon?: string;
+/** The install itself, before the generator adds the example and catalog. */
+export function baseTemplate(): Promise<Files> {
+  return readLayer("base");
 }
 
 /** The icon an app gets when nobody picks one, the example app included. */
 export const defaultIcon = "📦";
 
 /**
- * The files of an app at `apps/<slug>` made from a stack's template, by
- * their path from the app's folder. Its manifest is named after the slug,
- * and carries what the app declares, if anything.
+ * The files of an app at `apps/<slug>` made from `stack`'s template, by
+ * their path from the app's folder. Its package is named after the slug,
+ * and its manifest names the app, its stack and the contract version it is
+ * made for, then whatever else it declares.
  */
 export function appFiles(
   template: Files,
   slug: string,
-  declares: Declares = {},
+  stack: Stack,
+  {
+    description,
+    ...declares
+  }: Pick<Manifest, "description" | "access" | "icon"> = {},
 ): Files {
   const files: Files = new Map(template);
+  const robkit: Manifest = {
+    name: slug,
+    ...(description !== undefined && { description }),
+    stack,
+    contract: contractVersion,
+    ...declares,
+  };
   editJson(files, "package.json", (json) => ({
-    name: `@internal/${slug}-app`,
+    name: packageNameOf(slug),
     ...json,
-    ...(Object.keys(declares).length > 0 && { robkit: declares }),
+    robkit,
   }));
   return files;
 }
 
 /** Every dependency the manifests among `files` take from the catalog. */
-function catalogued(files: Iterable<[string, string]>): string[] {
+export function catalogued(files: Iterable<[string, string]>): string[] {
   const names = new Set<string>();
   for (const [path, text] of files) {
     if (basename(path) !== "package.json") continue;
@@ -212,18 +224,38 @@ async function renderSettings(
   }));
 }
 
+/** Names the install's Compose project in its `compose.yaml`. */
+function nameComposeProject(files: Files, project: string): void {
+  const text = files.get("compose.yaml");
+  if (text === undefined) throw new Error("the install has no compose.yaml");
+  files.set(
+    "compose.yaml",
+    text.replace(
+      /^services:/m,
+      `# Names this install's Postgres container and volume. init chose it, so
+# no other install on this machine shares them.
+name: ${project}
+
+services:`,
+    ),
+  );
+}
+
 /** The install init writes for `choices`, file by file. */
 export async function generateInstall(
   choices: Choices,
   options: GenerateOptions = {},
 ): Promise<Files> {
-  const files = await readLayer("base");
+  const files = await baseTemplate();
 
   overlay(
     files,
-    appFiles(await stackTemplate(choices.exampleStack), exampleSlug, {
-      icon: defaultIcon,
-    }),
+    appFiles(
+      await stackTemplate(choices.exampleStack),
+      exampleSlug,
+      choices.exampleStack,
+      { icon: defaultIcon },
+    ),
     `apps/${exampleSlug}/`,
   );
 
@@ -235,6 +267,9 @@ export async function generateInstall(
     ...stacks.flatMap((stack) => [...stack]),
   ]);
   await renderSettings(files, names, await readRobkitRepo(), options);
+  if (options.project !== undefined) {
+    nameComposeProject(files, options.project);
+  }
   files.set(
     "robkit.json",
     await format(JSON.stringify(choices), { filepath: "robkit.json" }),

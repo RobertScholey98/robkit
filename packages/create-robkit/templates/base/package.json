@@ -11,8 +11,8 @@
     "test": "turbo run test",
     "build": "turbo run build",
     "robkit": "robkit",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --ignore-path .prettierignore --write .",
+    "format:check": "prettier --ignore-path .prettierignore --check .",
     "postinstall": "husky || true"
   },
   "devDependencies": {

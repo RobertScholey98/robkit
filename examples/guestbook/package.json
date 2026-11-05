@@ -1,0 +1,45 @@
+{
+  "name": "@internal/guestbook-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc",
+    "build": "vite build",
+    "start": "node --run migrate && node dist/serve.js",
+    "migrate": "node src/migrate.ts",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@hono/node-server": "catalog:",
+    "@internal/ui": "workspace:*",
+    "@robkit/hono": "catalog:",
+    "drizzle-orm": "catalog:",
+    "hono": "catalog:",
+    "postgres": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
+  },
+  "devDependencies": {
+    "@hono/vite-dev-server": "catalog:",
+    "@internal/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "drizzle-kit": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  },
+  "robkit": {
+    "name": "Guestbook",
+    "description": "Visitors leave a name and a message. Its seed writes the first two.",
+    "stack": "react-hono",
+    "contract": 1,
+    "access": {
+      "kind": "open"
+    },
+    "icon": "📖"
+  }
+}

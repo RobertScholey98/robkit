@@ -4,8 +4,8 @@ import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
-import { readInstallChoices } from "./add.ts";
 import { pnpmSettings } from "./generate.ts";
+import { readInstallRecord } from "./record.ts";
 
 const exec = promisify(execCallback);
 
@@ -21,7 +21,7 @@ export const vendorDir = "vendor/robkit";
  */
 export async function vendorPackages(root: string): Promise<void> {
   // Refuses a folder that isn't an install.
-  await readInstallChoices(root);
+  await readInstallRecord(root);
   const path = join(root, pnpmSettings);
   const workspace = parseDocument(await readFile(path, "utf8"));
   const { overrides = {} } = workspace.toJS() as {

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -24,11 +24,15 @@ import {
   type Stack,
   withVisitors,
 } from "./production-stack.ts";
+import { identity, sampleAppRepo } from "./sample-app.ts";
 
 const run = promisify(execFile);
 
 /** The app the owner adds with robkit add after the first deploy. */
 const later = "later";
+
+/** The app the owner installs from its own repo, which is the sample's. */
+const installed = "guestbook";
 
 /** Builds each app's image and starts its container with its env. */
 async function deployApps(stack: Stack, slugs: string[]): Promise<void> {
@@ -56,17 +60,27 @@ async function whatWentWrong(stack: Stack): Promise<string> {
 // to settle, and each journey closes its browser.
 describe("the default install in production", () => {
   let dir: string;
+  /** Holds the sample's repo and a clone of the install. */
+  let outside: string;
   let stack: Stack;
   let setUp: OwnerSetUp;
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
+    outside = await mkdtemp(join(tmpdir(), "robkit-production-repos-"));
     await init(defaultChoices, dir, { link: true, install: true });
     // A host can't reach this checkout, so the install takes tarballs.
     await run("pnpm", ["run", "robkit", "vendor"], {
       cwd: dir,
     });
-    stack = await startStack(dir, ["core", "hub", "admin", "example", later]);
+    stack = await startStack(dir, [
+      "core",
+      "hub",
+      "admin",
+      "example",
+      later,
+      installed,
+    ]);
     await deployApps(stack, ["core"]);
     await answers(stack, "core", 200, "/status");
     await deployApps(stack, ["hub", "admin"]);
@@ -94,6 +108,7 @@ describe("the default install in production", () => {
   afterAll(async () => {
     await stopStack();
     await rm(dir, { recursive: true, force: true });
+    await rm(outside, { recursive: true, force: true });
   });
 
   it("lets the owner claim the fresh install on the first visit, once", () => {
@@ -188,5 +203,65 @@ describe("the default install in production", () => {
       heading: "Signed in as a guest",
       stylesheets: [200],
     });
+  });
+
+  it("builds an app installed from its own repo from a clone of the install, as Coolify does, and seeds its new schema", async () => {
+    await run(
+      "pnpm",
+      ["run", "robkit", "install", await sampleAppRepo(outside)],
+      { cwd: dir },
+    );
+    await run("git", ["add", "--all"], { cwd: dir });
+    await run("git", [...identity, "commit", "--quiet", "-m", "Install"], {
+      cwd: dir,
+    });
+    // Coolify builds from a clone of the install, which has no app repos.
+    // The build can't reach a path on this machine, so the clone records a
+    // copy of the guestbook's repo inside itself, which the build reaches as
+    // it would a git URL.
+    const clone = join(outside, "clone");
+    await run("git", ["clone", "--quiet", dir, clone]);
+    await run("git", [
+      "clone",
+      "--quiet",
+      "--bare",
+      join(dir, "apps", installed),
+      join(clone, "robkit-apps", `${installed}.git`),
+    ]);
+    const record = JSON.parse(
+      await readFile(join(clone, "robkit.json"), "utf8"),
+    ) as { apps: Record<string, { source: string }> };
+    record.apps[installed] = {
+      ...record.apps[installed],
+      source: `robkit-apps/${installed}.git`,
+    };
+    await writeFile(join(clone, "robkit.json"), JSON.stringify(record));
+
+    await deployApps(stack, ["core"]);
+    await answers(stack, "core", 200, "/status");
+    await buildApp({ ...stack, dir: clone }, installed);
+    const env = await hostEnv(stack);
+    await startApp(stack, installed, env.get(installed) ?? {});
+    await answers(stack, installed, 200);
+
+    const visit = await guestOpens(
+      stack.addresses,
+      setUp.code ?? "",
+      installed,
+      { items: true },
+    );
+
+    expect(visit).toEqual({
+      greeting: "Signed in as Grandma",
+      openedAt: `${stack.addresses.origin(installed)}/`,
+      heading: "Guestbook",
+      stylesheets: [200],
+      // Its seed.sql's two messages, newest first.
+      items: [
+        "The seed: This message came from seed.sql.",
+        "Robkit: Welcome to the guestbook.",
+      ],
+    });
+    expect(await extraneousPackages(stack, installed)).toEqual([]);
   });
 });

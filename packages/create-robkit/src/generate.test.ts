@@ -61,11 +61,11 @@ describe("generateInstall", () => {
     });
   });
 
-  it("gives the example app the icon robkit add gives an app by default", async () => {
+  it("gives the example app a manifest, with the icon robkit add gives an app by default", async () => {
     const files = await generateInstall(defaultChoices);
 
     expect(json(files, "apps/example/package.json")).toMatchObject({
-      robkit: { icon: "📦" },
+      robkit: { name: "example", stack: "start", contract: 1, icon: "📦" },
     });
   });
 
@@ -82,8 +82,8 @@ describe("generateInstall", () => {
         test: "turbo run test",
         build: "turbo run build",
         lint: "robkit check && eslint .",
-        format: "prettier --write .",
-        "format:check": "prettier --check .",
+        format: "prettier --ignore-path .prettierignore --write .",
+        "format:check": "prettier --ignore-path .prettierignore --check .",
         robkit: "robkit",
         postinstall: "husky || true",
       },
@@ -138,6 +138,7 @@ describe("generateInstall", () => {
     );
     expect(deploy?.steps.flatMap((step) => step.run ?? [])).toEqual([
       "pnpm install --frozen-lockfile",
+      "pnpm robkit install",
       "pnpm robkit deploy",
     ]);
     expect(Object.keys(deploy?.steps.at(-1)?.env ?? {})).toEqual([
@@ -162,6 +163,7 @@ describe("generateInstall", () => {
 
     expect(runs).toEqual([
       "pnpm install --frozen-lockfile",
+      "pnpm robkit install",
       "pnpm lint",
       "pnpm run --if-present format:check",
       "pnpm typecheck",
@@ -177,6 +179,25 @@ describe("generateInstall", () => {
         "build",
       ]),
     );
+  });
+
+  it("has turbo hash every file of an app, though the install's git ignores app repos", async () => {
+    const files = await generateInstall(defaultChoices);
+    const { tasks } = json(files, "turbo.json") as {
+      tasks: Record<string, { inputs?: string[] }>;
+    };
+
+    // turbo's default inputs are the files git tracks, which would cache
+    // an app repo's checks for ever.
+    for (const task of ["build", "typecheck", "test"]) {
+      expect(tasks[task]?.inputs).toEqual([
+        "**",
+        "!node_modules/**",
+        "!.git/**",
+        "!.turbo/**",
+        "!dist/**",
+      ]);
+    }
   });
 
   it("lints with robkit check, then ESLint", async () => {
@@ -355,7 +376,7 @@ describe("generateInstall", () => {
     expect(
       [...kit.keys()].filter(
         (path) =>
-          !/^(?:apps|packages|tooling|docs|\.github|\.husky)\/|^[^/]+$/.test(
+          !/^(?:apps|packages|tooling|docs|robkit|\.github|\.husky)\/|^[^/]+$/.test(
             path,
           ),
       ),
@@ -391,6 +412,22 @@ describe("generateInstall", () => {
         ]),
       ),
     ).toMatchSnapshot();
+  });
+
+  it("names the install's Compose project as asked, and leaves it to Compose otherwise", async () => {
+    const named = await generateInstall(defaultChoices, {
+      project: "my-app-0a1b2c",
+    });
+    const unnamed = await generateInstall(defaultChoices);
+
+    const compose = (files: Files) =>
+      parse(files.get("compose.yaml") ?? "") as {
+        name?: string;
+        services: Record<string, unknown>;
+      };
+    expect(compose(named).name).toBe("my-app-0a1b2c");
+    expect(compose(named).services).toEqual(compose(unnamed).services);
+    expect(compose(unnamed).name).toBeUndefined();
   });
 
   it("builds images without Corepack, from a pruned frozen install", async () => {

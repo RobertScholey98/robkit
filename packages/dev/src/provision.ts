@@ -15,9 +15,11 @@ export interface ProvisionOptions {
 
 /**
  * The provision step: gives every app in the install at `root` that has a
- * `migrate` script its database, then runs that script as the app. Apps go
- * one at a time in slug order, and the step stops at the first failure. Safe
- * to run on every start: a second run changes nothing but the passwords.
+ * `migrate` script its database, then runs that script as the app. A
+ * schema it has just made is marked `seedPending`, which the app's migrate
+ * script clears once it has run the app's seed. Apps go one at a time in slug
+ * order, and the step stops at the first failure. Safe to run on every
+ * start: a second run changes nothing but the passwords.
  *
  * @returns each provisioned app's `DATABASE_URL`, by slug
  */
@@ -39,6 +41,14 @@ export async function provisionApps(
   }
   return databaseUrls;
 }
+
+/**
+ * What a schema the provision step has just made says until its app's
+ * migrate script runs the app's `seed.sql` and clears it. Only a schema the
+ * step makes gets it, so an app whose schema was there before is never
+ * seeded. The step marks it in pnpm dev and in production alike.
+ */
+export const seedPending = "robkit: seed pending";
 
 export interface ProvisionDatabasesOptions {
   /** A superuser URL for the install's database. */
@@ -123,9 +133,14 @@ export async function provisionDatabase(
       const [{ database } = { database: "" }] = await tx<
         { database: string }[]
       >`select current_database() as database`;
+      const [schema] =
+        await tx`select 1 from pg_namespace where nspname = ${slug}`;
       await tx.unsafe(
         `create schema if not exists ${role} authorization ${role}`,
       );
+      if (!schema) {
+        await tx.unsafe(`comment on schema ${role} is '${seedPending}'`);
+      }
       await tx.unsafe(`alter role ${role} set search_path = ${role}`);
       await tx.unsafe(`revoke all on database "${database}" from public`);
       await tx.unsafe(`grant connect on database "${database}" to ${role}`);

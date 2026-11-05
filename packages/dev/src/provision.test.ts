@@ -10,6 +10,7 @@ import {
   provisionApps,
   provisionDatabase,
   provisionDatabases,
+  seedPending,
 } from "./provision.ts";
 
 const adminUrl = inject("adminUrl");
@@ -224,5 +225,37 @@ describe("provisionApps", () => {
     });
 
     expect(databaseUrls.size).toBe(0);
+  });
+});
+
+async function noteOn(slug: string): Promise<string | null | undefined> {
+  const admin = connect(adminUrl);
+  const [schema] = await admin<{ note: string | null }[]>`
+    select obj_description(oid, 'pg_namespace') as note
+    from pg_namespace where nspname = ${slug}`;
+  return schema?.note;
+}
+
+// The app's own migrate script runs its seed and clears the mark, in
+// pnpm dev and in production alike: tooling/e2e's seed test runs each
+// stack's.
+describe("the provision step's seed mark", () => {
+  it("marks a schema it makes as waiting for its seed, and only that one", async () => {
+    await provisionDatabase(adminUrl, "seedmark");
+    expect(await noteOn("seedmark")).toBe(seedPending);
+    await provisionDatabase(adminUrl, "seedmark");
+    expect(await noteOn("seedmark")).toBe(seedPending);
+
+    // As the app's migrate script does once it has run the seed.
+    await connect(adminUrl)`comment on schema seedmark is null`;
+    await provisionDatabase(adminUrl, "seedmark");
+
+    expect(await noteOn("seedmark")).toBeNull();
+  });
+
+  it("marks a new schema in production too", async () => {
+    await provisionDatabases({ adminUrl, secret, slugs: ["seedmarkprod"] });
+
+    expect(await noteOn("seedmarkprod")).toBe(seedPending);
   });
 });

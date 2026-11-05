@@ -1,10 +1,22 @@
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { addApp, type AppChoices } from "./add.ts";
+import { checkInstall } from "./check.ts";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
+
+const run = promisify(execFile);
 
 async function freshInstall(choices: Choices = defaultChoices) {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
@@ -26,7 +38,7 @@ const notes: AppChoices = {
 };
 
 describe("addApp", () => {
-  it("writes apps/<slug> from the stack's template, declaring its rule and icon", async () => {
+  it("writes apps/<slug> from the stack's template, with a manifest naming it, its stack, its contract, its rule and icon", async () => {
     const dir = await freshInstall();
 
     await addApp(dir, notes);
@@ -35,7 +47,13 @@ describe("addApp", () => {
       name: "@internal/notes-app",
       scripts: { migrate: "node src/migrate.ts" },
       dependencies: { "@robkit/hono": "catalog:" },
-      robkit: { access: { kind: "open" }, icon: "📝" },
+      robkit: {
+        name: "notes",
+        stack: "react-hono",
+        contract: 1,
+        access: { kind: "open" },
+        icon: "📝",
+      },
     });
     expect(await readFile(join(dir, "apps/notes/src/server.tsx"), "utf8")).toBe(
       await readFile(
@@ -52,6 +70,48 @@ describe("addApp", () => {
     expect(await readFile(join(dir, "apps/notes/CLAUDE.md"), "utf8")).toBe(
       "@AGENTS.md\n",
     );
+  });
+
+  it("makes the app its own git repo, which the install ignores and robkit.json records", async () => {
+    const dir = await freshInstall();
+    await run("git", ["init", "--quiet"], { cwd: dir });
+
+    await addApp(dir, notes);
+
+    const app = join(dir, "apps/notes");
+    const inApp = (...args: string[]) =>
+      run("git", args, { cwd: app }).then(({ stdout }) => stdout.trim());
+    expect(await inApp("rev-parse", "--show-toplevel")).toBe(
+      (await realpath(app)).replaceAll("\\", "/"),
+    );
+    expect(await inApp("log", "--format=%s")).toBe(
+      "Add notes on robkit's react-hono stack",
+    );
+    expect(await inApp("status", "--porcelain")).toBe("");
+    expect(await inApp("ls-files", "package.json", ".gitignore")).toBe(
+      ".gitignore\npackage.json",
+    );
+    const { stdout: installStatus } = await run(
+      "git",
+      ["status", "--porcelain", "--untracked-files=all", "apps"],
+      { cwd: dir },
+    );
+    expect(installStatus).not.toContain("apps/notes");
+    expect(await readFile(join(dir, ".gitignore"), "utf8")).toMatch(
+      /\n\/apps\/notes\/\n$/,
+    );
+    expect(
+      JSON.parse(await readFile(join(dir, "robkit.json"), "utf8")),
+    ).toEqual({ exampleStack: "start", apps: { notes: {} } });
+  });
+
+  it("makes an app that keeps robkit check's portability rule", async () => {
+    const dir = await freshInstall();
+
+    await addApp(dir, notes);
+    await addApp(dir, { ...notes, slug: "recipes", stack: "start" });
+
+    expect(await checkInstall(dir)).toEqual([]);
   });
 
   it("names a rule's roles, as core finds them", async () => {
@@ -87,7 +147,13 @@ describe("addApp", () => {
       name: "@internal/notes-app",
       private: true,
       scripts: { dev: "vite dev" },
-      robkit: { access: { kind: "open" }, icon: "📝" },
+      robkit: {
+        name: "notes",
+        stack: "start",
+        contract: 1,
+        access: { kind: "open" },
+        icon: "📝",
+      },
     });
   });
 

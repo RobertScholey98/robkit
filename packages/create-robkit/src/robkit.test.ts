@@ -38,6 +38,8 @@ describe("robkit add with flags", { timeout: 30_000 }, () => {
       "Family, Cooks",
       "--icon",
       "📝",
+      "--description",
+      "Notes for the family.",
     ]);
 
     expect({ code, output }).toEqual({
@@ -51,6 +53,10 @@ Then open http://notes.robkit.localhost:3000.
 `,
     });
     expect(await declared(dir, "notes")).toEqual({
+      name: "notes",
+      description: "Notes for the family.",
+      stack: "react-hono",
+      contract: 1,
       access: { kind: "roles", roles: ["Family", "Cooks"] },
       icon: "📝",
     });
@@ -63,6 +69,9 @@ Then open http://notes.robkit.localhost:3000.
 
     expect(code).toBe(0);
     expect(await declared(dir, "notes")).toEqual({
+      name: "notes",
+      stack: "start",
+      contract: 1,
       access: { kind: "owner" },
       icon: "🗒️",
     });
@@ -117,7 +126,7 @@ Then open http://notes.robkit.localhost:3000.
 });
 
 describe("robkit add with no flags", { timeout: 30_000 }, () => {
-  it("asks for the stack, name, access, roles and icon, then prints the command that skips them", async () => {
+  it("asks for the stack, name, description, access, roles and icon, then prints the command that skips them", async () => {
     const dir = await freshInstall();
 
     const { code, output } = await drive(
@@ -127,6 +136,7 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
       [
         ["Which stack?", keys.down + keys.enter],
         ["What's the app called?", `recipes${keys.enter}`],
+        ["What does it do?", `What we cook on Sundays.${keys.enter}`],
         ["Who can open it?", keys.down + keys.down + keys.enter],
         ["Which roles?", `Family${keys.enter}`],
         ["Which emoji should the launcher show?", `🍳${keys.enter}`],
@@ -137,14 +147,19 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
     expect(questionsAsked(output)).toEqual([
       "Which stack?",
       "What's the app called?",
+      "What does it do? One sentence, for the people who install it.",
       "Who can open it?",
       "Which roles? Separate them with commas.",
       "Which emoji should the launcher show?",
     ]);
     expect(output).toContain(
-      'pnpm robkit add recipes --stack react-hono --access roles --roles "Family" --icon 🍳',
+      'pnpm robkit add recipes --stack react-hono --access roles --roles "Family" --icon 🍳 --description "What we cook on Sundays."',
     );
     expect(await declared(dir, "recipes")).toEqual({
+      name: "recipes",
+      description: "What we cook on Sundays.",
+      stack: "react-hono",
+      contract: 1,
       access: { kind: "roles", roles: ["Family"] },
       icon: "🍳",
     });
@@ -234,6 +249,22 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
   PORT=3000
   DATABASE_URL=(shared) EXAMPLE_DATABASE_URL
 `);
+  });
+
+  it("refuses an app repo the build can't fetch as this install has it, even on a dry run", async () => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "coolify.json"), coolifyJson);
+    await drive(bin, dir, ["add", "notes", "--stack", "react-hono"]);
+
+    const { code, output } = await drive(bin, dir, ["deploy", "--dry-run"]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output: `Not deploying, since the build wouldn't run what this install has:
+
+  apps/notes was never shared, so the build can't fetch it. Share it to a git URL the build can reach: pnpm robkit share notes <git URL>
+`,
+    });
   });
 
   it("deploys nothing until COOLIFY_URL is set", async () => {

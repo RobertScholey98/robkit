@@ -24,6 +24,9 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The repository ignores the app repos. This clones each back in at the
+      # commit robkit.json records.
+      - run: pnpm robkit install
       - run: pnpm lint
       # An install without Prettier has no format:check.
       - run: pnpm run --if-present format:check
@@ -51,6 +54,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm robkit install
       - run: pnpm robkit deploy
         env:
           TURBO_SCM_BASE: ${{ github.event.before }}
