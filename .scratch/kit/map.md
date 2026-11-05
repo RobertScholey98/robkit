@@ -15,6 +15,21 @@ A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffold
 
 ## Decisions so far
 
+The settled decisions a newcomer would question each have a short record in `docs/adr/`, linked to the ticket below that made it:
+
+- [0001 Core owns the core tables and the signing key](../../docs/adr/0001-core-owns-the-core-tables.md)
+- [0002 Guests sign in with access codes only](../../docs/adr/0002-access-codes-only.md)
+- [0003 Core signs session tokens, and apps verify them locally](../../docs/adr/0003-core-signs-apps-verify.md)
+- [0004 Each app holds its own app token](../../docs/adr/0004-per-app-tokens.md)
+- [0005 One owner, who claims the install on first run](../../docs/adr/0005-one-owner-claims-the-install.md)
+- [0006 Roles gate apps, and core holds each app's access rule](../../docs/adr/0006-roles-gate-apps.md)
+- [0007 One Postgres, with a schema and role per app](../../docs/adr/0007-one-schema-and-role-per-app.md)
+- [0008 The packages update by version bump; apps are copied and owned](../../docs/adr/0008-packages-update-apps-are-owned.md)
+- [0009 Every install has one opinionated stack](../../docs/adr/0009-one-opinionated-stack.md)
+- [0010 Local dev runs every app on its own subdomain behind one proxy](../../docs/adr/0010-local-dev-on-subdomains.md)
+- [0011 The guard is a pure function, and adapters are thin](../../docs/adr/0011-pure-guard-thin-adapters.md)
+- [0012 Only the proxy may reach core](../../docs/adr/0012-only-the-proxy-reaches-core.md)
+
 Build tickets 01 to 09 were deleted once done (R, 2026-11-03). Their notes for later tickets moved into those tickets, and their open gaps are listed under "Known gaps" below. `git log --diff-filter=D -- .scratch/v0.1-build/issues` finds the originals.
 
 - **v0.1 scope (charting):** local first. Deploys use R's Coolify method; other deploy targets are out of scope.
