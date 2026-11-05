@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { slugProblem } from "@robkit/dev";
 import { isPlatformApp, platformApps } from "@robkit/session/addresses";
 import type { Stack } from "./choices.ts";
+import { makeAppRepo } from "./app-repo.ts";
 import { appFiles, readFolder, stackTemplate } from "./generate.ts";
 import type { Access } from "./manifest.ts";
 import { readInstallRecord } from "./record.ts";
@@ -68,9 +69,10 @@ async function templateFor(root: string, stack: Stack) {
 
 /**
  * Writes a new app at `apps/<slug>` in the install at `root`, on one of
- * robkit's stacks. It writes files only: `pnpm dev`, or the
- * provision step before a deploy, gives the app its database, and core adds
- * it to its catalog with the rule it declares.
+ * robkit's stacks, and makes it an app repo: its own git repository, which
+ * the install's ignores and `robkit.json` records. It installs and runs
+ * nothing: `pnpm dev`, or the provision step before a deploy, gives the app
+ * its database, and core adds it to its catalog with the rule it declares.
  */
 export async function addApp(root: string, choices: AppChoices): Promise<void> {
   // Refuses a folder that isn't an install.
@@ -84,5 +86,10 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
       access: choices.access,
       icon: choices.icon,
     }),
+  );
+  await makeAppRepo(
+    root,
+    choices.slug,
+    `Add ${choices.slug} on robkit's ${choices.stack} stack`,
   );
 }
