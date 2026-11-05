@@ -1,4 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
+import { Problem } from "@robkit/dev";
 import { install } from "@robkit/session/addresses";
 import {
   containerPort,
@@ -44,14 +45,14 @@ export function readCoolifyConfig(text: string): CoolifyConfig {
   for (const key of configKeys) {
     const value = input[key];
     if (typeof value !== "string" || value === "") {
-      throw new Error(`coolify.json needs a non-empty string \`${key}\`.`);
+      throw new Problem(`coolify.json needs a non-empty string \`${key}\`.`);
     }
     config[key] = value;
   }
   const { trustedProxy } = input;
   if (trustedProxy !== undefined) {
     if (trustedProxy !== "cloudflare") {
-      throw new Error(
+      throw new Problem(
         'coolify.json\'s `trustedProxy` must be "cloudflare" or left out.',
       );
     }
@@ -188,7 +189,7 @@ async function call(
 async function get(api: Api, path: string): Promise<unknown> {
   const result = await call(api, "GET", path);
   if (!result.ok) {
-    throw new Error(
+    throw new Problem(
       `Couldn't read Coolify's ${path.slice(1)}: ${explain(result)}`,
     );
   }
@@ -265,7 +266,7 @@ function findApp(
       text(app, "name") === desired.settings.name,
   );
   if (matches.length > 1) {
-    throw new Error(
+    throw new Problem(
       `${String(matches.length)} Coolify applications are named ${String(desired.settings.name)}. Delete the extras.`,
     );
   }
@@ -281,7 +282,7 @@ function pick(list: unknown, name: string, kind: string): string {
   if (uuid) return uuid;
   const names =
     items.map((item) => text(item, "name") ?? "?").join(", ") || "none";
-  throw new Error(`No Coolify ${kind} named ${name}. Found: ${names}.`);
+  throw new Problem(`No Coolify ${kind} named ${name}. Found: ${names}.`);
 }
 
 type Synced =

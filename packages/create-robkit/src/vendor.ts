@@ -2,6 +2,7 @@ import { exec as execCallback } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
+import { Problem } from "@robkit/dev";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readInstallChoices } from "./add.ts";
@@ -32,7 +33,7 @@ export async function vendorPackages(root: string): Promise<void> {
     spec.startsWith(protocol),
   );
   if (linked.length === 0) {
-    throw new Error(
+    throw new Problem(
       "This install doesn't link to a robkit checkout, so there is nothing to vendor. Make it with --link.",
     );
   }
