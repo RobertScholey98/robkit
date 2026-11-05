@@ -75,6 +75,7 @@ function hostnameOf(origin: string): string | undefined {
   try {
     return new URL(origin).hostname;
   } catch {
+    // An Origin that isn't a URL names no host, so CORS refuses it.
     return undefined;
   }
 }
@@ -92,6 +93,7 @@ async function fieldsOf(c: Context): Promise<Fields | undefined> {
     const body: unknown = await c.req.json();
     return typeof body === "object" && body !== null ? (body as Fields) : {};
   } catch {
+    // A body that isn't JSON is the caller's mistake, answered with a 400.
     return undefined;
   }
 }

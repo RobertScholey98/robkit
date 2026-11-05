@@ -78,8 +78,8 @@ export function readDeclaredApps(text: string | undefined): DeclaredApp[] {
   let list: unknown;
   try {
     list = JSON.parse(text);
-  } catch {
-    throw new Error("ROBKIT_APPS isn't JSON.");
+  } catch (error) {
+    throw new Error("ROBKIT_APPS isn't JSON.", { cause: error });
   }
   if (!Array.isArray(list)) throw new Error("ROBKIT_APPS isn't a list.");
   return list.map((value, index) => {
