@@ -9,7 +9,7 @@ import {
   defaultDomain,
   install as addresses,
 } from "@robkit/session/addresses";
-import { addApp, readInstallChoices } from "./add.ts";
+import { addApp } from "./add.ts";
 import {
   addCommandFor,
   addUsage,
@@ -19,6 +19,7 @@ import {
 import { checkInstall, describeProblem } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
+import { readInstallRecord } from "./record.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
@@ -71,7 +72,7 @@ async function check(): Promise<void> {
   if (positionals.length > 1) throw new Error(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
-  await readInstallChoices(root);
+  await readInstallRecord(root);
   const problems = await checkInstall(root);
   for (const problem of problems) console.log(describeProblem(problem));
   if (problems.length > 0) process.exitCode = 1;
@@ -82,7 +83,7 @@ async function vendor(): Promise<void> {
   if (positionals.length > 1) throw new Error(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
-  await readInstallChoices(root);
+  await readInstallRecord(root);
   await vendorPackages(root);
   if (existsSync(join(root, "node_modules"))) {
     await installDependencies(root);
@@ -96,7 +97,7 @@ async function printDatabaseUrls(): Promise<void> {
   const { positionals } = parseArgs({ allowPositionals: true });
   if (positionals.length > 1) throw new Error(usage);
   const root = process.cwd();
-  await readInstallChoices(root);
+  await readInstallRecord(root);
   const adminUrl = process.env.ROBKIT_ADMIN_DATABASE_URL;
   const secret = process.env.ROBKIT_DB_SECRET;
   if (!adminUrl || !secret) {
@@ -120,7 +121,7 @@ async function deployInstall(): Promise<void> {
   });
   if (positionals.length > 1) throw new Error(usage);
   const root = process.cwd();
-  await readInstallChoices(root);
+  await readInstallRecord(root);
   const { COOLIFY_URL: url, COOLIFY_TOKEN: token } = process.env;
   const dryRun = values["dry-run"];
   // An install's CI deploys from its first push, before Coolify is set up.
@@ -202,7 +203,7 @@ async function add(): Promise<void> {
   if (command !== "add" || rest.length > 0) throw new Error(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
-  await readInstallChoices(root);
+  await readInstallRecord(root);
   const asked = Object.keys(values).length === 0;
   const choices = asked
     ? await askAdd(root, given)

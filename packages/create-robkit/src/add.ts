@@ -1,11 +1,12 @@
 import { existsSync } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { join } from "node:path";
 import { slugProblem } from "@robkit/dev";
 import { isPlatformApp, platformApps } from "@robkit/session/addresses";
-import type { Choices, Stack } from "./choices.ts";
+import type { Stack } from "./choices.ts";
 import { appFiles, readFolder, stackTemplate } from "./generate.ts";
 import type { Access } from "./manifest.ts";
+import { readInstallRecord } from "./record.ts";
 import { writeInstall } from "./write.ts";
 
 /**
@@ -18,21 +19,6 @@ export interface AppChoices {
   /** Who may open the app once core adds it. A rule's roles are named. */
   access: Access;
   icon: string;
-}
-
-/** The choices init recorded in the install at `root`. */
-export async function readInstallChoices(root: string): Promise<Choices> {
-  let text: string;
-  try {
-    text = await readFile(join(root, "robkit.json"), "utf8");
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    throw new Error(
-      `${root} has no robkit.json. Run robkit add in an install's folder.`,
-      { cause: error },
-    );
-  }
-  return JSON.parse(text) as Choices;
 }
 
 /** "a, b and c". */
@@ -88,7 +74,7 @@ async function templateFor(root: string, stack: Stack) {
  */
 export async function addApp(root: string, choices: AppChoices): Promise<void> {
   // Refuses a folder that isn't an install.
-  await readInstallChoices(root);
+  await readInstallRecord(root);
   const problem = newSlugProblem(root, choices.slug);
   if (problem) throw new Error(problem);
   const template = await templateFor(root, choices.stack);
