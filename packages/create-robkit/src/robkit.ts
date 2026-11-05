@@ -19,6 +19,7 @@ import {
 import { checkInstall, describeProblem } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
 import { exportApp } from "./export.ts";
+import { importApp } from "./import.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
@@ -33,9 +34,19 @@ install: the app's files, a copy of the install code it uses in shared/,
 and the catalog's versions written out. The first export makes the folder a
 git repository, and each later one commits what changed.`;
 
+const importUsage = `Usage: robkit import <folder or git URL> [--as <name>]
+
+Brings an app's repo, as robkit export writes it, into apps/<name>, named
+as its manifest says unless --as names it. Its shared/ code maps back onto
+the install's own packages where they're the same, and stays in the app
+where they differ. It refuses an app made for a robkit contract version
+the install can't run.`;
+
 const usage = `${addUsage}
 
 ${exportUsage}
+
+${importUsage}
 
 Usage: robkit check
 
@@ -68,6 +79,7 @@ try {
     check,
     vendor,
     export: exportCommand,
+    import: importCommand,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
   };
@@ -119,6 +131,50 @@ async function exportCommand(): Promise<void> {
 To import it into another install, run this in that install's folder:
 
   pnpm robkit import ${dir}`);
+}
+
+async function importCommand(): Promise<void> {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { as: { type: "string" } },
+  });
+  const [, source, ...rest] = positionals;
+  if (source === undefined || rest.length > 0) throw new Error(importUsage);
+  const root = process.cwd();
+  const { slug, name, mapped, kept, catalogued, differences } = await importApp(
+    root,
+    source,
+    {
+      ...(values.as !== undefined && { as: values.as }),
+    },
+  );
+  const lines = [`Imported ${name} as apps/${slug}.`];
+  if (mapped.length > 0) {
+    lines.push(`It uses the install's own ${andList(mapped)}.`);
+  }
+  for (const [from, to] of kept) {
+    lines.push(
+      `It keeps its own ${from} as ${to}, since this install's differs.`,
+    );
+  }
+  if (catalogued.length > 0) {
+    lines.push(
+      `Added to the catalog: ${andList(catalogued.map(([dep, version]) => `${dep} ${version}`))}.`,
+    );
+  }
+  for (const { name: dep, asked, catalog } of differences) {
+    lines.push(
+      `It asked for ${dep} ${asked} and gets the catalog's ${catalog}.`,
+    );
+  }
+  // An install whose dependencies are in keeps them in, new app included.
+  const hasDependencies = existsSync(join(root, "node_modules"));
+  if (hasDependencies) await installDependencies(root);
+  console.log(`${lines.join(" ")} Next:
+${hasDependencies ? "" : "\n  pnpm install"}
+  pnpm dev
+
+Then open ${dev.origin(slug)}. pnpm dev gives it its schema, runs its migrations and, on a new schema, its seed.`);
 }
 
 async function vendor(): Promise<void> {

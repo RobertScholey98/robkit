@@ -221,6 +221,44 @@ To import it into another install, run this in that install's folder:
   });
 });
 
+describe("robkit import", { timeout: 30_000 }, () => {
+  it("brings an exported app into the install and says what's next", async () => {
+    const a = await freshInstall();
+    const out = join(a, "..", "example");
+    await drive(bin, a, ["export", "example"]);
+    const b = await freshInstall();
+
+    const { code, output } = await drive(bin, b, [
+      "import",
+      out,
+      "--as",
+      "copy",
+    ]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: `Imported example as apps/copy. It uses the install's own @internal/theme, @internal/tsconfig and @internal/ui. Next:
+
+  pnpm install
+  pnpm dev
+
+Then open http://copy.robkit.localhost:3000. pnpm dev gives it its schema, runs its migrations and, on a new schema, its seed.
+`,
+    });
+  });
+
+  it("needs a folder or git URL", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["import"]);
+
+    expect(code).toBe(1);
+    expect(output).toContain(
+      "Usage: robkit import <folder or git URL> [--as <name>]",
+    );
+  });
+});
+
 describe("robkit database-urls", { timeout: 30_000 }, () => {
   it("prints each database app's URL for the host, from the admin URL and secret", async () => {
     const dir = await freshInstall();
