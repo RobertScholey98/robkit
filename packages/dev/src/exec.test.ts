@@ -39,7 +39,7 @@ describe("exec", () => {
 
     await expect(running).rejects.toThrow(Problem);
     await expect(running).rejects.toThrow(
-      `robkit-no-such-command up couldn't start in ${cwd} (spawn robkit-no-such-command ENOENT). Check that robkit-no-such-command is installed and on your PATH.`,
+      `robkit-no-such-command up couldn't start in ${cwd} (spawn robkit-no-such-command ENOENT). Check that robkit-no-such-command is installed and on your PATH, and that the folder exists.`,
     );
     await expect(running).rejects.toHaveProperty("cause.code", "ENOENT");
   });

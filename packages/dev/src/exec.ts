@@ -28,7 +28,7 @@ export function startProblem(
 ): Problem {
   const reason = error instanceof Error ? error.message : String(error);
   return new Problem(
-    `${[command, ...args].join(" ")} couldn't start in ${cwd} (${reason}). Check that ${command} is installed and on your PATH.`,
+    `${[command, ...args].join(" ")} couldn't start in ${cwd} (${reason}). Check that ${command} is installed and on your PATH, and that the folder exists.`,
     { cause: error },
   );
 }
