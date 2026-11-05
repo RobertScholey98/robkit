@@ -7,6 +7,7 @@ export {
   type App,
   type AppManifest,
 } from "./apps.ts";
+export { readProvisionConfig, type ProvisionConfig } from "./env.ts";
 export { createProxy, type Route } from "./proxy.ts";
 export {
   databasePassword,
