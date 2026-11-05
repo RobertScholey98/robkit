@@ -1,7 +1,9 @@
 import { readdir, readFile } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
+import { appManifestIn } from "@robkit/dev";
 import { sessionCookie } from "@robkit/session";
 import ts from "typescript";
+import { isMissing } from "./files.ts";
 
 /** An app in an install: `apps/<slug>`, with its manifest's package name. */
 interface App {
@@ -103,29 +105,19 @@ const scriptKinds: Record<string, ts.ScriptKind> = {
 /** Folders that hold no code an app's author wrote. */
 const skipped = new Set(["node_modules", "dist", "build"]);
 
-async function readJson(path: string): Promise<unknown> {
-  try {
-    return JSON.parse(await readFile(path, "utf8"));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-    throw error;
-  }
-}
-
 /** The install's apps: each folder under `apps/` with a `package.json`. */
 async function appsOf(root: string): Promise<App[]> {
   const entries = await readdir(join(root, "apps"), {
     withFileTypes: true,
   }).catch((error: unknown) => {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if (isMissing(error)) return [];
     throw error;
   });
   const apps: App[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
     const folder = `apps/${entry.name}`;
-    const manifest = (await readJson(join(root, folder, "package.json"))) as
-      { name?: string } | undefined;
+    const manifest = await appManifestIn(root, entry.name);
     if (manifest === undefined) continue;
     apps.push({ slug: entry.name, folder, name: manifest.name });
   }
