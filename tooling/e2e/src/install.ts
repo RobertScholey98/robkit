@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { defaultChoices, init, readyStacks, type Choices } from "create-robkit";
 import type { TestProject } from "vitest/node";
+import { shareAcrossInstalls } from "./sharing.ts";
 
 const run = promisify(execFile);
 
@@ -66,24 +67,29 @@ export async function createInstall(choices: Choices): Promise<string> {
 }
 
 /**
- * Makes every install before any suite starts. pnpm hard-links
+ * Makes every install before any suite starts, the two the sharing suite
+ * moves apps between included. pnpm hard-links
  * packages from one shared store, so an install beside a running dev stack
  * touches the files under its core, and `node --watch` restarts core
  * mid-journey.
  */
 export default async function setup(project: TestProject) {
-  const installs = Object.fromEntries(
-    await Promise.all(
+  const [installs, sharing] = await Promise.all([
+    Promise.all(
       Object.entries(installChoices).map(
         async ([name, choices]) =>
           [name, await createInstall(choices)] as const,
       ),
+    ).then(
+      (entries) => Object.fromEntries(entries) as Record<InstallName, string>,
     ),
-  ) as Record<InstallName, string>;
+    shareAcrossInstalls(),
+  ]);
   project.provide("installs", installs);
+  project.provide("sharing", sharing);
   return async () => {
     await Promise.all(
-      Object.values(installs).map((dir) =>
+      [...Object.values(installs), sharing.dir].map((dir) =>
         rm(dir, { recursive: true, force: true }),
       ),
     );
