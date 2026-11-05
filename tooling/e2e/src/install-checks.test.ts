@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, inject, it } from "vitest";
 import { cleanPath } from "./clean-path.ts";
-import type { InstallName } from "./install.ts";
 import { ownCiSteps, runOwnCi } from "./own-ci.ts";
 
 const run = promisify(execFile);
@@ -21,12 +20,9 @@ describe("the default install", () => {
   });
 });
 
-/** The installs whose own CI steps run. */
-const ciInstalls = ["start"] as const;
-
-describe.each(ciInstalls)("the %s install", (name) => {
+describe("the start install", () => {
   it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
-    const dir = inject("installs")[name];
+    const dir = inject("installs").start;
     const steps = await ownCiSteps(dir);
 
     const runs = steps.flatMap((step) => step.run ?? []);
@@ -35,15 +31,12 @@ describe.each(ciInstalls)("the %s install", (name) => {
     // bins the install's own manifests give it, as on the owner's machine.
     await runOwnCi(dir, steps, {
       ...process.env,
-      PATH: await cleanPath("pnpm"),
+      PATH: await cleanPath(),
     });
   });
 });
 
-/** The installs whose lint must catch a cross-app import. */
-const lintInstalls: InstallName[] = ["start"];
-
-describe.each(lintInstalls)("the %s install's lint", (name) => {
+describe("the start install's lint", () => {
   it.each([
     [
       "an app other than core imports @robkit/core",
@@ -56,7 +49,7 @@ describe.each(lintInstalls)("the %s install's lint", (name) => {
       "apps/hub/src/reach.ts:1:15  Layer rule: an app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.",
     ],
   ])("fails lint when %s", async (_, text, problem) => {
-    const dir = inject("installs")[name];
+    const dir = inject("installs").start;
     const file = join(dir, "apps/hub/src/reach.ts");
     await writeFile(file, text);
     try {
