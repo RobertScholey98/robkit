@@ -1,6 +1,8 @@
 import { createHmac, randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import postgres from "postgres";
-import { discoverApps } from "./apps.ts";
+import { discoverApps, type App } from "./apps.ts";
 import { exec } from "./exec.ts";
 import { slugProblem } from "./slug.ts";
 
@@ -15,9 +17,11 @@ export interface ProvisionOptions {
 
 /**
  * The provision step: gives every app in the install at `root` that has a
- * `migrate` script its database, then runs that script as the app. Apps go
- * one at a time in slug order, and the step stops at the first failure. Safe
- * to run on every start: a second run changes nothing but the passwords.
+ * `migrate` script its database, then runs that script as the app. An app
+ * whose schema this step made new then gets its seed, if its manifest names
+ * one: a SQL file that runs once, as the app, and never again. Apps go one at
+ * a time in slug order, and the step stops at the first failure. Safe to run
+ * on every start: a second run changes nothing but the passwords.
  *
  * @returns each provisioned app's `DATABASE_URL`, by slug
  */
@@ -35,9 +39,48 @@ export async function provisionApps(
       env: { ...env, DATABASE_URL: databaseUrl },
       slug: app.slug,
     });
+    await seedOnce(app, databaseUrl);
     databaseUrls.set(app.slug, databaseUrl);
   }
   return databaseUrls;
+}
+
+/**
+ * What a schema's comment says while its app's seed hasn't run. The provision
+ * step sets it as it creates the schema, and the seed's own transaction
+ * clears it, so a seed runs once even if migrating failed in between.
+ */
+const seedPending = "robkit: seed pending";
+
+/**
+ * Runs the app's seed if its schema still waits for it, as the app's role,
+ * in one transaction with clearing the wait: a seed that fails leaves no rows
+ * and runs again next time.
+ */
+async function seedOnce(app: App, databaseUrl: string): Promise<void> {
+  const sql = postgres(databaseUrl, { max: 1, onnotice: () => undefined });
+  try {
+    await sql.begin(async (tx) => {
+      const [schema] = await tx<{ note: string | null }[]>`
+        select obj_description(oid, 'pg_namespace') as note
+        from pg_namespace where nspname = ${app.slug}`;
+      if (schema?.note !== seedPending) return;
+      if (app.seed !== undefined) {
+        const text = await readFile(join(app.dir, app.seed), "utf8");
+        try {
+          await tx.unsafe(text);
+        } catch (error) {
+          throw new Error(
+            `apps/${app.slug}: its seed, ${app.seed}, failed: ${error instanceof Error ? error.message : String(error)}`,
+            { cause: error },
+          );
+        }
+      }
+      await tx.unsafe(`comment on schema "${app.slug}" is null`);
+    });
+  } finally {
+    await sql.end();
+  }
 }
 
 export interface ProvisionDatabasesOptions {
@@ -123,9 +166,15 @@ export async function provisionDatabase(
       const [{ database } = { database: "" }] = await tx<
         { database: string }[]
       >`select current_database() as database`;
+      const [schema] =
+        await tx`select 1 from pg_namespace where nspname = ${slug}`;
       await tx.unsafe(
         `create schema if not exists ${role} authorization ${role}`,
       );
+      // A new schema waits for its app's seed.
+      if (!schema) {
+        await tx.unsafe(`comment on schema ${role} is '${seedPending}'`);
+      }
       await tx.unsafe(`alter role ${role} set search_path = ${role}`);
       await tx.unsafe(`revoke all on database "${database}" from public`);
       await tx.unsafe(`grant connect on database "${database}" to ${role}`);

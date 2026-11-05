@@ -79,6 +79,35 @@ describe("discoverApps", () => {
     expect((await discoverApps(root)).map((app) => app.slug)).toEqual(["hub"]);
   });
 
+  it("reads the seed file the manifest names", async () => {
+    const root = await mkdtemp(join(tmpdir(), "robkit-apps-"));
+    await mkdir(join(root, "apps", "guestbook"), { recursive: true });
+    await writeFile(
+      join(root, "apps", "guestbook", "package.json"),
+      JSON.stringify({ robkit: { seed: "seed.sql" } }),
+    );
+
+    const [guestbook] = await discoverApps(root);
+
+    expect(guestbook?.seed).toBe("seed.sql");
+  });
+
+  it.each(["../core/seed.sql", "/etc/passwd", 7])(
+    "refuses a seed outside the app's folder: %j",
+    async (seed) => {
+      const root = await mkdtemp(join(tmpdir(), "robkit-apps-"));
+      await mkdir(join(root, "apps", "guestbook"), { recursive: true });
+      await writeFile(
+        join(root, "apps", "guestbook", "package.json"),
+        JSON.stringify({ robkit: { seed } }),
+      );
+
+      await expect(discoverApps(root)).rejects.toThrow(
+        `apps/guestbook: its manifest's robkit.seed must name a file in its folder, such as "seed.sql".`,
+      );
+    },
+  );
+
   it("finds nothing in an install without apps", async () => {
     const root = await mkdtemp(join(tmpdir(), "robkit-apps-"));
 

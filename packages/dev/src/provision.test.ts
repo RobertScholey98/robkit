@@ -1,4 +1,4 @@
-import { cp, mkdtemp } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -225,4 +225,97 @@ describe("provisionApps", () => {
 
     expect(databaseUrls.size).toBe(0);
   });
+
+  it("runs a new app's seed once, as the app, after its migrations", async () => {
+    const root = await install();
+    await seeded(
+      root,
+      "seeds",
+      "insert into entry values ('seeded by ' || current_user);",
+    );
+
+    await provisionApps(root, { adminUrl, env });
+    await provisionApps(root, { adminUrl, env });
+
+    expect(await entries("seeds")).toEqual([
+      { body: "migrated" },
+      { body: "seeded by seeds" },
+    ]);
+  });
+
+  it("never seeds an app whose schema was already there", async () => {
+    const root = await install();
+    await seeded(root, "lateseed", undefined);
+    await provisionApps(root, { adminUrl, env });
+
+    await seeded(root, "lateseed", "insert into entry values ('seeded');");
+    await provisionApps(root, { adminUrl, env });
+
+    expect(await entries("lateseed")).toEqual([{ body: "migrated" }]);
+  });
+
+  it("seeds on the next run when the first one failed to migrate", async () => {
+    const root = await install();
+    await seeded(root, "retried", "insert into entry values ('seeded');");
+    await expect(
+      provisionApps(root, {
+        adminUrl,
+        env: { ...env, FIXTURE_POSTGRES: "no-such-module" },
+      }),
+    ).rejects.toThrow(/pnpm run migrate exited with 1/);
+
+    await provisionApps(root, { adminUrl, env });
+
+    expect(await entries("retried")).toEqual([
+      { body: "migrated" },
+      { body: "seeded" },
+    ]);
+  });
+
+  it("stops at a seed that fails, keeps none of it, and tries it again next time", async () => {
+    const root = await install();
+    await seeded(
+      root,
+      "badseed",
+      "insert into entry values ('half'); insert into nowhere values (1);",
+    );
+
+    await expect(provisionApps(root, { adminUrl, env })).rejects.toThrow(
+      'apps/badseed: its seed, seed.sql, failed: relation "nowhere" does not exist',
+    );
+    expect(await entries("badseed")).toEqual([{ body: "migrated" }]);
+
+    await seeded(root, "badseed", "insert into entry values ('fixed');");
+    await provisionApps(root, { adminUrl, env });
+    expect(await entries("badseed")).toEqual([
+      { body: "migrated" },
+      { body: "fixed" },
+    ]);
+  });
 });
+
+/**
+ * Adds an app at `apps/<slug>` to the install at `root` that migrates as
+ * ledger does, with `seed.sql` as its manifest's seed when given.
+ */
+async function seeded(root: string, slug: string, seed: string | undefined) {
+  const dir = join(root, "apps", slug);
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, "package.json"),
+    JSON.stringify({
+      name: slug,
+      private: true,
+      type: "module",
+      scripts: { migrate: "node ../../migrate.js" },
+      ...(seed !== undefined && { robkit: { seed: "seed.sql" } }),
+    }),
+  );
+  if (seed !== undefined) await writeFile(join(dir, "seed.sql"), seed);
+}
+
+/** The rows in an app's `entry` table, in the order they went in. */
+function entries(slug: string): Promise<unknown> {
+  const admin = connect(adminUrl);
+  return admin.unsafe(`select body from "${slug}".entry order by ctid`);
+}
