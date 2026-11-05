@@ -146,7 +146,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 3. **Write a failing test through the public interface.** Add the empty list to the values `readAccessRule` refuses, in `guard.test.ts`:
 
-   ```ts
+   ```ts nocheck
    { kind: "roles", roles: [] },
    ```
 
@@ -159,7 +159,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 4. **Make it pass.** In `readAccessRule`, require at least one role:
 
-   ```ts
+   ```ts nocheck
    const isRoleList =
      Array.isArray(roles) &&
      roles.length > 0 &&
