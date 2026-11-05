@@ -6,6 +6,7 @@ import tseslint from "typescript-eslint";
 import coreSchema from "./core-schema.js";
 import layer from "./layers.js";
 import noSilentCatch from "./no-silent-catch.js";
+import oneProblemType from "./one-problem-type.js";
 import relativeImportExtension from "./relative-import-extension.js";
 
 const robkit = {
@@ -13,6 +14,7 @@ const robkit = {
     "core-schema": coreSchema,
     layer,
     "no-silent-catch": noSilentCatch,
+    "one-problem-type": oneProblemType,
     "relative-import-extension": relativeImportExtension,
   },
 };
@@ -56,6 +58,7 @@ export function config(tsconfigRootDir) {
         "robkit/core-schema": "error",
         "robkit/layer": "error",
         "robkit/no-silent-catch": "error",
+        "robkit/one-problem-type": "error",
         "robkit/relative-import-extension": "error",
       },
     },
