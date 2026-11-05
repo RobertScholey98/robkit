@@ -1,6 +1,4 @@
 import { spawn } from "node:child_process";
-import type { PackageManager } from "./choices.ts";
-import { packageManagers } from "./package-managers.ts";
 
 /** Runs `command` in `dir`, showing its output, and fails if it does. */
 function run(command: string, dir: string): Promise<void> {
@@ -15,11 +13,10 @@ function run(command: string, dir: string): Promise<void> {
   });
 }
 
-export function installDependencies(
-  dir: string,
-  packageManager: PackageManager,
-): Promise<void> {
-  return run(packageManagers[packageManager].install, dir);
+/** Installs a new install's dependencies, which have no lockfile yet. */
+export function installDependencies(dir: string): Promise<void> {
+  // pnpm on CI refuses an install with no lockfile unless told.
+  return run("pnpm install --no-frozen-lockfile", dir);
 }
 
 export function initGit(dir: string): Promise<void> {

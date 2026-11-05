@@ -57,13 +57,6 @@ export interface Choice {
  * template layers. Adding an option is one entry here plus its layer.
  */
 export const choiceTable = {
-  packageManager: {
-    flag: "pm",
-    question: "Which package manager?",
-    about: "package manager",
-    takes: "one",
-    options: [{ value: "pnpm", label: "pnpm", layer: "package-managers/pnpm" }],
-  },
   orm: {
     flag: "orm",
     question: "Which ORM?",
@@ -155,7 +148,6 @@ type Ready<C extends Choice> = Exclude<
   { comingLater: true }
 >["value"];
 
-export type PackageManager = Ready<Table["packageManager"]>;
 export type Orm = Ready<Table["orm"]>;
 export type UiKit = Exclude<Ready<Table["uiKit"]>, "none">;
 export type Generator = Ready<Table["generators"]>;
@@ -173,7 +165,6 @@ type NonEmpty<T> = [T, ...T[]];
 
 /** Everything init asks, as `robkit.json` records it. */
 export interface Choices {
-  packageManager: PackageManager;
   orm: Orm;
   /**
    * The shared React UI kit, or `null` when the hub and admin are plain
@@ -185,7 +176,6 @@ export interface Choices {
 }
 
 export const defaultChoices: Choices = {
-  packageManager: "pnpm",
   orm: "drizzle",
   uiKit: null,
   generators: ["start", "react-hono"],
@@ -226,16 +216,11 @@ export function choicesFromFlags(flags: Flags): Choices {
   const t = choiceTable;
   const given = (choice: Choice) =>
     flags[choice.flag as keyof Flags] ?? undefined;
-  const pm = given(t.packageManager);
   const orm = given(t.orm);
   const uiKit = given(t.uiKit);
   const generators = given(t.generators);
   const kit = uiKit === undefined ? "none" : oneOf(t.uiKit, uiKit);
   return {
-    packageManager:
-      pm === undefined
-        ? defaultChoices.packageManager
-        : oneOf(t.packageManager, pm),
     orm: orm === undefined ? defaultChoices.orm : oneOf(t.orm, orm),
     uiKit: kit === "none" ? null : kit,
     generators:

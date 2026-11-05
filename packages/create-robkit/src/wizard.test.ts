@@ -4,7 +4,6 @@ import { commandFor, optionsFor, type Answers } from "./wizard.ts";
 
 const answers: Answers = {
   folder: "family-apps",
-  pm: "pnpm",
   orm: "drizzle",
   "ui-kit": "none",
   generators: "start",
@@ -14,7 +13,7 @@ const answers: Answers = {
 describe("commandFor", () => {
   it("asks for the install", () => {
     expect(commandFor(answers)).toBe(
-      "npm create robkit@latest family-apps -- --pm pnpm --orm drizzle --ui-kit none --generators start --install",
+      "npm create robkit@latest family-apps -- --orm drizzle --ui-kit none --generators start --install",
     );
   });
 

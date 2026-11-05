@@ -1,7 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { format, getFileInfo } from "prettier";
+import { format } from "prettier";
+import { parseDocument } from "yaml";
 import {
   choiceTable,
   type Choice,
@@ -9,10 +10,8 @@ import {
   type Generator,
   type Option,
   type Orm,
-  type PackageManager,
   type UiKit,
 } from "./choices.ts";
-import { packageManagers, type Settings } from "./package-managers.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -136,7 +135,7 @@ function layersFor(choices: Choices): string[] {
   const t = choiceTable;
   return [
     "base",
-    layerOf(t.packageManager, choices.packageManager),
+    "package-managers/pnpm",
     layerOf(t.orm, choices.orm),
     // The hub and admin, then the kit's controls over them.
     layerOf(t.uiKit, "none"),
@@ -157,7 +156,6 @@ async function readTemplate(path: string): Promise<string> {
 function buildsFor(choices: Choices): Record<string, boolean> {
   const t = choiceTable;
   const answers: [Choice, string][] = [
-    [t.packageManager, choices.packageManager],
     [t.orm, choices.orm],
     ...choices.generators.map((stack): [Choice, string] => [
       t.generators,
@@ -262,62 +260,45 @@ function versionOf(repo: RobkitRepo, name: string): string {
   return version;
 }
 
+/** Where pnpm keeps an install's settings. */
+export const pnpmSettings = "pnpm-workspace.yaml";
+
 /**
- * Writes the package manager's settings: the catalog, the install scripts
- * it may run, and the links to robkit's packages when asked. Then names the
- * manager in the root manifest.
+ * Writes pnpm's settings: the install scripts it may run, the catalog, and
+ * the links to robkit's packages when asked. Then names pnpm's version in
+ * the root manifest.
  */
 async function renderSettings(
   files: Files,
-  packageManager: PackageManager,
   names: string[],
   builds: Record<string, boolean>,
   repo: RobkitRepo,
   { link = false }: GenerateOptions,
 ): Promise<void> {
-  const pm = packageManagers[packageManager];
-  const settings: Settings = {
-    builds,
-    catalog: Object.fromEntries(
-      names.map((name) => [name, versionOf(repo, name)]),
-    ),
-  };
-  if (link) {
-    settings.overrides = Object.fromEntries(
-      names.flatMap((name) => {
-        const pkg = repo.packages.get(name);
-        if (pkg === undefined) return [];
-        return [[name, `link:${pkg.dir.replaceAll("\\", "/")}`]];
-      }),
+  const workspace = parseDocument(files.get(pnpmSettings) ?? "");
+  for (const [name, allowed] of Object.entries(builds)) {
+    workspace.setIn(["allowBuilds", name], allowed);
+  }
+  workspace.set(
+    "catalog",
+    Object.fromEntries(names.map((name) => [name, versionOf(repo, name)])),
+  );
+  for (const name of link ? names : []) {
+    const pkg = repo.packages.get(name);
+    if (pkg === undefined) continue;
+    workspace.setIn(
+      ["overrides", name],
+      `link:${pkg.dir.replaceAll("\\", "/")}`,
     );
   }
-  await pm.writeSettings(files, settings);
+  files.set(
+    pnpmSettings,
+    await format(workspace.toString(), { filepath: pnpmSettings }),
+  );
   editJson(files, "package.json", (json) => ({
     ...json,
-    packageManager: pm.packageManagerOf(repo),
+    packageManager: repo.packageManager,
   }));
-}
-
-/**
- * Spells the pnpm commands and files in `files` for `packageManager`, and
- * formats each file that changed, so its lines still fit Prettier's width.
- */
-export async function spellFor(
-  files: Files,
-  packageManager: PackageManager,
-): Promise<void> {
-  const pm = packageManagers[packageManager];
-  for (const [path, text] of files) {
-    const spelled = pm.spell(text);
-    if (spelled === text) continue;
-    const { inferredParser } = await getFileInfo(path);
-    files.set(
-      path,
-      inferredParser === null
-        ? spelled
-        : await format(spelled, { filepath: path }),
-    );
-  }
 }
 
 /** The install init writes for `choices`, file by file. */
@@ -343,7 +324,6 @@ export async function generateInstall(
     appFiles(example, exampleSlug, { icon: defaultIcon }),
     `apps/${exampleSlug}/`,
   );
-  await spellFor(files, choices.packageManager);
 
   // The catalog covers every stack robkit add offers, so adding an app
   // needs no version the install lacks.
@@ -353,7 +333,6 @@ export async function generateInstall(
   ]);
   await renderSettings(
     files,
-    choices.packageManager,
     names,
     buildsFor(choices),
     await readRobkitRepo(),

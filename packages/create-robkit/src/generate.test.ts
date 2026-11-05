@@ -52,13 +52,11 @@ describe("generateInstall", () => {
   it("records every choice in robkit.json", async () => {
     const files = await generateInstall(honoFirst);
 
-    expect(files.get("robkit.json")).toBe(`{
-  "packageManager": "pnpm",
-  "orm": "drizzle",
-  "uiKit": null,
-  "generators": ["react-hono", "start"]
-}
-`);
+    expect(JSON.parse(files.get("robkit.json") ?? "")).toEqual({
+      orm: "drizzle",
+      uiKit: null,
+      generators: ["react-hono", "start"],
+    });
   });
 
   it("adds the example app from the first generator", async () => {
@@ -604,20 +602,14 @@ describe("generateInstall", () => {
     ).toMatchSnapshot();
   });
 
-  it.each([["pnpm", "pnpm install --frozen-lockfile"]] as const)(
-    "builds %s's images without Corepack, from a pruned frozen install",
-    async (packageManager, frozenInstall) => {
-      const files = await generateInstall({
-        ...defaultChoices,
-        packageManager,
-      });
-      const dockerfile = files.get("Dockerfile") ?? "";
+  it("builds images without Corepack, from a pruned frozen install", async () => {
+    const files = await generateInstall(defaultChoices);
+    const dockerfile = files.get("Dockerfile") ?? "";
 
-      expect(dockerfile.toLowerCase()).not.toMatch(/^run .*corepack/m);
-      expect(dockerfile).toContain("turbo prune");
-      expect(dockerfile).toContain(frozenInstall);
-    },
-  );
+    expect(dockerfile.toLowerCase()).not.toMatch(/^run .*corepack/m);
+    expect(dockerfile).toContain("turbo prune");
+    expect(dockerfile).toContain("pnpm install --frozen-lockfile");
+  });
 
   it("gives the example app its stack's agent files", async () => {
     const files = await generateInstall(defaultChoices);

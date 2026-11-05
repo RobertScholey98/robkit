@@ -89,7 +89,7 @@ describe.each(chosen())("the %s install in production", (key, choices) => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
     await init(choices, dir, { link: true, install: true });
     // A host can't reach this checkout, so the install takes tarballs.
-    await run(choices.packageManager, ["run", "robkit", "vendor"], {
+    await run("pnpm", ["run", "robkit", "vendor"], {
       cwd: dir,
     });
     stack = await startStack(
@@ -190,7 +190,7 @@ describe.each(chosen())("the %s install in production", (key, choices) => {
 
   it("serves an app added with robkit add after its next deploy", async () => {
     await run(
-      choices.packageManager,
+      "pnpm",
       [
         "run",
         "robkit",

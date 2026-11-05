@@ -7,7 +7,6 @@ import type { Choices, Generator, UiKit } from "./choices.ts";
 import {
   appFiles,
   readFolder,
-  spellFor,
   stackTemplate,
   type Declares,
 } from "./generate.ts";
@@ -84,13 +83,12 @@ export function newSlugProblem(root: string, slug: string): string | undefined {
 async function templateFor(
   root: string,
   stack: Generator,
-  { orm, packageManager }: Choices,
+  { orm }: Choices,
   uiKit: UiKit | null,
 ) {
   const own = join(root, "robkit", "templates", stack);
   if (await exists(own)) return readFolder(own);
   const template = await stackTemplate(stack, orm, uiKit);
-  await spellFor(template, packageManager);
   return template;
 }
 

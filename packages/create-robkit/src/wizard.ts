@@ -133,13 +133,7 @@ export async function askInit(folder?: string): Promise<Answers> {
         validate: (answer) => folderProblem(answer ?? defaultFolder),
       }),
     );
-  const { packageManager, orm, generators } = choiceTable;
-  const pm = answered(
-    await select({
-      message: packageManager.question,
-      options: optionsFor(packageManager, defaultChoices.packageManager),
-    }),
-  );
+  const { orm, generators } = choiceTable;
   const ormAnswer = answered(
     await select({
       message: orm.question,
@@ -159,7 +153,6 @@ export async function askInit(folder?: string): Promise<Answers> {
   );
   return {
     folder: where,
-    pm,
     orm: ormAnswer,
     "ui-kit": uiKit,
     generators: listFlag(stacks),

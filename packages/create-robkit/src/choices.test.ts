@@ -4,7 +4,6 @@ import { choicesFromFlags } from "./choices.ts";
 describe("choicesFromFlags", () => {
   it("takes the default for every flag left out", () => {
     expect(choicesFromFlags({})).toEqual({
-      packageManager: "pnpm",
       orm: "drizzle",
       uiKit: null,
       generators: ["start", "react-hono"],
@@ -21,9 +20,6 @@ describe("choicesFromFlags", () => {
   });
 
   it("names the options when a flag's value isn't one", () => {
-    expect(() => choicesFromFlags({ pm: "npm" })).toThrow(
-      "--pm npm isn't an option. Choose from: pnpm.",
-    );
     expect(() => choicesFromFlags({ generators: "start,next" })).toThrow(
       "--generators next isn't an option. Choose from: start, react-hono.",
     );

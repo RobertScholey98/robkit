@@ -69,7 +69,7 @@ export async function createInstall(
   await init(choices, dir, { link: true, install: true });
   const [stack, other = stack] = choices.generators;
   await run(
-    choices.packageManager,
+    "pnpm",
     [
       "run",
       "robkit",

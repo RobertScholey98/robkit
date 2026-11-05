@@ -89,7 +89,7 @@ exports[`generateInstall > keeps every file of Chakra with Hono first pnpm insta
   "packages/ui/src/system.ts": "b59acd4b5b8da2de",
   "packages/ui/tsconfig.json": "7548f022caaaba5f",
   "pnpm-workspace.yaml": "ca83cf7e406441a3",
-  "robkit.json": "65409608cf2122d0",
+  "robkit.json": "c70692510e348bde",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -194,7 +194,7 @@ exports[`generateInstall > keeps every file of Kysely on Base UI pnpm install 1`
   "packages/ui/src/styles.css": "2aa229637ff64d8b",
   "packages/ui/tsconfig.json": "c30d575a1e3f6273",
   "pnpm-workspace.yaml": "26b4bb2b7ee1f2aa",
-  "robkit.json": "bee6ce3070397ec1",
+  "robkit.json": "b45fbd81dcabc9db",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -309,7 +309,7 @@ exports[`generateInstall > keeps every file of Prisma on Radix pnpm install 1`] 
   "packages/ui/src/styles.css": "2aa229637ff64d8b",
   "packages/ui/tsconfig.json": "c30d575a1e3f6273",
   "pnpm-workspace.yaml": "325e7276ab65f47c",
-  "robkit.json": "6a372aed871b4d27",
+  "robkit.json": "a8981b26f38dafd0",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -400,7 +400,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "packages/theme/package.json": "5a31d8d97e26cfb7",
   "packages/theme/theme.css": "c0411bbce9b837d6",
   "pnpm-workspace.yaml": "e4c3e0450052769f",
-  "robkit.json": "1813e7cbae527705",
+  "robkit.json": "d412f38c2f645ce7",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -539,12 +539,7 @@ catalog:
 `;
 
 exports[`generateInstall > writes the default install > robkit.json 1`] = `
-"{
-  "packageManager": "pnpm",
-  "orm": "drizzle",
-  "uiKit": null,
-  "generators": ["start", "react-hono"]
-}
+"{ "orm": "drizzle", "uiKit": null, "generators": ["start", "react-hono"] }
 "
 `;
 

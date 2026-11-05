@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, inject, it } from "vitest";
 import { cleanPath } from "./clean-path.ts";
-import { installChoices, type InstallName } from "./install.ts";
+import type { InstallName } from "./install.ts";
 import { ownCiSteps, runOwnCi } from "./own-ci.ts";
 
 const run = promisify(execFile);
@@ -37,7 +37,7 @@ describe.each(ciInstalls)("the %s install", (name) => {
     // bins the install's own manifests give it, as on the owner's machine.
     await runOwnCi(dir, steps, {
       ...process.env,
-      PATH: await cleanPath(installChoices[name].packageManager),
+      PATH: await cleanPath("pnpm"),
     });
   });
 });
@@ -62,7 +62,7 @@ describe.each(lintInstalls)("the %s install's lint", (name) => {
     const file = join(dir, "apps/hub/src/reach.ts");
     await writeFile(file, text);
     try {
-      const lint = run(installChoices[name].packageManager, ["run", "lint"], {
+      const lint = run("pnpm", ["run", "lint"], {
         cwd: dir,
       });
 

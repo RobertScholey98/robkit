@@ -19,7 +19,6 @@ import {
 import { checkInstall, describeProblem } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
-import { packageManagers } from "./package-managers.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
@@ -82,10 +81,11 @@ async function vendor(): Promise<void> {
   const { positionals } = parseArgs({ allowPositionals: true });
   if (positionals.length > 1) throw new Error(usage);
   const root = process.cwd();
-  const installed = await readInstallChoices(root);
+  // Refuses a folder that isn't an install.
+  await readInstallChoices(root);
   await vendorPackages(root);
   if (existsSync(join(root, "node_modules"))) {
-    await installDependencies(root, installed.packageManager);
+    await installDependencies(root);
   }
   console.log(
     `Packed robkit's packages into ${vendorDir}. Commit it with the install.`,
@@ -212,19 +212,18 @@ async function add(): Promise<void> {
   // An install whose dependencies are in keeps them in, new app included.
   const hasDependencies = existsSync(join(root, "node_modules"));
   if (hasDependencies) {
-    await installDependencies(root, installed.packageManager);
+    await installDependencies(root);
   }
-  const pm = packageManagers[installed.packageManager];
   console.log(`Added apps/${choices.slug}. Next:
-${hasDependencies ? "" : `\n  ${installed.packageManager} install`}
-  ${pm.run("dev")}
+${hasDependencies ? "" : "\n  pnpm install"}
+  pnpm dev
 
 Then open ${dev.origin(choices.slug)}.`);
   if (asked) {
     console.log(`
 The same app without the questions:
 
-  ${pm.run(addCommandFor(choices))}`);
+  pnpm ${addCommandFor(choices)}`);
   }
 }
 

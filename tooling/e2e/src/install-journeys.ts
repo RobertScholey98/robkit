@@ -160,7 +160,7 @@ export function describeJourneys(
     postgresPort = await freePostgresPort();
     const tag = testTag();
     removeWhenGone({ tagged: tag }, { docker: project });
-    dev = spawn(choices.packageManager, ["run", "dev"], {
+    dev = spawn("pnpm", ["run", "dev"], {
       cwd: dir,
       env: {
         ...process.env,
@@ -186,7 +186,7 @@ export function describeJourneys(
     const outputFrom = output.length;
     onTestFailed(() => {
       console.error(
-        `What the browser saw:\n${takeBrowserLog()}\n\nWhat ${choices.packageManager} run dev said meanwhile:\n${output.slice(outputFrom).slice(-8000)}`,
+        `What the browser saw:\n${takeBrowserLog()}\n\nWhat pnpm dev said meanwhile:\n${output.slice(outputFrom).slice(-8000)}`,
       );
     });
   });
@@ -198,7 +198,7 @@ export function describeJourneys(
     });
   });
 
-  describe(`${choices.packageManager} run dev in an install with the ${stack} example on ${choices.orm}`, () => {
+  describe(`pnpm dev in an install with the ${stack} example on ${choices.orm}`, () => {
     it("serves the hub on hub.robkit.localhost", async () => {
       const hub = await eventually(() => get(hostOf("hub")));
 
