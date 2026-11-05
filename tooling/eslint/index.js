@@ -1,3 +1,4 @@
+import comments from "@eslint-community/eslint-plugin-eslint-comments/configs";
 import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import globals from "globals";
@@ -40,6 +41,14 @@ export function config(tsconfigRootDir) {
         "robkit/core-schema": "error",
         "robkit/layer": "error",
         "robkit/relative-import-extension": "error",
+      },
+    },
+    // A suppression says why after `--`, and one that suppresses nothing goes.
+    comments.recommended,
+    {
+      linterOptions: { reportUnusedDisableDirectives: "error" },
+      rules: {
+        "@eslint-community/eslint-comments/require-description": "error",
       },
     },
   );

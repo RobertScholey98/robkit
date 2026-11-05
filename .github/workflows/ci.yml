@@ -33,3 +33,47 @@ jobs:
       # The end-to-end journey drives the stack in Chromium.
       - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
       - run: pnpm turbo run lint typecheck test
+      # Each package's coverage report, to see what its tests miss.
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: coverage
+          path: |
+            packages/*/coverage/
+            tooling/*/coverage/
+
+  # What a pull request's own changes must keep to, checked against its base.
+  pull-request:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      BASE: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The same check the commit-msg hook runs, on every commit but merges.
+      - run: node tooling/repo-checks/src/check-commit-subjects.ts --range "$BASE..HEAD"
+      - run: node tooling/repo-checks/src/check-coverage-thresholds.ts "$BASE"
+      # Fails when a published package's source changed without a changeset.
+      - run: pnpm changeset status --since="$BASE"
+
+  # The one check branch protection requires. It passes only if every job
+  # above passed, or was skipped because it runs only on pull requests.
+  gate:
+    if: ${{ always() }}
+    needs: [check, pull-request]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: echo "$RESULTS"
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || (github.event_name == 'pull_request' && contains(needs.*.result, 'skipped')) }}
+        run: exit 1
