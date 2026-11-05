@@ -80,12 +80,13 @@ describe("apiReport", () => {
 describe("each published package's api-report.md", async () => {
   // Fails when the built API differs from the checked-in report. Run
   // `pnpm --filter @internal/repo-checks api:update` and commit the report.
-  it.each(await publishedPackages())(
-    "matches the API %s builds",
-    async (dir) => {
+  const dirs = await publishedPackages();
+  it.each(dirs.map((dir) => [`packages/${basename(dir)}`, dir]))(
+    "%s matches its built API",
+    async (folder, dir) => {
       await expect(
         await apiReport(dir),
-        `${basename(dir)}'s API changed. Run pnpm --filter @internal/repo-checks api:update and commit api-report.md.`,
+        `${folder}'s API changed. Run pnpm --filter @internal/repo-checks api:update and commit its api-report.md.`,
       ).toMatchFileSnapshot(join(dir, "api-report.md"));
     },
   );
