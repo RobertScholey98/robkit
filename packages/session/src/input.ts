@@ -88,8 +88,8 @@ const label = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
 const domainPattern = new RegExp(`^${label}(\\.${label})*$`, "i");
 
 /** Whether `value` is a domain alone, with no scheme, port or path. */
-export function isDomain(value: unknown): value is string {
-  return typeof value === "string" && domainPattern.test(value);
+export function isDomain(value: string): boolean {
+  return domainPattern.test(value);
 }
 
 /** The install's domain: `ROBKIT_DOMAIN`, or `fallback`. */

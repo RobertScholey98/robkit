@@ -38,7 +38,7 @@ function isSlug(value: unknown): value is Slug {
 /** `value` as a slug, or why it can't be one. */
 export function readSlug(value: unknown): Slug | { error: string } {
   if (isSlug(value)) return value;
-  const shown = JSON.stringify(value) ?? "Nothing";
+  const shown = value === undefined ? "Nothing" : JSON.stringify(value);
   return {
     error: `${shown} can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
   };
