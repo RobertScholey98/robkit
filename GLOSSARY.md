@@ -54,7 +54,7 @@ The shared React component library every **Install** has: shadcn on Base UI, in 
 _Avoid_: design system
 
 **Manifest**:
-An app's declaration, in the `robkit` field of its `package.json`: its name, **Stack**, **Contract version**, icon, access rule and optional **Seed**.
+An app's declaration, in the `robkit` field of its `package.json`: its name, **Stack**, **Contract version**, icon and access rule, and for an imported app, where it came from.
 _Avoid_: config
 
 **Contract version**:
@@ -62,12 +62,16 @@ The version of what an **App** may assume of the **Install** it runs in: the `@r
 _Avoid_: API version, robkit version
 
 **Seed**:
-A SQL file an **App**'s **Manifest** names, which the provision step runs once, as the app's role, when it first makes the app's schema. Seed rows travel with an **Export**; data never does.
+An **App**'s `seed.sql`, at the root of its folder, which runs once, as the app's role, when the install first makes the app's schema: in `pnpm dev`'s provision step, or as the app's container starts after a deploy. Seed rows travel with an **Export**; data never does.
 _Avoid_: fixture, dump
 
 **Export**:
 An **App** as a repo of its own, outside any **Install**, as `robkit export` writes it: the app's files, its **Shared code**, its migrations and **Seed**, and the catalog's versions written out. `robkit import` brings one into an install.
 _Avoid_: bundle, package, snapshot
+
+**Update**:
+Bringing an imported **App** up to the newest **Export** of the folder or git URL it came from, with `robkit update`. The owner's own edits stay, merged with the export's changes as git merges a branch. The schema and its data stay, and the **Seed** doesn't run again.
+_Avoid_: re-import, sync, upgrade
 
 **Shared code**:
 The install code an **App** uses from outside its folder, such as the **UI kit**. An **Export** holds a copy in `shared/`. On import, each package the install has byte for byte maps back onto the install's own, and the rest stays in the app, renamed after it.
@@ -131,7 +135,7 @@ _Avoid_: plugin, integration
 > **Dev:** "Could an **App** I imported use the token it holds to open admin?"
 > **Owner:** "No. It holds an **App token** for its own slug, and admin and core refuse it."
 > **Dev:** "And when I import someone's **Export**, does their data come with it?"
-> **Owner:** "No. Its migrations and its **Seed** do. The seed runs once, when `pnpm dev` first makes the app's schema."
+> **Owner:** "No. Its migrations and its **Seed** do. The seed runs once, when your install first makes the app's schema."
 
 ## Flagged ambiguities
 
