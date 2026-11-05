@@ -1,4 +1,5 @@
 import {
+  allProblems,
   isProblem,
   readDatabaseUrl,
   readDomain,
@@ -46,12 +47,7 @@ export function readCoreConfig(env: Env): CoreConfig | Problem {
     isProblem(host) ||
     isProblem(port)
   ) {
-    return {
-      error: [databaseUrl, domain, apps, trustedProxy, host, port]
-        .filter(isProblem)
-        .map((problem) => problem.error)
-        .join("\n"),
-    };
+    return allProblems(databaseUrl, domain, apps, trustedProxy, host, port);
   }
   return {
     databaseUrl,

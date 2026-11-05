@@ -22,7 +22,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /** Every problem among `reads` as one, a line each. */
-function together(...reads: unknown[]): Problem {
+export function allProblems(...reads: unknown[]): Problem {
   return {
     error: reads
       .filter(isProblem)
@@ -164,7 +164,7 @@ export function readServeEnv(
   const host = readHost(env);
   const port = readPort(env, "PORT", 3000);
   if (isProblem(host) || isProblem(port)) {
-    return together(host, port);
+    return allProblems(host, port);
   }
   return { host, port };
 }
@@ -174,7 +174,7 @@ export function readGuardEnv(env: Env): { app: Slug; core: string } | Problem {
   const app = readAppSlug(env);
   const core = readCoreUrl(env);
   if (isProblem(app) || isProblem(core)) {
-    return together(app, core);
+    return allProblems(app, core);
   }
   return { app, core };
 }
