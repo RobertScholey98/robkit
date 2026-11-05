@@ -57,7 +57,7 @@ export async function runDev(
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
 
-  const running: ChildProcess[] = [];
+  const running: { slug: string; child: ChildProcess }[] = [];
   const proxy = createProxy(routesFor(apps, domain));
 
   const start = (app: App, databaseUrl: string | undefined) => {
@@ -80,7 +80,7 @@ export async function runDev(
       console.error(`${app.slug} exited (${String(signal ?? code)}), stopping`);
       stop("failed");
     });
-    running.push(child);
+    running.push({ slug: app.slug, child });
   };
 
   try {
@@ -108,7 +108,9 @@ export async function runDev(
   }
 
   await stopRequested;
-  await Promise.all(running.map(stopGroup));
+  await Promise.all(
+    running.map(({ slug, child }) => stopGroup(slug, child.pid)),
+  );
   proxy.closeAllConnections();
   proxy.close();
   try {

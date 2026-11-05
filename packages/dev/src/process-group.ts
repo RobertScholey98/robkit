@@ -1,31 +1,51 @@
-import type { ChildProcess } from "node:child_process";
-
 /** How long an app gets to exit after SIGTERM before it is killed. */
 const stopTimeoutMs = 5000;
 
-function groupAlive(pid: number): boolean {
-  try {
-    process.kill(-pid, 0);
-    return true;
-  } catch {
-    // Signal 0 throws only when the group is gone.
-    return false;
-  }
+/** `process.kill`, or a stand-in for it. */
+type Kill = (pid: number, signal?: string | number) => true;
+
+/** Whether `error` is the system error with `code`, such as `ESRCH`. */
+function hasCode(error: unknown, code: string): boolean {
+  return error instanceof Error && "code" in error && error.code === code;
 }
 
-/** Stops an app's whole process group: its package manager, watcher and server. */
-export async function stopGroup(child: ChildProcess): Promise<void> {
-  const pid = child.pid;
+/**
+ * Stops an app's whole process group: its package manager, watcher and
+ * server. SIGTERM first, then SIGKILL if the group outlives
+ * {@link stopTimeoutMs}.
+ *
+ * @param pid the group leader's pid, undefined for an app that never started
+ * @throws if a signal fails for any reason but the group being gone
+ */
+export async function stopGroup(
+  name: string,
+  pid: number | undefined,
+  kill: Kill = (pid, signal) => process.kill(pid, signal),
+): Promise<void> {
   if (pid === undefined) return;
-  try {
-    process.kill(-pid, "SIGTERM");
-  } catch {
-    // The group has already exited.
-    return;
-  }
+  /** Sends `signal` to the group. False if the group is gone. */
+  const signal = (signal: string | number): boolean => {
+    try {
+      kill(-pid, signal);
+      return true;
+    } catch (error) {
+      // ESRCH is the one answer that means no process is left in the group.
+      if (hasCode(error, "ESRCH")) return false;
+      throw new Error(
+        `Couldn't stop ${name}'s processes (group ${String(pid)}).`,
+        {
+          cause: error,
+        },
+      );
+    }
+  };
+  if (!signal("SIGTERM")) return;
   const deadline = Date.now() + stopTimeoutMs;
-  while (groupAlive(pid) && Date.now() < deadline) {
+  while (signal(0)) {
+    if (Date.now() >= deadline) {
+      signal("SIGKILL");
+      return;
+    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  if (groupAlive(pid)) process.kill(-pid, "SIGKILL");
 }
