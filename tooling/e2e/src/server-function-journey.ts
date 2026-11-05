@@ -3,6 +3,7 @@ import { launch } from "./browser.ts";
 import {
   expiredTwin,
   mainFrameRequests,
+  sessionCookieFor,
   type JourneyOptions,
 } from "./owner-journey.ts";
 
@@ -52,10 +53,7 @@ export async function serverFunctionJourney({
     await page.getByText(`Visits: ${String(first + 1)}`).waitFor();
     const second = await visitsOn(page);
 
-    const cookie = (await context.cookies()).find(
-      (c) => c.name === "robkit_session",
-    );
-    if (!cookie) throw new Error("signing in set no session cookie");
+    const cookie = await sessionCookieFor(context, app);
     await context.addCookies([
       { ...cookie, value: await expiredTwin(cookie.value, adminUrl) },
     ]);

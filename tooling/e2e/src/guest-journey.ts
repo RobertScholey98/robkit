@@ -3,6 +3,7 @@ import { launch } from "./browser.ts";
 import {
   expiredTwin,
   mainFrameRequests,
+  sessionCookieFor,
   type JourneyOptions,
 } from "./owner-journey.ts";
 
@@ -27,7 +28,10 @@ export interface GuestJourney {
   testCodeGreeting: string | null;
   /** The code's standing in admin once the owner revoked it. */
   revokedStanding: string | null;
-  /** Each page the guest's browser requested next, with an expired token. */
+  /**
+   * Each page the guest's browser requested next, with the example's token
+   * expired.
+   */
   bounce: string[];
   /** Where that ended. */
   afterRevokeAt: string;
@@ -91,10 +95,7 @@ export async function guestJourney({
     const revokedStanding = await row.getByText("Revoked").textContent();
 
     const context = guest.context();
-    const cookie = (await context.cookies()).find(
-      (c) => c.name === "robkit_session",
-    );
-    if (!cookie) throw new Error("the intro link set no session cookie");
+    const cookie = await sessionCookieFor(context, at("example"));
     await context.addCookies([
       { ...cookie, value: await expiredTwin(cookie.value, adminUrl) },
     ]);

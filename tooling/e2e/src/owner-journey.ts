@@ -1,5 +1,5 @@
 import { decodeJwt, importJWK, SignJWT, type JWK } from "jose";
-import type { Page } from "playwright";
+import type { BrowserContext, Cookie, Page } from "playwright";
 import { launch } from "./browser.ts";
 import postgres from "postgres";
 import type { Install } from "@robkit/session/addresses";
@@ -21,8 +21,12 @@ export interface Journey {
   signedInAt: string;
   heading: string | null;
   viewerId: string | null;
-  /** The owner id in the session cookie. */
+  /** The owner id in the example's session cookie. */
   ownerId: string;
+  /** The example's own token, which only the example accepts. */
+  appToken: string;
+  /** The hosts the browser holds a session cookie for. */
+  sessionCookieHosts: string[];
   /** Each page the browser requested opening the app with an expired token. */
   bounce: string[];
   /** Where that ended, and who the app saw. */
@@ -31,8 +35,9 @@ export interface Journey {
 }
 
 /**
- * A session token for the same session, expired five minutes ago and signed
- * with core's own key, so the app must bounce it through core's /refresh.
+ * A token for the same viewer and audience, expired five minutes ago and
+ * signed with core's own key, so the app must bounce it through core's
+ * /refresh.
  */
 export async function expiredTwin(
   token: string,
@@ -44,10 +49,8 @@ export async function expiredTwin(
   `.finally(() => sql.end());
   if (!key) throw new Error("core has no signing key");
   const claims = decodeJwt(token);
-  const { sub, sid } = claims;
-  if (typeof sub !== "string" || typeof sid !== "string") {
-    throw new Error("the session cookie has no owner or session");
-  }
+  const { sub } = claims;
+  if (typeof sub !== "string") throw new Error("the token names no one");
   const iat = Math.floor(Date.now() / 1000) - 20 * 60;
   // Every claim, so a guest's twin keeps their roles. The times are reset.
   return new SignJWT(claims)
@@ -56,6 +59,20 @@ export async function expiredTwin(
     .setIssuedAt(iat)
     .setExpirationTime(iat + 15 * 60)
     .sign(await importJWK(key.private_jwk, "EdDSA"));
+}
+
+/** The session cookie the browser holds for `url`'s host, which only it gets. */
+export async function sessionCookieFor(
+  context: BrowserContext,
+  url: string,
+): Promise<Cookie> {
+  const { hostname } = new URL(url);
+  const cookie = (await context.cookies()).find(
+    (c) => c.name === "robkit_session" && c.domain === hostname,
+  );
+  if (!cookie)
+    throw new Error(`the browser holds no session cookie for ${hostname}`);
+  return cookie;
 }
 
 export function mainFrameRequests(page: Page): string[] {
@@ -95,10 +112,11 @@ export async function ownerJourney({
     const heading = await page.getByRole("heading").textContent();
     const viewerId = await page.getByTestId("viewer-id").textContent();
 
-    const cookie = (await context.cookies()).find(
-      (c) => c.name === "robkit_session",
-    );
-    if (!cookie) throw new Error("signing in set no session cookie");
+    const cookie = await sessionCookieFor(context, example);
+    const sessionCookieHosts = (await context.cookies())
+      .filter((c) => c.name === "robkit_session")
+      .map((c) => c.domain)
+      .sort();
     await context.addCookies([
       { ...cookie, value: await expiredTwin(cookie.value, adminUrl) },
     ]);
@@ -111,6 +129,8 @@ export async function ownerJourney({
       heading,
       viewerId,
       ownerId: String(decodeJwt(cookie.value).sub),
+      appToken: cookie.value,
+      sessionCookieHosts,
       bounce,
       bouncedTo: page.url(),
       bouncedViewerId: await page.getByTestId("viewer-id").textContent(),
