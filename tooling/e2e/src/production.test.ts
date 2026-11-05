@@ -1,7 +1,8 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { appendFile, cp, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { defaultChoices, init } from "create-robkit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -17,6 +18,7 @@ import {
   buildApp,
   extraneousPackages,
   hostEnv,
+  query,
   stackReport,
   startApp,
   startStack,
@@ -29,6 +31,14 @@ const run = promisify(execFile);
 
 /** The app the owner adds with robkit add after the first deploy. */
 const later = "later";
+
+/** The app the owner imports with robkit import after the first deploy. */
+const imported = "guestbook";
+
+/** The sample app repo, which lives outside any install. */
+const guestbookSample = fileURLToPath(
+  new URL("../../../examples/guestbook/", import.meta.url),
+);
 
 /** Builds each app's image and starts its container with its env. */
 async function deployApps(stack: Stack, slugs: string[]): Promise<void> {
@@ -66,7 +76,14 @@ describe("the default install in production", () => {
     await run("pnpm", ["run", "robkit", "vendor"], {
       cwd: dir,
     });
-    stack = await startStack(dir, ["core", "hub", "admin", "example", later]);
+    stack = await startStack(dir, [
+      "core",
+      "hub",
+      "admin",
+      "example",
+      later,
+      imported,
+    ]);
     await deployApps(stack, ["core"]);
     await answers(stack, "core", 200, "/status");
     await deployApps(stack, ["hub", "admin"]);
@@ -156,6 +173,36 @@ describe("the default install in production", () => {
       first: [401, 401, 401, 401, 401, 429],
       second: [401],
     });
+  });
+
+  it("serves an imported app that keeps shared code of its own, seeded, after its next deploy", async () => {
+    // The guestbook from an install whose theme differs from this one's, so
+    // it keeps its own theme and UI kit in shared/, and builds with them.
+    const source = join(await mkdtemp(join(tmpdir(), "robkit-")), imported);
+    await cp(guestbookSample, source, { recursive: true });
+    await appendFile(
+      join(source, "shared/theme/theme.css"),
+      "\n/* Another install's theme. */\n",
+    );
+    await run("pnpm", ["run", "robkit", "import", source], { cwd: dir });
+    await deployApps(stack, ["core"]);
+    await answers(stack, "core", 200, "/status");
+    await deployApps(stack, [imported]);
+    await answers(stack, imported, 200);
+
+    const visit = await guestOpens(stack.addresses, setUp.code ?? "", imported);
+
+    expect(visit).toEqual({
+      greeting: "Signed in as Grandma",
+      openedAt: `${stack.addresses.origin(imported)}/`,
+      heading: "Guestbook",
+      stylesheets: [200],
+    });
+    // Its seed ran once, as the app's container started.
+    expect(
+      await query(stack, `select name from ${imported}.entry order by id`),
+    ).toEqual(["Rob", "Grandma"]);
+    expect(await extraneousPackages(stack, imported)).toEqual([]);
   });
 
   it("serves an app added with robkit add after its next deploy", async () => {

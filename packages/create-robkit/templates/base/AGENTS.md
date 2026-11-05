@@ -7,6 +7,8 @@ This is a robkit install: a monorepo of small apps behind one sign-in. Core hold
 ```sh
 pnpm dev                     # Postgres, core, the hub, admin and every app, on *.robkit.localhost:3000
 pnpm robkit add              # add an app; asks for its stack, name, who can open it and an icon
+pnpm robkit export <name>    # write apps/<name> as a repo of its own, in ../<name>, to share it
+pnpm robkit import <repo>    # bring an exported app in, from a folder or a git URL
 pnpm lint                    # robkit check, then ESLint
 pnpm typecheck
 pnpm test
@@ -21,7 +23,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 - `packages/` holds code the apps share, such as `packages/core-client`, which the hub and admin call core through.
 - `packages/theme/theme.css` holds the install's look: its colour, radius and font variables. The hub and admin draw with Tailwind classes named after them, such as `bg-primary`, so changing a variable restyles both. Every control they draw comes from their own `ui.tsx`, which draws with the install's UI kit: shadcn on Base UI, in `packages/ui`, with its own `AGENTS.md`. Every app draws with it too.
 - `robkit.json` marks this folder as a robkit install, and records the stack init gave the example app. The `robkit` commands refuse a folder without it.
-- An app's `package.json` may declare a `robkit` field: who may open it when core first sees it, and the emoji the launcher shows. After that, the owner sets who may open it in admin.
+- An app's `package.json` declares a `robkit` field, its manifest: its name, the stack it was made on, the robkit contract version it was made for, who may open it when core first sees it, and the emoji the launcher shows. After core first sees it, the owner sets who may open it in admin.
 
 ## The layer rule
 
@@ -33,7 +35,11 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 
 ## Databases
 
-`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time.
+`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time. When `pnpm dev` first makes an app's schema, it then runs the app's seed, the `seed.sql` at the root of its folder if it has one, once, as the app's role, and never again. In production the app's own `start` script does the same: it migrates, then `robkit-seed` seeds a schema the deploy just made.
+
+## Sharing an app
+
+`pnpm robkit export <name>` writes `apps/<name>` as a repo of its own beside the install, in `../<name>` (`--out <folder>` to choose), and commits it with git. The repo holds the app's files, its migrations and seed, never its data, and in `shared/` a copy of the install code it uses, such as `packages/ui`, so it installs, lints, typechecks and tests on its own. Export it again to commit a change to the same repo. `pnpm robkit import <folder or git URL>` brings such a repo into `apps/<name>` (`--as <name>` to rename). Its `shared/` code maps back onto the install's own packages where they're the same; where they differ it stays in the app, as `apps/<name>/shared/*`, renamed after the app. Import refuses an app made for a robkit contract version this install can't run, a name that's taken, and an app that breaks the layer rule. To bring an imported app up to the newest export of where it came from, run `pnpm robkit update <name>`. It keeps your own edits to the app, merging them with the export's changes as git merges a branch, and where both changed the same lines it leaves both, between git's conflict markers, for you to resolve. Its schema and data stay, and its seed doesn't run again.
 
 ## Production
 

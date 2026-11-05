@@ -1,9 +1,11 @@
-import { cp, mkdtemp } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import postgres from "postgres";
-import { afterAll, describe, expect, inject, it } from "vitest";
+import { afterAll, describe, expect, inject, it, vi } from "vitest";
 import {
   databasePassword,
   databaseUrl,
@@ -12,6 +14,7 @@ import {
   provisionDatabases,
 } from "./provision.ts";
 
+const run = promisify(execFile);
 const adminUrl = inject("adminUrl");
 const clients: postgres.Sql[] = [];
 const fixture = fileURLToPath(
@@ -225,4 +228,152 @@ describe("provisionApps", () => {
 
     expect(databaseUrls.size).toBe(0);
   });
+
+  it("runs a new app's seed once, as the app, after its migrations", async () => {
+    const root = await install();
+    await seeded(
+      root,
+      "seeds",
+      "insert into entry values ('seeded by ' || current_user);",
+    );
+
+    await provisionApps(root, { adminUrl, env });
+    await provisionApps(root, { adminUrl, env });
+
+    expect(await entries("seeds")).toEqual([
+      { body: "migrated" },
+      { body: "seeded by seeds" },
+    ]);
+  });
+
+  it("says when it runs a seed", async () => {
+    const root = await install();
+    await seeded(root, "chatty", "insert into entry values ('seeded');");
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    let said: unknown[][];
+    try {
+      await provisionApps(root, { adminUrl, env });
+    } finally {
+      said = [...log.mock.calls];
+      log.mockRestore();
+    }
+
+    expect(said).toContainEqual([
+      "[chatty] ran seed.sql once, on its new schema",
+    ]);
+  });
+
+  it("never seeds an app whose schema was already there", async () => {
+    const root = await install();
+    await seeded(root, "lateseed", undefined);
+    await provisionApps(root, { adminUrl, env });
+
+    await seeded(root, "lateseed", "insert into entry values ('seeded');");
+    await provisionApps(root, { adminUrl, env });
+
+    expect(await entries("lateseed")).toEqual([{ body: "migrated" }]);
+  });
+
+  it("seeds on the next run when the first one failed to migrate", async () => {
+    const root = await install();
+    await seeded(root, "retried", "insert into entry values ('seeded');");
+    await expect(
+      provisionApps(root, {
+        adminUrl,
+        env: { ...env, FIXTURE_POSTGRES: "no-such-module" },
+      }),
+    ).rejects.toThrow(/pnpm run migrate exited with 1/);
+
+    await provisionApps(root, { adminUrl, env });
+
+    expect(await entries("retried")).toEqual([
+      { body: "migrated" },
+      { body: "seeded" },
+    ]);
+  });
+
+  it("stops at a seed that fails, keeps none of it, and tries it again next time", async () => {
+    const root = await install();
+    await seeded(
+      root,
+      "badseed",
+      "insert into entry values ('half'); insert into nowhere values (1);",
+    );
+
+    await expect(provisionApps(root, { adminUrl, env })).rejects.toThrow(
+      'apps/badseed: its seed, seed.sql, failed: relation "nowhere" does not exist',
+    );
+    expect(await entries("badseed")).toEqual([{ body: "migrated" }]);
+
+    await seeded(root, "badseed", "insert into entry values ('fixed');");
+    await provisionApps(root, { adminUrl, env });
+    expect(await entries("badseed")).toEqual([
+      { body: "migrated" },
+      { body: "fixed" },
+    ]);
+  });
 });
+
+describe("robkit-seed", () => {
+  const bin = fileURLToPath(new URL("seed-bin.ts", import.meta.url));
+
+  it("seeds the schema production's provision step made, once, as the app's container starts", async () => {
+    const root = await install();
+    await seeded(
+      root,
+      "hosted",
+      "insert into entry values ('seeded by ' || current_user);",
+    );
+    const urls = await provisionDatabases({
+      adminUrl,
+      secret,
+      slugs: ["hosted"],
+    });
+    const container = {
+      cwd: join(root, "apps", "hosted"),
+      env: {
+        ...env,
+        ROBKIT_APP: "hosted",
+        DATABASE_URL: urls.get("hosted") ?? "",
+      },
+    };
+    // As the stacks' start script does: migrate, then seed, every start.
+    const start = async () => {
+      await run("node", ["../../migrate.js"], container);
+      return (await run("node", [bin], container)).stdout;
+    };
+
+    const said = [await start(), await start()];
+
+    expect(said).toEqual(["ran seed.sql once, on its new schema\n", ""]);
+    expect(await entries("hosted")).toEqual([
+      { body: "migrated" },
+      { body: "seeded by hosted" },
+    ]);
+  });
+});
+
+/**
+ * Adds an app at `apps/<slug>` to the install at `root` that migrates as
+ * ledger does, with `seed` as its `seed.sql` when given.
+ */
+async function seeded(root: string, slug: string, seed: string | undefined) {
+  const dir = join(root, "apps", slug);
+  await mkdir(dir, { recursive: true });
+  await writeFile(
+    join(dir, "package.json"),
+    JSON.stringify({
+      name: slug,
+      private: true,
+      type: "module",
+      scripts: { migrate: "node ../../migrate.js" },
+    }),
+  );
+  if (seed !== undefined) await writeFile(join(dir, "seed.sql"), seed);
+}
+
+/** The rows in an app's `entry` table, in the order they went in. */
+function entries(slug: string): Promise<unknown> {
+  const admin = connect(adminUrl);
+  return admin.unsafe(`select body from "${slug}".entry order by ctid`);
+}

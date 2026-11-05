@@ -7,7 +7,7 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   ".gitignore": "1c8e3db7cfa4d809",
   ".husky/pre-commit": "aad3507759b5b03c",
   ".prettierignore": "4fdf740819c3271e",
-  "AGENTS.md": "e4619b1ecfd5d23d",
+  "AGENTS.md": "ea006b970b8401ed",
   "CLAUDE.md": "336cc4fbf19beaad",
   "Dockerfile": "f6dc3d49d52ce05a",
   "apps/admin/package.json": "fc4a97ba71f7b1c3",
@@ -32,13 +32,13 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   "apps/core/src/migrate.ts": "37af6875cc1f58da",
   "apps/core/src/provision.ts": "6f0218bdb780d4f8",
   "apps/core/tsconfig.json": "deb6cda41953cf99",
-  "apps/example/AGENTS.md": "c611c69e49f79168",
+  "apps/example/AGENTS.md": "ce5faedb9f6a50eb",
   "apps/example/CLAUDE.md": "336cc4fbf19beaad",
   "apps/example/drizzle.config.ts": "d45a0ce08419101e",
   "apps/example/drizzle/0000_init.sql": "504e91802ecbac63",
   "apps/example/drizzle/meta/0000_snapshot.json": "b0dfc99d6d0a27fd",
   "apps/example/drizzle/meta/_journal.json": "fc855da1b2644c6a",
-  "apps/example/package.json": "0438aebcf72870d1",
+  "apps/example/package.json": "3064eb47e5bd468d",
   "apps/example/src/database.ts": "a46958e10a965b54",
   "apps/example/src/migrate.ts": "736dea4d15df0c31",
   "apps/example/src/schema.ts": "6778af76d5ce6bdb",
@@ -67,7 +67,7 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   "apps/hub/src/ui.tsx": "8dd3c9d18a80d226",
   "apps/hub/tsconfig.json": "d21aed3104ad44e6",
   "apps/hub/vite.config.ts": "1918fe616ddb3985",
-  "compose.yaml": "ce13ca1c7c6b4775",
+  "compose.yaml": "f25867da873fce1a",
   "docs/deploy.md": "cb87a255748e31f7",
   "eslint.config.js": "1a465b635da72234",
   "lint-staged.config.js": "8508de0e3c78adba",
@@ -109,7 +109,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   ".gitignore": "1c8e3db7cfa4d809",
   ".husky/pre-commit": "aad3507759b5b03c",
   ".prettierignore": "4fdf740819c3271e",
-  "AGENTS.md": "e4619b1ecfd5d23d",
+  "AGENTS.md": "ea006b970b8401ed",
   "CLAUDE.md": "336cc4fbf19beaad",
   "Dockerfile": "f6dc3d49d52ce05a",
   "apps/admin/package.json": "fc4a97ba71f7b1c3",
@@ -134,13 +134,13 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "apps/core/src/migrate.ts": "37af6875cc1f58da",
   "apps/core/src/provision.ts": "6f0218bdb780d4f8",
   "apps/core/tsconfig.json": "deb6cda41953cf99",
-  "apps/example/AGENTS.md": "12f6605cc0c81755",
+  "apps/example/AGENTS.md": "abda16506e9647da",
   "apps/example/CLAUDE.md": "336cc4fbf19beaad",
   "apps/example/drizzle.config.ts": "d45a0ce08419101e",
   "apps/example/drizzle/0000_init.sql": "504e91802ecbac63",
   "apps/example/drizzle/meta/0000_snapshot.json": "b0dfc99d6d0a27fd",
   "apps/example/drizzle/meta/_journal.json": "fc855da1b2644c6a",
-  "apps/example/package.json": "ef60668e0ae0c687",
+  "apps/example/package.json": "54be3b3feb0e824a",
   "apps/example/src/database.ts": "a46958e10a965b54",
   "apps/example/src/migrate.ts": "736dea4d15df0c31",
   "apps/example/src/routeTree.gen.ts": "7530b89026266c8d",
@@ -174,7 +174,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "apps/hub/src/ui.tsx": "8dd3c9d18a80d226",
   "apps/hub/tsconfig.json": "d21aed3104ad44e6",
   "apps/hub/vite.config.ts": "1918fe616ddb3985",
-  "compose.yaml": "ce13ca1c7c6b4775",
+  "compose.yaml": "f25867da873fce1a",
   "docs/deploy.md": "cb87a255748e31f7",
   "eslint.config.js": "1a465b635da72234",
   "lint-staged.config.js": "8508de0e3c78adba",
@@ -218,13 +218,14 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
     "dev": "vite dev",
     "typecheck": "tsc",
     "build": "vite build",
-    "start": "node --run migrate && node src/serve.ts",
+    "start": "node --run migrate && robkit-seed && node src/serve.ts",
     "migrate": "node src/migrate.ts",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@internal/ui": "workspace:*",
+    "@robkit/dev": "catalog:",
     "@robkit/react": "catalog:",
     "@robkit/start": "catalog:",
     "@tanstack/react-router": "catalog:",
@@ -248,9 +249,58 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
     "vite": "catalog:"
   },
   "robkit": {
+    "name": "example",
+    "stack": "start",
+    "contract": 1,
     "icon": "📦"
   }
 }
+"
+`;
+
+exports[`generateInstall > writes the default install > compose.yaml 1`] = `
+"# Postgres for local development. Every app gets its own schema and role in
+# the robkit database; \`pnpm dev\` provisions them.
+# The Compose project is this install's own: init names it after the folder,
+# with a suffix of its own, so no other install shares its database.
+name: my-install-0a1b2c
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: robkit
+    ports:
+      - "127.0.0.1:\${ROBKIT_POSTGRES_PORT:-54320}:5432"
+    volumes:
+      # Postgres 18 images keep data under a versioned folder in /var/lib/postgresql.
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      # Over TCP, because the image's first-run setup server listens only on
+      # the socket and would pass a socket check before Postgres restarts.
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-h",
+          "127.0.0.1",
+          "-U",
+          "postgres",
+          "-d",
+          "robkit",
+        ]
+      # Every second while Postgres starts, which takes longer on a busy
+      # machine, then every 10 seconds. Docker runs each check as an exec, and
+      # on Docker Desktop a stream of them slows every other Docker command.
+      start_period: 120s
+      start_interval: 1s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres:
 "
 `;
 

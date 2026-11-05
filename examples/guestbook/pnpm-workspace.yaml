@@ -1,0 +1,7 @@
+# Written by robkit export. robkit import leaves it out.
+# The app's own copy of the install code it uses is in shared/.
+
+packages:
+  - shared/*
+allowBuilds:
+  esbuild: false

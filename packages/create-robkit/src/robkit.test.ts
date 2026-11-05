@@ -51,6 +51,9 @@ Then open http://notes.robkit.localhost:3000.
 `,
     });
     expect(await declared(dir, "notes")).toEqual({
+      name: "notes",
+      stack: "react-hono",
+      contract: 1,
       access: { kind: "roles", roles: ["Family", "Cooks"] },
       icon: "📝",
     });
@@ -63,6 +66,9 @@ Then open http://notes.robkit.localhost:3000.
 
     expect(code).toBe(0);
     expect(await declared(dir, "notes")).toEqual({
+      name: "notes",
+      stack: "start",
+      contract: 1,
       access: { kind: "owner" },
       icon: "🗒️",
     });
@@ -145,6 +151,9 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
       'pnpm robkit add recipes --stack react-hono --access roles --roles "Family" --icon 🍳',
     );
     expect(await declared(dir, "recipes")).toEqual({
+      name: "recipes",
+      stack: "react-hono",
+      contract: 1,
       access: { kind: "roles", roles: ["Family"] },
       icon: "🍳",
     });
@@ -159,6 +168,178 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
       code: 1,
       output: "apps/example already exists. Choose another name.\n",
     });
+  });
+});
+
+describe("robkit export", { timeout: 30_000 }, () => {
+  it("writes the app's repo beside the install and says how to import it", async () => {
+    const dir = await freshInstall();
+    const out = join(dir, "..", "example");
+
+    const { code, output } = await drive(bin, dir, ["export", "example"]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: `Exported apps/example to ${out} and committed it.
+shared/ holds the install code it uses: @internal/ui, @internal/tsconfig and @internal/theme.
+
+To import it into another install, run this in that install's folder:
+
+  pnpm robkit import ${out}
+`,
+    });
+    expect(
+      JSON.parse(await readFile(join(out, "package.json"), "utf8")),
+    ).toMatchObject({ name: "@internal/example-app" });
+  });
+
+  it("says when nothing changed since the last export", async () => {
+    const dir = await freshInstall();
+    const out = join(dir, "..", "elsewhere");
+    await drive(bin, dir, ["export", "example", "--out", out]);
+
+    const { code, output } = await drive(bin, dir, [
+      "export",
+      "example",
+      "--out",
+      out,
+    ]);
+
+    expect(code).toBe(0);
+    expect(output).toContain(
+      `Exported apps/example to ${out}. Nothing changed since the last export.`,
+    );
+  });
+
+  it("needs the app's name", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["export"]);
+
+    expect(code).toBe(1);
+    expect(output).toContain("Usage: robkit export <name> [--out <folder>]");
+  });
+});
+
+describe("robkit import", { timeout: 30_000 }, () => {
+  it("brings an exported app into the install and says what's next", async () => {
+    const a = await freshInstall();
+    const out = join(a, "..", "example");
+    await drive(bin, a, ["export", "example"]);
+    const b = await freshInstall();
+
+    const { code, output } = await drive(bin, b, [
+      "import",
+      out,
+      "--as",
+      "copy",
+    ]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: `Imported example as apps/copy. It uses the install's own @internal/theme, @internal/tsconfig and @internal/ui. Next:
+
+  pnpm install
+  pnpm dev
+
+Then open http://copy.robkit.localhost:3000. pnpm dev gives it its schema, runs its migrations and, on a new schema, its seed.
+`,
+    });
+  });
+
+  it("needs a folder or git URL", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["import"]);
+
+    expect(code).toBe(1);
+    expect(output).toContain(
+      "Usage: robkit import <folder or git URL> [--as <name>]",
+    );
+  });
+});
+
+describe("robkit update", { timeout: 60_000 }, () => {
+  /** Install B with install A's example imported, and A's change exported. */
+  async function changedSinceImport(bEdits?: (page: string) => string) {
+    const a = await freshInstall();
+    const out = join(a, "..", "example");
+    await drive(bin, a, ["export", "example"]);
+    const b = await freshInstall();
+    await drive(bin, b, ["import", out, "--as", "copy"]);
+    const page = (dir: string) =>
+      join(dir, "apps", dir === a ? "example" : "copy", "src/routes/index.tsx");
+    if (bEdits) {
+      await writeFile(page(b), bEdits(await readFile(page(b), "utf8")));
+    }
+    await writeFile(
+      page(a),
+      (await readFile(page(a), "utf8")).replace(
+        '"Signed in as a guest"',
+        '"Hello from install A. Signed in as a guest"',
+      ),
+    );
+    await drive(bin, a, ["export", "example"]);
+    return { b, out };
+  }
+
+  it("merges the newest export into the app and says what's next", async () => {
+    const { b, out } = await changedSinceImport();
+
+    const { code, output } = await drive(bin, b, ["update", "copy"]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: `Updated apps/copy from ${out}, keeping your own edits. Next:
+
+  pnpm install
+  pnpm dev
+
+pnpm dev runs only its new migrations: its data stays, and its seed doesn't run again.
+`,
+    });
+  });
+
+  it("says where the owner's edits and the export's changes meet", async () => {
+    const { b, out } = await changedSinceImport((page) =>
+      page.replace(
+        '"Signed in as a guest"',
+        '"Hi from B. Signed in as a guest"',
+      ),
+    );
+
+    const { code, output } = await drive(bin, b, ["update", "copy"]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output: `Updated apps/copy from ${out}, but your edits and the export's changes touch the same lines in src/routes/index.tsx. Each place holds both, marked as git marks a conflict: yours after <<<<<<<, the export's after =======, ending at >>>>>>>. Keep what you want and delete the marker lines, then run pnpm install and pnpm dev.
+`,
+    });
+  });
+
+  it("says when the app is already up to date", async () => {
+    const a = await freshInstall();
+    const out = join(a, "..", "example");
+    await drive(bin, a, ["export", "example"]);
+    const b = await freshInstall();
+    await drive(bin, b, ["import", out, "--as", "copy"]);
+
+    const { code, output } = await drive(bin, b, ["update", "copy"]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: `apps/copy is up to date with ${out}.
+`,
+    });
+  });
+
+  it("needs the app's name", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["update"]);
+
+    expect(code).toBe(1);
+    expect(output).toContain("Usage: robkit update <name> [--force]");
   });
 });
 

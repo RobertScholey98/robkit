@@ -201,6 +201,18 @@ function usesIn(
   return found;
 }
 
+/** Whether `file` is a script whose imports the layer rule reads. */
+export function isScript(file: string): boolean {
+  return extname(file) in scriptKinds;
+}
+
+/** The module specifiers a script file imports, in file order. */
+export function importsIn(file: string, text: string): string[] {
+  return usesIn(file, text).flatMap(({ use }) =>
+    use.kind === "import" ? [use.specifier] : [],
+  );
+}
+
 /**
  * Every place an app in the install at `root` breaks the layer rule, in file
  * order. An empty list means the rule holds.

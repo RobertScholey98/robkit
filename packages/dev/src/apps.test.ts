@@ -35,6 +35,7 @@ describe("discoverApps", () => {
         dir: join(root, "apps", "core"),
         port: 3001,
         migrates: true,
+        seeds: false,
         declares: {},
       },
       {
@@ -42,6 +43,7 @@ describe("discoverApps", () => {
         dir: join(root, "apps", "hub"),
         port: 3002,
         migrates: false,
+        seeds: false,
         declares: {},
       },
       {
@@ -49,6 +51,7 @@ describe("discoverApps", () => {
         dir: join(root, "apps", "notes"),
         port: 3003,
         migrates: false,
+        seeds: false,
         declares: {},
       },
     ]);
@@ -79,6 +82,21 @@ describe("discoverApps", () => {
     expect((await discoverApps(root)).map((app) => app.slug)).toEqual(["hub"]);
   });
 
+  it("finds the seed at the app's root, seed.sql", async () => {
+    const root = await installWith({
+      guestbook: { migrate: "node migrate.js" },
+      notes: { migrate: "node migrate.js" },
+    });
+    await writeFile(join(root, "apps", "guestbook", "seed.sql"), "select 1;");
+
+    const apps = await discoverApps(root);
+
+    expect(apps.map(({ slug, seeds }) => ({ slug, seeds }))).toEqual([
+      { slug: "guestbook", seeds: true },
+      { slug: "notes", seeds: false },
+    ]);
+  });
+
   it("finds nothing in an install without apps", async () => {
     const root = await mkdtemp(join(tmpdir(), "robkit-apps-"));
 
@@ -95,6 +113,7 @@ describe("routesFor", () => {
           dir: "/x/apps/core",
           port: 3001,
           migrates: true,
+          seeds: false,
           declares: {},
         },
         {
@@ -102,6 +121,7 @@ describe("routesFor", () => {
           dir: "/x/apps/hub",
           port: 3002,
           migrates: false,
+          seeds: false,
           declares: {},
         },
       ],
@@ -121,6 +141,7 @@ describe("catalogOf", () => {
     dir: `/x/apps/${slug}`,
     port: 3001,
     migrates: false,
+    seeds: false,
     declares,
   });
 

@@ -2,7 +2,7 @@
 import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs, promisify } from "node:util";
 import {
   defaultDevPort,
@@ -18,6 +18,9 @@ import {
 } from "./add-wizard.ts";
 import { checkInstall, describeProblem } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
+import { exportApp } from "./export.ts";
+import { importApp } from "./import.ts";
+import { updateApp } from "./update.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
@@ -25,7 +28,36 @@ import { vendorDir, vendorPackages } from "./vendor.ts";
 /** Where an install's apps answer under pnpm dev. */
 const dev = addresses({ domain: defaultDomain, port: defaultDevPort });
 
+const exportUsage = `Usage: robkit export <name> [--out <folder>]
+
+Writes apps/<name> as a repo of its own, by default in ../<name> beside the
+install: the app's files, a copy of the install code it uses in shared/,
+and the catalog's versions written out. The first export makes the folder a
+git repository, and each later one commits what changed.`;
+
+const importUsage = `Usage: robkit import <folder or git URL> [--as <name>]
+
+Brings an app's repo, as robkit export writes it, into apps/<name>, named
+as its manifest says unless --as names it. Its shared/ code maps back onto
+the install's own packages where they're the same, and stays in the app
+where they differ. It refuses an app made for a robkit contract version
+the install can't run.`;
+
+const updateUsage = `Usage: robkit update <name> [--force]
+
+Brings apps/<name>, which robkit import brought in, up to the newest export
+of the folder or git URL it came from. Your own edits stay: it merges them
+with the export's changes as git merges a branch, and marks any lines both
+changed as git marks a conflict. --force replaces the app with the export
+instead. Its schema and data stay, and its seed doesn't run again.`;
+
 const usage = `${addUsage}
+
+${exportUsage}
+
+${importUsage}
+
+${updateUsage}
 
 Usage: robkit check
 
@@ -57,6 +89,9 @@ try {
   const commands: Record<string, () => Promise<void>> = {
     check,
     vendor,
+    export: exportCommand,
+    import: importCommand,
+    update: updateCommand,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
   };
@@ -75,6 +110,131 @@ async function check(): Promise<void> {
   const problems = await checkInstall(root);
   for (const problem of problems) console.log(describeProblem(problem));
   if (problems.length > 0) process.exitCode = 1;
+}
+
+/** "a, b and c". */
+function andList(items: readonly string[]): string {
+  const last = items.at(-1) ?? "";
+  return items.length > 1
+    ? `${items.slice(0, -1).join(", ")} and ${last}`
+    : last;
+}
+
+async function exportCommand(): Promise<void> {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { out: { type: "string" } },
+  });
+  const [, slug, ...rest] = positionals;
+  if (slug === undefined || rest.length > 0) throw new Error(exportUsage);
+  const root = process.cwd();
+  const { dir, shared, committed } = await exportApp(root, slug, {
+    ...(values.out !== undefined && { out: resolve(values.out) }),
+  });
+  console.log(
+    committed
+      ? `Exported apps/${slug} to ${dir} and committed it.`
+      : `Exported apps/${slug} to ${dir}. Nothing changed since the last export.`,
+  );
+  if (shared.length > 0) {
+    console.log(`shared/ holds the install code it uses: ${andList(shared)}.`);
+  }
+  console.log(`
+To import it into another install, run this in that install's folder:
+
+  pnpm robkit import ${dir}`);
+}
+
+async function importCommand(): Promise<void> {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { as: { type: "string" } },
+  });
+  const [, source, ...rest] = positionals;
+  if (source === undefined || rest.length > 0) throw new Error(importUsage);
+  const root = process.cwd();
+  const { slug, name, mapped, kept, catalogued, differences } = await importApp(
+    root,
+    source,
+    {
+      ...(values.as !== undefined && { as: values.as }),
+    },
+  );
+  const lines = [`Imported ${name} as apps/${slug}.`];
+  if (mapped.length > 0) {
+    lines.push(`It uses the install's own ${andList(mapped)}.`);
+  }
+  for (const [from, to] of kept) {
+    lines.push(
+      `It keeps its own ${from} as ${to}, since this install's differs.`,
+    );
+  }
+  if (catalogued.length > 0) {
+    lines.push(
+      `Added to the catalog: ${andList(catalogued.map(([dep, version]) => `${dep} ${version}`))}.`,
+    );
+  }
+  for (const { name: dep, asked, catalog } of differences) {
+    lines.push(
+      `It asked for ${dep} ${asked} and gets the catalog's ${catalog}.`,
+    );
+  }
+  // An install whose dependencies are in keeps them in, new app included.
+  const hasDependencies = existsSync(join(root, "node_modules"));
+  if (hasDependencies) await installDependencies(root);
+  console.log(`${lines.join(" ")} Next:
+${hasDependencies ? "" : "\n  pnpm install"}
+  pnpm dev
+
+Then open ${dev.origin(slug)}. pnpm dev gives it its schema, runs its migrations and, on a new schema, its seed.`);
+}
+
+async function updateCommand(): Promise<void> {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { force: { type: "boolean", default: false } },
+  });
+  const [, slug, ...rest] = positionals;
+  if (slug === undefined || rest.length > 0) throw new Error(updateUsage);
+  const root = process.cwd();
+  const { from, changed, conflicts, catalogued, differences } = await updateApp(
+    root,
+    slug,
+    { force: values.force },
+  );
+  if (!changed) {
+    console.log(`apps/${slug} is up to date with ${from}.`);
+    return;
+  }
+  if (conflicts.length > 0) {
+    console.log(
+      `Updated apps/${slug} from ${from}, but your edits and the export's changes touch the same lines in ${andList(conflicts)}. Each place holds both, marked as git marks a conflict: yours after <<<<<<<, the export's after =======, ending at >>>>>>>. Keep what you want and delete the marker lines, then run pnpm install and pnpm dev.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const lines = [
+    values.force
+      ? `Replaced apps/${slug} with the newest export from ${from}.`
+      : `Updated apps/${slug} from ${from}, keeping your own edits.`,
+  ];
+  if (catalogued.length > 0) {
+    lines.push(
+      `Added to the catalog: ${andList(catalogued.map(([dep, version]) => `${dep} ${version}`))}.`,
+    );
+  }
+  for (const { name: dep, asked, catalog } of differences) {
+    lines.push(
+      `It asked for ${dep} ${asked} and gets the catalog's ${catalog}.`,
+    );
+  }
+  const hasDependencies = existsSync(join(root, "node_modules"));
+  if (hasDependencies) await installDependencies(root);
+  console.log(`${lines.join(" ")} Next:
+${hasDependencies ? "" : "\n  pnpm install"}
+  pnpm dev
+
+pnpm dev runs only its new migrations: its data stays, and its seed doesn't run again.`);
 }
 
 async function vendor(): Promise<void> {

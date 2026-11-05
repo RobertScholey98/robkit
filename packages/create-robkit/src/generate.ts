@@ -1,9 +1,11 @@
+import { randomBytes } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readyStacks, type Choices, type Stack } from "./choices.ts";
+import { contractVersion } from "./contract.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -15,6 +17,24 @@ export interface GenerateOptions {
    * installing them from npm.
    */
   link?: boolean;
+  /**
+   * The install's Compose project, which holds its Postgres. A fresh one
+   * unless given, so no two installs share a database.
+   */
+  project?: string;
+}
+
+/**
+ * A Compose project of its own for an install in a folder called `folder`:
+ * the folder's name, as Compose spells project names, and a random suffix,
+ * since two installs' folders can share a name.
+ */
+export function composeProject(folder: string): string {
+  const name = folder
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^[^a-z0-9]+|-+$/g, "");
+  return `${name || "robkit"}-${randomBytes(3).toString("hex")}`;
 }
 
 /** The slug of the app init adds on the example's stack. */
@@ -118,14 +138,32 @@ export function stackTemplate(stack: Stack): Promise<Files> {
 }
 
 /**
- * What an app's manifest declares for core's catalog, in its `robkit`
- * field: who may open it once core adds it, with roles named, and the emoji
- * the launcher shows.
+ * What an app's manifest declares, in the `robkit` field of its
+ * `package.json`: its name, the stack it was made on, the robkit contract
+ * version it was made for, who may open it once core adds it, with roles
+ * named, and the emoji the launcher shows. Core's catalog takes the access
+ * rule and icon. Export and import read the rest, and import records where
+ * the app came from.
  */
 export interface Declares {
+  name?: string;
+  description?: string;
+  stack?: string;
+  contract?: number;
   access?:
     { kind: "open" } | { kind: "owner" } | { kind: "roles"; roles: string[] };
   icon?: string;
+  /** Where robkit import took the app from, for robkit update. */
+  imported?: ImportRecord;
+}
+
+/**
+ * Where an imported app came from: the folder or git URL, and the commit it
+ * was at, when it was a clean git repository. robkit update merges from it.
+ */
+export interface ImportRecord {
+  from: string;
+  commit?: string;
 }
 
 /** The icon an app gets when nobody picks one, the example app included. */
@@ -222,6 +260,9 @@ export async function generateInstall(
   overlay(
     files,
     appFiles(await stackTemplate(choices.exampleStack), exampleSlug, {
+      name: exampleSlug,
+      stack: choices.exampleStack,
+      contract: contractVersion,
       icon: defaultIcon,
     }),
     `apps/${exampleSlug}/`,
@@ -235,6 +276,9 @@ export async function generateInstall(
     ...stacks.flatMap((stack) => [...stack]),
   ]);
   await renderSettings(files, names, await readRobkitRepo(), options);
+  const compose = files.get("compose.yaml") ?? "";
+  const project = options.project ?? composeProject("robkit");
+  files.set("compose.yaml", compose.replace(/^name: .*$/m, `name: ${project}`));
   files.set(
     "robkit.json",
     await format(JSON.stringify(choices), { filepath: "robkit.json" }),

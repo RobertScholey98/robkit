@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { slugProblem } from "@robkit/dev";
 import { isPlatformApp, platformApps } from "@robkit/session/addresses";
 import type { Choices, Stack } from "./choices.ts";
+import { contractVersion } from "./contract.ts";
 import {
   appFiles,
   readFolder,
@@ -99,6 +100,9 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   await writeInstall(
     join(root, "apps", choices.slug),
     appFiles(template, choices.slug, {
+      name: choices.slug,
+      stack: choices.stack,
+      contract: contractVersion,
       access: choices.access,
       icon: choices.icon,
     }),

@@ -38,7 +38,8 @@
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run",
-    "shadcn-kit": "node scripts/shadcn-kit.ts"
+    "shadcn-kit": "node scripts/shadcn-kit.ts",
+    "guestbook-sample": "node scripts/guestbook-sample.ts"
   },
   "dependencies": {
     "@clack/prompts": "catalog:",

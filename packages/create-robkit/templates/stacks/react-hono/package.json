@@ -5,13 +5,14 @@
     "dev": "vite",
     "typecheck": "tsc",
     "build": "vite build",
-    "start": "node --run migrate && node dist/serve.js",
+    "start": "node --run migrate && robkit-seed && node dist/serve.js",
     "migrate": "node src/migrate.ts",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@internal/ui": "workspace:*",
+    "@robkit/dev": "catalog:",
     "@robkit/hono": "catalog:",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",

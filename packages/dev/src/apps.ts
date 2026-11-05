@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { install, isPlatformApp } from "@robkit/session/addresses";
@@ -15,11 +16,19 @@ export interface App {
   port: number;
   migrates: boolean;
   /**
+   * Whether the app has a seed: a `seed.sql` in its folder, which the
+   * provision step runs once, when it first makes the app's schema.
+   */
+  seeds: boolean;
+  /**
    * What the manifest's `robkit` field declares for core's catalog: who may
    * open the app once core adds it, and its icon. Core checks both.
    */
   declares: Declares;
 }
+
+/** An app's seed, by convention, at the root of its folder. */
+export const seedFile = "seed.sql";
 
 export interface Declares {
   access?: unknown;
@@ -75,6 +84,7 @@ export async function discoverApps(
       dir,
       port: firstPort + apps.length,
       migrates: manifest.scripts?.migrate !== undefined,
+      seeds: existsSync(join(dir, seedFile)),
       declares: {
         access: manifest.robkit?.access,
         icon: manifest.robkit?.icon,
