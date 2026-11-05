@@ -110,7 +110,15 @@ async function sharedPackages(
   const unlisted = [...imported].filter((name) => !listed.includes(name));
 
   const packages = new Map<string, SharedPackage>();
-  const folders = new Map<string, string>();
+  // A shared package an earlier import kept is the app's own code now.
+  const folders = new Map<string, string>(
+    [...app.keys()].flatMap((path) => {
+      const [top, folder] = path.split("/");
+      return top === sharedFolder && folder !== undefined
+        ? [[folder, `apps/${slug}/${sharedFolder}/${folder}`] as const]
+        : [];
+    }),
+  );
   const queue = [...listed, ...unlisted];
   for (let name = queue.shift(); name !== undefined; name = queue.shift()) {
     if (packages.has(name) || isContract(name)) continue;
@@ -120,6 +128,7 @@ async function sharedPackages(
         `apps/${slug} takes ${name} from the workspace, but the install has no package by that name.`,
       );
     }
+    if (found.folder.startsWith(`apps/${slug}/`)) continue;
     if (found.folder.startsWith("apps/")) {
       throw new Error(
         `apps/${slug} uses ${name} from ${found.folder}. An app never imports another app.`,
@@ -329,6 +338,15 @@ async function repoTree(
   const own = repoManifest(manifest, slug, unlisted, workspace, rootManifest);
 
   const tree: Tree = new Map(app);
+  for (const [path, bytes] of app) {
+    // Packages of the app's own, such as one an earlier import kept.
+    if (path.endsWith("/package.json")) {
+      tree.set(
+        path,
+        manifestBytes(withVersions(parseManifest(bytes, path), workspace)),
+      );
+    }
+  }
   tree.set("package.json", manifestBytes(own));
   if (own.scripts?.test === "vitest run" && !tree.has("vitest.config.ts")) {
     tree.set(
