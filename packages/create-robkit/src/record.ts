@@ -75,3 +75,19 @@ export async function ignoreApp(root: string, slug: string): Promise<void> {
   const ending = text === "" || text.endsWith("\n") ? "" : "\n";
   await writeFile(path, `${text}${ending}${heading}${line}\n`);
 }
+
+/**
+ * The app repos whose recorded commit changed from `before` to `after`, new
+ * ones included. turbo can't see an app repo's own changes, since the
+ * install's repository ignores it, so a deploy takes these as changed too.
+ */
+export function movedAppRepos(
+  before: InstallRecord | undefined,
+  after: InstallRecord,
+): string[] {
+  return Object.entries(after.apps ?? {})
+    .filter(
+      ([slug, { revision }]) => before?.apps?.[slug]?.revision !== revision,
+    )
+    .map(([slug]) => slug);
+}

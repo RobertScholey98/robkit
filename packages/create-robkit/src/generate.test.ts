@@ -138,6 +138,7 @@ describe("generateInstall", () => {
     );
     expect(deploy?.steps.flatMap((step) => step.run ?? [])).toEqual([
       "pnpm install --frozen-lockfile",
+      "pnpm robkit install",
       "pnpm robkit deploy",
     ]);
     expect(Object.keys(deploy?.steps.at(-1)?.env ?? {})).toEqual([
@@ -162,6 +163,7 @@ describe("generateInstall", () => {
 
     expect(runs).toEqual([
       "pnpm install --frozen-lockfile",
+      "pnpm robkit install",
       "pnpm lint",
       "pnpm run --if-present format:check",
       "pnpm typecheck",
@@ -355,7 +357,7 @@ describe("generateInstall", () => {
     expect(
       [...kit.keys()].filter(
         (path) =>
-          !/^(?:apps|packages|tooling|docs|\.github|\.husky)\/|^[^/]+$/.test(
+          !/^(?:apps|packages|tooling|docs|robkit|\.github|\.husky)\/|^[^/]+$/.test(
             path,
           ),
       ),

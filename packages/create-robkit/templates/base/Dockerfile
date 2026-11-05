@@ -17,6 +17,10 @@ RUN npm install --global --no-fund --no-audit \
 FROM tools AS prune
 ARG ROBKIT_APP
 COPY . .
+# The install's repository ignores its app repos, so a build from a clone
+# of it fetches the app first, at the commit robkit.json records.
+RUN [ -f "apps/${ROBKIT_APP}/package.json" ] \
+ || { apk add --no-cache git >/dev/null && node robkit/fetch-app.js; }
 RUN turbo prune "@internal/${ROBKIT_APP}-app" --docker
 
 FROM tools AS build

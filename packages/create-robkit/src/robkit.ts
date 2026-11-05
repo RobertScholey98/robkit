@@ -20,7 +20,12 @@ import {
 import { checkInstall, describeProblem } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
-import { readInstallRecord } from "./record.ts";
+import { git } from "./git.ts";
+import {
+  movedAppRepos,
+  readInstallRecord,
+  type InstallRecord,
+} from "./record.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
@@ -207,8 +212,25 @@ async function deployInstall(): Promise<void> {
   if (!ok) process.exitCode = 1;
 }
 
-/** The apps turbo finds changed since TURBO_SCM_BASE, by slug. */
+/**
+ * The apps changed since TURBO_SCM_BASE, by slug: those turbo finds, and
+ * the app repos whose commit robkit.json records moved.
+ */
 async function affectedApps(root: string): Promise<string[]> {
+  const base = process.env.TURBO_SCM_BASE;
+  const before =
+    base === undefined
+      ? undefined
+      : await git(root, ["show", `${base}:robkit.json`]).then(
+          (text) => JSON.parse(text) as InstallRecord,
+          () => undefined,
+        );
+  const moved = movedAppRepos(before, await readInstallRecord(root));
+  return [...new Set([...(await turboAffected(root)), ...moved])];
+}
+
+/** The apps turbo finds changed since TURBO_SCM_BASE, by slug. */
+async function turboAffected(root: string): Promise<string[]> {
   const { stdout } = await promisify(exec)(
     "turbo ls --affected --output json",
     { cwd: root },
