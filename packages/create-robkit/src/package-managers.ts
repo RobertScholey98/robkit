@@ -75,113 +75,6 @@ const pnpm: PackageManagerAdapter = {
   spell: (text) => text,
 };
 
-type Json = Record<string, unknown>;
-
-/** The install's root manifest in `files`. */
-function manifestIn(files: Files): Json {
-  return JSON.parse(files.get("package.json") ?? "{}") as Json;
-}
-
-/** `json` as Prettier writes a `package.json`. */
-function formatJson(json: Json): Promise<string> {
-  return format(JSON.stringify(json), { filepath: "package.json" });
-}
-
-/**
- * How bun spells what the templates name for pnpm, in the order they apply.
- * bun runs a script as `bun run <script>`: `bun test` and `bun build` are
- * its own commands, not the install's scripts.
- */
-const bunSpellings: [RegExp, string][] = [
-  [
-    /under `catalog:` in `pnpm-workspace\.yaml`/g,
-    "under `workspaces.catalog` in `package.json`",
-  ],
-  [/pnpm-workspace\.yaml/g, "package.json"],
-  [/pnpm-lock\.yaml/g, "bun.lock"],
-  [/\bpnpm exec /g, "bunx "],
-  [/\bpnpm install\b/g, "bun install"],
-  [/\bpnpm (run )?(?=[\w:-])/g, "bun run "],
-];
-
-/**
- * Spells `text` with `spellings`, line by line. A line that lines its
- * comment up, as a command list does, keeps the comment in the same column.
- */
-function spellWith(spellings: [RegExp, string][], text: string): string {
-  return text
-    .split("\n")
-    .map((line) => spellLine(spellings, line))
-    .join("\n");
-}
-
-function spellLine(spellings: [RegExp, string][], line: string): string {
-  let spelled = line;
-  for (const [pnpmSpelling, spelling] of spellings) {
-    spelled = spelled.replace(pnpmSpelling, spelling);
-  }
-  const comment = linedUpComment.exec(line);
-  return comment === null || spelled === line
-    ? spelled
-    : alignComment(spelled, line.indexOf("# ", comment.index));
-}
-
-/** Code, then at least two spaces, then a `# ` comment. */
-const linedUpComment = /\S {2,}# /;
-
-/** Moves a line's lined-up comment to `column`, keeping a space before it. */
-function alignComment(line: string, column: number): string {
-  const comment = linedUpComment.exec(line);
-  if (comment === null) return line;
-  const code = line.slice(0, comment.index + 1);
-  const text = line.slice(line.indexOf("# ", comment.index));
-  return `${code}${" ".repeat(Math.max(1, column - code.length))}${text}`;
-}
-
-const bun: PackageManagerAdapter = {
-  settingsFiles: ["package.json"],
-  lockfile: "bun.lock",
-  install: "bun install",
-  run: (script) => `bun run ${script}`,
-  packageManagerOf(repo) {
-    const version = repo.catalog.get("bun");
-    if (version === undefined)
-      throw new Error("bun has no version in robkit's catalog");
-    return `bun@${version}`;
-  },
-  async writeSettings(files, { catalog, builds, overrides }) {
-    const manifest = manifestIn(files);
-    if (catalog) {
-      manifest.workspaces = {
-        ...(manifest.workspaces as Json | undefined),
-        catalog,
-      };
-    }
-    if (builds) {
-      // Naming them all means bun's own list of trusted packages never
-      // applies: only these run their install scripts.
-      manifest.trustedDependencies = Object.entries(builds)
-        .filter(([, allowed]) => allowed)
-        .map(([name]) => name)
-        .sort();
-    }
-    if (overrides) {
-      manifest.overrides = {
-        ...(manifest.overrides as Json | undefined),
-        ...overrides,
-      };
-    }
-    files.set("package.json", await formatJson(manifest));
-  },
-  overridesIn(files) {
-    const { overrides } = manifestIn(files) as {
-      overrides?: Record<string, string>;
-    };
-    return overrides ?? {};
-  },
-  spell: (text) => spellWith(bunSpellings, text),
-};
-
 /**
  * Each package manager init offers, by name. Adding one is an entry here,
  * its option in the choice table, and its template layer, which brings its
@@ -189,5 +82,4 @@ const bun: PackageManagerAdapter = {
  */
 export const packageManagers: Record<PackageManager, PackageManagerAdapter> = {
   pnpm,
-  bun,
 };

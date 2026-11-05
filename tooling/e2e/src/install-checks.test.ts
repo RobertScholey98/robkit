@@ -23,7 +23,6 @@ describe("the default install", () => {
 
 /**
  * The installs whose own CI steps run: the default and one per other ORM.
- * The Kysely install runs bun's workflow.
  */
 const ciInstalls = ["start", "prisma", "kysely"] as const;
 
@@ -33,9 +32,7 @@ describe.each(ciInstalls)("the %s install", (name) => {
     const steps = await ownCiSteps(dir);
 
     const runs = steps.flatMap((step) => step.run ?? []);
-    expect(runs).toContainEqual(
-      expect.stringMatching(/^(pnpm|bun run) build$/),
-    );
+    expect(runs).toContainEqual(expect.stringMatching(/^pnpm build$/));
     // A failing step rejects with its output. Its scripts find only the
     // bins the install's own manifests give it, as on the owner's machine.
     await runOwnCi(dir, steps, {

@@ -32,10 +32,8 @@ export const installChoices = {
     orm: "prisma",
     uiKit: "shadcn-radix",
   },
-  // On bun, which runs its scripts and installs its dependencies.
   kysely: {
     ...defaultChoices,
-    packageManager: "bun",
     orm: "kysely",
     uiKit: "shadcn-base-ui",
   },
@@ -91,7 +89,7 @@ export async function createInstall(
 }
 
 /**
- * Makes every install before any suite starts. pnpm and bun hard-link
+ * Makes every install before any suite starts. pnpm hard-links
  * packages from one shared store, so an install beside a running dev stack
  * touches the files under its core, and `node --watch` restarts core
  * mid-journey.

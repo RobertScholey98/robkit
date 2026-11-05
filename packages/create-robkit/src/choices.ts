@@ -62,10 +62,7 @@ export const choiceTable = {
     question: "Which package manager?",
     about: "package manager",
     takes: "one",
-    options: [
-      { value: "pnpm", label: "pnpm", layer: "package-managers/pnpm" },
-      { value: "bun", label: "bun", layer: "package-managers/bun" },
-    ],
+    options: [{ value: "pnpm", label: "pnpm", layer: "package-managers/pnpm" }],
   },
   orm: {
     flag: "orm",

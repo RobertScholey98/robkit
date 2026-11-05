@@ -1,9 +1,0 @@
-{
-  "workspaces": {
-    "packages": [
-      "apps/*",
-      "packages/*",
-      "tooling/*"
-    ]
-  }
-}

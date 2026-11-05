@@ -51,16 +51,7 @@ const installs: [string, Choices][] = [
   // serve its stylesheet. The two shadcn kits share their apps' layer, so
   // Base UI stands for both, and Chakra's server-rendered styles get a run.
   ["prisma", { ...defaultChoices, orm: "prisma", uiKit: "chakra" }],
-  // bun installs the Kysely install, so its Dockerfile gets a run too.
-  [
-    "kysely-on-bun",
-    {
-      ...defaultChoices,
-      packageManager: "bun",
-      orm: "kysely",
-      uiKit: "shadcn-base-ui",
-    },
-  ],
+  ["kysely", { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" }],
 ];
 
 /**

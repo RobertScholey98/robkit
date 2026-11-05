@@ -17,7 +17,6 @@
     "@robkit/dev": "workspace:*",
     "@robkit/session": "workspace:*",
     "@types/node": "catalog:",
-    "bun": "catalog:",
     "create-robkit": "workspace:*",
     "eslint": "catalog:",
     "jose": "catalog:",

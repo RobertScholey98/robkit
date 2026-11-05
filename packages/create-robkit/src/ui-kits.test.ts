@@ -28,8 +28,7 @@ describe.each(kits)("the %s kit's packages/ui", (_, layer) => {
     );
 
     expect(imported).toContain("tailwindcss");
-    // A package manager that links only what a package declares, as bun
-    // does, can't find the rest.
+    // A package finds only what it declares.
     expect(imported.filter((name) => !(name in dependencies))).toEqual([]);
   });
 });
