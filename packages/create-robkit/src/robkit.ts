@@ -35,9 +35,10 @@ const dev = addresses({ domain: defaultDomain, port: defaultDevPort });
 const shareUsage = `Usage: robkit share <app> [<git URL or path>] [--message <text>]
 
 Commits what the app has changed, then pushes it to the git URL or path,
-or else to its upstream, or else to a new bare repository at
+or else to where it last went, or else to a new bare repository at
 ../robkit-apps/<app>.git beside the install. A path with no repository
-gets a bare one. The app's upstream becomes where it went.`;
+gets a bare one. Later shares go where this one went. An installed app
+still updates from where it came from.`;
 
 const installUsage = `Usage: robkit install <git URL or path> [--as <app>]
 
@@ -51,8 +52,9 @@ the commit it records, as a fresh clone of the install needs.`;
 
 const updateUsage = `Usage: robkit update <app>
 
-Pulls the app's upstream into apps/<app> with git. What this install
-changed in the app is committed first, so git merges the two.`;
+Pulls the app's upstream, where it was installed from or else where it
+was shared to, into apps/<app> with git. What this install changed in the
+app is committed first, so git merges the two.`;
 
 const usage = `${addUsage}
 

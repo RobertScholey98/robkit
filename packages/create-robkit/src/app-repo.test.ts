@@ -422,6 +422,35 @@ describe("updateApp", { timeout: 60_000 }, () => {
     );
   });
 
+  it("keeps pulling from where the app came from after the install shares it to a repo of its own", async () => {
+    const { parent, a, shared } = await sharedFromA();
+    const b = await freshInstall(parent, "install-b");
+    await installApp(b, shared.source);
+    await append(b, "apps/notes/CLAUDE.md", "\nB's change.\n");
+    const own = join(parent, "b-apps", "notes.git");
+    await shareApp(b, "notes", { target: own });
+    await append(a, "apps/notes/AGENTS.md", "\nA's change.\n");
+    await shareApp(a, "notes");
+
+    const updated = await updateApp(b, "notes");
+
+    const app = join(b, "apps/notes");
+    expect([updated.source, updated.incoming]).toEqual([shared.source, 1]);
+    expect(await read(b, "apps/notes/AGENTS.md")).toMatch(/A's change\.\n$/);
+    expect(await git(app, "remote", "get-url", "origin")).toBe(own);
+    expect(await record(b)).toEqual({
+      notes: {
+        source: own,
+        upstream: shared.source,
+        revision: updated.revision,
+      },
+    });
+    // A's repo never hears of B's change.
+    expect(
+      await git(shared.source, "log", "--format=%s", "main"),
+    ).not.toContain("Share notes\nShare notes\n");
+  });
+
   it("refuses an app that was never shared", async () => {
     const a = await freshInstall(await machine(), "install-a");
     await addApp(a, notes());
@@ -466,6 +495,21 @@ describe("restoreApps", { timeout: 60_000 }, () => {
     expect(await git(app, "rev-parse", "--abbrev-ref", "HEAD")).toBe("main");
     expect(await git(app, "remote", "get-url", "origin")).toBe(shared.source);
     expect(await restoreApps(clone)).toEqual({ restored: [], unshared: [] });
+  });
+
+  it("gives an app its upstream again, when it has one apart from its source", async () => {
+    const { parent, shared } = await sharedFromA();
+    const b = await freshInstall(parent, "install-b");
+    await installApp(b, shared.source);
+    const own = join(parent, "b-apps", "notes.git");
+    await shareApp(b, "notes", { target: own });
+    const clone = await cloneOf(parent, b);
+
+    await restoreApps(clone);
+
+    const app = join(clone, "apps/notes");
+    expect(await git(app, "remote", "get-url", "origin")).toBe(own);
+    expect(await git(app, "remote", "get-url", "upstream")).toBe(shared.source);
   });
 
   it("names an app that was never shared, which it can't fetch", async () => {

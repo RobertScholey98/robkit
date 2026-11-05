@@ -101,14 +101,50 @@ async function writePackageJson(dir: string, json: PackageJson): Promise<void> {
   );
 }
 
-/** The app's upstream: its `origin` remote, if it has one. */
-async function originOf(dir: string): Promise<string | undefined> {
+/** Where the app's `remote` points, if it has one. */
+async function remoteOf(
+  dir: string,
+  remote: "origin" | "upstream",
+): Promise<string | undefined> {
   try {
-    return await git(dir, ["remote", "get-url", "origin"]);
+    return await git(dir, ["remote", "get-url", remote]);
   } catch (error) {
     if (error instanceof GitError) return undefined;
     throw error;
   }
+}
+
+/** Where the install shares the app to, and where a build fetches it. */
+const originOf = (dir: string) => remoteOf(dir, "origin");
+
+/**
+ * Where the app's updates come from: where it was installed from, even
+ * after the install shares it to a repo of its own, or else its origin.
+ */
+async function upstreamOf(
+  dir: string,
+): Promise<{ remote: "origin" | "upstream"; url: string } | undefined> {
+  const upstream = await remoteOf(dir, "upstream");
+  if (upstream !== undefined) return { remote: "upstream", url: upstream };
+  const origin = await originOf(dir);
+  return origin === undefined ? undefined : { remote: "origin", url: origin };
+}
+
+/**
+ * Records app repo `slug` at its current commit, with its origin as its
+ * source and its upstream when that's somewhere else.
+ */
+async function recordRepo(root: string, slug: string): Promise<string> {
+  const dir = appDir(root, slug);
+  const source = await originOf(dir);
+  const upstream = await remoteOf(dir, "upstream");
+  const revision = await git(dir, ["rev-parse", "HEAD"]);
+  await recordApp(root, slug, {
+    ...(source !== undefined && { source }),
+    ...(upstream !== undefined && upstream !== source && { upstream }),
+    revision,
+  });
+  return revision;
 }
 
 /** Commits everything the app has changed, if anything. */
@@ -132,13 +168,13 @@ async function refuseUnlessChecked(
   );
 }
 
-/** Where `share` puts an app with no upstream: beside the install. */
+/** Where `share` puts an app with no origin: beside the install. */
 export function defaultShareTarget(root: string, slug: string): string {
   return resolve(root, "..", "robkit-apps", `${slug}.git`);
 }
 
 export interface Shared {
-  /** Where the app now lives upstream. */
+  /** Where the app went, which later shares and builds use. */
   source: string;
   revision: string;
   /** Whether `share` made a new bare repository there. */
@@ -148,10 +184,11 @@ export interface Shared {
 /**
  * Shares app `slug` of the install at `root`: commits whatever it has
  * changed, then pushes it to `target`, a git URL or a path, or else to its
- * upstream, or else to a new bare repository beside the install. At a path
- * with no repository it makes a bare one. The app's upstream becomes where
- * it went, and `robkit.json` records it and the commit shared. An app that
- * isn't an app repo yet, such as init's example, becomes one first.
+ * origin, or else to a new bare repository beside the install. At a path
+ * with no repository it makes a bare one. Its origin becomes where it went,
+ * and `robkit.json` records it and the commit shared. An installed app
+ * still updates from where it came from. An app that isn't an app repo
+ * yet, such as init's example, becomes one first.
  */
 export async function shareApp(
   root: string,
@@ -220,8 +257,7 @@ export async function shareApp(
     }
     throw error;
   }
-  const revision = await git(dir, ["rev-parse", "HEAD"]);
-  await recordApp(root, slug, { source, revision });
+  const revision = await recordRepo(root, slug);
   return { source, revision, created };
 }
 
@@ -289,9 +325,10 @@ export async function installApp(
       ]);
     }
     await refuseUnlessChecked(root, slug, "installed");
+    // Updates keep coming from here, wherever the install shares it later.
+    await git(dir, ["remote", "add", "upstream", source]);
     await adopt(root, slug);
-    const revision = await git(dir, ["rev-parse", "HEAD"]);
-    await recordApp(root, slug, { source, revision });
+    const revision = await recordRepo(root, slug);
     return {
       slug,
       name: manifest.robkit.name ?? slug,
@@ -347,8 +384,8 @@ export async function updateApp(root: string, slug: string): Promise<Updated> {
       `apps/${slug} isn't an app repo, so it has no upstream to update from.`,
     );
   }
-  const source = await originOf(dir);
-  if (source === undefined) {
+  const from = await upstreamOf(dir);
+  if (from === undefined) {
     throw new Error(
       `apps/${slug} has no upstream: it was never shared or installed. Share it first with pnpm robkit share ${slug}.`,
     );
@@ -360,9 +397,9 @@ export async function updateApp(root: string, slug: string): Promise<Updated> {
     );
   }
   await commitChanges(dir, `Keep this install's changes to ${slug}`);
-  await git(dir, ["fetch", "--quiet", "origin"]);
+  await git(dir, ["fetch", "--quiet", from.remote]);
   const branch = await git(dir, ["rev-parse", "--abbrev-ref", "HEAD"]);
-  const upstream = `origin/${branch}`;
+  const upstream = `${from.remote}/${branch}`;
   const latest = JSON.parse(
     await git(dir, ["show", `${upstream}:package.json`]),
   ) as PackageJson;
@@ -384,9 +421,8 @@ export async function updateApp(root: string, slug: string): Promise<Updated> {
       throw new UpdateConflict(slug, conflicted.split("\n"));
     }
   }
-  const revision = await git(dir, ["rev-parse", "HEAD"]);
-  await recordApp(root, slug, { source, revision });
-  return { source, revision, incoming };
+  const revision = await recordRepo(root, slug);
+  return { source: from.url, revision, incoming };
 }
 
 export interface Restored {
@@ -406,7 +442,7 @@ export async function restoreApps(root: string): Promise<Restored> {
   const { apps = {} } = await readInstallRecord(root);
   const restored: string[] = [];
   const unshared: string[] = [];
-  for (const [slug, { source, revision }] of Object.entries(apps)) {
+  for (const [slug, { source, upstream, revision }] of Object.entries(apps)) {
     const dir = appDir(root, slug);
     if (existsSync(join(dir, "package.json"))) continue;
     if (source === undefined) {
@@ -418,6 +454,9 @@ export async function restoreApps(root: string): Promise<Restored> {
     if (revision !== undefined) {
       const branch = await git(dir, ["rev-parse", "--abbrev-ref", "HEAD"]);
       await git(dir, ["checkout", "--quiet", "-B", branch, revision]);
+    }
+    if (upstream !== undefined) {
+      await git(dir, ["remote", "add", "upstream", upstream]);
     }
     restored.push(slug);
   }

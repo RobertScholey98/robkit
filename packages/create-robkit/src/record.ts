@@ -7,10 +7,12 @@ import type { Choices } from "./choices.ts";
 /**
  * Where an app repo comes from: the remote or path it was installed from or
  * last shared to, and the commit the install runs. An app never shared has
- * neither.
+ * neither. An app installed from one place and shared to another also
+ * names its upstream, where updates still come from.
  */
 export interface AppSource {
   source?: string;
+  upstream?: string;
   revision?: string;
 }
 
