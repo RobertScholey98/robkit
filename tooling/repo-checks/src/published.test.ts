@@ -1,31 +1,12 @@
-import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   attwProblems,
   pack,
   packProblems,
+  publishedPackages,
   publintProblems,
   type Packed,
 } from "./published.ts";
-
-const packagesDir = fileURLToPath(
-  new URL("../../../packages", import.meta.url),
-);
-
-async function publishedPackages(): Promise<string[]> {
-  const dirs: string[] = [];
-  for (const entry of await readdir(packagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const dir = join(packagesDir, entry.name);
-    const json = JSON.parse(
-      await readFile(join(dir, "package.json"), "utf8"),
-    ) as { private?: boolean };
-    if (!json.private) dirs.push(dir);
-  }
-  return dirs;
-}
 
 describe("packProblems", () => {
   it("names a target that is TypeScript source, or missing", () => {

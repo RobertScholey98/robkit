@@ -2,6 +2,7 @@ import { exec, execFile } from "node:child_process";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import {
   checkPackage,
@@ -14,6 +15,24 @@ import { formatMessage } from "publint/utils";
 const run = promisify(execFile);
 // A shell finds pnpm.cmd on Windows, which execFile won't run.
 const shell = promisify(exec);
+
+const packagesDir = fileURLToPath(
+  new URL("../../../packages", import.meta.url),
+);
+
+/** The folder of each package this repo publishes: each under `packages/` that isn't private. */
+export async function publishedPackages(): Promise<string[]> {
+  const dirs: string[] = [];
+  for (const entry of await readdir(packagesDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const dir = join(packagesDir, entry.name);
+    const json = JSON.parse(
+      await readFile(join(dir, "package.json"), "utf8"),
+    ) as { private?: boolean };
+    if (!json.private) dirs.push(dir);
+  }
+  return dirs;
+}
 
 /** What a packed package tells Node to load, and which files it holds. */
 export interface Packed {
