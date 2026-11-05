@@ -1,11 +1,11 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { addApp, type AppChoices } from "./add.ts";
 import {
   installApp,
@@ -32,9 +32,19 @@ async function git(dir: string, ...args: string[]): Promise<string> {
   return stdout.trim();
 }
 
+const machines: string[] = [];
+
+afterAll(async () => {
+  await Promise.all(
+    machines.map((dir) => rm(dir, { recursive: true, force: true })),
+  );
+});
+
 /** A folder for installs that share apps with each other. */
-function machine(): Promise<string> {
-  return mkdtemp(join(tmpdir(), "robkit-share-"));
+async function machine(): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "robkit-share-"));
+  machines.push(dir);
+  return dir;
 }
 
 /** A written install in `parent`, a git repo, without its dependencies. */
