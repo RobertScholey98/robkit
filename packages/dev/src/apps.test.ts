@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { catalogOf, discoverApps, routesFor } from "./apps.ts";
+import { slug } from "./test/slug.ts";
 
 async function installWith(
   apps: Record<string, Record<string, string> | null>,
@@ -116,9 +117,9 @@ describe("routesFor", () => {
 });
 
 describe("catalogOf", () => {
-  const app = (slug: string, declares = {}) => ({
-    slug,
-    dir: `/x/apps/${slug}`,
+  const app = (name: string, declares = {}) => ({
+    slug: slug(name),
+    dir: `/x/apps/${name}`,
     port: 3001,
     migrates: false,
     declares,

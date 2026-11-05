@@ -2,9 +2,10 @@ import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { addApp, type AppChoices } from "./add.ts";
+import { addApp, readNewSlug, type AppChoices } from "./add.ts";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
+import { slug } from "./test/slug.ts";
 
 async function freshInstall(choices: Choices = defaultChoices) {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
@@ -20,7 +21,7 @@ async function manifest(dir: string, slug: string): Promise<unknown> {
 
 const notes: AppChoices = {
   stack: "react-hono",
-  slug: "notes",
+  slug: slug("notes"),
   access: { kind: "open" },
   icon: "📝",
 };
@@ -108,10 +109,18 @@ describe("addApp", () => {
     ],
     ["hub", "hub is one of the platform apps: core, hub and admin."],
     ["example", "apps/example already exists. Choose another name."],
-  ])("refuses the name %j", async (slug, message) => {
+  ])("refuses the name %j", async (name, message) => {
     const dir = await freshInstall();
 
-    await expect(addApp(dir, { ...notes, slug })).rejects.toThrow(message);
+    expect(readNewSlug(dir, name)).toEqual({ error: message });
+  });
+
+  it("refuses to write over an app", async () => {
+    const dir = await freshInstall();
+
+    await expect(
+      addApp(dir, { ...notes, slug: slug("example") }),
+    ).rejects.toThrow("apps/example already exists. Choose another name.");
   });
 
   it("draws the app with the install's UI kit", async () => {

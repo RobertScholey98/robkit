@@ -1,8 +1,12 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { install, isPlatformApp } from "@robkit/session/addresses";
+import {
+  install,
+  isPlatformApp,
+  readSlug,
+  type Slug,
+} from "@robkit/session/addresses";
 import type { Route } from "./proxy.ts";
-import { slugProblem } from "./slug.ts";
 
 /**
  * One folder under `apps/`. Its folder name is its slug, which is also its
@@ -10,7 +14,7 @@ import { slugProblem } from "./slug.ts";
  * role named after its slug.
  */
 export interface App {
-  slug: string;
+  slug: Slug;
   dir: string;
   port: number;
   migrates: boolean;
@@ -64,12 +68,12 @@ export async function discoverApps(
     .sort();
 
   const apps: App[] = [];
-  for (const slug of slugs) {
-    const dir = join(appsDir, slug);
+  for (const name of slugs) {
+    const dir = join(appsDir, name);
     const manifest = await readManifest(dir);
     if (!manifest) continue;
-    const problem = slugProblem(slug);
-    if (problem) throw new Error(`apps/${slug}: ${problem}`);
+    const slug = readSlug(name);
+    if (typeof slug !== "string") throw new Error(`apps/${name}: ${slug.error}`);
     apps.push({
       slug,
       dir,

@@ -5,7 +5,8 @@ import {
   text,
   type CANCEL_SYMBOL,
 } from "@clack/prompts";
-import { newSlugProblem, type AppChoices } from "./add.ts";
+import { readSlug } from "@robkit/session/addresses";
+import { newSlugProblem, readNewSlug, type AppChoices } from "./add.ts";
 import {
   defaultChoices,
   readyStackOptions,
@@ -61,7 +62,9 @@ function accessFrom(
 }
 
 /** The app robkit add's flags describe, with a default for each left out. */
-export function appChoicesFromFlags(slug: string, flags: AddFlags): AppChoices {
+export function appChoicesFromFlags(name: string, flags: AddFlags): AppChoices {
+  const slug = readSlug(name);
+  if (typeof slug !== "string") throw new Error(slug.error);
   return {
     stack: stackFrom(flags.stack ?? defaultChoices.exampleStack),
     slug,
@@ -108,15 +111,18 @@ export async function askAdd(
       options: readyStackOptions,
     }),
   );
-  const slug =
+  const slug = readNewSlug(
+    root,
     given ??
-    answered(
-      await text({
-        message: "What's the app called?",
-        placeholder: "notes",
-        validate: (answer) => newSlugProblem(root, answer ?? ""),
-      }),
-    );
+      answered(
+        await text({
+          message: "What's the app called?",
+          placeholder: "notes",
+          validate: (answer) => newSlugProblem(root, answer ?? ""),
+        }),
+      ),
+  );
+  if (typeof slug !== "string") throw new Error(slug.error);
   const access = answered(
     await select<Access>({
       message: "Who can open it?",

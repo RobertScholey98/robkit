@@ -1,8 +1,12 @@
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { slugProblem } from "@robkit/dev";
-import { isPlatformApp, platformApps } from "@robkit/session/addresses";
+import {
+  isPlatformApp,
+  platformApps,
+  readSlug,
+  type Slug,
+} from "@robkit/session/addresses";
 import type { Choices, Stack } from "./choices.ts";
 import {
   appFiles,
@@ -18,7 +22,7 @@ import { writeInstall } from "./write.ts";
  */
 export interface AppChoices {
   stack: Stack;
-  slug: string;
+  slug: Slug;
   /** Who may open the app once core adds it. A rule's roles are named. */
   access: NonNullable<Declares["access"]>;
   icon: string;
@@ -57,20 +61,31 @@ async function exists(path: string): Promise<boolean> {
   );
 }
 
-/**
- * Why `slug` can't name a new app in the install at `root`, or `undefined`.
- * Its shape fits a prompt's `validate`.
- */
-export function newSlugProblem(root: string, slug: string): string | undefined {
-  const problem = slugProblem(slug);
-  if (problem) return problem;
+/** `name` as the slug of a new app in the install at `root`, or why it can't be. */
+export function readNewSlug(
+  root: string,
+  name: string,
+): Slug | { error: string } {
+  const slug = readSlug(name);
+  if (typeof slug !== "string") return slug;
   if (isPlatformApp(slug)) {
-    return `${slug} is one of the platform apps: ${andList(platformApps)}.`;
+    return {
+      error: `${slug} is one of the platform apps: ${andList(platformApps)}.`,
+    };
   }
   if (existsSync(join(root, "apps", slug))) {
-    return `apps/${slug} already exists. Choose another name.`;
+    return { error: `apps/${slug} already exists. Choose another name.` };
   }
-  return undefined;
+  return slug;
+}
+
+/**
+ * Why `name` can't name a new app in the install at `root`, or `undefined`.
+ * Its shape fits a prompt's `validate`.
+ */
+export function newSlugProblem(root: string, name: string): string | undefined {
+  const slug = readNewSlug(root, name);
+  return typeof slug === "string" ? undefined : slug.error;
 }
 
 /**
