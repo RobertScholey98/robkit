@@ -6,7 +6,6 @@ import { isPlatformApp, platformApps } from "@robkit/session/addresses";
 import type { Choices, Generator, UiKit } from "./choices.ts";
 import {
   appFiles,
-  leaveOutTools,
   readFolder,
   spellFor,
   stackTemplate,
@@ -85,13 +84,12 @@ export function newSlugProblem(root: string, slug: string): string | undefined {
 async function templateFor(
   root: string,
   stack: Generator,
-  { orm, packageManager, tools }: Choices,
+  { orm, packageManager }: Choices,
   uiKit: UiKit | null,
 ) {
   const own = join(root, "robkit", "templates", stack);
   if (await exists(own)) return readFolder(own);
   const template = await stackTemplate(stack, orm, uiKit);
-  leaveOutTools(template, tools);
   await spellFor(template, packageManager);
   return template;
 }

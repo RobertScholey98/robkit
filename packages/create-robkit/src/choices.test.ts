@@ -7,7 +7,6 @@ describe("choicesFromFlags", () => {
       packageManager: "pnpm",
       orm: "drizzle",
       uiKit: null,
-      tools: ["eslint-prettier", "vitest"],
       generators: ["start", "react-hono"],
     });
   });
@@ -48,10 +47,6 @@ describe("choicesFromFlags", () => {
     expect(() => choicesFromFlags({ "ui-kit": "mui" })).toThrow(
       "--ui-kit mui isn't an option. Choose from: none, shadcn-base-ui, shadcn-radix, chakra.",
     );
-  });
-
-  it("reads --tools none as no dev tools", () => {
-    expect(choicesFromFlags({ tools: "none" }).tools).toEqual([]);
   });
 
   it("refuses an option named twice", () => {

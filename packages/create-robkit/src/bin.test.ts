@@ -12,7 +12,6 @@ const defaultAnswers: [question: string, keys: string][] = [
   ["Which ORM?", keys.enter],
   ["Add a shared React UI kit?", keys.enter],
   ["Which app generators should robkit add offer?", keys.enter],
-  ["Which dev tools?", keys.enter],
   ["Install dependencies and initialise git?", keys.no + keys.enter],
 ];
 
@@ -55,7 +54,6 @@ describe("init with no flags", { timeout: 30_000 }, () => {
           "Which app generators should robkit add offer?",
           keys.space + keys.enter,
         ],
-        ["Which dev tools?", keys.enter],
         ["Install dependencies and initialise git?", keys.no + keys.enter],
       ],
     );
@@ -67,11 +65,10 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       "Which ORM?",
       "Add a shared React UI kit?",
       "Which app generators should robkit add offer?",
-      "Which dev tools?",
       "Install dependencies and initialise git?",
     ]);
     const command =
-      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --ui-kit none --generators react-hono --tools eslint-prettier,vitest";
+      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --ui-kit none --generators react-hono";
     expect(output).toContain(command);
 
     // npm hands create-robkit the arguments after the --.
@@ -99,7 +96,7 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     expect(code).toBe(0);
     expect(questionsAsked(output)[0]).toBe("Which package manager?");
     expect(output).toContain(
-      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --ui-kit none --generators start,react-hono --tools eslint-prettier,vitest --link",
+      "npm create robkit@latest my-app -- --pm pnpm --orm drizzle --ui-kit none --generators start,react-hono --link",
     );
   });
 
@@ -115,7 +112,6 @@ describe("init with no flags", { timeout: 30_000 }, () => {
         ["Add a shared React UI kit?", keys.down + keys.enter],
         ["Which UI kit?", keys.enter],
         ["Which app generators should robkit add offer?", keys.enter],
-        ["Which dev tools?", keys.enter],
         ["Install dependencies and initialise git?", keys.no + keys.enter],
       ],
     );

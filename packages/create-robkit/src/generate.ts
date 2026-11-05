@@ -141,62 +141,11 @@ function layersFor(choices: Choices): string[] {
     // The hub and admin, then the kit's controls over them.
     layerOf(t.uiKit, "none"),
     choices.uiKit === null ? undefined : layerOf(t.uiKit, choices.uiKit),
-    ...choices.tools.map((tool) => layerOf(t.tools, tool)),
-    ...choices.tools.flatMap((tool) =>
-      Object.entries(optionOf(t.tools, tool)?.with ?? {}).flatMap(
-        ([other, layer]) =>
-          (choices.tools as readonly string[]).includes(other) ? [layer] : [],
-      ),
-    ),
+    // The dev tools. Husky's hook runs ESLint and Prettier too.
+    "tools/eslint-prettier",
+    "tools/husky",
+    "tools/husky-eslint-prettier",
   ].filter((layer) => layer !== undefined);
-}
-
-/**
- * Drops from `files` what each dev tool `tools` doesn't name leaves out: its
- * files, its dependencies, and each script that runs one of them.
- */
-export function leaveOutTools(files: Files, tools: readonly string[]): void {
-  for (const option of choiceTable.tools.options as readonly Option[]) {
-    const { withoutIt } = option;
-    if (withoutIt === undefined || tools.includes(option.value)) continue;
-    for (const path of [...files.keys()]) {
-      if (withoutIt.files.some((end) => `/${path}`.endsWith(end))) {
-        files.delete(path);
-      } else if (basename(path) === "package.json") {
-        editJson(files, path, (json) =>
-          withoutDependencies(json, withoutIt.dependencies),
-        );
-      }
-    }
-  }
-}
-
-/** A manifest without `dependencies`, or any script that runs one. */
-function withoutDependencies(json: Json, dependencies: readonly string[]) {
-  const runsOne = (command: unknown) =>
-    typeof command === "string" &&
-    dependencies.includes(command.split(" ")[0] ?? "");
-  const without = (
-    field: unknown,
-    drop: (key: string, value: unknown) => boolean,
-  ) =>
-    isJson(field)
-      ? Object.fromEntries(
-          Object.entries(field).filter(([key, value]) => !drop(key, value)),
-        )
-      : field;
-  const edited: Json = { ...json };
-  for (const field of ["dependencies", "devDependencies"]) {
-    if (field in edited) {
-      edited[field] = without(edited[field], (name) =>
-        dependencies.includes(name),
-      );
-    }
-  }
-  if ("scripts" in edited) {
-    edited.scripts = without(edited.scripts, (_, command) => runsOne(command));
-  }
-  return edited;
 }
 
 /** A file under `templates/`, with LF endings. */
@@ -208,25 +157,22 @@ async function readTemplate(path: string): Promise<string> {
   );
 }
 
-/**
- * Ends the root `AGENTS.md` with a Dev tools section: each line a tool in
- * `tools` adds, in the order the choice table lists them.
- */
-async function addToolGuides(
-  files: Files,
-  tools: readonly string[],
-): Promise<void> {
-  const guides = (choiceTable.tools.options as readonly Option[]).flatMap(
-    (option) =>
-      option.guide !== undefined && tools.includes(option.value)
-        ? [option.guide]
-        : [],
-  );
-  if (guides.length === 0) return;
-  const lines = await Promise.all(guides.map(readTemplate));
+/** The lines the root `AGENTS.md` ends with, one per dev tool. */
+const toolGuides = [
+  "tools/eslint-prettier.md",
+  "tools/vitest.md",
+  "tools/husky.md",
+];
+
+/** Ends the root `AGENTS.md` with a Dev tools section. */
+async function addToolGuides(files: Files): Promise<void> {
+  const lines = await Promise.all(toolGuides.map(readTemplate));
   files.set(
     "AGENTS.md",
-    `${files.get("AGENTS.md") ?? ""}\n## Dev tools\n\n${lines.join("")}`,
+    `${files.get("AGENTS.md") ?? ""}
+## Dev tools
+
+${lines.join("")}`,
   );
 }
 
@@ -236,7 +182,6 @@ function buildsFor(choices: Choices): Record<string, boolean> {
   const answers: [Choice, string][] = [
     [t.packageManager, choices.packageManager],
     [t.orm, choices.orm],
-    ...choices.tools.map((tool): [Choice, string] => [t.tools, tool]),
     ...choices.generators.map((stack): [Choice, string] => [
       t.generators,
       stack,
@@ -445,7 +390,6 @@ export async function generateInstall(
       stackTemplate(stack, choices.orm, choices.uiKit),
     ),
   );
-  for (const stack of stacks) leaveOutTools(stack, choices.tools);
   const [example] = stacks;
   if (example === undefined) throw new Error("init needs a generator");
   overlay(
@@ -453,8 +397,7 @@ export async function generateInstall(
     appFiles(example, exampleSlug, { icon: defaultIcon }),
     `apps/${exampleSlug}/`,
   );
-  leaveOutTools(files, choices.tools);
-  await addToolGuides(files, choices.tools);
+  await addToolGuides(files);
   await spellFor(files, choices.packageManager);
 
   // The catalog covers every stack robkit add offers, so adding an app

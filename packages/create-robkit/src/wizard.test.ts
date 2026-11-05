@@ -8,14 +8,13 @@ const answers: Answers = {
   orm: "drizzle",
   "ui-kit": "none",
   generators: "start",
-  tools: "none",
   install: true,
 };
 
 describe("commandFor", () => {
   it("asks for the install", () => {
     expect(commandFor(answers)).toBe(
-      "npm create robkit@latest family-apps -- --pm pnpm --orm drizzle --ui-kit none --generators start --tools none --install",
+      "npm create robkit@latest family-apps -- --pm pnpm --orm drizzle --ui-kit none --generators start --install",
     );
   });
 

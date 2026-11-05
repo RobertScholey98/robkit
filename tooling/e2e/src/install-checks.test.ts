@@ -23,8 +23,7 @@ describe("the default install", () => {
 
 /**
  * The installs whose own CI steps run: the default and one per other ORM.
- * The Prisma install runs yarn's workflow with every dev tool, and the
- * Kysely install bun's with none.
+ * The Prisma install runs yarn's workflow, and the Kysely install bun's.
  */
 const ciInstalls = ["start", "prisma", "kysely"] as const;
 
@@ -46,8 +45,8 @@ describe.each(ciInstalls)("the %s install", (name) => {
   });
 });
 
-/** The installs whose lint must catch a cross-app import: with ESLint, and without. */
-const lintInstalls: InstallName[] = ["start", "kysely"];
+/** The installs whose lint must catch a cross-app import. */
+const lintInstalls: InstallName[] = ["start"];
 
 describe.each(lintInstalls)("the %s install's lint", (name) => {
   it.each([

@@ -56,7 +56,6 @@ describe("generateInstall", () => {
   "packageManager": "pnpm",
   "orm": "drizzle",
   "uiKit": null,
-  "tools": ["eslint-prettier", "vitest"],
   "generators": ["react-hono", "start"]
 }
 `);
@@ -100,6 +99,7 @@ describe("generateInstall", () => {
         format: "prettier --write .",
         "format:check": "prettier --check .",
         robkit: "robkit",
+        postinstall: "husky || true",
       },
       devDependencies: {
         "@robkit/dev": "catalog:",
@@ -111,6 +111,8 @@ describe("generateInstall", () => {
         globals: "catalog:",
         prettier: "catalog:",
         "typescript-eslint": "catalog:",
+        husky: "catalog:",
+        "lint-staged": "catalog:",
       },
       packageManager: "pnpm@11.28.9",
     });
@@ -191,48 +193,31 @@ describe("generateInstall", () => {
     );
   });
 
-  it("lints with robkit check, without ESLint too", async () => {
-    const withEslint = await generateInstall(defaultChoices);
-    const without = await generateInstall({ ...defaultChoices, tools: [] });
+  it("lints with robkit check, then ESLint", async () => {
+    const files = await generateInstall(defaultChoices);
 
-    expect(
-      [withEslint, without].map(
-        (files) => (json(files, "package.json") as { scripts: object }).scripts,
-      ),
-    ).toMatchObject([
-      { lint: "robkit check && eslint ." },
-      { lint: "robkit check" },
-    ]);
+    expect(json(files, "package.json")).toMatchObject({
+      scripts: { lint: "robkit check && eslint ." },
+    });
   });
 
-  it("tells the root AGENTS.md about each dev tool the install has", async () => {
-    const tools: readonly Option[] = readyOptions(choiceTable.tools);
-    const all = await generateInstall({
-      ...defaultChoices,
-      tools: tools.map((tool) => tool.value) as Choices["tools"],
-    });
-    const none = await generateInstall({ ...defaultChoices, tools: [] });
-    const agents = all.get("AGENTS.md") ?? "";
+  it("tells the root AGENTS.md about each dev tool", async () => {
+    const files = await generateInstall(defaultChoices);
+    const agents = files.get("AGENTS.md") ?? "";
 
     expect(agents).toContain("\n## Dev tools\n\n");
-    for (const { value, guide } of tools) {
-      expect(guide, value).toBeDefined();
+    for (const tool of ["eslint-prettier", "vitest", "husky"]) {
       const text = await readFile(
-        new URL(`../templates/${guide ?? ""}`, import.meta.url),
+        new URL(`../templates/tools/${tool}.md`, import.meta.url),
         "utf8",
       );
-      expect(agents, value).toContain(text.replaceAll("\r\n", "\n"));
+      expect(agents, tool).toContain(text.replaceAll("\r\n", "\n"));
     }
-    expect(none.get("AGENTS.md")).not.toContain("## Dev tools");
-    expect(none.get("AGENTS.md")).not.toContain("Vitest");
   });
 
   describe("with Husky", () => {
     it("sets up a pre-commit hook that runs lint-staged as the install installs", async () => {
-      const files = await generateInstall({
-        ...defaultChoices,
-        tools: ["husky"],
-      });
+      const files = await generateInstall(defaultChoices);
 
       expect(files.get(".husky/pre-commit")).toBe("pnpm exec lint-staged\n");
       expect(json(files, "package.json")).toMatchObject({
@@ -245,93 +230,41 @@ describe("generateInstall", () => {
       });
     });
 
-    it("checks the layer rule before each commit, and ESLint and Prettier the staged files when the install has them", async () => {
-      const alone = await generateInstall({
-        ...defaultChoices,
-        tools: ["husky"],
-      });
-      const withEslint = await generateInstall({
-        ...defaultChoices,
-        tools: ["eslint-prettier", "husky"],
-      });
+    it("checks the layer rule before each commit, and ESLint and Prettier the staged files", async () => {
+      const files = await generateInstall(defaultChoices);
+      const config = files.get("lint-staged.config.js");
 
-      expect(alone.get("lint-staged.config.js")).toContain(
-        '() => "robkit check"',
-      );
-      expect(alone.get("lint-staged.config.js")).not.toMatch(/eslint|prettier/);
-      expect(withEslint.get("lint-staged.config.js")).toContain(
-        '() => "robkit check"',
-      );
-      expect(withEslint.get("lint-staged.config.js")).toContain("eslint --fix");
-      expect(withEslint.get("lint-staged.config.js")).toContain(
-        "prettier --write",
-      );
+      expect(config).toContain('() => "robkit check"');
+      expect(config).toContain("eslint --fix");
+      expect(config).toContain("prettier --write");
     });
 
     it("spells the hook for the install's package manager", async () => {
       const hookFor = async (packageManager: Choices["packageManager"]) =>
-        (
-          await generateInstall({
-            ...defaultChoices,
-            packageManager,
-            tools: ["husky"],
-          })
-        ).get(".husky/pre-commit");
+        (await generateInstall({ ...defaultChoices, packageManager })).get(
+          ".husky/pre-commit",
+        );
 
       expect(await hookFor("bun")).toBe("bunx lint-staged\n");
       expect(await hookFor("yarn")).toBe("yarn lint-staged\n");
     });
-
-    it("leaves Husky out of an install without it", async () => {
-      const files = await generateInstall(defaultChoices);
-
-      expect(files.has(".husky/pre-commit")).toBe(false);
-      expect(files.has("lint-staged.config.js")).toBe(false);
-      expect(files.get("package.json")).not.toMatch(/husky|lint-staged/);
-    });
   });
 
-  describe("with Vitest off", () => {
+  it("writes each test beside the code it covers, run by Vitest", async () => {
+    const files = await generateInstall(defaultChoices);
     const isTestFile = (path: string) =>
       /\.test\.tsx?$|(^|\/)vitest\.config\.ts$/.test(path);
 
-    it.each<[string, Choices]>([
-      ["no kit", { ...defaultChoices, tools: ["eslint-prettier"] }],
-      ["Chakra", { ...defaultChoices, tools: [], uiKit: "chakra" }],
-    ])("leaves the tests and their runner out, with %s", async (_, choices) => {
-      const files = await generateInstall(choices);
-
-      expect([...files.keys()].filter(isTestFile)).toEqual([]);
-      for (const [path, text] of files) {
-        if (!path.endsWith("package.json")) continue;
-        expect(text, path).not.toContain("vitest");
-      }
-      expect(workspace(files).catalog).not.toHaveProperty("vitest");
-      // The root still has a test script, which runs no tasks.
-      expect(json(files, "package.json")).toMatchObject({
-        scripts: { test: "turbo run test" },
-      });
-    });
-
-    it("keeps them when Vitest is on", async () => {
-      const files = await generateInstall({
-        ...defaultChoices,
-        tools: ["vitest"],
-        uiKit: "chakra",
-      });
-
-      expect([...files.keys()].filter(isTestFile)).toEqual(
-        expect.arrayContaining([
-          "apps/admin/vitest.config.ts",
-          "apps/hub/src/core-api.test.ts",
-          "packages/core-client/src/call-core.test.ts",
-          "packages/ui/src/provider.test.tsx",
-        ]),
-      );
-      expect(json(files, "apps/hub/package.json")).toMatchObject({
-        scripts: { test: "vitest run" },
-        devDependencies: { vitest: "catalog:" },
-      });
+    expect([...files.keys()].filter(isTestFile)).toEqual(
+      expect.arrayContaining([
+        "apps/admin/vitest.config.ts",
+        "apps/hub/src/core-api.test.ts",
+        "packages/core-client/src/call-core.test.ts",
+      ]),
+    );
+    expect(json(files, "apps/hub/package.json")).toMatchObject({
+      scripts: { test: "vitest run" },
+      devDependencies: { vitest: "catalog:" },
     });
   });
 
@@ -395,14 +328,12 @@ describe("generateInstall", () => {
   it("has a template folder for every layer the choice table names", async () => {
     const table: Choice[] = Object.values(choiceTable);
     const layers = table.flatMap((choice) =>
-      readyOptions(choice).flatMap((option: Option) => [
-        ...(option.layer === undefined ? [] : [option.layer]),
-        ...Object.values(option.with ?? {}),
-      ]),
+      readyOptions(choice).flatMap((option: Option) =>
+        option.layer === undefined ? [] : [option.layer],
+      ),
     );
 
     expect(layers).toContain("stacks/start");
-    expect(layers).toContain("tools/husky-eslint-prettier");
     for (const layer of layers) {
       const dir = new URL(`../templates/${layer}/`, import.meta.url);
       expect((await stat(dir)).isDirectory(), layer).toBe(true);
@@ -556,7 +487,9 @@ describe("generateInstall", () => {
     expect(
       [...kit.keys()].filter(
         (path) =>
-          !/^(?:apps|packages|tooling|docs|\.github)\/|^[^/]+$/.test(path),
+          !/^(?:apps|packages|tooling|docs|\.github|\.husky)\/|^[^/]+$/.test(
+            path,
+          ),
       ),
     ).toEqual([]);
     expect(kit.get("apps/hub/src/ui.tsx")).toContain(
@@ -662,7 +595,6 @@ describe("generateInstall", () => {
 
   it.each<[string, Choices]>([
     ["the default", defaultChoices],
-    ["no tools", { ...defaultChoices, tools: [] }],
     [
       "Prisma on Radix",
       { ...defaultChoices, orm: "prisma", uiKit: "shadcn-radix" },

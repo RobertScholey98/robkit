@@ -44,19 +44,13 @@ async function whatWentWrong(stack: Stack): Promise<string> {
   return `What the browser saw:\n${takeBrowserLog()}\n\nThe stack's containers:\n${await stackReport(stack)}`;
 }
 
-/** Every dev tool, so their builds run Husky's postinstall with no git. */
-const allTools: Choices["tools"] = ["eslint-prettier", "vitest", "husky"];
-
 /** Each install by the key `E2E_PRODUCTION_INSTALL` picks it by. */
 const installs: [string, Choices][] = [
   ["default", defaultChoices],
   // Each ORM migrates as its app's container starts, and each UI kit's apps
   // serve its stylesheet. The two shadcn kits share their apps' layer, so
   // Base UI stands for both, and Chakra's server-rendered styles get a run.
-  [
-    "prisma",
-    { ...defaultChoices, orm: "prisma", uiKit: "chakra", tools: allTools },
-  ],
+  ["prisma", { ...defaultChoices, orm: "prisma", uiKit: "chakra" }],
   // bun installs the Kysely install, so its Dockerfile gets a run too.
   // yarn's can't yet: turbo can't prune a yarn lockfile that takes
   // robkit's packages from vendored tarballs, so a yarn install deploys
@@ -68,7 +62,6 @@ const installs: [string, Choices][] = [
       packageManager: "bun",
       orm: "kysely",
       uiKit: "shadcn-base-ui",
-      tools: allTools,
     },
   ],
 ];

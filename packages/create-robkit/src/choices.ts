@@ -32,35 +32,8 @@ export interface Option {
    * manager runs no other.
    */
   readonly builds?: Readonly<Record<string, boolean>>;
-  /**
-   * For a dev tool: the template folders, under `templates/`, it lays over
-   * the install when the install has another tool too, by that tool. They
-   * go down after every tool's own layer.
-   */
-  readonly with?: Readonly<Record<string, string>>;
-  /**
-   * A section, as a file under `templates/`, the option adds to the end of
-   * the install's root `AGENTS.md`.
-   */
-  readonly guide?: string;
-  /**
-   * For a dev tool whose files the templates write beside the code they
-   * cover, as tests are: what an install without the tool leaves out.
-   */
-  readonly withoutIt?: LeftOut;
   /** Shown by the wizard but not selectable, until a later release builds it. */
   readonly comingLater?: true;
-}
-
-/** What an install leaves out when it doesn't take a tool. */
-export interface LeftOut {
-  /** Files to drop, matched against the end of their path. */
-  readonly files: readonly string[];
-  /**
-   * Dependencies to drop from every manifest, with each script that runs
-   * one of them.
-   */
-  readonly dependencies: readonly string[];
 }
 
 /** One of init's questions. */
@@ -73,10 +46,9 @@ export interface Choice {
   readonly about: string;
   /**
    * `one` takes a single option. `list` takes several, comma-separated, in
-   * the order given; with `orNone` it also takes `none` for an empty list.
+   * the order given.
    */
   readonly takes: "one" | "list";
-  readonly orNone?: true;
   readonly options: readonly Option[];
 }
 
@@ -176,41 +148,6 @@ export const choiceTable = {
       { value: "go", label: "React + Go", comingLater: true },
     ],
   },
-  tools: {
-    flag: "tools",
-    question: "Which dev tools?",
-    about: "dev tools",
-    takes: "list",
-    orNone: true,
-    options: [
-      {
-        value: "eslint-prettier",
-        label: "ESLint + Prettier",
-        layer: "tools/eslint-prettier",
-        guide: "tools/eslint-prettier.md",
-      },
-      // The templates write each test beside the code it covers, so an
-      // install without Vitest leaves them out rather than one with it
-      // laying them down.
-      {
-        value: "vitest",
-        label: "Vitest",
-        guide: "tools/vitest.md",
-        withoutIt: {
-          files: [".test.ts", ".test.tsx", "/vitest.config.ts"],
-          dependencies: ["vitest"],
-        },
-      },
-      {
-        value: "husky",
-        label: "Husky + lint-staged",
-        layer: "tools/husky",
-        // The hook also runs ESLint and Prettier on the staged files.
-        with: { "eslint-prettier": "tools/husky-eslint-prettier" },
-        guide: "tools/husky.md",
-      },
-    ],
-  },
 } as const satisfies Record<string, Choice>;
 
 type Table = typeof choiceTable;
@@ -226,7 +163,6 @@ export type PackageManager = Ready<Table["packageManager"]>;
 export type Orm = Ready<Table["orm"]>;
 export type UiKit = Exclude<Ready<Table["uiKit"]>, "none">;
 export type Generator = Ready<Table["generators"]>;
-export type Tool = Ready<Table["tools"]>;
 
 /** The options of `choice` that init can make today. */
 export function readyOptions<C extends Choice>(
@@ -248,7 +184,6 @@ export interface Choices {
    * JSX and Tailwind, which `--ui-kit none` asks for.
    */
   uiKit: UiKit | null;
-  tools: Tool[];
   /** The stacks `robkit add` offers. The first one makes the example app. */
   generators: NonEmpty<Generator>;
 }
@@ -257,7 +192,6 @@ export const defaultChoices: Choices = {
   packageManager: "pnpm",
   orm: "drizzle",
   uiKit: null,
-  tools: ["eslint-prettier", "vitest"],
   generators: ["start", "react-hono"],
 };
 
@@ -278,7 +212,6 @@ function oneOf<C extends Choice>(choice: C, value: string): Ready<C> {
 }
 
 function listOf<C extends Choice>(choice: C, value: string): Ready<C>[] {
-  if (choice.orNone && value === "none") return [];
   // split always returns at least one item, even for an empty string.
   const list = value.split(",").map((item) => oneOf(choice, item));
   if (new Set(list).size !== list.length) {
@@ -289,7 +222,7 @@ function listOf<C extends Choice>(choice: C, value: string): Ready<C>[] {
 
 /** A list as its flag spells it, which choicesFromFlags reads back. */
 export function listFlag(list: readonly string[]): string {
-  return list.length > 0 ? list.join(",") : "none";
+  return list.join(",");
 }
 
 /** The choices init's flags make, with a default for each flag left out. */
@@ -300,7 +233,6 @@ export function choicesFromFlags(flags: Flags): Choices {
   const pm = given(t.packageManager);
   const orm = given(t.orm);
   const uiKit = given(t.uiKit);
-  const tools = given(t.tools);
   const generators = given(t.generators);
   const kit = uiKit === undefined ? "none" : oneOf(t.uiKit, uiKit);
   return {
@@ -310,11 +242,10 @@ export function choicesFromFlags(flags: Flags): Choices {
         : oneOf(t.packageManager, pm),
     orm: orm === undefined ? defaultChoices.orm : oneOf(t.orm, orm),
     uiKit: kit === "none" ? null : kit,
-    tools: tools === undefined ? defaultChoices.tools : listOf(t.tools, tools),
     generators:
       generators === undefined
         ? defaultChoices.generators
-        : // A list without orNone always has at least one item.
+        : // A list always has at least one item.
           (listOf(t.generators, generators) as NonEmpty<Generator>),
   };
 }

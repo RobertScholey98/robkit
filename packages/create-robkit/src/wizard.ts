@@ -133,7 +133,7 @@ export async function askInit(folder?: string): Promise<Answers> {
         validate: (answer) => folderProblem(answer ?? defaultFolder),
       }),
     );
-  const { packageManager, orm, generators, tools } = choiceTable;
+  const { packageManager, orm, generators } = choiceTable;
   const pm = answered(
     await select({
       message: packageManager.question,
@@ -154,14 +154,6 @@ export async function askInit(folder?: string): Promise<Answers> {
       initialValues: [...defaultChoices.generators],
     }),
   );
-  const devTools = answered(
-    await multiselect({
-      message: tools.question,
-      options: optionsFor(tools),
-      initialValues: [...defaultChoices.tools],
-      required: false,
-    }),
-  );
   const install = answered(
     await confirm({ message: "Install dependencies and initialise git?" }),
   );
@@ -171,7 +163,6 @@ export async function askInit(folder?: string): Promise<Answers> {
     orm: ormAnswer,
     "ui-kit": uiKit,
     generators: listFlag(stacks),
-    tools: listFlag(devTools),
     install,
   };
 }

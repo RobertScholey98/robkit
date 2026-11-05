@@ -31,7 +31,7 @@ With no options, init asks for each one.
     const list = choice.takes === "list";
     return flagLine(
       `--${choice.flag} <${list ? "list" : "name"}>`,
-      `${choice.about}: ${options.join(", ")}${"orNone" in choice ? ", or none" : ""}`,
+      `${choice.about}: ${options.join(", ")}`,
     );
   }),
   flagLine("--install", "install dependencies and initialise git"),
