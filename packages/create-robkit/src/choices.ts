@@ -63,12 +63,6 @@ export const choiceTable = {
         appLayer: "orms/drizzle/app",
         appGuide: "orms/drizzle/AGENTS.md",
       },
-      {
-        value: "kysely",
-        label: "Kysely",
-        appLayer: "orms/kysely/app",
-        appGuide: "orms/kysely/AGENTS.md",
-      },
     ],
   },
   uiKit: {

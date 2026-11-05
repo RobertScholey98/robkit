@@ -394,31 +394,6 @@ describe("generateInstall", () => {
     },
   );
 
-  it("lays Kysely's app files over a Kysely install's apps", async () => {
-    const files = await generateInstall({ ...defaultChoices, orm: "kysely" });
-    const manifest = JSON.parse(
-      files.get("apps/example/package.json") ?? "{}",
-    ) as {
-      scripts: Record<string, string>;
-      dependencies: Record<string, string>;
-      devDependencies: Record<string, string>;
-    };
-    const { catalog } = workspace(files);
-
-    expect(files.has("apps/example/src/migrations/0001_visit.ts")).toBe(true);
-    expect(files.has("apps/example/drizzle/0000_init.sql")).toBe(false);
-    expect(manifest.scripts.migrate).toBe("node src/migrate.ts");
-    expect(manifest.dependencies).toEqual(
-      expect.objectContaining({ kysely: "catalog:", pg: "catalog:" }),
-    );
-    expect(manifest.devDependencies).toMatchObject({ "@types/pg": "catalog:" });
-    expect(manifest.dependencies).not.toHaveProperty("drizzle-orm");
-    expect(catalog).toMatchObject({ kysely: "0.29.8", pg: "8.23.1" });
-    expect(files.get("apps/example/AGENTS.md")).toContain(
-      "src/migrations/index.ts",
-    );
-  });
-
   it("lays a UI kit's packages/ui and controls over the no-kit hub and admin", async () => {
     const plain = await generateInstall(defaultChoices);
     const kit = await generateInstall({
@@ -548,10 +523,7 @@ describe("generateInstall", () => {
   it.each<[string, Choices]>([
     ["the default", defaultChoices],
     ["Radix", { ...defaultChoices, uiKit: "shadcn-radix" }],
-    [
-      "Kysely on Base UI",
-      { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" },
-    ],
+    ["Base UI", { ...defaultChoices, uiKit: "shadcn-base-ui" }],
     ["Chakra with Hono first", { ...honoFirst, uiKit: "chakra" }],
   ])("keeps every file of %s pnpm install", async (_, choices) => {
     const files = await generateInstall(choices);

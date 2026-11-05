@@ -45,12 +45,7 @@ async function whatWentWrong(stack: Stack): Promise<string> {
 }
 
 /** Each install by the key `E2E_PRODUCTION_INSTALL` picks it by. */
-const installs: [string, Choices][] = [
-  ["default", defaultChoices],
-  // Kysely migrates as its app's container starts, and the kit's apps
-  // serve its stylesheet.
-  ["kysely", { ...defaultChoices, orm: "kysely", uiKit: "shadcn-base-ui" }],
-];
+const installs: [string, Choices][] = [["default", defaultChoices]];
 
 /**
  * The installs this run deploys: every one, or the one

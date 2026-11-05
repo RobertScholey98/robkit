@@ -166,9 +166,7 @@ export async function stackTemplate(
     throw new Error(`the ${stack} stack has no template`);
   }
   const files = await readLayer(layer);
-  const ormOption: Option | undefined = choiceTable.orm.options.find(
-    (option) => option.value === orm,
-  );
+  const ormOption = optionOf(choiceTable.orm, orm);
   const appLayer = ormOption?.appLayer;
   if (appLayer !== undefined) overlay(files, await readLayer(appLayer));
   const kitLayer =

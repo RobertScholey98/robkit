@@ -27,11 +27,6 @@ export const installChoices = {
     generators: ["react-hono", "start"],
     uiKit: "chakra",
   },
-  kysely: {
-    ...defaultChoices,
-    orm: "kysely",
-    uiKit: "shadcn-base-ui",
-  },
 } satisfies Record<string, Choices>;
 
 export type InstallName = keyof typeof installChoices;

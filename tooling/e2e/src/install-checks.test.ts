@@ -21,10 +21,8 @@ describe("the default install", () => {
   });
 });
 
-/**
- * The installs whose own CI steps run: the default and one per other ORM.
- */
-const ciInstalls = ["start", "kysely"] as const;
+/** The installs whose own CI steps run. */
+const ciInstalls = ["start"] as const;
 
 describe.each(ciInstalls)("the %s install", (name) => {
   it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
