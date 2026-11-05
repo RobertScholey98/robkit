@@ -9,12 +9,10 @@ function packageOf(specifier: string): string {
     : (parts[0] ?? "");
 }
 
-const layer = "ui-kits/shadcn-base-ui/install";
-
 describe("the install's packages/ui", () => {
   it("declares every package its stylesheet imports", async () => {
     const at = (path: string) =>
-      new URL(`../templates/${layer}/packages/ui/${path}`, import.meta.url);
+      new URL(`../templates/base/packages/ui/${path}`, import.meta.url);
     const styles = await readFile(at("src/styles.css"), "utf8");
     const { dependencies } = JSON.parse(
       await readFile(at("package.json"), "utf8"),

@@ -17,6 +17,7 @@
     "@internal/core-client": "workspace:*",
     "@internal/theme": "workspace:*",
     "@internal/tsconfig": "workspace:*",
+    "@internal/ui": "workspace:*",
     "@robkit/session": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

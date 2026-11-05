@@ -128,26 +128,13 @@ function layerOf(choice: Choice, value: string): string | undefined {
   return optionOf(choice, value)?.layer;
 }
 
-/** The template folders of every install, in the order they're laid down. */
-const installLayers = [
-  "base",
-  // The hub and admin, then the UI kit's controls over them.
-  "ui-kits/none",
-  "ui-kits/shadcn-base-ui/install",
-];
-
-/**
- * The template robkit ships for `stack`: an app's files, from its folder,
- * with the UI kit's laid over them.
- */
+/** The template robkit ships for `stack`: an app's files, from its folder. */
 export async function stackTemplate(stack: Generator): Promise<Files> {
   const layer = layerOf(choiceTable.generators, stack);
   if (layer === undefined) {
     throw new Error(`the ${stack} stack has no template`);
   }
-  const files = await readLayer(layer);
-  overlay(files, await readLayer(`ui-kits/shadcn/app/${stack}`));
-  return files;
+  return readLayer(layer);
 }
 
 /**
@@ -250,10 +237,7 @@ export async function generateInstall(
   choices: Choices,
   options: GenerateOptions = {},
 ): Promise<Files> {
-  const files: Files = new Map();
-  for (const layer of installLayers) {
-    overlay(files, await readLayer(layer));
-  }
+  const files = await readLayer("base");
 
   const stacks = await Promise.all(
     choices.generators.map((stack) => stackTemplate(stack)),

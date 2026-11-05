@@ -1,8 +1,15 @@
 import { serve } from "@hono/node-server";
-import app from "./server.tsx";
+import { serveStatic } from "@hono/node-server/serve-static";
+import { Hono } from "hono";
+import server from "./server.tsx";
 
-// The app in production, built into dist by vite build. A container sets
-// HOST to listen beyond loopback.
+// The app in production, built into dist by vite build: the stylesheet its
+// page links, then the guarded app. A container sets HOST to listen beyond
+// loopback.
+const app = new Hono();
+app.use("/assets/*", serveStatic({ root: "dist" }));
+app.route("/", server);
+
 const hostname = process.env.HOST ?? "127.0.0.1";
 
 serve(

@@ -1,6 +1,8 @@
+import { Card, CardContent, CardHeader } from "@internal/ui/components/ui/card";
 import { guarded, type GuardedEnv, type Viewer } from "@robkit/hono";
 import { Hono } from "hono";
 import { renderToString } from "react-dom/server";
+import styles from "./styles.css?url";
 import { recordVisit } from "./visits.ts";
 
 function env(name: string): string {
@@ -50,14 +52,26 @@ function Page({
       <head>
         <meta charSet="utf-8" />
         <title>Example</title>
+        <link rel="stylesheet" href={styles} />
       </head>
       <body>
-        <main>
-          <h1>{heading}</h1>
-          <p>
-            Viewer id: <code data-testid="viewer-id">{viewerId}</code>
-          </p>
-          <p data-testid="visits">Visits: {visits}</p>
+        <main className="flex min-h-screen items-center justify-center bg-muted/50 p-6">
+          <Card className="w-full max-w-sm">
+            <CardHeader>
+              <h1 className="font-heading text-base leading-snug font-medium">
+                {heading}
+              </h1>
+            </CardHeader>
+            <CardContent className="grid gap-1 text-muted-foreground">
+              <p>
+                Viewer id:{" "}
+                <code data-testid="viewer-id" className="text-foreground">
+                  {viewerId}
+                </code>
+              </p>
+              <p data-testid="visits">Visits: {visits}</p>
+            </CardContent>
+          </Card>
         </main>
       </body>
     </html>

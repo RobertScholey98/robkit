@@ -1,13 +1,11 @@
-// Regenerates a shadcn UI kit's template layer from the shadcn CLI, so the
-// kit is shadcn's own output at the version in robkit's catalog. init copies
-// the layer, which keeps it offline and the same every time.
+// Regenerates the install's packages/ui from the shadcn CLI on Base UI, so
+// the kit is shadcn's own output at the version in robkit's catalog. init
+// copies it, which keeps it offline and the same every time.
 //
-//   pnpm --filter create-robkit shadcn-kit <base> <layer>
+//   pnpm --filter create-robkit shadcn-kit
 //
-// <base> is the CLI's --base (base for Base UI) and <layer>
-// the kit's folder under templates/ui-kits, such as shadcn-base-ui. It also
-// rewrites the install's theme tokens from the CLI's, which every kit and
-// the no-kit hub and admin read.
+// It also rewrites the install's theme tokens from the CLI's, which the hub,
+// admin and every app read.
 import { spawnSync } from "node:child_process";
 import {
   mkdir,
@@ -38,15 +36,10 @@ const components = [
 /** The CSS shadcn adds that is the kit's own rather than a theme token. */
 const kitImports = ["tailwindcss", "tw-animate-css", "shadcn/tailwind.css"];
 
-const [base, layer] = process.argv.slice(2);
-if (!base || !layer) {
-  throw new Error(
-    "Usage: shadcn-kit <base> <layer>, such as base shadcn-base-ui",
-  );
-}
+if (process.argv.length > 2) throw new Error("Usage: shadcn-kit");
 
 const templates = fileURLToPath(new URL("../templates/", import.meta.url));
-const ui = join(templates, "ui-kits", layer, "install", "packages", "ui");
+const ui = join(templates, "base", "packages", "ui");
 const { catalog } = await readRobkitRepo();
 
 function version(name: string): string {
@@ -115,7 +108,7 @@ try {
   shadcn(dir, [
     "init",
     "--base",
-    base,
+    "base",
     "--preset",
     "nova",
     "--no-monorepo",
@@ -188,7 +181,7 @@ try {
   );
   if (missing.length > 0) {
     throw new Error(
-      `Add these to ${layer}'s packages/ui/package.json and robkit's catalog: ${missing.join(", ")}`,
+      `Add these to packages/ui/package.json and robkit's catalog: ${missing.join(", ")}`,
     );
   }
 } finally {

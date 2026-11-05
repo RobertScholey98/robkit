@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
+    "@internal/ui": "workspace:*",
     "@robkit/react": "catalog:",
     "@robkit/start": "catalog:",
     "@tanstack/react-router": "catalog:",
@@ -23,11 +24,13 @@
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
+    "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "drizzle-kit": "catalog:",
+    "tailwindcss": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }

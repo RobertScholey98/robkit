@@ -40,7 +40,7 @@ describe("addApp", () => {
     expect(await readFile(join(dir, "apps/notes/src/server.tsx"), "utf8")).toBe(
       await readFile(
         new URL(
-          "../templates/ui-kits/shadcn/app/react-hono/src/server.tsx",
+          "../templates/stacks/react-hono/src/server.tsx",
           import.meta.url,
         ),
         "utf8",

@@ -1,4 +1,5 @@
 import devServer from "@hono/vite-dev-server";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 const domain = process.env.ROBKIT_DOMAIN;
@@ -16,9 +17,11 @@ export default defineConfig(({ command }) => {
   return {
     plugins: [
       devServer({ entry: "src/server.tsx", injectClientScript: false }),
+      tailwindcss(),
     ],
-    // The production build: the server, ready for Node, as dist/serve.js.
-    build: { ssr: "src/serve.ts", outDir: "dist" },
+    // The production build: the server, ready for Node, as dist/serve.js,
+    // and the stylesheet its page links, in dist/assets.
+    build: { ssr: "src/serve.ts", outDir: "dist", ssrEmitAssets: true },
     server: {
       host: "127.0.0.1",
       ...(process.env.PORT && {

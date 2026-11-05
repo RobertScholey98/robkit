@@ -1,3 +1,10 @@
+import { Button } from "@internal/ui/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+} from "@internal/ui/components/ui/card";
 import type { Viewer } from "@robkit/start";
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn, useServerFn } from "@tanstack/react-start";
@@ -39,22 +46,35 @@ function Home() {
   const visitAgain = useServerFn(visit);
 
   return (
-    <main>
-      <h1>{headingFor(first.kind)}</h1>
-      <p>
-        Viewer id: <code data-testid="viewer-id">{first.viewerId}</code>
-      </p>
-      <p data-testid="visits">Visits: {visits}</p>
-      <button
-        type="button"
-        onClick={() => {
-          void visitAgain().then((next) => {
-            setVisits(next.visits);
-          });
-        }}
-      >
-        Visit again
-      </button>
+    <main className="flex min-h-screen items-center justify-center bg-muted/50 p-6">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <h1 className="font-heading text-base leading-snug font-medium">
+            {headingFor(first.kind)}
+          </h1>
+        </CardHeader>
+        <CardContent className="grid gap-1 text-muted-foreground">
+          <p>
+            Viewer id:{" "}
+            <code data-testid="viewer-id" className="text-foreground">
+              {first.viewerId}
+            </code>
+          </p>
+          <p data-testid="visits">Visits: {visits}</p>
+        </CardContent>
+        <CardFooter>
+          <Button
+            type="button"
+            onClick={() => {
+              void visitAgain().then((next) => {
+                setVisits(next.visits);
+              });
+            }}
+          >
+            Visit again
+          </Button>
+        </CardFooter>
+      </Card>
     </main>
   );
 }
