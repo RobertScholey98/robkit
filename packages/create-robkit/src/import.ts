@@ -122,7 +122,16 @@ export async function fetchApp(root: string, source: string): Promise<Fetched> {
   const temp = await mkdtemp(join(tmpdir(), "robkit-import-"));
   try {
     const clone = join(temp, "app");
-    await run("git", ["clone", "--quiet", "--depth", "1", source, clone]);
+    await run("git", [
+      "clone",
+      "--quiet",
+      "--config",
+      "core.autocrlf=false",
+      "--depth",
+      "1",
+      source,
+      clone,
+    ]);
     return {
       tree: await readTree(clone),
       folder: basename(source.replace(/\/+$/, "")).replace(/\.git$/, ""),
@@ -143,7 +152,7 @@ function andList(items: readonly (string | number)[]): string {
 }
 
 /** Refuses an app made for a contract version this install can't run. */
-function checkContract(manifest: Manifest, source: string): void {
+export function checkContract(manifest: Manifest, source: string): void {
   const contract = manifest.robkit?.contract;
   if (contract === undefined) {
     throw new Error(
@@ -355,7 +364,7 @@ export async function intoInstall(
 }
 
 /** Adds the catalog's new versions and, if needed, kept packages' folders. */
-async function writeSettings(
+export async function writeSettings(
   root: string,
   workspace: Workspace,
   additions: Map<string, string>,
