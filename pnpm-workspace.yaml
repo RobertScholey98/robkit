@@ -8,6 +8,7 @@ catalogMode: strict
 catalog:
   "@axe-core/playwright": 4.14.0
   "@base-ui/react": 1.9.0
+  "@changesets/cli": 3.0.3
   "@clack/prompts": 1.8.1
   "@eslint-community/eslint-plugin-eslint-comments": 4.8.1
   "@eslint/js": 10.0.1
