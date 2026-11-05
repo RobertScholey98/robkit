@@ -119,7 +119,10 @@ describe("coreKeys", () => {
 
     const read = readAppToken(keys, token, now, "notes");
 
-    await expect(read).rejects.toMatchObject({ code: "EPROTO" });
+    await expect(read).rejects.toMatchObject({
+      name: "CoreUnreachableError",
+      cause: { code: "EPROTO" },
+    });
     expect(hosts).toEqual([]);
   });
 });

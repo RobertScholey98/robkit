@@ -132,6 +132,7 @@ async function eventually(
 ): Promise<Reply> {
   const deadline = Date.now() + 120_000;
   for (;;) {
+    // A stack still starting refuses connections, so keep asking.
     const reply = await attempt().catch(() => undefined);
     if (reply?.status === status) return reply;
     if (Date.now() > deadline) {

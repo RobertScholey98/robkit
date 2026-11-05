@@ -2,6 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { reportFaultsAt } from "@robkit/dev";
 import { describe, expect, it } from "vitest";
 import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 
@@ -97,6 +98,33 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     expect(output).toContain(
       "Next:\n\n  cd my-app\n  git init\n  pnpm install\n  pnpm dev\n",
     );
+  });
+
+  it("prints a known problem alone, without a stack", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(cwd, ["my-app", "--stack", "nope"]);
+
+    expect(code).toBe(1);
+    expect(output).toMatch(
+      /^--stack nope isn't an option\. Choose from: [^\n]+\.\n$/,
+    );
+  });
+
+  it("prints a fault it didn't expect whole, with where to report it", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+    await writeFile(join(cwd, "notes.txt"), "mine");
+
+    const { code, output } = await init(cwd, [
+      "notes.txt/install",
+      "--stack",
+      "start",
+    ]);
+
+    expect(code).toBe(1);
+    expect(output).toContain("ENOTDIR");
+    expect(output).toMatch(/^ {4}at /m);
+    expect(output).toContain(reportFaultsAt);
   });
 
   it("refuses a folder name the printed command couldn't repeat", async () => {

@@ -1,7 +1,8 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { reportFaultsAt } from "@robkit/dev";
 import { describe, expect, it } from "vitest";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
@@ -113,6 +114,20 @@ Then open http://notes.robkit.localhost:3000.
       code: 1,
       output: `${dir} has no robkit.json. Run robkit add in an install's folder.\n`,
     });
+  });
+});
+
+describe("robkit's failures", { timeout: 30_000 }, () => {
+  it("prints a fault it didn't expect whole, with where to report it", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+    await mkdir(join(dir, "robkit.json"));
+
+    const { code, output } = await drive(bin, dir, ["check"]);
+
+    expect(code).toBe(1);
+    expect(output).toContain("EISDIR");
+    expect(output).toMatch(/^ {4}at /m);
+    expect(output).toContain(reportFaultsAt);
   });
 });
 
