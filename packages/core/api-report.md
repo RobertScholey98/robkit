@@ -10,8 +10,15 @@ export interface CoreOptions {
   domain: string;
   now?: () => Date;
   trustedProxy?: TrustedProxy | undefined;
+  logError?: (message: string, cause: unknown) => void;
 }
-export function createApp({ db, domain, now, trustedProxy }: CoreOptions): Hono;
+export function createApp({
+  db,
+  domain,
+  now,
+  trustedProxy,
+  logError,
+}: CoreOptions): Hono;
 export function createDatabase(
   databaseUrl: string,
 ): import("drizzle-orm/postgres-js").PostgresJsDatabase<

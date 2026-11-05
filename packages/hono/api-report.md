@@ -15,6 +15,7 @@ export interface GuardedOptions {
   app: string;
   access?: AccessRule | undefined;
   core: string;
+  onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export type Viewer =
   | SignedInViewer

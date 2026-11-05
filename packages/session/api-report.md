@@ -22,6 +22,12 @@ export interface GuardedOptions {
   app: string;
   access?: AccessRule | undefined;
   core: string;
+  onUnavailable?: ((fault: GuardFault) => void) | undefined;
+}
+export interface GuardFault {
+  app: string;
+  failed: "core-key" | "access-rule" | "network";
+  cause: unknown;
 }
 export function readAppToken(
   key: VerifyKey,
