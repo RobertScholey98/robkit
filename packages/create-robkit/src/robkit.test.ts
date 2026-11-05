@@ -171,6 +171,56 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
   });
 });
 
+describe("robkit export", { timeout: 30_000 }, () => {
+  it("writes the app's repo beside the install and says how to import it", async () => {
+    const dir = await freshInstall();
+    const out = join(dir, "..", "example");
+
+    const { code, output } = await drive(bin, dir, ["export", "example"]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: `Exported apps/example to ${out} and committed it.
+shared/ holds the install code it uses: @internal/ui, @internal/tsconfig and @internal/theme.
+
+To import it into another install, run this in that install's folder:
+
+  pnpm robkit import ${out}
+`,
+    });
+    expect(
+      JSON.parse(await readFile(join(out, "package.json"), "utf8")),
+    ).toMatchObject({ name: "@internal/example-app" });
+  });
+
+  it("says when nothing changed since the last export", async () => {
+    const dir = await freshInstall();
+    const out = join(dir, "..", "elsewhere");
+    await drive(bin, dir, ["export", "example", "--out", out]);
+
+    const { code, output } = await drive(bin, dir, [
+      "export",
+      "example",
+      "--out",
+      out,
+    ]);
+
+    expect(code).toBe(0);
+    expect(output).toContain(
+      `Exported apps/example to ${out}. Nothing changed since the last export.`,
+    );
+  });
+
+  it("needs the app's name", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["export"]);
+
+    expect(code).toBe(1);
+    expect(output).toContain("Usage: robkit export <name> [--out <folder>]");
+  });
+});
+
 describe("robkit database-urls", { timeout: 30_000 }, () => {
   it("prints each database app's URL for the host, from the admin URL and secret", async () => {
     const dir = await freshInstall();

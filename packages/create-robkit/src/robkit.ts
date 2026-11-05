@@ -2,7 +2,7 @@
 import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { parseArgs, promisify } from "node:util";
 import {
   defaultDevPort,
@@ -18,6 +18,7 @@ import {
 } from "./add-wizard.ts";
 import { checkInstall, describeProblem } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
+import { exportApp } from "./export.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
@@ -25,7 +26,16 @@ import { vendorDir, vendorPackages } from "./vendor.ts";
 /** Where an install's apps answer under pnpm dev. */
 const dev = addresses({ domain: defaultDomain, port: defaultDevPort });
 
+const exportUsage = `Usage: robkit export <name> [--out <folder>]
+
+Writes apps/<name> as a repo of its own, by default in ../<name> beside the
+install: the app's files, a copy of the install code it uses in shared/,
+and the catalog's versions written out. The first export makes the folder a
+git repository, and each later one commits what changed.`;
+
 const usage = `${addUsage}
+
+${exportUsage}
 
 Usage: robkit check
 
@@ -57,6 +67,7 @@ try {
   const commands: Record<string, () => Promise<void>> = {
     check,
     vendor,
+    export: exportCommand,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
   };
@@ -75,6 +86,39 @@ async function check(): Promise<void> {
   const problems = await checkInstall(root);
   for (const problem of problems) console.log(describeProblem(problem));
   if (problems.length > 0) process.exitCode = 1;
+}
+
+/** "a, b and c". */
+function andList(items: readonly string[]): string {
+  const last = items.at(-1) ?? "";
+  return items.length > 1
+    ? `${items.slice(0, -1).join(", ")} and ${last}`
+    : last;
+}
+
+async function exportCommand(): Promise<void> {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { out: { type: "string" } },
+  });
+  const [, slug, ...rest] = positionals;
+  if (slug === undefined || rest.length > 0) throw new Error(exportUsage);
+  const root = process.cwd();
+  const { dir, shared, committed } = await exportApp(root, slug, {
+    ...(values.out !== undefined && { out: resolve(values.out) }),
+  });
+  console.log(
+    committed
+      ? `Exported apps/${slug} to ${dir} and committed it.`
+      : `Exported apps/${slug} to ${dir}. Nothing changed since the last export.`,
+  );
+  if (shared.length > 0) {
+    console.log(`shared/ holds the install code it uses: ${andList(shared)}.`);
+  }
+  console.log(`
+To import it into another install, run this in that install's folder:
+
+  pnpm robkit import ${dir}`);
 }
 
 async function vendor(): Promise<void> {
