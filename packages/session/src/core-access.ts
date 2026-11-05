@@ -1,5 +1,5 @@
 import { readAccessRule, type AccessRule } from "@robkit/guard";
-import { loopbackFetch } from "./loopback-fetch.ts";
+import { coreFetch } from "./loopback-fetch.ts";
 
 /** How long an app keeps its rule before asking core again. */
 const accessRuleMaxAgeMs = 60_000;
@@ -41,6 +41,7 @@ export function coreAccess(
         `Core answered ${String(res.status)} for ${slug}'s access rule.`,
       );
     }
+    // A body that isn't JSON is a rule that isn't one, refused below.
     const rule = readAccessRule(await res.json().catch(() => undefined));
     if (!rule) {
       throw new Error(`Core sent an access rule for ${slug} that isn't one.`);
