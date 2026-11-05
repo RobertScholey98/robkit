@@ -46,7 +46,7 @@ An **App**'s own git repository, in its folder under `apps/`. The **Install**'s 
 _Avoid_: submodule, package
 
 **Upstream**:
-Where an **App repo** is shared to and updated from: its git remote `origin`, a URL or a path.
+Where an **App repo** is updated from, a URL or a path: where it was installed from, its git remote `upstream`, or else where it was shared to, its remote `origin`. An **Install** that shares an installed **App** to a repo of its own moves `origin` and keeps the **Upstream**.
 _Avoid_: registry, store
 
 **Contract**:
@@ -58,7 +58,7 @@ The number an **App**'s **Manifest** names for the **Contract** it was made for.
 _Avoid_: robkit version, API version
 
 **Seed**:
-An **App**'s `seed.sql`, which `pnpm dev` runs once, right after the migrations that first make the **App**'s schema.
+An **App**'s `seed.sql`, which its migrate script runs once, as the **App**, right after the migrations that first make its schema. The provision step marks a schema it has just made, under `pnpm dev` and in production alike.
 _Avoid_: fixture
 
 **Stack**:
