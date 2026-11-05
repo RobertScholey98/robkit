@@ -4,7 +4,7 @@
 //
 //   pnpm --filter create-robkit shadcn-kit <base> <layer>
 //
-// <base> is the CLI's --base (base for Base UI, radix for Radix) and <layer>
+// <base> is the CLI's --base (base for Base UI) and <layer>
 // the kit's folder under templates/ui-kits, such as shadcn-base-ui. It also
 // rewrites the install's theme tokens from the CLI's, which every kit and
 // the no-kit hub and admin read.

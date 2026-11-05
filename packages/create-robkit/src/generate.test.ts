@@ -427,41 +427,8 @@ describe("generateInstall", () => {
     });
   });
 
-  it("lays shadcn on Radix the same way, drawing on radix-ui", async () => {
-    const baseUi = await generateInstall({
-      ...defaultChoices,
-      uiKit: "shadcn-base-ui",
-    });
-    const radix = await generateInstall({
-      ...defaultChoices,
-      uiKit: "shadcn-radix",
-    });
-    const ui = json(radix, "packages/ui/package.json") as {
-      dependencies: Record<string, string>;
-    };
-    const { catalog } = workspace(radix);
-
-    expect(ui.dependencies).toHaveProperty("radix-ui", "catalog:");
-    expect(ui.dependencies).not.toHaveProperty("@base-ui/react");
-    expect(catalog).toMatchObject({ "radix-ui": "1.8.1" });
-    expect(catalog).not.toHaveProperty("@base-ui/react");
-    expect(radix.get("packages/ui/src/components/ui/checkbox.tsx")).toContain(
-      'from "radix-ui"',
-    );
-    // Both shadcn kits share the screens, the theme and the app layer.
-    for (const path of [
-      "apps/hub/src/forms.tsx",
-      "apps/admin/src/client/Admin.tsx",
-      "packages/theme/theme.css",
-      "apps/example/src/styles.css",
-    ]) {
-      expect(radix.get(path)).toBe(baseUi.get(path));
-    }
-  });
-
   it.each<[string, Choices]>([
     ["the default", defaultChoices],
-    ["Radix", { ...defaultChoices, uiKit: "shadcn-radix" }],
     ["Base UI", { ...defaultChoices, uiKit: "shadcn-base-ui" }],
     ["Base UI with Hono first", { ...honoFirst, uiKit: "shadcn-base-ui" }],
   ])("keeps every file of %s pnpm install", async (_, choices) => {
