@@ -10,7 +10,7 @@ import {
   install as addresses,
 } from "@robkit/session/addresses";
 import { addApp } from "./add.ts";
-import { shareApp } from "./app-repo.ts";
+import { installApp, shareApp } from "./app-repo.ts";
 import {
   addCommandFor,
   addUsage,
@@ -34,9 +34,16 @@ or else to its upstream, or else to a new bare repository at
 ../robkit-apps/<app>.git beside the install. A path with no repository
 gets a bare one. The app's upstream becomes where it went.`;
 
+const installUsage = `Usage: robkit install <git URL or path> [--as <app>]
+
+Clones an app repo into apps/<app>, named after the repo unless --as names
+it, if its manifest names a robkit contract this install runs.`;
+
 const usage = `${addUsage}
 
 ${shareUsage}
+
+${installUsage}
 
 Usage: robkit check
 
@@ -71,6 +78,7 @@ try {
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
     share,
+    install: installCommand,
   };
   await (commands[command ?? ""] ?? add)();
 } catch (error) {
@@ -238,6 +246,13 @@ The same app without the questions:
   }
 }
 
+/** Installs the install's dependencies again, if they're installed. */
+async function refreshDependencies(root: string): Promise<boolean> {
+  const has = existsSync(join(root, "node_modules"));
+  if (has) await installDependencies(root);
+  return has;
+}
+
 async function share(): Promise<void> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -256,6 +271,26 @@ Another install takes it with:
   pnpm robkit install ${shared.source}
 
 and brings in later shares with pnpm robkit update ${slug}.`);
+}
+
+async function installCommand(): Promise<void> {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { as: { type: "string" } },
+  });
+  const [, source, ...rest] = positionals;
+  if (source === undefined || rest.length > 0) throw new Error(installUsage);
+  const root = process.cwd();
+  const installed = await installApp(root, source, { as: values.as });
+  const hasDependencies = await refreshDependencies(root);
+  const about = installed.description ? `\n${installed.description}\n` : "";
+  console.log(`Installed ${installed.name} as apps/${installed.slug}, from ${installed.source}.
+${about}
+Next:
+${hasDependencies ? "" : "\n  pnpm install"}
+  pnpm dev
+
+Then open ${dev.origin(installed.slug)}.`);
 }
 
 function fail(message: string): never {

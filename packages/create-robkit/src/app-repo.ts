@@ -1,10 +1,16 @@
 import { existsSync } from "node:fs";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { basename, dirname, join, resolve } from "node:path";
 import { isPlatformApp } from "@robkit/session/addresses";
+import { newSlugProblem } from "./add.ts";
 import { checkInstall, describeProblem } from "./check.ts";
 import { git, GitError, isRepo } from "./git.ts";
-import { contractVersion, type PackageJson } from "./manifest.ts";
+import {
+  contractProblem,
+  contractVersion,
+  packageNameOf,
+  type PackageJson,
+} from "./manifest.ts";
 import { ignoreApp, readInstallRecord, recordApp } from "./record.ts";
 
 // An app repo: an app that is its own git repository, nested in the
@@ -217,4 +223,84 @@ export async function shareApp(
   const revision = await git(dir, ["rev-parse", "HEAD"]);
   await recordApp(root, slug, { source, revision });
   return { source, revision, created };
+}
+
+/** The slug an app repo at `source` gets unless `--as` names one. */
+export function slugFromSource(source: string): string {
+  return basename(source.replace(/[/\\]+$/, "")).replace(/\.git$/, "");
+}
+
+export interface Installed {
+  slug: string;
+  /** What the app's manifest calls it. */
+  name: string;
+  description: string | undefined;
+  source: string;
+  revision: string;
+}
+
+/**
+ * Installs the app repo at `source`, a git URL or a path, into the install
+ * at `root` as `apps/<slug>`: clones it, refuses it unless its manifest
+ * names a contract version this robkit runs and robkit check finds nothing
+ * wrong in it, names its package after `slug`, and records it. The slug is
+ * `as`, or else the repo's name.
+ */
+export async function installApp(
+  root: string,
+  given: string,
+  { as, cwd = root }: { as?: string | undefined; cwd?: string } = {},
+): Promise<Installed> {
+  await readInstallRecord(root);
+  const source = located(given, cwd);
+  if (!isUrl(source) && !existsSync(source)) {
+    throw new Error(`There's no app repo at ${source}.`);
+  }
+  const slug = as ?? slugFromSource(source);
+  const problem = newSlugProblem(root, slug);
+  if (problem) {
+    const hint = existsSync(appDir(root, slug))
+      ? ` Install it under another name with --as <name>, or bring in its changes with pnpm robkit update ${slug}.`
+      : as === undefined
+        ? " Give it one with --as <name>."
+        : "";
+    throw new Error(`${problem}${hint}`);
+  }
+
+  const dir = appDir(root, slug);
+  await git(root, ["clone", "--quiet", source, dir]);
+  try {
+    const manifest = await readPackageJson(dir);
+    if (manifest?.robkit === undefined) {
+      throw new Error(
+        `${source} isn't a robkit app: its package.json has no robkit field.`,
+      );
+    }
+    const refused = contractProblem(manifest.robkit.contract);
+    if (refused) throw new Error(`Can't install ${source}. ${refused}`);
+    if (manifest.name !== packageNameOf(slug)) {
+      await writePackageJson(dir, { ...manifest, name: packageNameOf(slug) });
+      await git(dir, [
+        "commit",
+        "--quiet",
+        "--all",
+        "--message",
+        `Install as ${slug}`,
+      ]);
+    }
+    await refuseUnlessChecked(root, slug, "installed");
+    await adopt(root, slug);
+    const revision = await git(dir, ["rev-parse", "HEAD"]);
+    await recordApp(root, slug, { source, revision });
+    return {
+      slug,
+      name: manifest.robkit.name ?? slug,
+      description: manifest.robkit.description,
+      source,
+      revision,
+    };
+  } catch (error) {
+    await rm(dir, { recursive: true, force: true });
+    throw error;
+  }
 }
