@@ -20,25 +20,18 @@ An install's root `package.json`:
 An install's `apps/core/src/provision.ts`, which runs in production:
 
 ```ts
-import { provisionDatabases } from "@robkit/dev";
+import { provisionDatabases, readProvisionConfig } from "@robkit/dev";
 
-function env(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
+// ROBKIT_ADMIN_DATABASE_URL, ROBKIT_DB_SECRET, and ROBKIT_DATABASES, which
+// lists the apps with a database, such as "example,notes".
+const config = readProvisionConfig(process.env);
+if ("error" in config) {
+  console.error(config.error);
+  process.exit(1);
 }
 
-// ROBKIT_DATABASES lists the apps with a database, such as "example,notes".
-const slugs = env("ROBKIT_DATABASES")
-  .split(",")
-  .map((slug) => slug.trim())
-  .filter((slug) => slug !== "");
-
-await provisionDatabases({
-  adminUrl: env("ROBKIT_ADMIN_DATABASE_URL"),
-  secret: env("ROBKIT_DB_SECRET"),
-  slugs,
-});
+await provisionDatabases(config);
+console.log(`provisioned ${config.slugs.join(", ")}`);
 ```
 
 `robkit-dev` reads `ROBKIT_DOMAIN` (default `robkit.localhost`) and `ROBKIT_DEV_PORT` (default `3000`). It tells each app its slug as `ROBKIT_APP` and core's address as `ROBKIT_CORE_URL`, and hands core every app's manifest as `ROBKIT_APPS`.
@@ -55,7 +48,7 @@ await provisionDatabases({
 | `discoverApps(root)`, `App`                               | The apps under `apps/`, refusing a folder whose name isn't a slug                                                             |
 | `catalogOf(apps)`                                         | `ROBKIT_APPS`: each app's slug and manifest, as JSON                                                                          |
 | `routesFor(apps, domain)`, `createProxy(routes)`, `Route` | The proxy and its host-to-port routes                                                                                         |
-| `provisionApps(options)`                                  | The provision step in dev: schema and role for each app, then its `migrate` script                                            |
+| `provisionApps(root, options)`                            | The provision step in dev: schema and role for each app, then its `migrate` script                                            |
 | `provisionDatabases(options)`, `provisionDatabase`        | The provision step in production, with passwords from `ROBKIT_DB_SECRET`                                                      |
 | `databasePassword(secret, slug)`, `databaseUrl`           | An app's role password (an HMAC of its slug) and its `DATABASE_URL`                                                           |
 
