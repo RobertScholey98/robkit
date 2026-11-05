@@ -61,3 +61,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # The same check the commit-msg hook runs, on every commit but merges.
       - run: node tooling/repo-checks/src/check-commit-subjects.ts --range "$BASE..HEAD"
+      - run: node tooling/repo-checks/src/check-coverage-thresholds.ts "$BASE"
