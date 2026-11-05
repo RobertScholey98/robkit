@@ -11,6 +11,16 @@ export function isPlatformApp(slug: string): boolean {
   return (platformApps as readonly string[]).includes(slug);
 }
 
+/**
+ * Whether the install runs on `localhost` or a name under it, which only
+ * ever means development. A local install's cookies go without `Secure`:
+ * browsers treat *.localhost as a secure context, but WebKit drops Secure
+ * cookies over plain http.
+ */
+export function isLocal(domain: string): boolean {
+  return domain === "localhost" || domain.endsWith(".localhost");
+}
+
 /** The domain an install answers on when `ROBKIT_DOMAIN` isn't set. */
 export const defaultDomain = "robkit.localhost";
 

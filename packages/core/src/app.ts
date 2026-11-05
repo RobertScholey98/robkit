@@ -5,7 +5,7 @@ import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
 import { sessionCookie } from "@robkit/session";
-import { install, platformApps } from "@robkit/session/addresses";
+import { install, isLocal, platformApps } from "@robkit/session/addresses";
 import {
   listCodes,
   mintCode,
@@ -15,7 +15,6 @@ import {
 } from "./access-codes.ts";
 import { clientOf, type TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
-import { isLocal } from "./domain.ts";
 import {
   accessOf,
   launcherApps,
@@ -155,8 +154,6 @@ export function createApp({
       domain,
       sameSite: "Lax",
       maxAge,
-      // Browsers treat *.localhost as a secure context, but WebKit drops
-      // Secure cookies over plain http, so local domains go without.
       secure: !isLocal(domain),
     });
   };

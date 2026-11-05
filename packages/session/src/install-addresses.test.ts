@@ -4,6 +4,7 @@ import {
   defaultDomain,
   install,
   installAt,
+  isLocal,
   isPlatformApp,
   platformApps,
 } from "./install-addresses.ts";
@@ -34,6 +35,14 @@ describe("an install's addresses", () => {
         "hub",
       ),
     ).toBe("https://hub.robkit.dev:8443");
+  });
+
+  it("counts localhost and the names under it as local, and nothing else", () => {
+    expect(
+      ["localhost", "robkit.localhost", "robkit.dev", "notlocalhost"].map(
+        isLocal,
+      ),
+    ).toEqual([true, true, false, false]);
   });
 
   it("names the platform apps", () => {
