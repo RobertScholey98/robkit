@@ -7,6 +7,9 @@ This is a robkit install: a monorepo of small apps behind one sign-in. Core hold
 ```sh
 pnpm dev                     # Postgres, core, the hub, admin and every app, on *.robkit.localhost:3000
 pnpm robkit add              # add an app; asks for its stack, name, who can open it and an icon
+pnpm robkit share <app>      # push an app's repo upstream, so other installs can take it
+pnpm robkit install <repo>   # take an app from its git URL or path
+pnpm robkit update <app>     # pull the app's upstream into it with git
 pnpm lint                    # robkit check, then ESLint
 pnpm typecheck
 pnpm test
@@ -20,8 +23,9 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 - `apps/core` runs `@robkit/core`, the backend. `apps/hub` and `apps/admin` are the platform's own apps.
 - `packages/` holds code the apps share, such as `packages/core-client`, which the hub and admin call core through.
 - `packages/theme/theme.css` holds the install's look: its colour, radius and font variables. The hub and admin draw with Tailwind classes named after them, such as `bg-primary`, so changing a variable restyles both. Every control they draw comes from their own `ui.tsx`, which draws with the install's UI kit: shadcn on Base UI, in `packages/ui`, with its own `AGENTS.md`. Every app draws with it too.
-- `robkit.json` marks this folder as a robkit install, and records the stack init gave the example app. The `robkit` commands refuse a folder without it.
-- An app's `package.json` may declare a `robkit` field: who may open it when core first sees it, and the emoji the launcher shows. After that, the owner sets who may open it in admin.
+- `robkit.json` marks this folder as a robkit install, and records the stack init gave the example app. The `robkit` commands refuse a folder without it. Its `apps` lists the app repos: where each comes from and the commit the install runs.
+- Every app but core, the hub and admin is an app repo: its own git repository, which this install's `.gitignore` leaves out. Commit an app's changes in its own folder. `robkit share`, `install` and `update` keep `robkit.json` in step; commit it in the install after each. A clone of the install runs `pnpm robkit install` with no arguments to fetch them again.
+- An app's `package.json` declares a `robkit` field, its manifest: its name, stack and the robkit contract it was made for, and optionally who may open it when core first sees it and the emoji the launcher shows. After that, the owner sets who may open it in admin.
 
 ## The layer rule
 
@@ -37,7 +41,7 @@ The last two are the contract that lets an app move to another install: every in
 
 ## Databases
 
-`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time.
+`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time. An app's `seed.sql` runs once, as the app, right after the migrations that first make its schema. `pnpm dev` runs it; production doesn't.
 
 ## Production
 
