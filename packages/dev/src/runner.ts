@@ -3,7 +3,7 @@ import { once } from "node:events";
 import { install } from "@robkit/session/addresses";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { readDevConfig } from "./env.ts";
-import { exec, prefixLines } from "./exec.ts";
+import { exec, prefixLines, startProblem } from "./exec.ts";
 import { failuresOf, throwFailures } from "./failures.ts";
 import { createProxy } from "./proxy.ts";
 import { stopGroup } from "./process-group.ts";
@@ -80,6 +80,13 @@ export async function runDev(
     child.on("exit", (code, signal) => {
       if (stopping()) return;
       console.error(`${app.slug} exited (${String(signal ?? code)}), stopping`);
+      stop("failed");
+    });
+    // Emitted instead of exit when the app can't start, such as pnpm
+    // missing or its folder gone.
+    child.on("error", (error) => {
+      if (!stopping()) console.error(`${app.slug} couldn't start, stopping`);
+      failures.push(startProblem("pnpm", ["run", "dev"], app.dir, error));
       stop("failed");
     });
     running.push({ slug: app.slug, child });

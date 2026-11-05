@@ -243,6 +243,19 @@ describe("robkit-dev", () => {
     expect(await createdContainers(dev.root)).toBe("");
   });
 
+  it("stops everything and says why when an app can't start", async () => {
+    const dev = await startDev({ FIXTURE_REMOVE_APP: "beta" });
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toContain("beta couldn't start, stopping\n");
+    expect(dev.output()).toMatch(
+      /^pnpm run dev couldn't start in \S+\/apps\/beta \(spawn pnpm ENOENT\)\. Check that pnpm is installed and on your PATH\.$/m,
+    );
+    expect(dev.output()).not.toContain(reportFaultsAt);
+    expect(await isListening(dev.port + 1)).toBe(false);
+    expect(await runningContainers(dev.root)).toBe("");
+  });
+
   it("stops everything and fails when an app exits", async () => {
     const dev = await startDev({ FIXTURE_CRASH: "beta" });
 
