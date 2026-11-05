@@ -42,4 +42,26 @@ The hillclimb ends when council's median score beats "robkit needs" in every cat
 
 | Round | Tickets | Council median |
 | --- | --- | --- |
-| 1 | 01 to 05 | pending |
+| 1 | 01 to 05 | 78 of 100; passes 1 and 5 |
+| 2 | 06 to 12 | pending |
+
+### Round 1 council (commit 6b912f9)
+
+Reports: `research/council-r1-*.md`.
+
+| # | Category | Opus 5.5 | Sol 6.1 | Sonnet 5.5 | Median | Needs |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Module boundaries | 8 | 8 | 8 | 8 | 8 |
+| 2 | Public API design | 7 | 7 | 8 | 7 | 8 |
+| 3 | Type safety at the edges | 9 | 8 | 8 | 8 | 9 |
+| 4 | Naming and domain language | 7 | 8 | 8 | 8 | 9 |
+| 5 | Simplicity | 7 | 7 | 7 | 7 | 7 |
+| 6 | Consistency | 7 | 7 | 8 | 7 | 9 |
+| 7 | Error handling | 8 | 7 | 8 | 8 | 9 |
+| 8 | Testing | 8 | 7 | 8 | 8 | 9 |
+| 9 | Keeping standards up | 9 | 8 | 9 | 9 | 10 |
+| 10 | Nice to work in as a human | 8 | 7 | 8 | 8 | 9 |
+
+All three found the same top problems: `pnpm check` timed out on a cold Windows run and skips core's and dev's tests, README examples don't compile, `{ error: string }` and `InputProblem` both mean a failed read, and `@robkit/session` and `@robkit/dev` export more than their users need.
+
+Round 2 runs in two waves. Tickets 06, 07, 08, 10 and 12 touch different files and run together. Tickets 09 and 11 reshape the same modules, so they wait for the first wave.
