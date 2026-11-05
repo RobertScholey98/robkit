@@ -38,6 +38,8 @@ describe("robkit add with flags", { timeout: 30_000 }, () => {
       "Family, Cooks",
       "--icon",
       "📝",
+      "--description",
+      "Notes for the family.",
     ]);
 
     expect({ code, output }).toEqual({
@@ -52,6 +54,7 @@ Then open http://notes.robkit.localhost:3000.
     });
     expect(await declared(dir, "notes")).toEqual({
       name: "notes",
+      description: "Notes for the family.",
       stack: "react-hono",
       contract: 1,
       access: { kind: "roles", roles: ["Family", "Cooks"] },
@@ -123,7 +126,7 @@ Then open http://notes.robkit.localhost:3000.
 });
 
 describe("robkit add with no flags", { timeout: 30_000 }, () => {
-  it("asks for the stack, name, access, roles and icon, then prints the command that skips them", async () => {
+  it("asks for the stack, name, description, access, roles and icon, then prints the command that skips them", async () => {
     const dir = await freshInstall();
 
     const { code, output } = await drive(
@@ -133,6 +136,7 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
       [
         ["Which stack?", keys.down + keys.enter],
         ["What's the app called?", `recipes${keys.enter}`],
+        ["What does it do?", `What we cook on Sundays.${keys.enter}`],
         ["Who can open it?", keys.down + keys.down + keys.enter],
         ["Which roles?", `Family${keys.enter}`],
         ["Which emoji should the launcher show?", `🍳${keys.enter}`],
@@ -143,15 +147,17 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
     expect(questionsAsked(output)).toEqual([
       "Which stack?",
       "What's the app called?",
+      "What does it do? One sentence, for the people who install it.",
       "Who can open it?",
       "Which roles? Separate them with commas.",
       "Which emoji should the launcher show?",
     ]);
     expect(output).toContain(
-      'pnpm robkit add recipes --stack react-hono --access roles --roles "Family" --icon 🍳',
+      'pnpm robkit add recipes --stack react-hono --access roles --roles "Family" --icon 🍳 --description "What we cook on Sundays."',
     );
     expect(await declared(dir, "recipes")).toEqual({
       name: "recipes",
+      description: "What we cook on Sundays.",
       stack: "react-hono",
       contract: 1,
       access: { kind: "roles", roles: ["Family"] },

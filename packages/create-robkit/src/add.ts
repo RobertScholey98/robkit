@@ -9,12 +9,14 @@ import { readInstallRecord } from "./record.ts";
 import { writeInstall } from "./write.ts";
 
 /**
- * What robkit add asks: the stack, the app's slug, who may open it and its
- * icon.
+ * What robkit add asks: the stack, the app's slug, what it does, who may
+ * open it and its icon.
  */
 export interface AppChoices {
   stack: Stack;
   slug: string;
+  /** One sentence for the people who install it, if the owner gave one. */
+  description?: string | undefined;
   /** Who may open the app once core adds it. A rule's roles are named. */
   access: Access;
   icon: string;
@@ -57,6 +59,7 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   await writeInstall(
     join(root, "apps", choices.slug),
     appFiles(template, choices.slug, choices.stack, {
+      ...(choices.description && { description: choices.description }),
       access: choices.access,
       icon: choices.icon,
     }),

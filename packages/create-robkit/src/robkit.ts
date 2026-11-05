@@ -251,6 +251,7 @@ async function add(): Promise<void> {
       access: { type: "string" },
       roles: { type: "string" },
       icon: { type: "string" },
+      description: { type: "string" },
     },
   });
   const [command, given, ...rest] = positionals;

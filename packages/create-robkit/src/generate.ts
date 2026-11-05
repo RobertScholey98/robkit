@@ -136,11 +136,15 @@ export function appFiles(
   template: Files,
   slug: string,
   stack: Stack,
-  declares: Pick<Manifest, "access" | "icon"> = {},
+  {
+    description,
+    ...declares
+  }: Pick<Manifest, "description" | "access" | "icon"> = {},
 ): Files {
   const files: Files = new Map(template);
   const robkit: Manifest = {
     name: slug,
+    ...(description !== undefined && { description }),
     stack,
     contract: contractVersion,
     ...declares,
