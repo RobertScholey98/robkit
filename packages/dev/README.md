@@ -45,17 +45,19 @@ await provisionDatabases({
 
 ## Exports
 
-| Export                                                    | What it is                                                                                                 |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `robkit-dev` (bin)                                        | The runner                                                                                                 |
-| `runDev(root, env)`                                       | The runner as a function. Returns the exit code                                                            |
-| `slugProblem(name)`                                       | Why `name` can't be a slug, or `undefined`. A slug is lowercase letters and digits, starting with a letter |
-| `discoverApps(root)`, `App`                               | The apps under `apps/`, refusing a folder whose name isn't a slug                                          |
-| `catalogOf(apps)`                                         | `ROBKIT_APPS`: each app's slug and manifest, as JSON                                                       |
-| `routesFor(apps, domain)`, `createProxy(routes)`, `Route` | The proxy and its host-to-port routes                                                                      |
-| `provisionApps(options)`                                  | The provision step in dev: schema and role for each app, then its `migrate` script                         |
-| `provisionDatabases(options)`, `provisionDatabase`        | The provision step in production, with passwords from `ROBKIT_DB_SECRET`                                   |
-| `databasePassword(secret, slug)`, `databaseUrl`           | An app's role password (an HMAC of its slug) and its `DATABASE_URL`                                        |
+| Export                                                    | What it is                                                                                                                    |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `robkit-dev` (bin)                                        | The runner                                                                                                                    |
+| `runDev(root, env)`                                       | The runner as a function. Returns the exit code                                                                               |
+| `runCommand(main)`, `Problem`, `reportFaultsAt`           | Runs a command line: a thrown `Problem` prints its message and exits 1; anything else prints its stack and where to report it |
+| `readAppManifest`, `appManifestIn`, `AppManifest`         | An app's `package.json`, read through session's readers                                                                       |
+| `readProvisionConfig(env)`, `ProvisionConfig`             | The production provision step's environment                                                                                   |
+| `discoverApps(root)`, `App`                               | The apps under `apps/`, refusing a folder whose name isn't a slug                                                             |
+| `catalogOf(apps)`                                         | `ROBKIT_APPS`: each app's slug and manifest, as JSON                                                                          |
+| `routesFor(apps, domain)`, `createProxy(routes)`, `Route` | The proxy and its host-to-port routes                                                                                         |
+| `provisionApps(options)`                                  | The provision step in dev: schema and role for each app, then its `migrate` script                                            |
+| `provisionDatabases(options)`, `provisionDatabase`        | The provision step in production, with passwords from `ROBKIT_DB_SECRET`                                                      |
+| `databasePassword(secret, slug)`, `databaseUrl`           | An app's role password (an HMAC of its slug) and its `DATABASE_URL`                                                           |
 
 ## What it must never do
 

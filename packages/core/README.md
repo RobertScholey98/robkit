@@ -14,31 +14,36 @@ import {
   createApp,
   createDatabase,
   ensureSigningKey,
-  readDeclaredApps,
-  readTrustedProxy,
+  readCoreConfig,
   registerApps,
 } from "@robkit/core";
 
-function env(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
+const config = readCoreConfig(process.env);
+if ("error" in config) {
+  console.error(config.error);
+  process.exit(1);
 }
 
-const db = createDatabase(env("DATABASE_URL"));
+const db = createDatabase(config.databaseUrl);
 await ensureSigningKey(db);
-// The owner's apps, as each declares itself.
-await registerApps(db, readDeclaredApps(process.env.ROBKIT_APPS));
+// The owner's apps, as each declares itself. Core adds any it doesn't know,
+// with the rule it declares or as owner-only.
+await registerApps(db, config.apps);
 const app = createApp({
   db,
-  domain: env("ROBKIT_DOMAIN"),
-  trustedProxy: readTrustedProxy(process.env.ROBKIT_TRUSTED_PROXY),
+  domain: config.domain,
+  // Set to cloudflare behind a Cloudflare tunnel, so the sign-in limits
+  // count each visitor. Only when nothing but the tunnel reaches the host.
+  trustedProxy: config.trustedProxy,
 });
 
 // Core trusts the proxy's X-Forwarded-For, so only the proxy may reach it.
 // A container sets HOST to listen beyond loopback.
-const hostname = process.env.HOST ?? "127.0.0.1";
-serve({ fetch: app.fetch, hostname, port: Number(env("PORT")) });
+const { host: hostname, port } = config;
+
+serve({ fetch: app.fetch, hostname, port }, ({ port }) => {
+  console.log(`core listening on ${hostname}:${String(port)}`);
+});
 ```
 
 And its `apps/core/src/migrate.ts`, which runs before core starts:
@@ -54,15 +59,15 @@ await migrate(databaseUrl);
 
 ## Exports
 
-| Export                                    | What it is                                                                                  |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `createApp(options)`                      | Core's Hono app. `CoreOptions`: `db`, `domain`, optional `trustedProxy` and `now`           |
-| `createDatabase(url)`, `Database`         | A Drizzle database on core's schema                                                         |
-| `migrate(url)`                            | Applies core's migrations from `drizzle/`                                                   |
-| `ensureSigningKey(db)`, `SigningKey`      | Core's Ed25519 key, made on first boot and kept in core's schema                            |
-| `readDeclaredApps(text)`, `DeclaredApp`   | Reads `ROBKIT_APPS`: each app's slug and what its manifest declares                         |
-| `registerApps(db, apps)`                  | Adds apps core hasn't seen, with their declared rule or owner-only. Keeps the owner's edits |
-| `readTrustedProxy(value)`, `TrustedProxy` | Reads `ROBKIT_TRUSTED_PROXY`: `cloudflare` or nothing                                       |
+| Export                               | What it is                                                                                                                                                       |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `domain`, optional `trustedProxy`, `now` and `logError`, where every unexpected error is logged                            |
+| `createDatabase(url)`, `Database`    | A Drizzle database on core's schema                                                                                                                              |
+| `migrate(url)`                       | Applies core's migrations from `drizzle/`                                                                                                                        |
+| `ensureSigningKey(db)`, `SigningKey` | Core's Ed25519 key, made on first boot and kept in core's schema                                                                                                 |
+| `readCoreConfig(env)`, `CoreConfig`  | Reads core's environment once, at start: its database, domain, apps (`ROBKIT_APPS`), trusted proxy, host and port, or an `InputProblem` naming each bad variable |
+| `registerApps(db, apps)`             | Adds apps core hasn't seen, with their declared rule or owner-only. Keeps the owner's edits                                                                      |
+| `TrustedProxy`                       | `cloudflare`, or nothing                                                                                                                                         |
 
 Core's routes are in `src/app.ts`. `docs/architecture.md` shows how they fit the request and token flows.
 

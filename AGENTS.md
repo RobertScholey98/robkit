@@ -71,7 +71,7 @@ The package's second command, `robkit`, runs in an install, which takes create-r
 ## Apps in an install
 
 - Each `apps/<slug>` gets the subdomain `<slug>.robkit.localhost`.
-- A slug is lowercase letters and digits, starting with a letter (`slugProblem` in `@robkit/dev`).
+- A slug is lowercase letters and digits, starting with a letter. `readSlug` in `@robkit/session/addresses` holds the rule and is the only maker of the `Slug` brand, which every function that puts a slug into a token, SQL or an address takes.
 - An app with a `migrate` script gets its own schema and role from the provision step, `provisionApps` in `@robkit/dev`, which then runs that script. `pnpm dev` runs the step before it starts the apps. The runner and the step run each app's scripts with pnpm.
 - The dev runner tells each app its slug as `ROBKIT_APP`, and hands core the owner's apps as `ROBKIT_APPS`, a JSON list of each app's slug and what its manifest declares: the `robkit` field of its `package.json`, with who may open it (roles by name) and an emoji for the launcher.
 - Core adds a new app with the rule it declares, or owner-only, and creates any role it names that the owner lacks. After that admin sets who may open it, and core keeps the owner's rule.
@@ -102,6 +102,7 @@ The package's second command, `robkit`, runs in an install, which takes create-r
 - It fetches core's public key once, so apps verify tokens locally, and keeps an app's access rule from core for a minute.
 - When it can't check a request it answers 503 and tells `onUnavailable` why: what failed (`core-key`, `access-rule` or `network`) and the cause. By default that logs the app, what failed and the cause.
 - `@robkit/session/lapsed` is the guard's 401 for a call whose session has lapsed, which `sessionFetch` reads. It imports nothing, so the browser can load it.
+- `@robkit/session/input` holds the readers for input from outside robkit's own code: environment variables, JSON and an app's `robkit` field. Each returns the value or an `InputProblem`.
 - `@robkit/session/addresses` turns an install's domain into its addresses: each app on `<slug>.<domain>`, the platform apps' names, the default domain and dev port, and whether a URL is on the install. Core, the guard, the hub, admin, the dev runner, init and the whole-stack test all take their addresses from it. It imports nothing either.
 
 ## Tooling
@@ -158,6 +159,8 @@ The package's second command, `robkit`, runs in an install, which takes create-r
 - A package whose tests need no Docker defines `test:unit` as well as `test`, so `pnpm check` runs them.
 - Each package with tests sets coverage thresholds in its `vitest.config`. Raise them when coverage rises; CI fails a pull request that lowers one. e2e has none.
 - Every `eslint-disable` gives its reason after `--`, and lint fails on one that disables nothing.
+- A cast fails lint outside tests (`no-unsafe-type-assertion`). Use a reader or a type guard instead.
+- An adapter-facing package (guard, session, hono, start, react) keeps a `*.test-d.ts` file saying what must and mustn't compile, and its `test` script runs `vitest run --typecheck`.
 - The pre-commit hook runs ESLint's fixes and Prettier on staged files. The commit-msg hook, and CI on each commit of a pull request, check the subject with `tooling/repo-checks/src/check-commit-subjects.ts`.
 - A change to a published package's `src`, tests aside, needs a changeset (`pnpm changeset`). CI's `gate` job is the one required check, and a pull request fills in `.github/pull_request_template.md`.
 - Every external version lives in the catalog in `pnpm-workspace.yaml`, and manifests say `catalog:`. A test in `tooling/repo-checks` fails on any version pinned elsewhere. Peer dependencies are exempt.
