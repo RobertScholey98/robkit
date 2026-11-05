@@ -1,6 +1,4 @@
 import { createHmac, randomBytes } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import postgres from "postgres";
 import { discoverApps } from "./apps.ts";
 import { exec } from "./exec.ts";
@@ -17,9 +15,9 @@ export interface ProvisionOptions {
 
 /**
  * The provision step: gives every app in the install at `root` that has a
- * `migrate` script its database, then runs that script as the app. When
- * the step has just made the app's schema, it then runs the app's
- * `seed.sql`, if it has one, as the app, once. Apps go one at a time in slug
+ * `migrate` script its database, then runs that script as the app. A
+ * schema it has just made is marked `seedPending`, which the app's migrate
+ * script clears once it has run the app's seed. Apps go one at a time in slug
  * order, and the step stops at the first failure. Safe to run on every
  * start: a second run changes nothing but the passwords.
  *
@@ -39,58 +37,18 @@ export async function provisionApps(
       env: { ...env, DATABASE_URL: databaseUrl },
       slug: app.slug,
     });
-    await seedOnce(app.dir, app.slug, databaseUrl);
     databaseUrls.set(app.slug, databaseUrl);
   }
   return databaseUrls;
 }
 
-/** The file an app may hold at its root, which seeds its database once. */
-export const seedFile = "seed.sql";
-
 /**
- * What a schema the provision step has just made says until its app is
- * seeded. Only a schema the step makes gets it, so an app whose schema was
- * there before is never seeded.
+ * What a schema the provision step has just made says until its app's
+ * migrate script runs the app's `seed.sql` and clears it. Only a schema the
+ * step makes gets it, so an app whose schema was there before is never
+ * seeded. The step marks it in pnpm dev and in production alike.
  */
-const seedPending = "robkit: seed pending";
-
-/**
- * Runs the app's `seed.sql` as the app, if its schema still waits for its
- * seed, and marks it seeded, in one transaction. A seed that fails leaves
- * the schema waiting, so the next run tries again. An app with no seed is
- * marked seeded all the same, so a seed it gains later never runs.
- */
-async function seedOnce(
-  dir: string,
-  slug: string,
-  databaseUrl: string,
-): Promise<void> {
-  const seed = await readFile(join(dir, seedFile), "utf8").catch(
-    (error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
-      throw error;
-    },
-  );
-  const sql = postgres(databaseUrl, { max: 1, onnotice: () => undefined });
-  try {
-    await sql.begin(async (tx) => {
-      const [schema] = await tx<{ note: string | null }[]>`
-        select obj_description(oid, 'pg_namespace') as note
-        from pg_namespace where nspname = ${slug}`;
-      if (schema?.note !== seedPending) return;
-      if (seed !== undefined) await tx.unsafe(seed);
-      await tx.unsafe(`comment on schema "${slug}" is null`);
-    });
-  } catch (error) {
-    throw new Error(
-      `apps/${slug}/${seedFile} failed: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error },
-    );
-  } finally {
-    await sql.end();
-  }
-}
+export const seedPending = "robkit: seed pending";
 
 export interface ProvisionDatabasesOptions {
   /** A superuser URL for the install's database. */

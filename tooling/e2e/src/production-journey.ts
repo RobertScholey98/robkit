@@ -112,16 +112,20 @@ export interface GuestVisit {
   heading: string | null;
   /** How the app answered each stylesheet its page linked. */
   stylesheets: (number | undefined)[];
+  /** The text of each list item on the page, when asked for. */
+  items?: string[];
 }
 
 /**
  * A guest signs in with `code` on the hub, then opens `slug` from the
- * launcher, on its own subdomain.
+ * launcher, on its own subdomain. With `items`, the visit also holds the
+ * text of each list item the page shows.
  */
 export async function guestOpens(
   install: Install,
   code: string,
   slug: string,
+  { items = false }: { items?: boolean } = {},
 ): Promise<GuestVisit> {
   const browser = await launch();
   try {
@@ -143,6 +147,12 @@ export async function guestOpens(
       openedAt: guest.url(),
       heading: await guest.getByRole("heading").textContent(),
       stylesheets: await Promise.all(stylesheets),
+      ...(items && {
+        items: await guest
+          .getByRole("main")
+          .getByRole("listitem")
+          .allTextContents(),
+      }),
     };
   } finally {
     await browser.close();

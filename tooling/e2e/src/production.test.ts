@@ -205,7 +205,7 @@ describe("the default install in production", () => {
     });
   });
 
-  it("builds an app installed from its own repo from a clone of the install, as Coolify does", async () => {
+  it("builds an app installed from its own repo from a clone of the install, as Coolify does, and seeds its new schema", async () => {
     await run(
       "pnpm",
       ["run", "robkit", "install", await sampleAppRepo(outside)],
@@ -248,6 +248,7 @@ describe("the default install in production", () => {
       stack.addresses,
       setUp.code ?? "",
       installed,
+      { items: true },
     );
 
     expect(visit).toEqual({
@@ -255,6 +256,11 @@ describe("the default install in production", () => {
       openedAt: `${stack.addresses.origin(installed)}/`,
       heading: "Guestbook",
       stylesheets: [200],
+      // Its seed.sql's two messages, newest first.
+      items: [
+        "The seed: This message came from seed.sql.",
+        "Robkit: Welcome to the guestbook.",
+      ],
     });
     expect(await extraneousPackages(stack, installed)).toEqual([]);
   });

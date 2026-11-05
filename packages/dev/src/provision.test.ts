@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { cp, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,6 +10,7 @@ import {
   provisionApps,
   provisionDatabase,
   provisionDatabases,
+  seedPending,
 } from "./provision.ts";
 
 const adminUrl = inject("adminUrl");
@@ -227,95 +228,34 @@ describe("provisionApps", () => {
   });
 });
 
-/**
- * An install with one app, `slug`, which migrates as `ledger` does and
- * holds `seed` as its seed.sql, if given. Each test takes its own slug, since
- * the seed runs only when the step first makes the app's schema.
- */
-async function installWithSeed(slug: string, seed?: string): Promise<string> {
-  const root = await mkdtemp(join(tmpdir(), "robkit-seed-"));
-  await cp(join(fixture, "migrate.js"), join(root, "migrate.js"));
-  await cp(join(fixture, "package.json"), join(root, "package.json"));
-  await mkdir(join(root, "apps", slug), { recursive: true });
-  await writeFile(
-    join(root, "apps", slug, "package.json"),
-    JSON.stringify({
-      name: slug,
-      private: true,
-      type: "module",
-      scripts: { migrate: "node ../../migrate.js" },
-    }),
-  );
-  if (seed !== undefined) await writeSeed(root, slug, seed);
-  return root;
-}
-
-function writeSeed(root: string, slug: string, seed: string): Promise<void> {
-  return writeFile(join(root, "apps", slug, "seed.sql"), seed);
-}
-
-async function entries(slug: string): Promise<unknown> {
+async function noteOn(slug: string): Promise<string | null | undefined> {
   const admin = connect(adminUrl);
-  return admin`select body from ${admin(slug)}.entry order by body`;
+  const [schema] = await admin<{ note: string | null }[]>`
+    select obj_description(oid, 'pg_namespace') as note
+    from pg_namespace where nspname = ${slug}`;
+  return schema?.note;
 }
 
-describe("provisionApps' seed", () => {
-  it("runs an app's seed.sql once, as the app, after its first migration", async () => {
-    const root = await installWithSeed(
-      "guests",
-      "insert into entry (body) values (current_user);\ninsert into entry (body) values ('second');\n",
-    );
+// The app's own migrate script runs its seed and clears the mark, in
+// pnpm dev and in production alike: tooling/e2e's seed test runs each
+// stack's.
+describe("the provision step's seed mark", () => {
+  it("marks a schema it makes as waiting for its seed, and only that one", async () => {
+    await provisionDatabase(adminUrl, "seedmark");
+    expect(await noteOn("seedmark")).toBe(seedPending);
+    await provisionDatabase(adminUrl, "seedmark");
+    expect(await noteOn("seedmark")).toBe(seedPending);
 
-    await provisionApps(root, { adminUrl, env });
-    await provisionApps(root, { adminUrl, env });
+    // As the app's migrate script does once it has run the seed.
+    await connect(adminUrl)`comment on schema seedmark is null`;
+    await provisionDatabase(adminUrl, "seedmark");
 
-    expect(await entries("guests")).toEqual([
-      { body: "guests" },
-      { body: "migrated" },
-      { body: "second" },
-    ]);
+    expect(await noteOn("seedmark")).toBeNull();
   });
 
-  it("never runs a seed the app gains after its schema was made", async () => {
-    const root = await installWithSeed("lateseed");
-    await provisionApps(root, { adminUrl, env });
-    await writeSeed(root, "lateseed", "insert into entry values ('late');");
+  it("marks a new schema in production too", async () => {
+    await provisionDatabases({ adminUrl, secret, slugs: ["seedmarkprod"] });
 
-    await provisionApps(root, { adminUrl, env });
-
-    expect(await entries("lateseed")).toEqual([{ body: "migrated" }]);
-  });
-
-  it("stops at a seed that fails, and runs it once it's fixed", async () => {
-    const root = await installWithSeed(
-      "badseed",
-      "insert into entry values ('half');\ninsert into nowhere values (1);",
-    );
-
-    await expect(provisionApps(root, { adminUrl, env })).rejects.toThrow(
-      'apps/badseed/seed.sql failed: relation "nowhere" does not exist',
-    );
-    expect(await entries("badseed")).toEqual([{ body: "migrated" }]);
-
-    await writeSeed(root, "badseed", "insert into entry values ('fixed');");
-    await provisionApps(root, { adminUrl, env });
-    await provisionApps(root, { adminUrl, env });
-
-    expect(await entries("badseed")).toEqual([
-      { body: "fixed" },
-      { body: "migrated" },
-    ]);
-  });
-
-  it("keeps the seed to the app's own schema", async () => {
-    await provisionDatabase(adminUrl, "seedtarget");
-    const root = await installWithSeed(
-      "seedsnoop",
-      "create table seedtarget.planted (id int);",
-    );
-
-    await expect(provisionApps(root, { adminUrl, env })).rejects.toThrow(
-      /apps\/seedsnoop\/seed\.sql failed: permission denied for schema seedtarget/,
-    );
+    expect(await noteOn("seedmarkprod")).toBe(seedPending);
   });
 });

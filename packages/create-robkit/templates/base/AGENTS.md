@@ -42,7 +42,7 @@ The last two are the contract that lets an app move to another install: every in
 
 ## Databases
 
-`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time. An app's `seed.sql` runs once, as the app, right after the migrations that first make its schema. `pnpm dev` runs it; production doesn't.
+`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time. An app's `seed.sql` runs once, as the app, right after the migrations that first make its schema: its migrate script runs it, under `pnpm dev` and in production alike.
 
 ## Production
 
