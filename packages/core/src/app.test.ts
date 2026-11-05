@@ -56,7 +56,7 @@ describe("GET /status", () => {
 });
 
 describe("an unexpected error", () => {
-  it("is logged with its route and cause, and answered with a generic JSON error", async () => {
+  it("is logged with its route, cause and a request id, and answered with a generic JSON error carrying the id", async () => {
     const unreachable = createDatabase(
       `postgres://core:x@127.0.0.1:${String(await freePort())}/robkit`,
     );
@@ -71,13 +71,35 @@ describe("an unexpected error", () => {
     await unreachable.$client.end();
 
     expect(res.status).toBe(500);
+    const id = res.headers.get("x-request-id") ?? "";
+    expect(id).toMatch(/^[0-9a-f-]{36}$/);
     expect(await res.json()).toEqual({
-      error: "Core hit an unexpected error. Its log says what went wrong.",
+      error: `Core hit an unexpected error. Look for request ${id} in core's log to see what went wrong.`,
+      requestId: id,
     });
     expect(logged.map(([message]) => message)).toEqual([
-      "GET /.well-known/jwks.json failed.",
+      `GET /.well-known/jwks.json failed (request ${id}).`,
     ]);
     expect(logged[0]?.[1]).toBeInstanceOf(Error);
+  });
+
+  it("gets a new request id each time", async () => {
+    const unreachable = createDatabase(
+      `postgres://core:x@127.0.0.1:${String(await freePort())}/robkit`,
+    );
+    const app = createApp({
+      db: unreachable,
+      domain: "localhost",
+      logError: () => undefined,
+    });
+
+    const first = await app.request("/.well-known/jwks.json");
+    const second = await app.request("/.well-known/jwks.json");
+    await unreachable.$client.end();
+
+    expect(first.headers.get("x-request-id")).not.toBe(
+      second.headers.get("x-request-id"),
+    );
   });
 
   it("goes to console.error when nothing else is set", async () => {
@@ -94,7 +116,9 @@ describe("an unexpected error", () => {
     await unreachable.$client.end();
 
     expect(log.mock.calls.map(([message]) => message as unknown)).toEqual([
-      "GET /.well-known/jwks.json failed.",
+      expect.stringMatching(
+        /^GET \/\.well-known\/jwks\.json failed \(request [0-9a-f-]{36}\)\.$/,
+      ),
     ]);
   });
 });

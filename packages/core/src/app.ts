@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -136,13 +137,22 @@ export function createApp({
 }: CoreOptions): Hono {
   const app = new Hono();
   // Hono's own answer to a route that throws. The cause stays in core's log
-  // and the caller gets a generic error.
+  // and the caller gets a generic error, with a request id that finds the
+  // log line.
   app.onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
-    logError(`${c.req.method} ${c.req.path} failed.`, error);
+    const requestId = randomUUID();
+    logError(
+      `${c.req.method} ${c.req.path} failed (request ${requestId}).`,
+      error,
+    );
     return c.json(
-      { error: "Core hit an unexpected error. Its log says what went wrong." },
+      {
+        error: `Core hit an unexpected error. Look for request ${requestId} in core's log to see what went wrong.`,
+        requestId,
+      },
       500,
+      { "X-Request-Id": requestId },
     );
   });
   const addresses = install({ domain });
