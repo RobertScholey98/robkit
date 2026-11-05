@@ -2,7 +2,6 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { isPlatformApp } from "@robkit/session/addresses";
-import { newSlugProblem } from "./add.ts";
 import { checkInstall, describeProblem } from "./check.ts";
 import { git, GitError, isRepo } from "./git.ts";
 import {
@@ -11,6 +10,7 @@ import {
   packageNameOf,
   type PackageJson,
 } from "./manifest.ts";
+import { newSlugProblem } from "./new-slug.ts";
 import { ignoreApp, readInstallRecord, recordApp } from "./record.ts";
 
 // An app repo: an app that is its own git repository, nested in the

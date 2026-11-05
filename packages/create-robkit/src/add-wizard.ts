@@ -5,7 +5,7 @@ import {
   text,
   type CANCEL_SYMBOL,
 } from "@clack/prompts";
-import { newSlugProblem, type AppChoices } from "./add.ts";
+import type { AppChoices } from "./add.ts";
 import {
   defaultChoices,
   readyStackOptions,
@@ -13,6 +13,7 @@ import {
   type Stack,
 } from "./choices.ts";
 import { defaultIcon } from "./generate.ts";
+import { newSlugProblem } from "./new-slug.ts";
 
 /** Who may open a new app, as `--access` spells it and the wizard asks it. */
 const accessOptions = [
