@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run --coverage"
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
@@ -19,6 +19,7 @@
     "@robkit/session": "workspace:*",
     "@robkit/start": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "create-robkit": "workspace:*",
     "eslint": "catalog:",
     "typescript": "catalog:",

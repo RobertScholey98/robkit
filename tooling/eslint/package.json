@@ -8,7 +8,7 @@
   },
   "scripts": {
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run --coverage"
   },
   "dependencies": {
     "@eslint-community/eslint-plugin-eslint-comments": "catalog:",
@@ -17,6 +17,7 @@
     "typescript-eslint": "catalog:"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

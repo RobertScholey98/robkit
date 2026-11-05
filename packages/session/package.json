@@ -36,7 +36,7 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run --coverage"
   },
   "dependencies": {
     "@robkit/guard": "workspace:*",
@@ -47,6 +47,7 @@
     "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
