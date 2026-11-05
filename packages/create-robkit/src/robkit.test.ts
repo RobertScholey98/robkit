@@ -2,9 +2,10 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { reportFaultsAt } from "@robkit/dev";
+import { reportFaultsAt, runCommand } from "@robkit/dev";
 import { describe, expect, it } from "vitest";
 import { defaultChoices, type Choices } from "./choices.ts";
+import { appFiles } from "./generate.ts";
 import { init } from "./init.ts";
 import { drive, keys, questionsAsked } from "./test/drive.ts";
 
@@ -128,6 +129,85 @@ describe("robkit's failures", { timeout: 30_000 }, () => {
     expect(output).toContain("EISDIR");
     expect(output).toMatch(/^ {4}at /m);
     expect(output).toContain(reportFaultsAt);
+  });
+
+  it.each([
+    [
+      "isn't JSON",
+      "{ nope",
+      /^robkit\/templates\/start\/package\.json isn't valid JSON \(.+\)\. Fix its syntax\.\n$/,
+    ],
+    [
+      "isn't an object",
+      "[]",
+      /^robkit\/templates\/start\/package\.json must be a JSON object\. Fix it, or delete robkit\/templates\/start to use robkit's template\.\n$/,
+    ],
+  ])(
+    "prints a template override whose package.json %s as a problem, naming it",
+    async (_, manifest, message) => {
+      const dir = await freshInstall();
+      await mkdir(join(dir, "robkit/templates/start"), { recursive: true });
+      await writeFile(
+        join(dir, "robkit/templates/start/package.json"),
+        manifest,
+      );
+
+      const { code, output } = await drive(bin, dir, [
+        "add",
+        "notes",
+        "--stack",
+        "start",
+      ]);
+
+      expect(code).toBe(1);
+      expect(output).toMatch(message);
+    },
+  );
+
+  it("prints a template override with no package.json as a problem", async () => {
+    const dir = await freshInstall();
+    await mkdir(join(dir, "robkit/templates/start/src"), { recursive: true });
+    await writeFile(join(dir, "robkit/templates/start/src/main.ts"), "");
+
+    const { code, output } = await drive(bin, dir, [
+      "add",
+      "notes",
+      "--stack",
+      "start",
+    ]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output:
+        "robkit/templates/start has no package.json. Add one, or delete the folder to use robkit's template.\n",
+    });
+  });
+
+  it("prints a robkit.json that isn't JSON as a problem, naming it", async () => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "robkit.json"), "{ nope");
+
+    const { code, output } = await drive(bin, dir, ["add", "notes"]);
+
+    expect(code).toBe(1);
+    expect(output).toMatch(
+      /^robkit\.json isn't valid JSON \(.+\)\. Fix its syntax\.\n$/,
+    );
+  });
+
+  it("prints a malformed file robkit ships as a fault", async () => {
+    const printed: unknown[][] = [];
+
+    const code = await runCommand(
+      () => {
+        appFiles(new Map([["package.json", "{ nope"]]), "notes");
+        return Promise.resolve(0);
+      },
+      (...line) => printed.push(line),
+    );
+
+    expect(code).toBe(1);
+    expect(printed.flat().join("\n")).toContain(reportFaultsAt);
   });
 });
 

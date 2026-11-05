@@ -10,12 +10,13 @@ import {
 } from "@robkit/session/addresses";
 import {
   isProblem,
+  isRecord,
   parseJson,
   type DeclaredAccess,
 } from "@robkit/session/input";
 import { readChoices, type Choices, type Stack } from "./choices.ts";
 import { isMissing } from "./files.ts";
-import { appFiles, readFolder, stackTemplate } from "./generate.ts";
+import { appFiles, readFolder, stackTemplate, type Files } from "./generate.ts";
 import { writeInstall } from "./write.ts";
 
 /**
@@ -97,11 +98,30 @@ export function newSlugProblem(root: string, name: string): string | undefined {
  * The template robkit add uses for `stack` in the install at `root`: the
  * install's own `robkit/templates/<stack>` folder if it has one, which
  * replaces robkit's template whole, or else robkit's.
+ *
+ * @throws a {@link Problem} naming the file if the install's own template
+ *   has no `package.json` or one that isn't a JSON object, since the person
+ *   owns it and can fix it
  */
-async function templateFor(root: string, stack: Stack) {
-  const own = join(root, "robkit", "templates", stack);
-  if (await exists(own)) return readFolder(own);
-  return stackTemplate(stack);
+async function templateFor(root: string, stack: Stack): Promise<Files> {
+  const folder = `robkit/templates/${stack}`;
+  const own = join(root, folder);
+  if (!(await exists(own))) return stackTemplate(stack);
+  const files = await readFolder(own);
+  const text = files.get("package.json");
+  if (text === undefined) {
+    throw new Problem(
+      `${folder} has no package.json. Add one, or delete the folder to use robkit's template.`,
+    );
+  }
+  const parsed = parseJson(text, `${folder}/package.json`);
+  if (isProblem(parsed)) throw new Problem(parsed.error);
+  if (!isRecord(parsed.json)) {
+    throw new Problem(
+      `${folder}/package.json must be a JSON object. Fix it, or delete ${folder} to use robkit's template.`,
+    );
+  }
+  return files;
 }
 
 /**
