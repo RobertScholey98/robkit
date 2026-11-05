@@ -35,7 +35,7 @@ export const installChoices = {
     packageManager: "yarn",
     orm: "prisma",
     uiKit: "shadcn-radix",
-    tools: ["eslint-prettier", "vitest", "playwright", "husky"],
+    tools: ["eslint-prettier", "vitest", "husky"],
   },
   // On bun, which runs its scripts and installs its dependencies.
   kysely: {

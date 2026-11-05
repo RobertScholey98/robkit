@@ -36,8 +36,7 @@ With no options, init asks for each one.
                           shadcn-radix, chakra
   --generators <list>     stacks robkit add offers, the first making the
                           example app: start, react-hono
-  --tools <list>          dev tools: eslint-prettier, vitest, playwright,
-                          husky, or none
+  --tools <list>          dev tools: eslint-prettier, vitest, husky, or none
   --install               install dependencies and initialise git
   --link                  link the @robkit packages to the robkit checkout
                           this runs from, instead of installing them from npm`);

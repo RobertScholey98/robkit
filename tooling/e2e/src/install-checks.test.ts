@@ -37,10 +37,6 @@ describe.each(ciInstalls)("the %s install", (name) => {
     expect(runs).toContainEqual(
       expect.stringMatching(/^(pnpm|(bun|yarn) run) build$/),
     );
-    const tools: readonly string[] = installChoices[name].tools;
-    expect(runs.some((step) => step.endsWith(" test:e2e"))).toBe(
-      tools.includes("playwright"),
-    );
     // A failing step rejects with its output. Its scripts find only the
     // bins the install's own manifests give it, as on the owner's machine.
     await runOwnCi(dir, steps, {

@@ -45,12 +45,7 @@ async function whatWentWrong(stack: Stack): Promise<string> {
 }
 
 /** Every dev tool, so their builds run Husky's postinstall with no git. */
-const allTools: Choices["tools"] = [
-  "eslint-prettier",
-  "vitest",
-  "playwright",
-  "husky",
-];
+const allTools: Choices["tools"] = ["eslint-prettier", "vitest", "husky"];
 
 /** Each install by the key `E2E_PRODUCTION_INSTALL` picks it by. */
 const installs: [string, Choices][] = [

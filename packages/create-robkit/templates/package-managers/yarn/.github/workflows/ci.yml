@@ -34,13 +34,6 @@ jobs:
       - run: yarn run typecheck
       - run: yarn run test
       - run: yarn run build
-      # Only an install with Playwright has browser tests. They run yarn run dev,
-      # which starts Postgres in Docker.
-      - if: hashFiles('tooling/e2e/playwright.config.ts') != ''
-        working-directory: tooling/e2e
-        run: yarn playwright install --with-deps chromium
-      - if: hashFiles('tooling/e2e/playwright.config.ts') != ''
-        run: yarn run test:e2e
 
   # Deploys to Coolify once main passes its checks. Until the repository has
   # a COOLIFY_URL secret it deploys nothing and passes. See docs/deploy.md.

@@ -202,12 +202,6 @@ export const choiceTable = {
         },
       },
       {
-        value: "playwright",
-        label: "Playwright",
-        layer: "tools/playwright",
-        guide: "tools/playwright.md",
-      },
-      {
         value: "husky",
         label: "Husky + lint-staged",
         layer: "tools/husky",

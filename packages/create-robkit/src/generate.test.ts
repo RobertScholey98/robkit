@@ -179,8 +179,6 @@ describe("generateInstall", () => {
       "pnpm typecheck",
       "pnpm test",
       "pnpm build",
-      "pnpm exec playwright install --with-deps chromium",
-      "pnpm test:e2e",
     ]);
     expect(Object.keys(scripts)).toEqual(
       expect.arrayContaining([
@@ -227,59 +225,6 @@ describe("generateInstall", () => {
     }
     expect(none.get("AGENTS.md")).not.toContain("## Dev tools");
     expect(none.get("AGENTS.md")).not.toContain("Vitest");
-  });
-
-  describe("with Playwright", () => {
-    const withPlaywright: Choices = {
-      ...defaultChoices,
-      tools: ["playwright"],
-    };
-
-    it("adds browser tests in tooling/e2e, and a test:e2e script that runs them", async () => {
-      const files = await generateInstall(withPlaywright);
-
-      expect(files.has("tooling/e2e/playwright.config.ts")).toBe(true);
-      expect(files.has("tooling/e2e/src/sign-in.spec.ts")).toBe(true);
-      expect(files.get("tooling/e2e/.gitignore")).toContain("test-results/");
-      expect(files.has("tooling/e2e/gitignore")).toBe(false);
-      expect(json(files, "package.json")).toMatchObject({
-        scripts: {
-          "test:e2e": "cd tooling/e2e && pnpm exec playwright test",
-        },
-      });
-      expect(workspace(files).catalog).toMatchObject({
-        "@playwright/test": "1.64.1",
-      });
-    });
-
-    it("runs them in CI only when the install has them", async () => {
-      const files = await generateInstall(withPlaywright);
-      const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
-        jobs: Record<string, { steps: { if?: string; run?: string }[] }>;
-      };
-
-      const steps = workflow.jobs.check?.steps ?? [];
-      const browserSteps = steps.filter((step) => step.if !== undefined);
-
-      expect(browserSteps.map((step) => step.run)).toEqual([
-        "pnpm exec playwright install --with-deps chromium",
-        "pnpm test:e2e",
-      ]);
-      for (const step of browserSteps) {
-        expect(step.if).toBe(
-          "hashFiles('tooling/e2e/playwright.config.ts') != ''",
-        );
-      }
-    });
-
-    it("leaves them out of an install without it", async () => {
-      const files = await generateInstall(defaultChoices);
-
-      expect(
-        [...files.keys()].some((path) => path.startsWith("tooling/e2e/")),
-      ).toBe(false);
-      expect(files.get("package.json")).not.toContain("test:e2e");
-    });
   });
 
   describe("with Husky", () => {
@@ -825,8 +770,6 @@ describe("generateInstall", () => {
         "bun run typecheck",
         "bun run test",
         "bun run build",
-        "bunx playwright install --with-deps chromium",
-        "bun run test:e2e",
       ]);
       expect(
         workflow.jobs.deploy?.steps.flatMap((step) => step.run ?? []),
@@ -947,8 +890,6 @@ describe("generateInstall", () => {
         "yarn run typecheck",
         "yarn run test",
         "yarn run build",
-        "yarn playwright install --with-deps chromium",
-        "yarn run test:e2e",
       ]);
       expect(runs("deploy")).toContain("yarn run robkit deploy");
     });
