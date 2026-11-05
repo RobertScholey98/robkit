@@ -28,8 +28,9 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 `robkit check` enforces each rule here, and `pnpm lint` runs it. Its message names the rule a file breaks.
 
 - An app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.
-- An app reaches core over HTTP only, never through @robkit/core. Only `apps/core` imports it. Postgres keeps the data side: an app's role can reach its own schema and nothing else.
-- Handlers take the viewer from their adapter. App code never reads the session cookie or verifies a token itself.
+- A shared package imports only its own files, @robkit/* packages and other shared packages/*. It never imports an app.
+- An app or shared package reaches core over HTTP only, never through @robkit/core. Only `apps/core` imports it. Postgres keeps the data side: an app's role can reach its own schema and nothing else.
+- Handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.
 
 ## Databases
 

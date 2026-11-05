@@ -1,0 +1,27 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "ignore": [
+    // An install's own files, which the generator copies. The install lints
+    // and tests them, and create-robkit's tests generate and check installs.
+    "packages/create-robkit/templates/**",
+    // Installs that the dev runner's tests start by path.
+    "packages/dev/src/test/*-install/**",
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreIssues": {
+    // Many entries are versions only the templates take. A repo check
+    // (catalog.test.ts) fails on an unused entry, counting them.
+    "pnpm-workspace.yaml": ["catalog"],
+  },
+  "workspaces": {
+    "tooling/eslint": {
+      // The rules' JSDoc names estree's types, which ESLint's types bring.
+      "ignoreDependencies": ["estree"],
+    },
+    "tooling/repo-checks": {
+      // Not imported: listed so turbo builds them before the packed-package
+      // and API report checks read their dist.
+      "ignoreDependencies": ["@robkit/*", "create-robkit"],
+    },
+  },
+}

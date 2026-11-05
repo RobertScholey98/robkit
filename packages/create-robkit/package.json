@@ -38,6 +38,7 @@
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run",
+    "test:unit": "vitest run",
     "shadcn-kit": "node scripts/shadcn-kit.ts"
   },
   "dependencies": {
