@@ -10,6 +10,7 @@ import {
   install as addresses,
 } from "@robkit/session/addresses";
 import { addApp } from "./add.ts";
+import { shareApp } from "./app-repo.ts";
 import {
   addCommandFor,
   addUsage,
@@ -26,7 +27,16 @@ import { vendorDir, vendorPackages } from "./vendor.ts";
 /** Where an install's apps answer under pnpm dev. */
 const dev = addresses({ domain: defaultDomain, port: defaultDevPort });
 
+const shareUsage = `Usage: robkit share <app> [<git URL or path>] [--message <text>]
+
+Commits what the app has changed, then pushes it to the git URL or path,
+or else to its upstream, or else to a new bare repository at
+../robkit-apps/<app>.git beside the install. A path with no repository
+gets a bare one. The app's upstream becomes where it went.`;
+
 const usage = `${addUsage}
+
+${shareUsage}
 
 Usage: robkit check
 
@@ -60,6 +70,7 @@ try {
     vendor,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
+    share,
   };
   await (commands[command ?? ""] ?? add)();
 } catch (error) {
@@ -225,6 +236,26 @@ The same app without the questions:
 
   pnpm ${addCommandFor(choices)}`);
   }
+}
+
+async function share(): Promise<void> {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { message: { type: "string", short: "m" } },
+  });
+  const [, slug, target, ...rest] = positionals;
+  if (slug === undefined || rest.length > 0) throw new Error(shareUsage);
+  const shared = await shareApp(process.cwd(), slug, {
+    target,
+    ...(values.message !== undefined && { message: values.message }),
+  });
+  console.log(`Shared apps/${slug} to ${shared.source}${shared.created ? ", a new bare repository" : ""}, at ${shared.revision.slice(0, 7)}.
+
+Another install takes it with:
+
+  pnpm robkit install ${shared.source}
+
+and brings in later shares with pnpm robkit update ${slug}.`);
 }
 
 function fail(message: string): never {
