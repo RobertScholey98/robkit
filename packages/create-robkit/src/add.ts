@@ -83,13 +83,11 @@ export function newSlugProblem(root: string, slug: string): string | undefined {
 async function templateFor(
   root: string,
   stack: Generator,
-  { orm }: Choices,
   uiKit: UiKit | null,
 ) {
   const own = join(root, "robkit", "templates", stack);
   if (await exists(own)) return readFolder(own);
-  const template = await stackTemplate(stack, orm, uiKit);
-  return template;
+  return stackTemplate(stack, uiKit);
 }
 
 /**
@@ -114,7 +112,6 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   const template = await templateFor(
     root,
     choices.stack,
-    installed,
     choices.uiKit === true ? uiKit : null,
   );
   await writeInstall(

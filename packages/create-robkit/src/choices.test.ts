@@ -4,7 +4,6 @@ import { choicesFromFlags } from "./choices.ts";
 describe("choicesFromFlags", () => {
   it("takes the default for every flag left out", () => {
     expect(choicesFromFlags({})).toEqual({
-      orm: "drizzle",
       uiKit: null,
       generators: ["start", "react-hono"],
     });

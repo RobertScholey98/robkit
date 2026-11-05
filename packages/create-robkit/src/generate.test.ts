@@ -53,7 +53,6 @@ describe("generateInstall", () => {
     const files = await generateInstall(honoFirst);
 
     expect(JSON.parse(files.get("robkit.json") ?? "")).toEqual({
-      orm: "drizzle",
       uiKit: null,
       generators: ["react-hono", "start"],
     });
@@ -338,27 +337,15 @@ describe("generateInstall", () => {
         ).toBe(true);
       }
     }
-    for (const orm of readyOptions(choiceTable.orm)) {
-      const appLayer = new URL(
-        `../templates/${orm.appLayer ?? ""}/`,
-        import.meta.url,
-      );
-      expect((await stat(appLayer)).isDirectory(), orm.value).toBe(true);
-      const guide = new URL(
-        `../templates/${orm.appGuide ?? ""}`,
-        import.meta.url,
-      );
-      expect((await stat(guide)).isFile(), orm.value).toBe(true);
-    }
   });
 
   it.each([
     ["start", "context.viewer"],
     ["react-hono", "c.var.viewer"],
   ] as const)(
-    "gives a %s app an AGENTS.md for its stack and the ORM, which CLAUDE.md points at",
+    "gives a %s app an AGENTS.md for its stack and Drizzle, which CLAUDE.md points at",
     async (stack, viewer) => {
-      const files = await stackTemplate(stack, "drizzle");
+      const files = await stackTemplate(stack);
       const agents = files.get("AGENTS.md") ?? "";
       const ormSection = await readFile(
         new URL("../templates/orms/drizzle/AGENTS.md", import.meta.url),
@@ -377,9 +364,9 @@ describe("generateInstall", () => {
   );
 
   it.each(["start", "react-hono"] as const)(
-    "lays the ORM's app files over a %s app",
+    "lays Drizzle's app files over a %s app",
     async (stack) => {
-      const files = await stackTemplate(stack, "drizzle");
+      const files = await stackTemplate(stack);
       const manifest = JSON.parse(files.get("package.json") ?? "{}") as {
         scripts: Record<string, string>;
         dependencies: Record<string, string>;
@@ -550,7 +537,7 @@ describe("generateInstall", () => {
 
   it("gives the example app its stack's agent files", async () => {
     const files = await generateInstall(defaultChoices);
-    const template = await stackTemplate("start", "drizzle");
+    const template = await stackTemplate("start");
 
     expect(files.get("apps/example/AGENTS.md")).toBe(template.get("AGENTS.md"));
     expect(files.get("apps/example/CLAUDE.md")).toBe("@AGENTS.md\n");

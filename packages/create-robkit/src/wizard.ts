@@ -133,13 +133,7 @@ export async function askInit(folder?: string): Promise<Answers> {
         validate: (answer) => folderProblem(answer ?? defaultFolder),
       }),
     );
-  const { orm, generators } = choiceTable;
-  const ormAnswer = answered(
-    await select({
-      message: orm.question,
-      options: optionsFor(orm, defaultChoices.orm),
-    }),
-  );
+  const { generators } = choiceTable;
   const uiKit = await askUiKit();
   const stacks = answered(
     await multiselect({
@@ -153,7 +147,6 @@ export async function askInit(folder?: string): Promise<Answers> {
   );
   return {
     folder: where,
-    orm: ormAnswer,
     "ui-kit": uiKit,
     generators: listFlag(stacks),
     install,

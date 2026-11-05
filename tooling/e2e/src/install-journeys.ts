@@ -198,7 +198,7 @@ export function describeJourneys(
     });
   });
 
-  describe(`pnpm dev in an install with the ${stack} example on ${choices.orm}`, () => {
+  describe(`pnpm dev in an install with the ${stack} example`, () => {
     it("serves the hub on hub.robkit.localhost", async () => {
       const hub = await eventually(() => get(hostOf("hub")));
 

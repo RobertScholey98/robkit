@@ -30,7 +30,6 @@ describe("usage", () => {
 
 With no options, init asks for each one.
 
-  --orm <name>            ORM: drizzle
   --ui-kit <name>         shared React UI kit: none, shadcn-base-ui,
                           shadcn-radix, chakra
   --generators <list>     stacks robkit add offers, the first making the

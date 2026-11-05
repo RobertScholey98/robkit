@@ -9,7 +9,6 @@ import {
   type Choices,
   type Generator,
   type Option,
-  type Orm,
   type UiKit,
 } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
@@ -135,7 +134,6 @@ function layersFor(choices: Choices): string[] {
   const t = choiceTable;
   return [
     "base",
-    layerOf(t.orm, choices.orm),
     // The hub and admin, then the kit's controls over them.
     layerOf(t.uiKit, "none"),
     choices.uiKit === null ? undefined : layerOf(t.uiKit, choices.uiKit),
@@ -153,12 +151,11 @@ async function readTemplate(path: string): Promise<string> {
 
 /**
  * The template robkit ships for `stack`: an app's files, from its folder,
- * with the install's ORM's app files laid over them, and the UI kit's when
- * the app uses one. Its `AGENTS.md` ends with the section the ORM adds.
+ * with Drizzle's app files laid over them, and the UI kit's when the app
+ * uses one. Its `AGENTS.md` ends with Drizzle's section.
  */
 export async function stackTemplate(
   stack: Generator,
-  orm: Orm,
   uiKit: UiKit | null = null,
 ): Promise<Files> {
   const layer = layerOf(choiceTable.generators, stack);
@@ -166,18 +163,16 @@ export async function stackTemplate(
     throw new Error(`the ${stack} stack has no template`);
   }
   const files = await readLayer(layer);
-  const ormOption = optionOf(choiceTable.orm, orm);
-  const appLayer = ormOption?.appLayer;
-  if (appLayer !== undefined) overlay(files, await readLayer(appLayer));
+  overlay(files, await readLayer("orms/drizzle/app"));
   const kitLayer =
     uiKit === null ? undefined : optionOf(choiceTable.uiKit, uiKit)?.optInLayer;
   if (kitLayer !== undefined) {
     overlay(files, await readLayer(`${kitLayer}/${stack}`));
   }
-  const guide = ormOption?.appGuide;
   const agents = files.get("AGENTS.md");
-  if (guide !== undefined && agents !== undefined) {
-    files.set("AGENTS.md", `${agents}\n${await readTemplate(guide)}`);
+  if (agents !== undefined) {
+    const guide = await readTemplate("orms/drizzle/AGENTS.md");
+    files.set("AGENTS.md", `${agents}\n${guide}`);
   }
   return files;
 }
@@ -289,9 +284,7 @@ export async function generateInstall(
 
   const stacks = await Promise.all(
     // The example shows the install's UI kit off, if it has one.
-    choices.generators.map((stack) =>
-      stackTemplate(stack, choices.orm, choices.uiKit),
-    ),
+    choices.generators.map((stack) => stackTemplate(stack, choices.uiKit)),
   );
   const [example] = stacks;
   if (example === undefined) throw new Error("init needs a generator");

@@ -100,7 +100,7 @@ exports[`generateInstall > keeps every file of Base UI pnpm install 1`] = `
   "packages/ui/src/styles.css": "2aa229637ff64d8b",
   "packages/ui/tsconfig.json": "c30d575a1e3f6273",
   "pnpm-workspace.yaml": "a48cf10ad1067584",
-  "robkit.json": "0251e8e374c29d99",
+  "robkit.json": "90fb354711a6cc13",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -196,7 +196,7 @@ exports[`generateInstall > keeps every file of Chakra with Hono first pnpm insta
   "packages/ui/src/system.ts": "b59acd4b5b8da2de",
   "packages/ui/tsconfig.json": "7548f022caaaba5f",
   "pnpm-workspace.yaml": "ca83cf7e406441a3",
-  "robkit.json": "c70692510e348bde",
+  "robkit.json": "d843a1d50ecaf374",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -303,7 +303,7 @@ exports[`generateInstall > keeps every file of Radix pnpm install 1`] = `
   "packages/ui/src/styles.css": "2aa229637ff64d8b",
   "packages/ui/tsconfig.json": "c30d575a1e3f6273",
   "pnpm-workspace.yaml": "654cba172d141e90",
-  "robkit.json": "2bea5b01fa2d9bbe",
+  "robkit.json": "030466665ae9ad66",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -394,7 +394,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "packages/theme/package.json": "5a31d8d97e26cfb7",
   "packages/theme/theme.css": "c0411bbce9b837d6",
   "pnpm-workspace.yaml": "e4c3e0450052769f",
-  "robkit.json": "d412f38c2f645ce7",
+  "robkit.json": "432ea4d7cc82b828",
   "tooling/typescript/base.json": "0bd63e26951f0f10",
   "tooling/typescript/package.json": "36417c81d4b8b853",
   "turbo.json": "4bf2816c95dd9c9e",
@@ -533,7 +533,7 @@ catalog:
 `;
 
 exports[`generateInstall > writes the default install > robkit.json 1`] = `
-"{ "orm": "drizzle", "uiKit": null, "generators": ["start", "react-hono"] }
+"{ "uiKit": null, "generators": ["start", "react-hono"] }
 "
 `;
 

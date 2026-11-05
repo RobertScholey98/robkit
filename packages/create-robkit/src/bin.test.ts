@@ -8,7 +8,6 @@ import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
 
 const defaultAnswers: [question: string, keys: string][] = [
-  ["Which ORM?", keys.enter],
   ["Add a shared React UI kit?", keys.enter],
   ["Which app generators should robkit add offer?", keys.enter],
   ["Install dependencies and initialise git?", keys.no + keys.enter],
@@ -46,7 +45,6 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       [],
       [
         ["Where should robkit create the install?", `my-app${keys.enter}`],
-        ["Which ORM?", keys.enter],
         ["Add a shared React UI kit?", keys.enter],
         [
           "Which app generators should robkit add offer?",
@@ -59,13 +57,12 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     expect(code).toBe(0);
     expect(questionsAsked(output)).toEqual([
       "Where should robkit create the install?",
-      "Which ORM?",
       "Add a shared React UI kit?",
       "Which app generators should robkit add offer?",
       "Install dependencies and initialise git?",
     ]);
     const command =
-      "npm create robkit@latest my-app -- --orm drizzle --ui-kit none --generators react-hono";
+      "npm create robkit@latest my-app -- --ui-kit none --generators react-hono";
     expect(output).toContain(command);
 
     // npm hands create-robkit the arguments after the --.
@@ -91,9 +88,9 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     );
 
     expect(code).toBe(0);
-    expect(questionsAsked(output)[0]).toBe("Which ORM?");
+    expect(questionsAsked(output)[0]).toBe("Add a shared React UI kit?");
     expect(output).toContain(
-      "npm create robkit@latest my-app -- --orm drizzle --ui-kit none --generators start,react-hono --link",
+      "npm create robkit@latest my-app -- --ui-kit none --generators start,react-hono --link",
     );
   });
 
@@ -104,7 +101,6 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       cwd,
       ["my-app"],
       [
-        ["Which ORM?", keys.enter],
         ["Add a shared React UI kit?", keys.down + keys.enter],
         ["Which UI kit?", keys.enter],
         ["Which app generators should robkit add offer?", keys.enter],
@@ -158,7 +154,7 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       [],
       [
         ["Where should robkit create the install?", `my-app${keys.enter}`],
-        ["Which ORM?", keys.ctrlC],
+        ["Add a shared React UI kit?", keys.ctrlC],
       ],
     );
 

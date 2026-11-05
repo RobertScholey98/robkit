@@ -12,16 +12,6 @@ export interface Option {
    */
   readonly layer?: string;
   /**
-   * The template folder, under `templates/`, the option lays over every
-   * app's files: the example's and each app robkit add writes.
-   */
-  readonly appLayer?: string;
-  /**
-   * A section, as a file under `templates/`, the option adds to the end of
-   * every app's `AGENTS.md`.
-   */
-  readonly appGuide?: string;
-  /**
    * For a UI kit: the template folder holding one folder per stack, laid
    * over an app on that stack that uses the kit.
    */
@@ -51,20 +41,6 @@ export interface Choice {
  * template layers. Adding an option is one entry here plus its layer.
  */
 export const choiceTable = {
-  orm: {
-    flag: "orm",
-    question: "Which ORM?",
-    about: "ORM",
-    takes: "one",
-    options: [
-      {
-        value: "drizzle",
-        label: "Drizzle",
-        appLayer: "orms/drizzle/app",
-        appGuide: "orms/drizzle/AGENTS.md",
-      },
-    ],
-  },
   uiKit: {
     flag: "ui-kit",
     question: "Add a shared React UI kit?",
@@ -127,7 +103,6 @@ type Ready<C extends Choice> = Exclude<
   { comingLater: true }
 >["value"];
 
-export type Orm = Ready<Table["orm"]>;
 export type UiKit = Exclude<Ready<Table["uiKit"]>, "none">;
 export type Generator = Ready<Table["generators"]>;
 
@@ -144,7 +119,6 @@ type NonEmpty<T> = [T, ...T[]];
 
 /** Everything init asks, as `robkit.json` records it. */
 export interface Choices {
-  orm: Orm;
   /**
    * The shared React UI kit, or `null` when the hub and admin are plain
    * JSX and Tailwind, which `--ui-kit none` asks for.
@@ -155,7 +129,6 @@ export interface Choices {
 }
 
 export const defaultChoices: Choices = {
-  orm: "drizzle",
   uiKit: null,
   generators: ["start", "react-hono"],
 };
@@ -195,12 +168,10 @@ export function choicesFromFlags(flags: Flags): Choices {
   const t = choiceTable;
   const given = (choice: Choice) =>
     flags[choice.flag as keyof Flags] ?? undefined;
-  const orm = given(t.orm);
   const uiKit = given(t.uiKit);
   const generators = given(t.generators);
   const kit = uiKit === undefined ? "none" : oneOf(t.uiKit, uiKit);
   return {
-    orm: orm === undefined ? defaultChoices.orm : oneOf(t.orm, orm),
     uiKit: kit === "none" ? null : kit,
     generators:
       generators === undefined
