@@ -33,7 +33,11 @@
         "!$TURBO_ROOT$/**/dist/**",
         "!$TURBO_ROOT$/**/node_modules/**",
         "$TURBO_ROOT$/pnpm-workspace.yaml",
-        "$TURBO_ROOT$/package.json"
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/GLOSSARY.md",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/AGENTS.md",
+        "$TURBO_ROOT$/docs/**"
       ]
     },
     "@internal/repo-checks#test:unit": {
@@ -46,7 +50,11 @@
         "!$TURBO_ROOT$/**/dist/**",
         "!$TURBO_ROOT$/**/node_modules/**",
         "$TURBO_ROOT$/pnpm-workspace.yaml",
-        "$TURBO_ROOT$/package.json"
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/GLOSSARY.md",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/AGENTS.md",
+        "$TURBO_ROOT$/docs/**"
       ]
     }
   }
