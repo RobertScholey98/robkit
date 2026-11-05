@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   findUncataloguedDependencies,
@@ -70,7 +71,7 @@ describe("findUncataloguedDependencies", () => {
 
 describe("the robkit workspace", () => {
   it("takes every external version from the catalog", async () => {
-    const root = new URL("../../../", import.meta.url).pathname;
+    const root = fileURLToPath(new URL("../../../", import.meta.url));
     const manifests = await readWorkspaceManifests(root);
 
     expect(manifests.map((m) => m.path)).toContain("package.json");

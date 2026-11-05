@@ -1,10 +1,12 @@
-import { execFile } from "node:child_process";
+import { exec, execFile } from "node:child_process";
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
 const run = promisify(execFile);
+// A shell finds pnpm.cmd on Windows, which execFile won't run.
+const shell = promisify(exec);
 
 /** What a packed package tells Node to load, and which files it holds. */
 export interface Packed {
@@ -28,7 +30,7 @@ interface PackedManifest {
 export async function pack(dir: string): Promise<Packed> {
   const out = await mkdtemp(join(tmpdir(), "robkit-pack-"));
   try {
-    await run("pnpm", ["pack", "--pack-destination", out], { cwd: dir });
+    await shell(`pnpm pack --pack-destination "${out}"`, { cwd: dir });
     const [tarball] = await readdir(out);
     if (!tarball) throw new Error(`pnpm pack wrote nothing for ${dir}`);
     const { stdout: list } = await run("tar", ["-tzf", tarball], { cwd: out });
