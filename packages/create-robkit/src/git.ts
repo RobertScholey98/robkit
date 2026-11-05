@@ -53,6 +53,11 @@ export async function git(
         ...(await identityEnv(dir)),
         ...process.env,
         GIT_TERMINAL_PROMPT: "0",
+        // App repos keep the line endings their files have, as on Linux,
+        // whatever a Windows git would convert them to.
+        GIT_CONFIG_COUNT: "1",
+        GIT_CONFIG_KEY_0: "core.autocrlf",
+        GIT_CONFIG_VALUE_0: "false",
       },
       maxBuffer: 16 * 1024 * 1024,
     });
