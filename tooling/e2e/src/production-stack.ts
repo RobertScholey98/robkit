@@ -499,6 +499,7 @@ for (const { password, headers } of ${JSON.stringify(attempts)}) {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify({ username: "owner", password }),
+    signal: AbortSignal.timeout(10_000),
   });
   await res.arrayBuffer();
   statuses.push(res.status);
