@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
-import { appManifestIn, Problem as CommandProblem } from "@robkit/dev";
+import { appManifestIn, Problem } from "@robkit/dev";
 import { sessionCookie } from "@robkit/session";
 import { isProblem, isRecord, parseJson } from "@robkit/session/input";
 import ts from "typescript";
@@ -102,7 +102,7 @@ export const layerRule: readonly LayerRow[] = [
 ];
 
 /** A use that breaks a rule, where it is. */
-export interface Problem {
+export interface Violation {
   /** The file, from the install root. */
   file: string;
   line: number;
@@ -142,11 +142,9 @@ async function packageNameIn(
     throw error;
   }
   const parsed = parseJson(text, file);
-  if (isProblem(parsed)) throw new CommandProblem(parsed.error);
+  if (isProblem(parsed)) throw new Problem(parsed.error);
   if (!isRecord(parsed.json)) {
-    throw new CommandProblem(
-      `${file} must be a JSON object. Fix it, or delete it.`,
-    );
+    throw new Problem(`${file} must be a JSON object. Fix it, or delete it.`);
   }
   const { name } = parsed.json;
   return { name: typeof name === "string" ? name : undefined };
@@ -258,9 +256,9 @@ function usesIn(
  * Every place an app or shared package in the install at `root` breaks the
  * layer rule, in file order. An empty list means the rule holds.
  */
-export async function checkInstall(root: string): Promise<Problem[]> {
+export async function checkInstall(root: string): Promise<Violation[]> {
   const areas = await areasOf(root);
-  const problems: Problem[] = [];
+  const violations: Violation[] = [];
   for (const area of areas) {
     const rows = layerRule.filter((row) => row.applies(area));
     for (const file of await scriptsIn(root, area.folder)) {
@@ -271,7 +269,7 @@ export async function checkInstall(root: string): Promise<Problem[]> {
           const { line, character } = source.getLineAndCharacterOfPosition(
             node.getStart(source),
           );
-          problems.push({
+          violations.push({
             file,
             line: line + 1,
             column: character + 1,
@@ -281,10 +279,10 @@ export async function checkInstall(root: string): Promise<Problem[]> {
       }
     }
   }
-  return problems;
+  return violations;
 }
 
-/** How `robkit check` prints a problem: where it is, then the rule. */
-export function describeProblem(problem: Problem): string {
-  return `${problem.file}:${String(problem.line)}:${String(problem.column)}  ${problem.rule}`;
+/** How `robkit check` prints a violation: where it is, then the rule. */
+export function describeViolation(violation: Violation): string {
+  return `${violation.file}:${String(violation.line)}:${String(violation.column)}  ${violation.rule}`;
 }

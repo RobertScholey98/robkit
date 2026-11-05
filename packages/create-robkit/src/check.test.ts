@@ -123,10 +123,9 @@ describe("checkInstall", { timeout: 30_000 }, () => {
     const path = "apps/hub/src/reach.ts";
     const dir = await installWith(path, 'import "../../core/src/main.ts";\n');
 
-    expect((await checkInstall(dir)).map((problem) => problem.rule)).toEqual([
-      otherApp,
-      overHttp,
-    ]);
+    expect(
+      (await checkInstall(dir)).map((violation) => violation.rule),
+    ).toEqual([otherApp, overHttp]);
   });
 
   it("lets a shared package import its own files and other shared packages", async () => {
