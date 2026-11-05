@@ -18,6 +18,7 @@ function groupAlive(pid: number): boolean {
     process.kill(-pid, 0);
     return true;
   } catch {
+    // Signal 0 throws only when the group is gone.
     return false;
   }
 }
@@ -29,6 +30,7 @@ async function stopGroup(child: ChildProcess): Promise<void> {
   try {
     process.kill(-pid, "SIGTERM");
   } catch {
+    // The group has already exited.
     return;
   }
   const deadline = Date.now() + stopTimeoutMs;
@@ -38,17 +40,14 @@ async function stopGroup(child: ChildProcess): Promise<void> {
   if (groupAlive(pid)) process.kill(-pid, "SIGKILL");
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /**
  * `robkit-dev`: runs the install in `root` for local development. Finds the
  * apps, refusing any folder that isn't a slug before it starts anything. Starts
  * Postgres, runs the provision step, starts every app and puts the proxy in
  * front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
  *
- * @returns the exit code: 0 after a signal, 1 if anything failed
+ * @returns the exit code: 0 after a signal, 1 if an app exited
+ * @throws what failed while starting or stopping, once everything stopped
  */
 export async function runDev(
   root: string,
@@ -60,13 +59,7 @@ export async function runDev(
   const adminUrl =
     env.ROBKIT_DATABASE_URL ??
     `postgres://postgres:postgres@127.0.0.1:${env.ROBKIT_POSTGRES_PORT ?? "54320"}/robkit`;
-  let apps: App[];
-  try {
-    apps = await discoverApps(root, devPort + 1);
-  } catch (error) {
-    console.error(errorMessage(error));
-    return 1;
-  }
+  const apps = await discoverApps(root, devPort + 1);
   const appEnv: NodeJS.ProcessEnv = {
     ...env,
     ROBKIT_DOMAIN: domain,
@@ -78,6 +71,8 @@ export async function runDev(
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;
+  // The first error, thrown once everything has stopped.
+  let failure: { error: unknown } | undefined;
   const { promise: stopRequested, resolve: wake } =
     Promise.withResolvers<undefined>();
   const stopController = new AbortController();
@@ -139,7 +134,7 @@ export async function runDev(
       console.log();
     }
   } catch (error) {
-    console.error(errorMessage(error));
+    failure ??= { error };
     stop("failed");
   }
 
@@ -150,10 +145,10 @@ export async function runDev(
   try {
     await exec("docker", ["compose", "stop"], { cwd: root, env });
   } catch (error) {
-    console.error(errorMessage(error));
-    stop("failed");
+    failure ??= { error };
   }
   process.off("SIGINT", onSignal);
   process.off("SIGTERM", onSignal);
+  if (failure) throw failure.error;
   return outcome === "failed" ? 1 : 0;
 }

@@ -1,6 +1,6 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { cp, mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import { connect } from "node:net";
 import { tmpdir } from "node:os";
@@ -16,6 +16,7 @@ import {
   testTag,
 } from "@internal/test-postgres";
 import { afterEach, describe, expect, it } from "vitest";
+import { reportFaultsAt } from "./cli.ts";
 
 const run = promisify(execFile);
 const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
@@ -226,6 +227,19 @@ describe("robkit-dev", () => {
       `apps/my-app: "my-app" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.\n`,
     );
     expect(await startedApps(dev.root)).toEqual([]);
+    expect(await createdContainers(dev.root)).toBe("");
+  });
+
+  it("prints a fault it didn't expect whole, with where to report it", async () => {
+    const dev = await startDev({}, async (root) => {
+      await rm(join(root, "apps"), { recursive: true });
+      await writeFile(join(root, "apps"), "");
+    });
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toContain("ENOTDIR");
+    expect(dev.output()).toMatch(/^ {4}at /m);
+    expect(dev.output()).toContain(reportFaultsAt);
     expect(await createdContainers(dev.root)).toBe("");
   });
 

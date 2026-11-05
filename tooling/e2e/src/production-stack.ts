@@ -191,6 +191,7 @@ export async function stopStack(): Promise<void> {
     .split("\n")
     .filter(Boolean);
   if (images.length > 0) await docker("rmi", "-f", ...images);
+  // A network another run already removed is fine.
   await docker("network", "rm", network).catch(() => undefined);
 }
 
@@ -342,6 +343,7 @@ export async function startApp(
   env: Record<string, string>,
 ): Promise<void> {
   const container = `${stack.name}-${slug}`;
+  // No container from an earlier run is fine.
   await docker("rm", "-f", container).catch(() => undefined);
   await docker(
     "run",
@@ -430,6 +432,7 @@ export async function answers(
     );
     if (last === expected) return;
     if (Date.now() > deadline) {
+      // A container with no logs still gets its failure reported.
       const logs = await run("docker", ["logs", `${stack.name}-${slug}`])
         .then(({ stdout, stderr }) => stdout + stderr)
         .catch(() => "");
@@ -496,6 +499,7 @@ for (const { password, headers } of ${JSON.stringify(attempts)}) {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify({ username: "owner", password }),
+    signal: AbortSignal.timeout(10_000),
   });
   await res.arrayBuffer();
   statuses.push(res.status);
@@ -519,6 +523,7 @@ console.log(JSON.stringify(statuses));
       })),
     );
   } finally {
+    // Containers that never started have nothing to remove.
     await docker("rm", "-f", ...containers).catch(() => undefined);
   }
 }

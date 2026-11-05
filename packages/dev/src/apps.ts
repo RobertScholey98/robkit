@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { install, isPlatformApp } from "@robkit/session/addresses";
 import type { Route } from "./proxy.ts";
+import { Problem } from "./cli.ts";
 import { slugProblem } from "./slug.ts";
 
 /**
@@ -69,7 +70,7 @@ export async function discoverApps(
     const manifest = await readManifest(dir);
     if (!manifest) continue;
     const problem = slugProblem(slug);
-    if (problem) throw new Error(`apps/${slug}: ${problem}`);
+    if (problem) throw new Problem(`apps/${slug}: ${problem}`);
     apps.push({
       slug,
       dir,

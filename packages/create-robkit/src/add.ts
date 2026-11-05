@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { slugProblem } from "@robkit/dev";
+import { Problem, slugProblem } from "@robkit/dev";
 import { isPlatformApp, platformApps } from "@robkit/session/addresses";
 import type { Choices, Stack } from "./choices.ts";
 import {
@@ -31,7 +31,7 @@ export async function readInstallChoices(root: string): Promise<Choices> {
     text = await readFile(join(root, "robkit.json"), "utf8");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    throw new Error(
+    throw new Problem(
       `${root} has no robkit.json. Run robkit add in an install's folder.`,
       { cause: error },
     );
@@ -94,7 +94,7 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
   const problem = newSlugProblem(root, choices.slug);
-  if (problem) throw new Error(problem);
+  if (problem) throw new Problem(problem);
   const template = await templateFor(root, choices.stack);
   await writeInstall(
     join(root, "apps", choices.slug),

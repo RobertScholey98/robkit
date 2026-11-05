@@ -1,3 +1,5 @@
+import { setTimeout as sleep } from "node:timers/promises";
+import { Problem } from "@robkit/dev";
 import { install } from "@robkit/session/addresses";
 import {
   containerPort,
@@ -43,14 +45,14 @@ export function readCoolifyConfig(text: string): CoolifyConfig {
   for (const key of configKeys) {
     const value = input[key];
     if (typeof value !== "string" || value === "") {
-      throw new Error(`coolify.json needs a non-empty string \`${key}\`.`);
+      throw new Problem(`coolify.json needs a non-empty string \`${key}\`.`);
     }
     config[key] = value;
   }
   const { trustedProxy } = input;
   if (trustedProxy !== undefined) {
     if (trustedProxy !== "cloudflare") {
-      throw new Error(
+      throw new Problem(
         'coolify.json\'s `trustedProxy` must be "cloudflare" or left out.',
       );
     }
@@ -68,7 +70,45 @@ export interface Coolify {
   accessSecret?: string;
 }
 
-type Called = { ok: true; body: unknown } | { ok: false; detail: string };
+/** Coolify's API as one deploy reaches it. */
+interface Api {
+  coolify: Coolify;
+  fetch: typeof fetch;
+  /** How long one request may take before the deploy gives up on it. */
+  requestTimeoutMs: number;
+}
+
+/** A call's answer, or what went wrong and what to check. */
+type Called =
+  { ok: true; body: unknown } | { ok: false; detail: string; check: string };
+
+const checks = {
+  reach: "Check COOLIFY_URL and that Coolify is up.",
+  token: "Check COOLIFY_TOKEN, and that it may deploy.",
+  access:
+    "Check CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET: Cloudflare Access sends a token it refuses to its login page.",
+  page: "Check that COOLIFY_URL is Coolify's own address.",
+  coolify: "Check Coolify's own log.",
+  deployment: "Check the deployment's log in Coolify.",
+} as const;
+
+/** What to check when Coolify answers `status`. */
+function checkFor(status: number): string {
+  if (status >= 300 && status < 400) return checks.access;
+  if (status === 401 || status === 403) return checks.token;
+  return checks.coolify;
+}
+
+/** A failed call as one sentence and what to check. */
+function explain(called: { detail: string; check: string }): string {
+  return `${called.detail}. ${called.check}`;
+}
+
+function duration(ms: number): string {
+  if (ms < 1000) return `${String(ms)} ms`;
+  if (ms < 60_000) return `${String(Math.round(ms / 1000))} seconds`;
+  return `${String(Math.round(ms / 60_000))} minutes`;
+}
 
 function field(value: unknown, key: string): unknown {
   return typeof value === "object" && value !== null
@@ -90,17 +130,20 @@ function describeError(error: unknown): string {
 /**
  * Calls the Coolify API. A redirect counts as a failure, because Cloudflare
  * Access answers a rejected service token with a redirect to its login page.
+ * Each call gives up after `api.requestTimeoutMs`, or when `deadline`
+ * aborts, whichever comes first.
  */
 async function call(
-  coolify: Coolify,
-  fetchImpl: typeof fetch,
+  api: Api,
   method: string,
   path: string,
-  body?: unknown,
+  { body, deadline }: { body?: unknown; deadline?: AbortSignal } = {},
 ): Promise<Called> {
+  const { coolify } = api;
   const base = coolify.url.replace(/\/+$/, "");
+  const timeout = AbortSignal.timeout(api.requestTimeoutMs);
   try {
-    const response = await fetchImpl(`${base}/api/v1${path}`, {
+    const response = await api.fetch(`${base}/api/v1${path}`, {
       method,
       headers: {
         Authorization: `Bearer ${coolify.token}`,
@@ -114,31 +157,42 @@ async function call(
       },
       ...(body !== undefined && { body: JSON.stringify(body) }),
       redirect: "manual",
+      signal: deadline ? AbortSignal.any([timeout, deadline]) : timeout,
     });
     const raw = await response.text();
     if (!response.ok) {
-      return { ok: false, detail: `HTTP ${String(response.status)} ${raw}` };
+      return {
+        ok: false,
+        detail: `HTTP ${String(response.status)} ${raw}`,
+        check: checkFor(response.status),
+      };
     }
     try {
       return { ok: true, body: JSON.parse(raw) as unknown };
     } catch {
+      // A body that isn't JSON comes from something in front of Coolify,
+      // and the parser's own message adds nothing.
       return {
         ok: false,
         detail: `HTTP ${String(response.status)} with a body that isn't JSON`,
+        check: checks.page,
       };
     }
   } catch (error) {
-    return { ok: false, detail: describeError(error) };
+    const detail = timeout.aborted
+      ? `no answer in ${duration(api.requestTimeoutMs)}`
+      : describeError(error);
+    return { ok: false, detail, check: checks.reach };
   }
 }
 
-async function get(
-  coolify: Coolify,
-  fetchImpl: typeof fetch,
-  path: string,
-): Promise<unknown> {
-  const result = await call(coolify, fetchImpl, "GET", path);
-  if (!result.ok) throw new Error(`GET ${path} failed: ${result.detail}`);
+async function get(api: Api, path: string): Promise<unknown> {
+  const result = await call(api, "GET", path);
+  if (!result.ok) {
+    throw new Problem(
+      `Couldn't read Coolify's ${path.slice(1)}: ${explain(result)}`,
+    );
+  }
   return result.body;
 }
 
@@ -212,7 +266,7 @@ function findApp(
       text(app, "name") === desired.settings.name,
   );
   if (matches.length > 1) {
-    throw new Error(
+    throw new Problem(
       `${String(matches.length)} Coolify applications are named ${String(desired.settings.name)}. Delete the extras.`,
     );
   }
@@ -228,7 +282,7 @@ function pick(list: unknown, name: string, kind: string): string {
   if (uuid) return uuid;
   const names =
     items.map((item) => text(item, "name") ?? "?").join(", ") || "none";
-  throw new Error(`No Coolify ${kind} named ${name}. Found: ${names}.`);
+  throw new Problem(`No Coolify ${kind} named ${name}. Found: ${names}.`);
 }
 
 type Synced =
@@ -241,14 +295,13 @@ type Synced =
  * that the install doesn't name are left alone.
  */
 async function syncApps(
-  coolify: Coolify,
-  fetchImpl: typeof fetch,
+  api: Api,
   config: CoolifyConfig,
   desired: Desired[],
 ): Promise<Synced[]> {
   const [projects, servers, githubApps, applications] = await Promise.all(
     ["/projects", "/servers", "/github-apps", "/applications"].map((path) =>
-      get(coolify, fetchImpl, path),
+      get(api, path),
     ),
   );
   const target = {
@@ -263,48 +316,34 @@ async function syncApps(
   for (const app of desired) {
     const found = findApp(existing, app);
     const saved = found
-      ? await call(
-          coolify,
-          fetchImpl,
-          "PATCH",
-          `/applications/${found}`,
-          app.settings,
-        )
-      : await call(
-          coolify,
-          fetchImpl,
-          "POST",
-          "/applications/private-github-app",
-          {
-            ...target,
-            instant_deploy: false,
-            ...app.settings,
-          },
-        );
+      ? await call(api, "PATCH", `/applications/${found}`, {
+          body: app.settings,
+        })
+      : await call(api, "POST", "/applications/private-github-app", {
+          body: { ...target, instant_deploy: false, ...app.settings },
+        });
     const uuid = found ?? (saved.ok ? text(saved.body, "uuid") : undefined);
     if (!saved.ok || !uuid) {
-      const detail = saved.ok ? "Coolify returned no uuid" : saved.detail;
+      const failure = saved.ok
+        ? { detail: "Coolify returned no uuid", check: checks.coolify }
+        : saved;
       results.push({
         slug: app.slug,
         action: "failed",
-        detail: `${found ? "update" : "create"}: ${detail}`,
+        detail: `${found ? "updating it" : "creating it"}: ${explain(failure)}`,
       });
       continue;
     }
-    const envs = await call(
-      coolify,
-      fetchImpl,
-      "PATCH",
-      `/applications/${uuid}/envs/bulk`,
-      { data: app.envs },
-    );
+    const envs = await call(api, "PATCH", `/applications/${uuid}/envs/bulk`, {
+      body: { data: app.envs },
+    });
     results.push(
       envs.ok
         ? { slug: app.slug, action: found ? "synced" : "created", uuid }
         : {
             slug: app.slug,
             action: "failed",
-            detail: `variables: ${envs.detail}`,
+            detail: `saving its variables: ${explain(envs)}`,
           },
     );
   }
@@ -356,20 +395,25 @@ interface WaitOptions {
   timeoutMs: number;
 }
 
-/** Queues a deploy of `uuid`, then polls it until Coolify says it ended. */
+/**
+ * Queues a deploy of `uuid`, then polls it until Coolify says it ended. The
+ * deadline bounds the whole wait, a request in flight included.
+ */
 async function deployAndWait(
-  coolify: Coolify,
-  fetchImpl: typeof fetch,
+  api: Api,
   uuid: string,
   { intervalMs, timeoutMs }: WaitOptions,
 ): Promise<{ ok: boolean; detail: string }> {
+  const deadline = AbortSignal.timeout(timeoutMs);
   const queued = await call(
-    coolify,
-    fetchImpl,
+    api,
     "POST",
     `/deploy?uuid=${encodeURIComponent(uuid)}`,
+    { deadline },
   );
-  if (!queued.ok) return queued;
+  if (!queued.ok) {
+    return { ok: false, detail: `queueing its deploy: ${explain(queued)}` };
+  }
   const deployments = field(queued.body, "deployments");
   const first: unknown = Array.isArray(deployments)
     ? deployments[0]
@@ -379,40 +423,42 @@ async function deployAndWait(
   if (deployment === undefined) {
     return {
       ok: false,
-      detail: `Coolify queued nothing: ${text(first, "message") ?? JSON.stringify(queued.body)}`,
+      detail: `Coolify queued nothing: ${text(first, "message") ?? JSON.stringify(queued.body)}. ${checks.coolify}`,
     };
   }
 
-  const deadline = Date.now() + timeoutMs;
   let last = "queued";
   let misses = 0;
   for (;;) {
     const result = await call(
-      coolify,
-      fetchImpl,
+      api,
       "GET",
       `/deployments/${encodeURIComponent(deployment)}`,
+      { deadline },
     );
+    if (deadline.aborted) {
+      return {
+        ok: false,
+        detail: `still ${last} after ${duration(timeoutMs)}. ${checks.deployment}`,
+      };
+    }
     if (result.ok) {
       misses = 0;
       last = text(result.body, "status") ?? last;
       if (last === "finished") return { ok: true, detail: "finished" };
       if (last === "failed" || last === "cancelled-by-user") {
-        return { ok: false, detail: last };
+        return { ok: false, detail: `${last}. ${checks.deployment}` };
       }
     } else if (++misses >= 3) {
       return {
         ok: false,
-        detail: `lost track of ${deployment}: ${result.detail}`,
+        detail: `lost track of ${deployment}: ${explain(result)}`,
       };
     }
-    if (Date.now() >= deadline) {
-      return {
-        ok: false,
-        detail: `still ${last} after ${String(Math.round(timeoutMs / 60_000))} minutes`,
-      };
-    }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    // The deadline cutting the sleep short ends the wait: the next turn says so.
+    await sleep(intervalMs, undefined, { signal: deadline }).catch(
+      () => undefined,
+    );
   }
 }
 
@@ -424,8 +470,12 @@ export interface DeployOptions {
   affected: string[] | "all";
   fetch?: typeof fetch;
   log?: (line: string) => void;
+  /** How long to wait between polls of a deployment. */
   intervalMs?: number;
+  /** How long one app's deploy may take, from queueing it to its end. */
   timeoutMs?: number;
+  /** How long one request to Coolify may take. */
+  requestTimeoutMs?: number;
 }
 
 /**
@@ -444,10 +494,11 @@ export async function deploy({
   log = console.log,
   intervalMs = 10_000,
   timeoutMs = 20 * 60_000,
+  requestTimeoutMs = 30_000,
 }: DeployOptions): Promise<boolean> {
+  const api: Api = { coolify, fetch: fetchImpl, requestTimeoutMs };
   const synced = await syncApps(
-    coolify,
-    fetchImpl,
+    api,
     config,
     deployments.map((deployment) => desiredApp(deployment, config)),
   );
@@ -466,7 +517,7 @@ export async function deploy({
     const outcomes = await Promise.all(
       wave.map(async ({ app, uuid }) => ({
         app,
-        ...(await deployAndWait(coolify, fetchImpl, uuid, {
+        ...(await deployAndWait(api, uuid, {
           intervalMs,
           timeoutMs,
         })),

@@ -1,0 +1,63 @@
+# Errors
+
+robkit sorts every failure into one of two kinds, and handles each kind one way.
+
+## Expected failures are values
+
+A failure the caller should handle, such as a wrong password, a taken slug or a guest without the role, is part of the function's return type. Return a discriminated union with a field that says which outcome it is, and let the caller switch on it. The guard does this:
+
+```ts
+type Decision =
+  | { outcome: "allow"; viewer: Viewer }
+  | { outcome: "login" }
+  | { outcome: "refresh" }
+  | { outcome: "not-found" };
+```
+
+Core's `claimInstall` returns `{ outcome: "taken" }` rather than throwing, and the route turns that into a 409.
+
+## Unexpected faults throw an `Error` with `cause`
+
+A failure nobody can handle where it happens, such as a database that won't answer or a file that should exist, throws. When you throw because of another error, pass it on:
+
+```ts
+throw new Error("ROBKIT_APPS isn't JSON.", { cause: error });
+```
+
+The message says what robkit was doing. The cause keeps what went wrong underneath, so the log shows both.
+
+When callers need to tell faults apart, give the error a class. `CoreUnreachableError` in `@robkit/session` marks a call to core that got no answer, so the guard can report "network" rather than "core's key".
+
+## Boundaries turn both into an answer
+
+A boundary is where robkit meets a person or another program: an HTTP route, a command line, an adapter. It turns each failure into a response or an exit code, with a message that says what to do next.
+
+- **Core.** A route answers an expected failure with its status and `{ error }` sentence. One `app.onError` handler catches every unexpected fault, logs the route and the cause through `logError`, and answers 500 with a generic JSON error. The cause stays in core's log, not in the response.
+- **The guard.** It answers 503 when it can't check a request, rather than treating the viewer as signed out. It hands the cause to `onUnavailable` with the app's slug and what failed: `core-key`, `access-rule` or `network`. By default that logs them.
+- **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/dev`. Throw a `Problem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints with its stack and cause, then where to report it, and exits 1.
+
+## What a `catch` may do
+
+A `catch` does one of three things:
+
+1. Translate the error into a value or an answer, such as a 400 for a body that isn't JSON.
+2. Recover, with a comment or a log line saying why that's safe.
+3. Rethrow, with the caught error as `cause`.
+
+A `catch` that drops its error needs a comment saying why. Lint enforces both rules. ESLint's `preserve-caught-error` fails a `throw` inside a `catch` without `cause`. `robkit/no-silent-catch` fails a `catch` block or `.catch()` handler that never reads its error and has no comment inside it or on the line above its statement.
+
+## Outbound requests time out
+
+Every request robkit sends has a deadline. Pass `AbortSignal.timeout(ms)` as its `signal`. When a longer wait bounds several requests, such as a Coolify deploy waiting for its build, combine the two with `AbortSignal.any`, so the outer deadline also cuts off a request in flight. The current limits:
+
+| Request                                            | Limit                      |
+| -------------------------------------------------- | -------------------------- |
+| The guard fetching an app's access rule from core  | 5 seconds                  |
+| The guard fetching core's keys                     | 5 seconds (jose's default) |
+| One request to Coolify                             | 30 seconds                 |
+| One app's Coolify deploy, from queueing to its end | 20 minutes                 |
+| The hub's and admin's `callCore`                   | 10 seconds                 |
+
+## Messages say what to do
+
+A message a person reads names what failed and what to check. "Couldn't read Coolify's servers: no answer in 30 seconds. Check COOLIFY_URL and that Coolify is up." is the shape. "GET /servers failed" isn't.

@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseArgs, promisify } from "node:util";
+import { Problem, runCommand } from "@robkit/dev";
 import {
   defaultDevPort,
   defaultDomain,
@@ -52,34 +53,31 @@ coolify.json describes it, then deploys core and the apps that changed
 since TURBO_SCM_BASE. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run,
 prints each app's variables and contacts nothing.`;
 
-try {
+process.exitCode = await runCommand(async () => {
   const [command] = process.argv.slice(2);
-  const commands: Record<string, () => Promise<void>> = {
+  const commands: Record<string, () => Promise<number | undefined>> = {
     check,
     vendor,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
   };
-  await (commands[command ?? ""] ?? add)();
-} catch (error) {
-  console.error(error instanceof Error ? error.message : error);
-  process.exitCode = 1;
-}
+  return (commands[command ?? ""] ?? add)();
+});
 
-async function check(): Promise<void> {
+async function check(): Promise<number> {
   const { positionals } = parseArgs({ allowPositionals: true });
-  if (positionals.length > 1) throw new Error(usage);
+  if (positionals.length > 1) throw new Problem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
   const problems = await checkInstall(root);
   for (const problem of problems) console.log(describeProblem(problem));
-  if (problems.length > 0) process.exitCode = 1;
+  return problems.length > 0 ? 1 : 0;
 }
 
-async function vendor(): Promise<void> {
+async function vendor(): Promise<undefined> {
   const { positionals } = parseArgs({ allowPositionals: true });
-  if (positionals.length > 1) throw new Error(usage);
+  if (positionals.length > 1) throw new Problem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
@@ -92,15 +90,15 @@ async function vendor(): Promise<void> {
   );
 }
 
-async function printDatabaseUrls(): Promise<void> {
+async function printDatabaseUrls(): Promise<undefined> {
   const { positionals } = parseArgs({ allowPositionals: true });
-  if (positionals.length > 1) throw new Error(usage);
+  if (positionals.length > 1) throw new Problem(usage);
   const root = process.cwd();
   await readInstallChoices(root);
   const adminUrl = process.env.ROBKIT_ADMIN_DATABASE_URL;
   const secret = process.env.ROBKIT_DB_SECRET;
   if (!adminUrl || !secret) {
-    throw new Error(
+    throw new Problem(
       "Set ROBKIT_ADMIN_DATABASE_URL to the host's Postgres admin URL and ROBKIT_DB_SECRET to the install's database secret.",
     );
   }
@@ -109,7 +107,7 @@ async function printDatabaseUrls(): Promise<void> {
   }
 }
 
-async function deployInstall(): Promise<void> {
+async function deployInstall(): Promise<number | undefined> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
@@ -118,7 +116,7 @@ async function deployInstall(): Promise<void> {
       "dry-run": { type: "boolean", default: false },
     },
   });
-  if (positionals.length > 1) throw new Error(usage);
+  if (positionals.length > 1) throw new Problem(usage);
   const root = process.cwd();
   await readInstallChoices(root);
   const { COOLIFY_URL: url, COOLIFY_TOKEN: token } = process.env;
@@ -130,7 +128,7 @@ async function deployInstall(): Promise<void> {
   }
   const configPath = join(root, "coolify.json");
   if (!existsSync(configPath)) {
-    throw new Error(
+    throw new Problem(
       "This install has no coolify.json. See docs/deploy.md to set one up.",
     );
   }
@@ -151,7 +149,7 @@ async function deployInstall(): Promise<void> {
     }
     return;
   }
-  if (!token) throw new Error("Set COOLIFY_TOKEN to deploy.");
+  if (!token) throw new Problem("Set COOLIFY_TOKEN to deploy.");
   const {
     CF_ACCESS_CLIENT_ID: accessId,
     CF_ACCESS_CLIENT_SECRET: accessSecret,
@@ -171,7 +169,7 @@ async function deployInstall(): Promise<void> {
     deployments,
     affected,
   });
-  if (!ok) process.exitCode = 1;
+  return ok ? 0 : 1;
 }
 
 /** The apps turbo finds changed since TURBO_SCM_BASE, by slug. */
@@ -188,7 +186,7 @@ async function affectedApps(root: string): Promise<string[]> {
   );
 }
 
-async function add(): Promise<void> {
+async function add(): Promise<undefined> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
     options: {
@@ -199,7 +197,7 @@ async function add(): Promise<void> {
     },
   });
   const [command, given, ...rest] = positionals;
-  if (command !== "add" || rest.length > 0) throw new Error(usage);
+  if (command !== "add" || rest.length > 0) throw new Problem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
@@ -227,5 +225,5 @@ The same app without the questions:
 }
 
 function fail(message: string): never {
-  throw new Error(message);
+  throw new Problem(message);
 }

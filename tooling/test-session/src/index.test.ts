@@ -17,6 +17,7 @@ import {
 
 /** A token's holder and age, as a verifier with core's public key reads it. */
 async function read(publicKey: CryptoKey, token: string) {
+  // A token that doesn't verify reads as no token.
   const { payload } = await jwtVerify(token, publicKey, {
     currentDate: new Date(0),
   }).catch(() => ({ payload: undefined }));

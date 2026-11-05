@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 import postgres from "postgres";
 import { discoverApps } from "./apps.ts";
+import { Problem } from "./cli.ts";
 import { exec } from "./exec.ts";
 import { slugProblem } from "./slug.ts";
 
@@ -77,7 +78,7 @@ export async function provisionDatabases({
  */
 export function databasePassword(secret: string, slug: string): string {
   if (secret.length < 32) {
-    throw new Error("The database secret must be at least 32 characters.");
+    throw new Problem("The database secret must be at least 32 characters.");
   }
   return createHmac("sha256", secret).update(slug).digest("hex");
 }
@@ -109,7 +110,7 @@ export async function provisionDatabase(
   password = randomBytes(24).toString("hex"),
 ): Promise<string> {
   const problem = slugProblem(slug);
-  if (problem) throw new Error(problem);
+  if (problem) throw new Problem(problem);
   const role = `"${slug}"`;
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
   try {

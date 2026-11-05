@@ -22,6 +22,7 @@ function hostnameOf(host: string | undefined): string | undefined {
   try {
     return new URL(`http://${host}`).hostname;
   } catch {
+    // A Host that isn't a hostname matches no app, so the proxy answers 404.
     return undefined;
   }
 }

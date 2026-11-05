@@ -12,8 +12,8 @@ import {
 } from "@internal/test-session";
 import type { AccessRule } from "@robkit/guard";
 import { conformanceCases } from "@robkit/guard/conformance";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { requestGuard, type GuardedOptions } from "./index.ts";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { requestGuard, type GuardedOptions, type GuardFault } from "./index.ts";
 import { readSessionLapsed } from "./session-lapsed.ts";
 
 const page = "http://example.robkit.localhost:3000/notes?x=1";
@@ -538,6 +538,121 @@ describe("requestGuard's options", () => {
       }),
     ).toThrow(
       "core must be core's public origin, such as http://core.robkit.localhost:3000, not http://localhost:3000",
+    );
+  });
+});
+
+describe("requestGuard, when it can't check a request", () => {
+  /** The guard's 503s on `core`, each with what it handed `onUnavailable`. */
+  async function unavailable(core: FakeCore | { origin: string }) {
+    const faults: GuardFault[] = [];
+    const check = requestGuard({
+      app: "example",
+      core: core.origin,
+      onUnavailable: (fault) => faults.push(fault),
+    });
+    const key = "key" in core ? core.key : (await fakeCore()).key;
+    const decision = await check(
+      new Request(page, {
+        headers: {
+          ...navigate,
+          ...cookie(await key.token({ holder: guest(["family"]) })),
+        },
+      }),
+    );
+    const status = "response" in decision ? decision.response.status : 200;
+    return { status, faults };
+  }
+
+  const described = (fault: GuardFault | undefined) =>
+    fault && {
+      app: fault.app,
+      failed: fault.failed,
+      cause: fault.cause instanceof Error ? fault.cause.message : fault.cause,
+    };
+
+  it("names an app core doesn't know", async () => {
+    const core = await fakeCore();
+
+    const { status, faults } = await unavailable(core);
+
+    expect(status).toBe(503);
+    expect(faults.map(described)).toEqual([
+      {
+        app: "example",
+        failed: "access-rule",
+        cause: "Core doesn't know an app called example.",
+      },
+    ]);
+  });
+
+  it("names a rule core sent that isn't one", async () => {
+    const core = await fakeCore();
+    core.rules.example = { kind: "everyone" } as unknown as AccessRule;
+
+    const { status, faults } = await unavailable(core);
+
+    expect(status).toBe(503);
+    expect(faults.map(described)).toEqual([
+      {
+        app: "example",
+        failed: "access-rule",
+        cause: "Core sent an access rule for example that isn't one.",
+      },
+    ]);
+  });
+
+  it("names core being down, and keeps the network's own error", async () => {
+    const down = "http://core.robkit.localhost:1";
+
+    const { status, faults } = await unavailable({ origin: down });
+
+    expect(status).toBe(503);
+    expect(faults.map(described)).toEqual([
+      {
+        app: "example",
+        failed: "network",
+        cause: `Can't reach core at ${down}.`,
+      },
+    ]);
+    expect((faults[0]?.cause as Error).cause).toBeInstanceOf(Error);
+  });
+
+  it("names core's key when core answers but its key set won't load", async () => {
+    const core = await fakeCore();
+    core.status = 503;
+
+    const { status, faults } = await unavailable(core);
+
+    expect(status).toBe(503);
+    expect(faults.map((fault) => fault.failed)).toEqual(["core-key"]);
+  });
+
+  it("logs the app, what failed and the cause when nothing is set", async () => {
+    const core = await fakeCore();
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      log.mockRestore();
+    });
+    const check = requestGuard({ app: "example", core: core.origin });
+
+    await check(
+      new Request(page, {
+        headers: {
+          ...navigate,
+          ...cookie(await core.key.token({ holder: guest(["family"]) })),
+        },
+      }),
+    );
+
+    expect(log).toHaveBeenCalledTimes(1);
+    const [line, cause] = (log.mock.calls[0] ?? []) as unknown[];
+    expect(line).toBe(
+      "robkit guard for example answered 503: couldn't load the app's access rule from core.",
+    );
+    expect(cause).toBeInstanceOf(Error);
+    expect((cause as Error).message).toBe(
+      "Core doesn't know an app called example.",
     );
   });
 });

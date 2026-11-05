@@ -26,6 +26,7 @@ function docker(...args: string[]): string[] {
       .split("\n")
       .filter(Boolean);
   } catch {
+    // No answer from the command means nothing to clean up.
     return [];
   }
 }

@@ -5,6 +5,7 @@ import {
   text,
   type CANCEL_SYMBOL,
 } from "@clack/prompts";
+import { Problem } from "@robkit/dev";
 import { newSlugProblem, type AppChoices } from "./add.ts";
 import {
   defaultChoices,
@@ -47,15 +48,15 @@ function accessFrom(
     .filter((role) => role !== "");
   if (access === "roles") {
     if (named.length === 0) {
-      throw new Error("--access roles needs --roles, naming at least one.");
+      throw new Problem("--access roles needs --roles, naming at least one.");
     }
     return { kind: "roles", roles: named };
   }
   if (roles !== undefined) {
-    throw new Error("--roles only goes with --access roles.");
+    throw new Problem("--roles only goes with --access roles.");
   }
   if (access === "open" || access === "owner") return { kind: access };
-  throw new Error(
+  throw new Problem(
     `--access ${access} isn't an option. Choose from: ${accessOptions.map((option) => option.value).join(", ")}.`,
   );
 }
@@ -85,7 +86,7 @@ export function addCommandFor({ stack, slug, access, icon }: AppChoices) {
 }
 
 function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
-  if (isCancel(answer)) throw new Error("Cancelled. Nothing was written.");
+  if (isCancel(answer)) throw new Problem("Cancelled. Nothing was written.");
   return answer;
 }
 
@@ -99,7 +100,7 @@ export async function askAdd(
 ): Promise<AppChoices> {
   if (given !== undefined) {
     const problem = newSlugProblem(root, given);
-    if (problem) throw new Error(problem);
+    if (problem) throw new Problem(problem);
   }
   intro("robkit add");
   const stack = answered(

@@ -4,12 +4,14 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import coreSchema from "./core-schema.js";
 import layer from "./layers.js";
+import noSilentCatch from "./no-silent-catch.js";
 import relativeImportExtension from "./relative-import-extension.js";
 
 const robkit = {
   rules: {
     "core-schema": coreSchema,
     layer,
+    "no-silent-catch": noSilentCatch,
     "relative-import-extension": relativeImportExtension,
   },
 };
@@ -37,8 +39,10 @@ export function config(tsconfigRootDir) {
     {
       plugins: { robkit },
       rules: {
+        "preserve-caught-error": ["error", { requireCatchParameter: true }],
         "robkit/core-schema": "error",
         "robkit/layer": "error",
+        "robkit/no-silent-catch": "error",
         "robkit/relative-import-extension": "error",
       },
     },

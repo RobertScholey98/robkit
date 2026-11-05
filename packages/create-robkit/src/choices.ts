@@ -1,3 +1,4 @@
+import { Problem } from "@robkit/dev";
 /** A stack an app can be made on. */
 interface StackOption {
   /** How `--stack`, `robkit.json` and the code spell it. */
@@ -48,7 +49,7 @@ export const defaultChoices: Choices = { exampleStack: "start" };
 export function stackFrom(value: string): Stack {
   const stack = readyStacks.find((ready) => ready === value);
   if (stack === undefined) {
-    throw new Error(
+    throw new Problem(
       `--stack ${value} isn't an option. Choose from: ${readyStacks.join(", ")}.`,
     );
   }
