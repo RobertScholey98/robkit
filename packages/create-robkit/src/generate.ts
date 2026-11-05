@@ -16,6 +16,11 @@ export interface GenerateOptions {
    * installing them from npm.
    */
   link?: boolean;
+  /**
+   * The install's Compose project, which names its Postgres container and
+   * volume. Left out, Compose names it after the install's folder.
+   */
+  project?: string;
 }
 
 /** The slug of the app init adds on the example's stack. */
@@ -219,6 +224,23 @@ async function renderSettings(
   }));
 }
 
+/** Names the install's Compose project in its `compose.yaml`. */
+function nameComposeProject(files: Files, project: string): void {
+  const text = files.get("compose.yaml");
+  if (text === undefined) throw new Error("the install has no compose.yaml");
+  files.set(
+    "compose.yaml",
+    text.replace(
+      /^services:/m,
+      `# Names this install's Postgres container and volume. init chose it, so
+# no other install on this machine shares them.
+name: ${project}
+
+services:`,
+    ),
+  );
+}
+
 /** The install init writes for `choices`, file by file. */
 export async function generateInstall(
   choices: Choices,
@@ -245,6 +267,9 @@ export async function generateInstall(
     ...stacks.flatMap((stack) => [...stack]),
   ]);
   await renderSettings(files, names, await readRobkitRepo(), options);
+  if (options.project !== undefined) {
+    nameComposeProject(files, options.project);
+  }
   files.set(
     "robkit.json",
     await format(JSON.stringify(choices), { filepath: "robkit.json" }),

@@ -67,7 +67,22 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     expect(fromAnswers.get("robkit.json")).toContain(
       `"exampleStack": "react-hono"`,
     );
-    expect(await readTree(join(flagged, "my-app"))).toEqual(fromAnswers);
+    // The same install, but for the Compose project's random suffix.
+    const unnamed = (tree: Map<string, string>) =>
+      new Map(
+        [...tree].map(([path, text]) => [
+          path,
+          path === "compose.yaml"
+            ? text.replace(/^name: my-app-[0-9a-f]{6}$/m, "name: my-app-")
+            : text,
+        ]),
+      );
+    expect(unnamed(await readTree(join(flagged, "my-app")))).toEqual(
+      unnamed(fromAnswers),
+    );
+    expect(fromAnswers.get("compose.yaml")).toMatch(
+      /^name: my-app-[0-9a-f]{6}$/m,
+    );
   });
 
   it("skips the folder question for a folder it's given, keeping --link", async () => {

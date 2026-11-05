@@ -414,6 +414,22 @@ describe("generateInstall", () => {
     ).toMatchSnapshot();
   });
 
+  it("names the install's Compose project as asked, and leaves it to Compose otherwise", async () => {
+    const named = await generateInstall(defaultChoices, {
+      project: "my-app-0a1b2c",
+    });
+    const unnamed = await generateInstall(defaultChoices);
+
+    const compose = (files: Files) =>
+      parse(files.get("compose.yaml") ?? "") as {
+        name?: string;
+        services: Record<string, unknown>;
+      };
+    expect(compose(named).name).toBe("my-app-0a1b2c");
+    expect(compose(named).services).toEqual(compose(unnamed).services);
+    expect(compose(unnamed).name).toBeUndefined();
+  });
+
   it("builds images without Corepack, from a pruned frozen install", async () => {
     const files = await generateInstall(defaultChoices);
     const dockerfile = files.get("Dockerfile") ?? "";
