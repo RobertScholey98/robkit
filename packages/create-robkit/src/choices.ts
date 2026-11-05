@@ -4,18 +4,11 @@ export interface Option {
   readonly value: string;
   /** What the wizard shows. */
   readonly label: string;
-  /** What the wizard shows beside the label. */
-  readonly hint?: string;
   /**
    * The template folder, under `templates/`, the option lays over the
    * install. An option with none adds no files of its own.
    */
   readonly layer?: string;
-  /**
-   * For a UI kit: the template folder holding one folder per stack, laid
-   * over an app on that stack that uses the kit.
-   */
-  readonly optInLayer?: string;
   /** Shown by the wizard but not selectable, until a later release builds it. */
   readonly comingLater?: true;
 }
@@ -41,28 +34,6 @@ export interface Choice {
  * template layers. Adding an option is one entry here plus its layer.
  */
 export const choiceTable = {
-  uiKit: {
-    flag: "ui-kit",
-    question: "Add a shared React UI kit?",
-    about: "shared React UI kit",
-    takes: "one",
-    options: [
-      // The no-kit hub and admin. A kit's layer goes over this one,
-      // replacing their controls and adding packages/ui.
-      {
-        value: "none",
-        label: "No",
-        hint: "the hub and admin use Tailwind",
-        layer: "ui-kits/none",
-      },
-      {
-        value: "shadcn-base-ui",
-        label: "shadcn on Base UI",
-        layer: "ui-kits/shadcn-base-ui/install",
-        optInLayer: "ui-kits/shadcn/app",
-      },
-    ],
-  },
   generators: {
     flag: "generators",
     question: "Which app generators should robkit add offer?",
@@ -91,7 +62,6 @@ type Ready<C extends Choice> = Exclude<
   { comingLater: true }
 >["value"];
 
-export type UiKit = Exclude<Ready<Table["uiKit"]>, "none">;
 export type Generator = Ready<Table["generators"]>;
 
 /** The options of `choice` that init can make today. */
@@ -107,17 +77,11 @@ type NonEmpty<T> = [T, ...T[]];
 
 /** Everything init asks, as `robkit.json` records it. */
 export interface Choices {
-  /**
-   * The shared React UI kit, or `null` when the hub and admin are plain
-   * JSX and Tailwind, which `--ui-kit none` asks for.
-   */
-  uiKit: UiKit | null;
   /** The stacks `robkit add` offers. The first one makes the example app. */
   generators: NonEmpty<Generator>;
 }
 
 export const defaultChoices: Choices = {
-  uiKit: null,
   generators: ["start", "react-hono"],
 };
 
@@ -156,11 +120,8 @@ export function choicesFromFlags(flags: Flags): Choices {
   const t = choiceTable;
   const given = (choice: Choice) =>
     flags[choice.flag as keyof Flags] ?? undefined;
-  const uiKit = given(t.uiKit);
   const generators = given(t.generators);
-  const kit = uiKit === undefined ? "none" : oneOf(t.uiKit, uiKit);
   return {
-    uiKit: kit === "none" ? null : kit,
     generators:
       generators === undefined
         ? defaultChoices.generators

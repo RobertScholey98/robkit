@@ -28,9 +28,8 @@ With no options, init asks for each one.
 `,
   ...Object.values(choiceTable).map((choice) => {
     const options = readyOptions(choice).map((option) => option.value);
-    const list = choice.takes === "list";
     return flagLine(
-      `--${choice.flag} <${list ? "list" : "name"}>`,
+      `--${choice.flag} <list>`,
       `${choice.about}: ${options.join(", ")}`,
     );
   }),

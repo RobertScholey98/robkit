@@ -4,7 +4,6 @@ import { choicesFromFlags } from "./choices.ts";
 describe("choicesFromFlags", () => {
   it("takes the default for every flag left out", () => {
     expect(choicesFromFlags({})).toEqual({
-      uiKit: null,
       generators: ["start", "react-hono"],
     });
   });
@@ -30,17 +29,6 @@ describe("choicesFromFlags", () => {
   it("refuses an option that's coming later", () => {
     expect(() => choicesFromFlags({ generators: "next" })).toThrow(
       "--generators next isn't an option. Choose from: start, react-hono.",
-    );
-  });
-
-  it("reads --ui-kit as the kit, and none as no UI kit", () => {
-    expect(choicesFromFlags({ "ui-kit": "shadcn-base-ui" }).uiKit).toBe(
-      "shadcn-base-ui",
-    );
-    expect(choicesFromFlags({ "ui-kit": "none" }).uiKit).toBeNull();
-    expect(choicesFromFlags({}).uiKit).toBeNull();
-    expect(() => choicesFromFlags({ "ui-kit": "mui" })).toThrow(
-      "--ui-kit mui isn't an option. Choose from: none, shadcn-base-ui.",
     );
   });
 

@@ -4,7 +4,6 @@ import { commandFor, optionsFor, type Answers } from "./wizard.ts";
 
 const answers: Answers = {
   folder: "family-apps",
-  "ui-kit": "none",
   generators: "start",
   install: true,
 };
@@ -12,7 +11,7 @@ const answers: Answers = {
 describe("commandFor", () => {
   it("asks for the install", () => {
     expect(commandFor(answers)).toBe(
-      "npm create robkit@latest family-apps -- --ui-kit none --generators start --install",
+      "npm create robkit@latest family-apps -- --generators start --install",
     );
   });
 
@@ -50,13 +49,5 @@ describe("optionsFor", () => {
         disabled: true,
       },
     ]);
-  });
-
-  it("shows an option's own hint", () => {
-    expect(optionsFor(choiceTable.uiKit)[0]).toEqual({
-      value: "none",
-      label: "No",
-      hint: "the hub and admin use Tailwind",
-    });
   });
 });

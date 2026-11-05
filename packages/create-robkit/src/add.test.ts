@@ -40,7 +40,7 @@ describe("addApp", () => {
     expect(await readFile(join(dir, "apps/notes/src/server.tsx"), "utf8")).toBe(
       await readFile(
         new URL(
-          "../templates/stacks/react-hono/src/server.tsx",
+          "../templates/ui-kits/shadcn/app/react-hono/src/server.tsx",
           import.meta.url,
         ),
         "utf8",
@@ -115,13 +115,10 @@ describe("addApp", () => {
     await expect(addApp(dir, { ...notes, slug })).rejects.toThrow(message);
   });
 
-  it("draws an app that opts in with the install's UI kit", async () => {
-    const dir = await freshInstall({
-      ...defaultChoices,
-      uiKit: "shadcn-base-ui",
-    });
+  it("draws the app with the install's UI kit", async () => {
+    const dir = await freshInstall();
 
-    await addApp(dir, { ...notes, uiKit: true });
+    await addApp(dir, notes);
 
     expect(await manifest(dir, "notes")).toMatchObject({
       dependencies: { "@internal/ui": "workspace:*" },
@@ -132,36 +129,6 @@ describe("addApp", () => {
     expect(
       await readFile(join(dir, "apps/notes/src/server.tsx"), "utf8"),
     ).toContain('from "@internal/ui/components/ui/card"');
-  });
-
-  it.each([
-    ["start", "shadcn-base-ui"],
-    ["react-hono", "shadcn-base-ui"],
-  ] as const)(
-    "leaves the UI kit out of a %s app that opts out of %s",
-    async (stack, uiKit) => {
-      const dir = await freshInstall({ ...defaultChoices, uiKit });
-
-      await addApp(dir, { ...notes, stack, uiKit: false });
-
-      const files = await readdir(join(dir, "apps/notes"), {
-        recursive: true,
-      });
-      const texts = await Promise.all(
-        files
-          .filter((file) => /.(?:tsx?|css|json)$/.test(file))
-          .map((file) => readFile(join(dir, "apps/notes", file), "utf8")),
-      );
-      expect(texts.filter((text) => text.includes("@internal/ui"))).toEqual([]);
-    },
-  );
-
-  it("refuses the UI kit in an install without one", async () => {
-    const dir = await freshInstall();
-
-    await expect(addApp(dir, { ...notes, uiKit: true })).rejects.toThrow(
-      "This install has no UI kit. Leave out --ui-kit.",
-    );
   });
 
   it("refuses a folder that isn't an install", async () => {

@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { choiceTable, readyOptions } from "./choices.ts";
 
 /** The package a CSS `@import` names: `shadcn` for `shadcn/tailwind.css`. */
 function packageOf(specifier: string): string {
@@ -10,11 +9,9 @@ function packageOf(specifier: string): string {
     : (parts[0] ?? "");
 }
 
-const kits = readyOptions(choiceTable.uiKit).flatMap((kit) =>
-  kit.value === "none" ? [] : [[kit.value, kit.layer ?? ""] as const],
-);
+const layer = "ui-kits/shadcn-base-ui/install";
 
-describe.each(kits)("the %s kit's packages/ui", (_, layer) => {
+describe("the install's packages/ui", () => {
   it("declares every package its stylesheet imports", async () => {
     const at = (path: string) =>
       new URL(`../templates/${layer}/packages/ui/${path}`, import.meta.url);

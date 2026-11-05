@@ -9,7 +9,6 @@ import {
   type Choices,
   type Generator,
   type Option,
-  type UiKit,
 } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
@@ -129,35 +128,25 @@ function layerOf(choice: Choice, value: string): string | undefined {
   return optionOf(choice, value)?.layer;
 }
 
-/** The template folders for `choices`, in the order they're laid down. */
-function layersFor(choices: Choices): string[] {
-  const t = choiceTable;
-  return [
-    "base",
-    // The hub and admin, then the kit's controls over them.
-    layerOf(t.uiKit, "none"),
-    choices.uiKit === null ? undefined : layerOf(t.uiKit, choices.uiKit),
-  ].filter((layer) => layer !== undefined);
-}
+/** The template folders of every install, in the order they're laid down. */
+const installLayers = [
+  "base",
+  // The hub and admin, then the UI kit's controls over them.
+  "ui-kits/none",
+  "ui-kits/shadcn-base-ui/install",
+];
 
 /**
  * The template robkit ships for `stack`: an app's files, from its folder,
- * with the UI kit's laid over them when the app uses one.
+ * with the UI kit's laid over them.
  */
-export async function stackTemplate(
-  stack: Generator,
-  uiKit: UiKit | null = null,
-): Promise<Files> {
+export async function stackTemplate(stack: Generator): Promise<Files> {
   const layer = layerOf(choiceTable.generators, stack);
   if (layer === undefined) {
     throw new Error(`the ${stack} stack has no template`);
   }
   const files = await readLayer(layer);
-  const kitLayer =
-    uiKit === null ? undefined : optionOf(choiceTable.uiKit, uiKit)?.optInLayer;
-  if (kitLayer !== undefined) {
-    overlay(files, await readLayer(`${kitLayer}/${stack}`));
-  }
+  overlay(files, await readLayer(`ui-kits/shadcn/app/${stack}`));
   return files;
 }
 
@@ -262,13 +251,12 @@ export async function generateInstall(
   options: GenerateOptions = {},
 ): Promise<Files> {
   const files: Files = new Map();
-  for (const layer of layersFor(choices)) {
+  for (const layer of installLayers) {
     overlay(files, await readLayer(layer));
   }
 
   const stacks = await Promise.all(
-    // The example shows the install's UI kit off, if it has one.
-    choices.generators.map((stack) => stackTemplate(stack, choices.uiKit)),
+    choices.generators.map((stack) => stackTemplate(stack)),
   );
   const [example] = stacks;
   if (example === undefined) throw new Error("init needs a generator");

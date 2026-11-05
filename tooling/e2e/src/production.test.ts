@@ -138,7 +138,7 @@ describe.each(chosen())("the %s install in production", (key, choices) => {
       greeting: "Signed in as Grandma",
       openedAt: `${stack.addresses.origin("example")}/`,
       heading: "Signed in as a guest",
-      stylesheets: choices.uiKit ? [200] : [],
+      stylesheets: [200],
     });
   });
 
@@ -209,7 +209,7 @@ describe.each(chosen())("the %s install in production", (key, choices) => {
       greeting: "Signed in as Grandma",
       openedAt: `${stack.addresses.origin(later)}/`,
       heading: "Signed in as a guest",
-      stylesheets: choices.uiKit ? [200] : [],
+      stylesheets: [200],
     });
   });
 });

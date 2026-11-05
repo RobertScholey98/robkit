@@ -53,7 +53,6 @@ describe("generateInstall", () => {
     const files = await generateInstall(honoFirst);
 
     expect(JSON.parse(files.get("robkit.json") ?? "")).toEqual({
-      uiKit: null,
       generators: ["react-hono", "start"],
     });
   });
@@ -324,19 +323,6 @@ describe("generateInstall", () => {
     for (const stack of readyOptions(choiceTable.generators)) {
       expect(stack.layer, stack.value).toBeDefined();
     }
-    for (const kit of readyOptions(choiceTable.uiKit)) {
-      if (kit.optInLayer === undefined) continue;
-      for (const stack of readyOptions(choiceTable.generators)) {
-        const dir = new URL(
-          `../templates/${kit.optInLayer}/${stack.value}/`,
-          import.meta.url,
-        );
-        expect(
-          (await stat(dir)).isDirectory(),
-          `${kit.value} ${stack.value}`,
-        ).toBe(true);
-      }
-    }
   });
 
   it.each([
@@ -377,23 +363,16 @@ describe("generateInstall", () => {
     },
   );
 
-  it("lays a UI kit's packages/ui and controls over the no-kit hub and admin", async () => {
-    const plain = await generateInstall(defaultChoices);
-    const kit = await generateInstall({
-      ...defaultChoices,
-      uiKit: "shadcn-base-ui",
-    });
+  it("gives every install packages/ui, and draws the hub and admin with it", async () => {
+    const kit = await generateInstall(defaultChoices);
     // Vite bundles the kit into the hub, so it is a build-time package.
     const hub = json(kit, "apps/hub/package.json") as {
       devDependencies: Record<string, string>;
     };
     const { catalog } = workspace(kit);
 
-    expect(
-      [...plain.keys()].some((path) => path.startsWith("packages/ui/")),
-    ).toBe(false);
     expect(kit.has("packages/ui/src/components/ui/button.tsx")).toBe(true);
-    // Only the install: the kit keeps its apps' files out of it.
+    // Only the install: each stack's files stay out of it.
     expect(
       [...kit.keys()].filter(
         (path) =>
@@ -408,19 +387,10 @@ describe("generateInstall", () => {
     expect(kit.get("apps/admin/src/client/ui.tsx")).toContain(
       'from "@internal/ui/components/ui/checkbox"',
     );
-    // The screens are the no-kit ones; only their controls change.
-    expect(kit.get("apps/hub/src/forms.tsx")).toBe(
-      plain.get("apps/hub/src/forms.tsx"),
-    );
-    expect(kit.get("apps/admin/src/client/Admin.tsx")).toBe(
-      plain.get("apps/admin/src/client/Admin.tsx"),
-    );
     expect(hub.devDependencies["@internal/ui"]).toBe("workspace:*");
-    // The example app shows the kit off; robkit add asks each app.
     expect(kit.get("apps/example/src/styles.css")).toContain(
       "@internal/ui/styles.css",
     );
-    expect(plain.has("apps/example/src/styles.css")).toBe(false);
     expect(catalog).toMatchObject({
       "@base-ui/react": "1.9.0",
       shadcn: "4.23.0",
@@ -429,8 +399,7 @@ describe("generateInstall", () => {
 
   it.each<[string, Choices]>([
     ["the default", defaultChoices],
-    ["Base UI", { ...defaultChoices, uiKit: "shadcn-base-ui" }],
-    ["Base UI with Hono first", { ...honoFirst, uiKit: "shadcn-base-ui" }],
+    ["Hono first", honoFirst],
   ])("keeps every file of %s pnpm install", async (_, choices) => {
     const files = await generateInstall(choices);
 

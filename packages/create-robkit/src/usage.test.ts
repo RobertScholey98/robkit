@@ -30,7 +30,6 @@ describe("usage", () => {
 
 With no options, init asks for each one.
 
-  --ui-kit <name>         shared React UI kit: none, shadcn-base-ui
   --generators <list>     stacks robkit add offers, the first making the
                           example app: start, react-hono
   --install               install dependencies and initialise git

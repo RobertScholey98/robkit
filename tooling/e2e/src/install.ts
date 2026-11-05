@@ -16,8 +16,7 @@ export const addedIcon = "🧪";
 
 /**
  * The installs the suites run, by name. Each one's example app is on its
- * first generator, and robkit add gives it an app on its second. In the
- * installs with a UI kit, the example app uses it.
+ * first generator, and robkit add gives it an app on its second.
  */
 export const installChoices = {
   // The default install.
@@ -25,17 +24,10 @@ export const installChoices = {
   "react-hono": {
     ...defaultChoices,
     generators: ["react-hono", "start"],
-    uiKit: "shadcn-base-ui",
   },
 } satisfies Record<string, Choices>;
 
 export type InstallName = keyof typeof installChoices;
-
-/**
- * The installs whose added app opts in to their UI kit. In the other
- * installs with a kit, it opts out with --no-ui-kit.
- */
-const addedUsesKit: ReadonlySet<string> = new Set(["react-hono"]);
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -48,13 +40,9 @@ declare module "vitest" {
  * Makes an install for `choices` in a temp folder, as init with
  * `--install --link` does: linked to this checkout's `@robkit/*` packages,
  * with its dependencies installed and git initialised. Then adds an app on
- * its second generator, as the owner would with robkit add's flags, using
- * the install's UI kit if `kit` is set.
+ * its second generator, as the owner would with robkit add's flags.
  */
-export async function createInstall(
-  choices: Choices,
-  kit: boolean,
-): Promise<string> {
+export async function createInstall(choices: Choices): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
   await init(choices, dir, { link: true, install: true });
   const [stack, other = stack] = choices.generators;
@@ -71,7 +59,6 @@ export async function createInstall(
       "open",
       "--icon",
       addedIcon,
-      ...(choices.uiKit ? [kit ? "--ui-kit" : "--no-ui-kit"] : []),
     ],
     { cwd: dir },
   );
@@ -89,7 +76,7 @@ export default async function setup(project: TestProject) {
     await Promise.all(
       Object.entries(installChoices).map(
         async ([name, choices]) =>
-          [name, await createInstall(choices, addedUsesKit.has(name))] as const,
+          [name, await createInstall(choices)] as const,
       ),
     ),
   ) as Record<InstallName, string>;

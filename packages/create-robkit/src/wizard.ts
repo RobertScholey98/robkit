@@ -4,7 +4,6 @@ import {
   intro,
   isCancel,
   multiselect,
-  select,
   text,
 } from "@clack/prompts";
 import {
@@ -12,7 +11,6 @@ import {
   defaultChoices,
   listFlag,
   type Choice,
-  type Option,
   type Flags,
 } from "./choices.ts";
 import { folderInUse } from "./write.ts";
@@ -34,12 +32,10 @@ export function optionsFor(choice: Choice, recommended?: string) {
   const ready = choice.options.filter((option) => !option.comingLater);
   const later = choice.options.filter((option) => option.comingLater);
   return [
-    ...ready.map(({ value, label, hint }) => ({
+    ...ready.map(({ value, label }) => ({
       value,
       label,
-      ...(value === recommended
-        ? { hint: "recommended" }
-        : hint !== undefined && { hint }),
+      ...(value === recommended && { hint: "recommended" }),
     })),
     ...later.map(({ value, label }) => ({
       value,
@@ -48,48 +44,6 @@ export function optionsFor(choice: Choice, recommended?: string) {
       disabled: true,
     })),
   ];
-}
-
-/** "a, b or c". */
-function orList(items: string[]): string {
-  const last = items.at(-1) ?? "";
-  return items.length > 1
-    ? `${items.slice(0, -1).join(", ")} or ${last}`
-    : last;
-}
-
-/**
- * Asks whether to add a UI kit, then which, and answers as `--ui-kit` takes
- * it. Yes is disabled until a kit is ready.
- */
-async function askUiKit(): Promise<string> {
-  // Widened from the table's literal types, which know no kit is ready yet.
-  const uiKit: Choice = choiceTable.uiKit;
-  const [none, ...kits] = uiKit.options as [Option, ...Option[]];
-  const ready = kits.filter((kit) => !kit.comingLater);
-  const answer = answered(
-    await select({
-      message: uiKit.question,
-      options: [
-        ...optionsFor({ ...uiKit, options: [none] }),
-        {
-          value: "yes",
-          label: "Yes",
-          ...(ready.length === 0 && {
-            hint: `${orList(kits.map((kit) => kit.label))}, coming later`,
-            disabled: true,
-          }),
-        },
-      ],
-    }),
-  );
-  if (answer === none.value) return none.value;
-  return answered(
-    await select({
-      message: "Which UI kit?",
-      options: optionsFor({ ...uiKit, options: kits }),
-    }),
-  );
 }
 
 function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
@@ -134,7 +88,6 @@ export async function askInit(folder?: string): Promise<Answers> {
       }),
     );
   const { generators } = choiceTable;
-  const uiKit = await askUiKit();
   const stacks = answered(
     await multiselect({
       message: generators.question,
@@ -147,7 +100,6 @@ export async function askInit(folder?: string): Promise<Answers> {
   );
   return {
     folder: where,
-    "ui-kit": uiKit,
     generators: listFlag(stacks),
     install,
   };

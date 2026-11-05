@@ -18,12 +18,9 @@ function filesUnder(files: Files, prefix: string, extension: string) {
 }
 
 describe("the install's theme tokens", () => {
-  const installs: [string, Choices][] = [
-    ["no UI kit", defaultChoices],
-    ["shadcn on Base UI", { ...defaultChoices, uiKit: "shadcn-base-ui" }],
-  ];
+  const choices: Choices = defaultChoices;
 
-  describe.each(installs)("with %s", (_, choices) => {
+  describe("in the default install", () => {
     it("sets them in packages/theme and nowhere else", async () => {
       const files = await generateInstall(choices);
       const setters = [...files]

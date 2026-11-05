@@ -14,6 +14,6 @@ shadcn writes the component into `src/components/ui`, as `components.json` says,
 
 ## Using it
 
-An app lists `"@internal/ui": "workspace:*"`, imports a component from `@internal/ui/components/ui/<name>` and loads `@internal/ui/styles.css` in its stylesheet. `pnpm robkit add` gives a new app the kit unless it's run with `--no-ui-kit`.
+An app lists `"@internal/ui": "workspace:*"`, imports a component from `@internal/ui/components/ui/<name>` and loads `@internal/ui/styles.css` in its stylesheet. `pnpm robkit add` gives every new app the kit.
 
 The hub and admin draw every control through their own `ui.tsx` (admin's is `src/client/ui.tsx`), so their screens never import this package directly. Restyle a control there.

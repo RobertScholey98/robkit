@@ -8,7 +8,6 @@ import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
 
 const defaultAnswers: [question: string, keys: string][] = [
-  ["Add a shared React UI kit?", keys.enter],
   ["Which app generators should robkit add offer?", keys.enter],
   ["Install dependencies and initialise git?", keys.no + keys.enter],
 ];
@@ -45,7 +44,6 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       [],
       [
         ["Where should robkit create the install?", `my-app${keys.enter}`],
-        ["Add a shared React UI kit?", keys.enter],
         [
           "Which app generators should robkit add offer?",
           keys.space + keys.enter,
@@ -57,12 +55,11 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     expect(code).toBe(0);
     expect(questionsAsked(output)).toEqual([
       "Where should robkit create the install?",
-      "Add a shared React UI kit?",
       "Which app generators should robkit add offer?",
       "Install dependencies and initialise git?",
     ]);
     const command =
-      "npm create robkit@latest my-app -- --ui-kit none --generators react-hono";
+      "npm create robkit@latest my-app -- --generators react-hono";
     expect(output).toContain(command);
 
     // npm hands create-robkit the arguments after the --.
@@ -88,31 +85,12 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     );
 
     expect(code).toBe(0);
-    expect(questionsAsked(output)[0]).toBe("Add a shared React UI kit?");
+    expect(questionsAsked(output)[0]).toBe(
+      "Which app generators should robkit add offer?",
+    );
     expect(output).toContain(
-      "npm create robkit@latest my-app -- --ui-kit none --generators start,react-hono --link",
+      "npm create robkit@latest my-app -- --generators start,react-hono --link",
     );
-  });
-
-  it("asks which UI kit after a yes, and records it", async () => {
-    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
-
-    const { code, output } = await init(
-      cwd,
-      ["my-app"],
-      [
-        ["Add a shared React UI kit?", keys.down + keys.enter],
-        ["Which UI kit?", keys.enter],
-        ["Which app generators should robkit add offer?", keys.enter],
-        ["Install dependencies and initialise git?", keys.no + keys.enter],
-      ],
-    );
-
-    expect(code).toBe(0);
-    expect(output).toContain("--ui-kit shadcn-base-ui");
-    const tree = await readTree(join(cwd, "my-app"));
-    expect(tree.get("robkit.json")).toContain(`"uiKit": "shadcn-base-ui"`);
-    expect(tree.has(join("packages", "ui", "package.json"))).toBe(true);
   });
 
   it("refuses a folder name the printed command couldn't repeat", async () => {
@@ -154,7 +132,7 @@ describe("init with no flags", { timeout: 30_000 }, () => {
       [],
       [
         ["Where should robkit create the install?", `my-app${keys.enter}`],
-        ["Add a shared React UI kit?", keys.ctrlC],
+        ["Which app generators should robkit add offer?", keys.ctrlC],
       ],
     );
 
