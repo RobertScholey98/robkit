@@ -32,7 +32,10 @@ async function stateOf(app: Hono, sessionToken: string) {
   return ((await res.json()) as { state: string }).state;
 }
 
-/** What /refresh does with the guest's cookie: a fresh token, or cleared. */
+/**
+ * What /refresh does with the guest's cookie: a fresh token, or cleared,
+ * and whether it hands the app a token.
+ */
 async function refresh(app: Hono, sessionToken: string) {
   const res = await app.request(`/refresh?next=${encodeURIComponent(back)}`, {
     headers: { cookie: `robkit_session=${sessionToken}` },
@@ -40,7 +43,9 @@ async function refresh(app: Hono, sessionToken: string) {
   const cookie = sessionCookieOf(res);
   return {
     status: res.status,
-    location: res.headers.get("location"),
+    appGetsToken: new URL(res.headers.get("location") ?? "").searchParams.has(
+      "token",
+    ),
     cookie: cookie?.attributes["Max-Age"] === "0" ? "cleared" : "fresh",
   };
 }
@@ -53,7 +58,7 @@ describe("a guest's session", () => {
 
     expect(await refresh(app, guest)).toEqual({
       status: 302,
-      location: back,
+      appGetsToken: true,
       cookie: "fresh",
     });
   });
@@ -72,7 +77,7 @@ describe("a guest's session", () => {
     expect(await stateOf(app, guest)).toBe("signed-out");
     expect(await refresh(app, guest)).toEqual({
       status: 302,
-      location: back,
+      appGetsToken: false,
       cookie: "cleared",
     });
   });
@@ -91,7 +96,7 @@ describe("a guest's session", () => {
     expect(await stateOf(app, guest)).toBe("signed-out");
     expect(await refresh(app, guest)).toEqual({
       status: 302,
-      location: back,
+      appGetsToken: false,
       cookie: "cleared",
     });
   });

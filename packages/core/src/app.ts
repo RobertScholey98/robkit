@@ -4,7 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
-import { sessionCookie, sessionTokensIn } from "@robkit/session";
+import { appSessionUrl, sessionCookie, sessionTokensIn } from "@robkit/session";
 import { install, isLocal, platformApps } from "@robkit/session/addresses";
 import {
   listCodes,
@@ -41,6 +41,7 @@ import {
   signIn,
   signInWithCode,
 } from "./sessions.ts";
+import { mintAppToken } from "./session-token.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 
 export interface CoreOptions {
@@ -242,26 +243,38 @@ export function createApp({
     c.json<SessionAnswer>(c.var.session.answer),
   );
 
-  // An app's guard sends an expired token here, and it comes straight back
-  // to `next` with a fresh cookie, or none if its session ended. The app's
-  // guard then decides whether to send the browser to log in. The token is
-  // reissued even if core thinks it live, since the app's clock may run
-  // ahead of core's, and a bounce without a new token would loop.
+  // An app's guard sends the browser here when it holds no live token of
+  // its own. Core reads its own cookie, never anything the app holds, and
+  // sends the browser straight back to the app's callback with a token
+  // minted for that app alone, or none if nobody is signed in. The app's
+  // guard then decides whether to send the browser to log in. Core's own
+  // token is reissued too, even if core thinks it live.
   app.get(
     "/refresh",
     validator("query", (_, c) => {
       const next = addresses.onInstall(c.req.query("next"));
-      return next
-        ? { next }
-        : c.json(
-            { error: "Send next, a URL on one of this install's apps." },
-            400,
-          );
+      const slug = next && addresses.appOf(next);
+      // A token in a URL goes only over https, but on a local install.
+      const safe = isLocal(domain) || next?.startsWith("https:");
+      if (!next || !slug || !safe || slug === "core" || slug === "hub") {
+        return c.json(
+          { error: "Send next, a URL on one of this install's apps." },
+          400,
+        );
+      }
+      return { next, slug, state: c.req.query("state") };
     }),
     viewer({ renew: true }),
-    (c) => {
+    async (c) => {
+      const { next, slug, state } = c.req.valid("query");
+      const { forGuard } = c.var.session;
+      const token =
+        forGuard.state === "signed-in"
+          ? await mintAppToken(await signingKey(), forGuard.viewer, slug, now())
+          : undefined;
       c.header("Cache-Control", "no-store");
-      return c.redirect(c.req.valid("query").next, 302);
+      c.header("Referrer-Policy", "no-referrer");
+      return c.redirect(appSessionUrl(next, { token, state }), 302);
     },
   );
 

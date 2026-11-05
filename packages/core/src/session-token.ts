@@ -1,4 +1,5 @@
 import { SignJWT } from "jose";
+import type { SignedInViewer } from "@robkit/guard";
 import {
   coreAudience,
   sessionTokenLifetimeSeconds,
@@ -32,4 +33,18 @@ export function mintSessionToken(
   const { kind, id, sessionId } = claims;
   const roles = claims.kind === "guest" ? { roles: claims.roles } : {};
   return mint(key, { sid: sessionId, kind, ...roles }, id, coreAudience, now);
+}
+
+/**
+ * A token for one app, `slug`, naming who the viewer is and nothing else:
+ * no session id, so nothing the app holds names a session core would renew.
+ */
+export function mintAppToken(
+  key: SigningKey,
+  viewer: SignedInViewer,
+  slug: string,
+  now: Date,
+): Promise<string> {
+  const roles = viewer.kind === "guest" ? { roles: viewer.roles } : {};
+  return mint(key, { kind: viewer.kind, ...roles }, viewer.id, slug, now);
 }
