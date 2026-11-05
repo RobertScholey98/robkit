@@ -11,6 +11,10 @@ How `requestGuard` calls it, once it has read the app's cookie and fetched the r
 ```ts
 import { guard } from "@robkit/guard";
 
+// Ids from core: a role's, and the access code the guest signed in with.
+const familyRoleId = "4b0e1f9c-7d2a-4c63-9a51-2f8e6d3b7a10";
+const codeId = "9d3c2a71-5e84-4f0b-8c16-a7b2e4f9d058";
+
 const decision = guard(
   { kind: "roles", roles: [familyRoleId] },
   {
@@ -26,7 +30,9 @@ How admin reads a rule core sent as JSON (`templates/base/apps/admin/src/client/
 ```ts
 import { readAccessRule, type AccessRule } from "@robkit/guard";
 
-const access: AccessRule | undefined = readAccessRule(body.access);
+function accessOf(body: { access?: unknown }): AccessRule | undefined {
+  return readAccessRule(body.access);
+}
 ```
 
 ## Exports
