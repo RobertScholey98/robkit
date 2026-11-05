@@ -4,6 +4,7 @@ import { matchesGlob } from "node:path/posix";
 import ts from "typescript";
 import type { PackageGraph } from "./package-graph.ts";
 import { toolchain } from "./package-graph.ts";
+import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
 type Deps = Record<string, string> | undefined;
 
@@ -37,9 +38,7 @@ export async function readWorkspace(root: string): Promise<WorkspacePackage[]> {
     ["packages/*/package.json", "tooling/*/package.json"],
     { cwd: root },
   )) {
-    const manifest = JSON.parse(
-      await readFile(join(root, path), "utf8"),
-    ) as WorkspacePackage["manifest"] & { name: string };
+    const manifest = await readJsonFile(join(root, path), readNamedManifest);
     found.push({
       name: manifest.name,
       folder: posix.dirname(path.replaceAll("\\", "/")),

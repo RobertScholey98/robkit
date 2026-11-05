@@ -11,6 +11,8 @@ import {
 import { problemKindInfo } from "@arethetypeswrong/core/problems";
 import { publint, type Message } from "publint";
 import { formatMessage } from "publint/utils";
+import { isProblem, parseJson } from "@robkit/session/input";
+import { readJsonFile, readManifest, readNamedManifest } from "./manifest.ts";
 
 const run = promisify(execFile);
 // A shell finds pnpm.cmd on Windows, which execFile won't run.
@@ -26,9 +28,7 @@ export async function publishedPackages(): Promise<string[]> {
   for (const entry of await readdir(packagesDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const dir = join(packagesDir, entry.name);
-    const json = JSON.parse(
-      await readFile(join(dir, "package.json"), "utf8"),
-    ) as { private?: boolean };
+    const json = await readJsonFile(join(dir, "package.json"), readManifest);
     if (!json.private) dirs.push(dir);
   }
   return dirs;
@@ -43,12 +43,6 @@ export interface Packed {
   files: string[];
   /** The tarball itself, gzipped. */
   tarball: Uint8Array;
-}
-
-interface PackedManifest {
-  name: string;
-  exports?: Record<string, string | Record<string, string>>;
-  bin?: Record<string, string>;
 }
 
 /**
@@ -67,7 +61,11 @@ export async function pack(dir: string): Promise<Packed> {
       ["-xOzf", tarball, "package/package.json"],
       { cwd: out },
     );
-    const json = JSON.parse(manifest) as PackedManifest;
+    const parsed = parseJson(manifest, `${dir}'s packed package.json`);
+    const json = isProblem(parsed)
+      ? parsed
+      : readNamedManifest(parsed.json, `${dir}'s packed package.json`);
+    if (isProblem(json)) throw new Error(json.error);
     const targets = [
       ...Object.values(json.exports ?? {}).flatMap((target) =>
         typeof target === "string" ? [target] : Object.values(target),

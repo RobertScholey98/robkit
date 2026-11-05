@@ -1,6 +1,8 @@
 import { glob, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
+import { isRecord } from "@robkit/session/input";
+import { isStrings, readJsonFile, readManifest } from "./manifest.ts";
 
 const checkedFields = [
   "dependencies",
@@ -55,9 +57,7 @@ export async function readWorkspaceManifests(
     exclude: ["**/node_modules/**", ".scratch/**", ".skills/**"],
   });
   for await (const path of paths) {
-    const json = JSON.parse(
-      await readFile(join(root, path), "utf8"),
-    ) as PackageJson;
+    const json = await readJsonFile(join(root, path), readManifest);
     manifests.push({ path: path.replaceAll("\\", "/"), json });
   }
   return manifests.sort((a, b) => a.path.localeCompare(b.path));
@@ -88,9 +88,16 @@ export function findUnusedCatalogEntries(
 /** The default catalog in the workspace's `pnpm-workspace.yaml`. */
 export async function readCatalog(
   root: string,
-): Promise<Record<string, string>> {
-  const workspace = parse(
+): Promise<Readonly<Record<string, string>>> {
+  const workspace: unknown = parse(
     await readFile(join(root, "pnpm-workspace.yaml"), "utf8"),
-  ) as { catalog?: Record<string, string> };
-  return workspace.catalog ?? {};
+  );
+  const catalog = isRecord(workspace) ? workspace.catalog : undefined;
+  if (catalog === undefined) return {};
+  if (!isStrings(catalog)) {
+    throw new Error(
+      "pnpm-workspace.yaml's catalog must map each package to a version.",
+    );
+  }
+  return catalog;
 }
