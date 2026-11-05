@@ -1,7 +1,6 @@
 /*
  * The UI kit's stylesheet: Tailwind, shadcn's animations and variants, and
- * the install's theme tokens. An app that uses the kit imports this instead
- * of Tailwind.
+ * the install's theme tokens. Every app imports this instead of Tailwind.
  */
 @import "tailwindcss";
 @import "tw-animate-css";

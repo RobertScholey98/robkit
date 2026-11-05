@@ -357,8 +357,8 @@ export function describeJourneys(
       });
     });
 
-    // Every kit, and no kit, draws from the same theme variables, so the
-    // same change restyles each install the same way.
+    // The hub draws from the theme's variables, so changing them restyles
+    // it.
     it("draws the hub from the theme's variables", async () => {
       const journey = await themeJourney({ install: addresses });
 

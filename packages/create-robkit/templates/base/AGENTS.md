@@ -7,7 +7,7 @@ This is a robkit install: a monorepo of small apps behind one sign-in. Core hold
 ```sh
 pnpm dev                     # Postgres, core, the hub, admin and every app, on *.robkit.localhost:3000
 pnpm robkit add              # add an app; asks for its stack, name, who can open it and an icon
-pnpm lint                    # robkit check, then the linter if the install has one
+pnpm lint                    # robkit check, then ESLint
 pnpm typecheck
 pnpm test
 pnpm build
@@ -19,8 +19,8 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 - `apps/<slug>` is an app. Its folder name is its slug, its subdomain (`<slug>.robkit.localhost` locally) and its Postgres role and schema. A slug is lowercase letters and digits, starting with a letter. Each app has its own `AGENTS.md` for its stack.
 - `apps/core` runs `@robkit/core`, the backend. `apps/hub` and `apps/admin` are the platform's own apps.
 - `packages/` holds code the apps share, such as `packages/core-client`, which the hub and admin call core through.
-- `packages/theme/theme.css` holds the install's look: its colour, radius and font variables. The hub and admin draw with Tailwind classes named after them, such as `bg-primary`, so changing a variable restyles both. Every control they draw comes from their own `ui.tsx`. If the install has a UI kit, it is `packages/ui`, with its own `AGENTS.md`.
-- `robkit.json` records the choices this install was made with. `robkit add` reads it.
+- `packages/theme/theme.css` holds the install's look: its colour, radius and font variables. The hub and admin draw with Tailwind classes named after them, such as `bg-primary`, so changing a variable restyles both. Every control they draw comes from their own `ui.tsx`, which draws with the install's UI kit: shadcn on Base UI, in `packages/ui`, with its own `AGENTS.md`. Every app draws with it too.
+- `robkit.json` marks this folder as a robkit install, and records the stack init gave the example app. The `robkit` commands refuse a folder without it.
 - An app's `package.json` may declare a `robkit` field: who may open it when core first sees it, and the emoji the launcher shows. After that, the owner sets who may open it in admin.
 
 ## The layer rule
@@ -37,7 +37,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 
 ## Production
 
-Each app has a `start` script, which migrates its database if it has one and then serves, and a `build` script where it needs one. The `Dockerfile` builds any app's image, named by the `ROBKIT_APP` build argument. The image holds only the app's production dependencies, so an app's `dependencies` are what its server and `start` script import, and what only its build uses, everything Vite bundles included, goes in `devDependencies`. The hub and admin serve what Vite built, so React, the theme and any UI kit are dev dependencies there. In production, core's container gives every app its database before core starts, with a password derived from the install's secret, so each app's `DATABASE_URL` is set once on the host. `docs/deploy.md` describes the deploy and its one-time setup.
+Each app has a `start` script, which migrates its database if it has one and then serves, and a `build` script where it needs one. The `Dockerfile` builds any app's image, named by the `ROBKIT_APP` build argument. The image holds only the app's production dependencies, so an app's `dependencies` are what its server and `start` script import, and what only its build uses, everything Vite bundles included, goes in `devDependencies`. The hub and admin serve what Vite built, so React, the theme and the UI kit are dev dependencies there. In production, core's container gives every app its database before core starts, with a password derived from the install's secret, so each app's `DATABASE_URL` is set once on the host. `docs/deploy.md` describes the deploy and its one-time setup.
 
 ## Dev tools
 
