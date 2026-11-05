@@ -6,6 +6,7 @@ import {
   fakeFetch,
   type FakeCoolify,
 } from "./test/fake-coolify.ts";
+import { slug } from "./test/slug.ts";
 
 const config: CoolifyConfig = {
   project: "robkit",
@@ -29,7 +30,7 @@ const apps: Deployment[] = [
   },
   { slug: "hub", env: { ROBKIT_APP: { literal: "hub" } } },
   {
-    slug: "notes",
+    slug: slug("notes"),
     env: {
       ROBKIT_APP: { literal: "notes" },
       DATABASE_URL: { shared: "NOTES_DATABASE_URL" },
@@ -48,14 +49,14 @@ function existing(slug: string, uuid: string): Record<string, unknown> {
 
 async function run(
   state: FakeCoolify,
-  affected: string[] | "all",
+  affected: readonly string[] | "all",
 ): Promise<{ ok: boolean; log: string[] }> {
   const log: string[] = [];
   const ok = await deploy({
     coolify,
     config,
     deployments: apps,
-    affected,
+    affected: affected === "all" ? "all" : affected.map(slug),
     fetch: fakeFetch(state),
     log: (line) => log.push(line),
     intervalMs: 0,

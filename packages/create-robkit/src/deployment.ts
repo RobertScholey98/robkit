@@ -4,7 +4,7 @@ import {
   databaseUrl,
   discoverApps,
 } from "@robkit/dev";
-import { install } from "@robkit/session/addresses";
+import { install, type Slug } from "@robkit/session/addresses";
 
 /**
  * A variable's value on the host: written as is, or taken from one of the
@@ -14,7 +14,7 @@ export type Value = { literal: string } | { shared: string };
 
 /** One app's container in production, and its environment. */
 export interface Deployment {
-  slug: string;
+  slug: Slug;
   env: Record<string, Value>;
 }
 

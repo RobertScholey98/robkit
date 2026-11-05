@@ -147,14 +147,10 @@ export function readAppSlug(env: Env): Slug | Problem {
 export function readDatabaseUrl(
   env: Env,
   name = "DATABASE_URL",
+  unsetFix = "Run the app with pnpm dev, which sets it, or set it to a postgres:// URL.",
 ): string | Problem {
   const value = valueOf(env, name);
-  if (value === undefined) {
-    return notSet(
-      name,
-      "Run the app with pnpm dev, which sets it, or set it to a postgres:// URL.",
-    );
-  }
+  if (value === undefined) return notSet(name, unsetFix);
   const protocol = URL.canParse(value) ? new URL(value).protocol : "";
   if (protocol === "postgres:" || protocol === "postgresql:") return value;
   return {

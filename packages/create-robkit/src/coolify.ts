@@ -1,4 +1,4 @@
-import { install } from "@robkit/session/addresses";
+import { install, type Slug } from "@robkit/session/addresses";
 import {
   isDomain,
   isProblem,
@@ -183,7 +183,7 @@ async function get(
 
 /** One application as the install wants it on Coolify. */
 interface Desired {
-  slug: string;
+  slug: Slug;
   settings: Record<string, string | boolean>;
   envs: {
     key: string;
@@ -271,8 +271,8 @@ function pick(list: unknown, name: string, kind: string): string {
 }
 
 type Synced =
-  | { slug: string; action: "created" | "synced"; uuid: string }
-  | { slug: string; action: "failed"; detail: string };
+  | { slug: Slug; action: "created" | "synced"; uuid: string }
+  | { slug: Slug; action: "failed"; detail: string };
 
 /**
  * Creates any application Coolify lacks, and brings every application's
@@ -358,7 +358,7 @@ type Step =
  * Deploys each affected app and each app new on Coolify. A new app also
  * changes core's catalog and the apps it provisions, so core deploys too.
  */
-function plan(affected: string[] | "all", synced: Synced[]): Step[] {
+function plan(affected: readonly Slug[] | "all", synced: Synced[]): Step[] {
   const catalogChanged = synced.some(({ action }) => action === "created");
   return synced.map((result): Step => {
     const app = result.slug;
@@ -460,7 +460,7 @@ export interface DeployOptions {
   config: CoolifyConfig;
   deployments: Deployment[];
   /** The apps whose code changed, by slug, or every app. */
-  affected: string[] | "all";
+  affected: readonly Slug[] | "all";
   fetch?: typeof fetch;
   log?: (line: string) => void;
   intervalMs?: number;
