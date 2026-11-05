@@ -13,6 +13,10 @@ export {
 export {
   requestGuard,
   type GuardedOptions,
-  type GuardedRule,
   type RequestDecision,
 } from "./request-guard.ts";
+export {
+  appRefreshPath,
+  appSessionPath,
+  appSessionUrl,
+} from "./app-session.ts";

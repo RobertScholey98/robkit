@@ -7,7 +7,7 @@ export const sessionLapsedHeader = "robkit-session";
 
 /** What the guard tells a call whose session has lapsed. */
 export interface SessionLapsed {
-  /** Log in at the hub, or refresh at core. */
+  /** Log in at the hub, or get the app a new token through core. */
   outcome: "login" | "refresh";
   error: string;
   /** Where the browser goes. The page adds `next`, since it knows itself. */

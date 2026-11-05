@@ -10,9 +10,10 @@ export interface GuardedEnv {
 }
 
 /**
- * Runs robkit's guard on every request: checks the session cookie against
- * core's public key, then lets the request through with `c.var.viewer`
- * set, sends the browser to log in or refresh, or answers 404.
+ * Runs robkit's guard on every request: checks the app's own token against
+ * core's public key and the app's slug, then lets the request through with
+ * `c.var.viewer` set, sends the browser to log in or for a token from
+ * core, or answers 404. The guard answers `/_robkit/*` itself.
  */
 export function guarded(
   options: GuardedOptions,

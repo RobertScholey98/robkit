@@ -143,10 +143,18 @@ export async function readAppToken(
 export function sessionTokensIn(
   cookieHeader: string | null | undefined,
 ): string[] {
-  const tokens: string[] = [];
+  return cookieValues(cookieHeader, sessionCookie);
+}
+
+/** Every value of the cookie `name` a `Cookie` header carries, in order. */
+export function cookieValues(
+  cookieHeader: string | null | undefined,
+  name: string,
+): string[] {
+  const values: string[] = [];
   for (const pair of cookieHeader?.split(";") ?? []) {
-    const [name, ...value] = pair.split("=");
-    if (name?.trim() === sessionCookie) tokens.push(value.join("=").trim());
+    const [key, ...value] = pair.split("=");
+    if (key?.trim() === name) values.push(value.join("=").trim());
   }
-  return tokens;
+  return values;
 }
