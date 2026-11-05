@@ -38,7 +38,7 @@ Core, the hub and admin together.
 ### Apps
 
 **App**:
-An owner's app, created by `robkit add` on its own subdomain.
+An owner's app on its own subdomain, created by `robkit add` or brought in by `robkit import`.
 _Avoid_: service, project
 
 **Stack**:
@@ -54,8 +54,24 @@ The shared React component library every **Install** has: shadcn on Base UI, in 
 _Avoid_: design system
 
 **Manifest**:
-An app's declaration of its name, icon, access rule and settings.
+An app's declaration, in the `robkit` field of its `package.json`: its name, **Stack**, **Contract version**, icon, access rule and optional **Seed**.
 _Avoid_: config
+
+**Contract version**:
+The version of what an **App** may assume of the **Install** it runs in: the `@robkit/*` packages, the install's `packages/ui`, `packages/theme`, `packages/core-client` and catalog, and the provision step's rules. An app's **Manifest** names the one it was made for, and an install runs only the ones its robkit lists.
+_Avoid_: API version, robkit version
+
+**Seed**:
+A SQL file an **App**'s **Manifest** names, which the provision step runs once, as the app's role, when it first makes the app's schema. Seed rows travel with an **Export**; data never does.
+_Avoid_: fixture, dump
+
+**Export**:
+An **App** as a repo of its own, outside any **Install**, as `robkit export` writes it: the app's files, its **Shared code**, its migrations and **Seed**, and the catalog's versions written out. `robkit import` brings one into an install.
+_Avoid_: bundle, package, snapshot
+
+**Shared code**:
+The install code an **App** uses from outside its folder, such as the **UI kit**. An **Export** holds a copy in `shared/`. On import, each package the install has byte for byte maps back onto the install's own, and the rest stays in the app, renamed after it.
+_Avoid_: vendored code, common
 
 ### Access
 
@@ -103,6 +119,7 @@ _Avoid_: plugin, integration
 - A **Session token** carries its **Access code**'s **Roles**, so a role change reaches a **Guest** within one token lifetime.
 - Core holds each **Session** and its own **Session token**. Each **App** holds only its own **App token**, which it gets from core's refresh.
 - Each **Stack** has one **Template** and one **Adapter**.
+- An **Export** carries one **App**, its **Shared code** and its **Seed**. An **Install** imports it only if it runs the app's **Contract version**.
 - The **Platform apps** and every **App** draw with the **UI kit**.
 
 ## Example dialogue
@@ -113,6 +130,8 @@ _Avoid_: plugin, integration
 > **Owner:** "No. The **Adapter** runs the **Guard** and hands the handler a **Viewer**."
 > **Dev:** "Could an **App** I imported use the token it holds to open admin?"
 > **Owner:** "No. It holds an **App token** for its own slug, and admin and core refuse it."
+> **Dev:** "And when I import someone's **Export**, does their data come with it?"
+> **Owner:** "No. Its migrations and its **Seed** do. The seed runs once, when `pnpm dev` first makes the app's schema."
 
 ## Flagged ambiguities
 
