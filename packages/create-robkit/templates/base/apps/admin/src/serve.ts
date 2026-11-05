@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { readServeEnv } from "@robkit/session/input";
 import { Hono } from "hono";
 import admin from "./server.ts";
 
@@ -9,11 +10,13 @@ app.use("/assets/*", serveStatic({ root: "dist/client" }));
 app.route("/", admin);
 
 // A container sets HOST to listen beyond loopback.
-const hostname = process.env.HOST ?? "127.0.0.1";
+const listen = readServeEnv(process.env);
+if ("error" in listen) {
+  console.error(listen.error);
+  process.exit(1);
+}
+const { host: hostname, port } = listen;
 
-serve(
-  { fetch: app.fetch, hostname, port: Number(process.env.PORT ?? "3000") },
-  ({ port }) => {
-    console.log(`admin listening on ${hostname}:${String(port)}`);
-  },
-);
+serve({ fetch: app.fetch, hostname, port }, ({ port }) => {
+  console.log(`admin listening on ${hostname}:${String(port)}`);
+});

@@ -9,6 +9,9 @@ import { conformanceCases } from "@robkit/guard/conformance";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { guarded, type GuardedEnv } from "./index.ts";
+import { slug } from "./test/slug.ts";
+
+const example = slug("example");
 
 // requestGuard's own tests cover the guard. These cover the Hono glue: the
 // guard's answer goes out as is, and handlers behind it read c.var.viewer.
@@ -20,7 +23,7 @@ describe("guarded", () => {
   it.each(conformanceCases)("$name", async (asking) => {
     const core = await fakeCore();
     const app = new Hono<GuardedEnv>()
-      .use(guarded({ app: "example", access: asking.rule, core: core.origin }))
+      .use(guarded({ app: example, access: asking.rule, core: core.origin }))
       .get("*", (c) => c.json(c.var.viewer));
 
     const res = await app.request(page, {
@@ -39,7 +42,7 @@ describe("guarded", () => {
     const app = new Hono<GuardedEnv>()
       .use(
         guarded({
-          app: "example",
+          app: example,
           access: { kind: "owner" },
           core: core.origin,
         }),
@@ -62,7 +65,7 @@ describe("guarded", () => {
     const app = new Hono<GuardedEnv>()
       .use(
         guarded({
-          app: "example",
+          app: example,
           access: { kind: "owner" },
           core: core.origin,
         }),

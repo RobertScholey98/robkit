@@ -1,18 +1,20 @@
+import { readCoreUrl, readDevServerEnv } from "@robkit/session/input";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const domain = process.env.ROBKIT_DOMAIN;
+const devServerEnv = readDevServerEnv(process.env);
+if ("error" in devServerEnv) throw new Error(devServerEnv.error);
+const { port, domain } = devServerEnv;
 
 // robkit-dev assigns PORT and serves the app on <slug>.<domain> through its
 // proxy. src/server.ts puts robkit's guard in front of Start.
 export default defineConfig(({ command }) => {
   // Start loads the server entry on the first request, so check its config now.
-  if (command === "serve" && !process.env.ROBKIT_CORE_URL) {
-    throw new Error(
-      "ROBKIT_CORE_URL is not set. Run the app with pnpm dev, which sets it.",
-    );
+  if (command === "serve") {
+    const core = readCoreUrl(process.env);
+    if (typeof core !== "string") throw new Error(core.error);
   }
   return {
     plugins: [
@@ -22,10 +24,7 @@ export default defineConfig(({ command }) => {
     ],
     server: {
       host: "127.0.0.1",
-      ...(process.env.PORT && {
-        port: Number(process.env.PORT),
-        strictPort: true,
-      }),
+      ...(port && { port, strictPort: true }),
       ...(domain && { allowedHosts: [`.${domain}`] }),
     },
   };

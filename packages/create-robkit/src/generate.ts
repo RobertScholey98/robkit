@@ -1,6 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { declaresJson, type Declares } from "@robkit/session/input";
+import { jsonObject, stringsIn } from "./json.ts";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readyStacks, type Choices, type Stack } from "./choices.ts";
@@ -76,7 +78,10 @@ const toJson = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
 /** Merges two manifests, keeping each dependency list in name order. */
 function mergeManifests(base: string, over: string): string {
-  const merged = deepMerge(JSON.parse(base) as Json, JSON.parse(over) as Json);
+  const merged = deepMerge(
+    jsonObject(base, "package.json"),
+    jsonObject(over, "package.json"),
+  );
   for (const field of ["dependencies", "devDependencies"]) {
     const deps = merged[field];
     if (isJson(deps)) {
@@ -109,23 +114,12 @@ function overlay(files: Files, layer: Files, prefix = ""): void {
 function editJson(files: Files, path: string, edit: (json: Json) => Json) {
   const text = files.get(path);
   if (text === undefined) throw new Error(`the install has no ${path}`);
-  files.set(path, toJson(edit(JSON.parse(text) as Json)));
+  files.set(path, toJson(edit(jsonObject(text, path))));
 }
 
 /** The template robkit ships for `stack`: an app's files, from its folder. */
 export function stackTemplate(stack: Stack): Promise<Files> {
   return readLayer(`stacks/${stack}`);
-}
-
-/**
- * What an app's manifest declares for core's catalog, in its `robkit`
- * field: who may open it once core adds it, with roles named, and the emoji
- * the launcher shows.
- */
-export interface Declares {
-  access?:
-    { kind: "open" } | { kind: "owner" } | { kind: "roles"; roles: string[] };
-  icon?: string;
 }
 
 /** The icon an app gets when nobody picks one, the example app included. */
@@ -145,7 +139,9 @@ export function appFiles(
   editJson(files, "package.json", (json) => ({
     name: `@internal/${slug}-app`,
     ...json,
-    ...(Object.keys(declares).length > 0 && { robkit: declares }),
+    ...(Object.keys(declares).length > 0 && {
+      robkit: declaresJson(declares),
+    }),
   }));
   return files;
 }
@@ -155,11 +151,9 @@ function catalogued(files: Iterable<[string, string]>): string[] {
   const names = new Set<string>();
   for (const [path, text] of files) {
     if (basename(path) !== "package.json") continue;
-    const json = JSON.parse(text) as Partial<
-      Record<"dependencies" | "devDependencies", Record<string, string>>
-    >;
+    const json = jsonObject(text, path);
     for (const deps of [json.dependencies, json.devDependencies]) {
-      for (const [name, spec] of Object.entries(deps ?? {})) {
+      for (const [name, spec] of Object.entries(stringsIn(deps))) {
         if (spec === "catalog:") names.add(name);
       }
     }

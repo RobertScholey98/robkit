@@ -15,6 +15,9 @@ import { conformanceCases } from "@robkit/guard/conformance";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { requestGuard, type GuardedOptions, type GuardFault } from "./index.ts";
 import { readSessionLapsed } from "./session-lapsed.ts";
+import { slug } from "./test/slug.ts";
+
+const example = slug("example");
 
 const page = "http://example.robkit.localhost:3000/notes?x=1";
 const navigate = { "sec-fetch-mode": "navigate" };
@@ -31,7 +34,7 @@ afterEach(() => {
 function guardedBy(
   core: FakeCore,
   options: Omit<GuardedOptions, "core"> = {
-    app: "example",
+    app: example,
     access: { kind: "owner" },
   },
 ) {
@@ -66,7 +69,7 @@ function cookiesFrom(...responses: Response[]): string {
 describe("requestGuard, on a page load", () => {
   it.each(conformanceCases)("$name", async (asking) => {
     const core = await fakeCore();
-    const open = guardedBy(core, { app: "example", access: asking.rule });
+    const open = guardedBy(core, { app: example, access: asking.rule });
 
     const res = await open(page, {
       headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
@@ -95,7 +98,7 @@ describe("requestGuard, on a page load", () => {
 
   it("keeps the public scheme the proxy saw, and sets Secure cookies off localhost", async () => {
     const check = requestGuard({
-      app: "notes",
+      app: slug("notes"),
       access: { kind: "owner" },
       core: "https://core.example.com",
     });
@@ -177,7 +180,7 @@ describe("requestGuard, getting the app's token from core", () => {
   it("keeps core's word that nobody is signed in: an open app lets them in, a gated one sends them to log in and forgets it", async () => {
     const core = await fakeCore();
     const asked = async (access: AccessRule) => {
-      const open = guardedBy(core, { app: "example", access });
+      const open = guardedBy(core, { app: example, access });
       const away = await open(page, { headers: navigate });
       const back = await open(
         callbackFor(page, { state: stateIn(away.headers.get("location")) }),
@@ -214,7 +217,7 @@ describe("requestGuard, getting the app's token from core", () => {
 
   it("asks core again once its word that nobody is signed in is a minute old", async () => {
     const core = await fakeCore();
-    const open = guardedBy(core, { app: "example", access: { kind: "open" } });
+    const open = guardedBy(core, { app: example, access: { kind: "open" } });
     const word = { cookie: signedOutCookie() };
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(Date.now() + 61_000);
@@ -410,7 +413,7 @@ describe("requestGuard, on a call from the page or a server", () => {
     const core = await fakeCore();
 
     const res = await guardedBy(core, {
-      app: "example",
+      app: example,
       access: { kind: "open" },
     })(page, { headers: { accept: "application/json" } });
 
@@ -491,7 +494,7 @@ describe("requestGuard, with its rule in core", () => {
   it("lets in only the guests holding a role core gates the app to", async () => {
     const core = await fakeCore();
     core.rules.example = family;
-    const open = guardedBy(core, { app: "example" });
+    const open = guardedBy(core, { app: example });
     const asGuest = async (roles: string[]) =>
       open(page, {
         headers: {
@@ -512,7 +515,7 @@ describe("requestGuard, with its rule in core", () => {
 
   it("answers 503 when it can't load its rule, not a 404", async () => {
     const core = await fakeCore();
-    const open = guardedBy(core, { app: "example" });
+    const open = guardedBy(core, { app: example });
 
     const res = await open(page, {
       headers: {
@@ -532,7 +535,7 @@ describe("requestGuard's options", () => {
   it("refuses a core origin that isn't core.<domain>", () => {
     expect(() =>
       requestGuard({
-        app: "example",
+        app: example,
         access: { kind: "owner" },
         core: "http://localhost:3000",
       }),
@@ -547,7 +550,7 @@ describe("requestGuard, when it can't check a request", () => {
   async function unavailable(core: FakeCore | { origin: string }) {
     const faults: GuardFault[] = [];
     const check = requestGuard({
-      app: "example",
+      app: example,
       core: core.origin,
       onUnavailable: (fault) => faults.push(fault),
     });
@@ -634,7 +637,7 @@ describe("requestGuard, when it can't check a request", () => {
     onTestFinished(() => {
       log.mockRestore();
     });
-    const check = requestGuard({ app: "example", core: core.origin });
+    const check = requestGuard({ app: example, core: core.origin });
 
     await check(
       new Request(page, {

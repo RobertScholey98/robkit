@@ -147,6 +147,14 @@ describe("checkInstall", { timeout: 30_000 }, () => {
     expect(await checkInstall(dir)).toEqual([]);
   });
 
+  it("refuses an app whose package.json won't do, naming it", async () => {
+    const dir = await installWith("apps/hub/package.json", '{"name": 1}');
+
+    await expect(checkInstall(dir)).rejects.toThrow(
+      'apps/hub/package.json: name must be a string, such as "@internal/notes-app".',
+    );
+  });
+
   it("checks .tsx and .js files, and skips node_modules", async () => {
     const dir = await installWith(
       "apps/example/src/reach.tsx",

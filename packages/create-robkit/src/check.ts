@@ -1,7 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
+import { appManifestIn, Problem as CommandProblem } from "@robkit/dev";
 import { sessionCookie } from "@robkit/session";
+import { isProblem, isRecord, parseJson } from "@robkit/session/input";
 import ts from "typescript";
+import { isMissing } from "./files.ts";
 
 /**
  * Code the layer rule binds: an app, `apps/<slug>`, or a shared package,
@@ -121,18 +124,38 @@ const scriptKinds: Record<string, ts.ScriptKind> = {
 /** Folders that hold no code the install's author wrote. */
 const skipped = new Set(["node_modules", "dist", "build"]);
 
-async function readJson(path: string): Promise<unknown> {
+/**
+ * The `name` in a shared package's `package.json`, or undefined when the
+ * folder has none. A manifest that isn't a JSON object is a problem that
+ * names the file.
+ */
+async function packageNameIn(
+  root: string,
+  folder: string,
+): Promise<{ name: string | undefined } | undefined> {
+  const file = `${folder}/package.json`;
+  let text: string;
   try {
-    return JSON.parse(await readFile(path, "utf8"));
+    text = await readFile(join(root, file), "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    if (isMissing(error)) return undefined;
     throw error;
   }
+  const parsed = parseJson(text, file);
+  if (isProblem(parsed)) throw new CommandProblem(parsed.error);
+  if (!isRecord(parsed.json)) {
+    throw new CommandProblem(
+      `${file} must be a JSON object. Fix it, or delete it.`,
+    );
+  }
+  const { name } = parsed.json;
+  return { name: typeof name === "string" ? name : undefined };
 }
 
 /**
  * The install's apps, then its shared packages: each folder under `apps/` or
- * `packages/` with a `package.json`.
+ * `packages/` with a `package.json`. An app's manifest goes through dev's
+ * reader, as `pnpm dev` reads it.
  */
 async function areasOf(root: string): Promise<Area[]> {
   const areas: Area[] = [];
@@ -143,15 +166,17 @@ async function areasOf(root: string): Promise<Area[]> {
     const entries = await readdir(join(root, parent), {
       withFileTypes: true,
     }).catch((error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      if (isMissing(error)) return [];
       throw error;
     });
     const found: Area[] = [];
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       const folder = `${parent}/${entry.name}`;
-      const manifest = (await readJson(join(root, folder, "package.json"))) as
-        { name?: string } | undefined;
+      const manifest =
+        kind === "app"
+          ? await appManifestIn(root, entry.name)
+          : await packageNameIn(root, folder);
       if (manifest === undefined) continue;
       found.push({ kind, slug: entry.name, folder, name: manifest.name });
     }

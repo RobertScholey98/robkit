@@ -4,6 +4,15 @@ import {
   type AccessRule,
   type SessionState,
 } from "@robkit/guard";
+import {
+  isProblem,
+  parseJson,
+  readDeclaredApp,
+  type DeclaredAccess,
+  type DeclaredApp,
+  type Env,
+  type Problem,
+} from "@robkit/session/input";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -34,61 +43,28 @@ export function readAccess(
 }
 
 /**
- * An app as the install declares it in its manifest, which the dev runner
- * hands core as `ROBKIT_APPS`. A rule's roles are named, not ids.
- */
-export interface DeclaredApp {
-  slug: string;
-  /** Who may open the app once core adds it. Owner-only if left out. */
-  access?: AccessRule;
-  /** An emoji the launcher shows. */
-  icon?: string;
-}
-
-function readDeclaredApp(value: unknown): DeclaredApp | string {
-  if (typeof value !== "object" || value === null) return "isn't an object";
-  const { slug, access, icon } = value as Record<string, unknown>;
-  if (typeof slug !== "string" || slug === "") return "has no slug";
-  const app: DeclaredApp = { slug };
-  if (access !== undefined) {
-    const rule = readAccess(isRecord(access) ? access : {});
-    if ("error" in rule) return `${slug}'s access: ${rule.error}`;
-    app.access = rule;
-  }
-  if (icon !== undefined) {
-    if (typeof icon !== "string" || icon === "" || icon.length > 16) {
-      return `${slug}'s icon should be an emoji`;
-    }
-    app.icon = icon;
-  }
-  return app;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/**
  * Reads `ROBKIT_APPS`: a JSON list of the install's apps as they declare
- * themselves. Empty or unset means none. Throws, saying what's wrong, rather
- * than letting core start with a catalog it misread.
+ * themselves, which the dev runner and robkit deploy write from each app's
+ * manifest. Empty or unset means none.
  */
-export function readDeclaredApps(text: string | undefined): DeclaredApp[] {
+export function readDeclaredApps(env: Env): DeclaredApp[] | Problem {
+  const text = env.ROBKIT_APPS;
   if (text === undefined || text.trim() === "") return [];
-  let list: unknown;
-  try {
-    list = JSON.parse(text);
-  } catch (error) {
-    throw new Error("ROBKIT_APPS isn't JSON.", { cause: error });
+  const parsed = parseJson(text, "ROBKIT_APPS");
+  if (isProblem(parsed)) return parsed;
+  const { json } = parsed;
+  if (!Array.isArray(json)) {
+    return {
+      error: `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`,
+    };
   }
-  if (!Array.isArray(list)) throw new Error("ROBKIT_APPS isn't a list.");
-  return list.map((value, index) => {
-    const app = readDeclaredApp(value);
-    if (typeof app === "string") {
-      throw new Error(`ROBKIT_APPS: app ${String(index + 1)} ${app}.`);
-    }
-    return app;
-  });
+  const apps: DeclaredApp[] = [];
+  for (const [index, value] of json.entries()) {
+    const app = readDeclaredApp(value, `ROBKIT_APPS[${String(index)}]`);
+    if (isProblem(app)) return app;
+    apps.push(app);
+  }
+  return apps;
 }
 
 /**
@@ -97,7 +73,7 @@ export function readDeclaredApps(text: string | undefined): DeclaredApp[] {
  * if the owner has none of that name. An app core knows keeps the rule the
  * owner gave it, and takes the icon it declares now.
  */
-const owner: AccessRule = { kind: "owner" };
+const owner: DeclaredAccess = { kind: "owner" };
 
 export async function registerApps(
   db: Database,
@@ -130,7 +106,7 @@ export async function registerApps(
         .insert(apps)
         .values({ slug, name: slug, access: access.kind, icon: icon ?? null });
       if (access.kind !== "roles") continue;
-      for (const name of new Set(access.roles)) {
+      for (const name of new Set(access.roleNames)) {
         await tx
           .insert(roles)
           .values({ name })

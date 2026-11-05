@@ -1,11 +1,15 @@
 import { fileURLToPath } from "node:url";
+import { readDatabaseUrl } from "@robkit/session/input";
 import { sql } from "drizzle-orm";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL is not set");
+const databaseUrl = readDatabaseUrl(process.env);
+if (typeof databaseUrl !== "string") {
+  console.error(databaseUrl.error);
+  process.exit(1);
+}
 
 const migrations = readMigrationFiles({
   migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)),

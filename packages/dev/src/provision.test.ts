@@ -11,6 +11,7 @@ import {
   provisionDatabase,
   provisionDatabases,
 } from "./provision.ts";
+import { slug } from "./test/slug.ts";
 
 const adminUrl = inject("adminUrl");
 const clients: postgres.Sql[] = [];
@@ -30,7 +31,7 @@ function connect(url: string): postgres.Sql {
 
 describe("provisionDatabase", () => {
   it("gives the app a schema it can create and read tables in", async () => {
-    const app = connect(await provisionDatabase(adminUrl, "notes"));
+    const app = connect(await provisionDatabase(adminUrl, slug("notes")));
 
     await app`create table note (body text)`;
     await app`insert into note values ('hi')`;
@@ -39,7 +40,7 @@ describe("provisionDatabase", () => {
   });
 
   it("keeps the app out of the public schema", async () => {
-    const app = connect(await provisionDatabase(adminUrl, "publicprobe"));
+    const app = connect(await provisionDatabase(adminUrl, slug("publicprobe")));
 
     await expect(app`create table public.leak (id int)`).rejects.toThrow(
       /permission denied for schema public/,
@@ -47,8 +48,8 @@ describe("provisionDatabase", () => {
   });
 
   it("keeps the app out of another app's schema", async () => {
-    const owner = connect(await provisionDatabase(adminUrl, "diary"));
-    const other = connect(await provisionDatabase(adminUrl, "snoop"));
+    const owner = connect(await provisionDatabase(adminUrl, slug("diary")));
+    const other = connect(await provisionDatabase(adminUrl, slug("snoop")));
     await owner`create table secret (body text)`;
 
     await expect(other`select * from diary.secret`).rejects.toThrow(
@@ -57,8 +58,8 @@ describe("provisionDatabase", () => {
   });
 
   it("keeps the example app out of core's schema", async () => {
-    const core = connect(await provisionDatabase(adminUrl, "core"));
-    const example = connect(await provisionDatabase(adminUrl, "example"));
+    const core = connect(await provisionDatabase(adminUrl, slug("core")));
+    const example = connect(await provisionDatabase(adminUrl, slug("example")));
     await core`create table owner (username text)`;
     await core`insert into owner values ('rob')`;
 
@@ -71,7 +72,7 @@ describe("provisionDatabase", () => {
   });
 
   it("stops the app creating schemas", async () => {
-    const app = connect(await provisionDatabase(adminUrl, "schemer"));
+    const app = connect(await provisionDatabase(adminUrl, slug("schemer")));
 
     await expect(app`create schema extra`).rejects.toThrow(
       /permission denied for database/,
@@ -79,11 +80,11 @@ describe("provisionDatabase", () => {
   });
 
   it("converges when run again, keeping the app's tables", async () => {
-    const first = connect(await provisionDatabase(adminUrl, "rerun"));
+    const first = connect(await provisionDatabase(adminUrl, slug("rerun")));
     await first`create table kept (id int)`;
     await first.end();
 
-    const again = connect(await provisionDatabase(adminUrl, "rerun"));
+    const again = connect(await provisionDatabase(adminUrl, slug("rerun")));
 
     expect(await again`select count(*)::int as n from kept`).toEqual([
       { n: 0 },
@@ -92,6 +93,7 @@ describe("provisionDatabase", () => {
 
   it("refuses a name that can't be a slug", async () => {
     await expect(
+      // @ts-expect-error Only readSlug makes a Slug.
       provisionDatabase(adminUrl, "drop table x;--"),
     ).rejects.toThrow(/can't be an app's slug/);
   });
@@ -101,13 +103,13 @@ const secret = "correct horse battery staple, 32+";
 
 describe("databasePassword", () => {
   it("is the HMAC of the slug under the install's secret", () => {
-    expect(databasePassword(secret, "notes")).toBe(
+    expect(databasePassword(secret, slug("notes"))).toBe(
       "5c693a1b5df2ff9abbcbe9142b079cd6e490c362f4f7876cc89f696705028a96",
     );
   });
 
   it("refuses a secret shorter than 32 characters", () => {
-    expect(() => databasePassword("short", "notes")).toThrow(
+    expect(() => databasePassword("short", slug("notes"))).toThrow(
       "The database secret must be at least 32 characters.",
     );
   });
@@ -118,30 +120,38 @@ describe("provisionDatabases", () => {
     const urls = await provisionDatabases({
       adminUrl,
       secret,
-      slugs: ["derived", "derivedtoo"],
+      slugs: [slug("derived"), slug("derivedtoo")],
     });
 
     expect([...urls.keys()]).toEqual(["derived", "derivedtoo"]);
-    for (const slug of ["derived", "derivedtoo"]) {
-      const url = databaseUrl(adminUrl, slug, databasePassword(secret, slug));
-      expect(urls.get(slug)).toBe(url);
+    for (const name of [slug("derived"), slug("derivedtoo")]) {
+      const url = databaseUrl(adminUrl, name, databasePassword(secret, name));
+      expect(urls.get(name)).toBe(url);
       const app = connect(url);
-      expect(await app`select current_user as role`).toEqual([{ role: slug }]);
+      expect(await app`select current_user as role`).toEqual([{ role: name }]);
     }
   });
 
   it("leaves every app's URL working when run again", async () => {
-    await provisionDatabases({ adminUrl, secret, slugs: ["steady"] });
+    await provisionDatabases({ adminUrl, secret, slugs: [slug("steady")] });
     const first = connect(
-      databaseUrl(adminUrl, "steady", databasePassword(secret, "steady")),
+      databaseUrl(
+        adminUrl,
+        slug("steady"),
+        databasePassword(secret, slug("steady")),
+      ),
     );
     await first`create table kept (id int)`;
     await first.end();
 
-    await provisionDatabases({ adminUrl, secret, slugs: ["steady"] });
+    await provisionDatabases({ adminUrl, secret, slugs: [slug("steady")] });
 
     const again = connect(
-      databaseUrl(adminUrl, "steady", databasePassword(secret, "steady")),
+      databaseUrl(
+        adminUrl,
+        slug("steady"),
+        databasePassword(secret, slug("steady")),
+      ),
     );
     expect(await again`select count(*)::int as n from kept`).toEqual([
       { n: 0 },
@@ -191,7 +201,7 @@ describe("provisionApps", () => {
     });
 
     expect([...databaseUrls.keys()]).toEqual(["ledger"]);
-    const ledger = connect(databaseUrls.get("ledger") ?? "");
+    const ledger = connect(databaseUrls.get(slug("ledger")) ?? "");
     expect(await ledger`select body from ledger.entry`).toEqual([
       { body: "migrated" },
     ]);

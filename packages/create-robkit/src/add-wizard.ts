@@ -6,7 +6,8 @@ import {
   type CANCEL_SYMBOL,
 } from "@clack/prompts";
 import { Problem } from "@robkit/dev";
-import { newSlugProblem, type AppChoices } from "./add.ts";
+import { readSlug } from "@robkit/session/addresses";
+import { newSlugProblem, readNewSlug, type AppChoices } from "./add.ts";
 import {
   defaultChoices,
   readyStackOptions,
@@ -50,7 +51,7 @@ function accessFrom(
     if (named.length === 0) {
       throw new Problem("--access roles needs --roles, naming at least one.");
     }
-    return { kind: "roles", roles: named };
+    return { kind: "roles", roleNames: named };
   }
   if (roles !== undefined) {
     throw new Problem("--roles only goes with --access roles.");
@@ -62,7 +63,9 @@ function accessFrom(
 }
 
 /** The app robkit add's flags describe, with a default for each left out. */
-export function appChoicesFromFlags(slug: string, flags: AddFlags): AppChoices {
+export function appChoicesFromFlags(name: string, flags: AddFlags): AppChoices {
+  const slug = readSlug(name);
+  if (typeof slug !== "string") throw new Error(slug.error);
   return {
     stack: stackFrom(flags.stack ?? defaultChoices.exampleStack),
     slug,
@@ -80,7 +83,9 @@ export function addCommandFor({ stack, slug, access, icon }: AppChoices) {
     `robkit add ${slug}`,
     `--stack ${stack}`,
     `--access ${access.kind}`,
-    ...(access.kind === "roles" ? [`--roles "${access.roles.join(",")}"`] : []),
+    ...(access.kind === "roles"
+      ? [`--roles "${access.roleNames.join(",")}"`]
+      : []),
     `--icon ${icon}`,
   ].join(" ");
 }
@@ -109,15 +114,18 @@ export async function askAdd(
       options: readyStackOptions,
     }),
   );
-  const slug =
+  const slug = readNewSlug(
+    root,
     given ??
-    answered(
-      await text({
-        message: "What's the app called?",
-        placeholder: "notes",
-        validate: (answer) => newSlugProblem(root, answer ?? ""),
-      }),
-    );
+      answered(
+        await text({
+          message: "What's the app called?",
+          placeholder: "notes",
+          validate: (answer) => newSlugProblem(root, answer ?? ""),
+        }),
+      ),
+  );
+  if (typeof slug !== "string") throw new Error(slug.error);
   const access = answered(
     await select<Access>({
       message: "Who can open it?",

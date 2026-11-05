@@ -205,7 +205,7 @@ describe("robkit database-urls", { timeout: 30_000 }, () => {
     expect({ code, output }).toEqual({
       code: 1,
       output:
-        "Set ROBKIT_ADMIN_DATABASE_URL to the host's Postgres admin URL and ROBKIT_DB_SECRET to the install's database secret.\n",
+        "ROBKIT_ADMIN_DATABASE_URL is not set. Set it to the host's Postgres admin URL.\nROBKIT_DB_SECRET is not set. Set it to the install's database secret, at least 32 characters, such as the output of openssl rand -hex 32.\n",
     });
   });
 });
@@ -226,6 +226,7 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
 
     const { code, output } = await drive(bin, dir, ["deploy"], [], {
       COOLIFY_URL: "https://coolify.example",
+      COOLIFY_TOKEN: "t",
     });
 
     expect({ code, output }).toEqual({
@@ -233,6 +234,19 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
       output:
         "This install has no coolify.json. See docs/deploy.md to set one up.\n",
     });
+  });
+
+  it.each([
+    ["{", /^coolify\.json isn't valid JSON \(.+\)\. Fix its syntax\.\n$/],
+    ["null", /^coolify\.json must be a JSON object with project/],
+  ])("names coolify.json when it holds %s", async (text, message) => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "coolify.json"), text);
+
+    const { code, output } = await drive(bin, dir, ["deploy", "--dry-run"]);
+
+    expect(code).toBe(1);
+    expect(output).toMatch(message);
   });
 
   it("prints each app's variables on a dry run", async () => {

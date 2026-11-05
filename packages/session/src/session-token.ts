@@ -5,6 +5,7 @@ import {
   type JWTPayload,
   type JWTVerifyGetKey,
 } from "jose";
+import type { Slug } from "./install-addresses.ts";
 
 /**
  * The cookie that carries a session token: core's own on core's host, and
@@ -135,7 +136,7 @@ export async function readAppToken(
   key: VerifyKey,
   token: string,
   now: Date,
-  app: string,
+  app: Slug,
 ): Promise<ReadAppToken | undefined> {
   const read = await verified(key, token, now);
   if (read?.payload.aud !== app) return undefined;
