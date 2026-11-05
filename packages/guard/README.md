@@ -45,5 +45,5 @@ The whole decision is one table in `src/guard.ts`. `docs/architecture.md` draws 
 
 ## What it must never do
 
-- Import a framework, or do I/O: no `fetch`, no file system, no network, no clock. `tooling/eslint` enforces both.
+- Import a framework, or do I/O: no Node built-in modules, no `fetch`, no `process`. `tooling/eslint` enforces both.
 - Decide differently from `conformance.json`. Change the table and the cases together.
