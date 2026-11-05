@@ -14,6 +14,11 @@
     "pnpm-workspace.yaml": ["catalog"],
   },
   "workspaces": {
+    ".": {
+      // The pre-commit hook runs it from lint-staged.config.js, whose
+      // commands a function builds, so knip can't read them.
+      "ignoreDependencies": ["eslint"],
+    },
     "tooling/eslint": {
       // The rules' JSDoc names estree's types, which ESLint's types bring.
       "ignoreDependencies": ["estree"],
