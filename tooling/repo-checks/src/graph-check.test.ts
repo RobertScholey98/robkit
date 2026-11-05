@@ -1,12 +1,16 @@
 import { fileURLToPath } from "node:url";
+import { layers } from "@internal/eslint-config/layers";
 import { describe, expect, it } from "vitest";
 import {
   cycles,
   importProblems,
   importsIn,
   importsUnder,
+  layerConflicts,
+  layerForbids,
   manifestProblems,
   readWorkspace,
+  type LayerRow,
   type WorkspacePackage,
 } from "./graph-check.ts";
 import { packageGraph, type PackageGraph } from "./package-graph.ts";
@@ -178,7 +182,51 @@ describe("importsIn", () => {
   });
 });
 
+describe("layerConflicts", () => {
+  const noCore: LayerRow = {
+    applies: (workspace) => workspace === "packages/hono",
+    rule: "Layer rule: hono never imports core.",
+    modules: ["@robkit/core"],
+  };
+  const noCoreFolder: LayerRow = {
+    ...noCore,
+    modules: [],
+    folders: ["packages/core"],
+  };
+
+  it("rejects an edge the graph allows and the layer rule forbids, by name or folder", () => {
+    const reaching: PackageGraph = {
+      ...graph,
+      "@robkit/hono": {
+        dependencies: ["@robkit/guard"],
+        devDependencies: ["@robkit/core"],
+      },
+    };
+
+    for (const row of [noCore, noCoreFolder]) {
+      expect(layerConflicts(reaching, layerForbids(packages, [row]))).toEqual([
+        `${graphFile} lets @robkit/hono depend on @robkit/core, which the layer ESLint rule forbids: Layer rule: hono never imports core.`,
+      ]);
+    }
+  });
+
+  it("accepts a graph without the forbidden edge", () => {
+    expect(layerConflicts(graph, layerForbids(packages, [noCore]))).toEqual([]);
+  });
+});
+
 describe("the robkit workspace", () => {
+  it("agrees with the layer ESLint rule", async () => {
+    const forbidden = layerForbids(await readWorkspace(root), layers);
+
+    expect(forbidden.map(({ from, to }) => `${from} -> ${to}`)).toEqual([
+      "@robkit/hono -> @robkit/core",
+      "@robkit/react -> @robkit/core",
+      "@robkit/start -> @robkit/core",
+    ]);
+    expect(layerConflicts(packageGraph, forbidden)).toEqual([]);
+  });
+
   it("names every package in the graph, and every manifest keeps to it", async () => {
     expect(manifestProblems(packageGraph, await readWorkspace(root))).toEqual(
       [],

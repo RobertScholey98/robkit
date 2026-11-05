@@ -1,5 +1,6 @@
 import { glob, readdir, readFile } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
+import { matchesGlob } from "node:path/posix";
 import ts from "typescript";
 import type { PackageGraph } from "./package-graph.ts";
 import { toolchain } from "./package-graph.ts";
@@ -160,6 +161,59 @@ export function importProblems(
         ]
       : [];
   });
+}
+
+/** A row of the `layer` ESLint rule, as `@internal/eslint-config/layers` declares it. */
+export interface LayerRow {
+  applies: (workspace: string) => boolean;
+  rule: string;
+  modules?: string[];
+  folders?: string[];
+}
+
+/** An edge between workspace packages that a layer row forbids. */
+export interface ForbiddenEdge {
+  from: string;
+  to: string;
+  rule: string;
+}
+
+/** Every edge between workspace packages that the `layer` ESLint rule forbids. */
+export function layerForbids(
+  packages: readonly WorkspacePackage[],
+  layers: readonly LayerRow[],
+): ForbiddenEdge[] {
+  return packages.flatMap((from) =>
+    layers
+      .filter((row) => row.applies(from.folder))
+      .flatMap((row) =>
+        packages
+          .filter(
+            (to) =>
+              to !== from &&
+              ((row.modules ?? []).some(
+                (module) => to.name === module || matchesGlob(to.name, module),
+              ) ||
+                (row.folders ?? []).includes(to.folder)),
+          )
+          .map((to) => ({ from: from.name, to: to.name, rule: row.rule })),
+      ),
+  );
+}
+
+/** Each edge the graph allows that the `layer` ESLint rule forbids. */
+export function layerConflicts(
+  graph: PackageGraph,
+  forbidden: readonly ForbiddenEdge[],
+): string[] {
+  return forbidden
+    .filter(({ from, to }) =>
+      allowed(graph, from, "devDependencies").includes(to),
+    )
+    .map(
+      ({ from, to, rule }) =>
+        `${graphFile} lets ${from} depend on ${to}, which the layer ESLint rule forbids: ${rule}`,
+    );
 }
 
 /** Each cycle in the graph, as the path that closes it. */
