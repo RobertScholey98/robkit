@@ -5,7 +5,8 @@ How the engineering skills should read this repo's domain documentation before e
 ## Before exploring, read these
 
 - `GLOSSARY.md` at the repo root holds the domain terms. The Matt Pocock skills call this file `CONTEXT.md`; in this repo, read `GLOSSARY.md` wherever a skill says `CONTEXT.md`.
-- `.scratch/kit/map.md` and the tickets it links hold the architectural decisions. This repo has no `docs/adr/` yet; read the map wherever a skill says ADRs.
+- `docs/adr/` holds a short record of each settled decision. `.scratch/kit/map.md` and the tickets it links hold every decision, settled or not, with the full discussion. Read both wherever a skill says ADRs.
+- `docs/architecture.md` shows how a request and a token flow, and which package depends on which.
 - `AGENTS.md` holds robkit's layer rule.
 
 If one of these files doesn't exist yet, carry on without it.
