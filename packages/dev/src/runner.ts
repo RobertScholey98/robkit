@@ -4,6 +4,7 @@ import { install } from "@robkit/session/addresses";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { readDevConfig } from "./env.ts";
 import { exec, prefixLines } from "./exec.ts";
+import { failuresOf, throwFailures } from "./failures.ts";
 import { createProxy } from "./proxy.ts";
 import { stopGroup } from "./process-group.ts";
 import { provisionApps } from "./provision.ts";
@@ -15,7 +16,8 @@ import { provisionApps } from "./provision.ts";
  * front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
  *
  * @returns the exit code: 0 after a signal, 1 if an app exited
- * @throws what failed while starting or stopping, once everything stopped
+ * @throws what failed while starting or stopping, once everything stopped:
+ *   one failure as it is, or several in an AggregateError
  */
 export async function runDev(
   root: string,
@@ -40,8 +42,8 @@ export async function runDev(
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;
-  // The first error, thrown once everything has stopped.
-  let failure: { error: unknown } | undefined;
+  // What failed, thrown once everything has stopped.
+  const failures: unknown[] = [];
   const { promise: stopRequested, resolve: wake } =
     Promise.withResolvers<undefined>();
   const stopController = new AbortController();
@@ -103,23 +105,29 @@ export async function runDev(
       console.log();
     }
   } catch (error) {
-    failure ??= { error };
+    failures.push(error);
     stop("failed");
   }
 
   await stopRequested;
-  await Promise.all(
-    running.map(({ slug, child }) => stopGroup(slug, child.pid)),
+  const stopApps = running.map(
+    ({ slug, child }) =>
+      () =>
+        stopGroup(slug, child.pid),
   );
-  proxy.closeAllConnections();
-  proxy.close();
-  try {
-    await exec("docker", ["compose", "stop"], { cwd: root, env });
-  } catch (error) {
-    failure ??= { error };
+  const closeProxy = () => {
+    proxy.closeAllConnections();
+    proxy.close();
+  };
+  const stopPostgres = () =>
+    exec("docker", ["compose", "stop"], { cwd: root, env });
+  // The apps stop together, then the proxy, then Postgres. Each stage runs
+  // even when one before it failed, so nothing is left running.
+  for (const stage of [stopApps, [closeProxy], [stopPostgres]]) {
+    failures.push(...(await failuresOf(stage)));
   }
   process.off("SIGINT", onSignal);
   process.off("SIGTERM", onSignal);
-  if (failure) throw failure.error;
+  throwFailures(failures);
   return outcome === "failed" ? 1 : 0;
 }
