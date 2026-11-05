@@ -248,8 +248,9 @@ export function requestGuard(
       } catch {
         return text(errors.keys, 503);
       }
-      if (!read)
+      if (!read) {
         return text("Core's token for this app doesn't check out.", 400);
+      }
       if (read.expired) {
         return text(
           "The token core just issued has already expired by this app's clock. Check that the app's clock agrees with core's.",
