@@ -1,5 +1,14 @@
 import { freePort } from "@internal/test-postgres";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  inject,
+  it,
+  onTestFinished,
+  vi,
+} from "vitest";
 import { createApp } from "./app.ts";
 import { createDatabase, type Database } from "./database.ts";
 
@@ -23,17 +32,70 @@ describe("GET /status", () => {
     expect(await res.json()).toEqual({ status: "ok" });
   });
 
-  it("answers 503 when the database is unreachable", async () => {
+  it("answers 503 when the database is unreachable, and logs why", async () => {
     const unreachable = createDatabase(
       `postgres://core:x@127.0.0.1:${String(await freePort())}/robkit`,
     );
-    const app = createApp({ db: unreachable, domain: "localhost" });
+    const logged: [string, unknown][] = [];
+    const app = createApp({
+      db: unreachable,
+      domain: "localhost",
+      logError: (message, cause) => logged.push([message, cause]),
+    });
 
     const res = await app.request("/status");
     await unreachable.$client.end();
 
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ status: "unavailable" });
+    expect(logged.map(([message]) => message)).toEqual([
+      "GET /status: the database is unreachable. Check DATABASE_URL and that Postgres is running.",
+    ]);
+    expect(logged[0]?.[1]).toBeInstanceOf(Error);
+  });
+});
+
+describe("an unexpected error", () => {
+  it("is logged with its route and cause, and answered with a generic JSON error", async () => {
+    const unreachable = createDatabase(
+      `postgres://core:x@127.0.0.1:${String(await freePort())}/robkit`,
+    );
+    const logged: [string, unknown][] = [];
+    const app = createApp({
+      db: unreachable,
+      domain: "localhost",
+      logError: (message, cause) => logged.push([message, cause]),
+    });
+
+    const res = await app.request("/.well-known/jwks.json");
+    await unreachable.$client.end();
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({
+      error: "Core hit an unexpected error. Its log says what went wrong.",
+    });
+    expect(logged.map(([message]) => message)).toEqual([
+      "GET /.well-known/jwks.json failed.",
+    ]);
+    expect(logged[0]?.[1]).toBeInstanceOf(Error);
+  });
+
+  it("goes to console.error when nothing else is set", async () => {
+    const unreachable = createDatabase(
+      `postgres://core:x@127.0.0.1:${String(await freePort())}/robkit`,
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    onTestFinished(() => {
+      log.mockRestore();
+    });
+    const app = createApp({ db: unreachable, domain: "localhost" });
+
+    await app.request("/.well-known/jwks.json");
+    await unreachable.$client.end();
+
+    expect(log.mock.calls.map(([message]) => message as unknown)).toEqual([
+      "GET /.well-known/jwks.json failed.",
+    ]);
   });
 });
 
