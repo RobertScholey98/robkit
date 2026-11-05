@@ -26,7 +26,7 @@ const notes: AppChoices = {
 };
 
 describe("addApp", () => {
-  it("writes apps/<slug> from the stack's template, declaring its rule and icon", async () => {
+  it("writes apps/<slug> from the stack's template, with a manifest naming it, its stack, its contract, its rule and icon", async () => {
     const dir = await freshInstall();
 
     await addApp(dir, notes);
@@ -35,7 +35,13 @@ describe("addApp", () => {
       name: "@internal/notes-app",
       scripts: { migrate: "node src/migrate.ts" },
       dependencies: { "@robkit/hono": "catalog:" },
-      robkit: { access: { kind: "open" }, icon: "📝" },
+      robkit: {
+        name: "notes",
+        stack: "react-hono",
+        contract: 1,
+        access: { kind: "open" },
+        icon: "📝",
+      },
     });
     expect(await readFile(join(dir, "apps/notes/src/server.tsx"), "utf8")).toBe(
       await readFile(
@@ -87,7 +93,13 @@ describe("addApp", () => {
       name: "@internal/notes-app",
       private: true,
       scripts: { dev: "vite dev" },
-      robkit: { access: { kind: "open" }, icon: "📝" },
+      robkit: {
+        name: "notes",
+        stack: "start",
+        contract: 1,
+        access: { kind: "open" },
+        icon: "📝",
+      },
     });
   });
 

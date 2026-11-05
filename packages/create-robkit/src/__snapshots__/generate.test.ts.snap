@@ -38,7 +38,7 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   "apps/example/drizzle/0000_init.sql": "504e91802ecbac63",
   "apps/example/drizzle/meta/0000_snapshot.json": "b0dfc99d6d0a27fd",
   "apps/example/drizzle/meta/_journal.json": "fc855da1b2644c6a",
-  "apps/example/package.json": "0438aebcf72870d1",
+  "apps/example/package.json": "862854b8a64ead65",
   "apps/example/src/database.ts": "a46958e10a965b54",
   "apps/example/src/migrate.ts": "736dea4d15df0c31",
   "apps/example/src/schema.ts": "6778af76d5ce6bdb",
@@ -140,7 +140,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "apps/example/drizzle/0000_init.sql": "504e91802ecbac63",
   "apps/example/drizzle/meta/0000_snapshot.json": "b0dfc99d6d0a27fd",
   "apps/example/drizzle/meta/_journal.json": "fc855da1b2644c6a",
-  "apps/example/package.json": "ef60668e0ae0c687",
+  "apps/example/package.json": "85766625638867fb",
   "apps/example/src/database.ts": "a46958e10a965b54",
   "apps/example/src/migrate.ts": "736dea4d15df0c31",
   "apps/example/src/routeTree.gen.ts": "7530b89026266c8d",
@@ -248,6 +248,9 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
     "vite": "catalog:"
   },
   "robkit": {
+    "name": "example",
+    "stack": "start",
+    "contract": 1,
     "icon": "📦"
   }
 }

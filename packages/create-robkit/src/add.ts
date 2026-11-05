@@ -4,12 +4,8 @@ import { join } from "node:path";
 import { slugProblem } from "@robkit/dev";
 import { isPlatformApp, platformApps } from "@robkit/session/addresses";
 import type { Choices, Stack } from "./choices.ts";
-import {
-  appFiles,
-  readFolder,
-  stackTemplate,
-  type Declares,
-} from "./generate.ts";
+import { appFiles, readFolder, stackTemplate } from "./generate.ts";
+import type { Access } from "./manifest.ts";
 import { writeInstall } from "./write.ts";
 
 /**
@@ -20,7 +16,7 @@ export interface AppChoices {
   stack: Stack;
   slug: string;
   /** Who may open the app once core adds it. A rule's roles are named. */
-  access: NonNullable<Declares["access"]>;
+  access: Access;
   icon: string;
 }
 
@@ -98,7 +94,7 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   const template = await templateFor(root, choices.stack);
   await writeInstall(
     join(root, "apps", choices.slug),
-    appFiles(template, choices.slug, {
+    appFiles(template, choices.slug, choices.stack, {
       access: choices.access,
       icon: choices.icon,
     }),
