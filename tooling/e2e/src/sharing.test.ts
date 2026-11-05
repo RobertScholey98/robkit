@@ -24,6 +24,7 @@ import { addedAppJourney } from "./added-app-journey.ts";
 import { takeBrowserLog } from "./browser.ts";
 import {
   changedHeading,
+  greeting,
   seededNote,
   sharedSlug,
   type Sharing,
@@ -209,7 +210,7 @@ describe("sharing apps between installs", () => {
       await readFile(join(app, "drizzle/0001_notes.sql"), "utf8"),
     ).toContain('CREATE TABLE "note"');
     expect(await readFile(join(app, "src/routes/index.tsx"), "utf8")).toContain(
-      changedHeading,
+      `"${greeting} Signed in as the owner"`,
     );
     expect(existsSync(join(app, "seed.sql"))).toBe(true);
   });

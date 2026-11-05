@@ -16,8 +16,11 @@ const guestbookSample = fileURLToPath(
 /** The app install A adds, changes and exports, and install B imports. */
 export const sharedSlug = "notes";
 
-/** What the shared app's page says to a guest after install A's change. */
-export const changedHeading = "Hello from install A";
+/** What install A's change puts before the shared app's heading. */
+export const greeting = "Hello from install A.";
+
+/** The shared app's heading for a guest, after install A's change. */
+export const changedHeading = `${greeting} Signed in as a guest`;
 
 /** The row the shared app's seed puts in the table install A added. */
 export const seededNote = "Seeded in install A";
@@ -113,9 +116,10 @@ export async function shareAcrossInstalls(): Promise<Sharing> {
   const page = join(app, "src/routes/index.tsx");
   await writeFile(
     page,
-    (await readFile(page, "utf8")).replace(
-      '"Signed in as a guest"',
-      JSON.stringify(changedHeading),
+    // As TESTING.md's sed does it.
+    (await readFile(page, "utf8")).replaceAll(
+      "Signed in as",
+      `${greeting} Signed in as`,
     ),
   );
   await appendFile(
