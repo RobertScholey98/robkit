@@ -26,12 +26,6 @@ export interface PackageManagerAdapter {
   readonly settingsFiles: readonly string[];
   /** The lockfile an install writes. */
   readonly lockfile: string;
-  /**
-   * How `--link` points the install at a package in a robkit checkout.
-   * `portal` installs the package's own dependencies from the install's
-   * catalog, and links its bins, as a package from npm does.
-   */
-  readonly linkProtocol: "link" | "portal";
   /** Installs a new install's dependencies, which have no lockfile yet. */
   readonly install: string;
   /** How a person runs one of the install's scripts, arguments included. */
@@ -53,7 +47,6 @@ const pnpmSettings = "pnpm-workspace.yaml";
 
 const pnpm: PackageManagerAdapter = {
   settingsFiles: [pnpmSettings],
-  linkProtocol: "link",
   lockfile: "pnpm-lock.yaml",
   // pnpm on CI refuses an install with no lockfile unless told.
   install: "pnpm install --no-frozen-lockfile",
@@ -147,7 +140,6 @@ function alignComment(line: string, column: number): string {
 
 const bun: PackageManagerAdapter = {
   settingsFiles: ["package.json"],
-  linkProtocol: "link",
   lockfile: "bun.lock",
   install: "bun install",
   run: (script) => `bun run ${script}`,
@@ -191,75 +183,6 @@ const bun: PackageManagerAdapter = {
 };
 
 /**
- * How yarn spells what the templates name for pnpm, in the order they
- * apply. yarn runs a script as `yarn run <script>` and a dependency's
- * binary as `yarn <binary>`.
- */
-const yarnSpellings: [RegExp, string][] = [
-  [/pnpm-workspace\.yaml/g, ".yarnrc.yml"],
-  [/pnpm-lock\.yaml/g, "yarn.lock"],
-  [/\bpnpm exec /g, "yarn "],
-  [/\bpnpm install --frozen-lockfile\b/g, "yarn install --immutable"],
-  [/\bpnpm install\b/g, "yarn install"],
-  [/\bpnpm (run )?(?=[\w:-])/g, "yarn run "],
-];
-
-const yarnSettings = ".yarnrc.yml";
-
-const yarn: PackageManagerAdapter = {
-  settingsFiles: [yarnSettings, "package.json"],
-  // yarn links no bins from a link: package, and an install runs
-  // robkit-dev and robkit.
-  linkProtocol: "portal",
-  lockfile: "yarn.lock",
-  // yarn on CI refuses to write a lockfile unless told.
-  install: "yarn install --no-immutable",
-  run: (script) => `yarn run ${script}`,
-  packageManagerOf(repo) {
-    // yarn's own bundle, which npm installs without Corepack.
-    const version = repo.catalog.get("@yarnpkg/cli-dist");
-    if (version === undefined)
-      throw new Error("yarn has no version in robkit's catalog");
-    return `yarn@${version}`;
-  },
-  async writeSettings(files, { catalog, builds, overrides }) {
-    if (catalog) {
-      const settings = parseDocument(files.get(yarnSettings) ?? "");
-      settings.set("catalog", catalog);
-      files.set(
-        yarnSettings,
-        await format(settings.toString(), { filepath: yarnSettings }),
-      );
-    }
-    const manifest = manifestIn(files);
-    if (builds && Object.keys(builds).length > 0) {
-      // .yarnrc.yml turns install scripts off, and these turn each back on
-      // or keep it off.
-      manifest.dependenciesMeta = {
-        ...(manifest.dependenciesMeta as Json | undefined),
-        ...Object.fromEntries(
-          Object.entries(builds).map(([name, built]) => [name, { built }]),
-        ),
-      };
-    }
-    if (overrides) {
-      manifest.resolutions = {
-        ...(manifest.resolutions as Json | undefined),
-        ...overrides,
-      };
-    }
-    files.set("package.json", await formatJson(manifest));
-  },
-  overridesIn(files) {
-    const { resolutions } = manifestIn(files) as {
-      resolutions?: Record<string, string>;
-    };
-    return resolutions ?? {};
-  },
-  spell: (text) => spellWith(yarnSpellings, text),
-};
-
-/**
  * Each package manager init offers, by name. Adding one is an entry here,
  * its option in the choice table, and its template layer, which brings its
  * settings file, Dockerfile and CI workflow.
@@ -267,5 +190,4 @@ const yarn: PackageManagerAdapter = {
 export const packageManagers: Record<PackageManager, PackageManagerAdapter> = {
   pnpm,
   bun,
-  yarn,
 };

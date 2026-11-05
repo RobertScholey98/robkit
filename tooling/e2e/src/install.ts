@@ -27,10 +27,8 @@ export const installChoices = {
     generators: ["react-hono", "start"],
     uiKit: "chakra",
   },
-  // On yarn, which runs its scripts and installs its dependencies.
   prisma: {
     ...defaultChoices,
-    packageManager: "yarn",
     orm: "prisma",
     uiKit: "shadcn-radix",
   },

@@ -22,7 +22,7 @@ describe("choicesFromFlags", () => {
 
   it("names the options when a flag's value isn't one", () => {
     expect(() => choicesFromFlags({ pm: "npm" })).toThrow(
-      "--pm npm isn't an option. Choose from: pnpm, bun, yarn.",
+      "--pm npm isn't an option. Choose from: pnpm, bun.",
     );
     expect(() => choicesFromFlags({ generators: "start,next" })).toThrow(
       "--generators next isn't an option. Choose from: start, react-hono.",

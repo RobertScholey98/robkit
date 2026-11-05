@@ -263,29 +263,6 @@ function versionOf(repo: RobkitRepo, name: string): string {
 }
 
 /**
- * The robkit packages among `names` with every robkit package they depend
- * on, and the dependencies they all take from the catalog.
- */
-function linkedClosure(
-  names: string[],
-  repo: RobkitRepo,
-): { packages: string[]; catalog: string[] } {
-  const packages = new Set<string>();
-  const catalog = new Set<string>();
-  const visit = (name: string) => {
-    const pkg = repo.packages.get(name);
-    if (pkg === undefined || packages.has(name)) return;
-    packages.add(name);
-    for (const [dependency, spec] of Object.entries(pkg.dependencies)) {
-      if (repo.packages.has(dependency)) visit(dependency);
-      else if (spec === "catalog:") catalog.add(dependency);
-    }
-  };
-  names.forEach(visit);
-  return { packages: [...packages].sort(), catalog: [...catalog].sort() };
-}
-
-/**
  * Writes the package manager's settings: the catalog, the install scripts
  * it may run, and the links to robkit's packages when asked. Then names the
  * manager in the root manifest.
@@ -299,26 +276,18 @@ async function renderSettings(
   { link = false }: GenerateOptions,
 ): Promise<void> {
   const pm = packageManagers[packageManager];
-  // A portal installs each linked package's own dependencies, so the
-  // install links every robkit package they need and catalogs the rest.
-  const portal = link && pm.linkProtocol === "portal";
-  const linked = portal
-    ? linkedClosure(names, repo)
-    : { packages: names, catalog: [] };
-  const catalogNames = [...new Set([...names, ...linked.catalog])].sort();
   const settings: Settings = {
     builds,
     catalog: Object.fromEntries(
-      catalogNames.map((name) => [name, versionOf(repo, name)]),
+      names.map((name) => [name, versionOf(repo, name)]),
     ),
   };
   if (link) {
     settings.overrides = Object.fromEntries(
-      linked.packages.flatMap((name) => {
+      names.flatMap((name) => {
         const pkg = repo.packages.get(name);
         if (pkg === undefined) return [];
-        const dir = pkg.dir.replaceAll("\\", "/");
-        return [[name, `${pm.linkProtocol}:${dir}`]];
+        return [[name, `link:${pkg.dir.replaceAll("\\", "/")}`]];
       }),
     );
   }

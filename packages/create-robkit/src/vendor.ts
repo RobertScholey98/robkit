@@ -28,7 +28,7 @@ export async function vendorPackages(root: string): Promise<void> {
       ),
     ),
   );
-  const protocol = `${pm.linkProtocol}:`;
+  const protocol = "link:";
   const linked = Object.entries(pm.overridesIn(settings)).filter(([, spec]) =>
     spec.startsWith(protocol),
   );

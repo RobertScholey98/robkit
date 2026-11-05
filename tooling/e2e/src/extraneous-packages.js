@@ -3,7 +3,7 @@
 // node_modules that the app, or the install's root, doesn't reach through
 // dependencies, optional dependencies or peers. A workspace package the app
 // only builds with, such as packages/ui for the hub, is a dev dependency, so
-// its own dependencies count too. pnpm, bun and yarn lay node_modules out
+// its own dependencies count too. pnpm and bun lay node_modules out
 // differently, so it walks the files rather than asking a package manager.
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
