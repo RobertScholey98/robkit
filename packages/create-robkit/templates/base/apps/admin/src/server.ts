@@ -31,7 +31,8 @@ const assets = await clientAssets();
 
 const app = new Hono();
 
-app.use(guarded({ access: { kind: "owner" }, core }));
+// Only the owner may open admin, whatever core's catalog says.
+app.use(guarded({ app: "admin", access: { kind: "owner" }, core }));
 
 // The page calls core from the browser, so it carries core's address.
 app.get("*", (c) =>

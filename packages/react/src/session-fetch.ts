@@ -18,11 +18,11 @@ function leaveFor({ location }: SessionLapsed): void {
 
 /**
  * `fetch` for calls from the page to its own app, such as Start's server
- * functions. When the guard says the session has lapsed, it sends the
- * browser through core's refresh, or to the hub to log in, and back to this
- * page. That call never settles, since the page is leaving, so callers
- * don't show an error for it. Every other answer, errors included, goes to
- * the caller untouched.
+ * functions. When the guard says the app's token has lapsed, it sends the
+ * browser through the app's refresh path and core for a new one, or to the
+ * hub to log in, and back to this page. That call never settles, since the
+ * page is leaving, so callers don't show an error for it. Every other
+ * answer, errors included, goes to the caller untouched.
  */
 export const sessionFetch: typeof fetch = async (input, init) => {
   const response = await fetch(input, init);

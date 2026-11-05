@@ -14,6 +14,7 @@ function viewerOf({
   switch (session) {
     case "signed-out":
       return { kind: "nobody" };
+    case "unknown":
     case "expired":
       return undefined;
     case "owner":
@@ -25,8 +26,13 @@ function viewerOf({
 
 function sessionOf(asking: ConformanceCase): SessionState {
   const viewer = viewerOf(asking);
-  if (asking.session === "signed-out" || asking.session === "expired") {
-    return { state: asking.session };
+  const { session } = asking;
+  if (
+    session === "unknown" ||
+    session === "signed-out" ||
+    session === "expired"
+  ) {
+    return { state: session };
   }
   if (viewer === undefined || viewer.kind === "nobody") {
     throw new Error(`no viewer for ${asking.session}`);

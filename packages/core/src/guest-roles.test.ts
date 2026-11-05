@@ -28,11 +28,16 @@ async function refreshed(
   sessionToken: string,
   domain = "robkit.test",
 ): Promise<string> {
+  return sessionCookieOf(await refresh(app, sessionToken, domain))?.value ?? "";
+}
+
+function refresh(app: Hono, sessionToken: string, domain = "robkit.test") {
   const next = encodeURIComponent(`https://notes.${domain}/`);
-  const res = await app.request(`/refresh?next=${next}`, {
-    headers: withSession(sessionToken),
-  });
-  return sessionCookieOf(res)?.value ?? "";
+  return Promise.resolve(
+    app.request(`/refresh?next=${next}`, {
+      headers: withSession(sessionToken),
+    }),
+  );
 }
 
 describe("a guest's session token", () => {
@@ -82,6 +87,37 @@ describe("a guest's session token", () => {
 
     expect(rolesIn(guest)).toEqual([]);
     expect(rolesIn(await refreshed(app, guest))).toEqual([Friends]);
+  });
+
+  it("goes to the app with the roles the guest holds now", async () => {
+    const { app } = await freshCore();
+    const owner = await claim(app);
+    const minted = await postJson(
+      app,
+      "/codes",
+      { name: "Gran" },
+      withSession(owner),
+    );
+    const { id, code } = (await minted.json()) as { id: string; code: string };
+    const guest = await signIn(app, code);
+    const { Friends } = await roleIdsByName(app, owner);
+    await postJson(
+      app,
+      `/roles/${Friends ?? ""}/codes`,
+      { codeIds: [id] },
+      withSession(owner),
+    );
+
+    const res = await refresh(app, guest);
+    const location = new URL(res.headers.get("location") ?? "");
+    const appToken = location.searchParams.get("token") ?? "";
+
+    expect(decodeJwt(appToken)).toMatchObject({
+      aud: "notes",
+      sub: id,
+      kind: "guest",
+      roles: [Friends],
+    });
   });
 
   it("is reissued as soon as core sees the roles changed, so the launcher and apps agree", async () => {

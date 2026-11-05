@@ -1,4 +1,10 @@
-import { conformanceAnswer, fakeCore, owner } from "@internal/test-session";
+import {
+  callbackFor,
+  conformanceAnswer,
+  fakeCore,
+  owner,
+  stateIn,
+} from "@internal/test-session";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { describe, expect, it } from "vitest";
 import { guarded, type GuardedOptions } from "./index.ts";
@@ -8,6 +14,7 @@ import { guarded, type GuardedOptions } from "./index.ts";
 
 const page = "http://start.robkit.localhost:3000/notes?x=1";
 const serverFn = "http://start.robkit.localhost:3000/_serverFn/abc";
+const navigate = { "sec-fetch-mode": "navigate" };
 const minute = 60;
 
 /**
@@ -26,12 +33,16 @@ describe("guarded", () => {
   it.each(conformanceCases)("$name", async (asking) => {
     const core = await fakeCore();
 
-    const res = await open({ access: asking.rule, core: core.origin }, page, {
-      headers: {
-        "sec-fetch-mode": "navigate",
-        ...(await core.key.cookieFor(asking)),
+    const res = await open(
+      { app: "start", access: asking.rule, core: core.origin },
+      page,
+      {
+        headers: {
+          ...navigate,
+          ...(await core.key.cookieFor(asking, "start")),
+        },
       },
-    });
+    );
 
     const body =
       res.status === 200
@@ -46,16 +57,20 @@ describe("guarded", () => {
 
   it("answers a server function call with an expired session with the guard's 401", async () => {
     const core = await fakeCore();
+    const token = await core.key.token({
+      ageSeconds: 20 * minute,
+      audience: "start",
+    });
 
     const res = await open(
-      { access: { kind: "owner" }, core: core.origin },
+      { app: "start", access: { kind: "owner" }, core: core.origin },
       serverFn,
       {
         method: "POST",
         headers: {
           "sec-fetch-mode": "cors",
           "x-tsr-serverfn": "true",
-          cookie: `robkit_session=${await core.key.token(20 * minute)}`,
+          cookie: `robkit_session=${token}`,
         },
       },
     );
@@ -68,21 +83,49 @@ describe("guarded", () => {
 
   it("hands a server function call the viewer as context", async () => {
     const core = await fakeCore();
+    const token = await core.key.token({ audience: "start" });
 
     const res = await open(
-      { access: { kind: "owner" }, core: core.origin },
+      { app: "start", access: { kind: "owner" }, core: core.origin },
       serverFn,
       {
         method: "POST",
         headers: {
           "sec-fetch-mode": "cors",
           "x-tsr-serverfn": "true",
-          cookie: `robkit_session=${await core.key.token()}`,
+          cookie: `robkit_session=${token}`,
         },
       },
     );
 
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ viewer: owner });
+  });
+
+  it("takes the app's token from core at the guard's callback, before Start sees it", async () => {
+    const core = await fakeCore();
+    const options = {
+      app: "start",
+      access: { kind: "owner" },
+      core: core.origin,
+    } as const;
+    const away = await open(options, page, { headers: navigate });
+    const [state] = away.headers.getSetCookie();
+
+    const back = await open(
+      options,
+      callbackFor(page, {
+        state: stateIn(away.headers.get("location")),
+        token: await core.key.token({ audience: "start" }),
+      }),
+      { headers: { ...navigate, cookie: state?.split(";")[0] ?? "" } },
+    );
+    const [session] = back.headers.getSetCookie();
+    const res = await open(options, page, {
+      headers: { ...navigate, cookie: session?.split(";")[0] ?? "" },
+    });
+
+    expect([back.status, back.headers.get("location")]).toEqual([302, page]);
     expect(await res.json()).toEqual({ viewer: owner });
   });
 });

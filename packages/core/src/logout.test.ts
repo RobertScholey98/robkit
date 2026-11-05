@@ -40,7 +40,6 @@ describe("POST /logout", () => {
       value: "",
       attributes: {
         "Max-Age": "0",
-        Domain: "robkit.test",
         Path: "/",
         HttpOnly: true,
         Secure: true,

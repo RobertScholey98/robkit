@@ -1,6 +1,10 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
 import type { SessionState, SignedInViewer } from "@robkit/guard";
-import { readSessionToken, type SessionTokenClaims } from "@robkit/session";
+import {
+  readSessionToken,
+  type ReadSessionToken,
+  type SessionTokenClaims,
+} from "@robkit/session";
 import { standingOf, type AccessCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { dummyPasswordHash, verifyPassword } from "./password.ts";
@@ -223,15 +227,33 @@ async function holderOf(
 }
 
 /**
- * Answers who the session token's holder is. The token's signature must be
- * core's, but its session row decides: a revoked or expired session signs the
- * holder out, and a live session renews an expired token, or a guest's
- * token whose roles have changed. With `renew`, a live session renews any
- * token.
+ * The claims of the first of `sessionTokens` that is core's own token, if
+ * any. An app's token, or one an older robkit set on the parent domain,
+ * doesn't count.
+ */
+async function coreClaimsIn(
+  ctx: SessionContext,
+  sessionTokens: readonly string[],
+  now: Date,
+): Promise<ReadSessionToken | undefined> {
+  const { publicKey } = await ctx.signingKey();
+  for (const sessionToken of sessionTokens) {
+    const claims = await readSessionToken(publicKey, sessionToken, now);
+    if (claims) return claims;
+  }
+  return undefined;
+}
+
+/**
+ * Answers who holds the session of the first of `sessionTokens` that is
+ * core's own. Its signature must be core's, but its session row decides: a
+ * revoked or expired session signs the holder out, and a live session
+ * renews an expired token, or a guest's token whose roles have changed.
+ * With `renew`, a live session renews any token.
  */
 export async function readSession(
   ctx: SessionContext,
-  sessionToken: string | undefined,
+  sessionTokens: readonly string[],
   { renew = false }: { renew?: boolean } = {},
 ): Promise<SessionRead> {
   const signedOut: SessionRead = {
@@ -245,11 +267,8 @@ export async function readSession(
       forGuard: { state: "signed-out" },
     };
   }
-  if (!sessionToken) return signedOut;
-
   const now = ctx.now();
-  const key = await ctx.signingKey();
-  const claims = await readSessionToken(key.publicKey, sessionToken, now);
+  const claims = await coreClaimsIn(ctx, sessionTokens, now);
   if (!claims) return signedOut;
   const holder = await holderOf(ctx, claims, found, now);
   if (!holder) return signedOut;
@@ -270,25 +289,20 @@ export async function readSession(
     answer,
     forGuard,
     freshSessionToken: await mintSessionToken(
-      key,
+      await ctx.signingKey(),
       claimsFor(holder, claims.sessionId),
       now,
     ),
   };
 }
 
-/** Revokes the session the token belongs to, if it is core's and still live. */
+/** Revokes the session of the first of `sessionTokens` that is core's own. */
 export async function signOut(
   ctx: SessionContext,
-  sessionToken: string | undefined,
+  sessionTokens: readonly string[],
 ): Promise<void> {
-  if (!sessionToken) return;
   const now = ctx.now();
-  const claims = await readSessionToken(
-    (await ctx.signingKey()).publicKey,
-    sessionToken,
-    now,
-  );
+  const claims = await coreClaimsIn(ctx, sessionTokens, now);
   if (!claims) return;
   await ctx.db
     .update(sessions)

@@ -72,11 +72,15 @@ A named group of guests that the owner creates in admin.
 _Avoid_: grant, group
 
 **Session**:
-A signed-in browser, held by core and shown to apps as a short-lived session token.
+A signed-in browser, held by core and shown to each app as a short-lived **App token**.
 
 **Session token**:
-The Ed25519-signed JWT in the parent-domain cookie.
+An Ed25519-signed JWT core issues for one audience. Core's own, with the audience `core`, sits in a host-only cookie on core's subdomain and names the **Session**.
 _Avoid_: JWT, cookie
+
+**App token**:
+A **Session token** core mints for one **App**, admin included, with the app's slug as its audience, in a host-only cookie on the app's subdomain. Only that app accepts it, it names no **Session**, and core never renews from it.
+_Avoid_: app cookie, per-app session
 
 **Viewer**:
 Who is asking, as an app sees it after the guard: the owner, a guest with roles, or nobody.
@@ -97,6 +101,7 @@ _Avoid_: plugin, integration
 - An **Access code** holds zero or more **Roles**. Init seeds the **Roles** Family and Friends.
 - An **App**'s **Manifest** sets its access rule: open to anyone, gated to one or more **Roles**, or owner only.
 - A **Session token** carries its **Access code**'s **Roles**, so a role change reaches a **Guest** within one token lifetime.
+- Core holds each **Session** and its own **Session token**. Each **App** holds only its own **App token**, which it gets from core's refresh.
 - Each **Stack** has one **Template** and one **Adapter**.
 - The **Platform apps** and every **App** draw with the **UI kit**.
 
@@ -106,6 +111,8 @@ _Avoid_: plugin, integration
 > **Owner:** "Within one token lifetime. Their **Session token** still carries the old **Roles** until core refreshes it."
 > **Dev:** "And the **App** itself never reads the cookie?"
 > **Owner:** "No. The **Adapter** runs the **Guard** and hands the handler a **Viewer**."
+> **Dev:** "Could an **App** I imported use the token it holds to open admin?"
+> **Owner:** "No. It holds an **App token** for its own slug, and admin and core refuse it."
 
 ## Flagged ambiguities
 

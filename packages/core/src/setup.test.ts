@@ -28,14 +28,13 @@ describe("POST /setup", () => {
     });
   });
 
-  it("sets an HttpOnly session cookie on the install's domain", async () => {
+  it("sets an HttpOnly session cookie on core's host alone, with no Domain", async () => {
     const { app } = await freshCore({ domain: "robkit.test" });
 
     const res = await postJson(app, "/setup", rob);
 
     expect(sessionCookieOf(res)?.attributes).toEqual({
       "Max-Age": "2592000",
-      Domain: "robkit.test",
       Path: "/",
       HttpOnly: true,
       Secure: true,
@@ -73,6 +72,7 @@ describe("POST /setup", () => {
     expect(protectedHeader).toEqual({ alg: "EdDSA", kid: jwks.keys[0]?.kid });
     expect(payload).toEqual({
       sub: viewer.id,
+      aud: "core",
       sid: expect.stringMatching(uuid) as string,
       kind: "owner",
       iat: 1793534400,

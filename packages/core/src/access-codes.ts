@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
+import { isLocal } from "@robkit/session/addresses";
 import type { Database } from "./database.ts";
-import { isLocal } from "./domain.ts";
 import { accessCodes } from "./schema.ts";
 
 declare const accessCodeBrand: unique symbol;

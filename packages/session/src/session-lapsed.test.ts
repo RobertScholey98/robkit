@@ -9,7 +9,7 @@ import {
 const refresh: SessionLapsed = {
   outcome: "refresh",
   error: "Your session needs refreshing.",
-  location: "http://core.robkit.localhost:3000/refresh",
+  location: "http://start.robkit.localhost:3000/_robkit/refresh",
 };
 
 describe("the guard's 401 for a lapsed session", () => {

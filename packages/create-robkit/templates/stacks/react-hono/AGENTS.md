@@ -13,7 +13,7 @@ app.get("/", (c) => {
 });
 ```
 
-A viewer is `{ kind: "owner", id }`, `{ kind: "guest", id, roles }`, or `{ kind: "nobody" }` in an app open to anyone. Key a viewer's data by `viewer.id`. Never read the session cookie or verify the token yourself.
+A viewer is `{ kind: "owner", id }`, `{ kind: "guest", id, roles }`, or `{ kind: "nobody" }` in an app open to anyone. Key a viewer's data by `viewer.id`. Never read the session cookie or verify the token yourself. The token is the app's own: core mints it for this app's slug, and no other app or core accepts it. Paths under `/_robkit/` are the guard's, so give no route one.
 
 A call from the browser that isn't a page load, and whose session has lapsed, gets a 401 rather than a redirect. Make such calls with `sessionFetch` from `@robkit/react`, which sends the browser through core's refresh and back to the page.
 

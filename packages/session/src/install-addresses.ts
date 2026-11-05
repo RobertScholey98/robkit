@@ -11,6 +11,16 @@ export function isPlatformApp(slug: string): boolean {
   return (platformApps as readonly string[]).includes(slug);
 }
 
+/**
+ * Whether the install runs on `localhost` or a name under it, which only
+ * ever means development. A local install's cookies go without `Secure`:
+ * browsers treat *.localhost as a secure context, but WebKit drops Secure
+ * cookies over plain http.
+ */
+export function isLocal(domain: string): boolean {
+  return domain === "localhost" || domain.endsWith(".localhost");
+}
+
 /** The domain an install answers on when `ROBKIT_DOMAIN` isn't set. */
 export const defaultDomain = "robkit.localhost";
 
@@ -30,6 +40,11 @@ export interface Install {
    * as the `next` an app's guard sends the browser away with.
    */
   onInstall(url: string | undefined): string | undefined;
+  /**
+   * The slug of the app `url` is on, if it is an http(s) URL on
+   * `<slug>.<domain>` with one label before the domain.
+   */
+  appOf(url: string | URL): string | undefined;
 }
 
 export interface InstallOptions {
@@ -58,6 +73,14 @@ export function install({
       return isWeb(target) && target.hostname.endsWith(`.${domain}`)
         ? target.href
         : undefined;
+    },
+    appOf(url) {
+      if (!URL.canParse(url)) return undefined;
+      const target = new URL(url);
+      const suffix = `.${domain}`;
+      if (!isWeb(target) || !target.hostname.endsWith(suffix)) return undefined;
+      const slug = target.hostname.slice(0, -suffix.length);
+      return slug !== "" && !slug.includes(".") ? slug : undefined;
     },
   };
 }

@@ -4,6 +4,7 @@ import {
   defaultDomain,
   install,
   installAt,
+  isLocal,
   isPlatformApp,
   platformApps,
 } from "./install-addresses.ts";
@@ -34,6 +35,14 @@ describe("an install's addresses", () => {
         "hub",
       ),
     ).toBe("https://hub.robkit.dev:8443");
+  });
+
+  it("counts localhost and the names under it as local, and nothing else", () => {
+    expect(
+      ["localhost", "robkit.localhost", "robkit.dev", "notlocalhost"].map(
+        isLocal,
+      ),
+    ).toEqual([true, true, false, false]);
   });
 
   it("names the platform apps", () => {
@@ -107,5 +116,27 @@ describe("whether a URL is on the install", () => {
     "javascript://notes.robkit.dev/%0aalert(1)",
   ])("refuses %s", (url) => {
     expect(hosted.onInstall(url)).toBeUndefined();
+  });
+});
+
+describe("the app a URL is on", () => {
+  const hosted = install({ domain: "robkit.dev", protocol: "https" });
+
+  it.each([
+    ["https://notes.robkit.dev/list?x=1", "notes"],
+    ["http://admin.robkit.dev:8443/", "admin"],
+    ["https://core.robkit.dev/refresh", "core"],
+  ])("finds %s on %s", (url, slug) => {
+    expect(hosted.appOf(url)).toBe(slug);
+  });
+
+  it.each([
+    "https://robkit.dev/",
+    "https://a.notes.robkit.dev/",
+    "https://notes.robkit.dev.evil.com/",
+    "javascript://notes.robkit.dev/%0aalert(1)",
+    "/relative",
+  ])("finds no app for %s", (url) => {
+    expect(hosted.appOf(url)).toBeUndefined();
   });
 });

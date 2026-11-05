@@ -1,11 +1,11 @@
 import { sql } from "drizzle-orm";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { getCookie, setCookie } from "hono/cookie";
+import { setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
-import { sessionCookie } from "@robkit/session";
-import { install, platformApps } from "@robkit/session/addresses";
+import { appSessionUrl, sessionCookie, sessionTokensIn } from "@robkit/session";
+import { install, isLocal, platformApps } from "@robkit/session/addresses";
 import {
   listCodes,
   mintCode,
@@ -15,7 +15,6 @@ import {
 } from "./access-codes.ts";
 import { clientOf, type TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
-import { isLocal } from "./domain.ts";
 import {
   accessOf,
   launcherApps,
@@ -42,6 +41,7 @@ import {
   signIn,
   signInWithCode,
 } from "./sessions.ts";
+import { mintAppToken } from "./session-token.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 
 export interface CoreOptions {
@@ -149,20 +149,19 @@ export function createApp({
     sessionToken: string,
     maxAge = sessionLifetimeSeconds,
   ) => {
+    // Host-only, with no Domain, so only core's host ever receives it. The
+    // hub and admin call core from the browser, so it goes with those calls.
     setCookie(c, sessionCookie, sessionToken, {
       httpOnly: true,
       path: "/",
-      domain,
       sameSite: "Lax",
       maxAge,
-      // Browsers treat *.localhost as a secure context, but WebKit drops
-      // Secure cookies over plain http, so local domains go without.
       secure: !isLocal(domain),
     });
   };
 
   /**
-   * Reads who is asking from the session cookie into `c.var.session`, for
+   * Reads who is asking from core's own cookie into `c.var.session`, for
    * every route that needs the viewer, and puts a live session's fresh token
    * on the answer's cookie. With `renew`, as `/refresh` asks, a live
    * session's token is reissued even if it hasn't expired, and the cookie of
@@ -175,14 +174,18 @@ export function createApp({
     ownerOnly = false,
   } = {}): MiddlewareHandler<CoreEnv> =>
     async function readViewer(c, next) {
-      const sessionToken = getCookie(c, sessionCookie);
-      const session = await readSession(ctx, sessionToken, { renew });
+      const sessionTokens = sessionTokensIn(c.req.header("cookie"));
+      const session = await readSession(ctx, sessionTokens, { renew });
       const { answer, freshSessionToken } = session;
       const isOwner =
         answer.state === "signed-in" && answer.viewer.kind === "owner";
       if (ownerOnly && !isOwner) return c.json({ error: "Not found" }, 404);
       if (freshSessionToken) setSessionCookie(c, freshSessionToken);
-      else if (renew && sessionToken && answer.state !== "signed-in") {
+      else if (
+        renew &&
+        sessionTokens.length > 0 &&
+        answer.state !== "signed-in"
+      ) {
         setSessionCookie(c, "", 0);
       }
       c.set("session", session);
@@ -240,26 +243,38 @@ export function createApp({
     c.json<SessionAnswer>(c.var.session.answer),
   );
 
-  // An app's guard sends an expired token here, and it comes straight back
-  // to `next` with a fresh cookie, or none if its session ended. The app's
-  // guard then decides whether to send the browser to log in. The token is
-  // reissued even if core thinks it live, since the app's clock may run
-  // ahead of core's, and a bounce without a new token would loop.
+  // An app's guard sends the browser here when it holds no live token of
+  // its own. Core reads its own cookie, never anything the app holds, and
+  // sends the browser straight back to the app's callback with a token
+  // minted for that app alone, or none if nobody is signed in. The app's
+  // guard then decides whether to send the browser to log in. Core's own
+  // token is reissued too, even if core thinks it live.
   app.get(
     "/refresh",
     validator("query", (_, c) => {
       const next = addresses.onInstall(c.req.query("next"));
-      return next
-        ? { next }
-        : c.json(
-            { error: "Send next, a URL on one of this install's apps." },
-            400,
-          );
+      const slug = next && addresses.appOf(next);
+      // A token in a URL goes only over https, but on a local install.
+      const safe = isLocal(domain) || next?.startsWith("https:");
+      if (!next || !slug || !safe || slug === "core" || slug === "hub") {
+        return c.json(
+          { error: "Send next, a URL on one of this install's apps." },
+          400,
+        );
+      }
+      return { next, slug, state: c.req.query("state") };
     }),
     viewer({ renew: true }),
-    (c) => {
+    async (c) => {
+      const { next, slug, state } = c.req.valid("query");
+      const { forGuard } = c.var.session;
+      const token =
+        forGuard.state === "signed-in"
+          ? await mintAppToken(await signingKey(), forGuard.viewer, slug, now())
+          : undefined;
       c.header("Cache-Control", "no-store");
-      return c.redirect(c.req.valid("query").next, 302);
+      c.header("Referrer-Policy", "no-referrer");
+      return c.redirect(appSessionUrl(next, { token, state }), 302);
     },
   );
 
@@ -339,7 +354,7 @@ export function createApp({
 
   // The hub sends no body here, so none is read.
   app.post("/logout", async (c) => {
-    await signOut(ctx, getCookie(c, sessionCookie));
+    await signOut(ctx, sessionTokensIn(c.req.header("cookie")));
     setSessionCookie(c, "", 0);
     return c.body(null, 204);
   });

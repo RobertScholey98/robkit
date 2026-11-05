@@ -70,12 +70,12 @@ Build tickets 01 to 09 were deleted once done (R, 2026-11-03). Their notes for l
 - **The sign-in limit sees each visitor behind a tunnel** (build ticket 30, chosen in the build, awaiting R's review): with `ROBKIT_TRUSTED_PROXY=cloudflare`, which `robkit deploy` sets on core from `coolify.json`'s `trustedProxy`, core names each visitor by `CF-Connecting-IP`, and requests without it share one limit. Otherwise it keeps the last `X-Forwarded-For` entry, so local dev is unchanged. The setting is safe only when nothing but the tunnel reaches the host, which the install's deploy runbook says. The production e2e's Caddy now stands in for Cloudflare and the tunnel's hop into Traefik.
 - **App sharing** (R, 2026-11-05): sharing apps between installs is at robkit's heart. One opinionated stack (pnpm, Drizzle, shadcn on Base UI, ESLint with Prettier, Husky, Vitest), per-app session tokens, then two sharing approaches built side by side for R to pick from. See the [App sharing PRD](../app-sharing/PRD.md).
 - **One opinionated stack** (app-sharing ticket 01, R, 2026-11-05; chosen in the build, awaiting R's review): every install has pnpm, Drizzle, shadcn on Base UI, ESLint with Prettier, Husky with lint-staged, and Vitest, and the other options are deleted outright. Every install offers both stacks, and `robkit add` defaults to Start. Init asks only for the folder and the example app's stack, which `--stack` also gives and `robkit.json` records as `exampleStack`. Installing is `--install` only, and the checkout's `pnpm create-install` passes it. The templates are plain folders, `base` and one per stack, so every install of one robkit version has the same `packages/ui`, `packages/theme`, `packages/core-client` and catalog. The whole-stack test runs two installs, one with its example on each stack, each adding an app on the other; the production e2e runs the default install.
+- **Per-app session tokens** (app-sharing ticket 02, R, 2026-11-05; chosen in the build, awaiting R's review): no cookie goes on the parent domain. Core's token has the audience `core` and sits in a host-only cookie on `core.<domain>`, and core reads no other. Each app, admin included, holds its own token, with its slug as the audience and no session id, in a host-only cookie on its own host, and its guard accepts no other. An app with no token of its own sends a page load to core's `/refresh` with a random state it keeps in a cookie. Core reads only its own cookie and sends the browser to the app's `/_robkit/session` with a token for that app, or none if nobody is signed in, and the app's guard checks the state, keeps the token, or core's word that nobody is signed in for a minute, and decides about login as before. A call whose token lapsed goes through the app's `/_robkit/refresh`. The callback answers a page instead of redirecting when it can't go on, which also ends the old redirect loop for an app whose clock runs ahead of core's. See [the ticket](../app-sharing/issues/02-per-app-tokens.md).
 
 ## Known gaps
 
-Left open by build tickets 02 to 11, with no ticket yet:
+Left open by build tickets 02 to 11 and app-sharing ticket 02, with no ticket yet:
 
-- If an app's clock runs more than the 15-minute token lifetime ahead of core's, the app and `/refresh` redirect to each other forever. There's no loop guard. (04)
 - For up to a minute after the owner changes an app's rule, the launcher and the app can disagree. (06)
 - Roles can't be renamed or deleted, and an app's name is its slug. (06)
 - The sign-in limit is soft: two attempts racing in parallel can both get past the check. (03)
@@ -86,6 +86,12 @@ Left open by build tickets 02 to 11, with no ticket yet:
 - `pnpm dev`, the runner tests, the whole-stack test, `repo-checks` and one `migrate.test.ts` case need Linux or macOS. The whole suite passes in WSL. (04 to 09)
 - In production, apps reach core over its public URL, through Cloudflare and back, not over Coolify's Docker network. (11)
 - Any container on Coolify's network can reach core directly and send its own `X-Forwarded-For` or `CF-Connecting-IP`. Only the owner's apps run there. (30)
+- After sign-out, an app the browser opened in the last 15 minutes still lets it in until that app's token expires, since apps verify tokens locally and core can't clear another host's cookie. Core's session ends at once, so the hub, admin's calls to core and every refresh see the browser signed out. (app-sharing 02)
+- An app open to anyone takes core's word that nobody is signed in for a minute. A visitor who opens it signed out, then signs in at the hub, shows as nobody there until that minute is up. (app-sharing 02)
+- Core hands an app its token in the callback's URL, so a proxy that logs URLs logs that app's token, good for 15 minutes on that app alone. (app-sharing 02)
+- A browser that keeps no cookies used to see an app open to anyone as nobody. It now stops at the app's callback with a page saying it kept no cookie. (app-sharing 02)
+- Any app can send a visiting browser through core's `/refresh` and learn who the visitor is: their id, kind and roles. That is what an app needs to serve them, but an imported app learns it too, for every guest who opens it. (app-sharing 02)
+- A browser that signed in before per-app tokens keeps the old parent-domain cookie until it expires, up to 30 days. Core and every app ignore it, but it still reaches every app's server. (app-sharing 02)
 
 ## Not yet specified
 

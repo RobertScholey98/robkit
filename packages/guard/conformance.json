@@ -105,5 +105,51 @@
     "session": "guest",
     "guestRoles": ["family"],
     "outcome": "allow"
+  },
+  {
+    "name": "an open app asks core about a visitor it holds no token for",
+    "rule": { "kind": "open" },
+    "session": "unknown",
+    "outcome": "refresh"
+  },
+  {
+    "name": "an owner-only app asks core about a visitor it holds no token for",
+    "rule": { "kind": "owner" },
+    "session": "unknown",
+    "outcome": "refresh"
+  },
+  {
+    "name": "a role-gated app asks core about a visitor it holds no token for",
+    "rule": { "kind": "roles", "roles": ["family"] },
+    "session": "unknown",
+    "outcome": "refresh"
+  },
+  {
+    "name": "an owner-only app refuses the owner's token for another app and asks core",
+    "rule": { "kind": "owner" },
+    "session": "unknown",
+    "otherToken": "another-app",
+    "outcome": "refresh"
+  },
+  {
+    "name": "an owner-only app refuses the owner's token for core and asks core",
+    "rule": { "kind": "owner" },
+    "session": "unknown",
+    "otherToken": "core",
+    "outcome": "refresh"
+  },
+  {
+    "name": "an owner-only app refuses the owner's token for no audience and asks core",
+    "rule": { "kind": "owner" },
+    "session": "unknown",
+    "otherToken": "no-audience",
+    "outcome": "refresh"
+  },
+  {
+    "name": "an open app refuses the owner's token for another app and asks core",
+    "rule": { "kind": "open" },
+    "session": "unknown",
+    "otherToken": "another-app",
+    "outcome": "refresh"
   }
 ]

@@ -53,6 +53,28 @@ function at(slug: string, path = "/"): string {
   return `${addresses.origin(slug)}${path}`;
 }
 
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Matches the trip to core's /refresh an app's guard starts, back to `next`. */
+function refreshing(next: string): string {
+  const refresh = at("core", `/refresh?next=${encodeURIComponent(next)}`);
+  return expect.stringMatching(
+    new RegExp(`^${escaped(refresh)}&state=[\\w-]{43}$`),
+  ) as string;
+}
+
+/**
+ * Matches core sending the browser back to `next`'s app, with a token for
+ * that app or none.
+ */
+function handedBack(next: string, { token }: { token: boolean }): string {
+  const callback = `${new URL(next).origin}/_robkit/session?next=${encodeURIComponent(next)}`;
+  const tail = token ? "&token=[\\w-]+\\.[\\w-]+\\.[\\w-]+" : "";
+  return expect.stringMatching(
+    new RegExp(`^${escaped(callback)}&state=[\\w-]{43}${tail}$`),
+  ) as string;
+}
+
 interface Reply {
   status: number;
   headers: IncomingHttpHeaders;
@@ -241,7 +263,7 @@ export function describeJourneys(
       expect(JSON.parse(before.body)).toEqual({ state: "unclaimed" });
       expect(setup.status).toBe(201);
       expect(cookie).toMatch(/^robkit_session=[\w-]+\.[\w-]+\.[\w-]+;/);
-      expect(cookie).toContain(`; Domain=${addresses.domain};`);
+      expect(cookie).not.toContain("Domain=");
       expect(cookie).not.toContain("Secure");
       expect(JSON.parse(after.body)).toEqual({
         state: "signed-in",
@@ -253,7 +275,7 @@ export function describeJourneys(
       });
     });
 
-    it("guards the example app: login, return and refresh bounce", async () => {
+    it("guards the example app with its own token: login, return and refresh bounce", async () => {
       const example = at("example");
       // pnpm dev waits for no app. Until the guard answers a signed-out
       // fetch with 401, the proxy may still be answering 502.
@@ -266,20 +288,37 @@ export function describeJourneys(
         password: "correct horse battery",
       });
 
+      // The example's token opens nothing else: admin asks core for its
+      // own, and core finds nobody signed in.
+      const withExampleToken = {
+        cookie: `robkit_session=${journey.appToken}`,
+        "sec-fetch-mode": "navigate",
+      };
+      const admin = await get(hostOf("admin"), "/", withExampleToken);
+      const core = await get(hostOf("core"), "/session", withExampleToken);
+
       expect(journey).toEqual({
         signedOutAt: at("hub", `/?next=${encodeURIComponent(example)}`),
         signedInAt: example,
         heading: "Signed in as the owner",
         viewerId: journey.ownerId,
         ownerId: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
+        appToken: journey.appToken,
+        sessionCookieHosts: [addresses.host("core"), addresses.host("example")],
         bounce: [
           example,
-          at("core", `/refresh?next=${encodeURIComponent(example)}`),
+          refreshing(example),
+          handedBack(example, { token: true }),
           example,
         ],
         bouncedTo: example,
         bouncedViewerId: journey.ownerId,
       });
+      expect([admin.status, admin.headers.location]).toEqual([
+        302,
+        refreshing(at("admin")),
+      ]);
+      expect(JSON.parse(core.body)).toEqual({ state: "signed-out" });
     });
 
     // Only a Start app has server functions.
@@ -299,7 +338,12 @@ export function describeJourneys(
         expect(journey).toEqual({
           visits: [first, first + 1],
           bounce: [
-            at("core", `/refresh?next=${encodeURIComponent(example)}`),
+            at(
+              "example",
+              `/_robkit/refresh?next=${encodeURIComponent(example)}`,
+            ),
+            refreshing(example),
+            handedBack(example, { token: true }),
             example,
           ],
           bouncedTo: example,
@@ -333,7 +377,8 @@ export function describeJourneys(
         revokedStanding: "Revoked",
         bounce: [
           example,
-          at("core", `/refresh?next=${encodeURIComponent(example)}`),
+          refreshing(example),
+          handedBack(example, { token: false }),
           example,
           at("hub", `/?next=${encodeURIComponent(example)}`),
         ],

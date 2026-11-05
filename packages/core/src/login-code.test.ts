@@ -57,7 +57,6 @@ describe("POST /login/code", () => {
     });
     expect(sessionCookieOf(res)?.attributes).toEqual({
       "Max-Age": "2592000",
-      Domain: "robkit.test",
       Path: "/",
       HttpOnly: true,
       Secure: true,
@@ -74,6 +73,7 @@ describe("POST /login/code", () => {
     const iat = clockStart.getTime() / 1000;
 
     expect(decodeJwt(sessionToken)).toEqual({
+      aud: "core",
       sid: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
       kind: "guest",
       sub: id,
