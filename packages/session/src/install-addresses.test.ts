@@ -7,6 +7,8 @@ import {
   isLocal,
   isPlatformApp,
   platformApps,
+  readSlug,
+  slugProblem,
 } from "./install-addresses.ts";
 
 describe("an install's addresses", () => {
@@ -126,6 +128,7 @@ describe("the app a URL is on", () => {
     ["https://notes.robkit.dev/list?x=1", "notes"],
     ["http://admin.robkit.dev:8443/", "admin"],
     ["https://core.robkit.dev/refresh", "core"],
+    ["https://notes2.robkit.dev/", "notes2"],
   ])("finds %s on %s", (url, slug) => {
     expect(hosted.appOf(url)).toBe(slug);
   });
@@ -133,10 +136,63 @@ describe("the app a URL is on", () => {
   it.each([
     "https://robkit.dev/",
     "https://a.notes.robkit.dev/",
+    "https://my-app.robkit.dev/",
+    "https://public.robkit.dev/",
     "https://notes.robkit.dev.evil.com/",
     "javascript://notes.robkit.dev/%0aalert(1)",
     "/relative",
   ])("finds no app for %s", (url) => {
     expect(hosted.appOf(url)).toBeUndefined();
+  });
+});
+
+describe("readSlug", () => {
+  it.each(["notes", "start", "blog2", "a1", "x".repeat(63), "admin"])(
+    "reads %j",
+    (name) => {
+      expect(readSlug(name)).toBe(name);
+    },
+  );
+
+  it.each([
+    "My-App",
+    "my-app",
+    "my_app",
+    "1notes",
+    "_notes",
+    "drop table x;--",
+    "public",
+    "postgres",
+    "pg_admin",
+    "x".repeat(64),
+    "",
+  ])("refuses %j", (name) => {
+    expect(readSlug(name)).toEqual({
+      error: `"${name}" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+    });
+  });
+
+  it.each([
+    [null, "null"],
+    [42, "42"],
+    [undefined, "Nothing"],
+    [["notes"], '["notes"]'],
+  ])("refuses %j, which isn't text", (value, shown) => {
+    expect(readSlug(value)).toEqual({
+      error: `${shown} can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+    });
+  });
+});
+
+describe("slugProblem", () => {
+  it("says why a name can't be a slug, for a prompt's validate", () => {
+    expect(slugProblem("notes")).toBeUndefined();
+    expect(slugProblem("My-App")).toMatch(/^"My-App" can't be an app's slug/);
+  });
+});
+
+describe("the platform apps", () => {
+  it.each(platformApps)("%s is a slug", (name) => {
+    expect(readSlug(name)).toBe(name);
   });
 });

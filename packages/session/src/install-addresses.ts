@@ -6,9 +6,51 @@
 /** Core, the hub and admin. Core's app catalog doesn't list them. */
 export const platformApps = ["core", "hub", "admin"] as const;
 
+/** A platform app's slug. */
+export type PlatformApp = (typeof platformApps)[number];
+
+declare const slugBrand: unique symbol;
+
+/**
+ * An app's slug: its folder under `apps/`, its subdomain, and its Postgres
+ * role and schema. Lowercase letters and digits, starting with a letter, so
+ * each is a valid hostname label, app code can write `notes.note` without
+ * quoting, and it can be inlined into DDL safely. Only `readSlug` makes one;
+ * the platform apps' names are slugs as they stand.
+ */
+export type Slug = PlatformApp | (string & { readonly [slugBrand]: true });
+
 /** Whether `slug` is a platform app rather than one of the owner's apps. */
-export function isPlatformApp(slug: string): boolean {
-  return (platformApps as readonly string[]).includes(slug);
+export function isPlatformApp(slug: string): slug is PlatformApp {
+  return platformApps.some((app) => app === slug);
+}
+
+const reserved = new Set(["public", "postgres"]);
+
+function isSlug(value: unknown): value is Slug {
+  return (
+    typeof value === "string" &&
+    /^[a-z][a-z0-9]{0,62}$/.test(value) &&
+    !reserved.has(value)
+  );
+}
+
+/** `value` as a slug, or why it can't be one. */
+export function readSlug(value: unknown): Slug | { error: string } {
+  if (isSlug(value)) return value;
+  const shown = JSON.stringify(value) ?? "Nothing";
+  return {
+    error: `${shown} can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+  };
+}
+
+/**
+ * Why `name` can't be a slug, or `undefined` if it can. Its shape fits a
+ * prompt's `validate`.
+ */
+export function slugProblem(name: string): string | undefined {
+  const slug = readSlug(name);
+  return typeof slug === "string" ? undefined : slug.error;
 }
 
 /**
@@ -42,9 +84,10 @@ export interface Install {
   onInstall(url: string | undefined): string | undefined;
   /**
    * The slug of the app `url` is on, if it is an http(s) URL on
-   * `<slug>.<domain>` with one label before the domain.
+   * `<slug>.<domain>` with one label before the domain, and that label is a
+   * slug.
    */
-  appOf(url: string | URL): string | undefined;
+  appOf(url: string | URL): Slug | undefined;
 }
 
 export interface InstallOptions {
@@ -79,8 +122,8 @@ export function install({
       const target = new URL(url);
       const suffix = `.${domain}`;
       if (!isWeb(target) || !target.hostname.endsWith(suffix)) return undefined;
-      const slug = target.hostname.slice(0, -suffix.length);
-      return slug !== "" && !slug.includes(".") ? slug : undefined;
+      const slug = readSlug(target.hostname.slice(0, -suffix.length));
+      return typeof slug === "string" ? slug : undefined;
     },
   };
 }
