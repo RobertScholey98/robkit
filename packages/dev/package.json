@@ -4,7 +4,8 @@
   "description": "robkit's local dev runner and proxy.",
   "type": "module",
   "bin": {
-    "robkit-dev": "./src/bin.ts"
+    "robkit-dev": "./src/bin.ts",
+    "robkit-seed": "./src/seed-bin.ts"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -17,7 +18,8 @@
       }
     },
     "bin": {
-      "robkit-dev": "./dist/bin.js"
+      "robkit-dev": "./dist/bin.js",
+      "robkit-seed": "./dist/seed-bin.js"
     }
   },
   "files": [

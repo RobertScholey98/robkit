@@ -52,12 +52,22 @@ export async function provisionApps(
  */
 const seedPending = "robkit: seed pending";
 
+/** What the provision step and `robkit-seed` say when they run a seed. */
+export const seededMessage = `ran ${seedFile} once, on its new schema`;
+
 /**
  * Runs the app's seed if its schema still waits for it, as the app's role,
  * in one transaction with clearing the wait: a seed that fails leaves no rows
- * and runs again next time.
+ * and runs again next time. `pnpm dev` runs it after migrating, and in
+ * production each app's start script runs it as `robkit-seed`.
+ *
+ * @returns whether it ran a seed
  */
-async function seedOnce(app: App, databaseUrl: string): Promise<void> {
+export async function seedOnce(
+  app: Pick<App, "slug" | "dir" | "seeds">,
+  databaseUrl: string,
+): Promise<boolean> {
+  let ran = false;
   const sql = postgres(databaseUrl, { max: 1, onnotice: () => undefined });
   try {
     await sql.begin(async (tx) => {
@@ -69,6 +79,7 @@ async function seedOnce(app: App, databaseUrl: string): Promise<void> {
         const text = await readFile(join(app.dir, seedFile), "utf8");
         try {
           await tx.unsafe(text);
+          ran = true;
         } catch (error) {
           throw new Error(
             `apps/${app.slug}: its seed, ${seedFile}, failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -81,6 +92,7 @@ async function seedOnce(app: App, databaseUrl: string): Promise<void> {
   } finally {
     await sql.end();
   }
+  return ran;
 }
 
 export interface ProvisionDatabasesOptions {

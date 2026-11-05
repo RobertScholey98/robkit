@@ -1,7 +1,9 @@
+import { execFile } from "node:child_process";
 import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import postgres from "postgres";
 import { afterAll, describe, expect, inject, it } from "vitest";
 import {
@@ -12,6 +14,7 @@ import {
   provisionDatabases,
 } from "./provision.ts";
 
+const run = promisify(execFile);
 const adminUrl = inject("adminUrl");
 const clients: postgres.Sql[] = [];
 const fixture = fileURLToPath(
@@ -290,6 +293,45 @@ describe("provisionApps", () => {
     expect(await entries("badseed")).toEqual([
       { body: "migrated" },
       { body: "fixed" },
+    ]);
+  });
+});
+
+describe("robkit-seed", () => {
+  const bin = fileURLToPath(new URL("seed-bin.ts", import.meta.url));
+
+  it("seeds the schema production's provision step made, once, as the app's container starts", async () => {
+    const root = await install();
+    await seeded(
+      root,
+      "hosted",
+      "insert into entry values ('seeded by ' || current_user);",
+    );
+    const urls = await provisionDatabases({
+      adminUrl,
+      secret,
+      slugs: ["hosted"],
+    });
+    const container = {
+      cwd: join(root, "apps", "hosted"),
+      env: {
+        ...env,
+        ROBKIT_APP: "hosted",
+        DATABASE_URL: urls.get("hosted") ?? "",
+      },
+    };
+    // As the stacks' start script does: migrate, then seed, every start.
+    const start = async () => {
+      await run("node", ["../../migrate.js"], container);
+      return (await run("node", [bin], container)).stdout;
+    };
+
+    const said = [await start(), await start()];
+
+    expect(said).toEqual(["ran seed.sql once, on its new schema\n", ""]);
+    expect(await entries("hosted")).toEqual([
+      { body: "migrated" },
+      { body: "seeded by hosted" },
     ]);
   });
 });
