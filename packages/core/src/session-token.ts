@@ -5,6 +5,7 @@ import {
   sessionTokenLifetimeSeconds,
   type SessionTokenClaims,
 } from "@robkit/session";
+import type { Slug } from "@robkit/session/addresses";
 import type { SigningKey } from "./signing-key.ts";
 
 function mint(
@@ -42,7 +43,7 @@ export function mintSessionToken(
 export function mintAppToken(
   key: SigningKey,
   viewer: SignedInViewer,
-  slug: string,
+  slug: Slug,
   now: Date,
 ): Promise<string> {
   const roles = viewer.kind === "guest" ? { roles: viewer.roles } : {};
