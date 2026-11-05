@@ -6,5 +6,5 @@
     // in JS with JSDoc types.
     "allowJs": true
   },
-  "include": ["src", "*.js"]
+  "include": ["src", "*.js", "*.ts"]
 }

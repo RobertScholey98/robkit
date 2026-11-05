@@ -19,10 +19,16 @@
     "format:check": "prettier --check .",
     "check": "pnpm format:check && pnpm knip && turbo run lint typecheck test:unit",
     "check:all": "pnpm format:check && pnpm knip && turbo run lint typecheck test",
-    "knip": "knip"
+    "knip": "knip",
+    "postinstall": "husky || true",
+    "changeset": "changeset"
   },
   "devDependencies": {
+    "@changesets/cli": "catalog:",
+    "eslint": "catalog:",
+    "husky": "catalog:",
     "knip": "catalog:",
+    "lint-staged": "catalog:",
     "prettier": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:"

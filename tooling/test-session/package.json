@@ -9,14 +9,15 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run",
-    "test:unit": "vitest run"
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run --coverage"
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@robkit/guard": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "jose": "catalog:",
     "typescript": "catalog:",

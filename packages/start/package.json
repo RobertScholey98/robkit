@@ -26,8 +26,8 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run",
-    "test:unit": "vitest run"
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run --coverage"
   },
   "dependencies": {
     "@robkit/guard": "workspace:*",
@@ -42,6 +42,7 @@
     "@internal/tsconfig": "workspace:*",
     "@tanstack/react-start": "catalog:",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",

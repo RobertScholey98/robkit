@@ -1,0 +1,1 @@
+node tooling/repo-checks/src/check-commit-subjects.ts "$1"
