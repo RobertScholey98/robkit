@@ -18,6 +18,7 @@ function groupAlive(pid: number): boolean {
     process.kill(-pid, 0);
     return true;
   } catch {
+    // Signal 0 throws only when the group is gone.
     return false;
   }
 }
@@ -29,6 +30,7 @@ async function stopGroup(child: ChildProcess): Promise<void> {
   try {
     process.kill(-pid, "SIGTERM");
   } catch {
+    // The group has already exited.
     return;
   }
   const deadline = Date.now() + stopTimeoutMs;
