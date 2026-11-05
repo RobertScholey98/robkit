@@ -1,6 +1,10 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { readWorkspaceCoverage, thresholdsIn } from "./coverage-thresholds.ts";
+import {
+  loweredThresholds,
+  readWorkspaceCoverage,
+  thresholdsIn,
+} from "./coverage-thresholds.ts";
 
 const config = (
   thresholds: string,
@@ -33,6 +37,42 @@ describe("thresholdsIn", () => {
 
   it("finds none in a config without them", () => {
     expect(thresholdsIn("export default defineConfig({});")).toBeUndefined();
+  });
+});
+
+describe("loweredThresholds", () => {
+  const path = "packages/guard/vitest.config.ts";
+
+  it("accepts thresholds that stay or go up", () => {
+    expect(
+      loweredThresholds(
+        path,
+        { statements: 90, lines: 90 },
+        { statements: 90, lines: 95 },
+      ),
+    ).toEqual([]);
+  });
+
+  it("accepts thresholds where there were none", () => {
+    expect(loweredThresholds(path, undefined, { lines: 90 })).toEqual([]);
+  });
+
+  it("reports a lowered threshold", () => {
+    expect(loweredThresholds(path, { lines: 90 }, { lines: 89 })).toEqual([
+      `${path} lowers the lines threshold from 90 to 89.`,
+    ]);
+  });
+
+  it("reports a dropped threshold", () => {
+    expect(
+      loweredThresholds(path, { lines: 90, branches: 80 }, { lines: 90 }),
+    ).toEqual([`${path} drops the branches threshold, which was 80.`]);
+  });
+
+  it("reports thresholds that are gone", () => {
+    expect(loweredThresholds(path, { lines: 90 }, undefined)).toEqual([
+      `${path} no longer sets coverage thresholds.`,
+    ]);
   });
 });
 

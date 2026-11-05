@@ -24,6 +24,35 @@ export function thresholdsIn(config: string): Thresholds | undefined {
   return thresholds;
 }
 
+/**
+ * Lists how a config's thresholds went down from `before` to `after`.
+ * Thresholds only go up: raise one when coverage rises, never lower one.
+ */
+export function loweredThresholds(
+  path: string,
+  before: Thresholds | undefined,
+  after: Thresholds | undefined,
+): string[] {
+  if (before === undefined) return [];
+  if (after === undefined)
+    return [`${path} no longer sets coverage thresholds.`];
+  return metrics.flatMap((metric) => {
+    const was = before[metric];
+    const is = after[metric];
+    if (was === undefined) return [];
+    if (is === undefined) {
+      return [
+        `${path} drops the ${metric} threshold, which was ${String(was)}.`,
+      ];
+    }
+    return is < was
+      ? [
+          `${path} lowers the ${metric} threshold from ${String(was)} to ${String(is)}.`,
+        ]
+      : [];
+  });
+}
+
 export interface PackageCoverage {
   name: string;
   /** Whether its test script measures coverage. */
