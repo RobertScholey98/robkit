@@ -125,7 +125,7 @@ R reviews commit by commit, so keep each one small and about one thing.
 
 - One logical change per commit. A test goes in the same commit as the behaviour it covers.
 - Refactors, renames and formatting get their own commits, apart from behaviour changes.
-- Write the subject in the imperative, under about 60 characters: "Add a README to each package", not "Added READMEs". Use the body to say why when the diff doesn't show it. The commit-msg hook, and CI on every commit of a pull request, refuse a subject over 72 characters, one ending in a period, one starting with a lowercase letter, or one whose first word ends in "ed" or "ing".
+- Write the subject in the imperative, in 72 characters at most: "Add a README to each package", not "Added READMEs". Use the body to say why when the diff doesn't show it. The commit-msg hook, and CI on every commit of a pull request, refuse a subject over 72 characters, one ending in a period, one starting with a lowercase letter, or one whose first word ends in "ed" or "ing".
 - If the subject needs an "and", split the commit.
 
 ### Writing
