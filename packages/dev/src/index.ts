@@ -1,5 +1,4 @@
 export { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
-export { packageManagerOf } from "./package-manager.ts";
 export { createProxy, type Route } from "./proxy.ts";
 export {
   databasePassword,
