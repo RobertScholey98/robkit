@@ -3,6 +3,7 @@ import { realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, inject, it } from "vitest";
+import { cleanPath } from "./clean-path.ts";
 import { installChoices, type InstallName } from "./install.ts";
 import { ownCiSteps, runOwnCi } from "./own-ci.ts";
 
@@ -40,8 +41,12 @@ describe.each(ciInstalls)("the %s install", (name) => {
     expect(runs.some((step) => step.endsWith(" test:e2e"))).toBe(
       tools.includes("playwright"),
     );
-    // A failing step rejects with its output.
-    await runOwnCi(dir, steps);
+    // A failing step rejects with its output. Its scripts find only the
+    // bins the install's own manifests give it, as on the owner's machine.
+    await runOwnCi(dir, steps, {
+      ...process.env,
+      PATH: await cleanPath(installChoices[name].packageManager),
+    });
   });
 });
 
