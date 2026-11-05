@@ -34,6 +34,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 - An app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.
 - An app reaches core over HTTP only, never through @robkit/core. Only `apps/core` imports it. Postgres keeps the data side: an app's role can reach its own schema and nothing else.
 - Handlers take the viewer from their adapter. App code never reads the session cookie or verifies a token itself.
+- Paths under /_robkit/ are the guard's. An app gives none of its routes one.
 - An app is portable. Outside its own folder it imports only its dependencies, @robkit/* packages and the install's fixed packages: @internal/ui, @internal/theme, @internal/core-client and @internal/tsconfig.
 - An app's dependencies come from npm, the catalog every install has, or the install's fixed packages. Pin any other version in the app's package.json.
 

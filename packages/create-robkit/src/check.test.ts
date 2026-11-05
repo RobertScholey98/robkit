@@ -17,6 +17,8 @@ const overHttp =
   "Layer rule: an app reaches core over HTTP only, never through @robkit/core.";
 const viewerFromAdapter =
   "Layer rule: handlers take the viewer from their adapter. App code never reads the session cookie or verifies a token itself.";
+const guardPaths =
+  "Layer rule: paths under /_robkit/ are the guard's. An app gives none of its routes one.";
 const portableImports =
   "Layer rule: an app is portable. Outside its own folder it imports only its dependencies, @robkit/* packages and the install's fixed packages: @internal/ui, @internal/theme, @internal/core-client and @internal/tsconfig.";
 const portableDependencies =
@@ -111,6 +113,24 @@ describe("checkInstall", { timeout: 30_000 }, () => {
       'export const token = (cookie: string) => cookie.split("robkit_session=")[1];\n',
       viewerFromAdapter,
     ],
+    [
+      "a Hono route under the guard's paths",
+      "apps/example/src/reach.ts",
+      'app.get("/_robkit/stats", (c) => c.text("hi"));\n',
+      guardPaths,
+    ],
+    [
+      "a Start route under the guard's paths",
+      "apps/example/src/routes/stats.tsx",
+      'export const Route = createFileRoute("/_robkit/stats")({});\n',
+      guardPaths,
+    ],
+    [
+      "a route built on the guard's paths",
+      "apps/example/src/reach.ts",
+      "export const path = (name: string) => `/_robkit/${name}`;\n",
+      guardPaths,
+    ],
   ])("refuses %s, naming the rule", async (_, path, text, rule) => {
     const dir = await installWith(path, text);
 
@@ -127,6 +147,15 @@ describe("checkInstall", { timeout: 30_000 }, () => {
       otherApp,
       overHttp,
     ]);
+  });
+
+  it("lets an app use paths that only look like the guard's", async () => {
+    const dir = await installWith(
+      "apps/example/src/reach.ts",
+      'export const paths = ["/_robkitten", "/robkit/x", "/a/_robkit/b"];\n',
+    );
+
+    expect(await checkInstall(dir)).toEqual([]);
   });
 
   it("lets core import @robkit/core and read the session", async () => {

@@ -103,6 +103,16 @@ export const layerRule: readonly LayerRow[] = [
       (use.kind === "string" && use.value.includes(sessionCookie)),
   },
   {
+    // The guard answers these itself, before the app's adapter, so a route
+    // there never runs, and a later guard path could take any it misses.
+    // A string is the cheap proxy: Hono's routes and Start's route tree
+    // name each path as one.
+    rule: "Layer rule: paths under /_robkit/ are the guard's. An app gives none of its routes one.",
+    applies: () => true,
+    breaks: (use) =>
+      use.kind === "string" && /^\/_robkit(\/|$)/.test(use.value),
+  },
+  {
     rule: "Layer rule: an app is portable. Outside its own folder it imports only its dependencies, @robkit/* packages and the install's fixed packages: @internal/ui, @internal/theme, @internal/core-client and @internal/tsconfig.",
     applies: portable,
     breaks: (use, _app, { packages, contract }) =>
