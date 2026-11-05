@@ -10,7 +10,7 @@ import {
   install as addresses,
 } from "@robkit/session/addresses";
 import { addApp } from "./add.ts";
-import { installApp, shareApp } from "./app-repo.ts";
+import { installApp, shareApp, updateApp } from "./app-repo.ts";
 import {
   addCommandFor,
   addUsage,
@@ -39,11 +39,18 @@ const installUsage = `Usage: robkit install <git URL or path> [--as <app>]
 Clones an app repo into apps/<app>, named after the repo unless --as names
 it, if its manifest names a robkit contract this install runs.`;
 
+const updateUsage = `Usage: robkit update <app>
+
+Pulls the app's upstream into apps/<app> with git. What this install
+changed in the app is committed first, so git merges the two.`;
+
 const usage = `${addUsage}
 
 ${shareUsage}
 
 ${installUsage}
+
+${updateUsage}
 
 Usage: robkit check
 
@@ -79,6 +86,7 @@ try {
     deploy: deployInstall,
     share,
     install: installCommand,
+    update,
   };
   await (commands[command ?? ""] ?? add)();
 } catch (error) {
@@ -291,6 +299,23 @@ ${hasDependencies ? "" : "\n  pnpm install"}
   pnpm dev
 
 Then open ${dev.origin(installed.slug)}.`);
+}
+
+async function update(): Promise<void> {
+  const { positionals } = parseArgs({ allowPositionals: true });
+  const [, slug, ...rest] = positionals;
+  if (slug === undefined || rest.length > 0) throw new Error(updateUsage);
+  const root = process.cwd();
+  const updated = await updateApp(root, slug);
+  if (updated.incoming === 0) {
+    console.log(`apps/${slug} already has everything ${updated.source} has.`);
+    return;
+  }
+  await refreshDependencies(root);
+  const commits = updated.incoming === 1 ? "commit" : "commits";
+  console.log(`Brought ${String(updated.incoming)} ${commits} into apps/${slug} from ${updated.source}.
+
+Restart pnpm dev to migrate the app's database and serve the new version.`);
 }
 
 function fail(message: string): never {

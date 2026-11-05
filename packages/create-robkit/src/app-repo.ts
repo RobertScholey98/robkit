@@ -304,3 +304,87 @@ export async function installApp(
     throw error;
   }
 }
+
+/** Git couldn't merge an app's upstream by itself. */
+export class UpdateConflict extends Error {
+  readonly files: readonly string[];
+
+  constructor(slug: string, files: readonly string[]) {
+    super(`Git couldn't merge the upstream's changes into apps/${slug} by itself. These files conflict:
+
+${files.map((file) => `  ${file}`).join("\n")}
+
+In each, keep what you want between the <<<<<<< and >>>>>>> markers, then:
+
+  cd apps/${slug}
+  git add --all
+  git commit --no-edit
+
+and run pnpm robkit update ${slug} again. To give up on this update instead:
+git -C apps/${slug} merge --abort`);
+    this.files = files;
+  }
+}
+
+export interface Updated {
+  source: string;
+  revision: string;
+  /** How many commits came in from upstream. */
+  incoming: number;
+}
+
+/**
+ * Pulls app repo `slug`'s upstream into the install at `root` with git.
+ * Whatever this install changed in the app is committed first, so git
+ * merges the two, and a clash stops as a git conflict. Refuses an upstream
+ * whose manifest names a contract version this robkit can't run.
+ */
+export async function updateApp(root: string, slug: string): Promise<Updated> {
+  await readInstallRecord(root);
+  const dir = appDir(root, slug);
+  if (!isRepo(dir)) {
+    throw new Error(
+      `apps/${slug} isn't an app repo, so it has no upstream to update from.`,
+    );
+  }
+  const source = await originOf(dir);
+  if (source === undefined) {
+    throw new Error(
+      `apps/${slug} has no upstream: it was never shared or installed. Share it first with pnpm robkit share ${slug}.`,
+    );
+  }
+  if ((await git(dir, ["ls-files", "--unmerged"])) !== "") {
+    throw new UpdateConflict(
+      slug,
+      (await git(dir, ["diff", "--name-only", "--diff-filter=U"])).split("\n"),
+    );
+  }
+  await commitChanges(dir, `Keep this install's changes to ${slug}`);
+  await git(dir, ["fetch", "--quiet", "origin"]);
+  const branch = await git(dir, ["rev-parse", "--abbrev-ref", "HEAD"]);
+  const upstream = `origin/${branch}`;
+  const latest = JSON.parse(
+    await git(dir, ["show", `${upstream}:package.json`]),
+  ) as PackageJson;
+  const refused = contractProblem(latest.robkit?.contract);
+  if (refused) throw new Error(`Not updating apps/${slug}. ${refused}`);
+  const incoming = Number(
+    await git(dir, ["rev-list", "--count", `HEAD..${upstream}`]),
+  );
+  if (incoming > 0) {
+    try {
+      await git(dir, ["merge", "--quiet", "--no-edit", upstream]);
+    } catch (error) {
+      const conflicted = await git(dir, [
+        "diff",
+        "--name-only",
+        "--diff-filter=U",
+      ]);
+      if (conflicted === "") throw error;
+      throw new UpdateConflict(slug, conflicted.split("\n"));
+    }
+  }
+  const revision = await git(dir, ["rev-parse", "HEAD"]);
+  await recordApp(root, slug, { source, revision });
+  return { source, revision, incoming };
+}

@@ -7,9 +7,9 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { addApp, type AppChoices } from "./add.ts";
-import { installApp, shareApp } from "./app-repo.ts";
+import { installApp, shareApp, UpdateConflict, updateApp } from "./app-repo.ts";
 import { checkInstall } from "./check.ts";
-import type { Stack } from "./choices.ts";
+import { readyStacks, type Stack } from "./choices.ts";
 import { init } from "./init.ts";
 import { drive } from "./test/drive.ts";
 
@@ -323,7 +323,124 @@ describe("installApp", { timeout: 60_000 }, () => {
   });
 });
 
-describe("robkit share and install", { timeout: 60_000 }, () => {
+describe("updateApp", { timeout: 60_000 }, () => {
+  it("brings a later share into the install, keeping its own edit", async () => {
+    const { parent, a, shared } = await sharedFromA();
+    const b = await freshInstall(parent, "install-b");
+    await installApp(b, shared.source);
+    await append(a, "apps/notes/AGENTS.md", "\nA's change.\n");
+    await shareApp(a, "notes");
+    await append(b, "apps/notes/CLAUDE.md", "\nB's change.\n");
+
+    const updated = await updateApp(b, "notes");
+
+    const app = join(b, "apps/notes");
+    expect(updated).toEqual({
+      source: shared.source,
+      revision: await git(app, "rev-parse", "HEAD"),
+      incoming: 1,
+    });
+    expect(await read(b, "apps/notes/AGENTS.md")).toMatch(/A's change\.\n$/);
+    expect(await read(b, "apps/notes/CLAUDE.md")).toMatch(/B's change\.\n$/);
+    expect(await git(app, "status", "--porcelain")).toBe("");
+    expect(await record(b)).toEqual({
+      notes: { source: shared.source, revision: updated.revision },
+    });
+  });
+
+  it("says when there's nothing new", async () => {
+    const { parent, shared } = await sharedFromA();
+    const b = await freshInstall(parent, "install-b");
+    await installApp(b, shared.source);
+
+    expect((await updateApp(b, "notes")).incoming).toBe(0);
+  });
+
+  it("leaves a clash as a git conflict, and says how to finish it", async () => {
+    const { parent, a, shared } = await sharedFromA();
+    const b = await freshInstall(parent, "install-b");
+    await installApp(b, shared.source);
+    await append(a, "apps/notes/AGENTS.md", "\nA's line.\n");
+    await shareApp(a, "notes");
+    await append(b, "apps/notes/AGENTS.md", "\nB's line.\n");
+
+    const updating = updateApp(b, "notes");
+
+    await expect(updating).rejects.toBeInstanceOf(UpdateConflict);
+    await expect(updating).rejects.toThrow(
+      "Git couldn't merge the upstream's changes into apps/notes by itself. These files conflict:\n\n  AGENTS.md\n",
+    );
+    expect(await read(b, "apps/notes/AGENTS.md")).toContain("<<<<<<<");
+    expect(await record(b)).toEqual({
+      notes: { source: shared.source, revision: shared.revision },
+    });
+    // Again before it's resolved: the same advice, nothing new.
+    await expect(updateApp(b, "notes")).rejects.toBeInstanceOf(UpdateConflict);
+  });
+
+  it("refuses an upstream made for a contract this robkit can't run", async () => {
+    const { parent, a, shared } = await sharedFromA();
+    const b = await freshInstall(parent, "install-b");
+    await installApp(b, shared.source);
+    const manifest = JSON.parse(await read(a, "apps/notes/package.json")) as {
+      robkit: object;
+    };
+    await writeFile(
+      join(a, "apps/notes/package.json"),
+      JSON.stringify({
+        ...manifest,
+        robkit: { ...manifest.robkit, contract: 2 },
+      }),
+    );
+    await shareApp(a, "notes");
+
+    await expect(updateApp(b, "notes")).rejects.toThrow(
+      "Not updating apps/notes. It was made for robkit contract 2",
+    );
+    expect(await git(join(b, "apps/notes"), "rev-parse", "HEAD")).toBe(
+      shared.revision,
+    );
+  });
+
+  it("refuses an app that was never shared", async () => {
+    const a = await freshInstall(await machine(), "install-a");
+    await addApp(a, notes());
+
+    await expect(updateApp(a, "notes")).rejects.toThrow(
+      "apps/notes has no upstream: it was never shared or installed. Share it first with pnpm robkit share notes.",
+    );
+  });
+});
+
+describe.each(readyStacks)(
+  "an app on the %s stack",
+  { timeout: 60_000 },
+  (stack) => {
+    it("shares, installs and updates", async () => {
+      const { parent, a, shared } = await sharedFromA(stack);
+      const b = await freshInstall(parent, "install-b");
+      await installApp(b, shared.source);
+      await append(a, "apps/notes/package.json", "");
+      await append(a, "apps/notes/AGENTS.md", "\nLater.\n");
+      await shareApp(a, "notes");
+
+      await updateApp(b, "notes");
+
+      expect(await read(b, "apps/notes/AGENTS.md")).toBe(
+        await read(a, "apps/notes/AGENTS.md"),
+      );
+      expect(
+        (
+          JSON.parse(await read(b, "apps/notes/package.json")) as {
+            robkit: { stack: string };
+          }
+        ).robkit.stack,
+      ).toBe(stack);
+    });
+  },
+);
+
+describe("robkit share, install and update", { timeout: 60_000 }, () => {
   it("share says where the app went and how another install takes it", async () => {
     const parent = await machine();
     const a = await freshInstall(parent, "install-a");
@@ -366,9 +483,33 @@ Then open http://notes.robkit.localhost:3000.
     });
   });
 
+  it("update says what came in, or that nothing did", async () => {
+    const { parent, a, shared } = await sharedFromA();
+    const b = await freshInstall(parent, "install-b");
+    await installApp(b, shared.source);
+    await append(a, "apps/notes/AGENTS.md", "\nLater.\n");
+    await shareApp(a, "notes");
+
+    const updated = await drive(bin, b, ["update", "notes"]);
+    const again = await drive(bin, b, ["update", "notes"]);
+
+    expect(updated).toEqual({
+      code: 0,
+      output: `Brought 1 commit into apps/notes from ${shared.source}.
+
+Restart pnpm dev to migrate the app's database and serve the new version.
+`,
+    });
+    expect(again).toEqual({
+      code: 0,
+      output: `apps/notes already has everything ${shared.source} has.\n`,
+    });
+  });
+
   it.each([
     [["share"], "Usage: robkit share <app>"],
     [["install"], "Usage: robkit install <git URL or path>"],
+    [["update"], "Usage: robkit update <app>"],
   ])("refuses %j, showing its usage", async (args, message) => {
     const a = await freshInstall(await machine(), "install-a");
 
