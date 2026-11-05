@@ -12,6 +12,7 @@
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@internal/ui": "workspace:*",
+    "@robkit/session": "catalog:",
     "@robkit/hono": "catalog:",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",

@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { readServeEnv } from "@robkit/session/input";
 import { Hono } from "hono";
 import server from "./server.tsx";
 
@@ -10,11 +11,13 @@ const app = new Hono();
 app.use("/assets/*", serveStatic({ root: "dist" }));
 app.route("/", server);
 
-const hostname = process.env.HOST ?? "127.0.0.1";
+const listen = readServeEnv(process.env);
+if ("error" in listen) {
+  console.error(listen.error);
+  process.exit(1);
+}
+const { host: hostname, port } = listen;
 
-serve(
-  { fetch: app.fetch, hostname, port: Number(process.env.PORT ?? "3000") },
-  ({ port }) => {
-    console.log(`listening on ${hostname}:${String(port)}`);
-  },
-);
+serve({ fetch: app.fetch, hostname, port }, ({ port }) => {
+  console.log(`listening on ${hostname}:${String(port)}`);
+});

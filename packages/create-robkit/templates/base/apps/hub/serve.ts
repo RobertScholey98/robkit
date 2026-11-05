@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
+import { readServeEnv } from "@robkit/session/input";
 import { Hono } from "hono";
 
 // The hub in production: the files Vite built into dist, and its page for
@@ -9,11 +10,13 @@ app.use("*", serveStatic({ root: "dist" }));
 app.get("*", serveStatic({ path: "dist/index.html" }));
 
 // A container sets HOST to listen beyond loopback.
-const hostname = process.env.HOST ?? "127.0.0.1";
+const listen = readServeEnv(process.env);
+if ("error" in listen) {
+  console.error(listen.error);
+  process.exit(1);
+}
+const { host: hostname, port } = listen;
 
-serve(
-  { fetch: app.fetch, hostname, port: Number(process.env.PORT ?? "3000") },
-  ({ port }) => {
-    console.log(`hub listening on ${hostname}:${String(port)}`);
-  },
-);
+serve({ fetch: app.fetch, hostname, port }, ({ port }) => {
+  console.log(`hub listening on ${hostname}:${String(port)}`);
+});
