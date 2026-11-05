@@ -43,9 +43,9 @@ export type Decision =
 
 type Outcome = Decision["outcome"];
 
-/** Who is asking, as far as the rule cares. A member holds one of its roles. */
+/** Who is asking, as far as the rule cares. A guest in the rule holds one of its roles. */
 type Asking =
-  "unknown" | "signed-out" | "expired" | "owner" | "guest" | "member";
+  "unknown" | "signed-out" | "expired" | "owner" | "guest" | "guest-in-rule";
 
 const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
   open: {
@@ -54,7 +54,7 @@ const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
     expired: "refresh",
     owner: "allow",
     guest: "allow",
-    member: "allow",
+    "guest-in-rule": "allow",
   },
   roles: {
     unknown: "refresh",
@@ -62,7 +62,7 @@ const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
     expired: "refresh",
     owner: "allow",
     guest: "not-found",
-    member: "allow",
+    "guest-in-rule": "allow",
   },
   owner: {
     unknown: "refresh",
@@ -70,7 +70,7 @@ const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
     expired: "refresh",
     owner: "allow",
     guest: "not-found",
-    member: "not-found",
+    "guest-in-rule": "not-found",
   },
 };
 
@@ -78,10 +78,10 @@ function askingOf(rule: AccessRule, session: SessionState): Asking {
   if (session.state !== "signed-in") return session.state;
   const { viewer } = session;
   if (viewer.kind === "owner") return "owner";
-  const isMember =
+  const inRule =
     rule.kind === "roles" &&
     rule.roles.some((role) => viewer.roles.includes(role));
-  return isMember ? "member" : "guest";
+  return inRule ? "guest-in-rule" : "guest";
 }
 
 /** Decides what an app does with a request, from its rule and the session. */
