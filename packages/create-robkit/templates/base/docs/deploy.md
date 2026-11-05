@@ -93,5 +93,7 @@ Open `https://hub.<domain>` straight away and claim the install: whoever sets it
 
 Each app but core, the hub and admin is its own git repository, left out of the install's. A clone of the install, as Coolify's build and CI make, fetches each from the source `robkit.json` records, at the commit it records: CI with `pnpm robkit install`, and the `Dockerfile` with `robkit/fetch-app.js`. So before you push:
 
-- share every app to a git URL the build can reach without a password, with `pnpm robkit share <app> <git URL>`. A path on your machine works for another install there, not for a deploy.
-- commit `robkit.json` after each share, install and update. A deploy redeploys an app whose recorded commit moved.
+- share every app to a git URL the build can reach without a password, with `pnpm robkit share <app> <git URL>`. A path on your machine works for another install there, not for a deploy. An app you installed and changed needs a repo of your own: sharing it there leaves `pnpm robkit update` pulling from its author.
+- share each app again after you change it. `robkit share` commits `robkit.json` in the install, and a deploy redeploys an app whose recorded commit moved.
+
+`pnpm robkit deploy` refuses, naming the app, when the build wouldn't run what you have: an app never shared, shared only to a folder, or with changes it hasn't shared, or a `robkit.json` you haven't committed.

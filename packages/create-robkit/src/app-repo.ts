@@ -462,3 +462,72 @@ export async function restoreApps(root: string): Promise<Restored> {
   }
   return { restored, unshared };
 }
+
+/**
+ * Why a build of the install at `root` wouldn't run what its owner sees
+ * here, one line each. A build, as Coolify makes one, starts from a clone
+ * of the install's repository and fetches each app repo from the source
+ * `robkit.json` records, at the commit it records. So it names an app
+ * repo never shared, one shared only to a folder on this machine, one
+ * with changes or commits it hasn't shared, and `robkit.json` if the
+ * install hasn't committed it.
+ */
+export async function buildProblems(root: string): Promise<string[]> {
+  const { apps = {} } = await readInstallRecord(root);
+  const problems: string[] = [];
+  for (const [slug, { source, revision }] of Object.entries(apps)) {
+    if (source === undefined) {
+      problems.push(
+        `apps/${slug} was never shared, so the build can't fetch it. Share it to a git URL the build can reach: pnpm robkit share ${slug} <git URL>`,
+      );
+      continue;
+    }
+    if (!isUrl(source)) {
+      problems.push(
+        `apps/${slug} is shared to ${source}, a folder on this machine, which the build can't reach. Share it to a git URL: pnpm robkit share ${slug} <git URL>`,
+      );
+      continue;
+    }
+    const dir = appDir(root, slug);
+    // A clone of the install that hasn't fetched it builds what's recorded.
+    if (!isRepo(dir)) continue;
+    if (await sharedAsRecorded(dir, revision)) continue;
+    // An installed app's origin is still its author's repo.
+    const installed =
+      (await remoteOf(dir, "upstream")) === (await originOf(dir));
+    problems.push(
+      installed
+        ? `apps/${slug} has changes that aren't shared, so the build would run an older version. Share them to a repo of this install's own: pnpm robkit share ${slug} <git URL>`
+        : `apps/${slug} has changes that aren't shared, so the build would run an older version. Share them: pnpm robkit share ${slug}`,
+    );
+  }
+  if (
+    isRepo(root) &&
+    (await git(root, ["status", "--porcelain", "--", "robkit.json"])) !== ""
+  ) {
+    problems.push(
+      "robkit.json has changes the install hasn't committed, so the build would fetch the apps it recorded before. Commit it, then push the install.",
+    );
+  }
+  return problems;
+}
+
+/**
+ * Whether the app repo in `dir` is clean, at `revision`, and that commit
+ * is on its origin, as far as this repository last heard from it.
+ */
+async function sharedAsRecorded(
+  dir: string,
+  revision: string | undefined,
+): Promise<boolean> {
+  if ((await git(dir, ["status", "--porcelain"])) !== "") return false;
+  if ((await git(dir, ["rev-parse", "HEAD"])) !== revision) return false;
+  const holding = await git(dir, [
+    "branch",
+    "--remotes",
+    "--contains",
+    "HEAD",
+    "--format=%(refname:short)",
+  ]);
+  return holding.split("\n").some((branch) => branch.startsWith("origin/"));
+}

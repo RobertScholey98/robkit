@@ -10,7 +10,13 @@ import {
   install as addresses,
 } from "@robkit/session/addresses";
 import { addApp } from "./add.ts";
-import { installApp, restoreApps, shareApp, updateApp } from "./app-repo.ts";
+import {
+  buildProblems,
+  installApp,
+  restoreApps,
+  shareApp,
+  updateApp,
+} from "./app-repo.ts";
 import {
   addCommandFor,
   addUsage,
@@ -88,7 +94,10 @@ Usage: robkit deploy [--all | --apps <list>] [--dry-run]
 Brings the install's applications on Coolify in line with the install, as
 coolify.json describes it, then deploys core and the apps that changed
 since TURBO_SCM_BASE. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run,
-prints each app's variables and contacts nothing.`;
+prints each app's variables and contacts nothing. Refuses, as a dry run
+does, when the build wouldn't run what the install has: an app repo never
+shared, shared only to a folder, or with changes it hasn't shared, or a
+robkit.json the install hasn't committed.`;
 
 try {
   const [command] = process.argv.slice(2);
@@ -176,6 +185,12 @@ async function deployInstall(): Promise<void> {
     );
   }
   const config = readCoolifyConfig(await readFile(configPath, "utf8"));
+  const problems = await buildProblems(root);
+  if (problems.length > 0) {
+    throw new Error(
+      `Not deploying, since the build wouldn't run what this install has:\n\n${problems.map((problem) => `  ${problem}`).join("\n")}`,
+    );
+  }
   const deployments = await deploymentOf(root, {
     domain: config.domain,
     trustedProxy: config.trustedProxy,

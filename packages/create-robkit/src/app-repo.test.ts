@@ -3,11 +3,12 @@ import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { afterAll, describe, expect, it } from "vitest";
 import { addApp, type AppChoices } from "./add.ts";
 import {
+  buildProblems,
   installApp,
   restoreApps,
   shareApp,
@@ -458,6 +459,101 @@ describe("updateApp", { timeout: 60_000 }, () => {
     await expect(updateApp(a, "notes")).rejects.toThrow(
       "apps/notes has no upstream: it was never shared or installed. Share it first with pnpm robkit share notes.",
     );
+  });
+});
+
+describe("buildProblems", { timeout: 60_000 }, () => {
+  /** A bare repo at a file:// URL, which a build could reach as any URL. */
+  async function urlRepo(parent: string, name: string): Promise<string> {
+    const dir = join(parent, "hosted", `${name}.git`);
+    await mkdir(dir, { recursive: true });
+    await git(dir, "init", "--quiet", "--bare", "--initial-branch=main");
+    return pathToFileURL(dir).href;
+  }
+
+  /** Install A with notes shared to a URL, robkit.json committed. */
+  async function sharedToUrl() {
+    const parent = await machine();
+    const a = await freshInstall(parent, "install-a");
+    await addApp(a, notes());
+    const url = await urlRepo(parent, "notes");
+    await shareApp(a, "notes", { target: url });
+    await git(a, "add", "--all");
+    await git(a, "commit", "--quiet", "--message", "Share notes");
+    return { parent, a, url };
+  }
+
+  it("finds nothing when each app repo is shared to a URL at the commit robkit.json records", async () => {
+    const { a } = await sharedToUrl();
+
+    expect(await buildProblems(a)).toEqual([]);
+  });
+
+  it("names an app never shared, and one shared to a folder", async () => {
+    const parent = await machine();
+    const a = await freshInstall(parent, "install-a");
+    await addApp(a, notes());
+    await addApp(a, { ...notes(), slug: "drafts" });
+    await shareApp(a, "notes");
+    await git(a, "add", "--all");
+    await git(a, "commit", "--quiet", "--message", "Record");
+
+    expect(await buildProblems(a)).toEqual([
+      "apps/drafts was never shared, so the build can't fetch it. Share it to a git URL the build can reach: pnpm robkit share drafts <git URL>",
+      `apps/notes is shared to ${join(parent, "robkit-apps", "notes.git")}, a folder on this machine, which the build can't reach. Share it to a git URL: pnpm robkit share notes <git URL>`,
+    ]);
+  });
+
+  it.each([
+    [
+      "an edit",
+      async (app: string) => {
+        await append(app, "AGENTS.md", "\nUnshared.\n");
+      },
+    ],
+    [
+      "a commit",
+      async (app: string) => {
+        await append(app, "AGENTS.md", "\nUnshared.\n");
+        await git(app, "commit", "--quiet", "--all", "--message", "Mine");
+      },
+    ],
+  ])("names an app with %s it hasn't shared", async (_, change) => {
+    const { a } = await sharedToUrl();
+    await change(join(a, "apps/notes"));
+
+    expect(await buildProblems(a)).toEqual([
+      "apps/notes has changes that aren't shared, so the build would run an older version. Share them: pnpm robkit share notes",
+    ]);
+  });
+
+  it("names an installed app the install changed, and says to share it to a repo of its own", async () => {
+    const { parent, url } = await sharedToUrl();
+    const b = await freshInstall(parent, "install-b");
+    await installApp(b, url);
+    await append(b, "apps/notes/CLAUDE.md", "\nB's change.\n");
+    await updateApp(b, "notes");
+    await git(b, "add", "--all");
+    await git(b, "commit", "--quiet", "--message", "Install notes");
+
+    expect(await buildProblems(b)).toEqual([
+      "apps/notes has changes that aren't shared, so the build would run an older version. Share them to a repo of this install's own: pnpm robkit share notes <git URL>",
+    ]);
+
+    await shareApp(b, "notes", { target: await urlRepo(parent, "b-notes") });
+    await git(b, "commit", "--quiet", "--all", "--message", "Share notes");
+
+    expect(await buildProblems(b)).toEqual([]);
+  });
+
+  it("names robkit.json when the install hasn't committed it", async () => {
+    const { a } = await sharedToUrl();
+    await append(a, "apps/notes/AGENTS.md", "\nShared, unrecorded.\n");
+    await shareApp(a, "notes");
+
+    expect(await buildProblems(a)).toEqual([
+      "robkit.json has changes the install hasn't committed, so the build would fetch the apps it recorded before. Commit it, then push the install.",
+    ]);
   });
 });
 

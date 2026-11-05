@@ -251,6 +251,22 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
 `);
   });
 
+  it("refuses an app repo the build can't fetch as this install has it, even on a dry run", async () => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "coolify.json"), coolifyJson);
+    await drive(bin, dir, ["add", "notes", "--stack", "react-hono"]);
+
+    const { code, output } = await drive(bin, dir, ["deploy", "--dry-run"]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output: `Not deploying, since the build wouldn't run what this install has:
+
+  apps/notes was never shared, so the build can't fetch it. Share it to a git URL the build can reach: pnpm robkit share notes <git URL>
+`,
+    });
+  });
+
   it("deploys nothing until COOLIFY_URL is set", async () => {
     const dir = await freshInstall();
     await writeFile(join(dir, "coolify.json"), coolifyJson);
