@@ -9,10 +9,14 @@ declare const accessCodeBrand: unique symbol;
 /** An access code as core stores it: 3 to 32 upper-case letters or digits. */
 export type AccessCode = string & { readonly [accessCodeBrand]: true };
 
+function isAccessCode(code: string): code is AccessCode {
+  return /^[A-Z0-9]{3,32}$/.test(code);
+}
+
 /** Reads what someone typed as an access code, ignoring case and spaces around it. */
 export function parseAccessCode(input: string): AccessCode | undefined {
   const code = input.trim().toUpperCase();
-  return /^[A-Z0-9]{3,32}$/.test(code) ? (code as AccessCode) : undefined;
+  return isAccessCode(code) ? code : undefined;
 }
 
 // No look-alikes such as 0 and O or 1 and I, so a code survives being read
@@ -25,7 +29,9 @@ function generateAccessCode(): AccessCode {
   const characters = Array.from({ length: generatedLength }, () =>
     alphabet.charAt(randomInt(alphabet.length)),
   );
-  return characters.join("") as AccessCode;
+  const code = characters.join("");
+  if (!isAccessCode(code)) throw new Error(`${code} isn't an access code.`);
+  return code;
 }
 
 /** The code every install is seeded with, for trying robkit out locally. */
