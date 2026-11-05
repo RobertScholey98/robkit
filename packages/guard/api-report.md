@@ -60,10 +60,11 @@ export type Viewer =
 export interface ConformanceCase {
   name: string;
   rule: AccessRule;
-  session: "unknown" | "signed-out" | "expired" | "owner" | "guest";
+  session: (typeof sessions)[number];
   guestRoles?: string[];
-  otherToken?: "another-app" | "core" | "no-audience";
+  otherToken?: (typeof otherTokens)[number];
   outcome: Decision["outcome"];
 }
 export const conformanceCases: ConformanceCase[];
+export function readConformanceCases(value: unknown): ConformanceCase[];
 ```

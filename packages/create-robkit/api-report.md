@@ -10,7 +10,7 @@ export interface Choices {
 }
 export const defaultChoices: Choices;
 export interface Deployment {
-  slug: string;
+  slug: Slug;
   env: Record<string, Value>;
 }
 export function deploymentOf(

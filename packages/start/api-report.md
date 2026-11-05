@@ -13,7 +13,7 @@ export interface GuardedContext {
   viewer: Viewer;
 }
 export interface GuardedOptions {
-  app: string;
+  app: Slug;
   access?: AccessRule | undefined;
   core: string;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;

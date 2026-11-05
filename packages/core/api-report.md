@@ -5,6 +5,14 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/core
 
 ```ts
+export interface CoreConfig {
+  databaseUrl: string;
+  domain: string;
+  apps: DeclaredApp[];
+  trustedProxy?: TrustedProxy;
+  host: string;
+  port: number;
+}
 export interface CoreOptions {
   db: Database;
   domain: string;
@@ -27,17 +35,9 @@ export function createDatabase(
   $client: postgres.Sql<{}>;
 };
 export type Database = ReturnType<typeof createDatabase>;
-export interface DeclaredApp {
-  slug: string;
-  access?: AccessRule;
-  icon?: string;
-}
 export function ensureSigningKey(db: Database): Promise<SigningKey>;
 export function migrate(databaseUrl: string): Promise<void>;
-export function readDeclaredApps(text: string | undefined): DeclaredApp[];
-export function readTrustedProxy(
-  value: string | undefined,
-): TrustedProxy | undefined;
+export function readCoreConfig(env: Env): CoreConfig | InputProblem;
 export function registerApps(
   db: Database,
   declared: readonly DeclaredApp[],

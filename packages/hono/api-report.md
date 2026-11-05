@@ -12,7 +12,7 @@ export interface GuardedEnv {
   };
 }
 export interface GuardedOptions {
-  app: string;
+  app: Slug;
   access?: AccessRule | undefined;
   core: string;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
