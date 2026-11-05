@@ -27,7 +27,7 @@ export function coreAccess(
   let pending: Promise<AccessRule> | undefined;
 
   const load = async (): Promise<AccessRule> => {
-    const res = await loopbackFetch(url.href, {
+    const res = await coreFetch(url.href, {
       method: "GET",
       headers: new Headers({ accept: "application/json" }),
       redirect: "manual",
