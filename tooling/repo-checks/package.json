@@ -6,9 +6,12 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "api:update": "turbo run build --filter=@internal/repo-checks^... && vitest run src/api-report.test.ts --update"
   },
   "devDependencies": {
+    "@arethetypeswrong/core": "catalog:",
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@robkit/core": "workspace:*",
@@ -21,8 +24,11 @@
     "@types/node": "catalog:",
     "create-robkit": "workspace:*",
     "eslint": "catalog:",
+    "prettier": "catalog:",
+    "publint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   }
 }

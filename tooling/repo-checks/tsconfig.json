@@ -1,7 +1,10 @@
 {
   "extends": "@internal/tsconfig/base.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["node"],
+    // Reads the layer rule's rows, which @internal/eslint-config declares
+    // in JS with JSDoc types.
+    "allowJs": true
   },
   "include": ["src", "*.js"]
 }

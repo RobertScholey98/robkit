@@ -3,15 +3,21 @@ import { extname, join, posix } from "node:path";
 import { sessionCookie } from "@robkit/session";
 import ts from "typescript";
 
-/** An app in an install: `apps/<slug>`, with its manifest's package name. */
-interface App {
+/**
+ * Code the layer rule binds: an app, `apps/<slug>`, or a shared package,
+ * `packages/<name>`, with its manifest's package name. A shared package's
+ * code runs inside the apps that import it, so the rule binds it too.
+ */
+interface Area {
+  kind: "app" | "shared package";
+  /** Its folder's name, which for an app is its slug. */
   slug: string;
   /** Its folder from the install root, such as `apps/hub`. */
   folder: string;
   name: string | undefined;
 }
 
-/** Something an app's file uses that the layer rule looks at. */
+/** Something a file uses that the layer rule looks at. */
 type Use =
   | {
       kind: "import";
@@ -21,12 +27,12 @@ type Use =
     }
   | { kind: "string"; value: string };
 
-/** One rule of the layer rule, and how a use in an app's file breaks it. */
+/** One rule of the layer rule, and how a use in an area's file breaks it. */
 export interface LayerRow {
   /** What `robkit check` prints, naming the rule. */
   rule: string;
-  applies: (app: App) => boolean;
-  breaks: (use: Use, app: App, apps: readonly App[]) => boolean;
+  applies: (area: Area) => boolean;
+  breaks: (use: Use, area: Area, areas: readonly Area[]) => boolean;
 }
 
 /** Whether `path`, from the install root, is `folder` or inside it. */
@@ -39,7 +45,23 @@ function names(specifier: string, module: string): boolean {
   return specifier === module || specifier.startsWith(`${module}/`);
 }
 
-const notCore = (app: App) => app.slug !== "core";
+const notCore = (area: Area) => area.kind !== "app" || area.slug !== "core";
+
+/**
+ * Whether `use` leaves `area`: a relative import outside its folder, or an
+ * import of another app by its package name.
+ */
+function leaves(use: Use, area: Area, areas: readonly Area[]): boolean {
+  if (use.kind !== "import") return false;
+  if (use.target !== undefined) return !inside(use.target, area.folder);
+  return areas.some(
+    (other) =>
+      other !== area &&
+      other.kind === "app" &&
+      other.name !== undefined &&
+      names(use.specifier, other.name),
+  );
+}
 
 /**
  * The layer rule in an install, one row per rule. `robkit check` is its only
@@ -48,20 +70,16 @@ const notCore = (app: App) => app.slug !== "core";
 export const layerRule: readonly LayerRow[] = [
   {
     rule: "Layer rule: an app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.",
-    applies: () => true,
-    breaks: (use, app, apps) =>
-      use.kind === "import" &&
-      (use.target === undefined
-        ? apps.some(
-            (other) =>
-              other !== app &&
-              other.name !== undefined &&
-              names(use.specifier, other.name),
-          )
-        : !inside(use.target, app.folder)),
+    applies: (area) => area.kind === "app",
+    breaks: leaves,
   },
   {
-    rule: "Layer rule: an app reaches core over HTTP only, never through @robkit/core.",
+    rule: "Layer rule: a shared package imports only its own files, @robkit/* packages and other shared packages/*. It never imports an app.",
+    applies: (area) => area.kind === "shared package",
+    breaks: leaves,
+  },
+  {
+    rule: "Layer rule: an app or shared package reaches core over HTTP only, never through @robkit/core.",
     applies: notCore,
     breaks: (use) =>
       use.kind === "import" &&
@@ -69,7 +87,7 @@ export const layerRule: readonly LayerRow[] = [
         (use.target !== undefined && inside(use.target, "apps/core"))),
   },
   {
-    rule: "Layer rule: handlers take the viewer from their adapter. App code never reads the session cookie or verifies a token itself.",
+    rule: "Layer rule: handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.",
     applies: notCore,
     breaks: (use) =>
       use.kind === "import"
@@ -100,7 +118,7 @@ const scriptKinds: Record<string, ts.ScriptKind> = {
   ".jsx": ts.ScriptKind.JSX,
 };
 
-/** Folders that hold no code an app's author wrote. */
+/** Folders that hold no code the install's author wrote. */
 const skipped = new Set(["node_modules", "dist", "build"]);
 
 async function readJson(path: string): Promise<unknown> {
@@ -112,24 +130,34 @@ async function readJson(path: string): Promise<unknown> {
   }
 }
 
-/** The install's apps: each folder under `apps/` with a `package.json`. */
-async function appsOf(root: string): Promise<App[]> {
-  const entries = await readdir(join(root, "apps"), {
-    withFileTypes: true,
-  }).catch((error: unknown) => {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  });
-  const apps: App[] = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const folder = `apps/${entry.name}`;
-    const manifest = (await readJson(join(root, folder, "package.json"))) as
-      { name?: string } | undefined;
-    if (manifest === undefined) continue;
-    apps.push({ slug: entry.name, folder, name: manifest.name });
+/**
+ * The install's apps, then its shared packages: each folder under `apps/` or
+ * `packages/` with a `package.json`.
+ */
+async function areasOf(root: string): Promise<Area[]> {
+  const areas: Area[] = [];
+  for (const [parent, kind] of [
+    ["apps", "app"],
+    ["packages", "shared package"],
+  ] as const) {
+    const entries = await readdir(join(root, parent), {
+      withFileTypes: true,
+    }).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw error;
+    });
+    const found: Area[] = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const folder = `${parent}/${entry.name}`;
+      const manifest = (await readJson(join(root, folder, "package.json"))) as
+        { name?: string } | undefined;
+      if (manifest === undefined) continue;
+      found.push({ kind, slug: entry.name, folder, name: manifest.name });
+    }
+    areas.push(...found.sort((a, b) => (a.slug < b.slug ? -1 : 1)));
   }
-  return apps.sort((a, b) => (a.slug < b.slug ? -1 : 1));
+  return areas;
 }
 
 /** Every script file under `dir`, by its path from `root`. */
@@ -202,19 +230,19 @@ function usesIn(
 }
 
 /**
- * Every place an app in the install at `root` breaks the layer rule, in file
- * order. An empty list means the rule holds.
+ * Every place an app or shared package in the install at `root` breaks the
+ * layer rule, in file order. An empty list means the rule holds.
  */
 export async function checkInstall(root: string): Promise<Problem[]> {
-  const apps = await appsOf(root);
+  const areas = await areasOf(root);
   const problems: Problem[] = [];
-  for (const app of apps) {
-    const rows = layerRule.filter((row) => row.applies(app));
-    for (const file of await scriptsIn(root, app.folder)) {
+  for (const area of areas) {
+    const rows = layerRule.filter((row) => row.applies(area));
+    for (const file of await scriptsIn(root, area.folder)) {
       const text = await readFile(join(root, file), "utf8");
       for (const { use, node, source } of usesIn(file, text)) {
         for (const row of rows) {
-          if (!row.breaks(use, app, apps)) continue;
+          if (!row.breaks(use, area, areas)) continue;
           const { line, character } = source.getLineAndCharacterOfPosition(
             node.getStart(source),
           );

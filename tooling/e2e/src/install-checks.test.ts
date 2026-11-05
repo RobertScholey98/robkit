@@ -41,7 +41,7 @@ describe("the start install's lint", () => {
     [
       "an app other than core imports @robkit/core",
       'export * from "@robkit/core";\n',
-      "apps/hub/src/reach.ts:1:15  Layer rule: an app reaches core over HTTP only, never through @robkit/core.",
+      "apps/hub/src/reach.ts:1:15  Layer rule: an app or shared package reaches core over HTTP only, never through @robkit/core.",
     ],
     [
       "an app imports another app",
@@ -102,7 +102,7 @@ describe("the start install's pre-commit hook", () => {
       // lint-staged shows the failing task's output on stderr.
       await expect(committing).rejects.toMatchObject({
         stderr: expect.stringContaining(
-          "apps/hub/src/reach.ts:1:15  Layer rule: an app reaches core over HTTP only, never through @robkit/core.",
+          "apps/hub/src/reach.ts:1:15  Layer rule: an app or shared package reaches core over HTTP only, never through @robkit/core.",
         ) as string,
       });
     } finally {
