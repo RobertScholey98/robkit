@@ -41,6 +41,8 @@ cd robkit
 pnpm install
 ```
 
+`pnpm install` also sets up two git hooks. Before each commit, ESLint fixes and Prettier formats the files you staged. The commit-msg hook checks your subject line (see [Commits](#commits)).
+
 To try a change the way a user would, make an install linked to your checkout:
 
 ```sh
@@ -73,6 +75,8 @@ Other commands:
 ```sh
 pnpm format                                       # format everything with Prettier
 pnpm turbo run lint typecheck                     # lint and typecheck every package
+pnpm changeset                                    # say which published packages a change touches
+pnpm --filter @internal/repo-checks api:update    # rewrite the API reports after an intended API change
 ```
 
 ### Run one package's tests
@@ -83,7 +87,9 @@ pnpm --filter @robkit/guard exec vitest run src/guard.test.ts     # one file
 pnpm --filter @robkit/hono test -- -t "conformance"               # tests whose name matches
 ```
 
-The tests in `@robkit/core`, `@robkit/dev`, `@internal/e2e` and `@internal/test-postgres` need Docker and Linux. `create-robkit`'s and `@internal/repo-checks`' tests need Linux. The rest run anywhere.
+The tests in `@robkit/core`, `@robkit/dev`, `@internal/e2e` and `@internal/test-postgres` need Docker and Linux. The rest run anywhere, and `pnpm check` runs them.
+
+A package's `test` script measures coverage and fails below the thresholds in its `vitest.config`. When your change raises coverage, raise the thresholds with it. CI fails a pull request that lowers one.
 
 ## How work is organised
 
@@ -108,7 +114,9 @@ Take the lowest-numbered ticket that is ready and whose `**Blocked by:**` ticket
 
 - One branch and one pull request per ticket. Name the branch after the ticket, such as `22-app-slugs-checked-at-start`.
 - Open the pull request against `main`, or against the branch it builds on if it stacks on another ticket's.
-- Say in the description what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
+- Fill in the template, `.github/pull_request_template.md`: the ticket, what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
+- A change to a published package's `src` (tests aside) needs a changeset. Run `pnpm changeset`, pick the packages and `patch`, and commit the file it writes.
+- CI's `gate` job passes only when every other job does. It is the one check a pull request needs.
 - R reviews and merges. Don't merge your own.
 
 ### Commits
@@ -117,7 +125,7 @@ R reviews commit by commit, so keep each one small and about one thing.
 
 - One logical change per commit. A test goes in the same commit as the behaviour it covers.
 - Refactors, renames and formatting get their own commits, apart from behaviour changes.
-- Write the subject in the imperative, under about 60 characters: "Add a README to each package", not "Added READMEs". Use the body to say why when the diff doesn't show it.
+- Write the subject in the imperative, under about 60 characters: "Add a README to each package", not "Added READMEs". Use the body to say why when the diff doesn't show it. The commit-msg hook, and CI on every commit of a pull request, refuse a subject over 72 characters, one ending in a period, one starting with a lowercase letter, or one whose first word ends in "ed" or "ing".
 - If the subject needs an "and", split the commit.
 
 ### Writing
@@ -172,11 +180,13 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
    git commit -m "Refuse a roles rule that names no role"
    ```
 
-6. **Run the gates.** `pnpm check`, then `pnpm check:all`.
+6. **Add a changeset.** The change is in a published package's source, so run `pnpm changeset`, pick `@robkit/session` and `patch`, describe the change in a sentence, and commit the file it writes.
 
-7. **Finish the ticket.** Tick its acceptance criteria, set `**Status:** done`, and add a `## Comments` section at the bottom with what you chose, how you proved it, and anything the next ticket needs. Commit that on its own.
+7. **Run the gates.** `pnpm check`, then `pnpm check:all`.
 
-8. **Push and open the pull request.**
+8. **Finish the ticket.** Tick its acceptance criteria, set `**Status:** done`, and add a `## Comments` section at the bottom with what you chose, how you proved it, and anything the next ticket needs. Commit that on its own.
+
+9. **Push and open the pull request.**
 
    ```sh
    git push -u origin 43-roles-rule-names-a-role
