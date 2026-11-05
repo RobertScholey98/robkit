@@ -41,3 +41,23 @@ jobs:
           path: |
             packages/*/coverage/
             tooling/*/coverage/
+
+  # What a pull request's own changes must keep to, checked against its base.
+  pull-request:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      BASE: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The same check the commit-msg hook runs, on every commit but merges.
+      - run: node tooling/repo-checks/src/check-commit-subjects.ts --range "$BASE..HEAD"
