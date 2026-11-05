@@ -1,6 +1,7 @@
 import { randomInt } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import { isLocal } from "@robkit/session/addresses";
+import type { InputProblem } from "@robkit/session/input";
 import type { Database } from "./database.ts";
 import { accessCodes } from "./schema.ts";
 
@@ -98,7 +99,7 @@ export interface NewCode {
 export function readNewCode(
   fields: Record<string, unknown>,
   now: Date,
-): NewCode | { error: string } {
+): NewCode | InputProblem {
   const name = typeof fields.name === "string" ? fields.name.trim() : "";
   if (name.length < 1 || name.length > 80) {
     return { error: "Give the guest a name of 1 to 80 characters." };

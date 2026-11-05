@@ -1,3 +1,4 @@
+import { isProblem, type InputProblem } from "@robkit/session/input";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid, testCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -19,7 +20,7 @@ export interface NewRole {
 /** The codes the owner ticked for a role, or why they won't do. */
 export function readCodeIds(
   fields: Record<string, unknown>,
-): { codeIds: string[] } | { error: string } {
+): { codeIds: string[] } | InputProblem {
   const { codeIds } = fields;
   if (
     !Array.isArray(codeIds) ||
@@ -33,13 +34,13 @@ export function readCodeIds(
 /** The role's name and the codes the owner ticked, or why they won't do. */
 export function readNewRole(
   fields: Record<string, unknown>,
-): NewRole | { error: string } {
+): NewRole | InputProblem {
   const name = typeof fields.name === "string" ? fields.name.trim() : "";
   if (name.length < 1 || name.length > 40) {
     return { error: "Give the role a name of 1 to 40 characters." };
   }
   const holders = readCodeIds(fields);
-  return "error" in holders ? holders : { name, ...holders };
+  return isProblem(holders) ? holders : { name, ...holders };
 }
 
 export type RoleCreation =
