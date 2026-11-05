@@ -1,9 +1,10 @@
 // Checks commit subjects against subjectProblems. The commit-msg hook passes
 // the message file git wrote:
 //   node tooling/repo-checks/src/check-commit-subjects.ts <message-file>
+// A merge being committed passes, since git names its subject.
 // CI passes a pull request's commits, and merge commits are skipped:
 //   node tooling/repo-checks/src/check-commit-subjects.ts --range <base>..<head>
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { subjectOf, subjectProblems } from "./commit-subject.ts";
 
@@ -29,9 +30,21 @@ function messagesInRange(range: string): Message[] {
     });
 }
 
-function messageInFile(path: string): Message {
+/** Whether the commit being made concludes a merge, which the range check skips too. */
+function committingMerge(): boolean {
+  const merging = spawnSync("git", [
+    "rev-parse",
+    "-q",
+    "--verify",
+    "MERGE_HEAD",
+  ]);
+  return merging.status === 0;
+}
+
+function messageInFile(path: string): Message[] {
+  if (committingMerge()) return [];
   const text = readFileSync(path, "utf8");
-  return { label: `Commit subject "${subjectOf(text) ?? ""}"`, text };
+  return [{ label: `Commit subject "${subjectOf(text) ?? ""}"`, text }];
 }
 
 const [first, second] = process.argv.slice(2);
@@ -44,7 +57,7 @@ if (first === undefined || (first === "--range" && second === undefined)) {
 const messages =
   first === "--range" && second !== undefined
     ? messagesInRange(second)
-    : [messageInFile(first)];
+    : messageInFile(first);
 
 let failed = false;
 for (const { label, text } of messages) {

@@ -60,6 +60,21 @@ describe("check-commit-subjects", () => {
     });
   });
 
+  it("passes the message file of a merge being committed, as CI skips merges", async () => {
+    git("checkout", "-q", "-b", "side");
+    commit("Add a thing");
+    git("checkout", "-q", "main");
+    commit("Add another thing");
+    // A conflicted merge stops before its commit, with MERGE_HEAD set, and
+    // git runs the commit-msg hook when the merge is committed.
+    git("merge", "-q", "--no-ff", "--no-commit", "side");
+    const message =
+      "Merge remote-tracking branch 'origin/46-guardrails-for-contributors' into 47-round-1\n";
+    await writeFile(join(repo, "MSG"), message);
+
+    expect(check("MSG")).toEqual({ status: 0, output: "" });
+  });
+
   it("checks every commit in a range and skips merge commits", () => {
     const base = git("rev-parse", "HEAD");
     git("checkout", "-q", "-b", "side");
