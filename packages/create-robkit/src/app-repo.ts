@@ -259,12 +259,12 @@ export async function installApp(
   const slug = as ?? slugFromSource(source);
   const problem = newSlugProblem(root, slug);
   if (problem) {
-    const hint = existsSync(appDir(root, slug))
-      ? ` Install it under another name with --as <name>, or bring in its changes with pnpm robkit update ${slug}.`
-      : as === undefined
-        ? " Give it one with --as <name>."
-        : "";
-    throw new Error(`${problem}${hint}`);
+    // A platform app's folder exists too, but there's nothing to update.
+    throw new Error(
+      !isPlatformApp(slug) && existsSync(appDir(root, slug))
+        ? `apps/${slug} already exists. Install it under another name with --as <name>, or bring in its changes with pnpm robkit update ${slug}.`
+        : `${problem} Install it under another name with --as <name>.`,
+    );
   }
 
   const dir = appDir(root, slug);

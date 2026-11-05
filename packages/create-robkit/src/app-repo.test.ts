@@ -248,11 +248,15 @@ describe("installApp", { timeout: 60_000 }, () => {
     [
       "a slug that's taken",
       { as: "example" },
-      "apps/example already exists. Choose another name. Install it under another name with --as <name>, or bring in its changes with pnpm robkit update example.",
+      "apps/example already exists. Install it under another name with --as <name>, or bring in its changes with pnpm robkit update example.",
     ],
     ["core's slug", { as: "core" }, "core is one of the platform apps"],
     ["the hub's slug", { as: "hub" }, "hub is one of the platform apps"],
-    ["admin's slug", { as: "admin" }, "admin is one of the platform apps"],
+    [
+      "admin's slug",
+      { as: "admin" },
+      "admin is one of the platform apps: core, hub and admin. Install it under another name with --as <name>.",
+    ],
     [
       "a slug that isn't one",
       { as: "my-notes" },
