@@ -60,7 +60,7 @@ describe("addApp", () => {
 
     await addApp(dir, {
       ...notes,
-      access: { kind: "roles", roles: ["Family", "Cooks"] },
+      access: { kind: "roles", roleNames: ["Family", "Cooks"] },
     });
 
     expect(await manifest(dir, "notes")).toMatchObject({

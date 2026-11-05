@@ -50,7 +50,7 @@ function accessFrom(
     if (named.length === 0) {
       throw new Error("--access roles needs --roles, naming at least one.");
     }
-    return { kind: "roles", roles: named };
+    return { kind: "roles", roleNames: named };
   }
   if (roles !== undefined) {
     throw new Error("--roles only goes with --access roles.");
@@ -82,7 +82,9 @@ export function addCommandFor({ stack, slug, access, icon }: AppChoices) {
     `robkit add ${slug}`,
     `--stack ${stack}`,
     `--access ${access.kind}`,
-    ...(access.kind === "roles" ? [`--roles "${access.roles.join(",")}"`] : []),
+    ...(access.kind === "roles"
+      ? [`--roles "${access.roleNames.join(",")}"`]
+      : []),
     `--icon ${icon}`,
   ].join(" ");
 }

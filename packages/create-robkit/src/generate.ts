@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { declaresJson, type Declares } from "@robkit/session/input";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readyStacks, type Choices, type Stack } from "./choices.ts";
@@ -117,17 +118,6 @@ export function stackTemplate(stack: Stack): Promise<Files> {
   return readLayer(`stacks/${stack}`);
 }
 
-/**
- * What an app's manifest declares for core's catalog, in its `robkit`
- * field: who may open it once core adds it, with roles named, and the emoji
- * the launcher shows.
- */
-export interface Declares {
-  access?:
-    { kind: "open" } | { kind: "owner" } | { kind: "roles"; roles: string[] };
-  icon?: string;
-}
-
 /** The icon an app gets when nobody picks one, the example app included. */
 export const defaultIcon = "📦";
 
@@ -145,7 +135,9 @@ export function appFiles(
   editJson(files, "package.json", (json) => ({
     name: `@internal/${slug}-app`,
     ...json,
-    ...(Object.keys(declares).length > 0 && { robkit: declares }),
+    ...(Object.keys(declares).length > 0 && {
+      robkit: declaresJson(declares),
+    }),
   }));
   return files;
 }

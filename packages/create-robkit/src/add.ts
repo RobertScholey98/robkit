@@ -7,13 +7,9 @@ import {
   readSlug,
   type Slug,
 } from "@robkit/session/addresses";
+import type { DeclaredAccess } from "@robkit/session/input";
 import type { Choices, Stack } from "./choices.ts";
-import {
-  appFiles,
-  readFolder,
-  stackTemplate,
-  type Declares,
-} from "./generate.ts";
+import { appFiles, readFolder, stackTemplate } from "./generate.ts";
 import { writeInstall } from "./write.ts";
 
 /**
@@ -24,7 +20,7 @@ export interface AppChoices {
   stack: Stack;
   slug: Slug;
   /** Who may open the app once core adds it. A rule's roles are named. */
-  access: NonNullable<Declares["access"]>;
+  access: DeclaredAccess;
   icon: string;
 }
 
