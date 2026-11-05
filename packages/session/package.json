@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./addresses": "./src/install-addresses.ts",
+    "./input": "./src/input.ts",
     "./lapsed": "./src/session-lapsed.ts"
   },
   "publishConfig": {
@@ -17,6 +18,10 @@
       "./addresses": {
         "types": "./dist/install-addresses.d.ts",
         "default": "./dist/install-addresses.js"
+      },
+      "./input": {
+        "types": "./dist/input.d.ts",
+        "default": "./dist/input.js"
       },
       "./lapsed": {
         "types": "./dist/session-lapsed.d.ts",
