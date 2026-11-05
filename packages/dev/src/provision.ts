@@ -39,7 +39,9 @@ export async function provisionApps(
       env: { ...env, DATABASE_URL: databaseUrl },
       slug: app.slug,
     });
-    await seedOnce(app, databaseUrl);
+    if (await seedOnce(app, databaseUrl)) {
+      console.log(`[${app.slug}] ${seededMessage}`);
+    }
     databaseUrls.set(app.slug, databaseUrl);
   }
   return databaseUrls;

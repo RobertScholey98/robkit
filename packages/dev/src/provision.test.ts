@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import postgres from "postgres";
-import { afterAll, describe, expect, inject, it } from "vitest";
+import { afterAll, describe, expect, inject, it, vi } from "vitest";
 import {
   databasePassword,
   databaseUrl,
@@ -243,6 +243,23 @@ describe("provisionApps", () => {
     expect(await entries("seeds")).toEqual([
       { body: "migrated" },
       { body: "seeded by seeds" },
+    ]);
+  });
+
+  it("says when it runs a seed", async () => {
+    const root = await install();
+    await seeded(root, "chatty", "insert into entry values ('seeded');");
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    let said: unknown[][];
+    try {
+      await provisionApps(root, { adminUrl, env });
+    } finally {
+      said = [...log.mock.calls];
+      log.mockRestore();
+    }
+
+    expect(said).toContainEqual([
+      "[chatty] ran seed.sql once, on its new schema",
     ]);
   });
 
