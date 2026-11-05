@@ -110,9 +110,7 @@ export interface Coolify {
 type Called = { ok: true; body: unknown } | { ok: false; detail: string };
 
 function field(value: unknown, key: string): unknown {
-  return typeof value === "object" && value !== null
-    ? (value as Record<string, unknown>)[key]
-    : undefined;
+  return isRecord(value) ? value[key] : undefined;
 }
 
 function text(value: unknown, key: string): string | undefined {
