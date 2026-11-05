@@ -15,6 +15,9 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    "test:unit": {
+      "dependsOn": ["^build"]
+    },
     "@internal/e2e#test": {
       "dependsOn": ["^build"],
       "cache": false
