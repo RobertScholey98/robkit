@@ -42,7 +42,7 @@ An owner's app, created by `robkit add` on its own subdomain.
 _Avoid_: service, project
 
 **Stack**:
-The framework shape an app is built on, such as TanStack Start or React with Hono.
+The framework shape an app is built on, such as TanStack Start or React with Hono. Every **Install** offers every stack.
 _Avoid_: framework
 
 **Template**:
@@ -50,7 +50,7 @@ The files `robkit add` writes for a stack, shipped with the CLI and overridable 
 _Avoid_: starter, scaffold
 
 **UI kit**:
-The optional shared React component library chosen at init.
+The shared React component library every **Install** has: shadcn on Base UI, in `packages/ui`. It is not a choice.
 _Avoid_: design system
 
 **Manifest**:
@@ -98,7 +98,7 @@ _Avoid_: plugin, integration
 - An **App**'s **Manifest** sets its access rule: open to anyone, gated to one or more **Roles**, or owner only.
 - A **Session token** carries its **Access code**'s **Roles**, so a role change reaches a **Guest** within one token lifetime.
 - Each **Stack** has one **Template** and one **Adapter**.
-- The **Platform apps** follow the chosen **UI kit**, and each **App** opts in or out of it.
+- The **Platform apps** and every **App** draw with the **UI kit**.
 
 ## Example dialogue
 
@@ -111,5 +111,5 @@ _Avoid_: plugin, integration
 
 - "Grant" once meant permission for a guest to open one app. Resolved: **Roles** replaced grants (2026-10-28).
 - In robnet, "hub" sometimes meant the backend. Resolved: the **Hub** is the frontend and **Core** is the backend (2026-10-28).
-- Open: "generator" means two things. `robkit.json`'s `generators` lists the **Stacks** `add` offers, and the build tickets call the template engine "the generator".
-- Open: "layer" means two things. The template engine merges template layers, and the layer rule is about which code may import which.
+- "generator" once meant two things: `robkit.json`'s `generators` listed the **Stacks** `add` offered, and the build tickets call the template engine "the generator". Resolved: every **Install** offers every **Stack**, so `robkit.json` records only the example app's stack, and "generator" means the template engine (2026-11-05).
+- "layer" once meant two things: the template engine merged template layers, and the layer rule is about which code may import which. Resolved: the templates are no longer layered, so "layer" means the layer rule (2026-11-05).
