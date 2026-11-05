@@ -6,7 +6,7 @@
     "dev": "vite",
     "typecheck": "tsc",
     "build": "vite build",
-    "start": "node --run migrate && node dist/serve.js",
+    "start": "node --run migrate && robkit-seed && node dist/serve.js",
     "migrate": "node src/migrate.ts",
     "db:generate": "drizzle-kit generate",
     "lint": "eslint .",
@@ -15,6 +15,7 @@
   "dependencies": {
     "@hono/node-server": "2.1.5",
     "@internal/ui": "workspace:*",
+    "@robkit/dev": "0.0.0",
     "@robkit/hono": "0.0.0",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.14",

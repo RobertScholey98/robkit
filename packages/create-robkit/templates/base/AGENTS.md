@@ -35,7 +35,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 
 ## Databases
 
-`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time. When `pnpm dev` first makes an app's schema, it then runs the app's seed, the `seed.sql` at the root of its folder if it has one, once, as the app's role. It never runs it again, and a deploy doesn't run it.
+`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time. When `pnpm dev` first makes an app's schema, it then runs the app's seed, the `seed.sql` at the root of its folder if it has one, once, as the app's role, and never again. In production the app's own `start` script does the same: it migrates, then `robkit-seed` seeds a schema the deploy just made.
 
 ## Sharing an app
 

@@ -18,6 +18,7 @@ import {
   buildApp,
   extraneousPackages,
   hostEnv,
+  query,
   stackReport,
   startApp,
   startStack,
@@ -174,7 +175,7 @@ describe("the default install in production", () => {
     });
   });
 
-  it("serves an imported app that keeps shared code of its own after its next deploy", async () => {
+  it("serves an imported app that keeps shared code of its own, seeded, after its next deploy", async () => {
     // The guestbook from an install whose theme differs from this one's, so
     // it keeps its own theme and UI kit in shared/, and builds with them.
     const source = join(await mkdtemp(join(tmpdir(), "robkit-")), imported);
@@ -197,6 +198,10 @@ describe("the default install in production", () => {
       heading: "Guestbook",
       stylesheets: [200],
     });
+    // Its seed ran once, as the app's container started.
+    expect(
+      await query(stack, `select name from ${imported}.entry order by id`),
+    ).toEqual(["Rob", "Grandma"]);
     expect(await extraneousPackages(stack, imported)).toEqual([]);
   });
 

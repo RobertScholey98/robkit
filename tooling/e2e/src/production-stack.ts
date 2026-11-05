@@ -363,6 +363,22 @@ export async function startApp(
   );
 }
 
+/** What `query` finds in the host's Postgres, one row per line. */
+export async function query(stack: Stack, sql: string): Promise<string[]> {
+  const out = await docker(
+    "exec",
+    `${stack.name}-postgres`,
+    "psql",
+    "-U",
+    "postgres",
+    "-d",
+    "robkit",
+    "-tAc",
+    sql,
+  );
+  return out.split("\n").filter(Boolean);
+}
+
 /** What `slug` answers at `path` over https through Caddy. */
 function status(stack: Stack, slug: string, path: string): Promise<number> {
   const host = stack.addresses.host(slug);

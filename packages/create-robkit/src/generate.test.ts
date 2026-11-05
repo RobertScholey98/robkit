@@ -328,7 +328,7 @@ describe("generateInstall", () => {
   );
 
   it.each(["start", "react-hono"] as const)(
-    "lays Drizzle's app files over a %s app",
+    "lays Drizzle's app files over a %s app, migrated and seeded as it starts",
     async (stack) => {
       const files = await stackTemplate(stack);
       const manifest = JSON.parse(files.get("package.json") ?? "{}") as {
@@ -341,7 +341,11 @@ describe("generateInstall", () => {
       expect(files.has("drizzle/0000_init.sql")).toBe(true);
       expect(manifest.scripts.migrate).toBe("node src/migrate.ts");
       expect(manifest.dependencies["drizzle-orm"]).toBe("catalog:");
-      expect(manifest.scripts.start).toMatch(/^node --run migrate && /);
+      // Production seeds a new schema as pnpm dev does, after migrating.
+      expect(manifest.scripts.start).toMatch(
+        /^node --run migrate && robkit-seed && /,
+      );
+      expect(manifest.dependencies["@robkit/dev"]).toBe("catalog:");
     },
   );
 
