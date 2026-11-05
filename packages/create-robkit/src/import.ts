@@ -180,7 +180,7 @@ function slugRefusal(
     return `${slug} is one of the platform apps every install has: core, hub and admin. ${rename}`;
   }
   if (existsSync(join(root, "apps", slug))) {
-    return `apps/${slug} already exists. To update it to this export, remove apps/${slug} and import again: its schema and data stay, the next pnpm dev runs only the migrations it hasn't run yet, and its seed doesn't run again. Commit the install first, so git diff shows what the update changed. To add it as another app instead, use --as <name>.`;
+    return `apps/${slug} already exists. To bring it up to the newest export of where it came from, run pnpm robkit update ${slug}. To add this as another app instead, use --as <name>.`;
   }
   return undefined;
 }

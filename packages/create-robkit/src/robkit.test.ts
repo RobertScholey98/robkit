@@ -259,6 +259,90 @@ Then open http://copy.robkit.localhost:3000. pnpm dev gives it its schema, runs 
   });
 });
 
+describe("robkit update", { timeout: 60_000 }, () => {
+  /** Install B with install A's example imported, and A's change exported. */
+  async function changedSinceImport(bEdits?: (page: string) => string) {
+    const a = await freshInstall();
+    const out = join(a, "..", "example");
+    await drive(bin, a, ["export", "example"]);
+    const b = await freshInstall();
+    await drive(bin, b, ["import", out, "--as", "copy"]);
+    const page = (dir: string) =>
+      join(dir, "apps", dir === a ? "example" : "copy", "src/routes/index.tsx");
+    if (bEdits) {
+      await writeFile(page(b), bEdits(await readFile(page(b), "utf8")));
+    }
+    await writeFile(
+      page(a),
+      (await readFile(page(a), "utf8")).replace(
+        '"Signed in as a guest"',
+        '"Hello from install A. Signed in as a guest"',
+      ),
+    );
+    await drive(bin, a, ["export", "example"]);
+    return { b, out };
+  }
+
+  it("merges the newest export into the app and says what's next", async () => {
+    const { b, out } = await changedSinceImport();
+
+    const { code, output } = await drive(bin, b, ["update", "copy"]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: `Updated apps/copy from ${out}, keeping your own edits. Next:
+
+  pnpm install
+  pnpm dev
+
+pnpm dev runs only its new migrations: its data stays, and its seed doesn't run again.
+`,
+    });
+  });
+
+  it("says where the owner's edits and the export's changes meet", async () => {
+    const { b, out } = await changedSinceImport((page) =>
+      page.replace(
+        '"Signed in as a guest"',
+        '"Hi from B. Signed in as a guest"',
+      ),
+    );
+
+    const { code, output } = await drive(bin, b, ["update", "copy"]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output: `Updated apps/copy from ${out}, but your edits and the export's changes touch the same lines in src/routes/index.tsx. Each place holds both, marked as git marks a conflict: yours after <<<<<<<, the export's after =======, ending at >>>>>>>. Keep what you want and delete the marker lines, then run pnpm install and pnpm dev.
+`,
+    });
+  });
+
+  it("says when the app is already up to date", async () => {
+    const a = await freshInstall();
+    const out = join(a, "..", "example");
+    await drive(bin, a, ["export", "example"]);
+    const b = await freshInstall();
+    await drive(bin, b, ["import", out, "--as", "copy"]);
+
+    const { code, output } = await drive(bin, b, ["update", "copy"]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: `apps/copy is up to date with ${out}.
+`,
+    });
+  });
+
+  it("needs the app's name", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, ["update"]);
+
+    expect(code).toBe(1);
+    expect(output).toContain("Usage: robkit update <name> [--force]");
+  });
+});
+
 describe("robkit database-urls", { timeout: 30_000 }, () => {
   it("prints each database app's URL for the host, from the admin URL and secret", async () => {
     const dir = await freshInstall();

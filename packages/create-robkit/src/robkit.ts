@@ -20,6 +20,7 @@ import { checkInstall, describeProblem } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
 import { exportApp } from "./export.ts";
 import { importApp } from "./import.ts";
+import { updateApp } from "./update.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
@@ -42,11 +43,21 @@ the install's own packages where they're the same, and stays in the app
 where they differ. It refuses an app made for a robkit contract version
 the install can't run.`;
 
+const updateUsage = `Usage: robkit update <name> [--force]
+
+Brings apps/<name>, which robkit import brought in, up to the newest export
+of the folder or git URL it came from. Your own edits stay: it merges them
+with the export's changes as git merges a branch, and marks any lines both
+changed as git marks a conflict. --force replaces the app with the export
+instead. Its schema and data stay, and its seed doesn't run again.`;
+
 const usage = `${addUsage}
 
 ${exportUsage}
 
 ${importUsage}
+
+${updateUsage}
 
 Usage: robkit check
 
@@ -80,6 +91,7 @@ try {
     vendor,
     export: exportCommand,
     import: importCommand,
+    update: updateCommand,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
   };
@@ -175,6 +187,54 @@ ${hasDependencies ? "" : "\n  pnpm install"}
   pnpm dev
 
 Then open ${dev.origin(slug)}. pnpm dev gives it its schema, runs its migrations and, on a new schema, its seed.`);
+}
+
+async function updateCommand(): Promise<void> {
+  const { values, positionals } = parseArgs({
+    allowPositionals: true,
+    options: { force: { type: "boolean", default: false } },
+  });
+  const [, slug, ...rest] = positionals;
+  if (slug === undefined || rest.length > 0) throw new Error(updateUsage);
+  const root = process.cwd();
+  const { from, changed, conflicts, catalogued, differences } = await updateApp(
+    root,
+    slug,
+    { force: values.force },
+  );
+  if (!changed) {
+    console.log(`apps/${slug} is up to date with ${from}.`);
+    return;
+  }
+  if (conflicts.length > 0) {
+    console.log(
+      `Updated apps/${slug} from ${from}, but your edits and the export's changes touch the same lines in ${andList(conflicts)}. Each place holds both, marked as git marks a conflict: yours after <<<<<<<, the export's after =======, ending at >>>>>>>. Keep what you want and delete the marker lines, then run pnpm install and pnpm dev.`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+  const lines = [
+    values.force
+      ? `Replaced apps/${slug} with the newest export from ${from}.`
+      : `Updated apps/${slug} from ${from}, keeping your own edits.`,
+  ];
+  if (catalogued.length > 0) {
+    lines.push(
+      `Added to the catalog: ${andList(catalogued.map(([dep, version]) => `${dep} ${version}`))}.`,
+    );
+  }
+  for (const { name: dep, asked, catalog } of differences) {
+    lines.push(
+      `It asked for ${dep} ${asked} and gets the catalog's ${catalog}.`,
+    );
+  }
+  const hasDependencies = existsSync(join(root, "node_modules"));
+  if (hasDependencies) await installDependencies(root);
+  console.log(`${lines.join(" ")} Next:
+${hasDependencies ? "" : "\n  pnpm install"}
+  pnpm dev
+
+pnpm dev runs only its new migrations: its data stays, and its seed doesn't run again.`);
 }
 
 async function vendor(): Promise<void> {
