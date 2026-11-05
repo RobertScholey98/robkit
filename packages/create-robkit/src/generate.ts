@@ -135,7 +135,6 @@ function layersFor(choices: Choices): string[] {
   const t = choiceTable;
   return [
     "base",
-    "package-managers/pnpm",
     layerOf(t.orm, choices.orm),
     // The hub and admin, then the kit's controls over them.
     layerOf(t.uiKit, "none"),
