@@ -5,7 +5,7 @@ import {
   type GuardedOptions,
   type RequestDecision,
 } from "./index.ts";
-import type { DeclaredAccess } from "./input.ts";
+import type { DeclaredAccess, InputProblem } from "./input.ts";
 import { readSlug, type Slug } from "./install-addresses.ts";
 import { readSessionLapsed, type SessionLapsed } from "./session-lapsed.ts";
 
@@ -27,7 +27,7 @@ describe("session's types", () => {
 
   it("takes the app as a Slug, which only readSlug makes", () => {
     expectTypeOf(readSlug).parameter(0).toBeUnknown();
-    expectTypeOf(readSlug).returns.toEqualTypeOf<Slug | { error: string }>();
+    expectTypeOf(readSlug).returns.toEqualTypeOf<Slug | InputProblem>();
     // The platform's own apps need no reading.
     options({ app: "admin", core, access: { kind: "owner" } });
     // @ts-expect-error A plain string hasn't been read as a slug.

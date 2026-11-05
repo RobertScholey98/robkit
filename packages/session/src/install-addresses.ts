@@ -1,7 +1,10 @@
 // Where an install's apps answer. Each app, the platform apps included, is
 // on `<slug>.<domain>`, so one domain gives every address. Core, the guard,
 // the hub, admin, the dev runner and the whole-stack test all work their
-// addresses out here. It imports nothing, so the browser can load it.
+// addresses out here. It imports only ./problem.ts, which imports nothing,
+// so the browser can load it.
+
+import { isProblem, type InputProblem } from "./problem.ts";
 
 /** Core, the hub and admin. Core's app catalog doesn't list them. */
 export const platformApps = ["core", "hub", "admin"] as const;
@@ -36,7 +39,7 @@ function isSlug(value: unknown): value is Slug {
 }
 
 /** `value` as a slug, or why it can't be one. */
-export function readSlug(value: unknown): Slug | { error: string } {
+export function readSlug(value: unknown): Slug | InputProblem {
   if (isSlug(value)) return value;
   const shown = value === undefined ? "Nothing" : JSON.stringify(value);
   return {
@@ -50,7 +53,7 @@ export function readSlug(value: unknown): Slug | { error: string } {
  */
 export function slugProblem(name: string): string | undefined {
   const slug = readSlug(name);
-  return typeof slug === "string" ? undefined : slug.error;
+  return isProblem(slug) ? slug.error : undefined;
 }
 
 /**
@@ -123,7 +126,7 @@ export function install({
       const suffix = `.${domain}`;
       if (!isWeb(target) || !target.hostname.endsWith(suffix)) return undefined;
       const slug = readSlug(target.hostname.slice(0, -suffix.length));
-      return typeof slug === "string" ? slug : undefined;
+      return isProblem(slug) ? undefined : slug;
     },
   };
 }

@@ -1,35 +1,20 @@
 // robkit's readers for what comes from outside its own code: environment
 // variables, JSON files, and the `robkit` field of an app's manifest. Each
-// takes the raw input and returns the typed value or a InputProblem that names the
+// takes the raw input and returns the typed value or an InputProblem that names the
 // variable or key and says what to do. The caller decides what a problem
 // means: core and the dev runner refuse to start, a command prints it. See
 // docs/conventions/input.md.
 
 import { readAccessRule } from "@robkit/guard";
 import { installAt, readSlug, type Slug } from "./install-addresses.ts";
+import {
+  allProblems,
+  isProblem,
+  isRecord,
+  type InputProblem,
+} from "./problem.ts";
 
-/** Why some input won't do: where it is, what's wrong, and what to do. */
-export interface InputProblem {
-  readonly error: string;
-}
-
-export function isProblem(value: unknown): value is InputProblem {
-  return isRecord(value) && typeof value.error === "string";
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-/** Every problem among `reads` as one, a line each. */
-export function allProblems(...reads: unknown[]): InputProblem {
-  return {
-    error: reads
-      .filter(isProblem)
-      .map((problem) => problem.error)
-      .join("\n"),
-  };
-}
+export { allProblems, isProblem, isRecord, type InputProblem };
 
 /** A process's environment, such as `process.env`. */
 export type Env = Readonly<Record<string, string | undefined>>;
@@ -139,9 +124,7 @@ export function readAppSlug(env: Env): Slug | InputProblem {
     );
   }
   const slug = readSlug(value);
-  return typeof slug === "string"
-    ? slug
-    : { error: `ROBKIT_APP: ${slug.error}` };
+  return isProblem(slug) ? { error: `ROBKIT_APP: ${slug.error}` } : slug;
 }
 
 /**
@@ -307,7 +290,7 @@ export function readDeclaredApp(
     };
   }
   const slug = readSlug(value.slug);
-  if (typeof slug !== "string") {
+  if (isProblem(slug)) {
     return { error: `${field}.slug: ${slug.error}` };
   }
   const declares = readDeclares(value, field);

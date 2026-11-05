@@ -100,11 +100,7 @@ export function isLocal(domain: string): boolean;
 export function isPlatformApp(slug: string): slug is PlatformApp;
 export type PlatformApp = (typeof platformApps)[number];
 export const platformApps: readonly ["core", "hub", "admin"];
-export function readSlug(value: unknown):
-  | Slug
-  | {
-      error: string;
-    };
+export function readSlug(value: unknown): Slug | InputProblem;
 export type Slug =
   | PlatformApp
   | (string & {
