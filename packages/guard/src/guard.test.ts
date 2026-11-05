@@ -3,6 +3,7 @@ import { conformanceCases, type ConformanceCase } from "./conformance.ts";
 import {
   guard,
   readAccessRule,
+  type AccessRule,
   type SessionState,
   type Viewer,
 } from "./index.ts";
@@ -42,6 +43,17 @@ describe("guard", () => {
         : { outcome: asking.outcome },
     );
   });
+
+  it.each<AccessRule>([
+    { kind: "open" },
+    { kind: "roles", roles: ["family"] },
+    { kind: "owner" },
+  ])(
+    "asks core about a visitor the app knows nothing of, whatever the rule (%j)",
+    (rule) => {
+      expect(guard(rule, { state: "unknown" })).toEqual({ outcome: "refresh" });
+    },
+  );
 
   it("lets the owner into an owner-only app as themselves", () => {
     expect(

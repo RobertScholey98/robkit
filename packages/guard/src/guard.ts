@@ -24,8 +24,13 @@ export type SignedInViewer = OwnerViewer | GuestViewer;
 /** Who is asking, as the app's handlers see it after the guard. */
 export type Viewer = SignedInViewer | { kind: "nobody" };
 
-/** What the request's session token says, once the adapter has checked it. */
+/**
+ * What the app knows of who is asking, once the adapter has checked its
+ * cookie: core said nobody is signed in, the app's token has expired, it
+ * holds a live token, or it holds nothing from core yet and must ask.
+ */
 export type SessionState =
+  | { state: "unknown" }
   | { state: "signed-out" }
   | { state: "expired" }
   | { state: "signed-in"; viewer: SignedInViewer };
@@ -39,10 +44,12 @@ export type Decision =
 type Outcome = Decision["outcome"];
 
 /** Who is asking, as far as the rule cares. A member holds one of its roles. */
-type Asking = "signed-out" | "expired" | "owner" | "guest" | "member";
+type Asking =
+  "unknown" | "signed-out" | "expired" | "owner" | "guest" | "member";
 
 const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
   open: {
+    unknown: "refresh",
     "signed-out": "allow",
     expired: "refresh",
     owner: "allow",
@@ -50,6 +57,7 @@ const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
     member: "allow",
   },
   roles: {
+    unknown: "refresh",
     "signed-out": "login",
     expired: "refresh",
     owner: "allow",
@@ -57,6 +65,7 @@ const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
     member: "allow",
   },
   owner: {
+    unknown: "refresh",
     "signed-out": "login",
     expired: "refresh",
     owner: "allow",
