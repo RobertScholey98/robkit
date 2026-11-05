@@ -38,8 +38,28 @@ Core, the hub and admin together.
 ### Apps
 
 **App**:
-An owner's app, created by `robkit add` on its own subdomain.
+An owner's app on its own subdomain, created by `robkit add` or taken from another install with `robkit install`.
 _Avoid_: service, project
+
+**App repo**:
+An **App**'s own git repository, in its folder under `apps/`. The **Install**'s repository leaves it out, and `robkit.json` records where it comes from and the commit the **Install** runs.
+_Avoid_: submodule, package
+
+**Upstream**:
+Where an **App repo** is shared to and updated from: its git remote `origin`, a URL or a path.
+_Avoid_: registry, store
+
+**Contract**:
+What every **Install** of one robkit version gives an **App**: the `@robkit/*` packages, the fixed packages (`@internal/ui`, `@internal/theme`, `@internal/core-client`, `@internal/tsconfig`) and the catalog. An **App** that reaches past it can't move to another **Install**.
+_Avoid_: API, platform
+
+**Contract version**:
+The number an **App**'s **Manifest** names for the **Contract** it was made for. An **Install** runs the versions its robkit lists, and `robkit install` refuses any other.
+_Avoid_: robkit version, API version
+
+**Seed**:
+An **App**'s `seed.sql`, which `pnpm dev` runs once, right after the migrations that first make the **App**'s schema.
+_Avoid_: fixture
 
 **Stack**:
 The framework shape an app is built on, such as TanStack Start or React with Hono. Every **Install** offers every stack.
@@ -54,7 +74,7 @@ The shared React component library every **Install** has: shadcn on Base UI, in 
 _Avoid_: design system
 
 **Manifest**:
-An app's declaration of its name, icon, access rule and settings.
+An app's declaration of its name, stack, **Contract version**, icon, access rule and settings: the `robkit` field of its package.json.
 _Avoid_: config
 
 ### Access
@@ -103,6 +123,7 @@ _Avoid_: plugin, integration
 - A **Session token** carries its **Access code**'s **Roles**, so a role change reaches a **Guest** within one token lifetime.
 - Core holds each **Session** and its own **Session token**. Each **App** holds only its own **App token**, which it gets from core's refresh.
 - Each **Stack** has one **Template** and one **Adapter**.
+- Every **App** but the **Platform apps** is an **App repo**. Its **Manifest** names one **Contract version**, and it moves between **Installs** through its **Upstream**.
 - The **Platform apps** and every **App** draw with the **UI kit**.
 
 ## Example dialogue
