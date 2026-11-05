@@ -10,6 +10,7 @@
     "test:unit": "vitest run"
   },
   "devDependencies": {
+    "@arethetypeswrong/core": "catalog:",
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@robkit/core": "workspace:*",
@@ -22,6 +23,7 @@
     "@types/node": "catalog:",
     "create-robkit": "workspace:*",
     "eslint": "catalog:",
+    "publint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"
