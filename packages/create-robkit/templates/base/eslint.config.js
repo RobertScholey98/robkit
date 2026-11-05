@@ -19,6 +19,13 @@ export default defineConfig(
     },
   },
   {
+    // Input from outside goes through a reader; a cast would skip it. Tests
+    // may cast to build what they feed the code under test.
+    files: ["**/*.ts", "**/*.tsx"],
+    ignores: ["**/*.test.ts", "**/*.test.tsx", "**/test/**"],
+    rules: { "@typescript-eslint/no-unsafe-type-assertion": "error" },
+  },
+  {
     files: ["**/*.js"],
     extends: [tseslint.configs.disableTypeChecked],
   },
