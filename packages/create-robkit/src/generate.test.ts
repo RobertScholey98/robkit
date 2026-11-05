@@ -206,12 +206,8 @@ describe("generateInstall", () => {
     const agents = files.get("AGENTS.md") ?? "";
 
     expect(agents).toContain("\n## Dev tools\n\n");
-    for (const tool of ["eslint-prettier", "vitest", "husky"]) {
-      const text = await readFile(
-        new URL(`../templates/tools/${tool}.md`, import.meta.url),
-        "utf8",
-      );
-      expect(agents, tool).toContain(text.replaceAll("\r\n", "\n"));
+    for (const tool of ["ESLint and Prettier", "Vitest", "Husky"]) {
+      expect(agents, tool).toContain(`- **${tool}`);
     }
   });
 

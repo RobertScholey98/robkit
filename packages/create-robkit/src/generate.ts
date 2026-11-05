@@ -141,10 +141,6 @@ function layersFor(choices: Choices): string[] {
     // The hub and admin, then the kit's controls over them.
     layerOf(t.uiKit, "none"),
     choices.uiKit === null ? undefined : layerOf(t.uiKit, choices.uiKit),
-    // The dev tools. Husky's hook runs ESLint and Prettier too.
-    "tools/eslint-prettier",
-    "tools/husky",
-    "tools/husky-eslint-prettier",
   ].filter((layer) => layer !== undefined);
 }
 
@@ -154,25 +150,6 @@ async function readTemplate(path: string): Promise<string> {
   return (await readFile(join(templatesDir, path), "utf8")).replaceAll(
     "\r\n",
     "\n",
-  );
-}
-
-/** The lines the root `AGENTS.md` ends with, one per dev tool. */
-const toolGuides = [
-  "tools/eslint-prettier.md",
-  "tools/vitest.md",
-  "tools/husky.md",
-];
-
-/** Ends the root `AGENTS.md` with a Dev tools section. */
-async function addToolGuides(files: Files): Promise<void> {
-  const lines = await Promise.all(toolGuides.map(readTemplate));
-  files.set(
-    "AGENTS.md",
-    `${files.get("AGENTS.md") ?? ""}
-## Dev tools
-
-${lines.join("")}`,
   );
 }
 
@@ -397,7 +374,6 @@ export async function generateInstall(
     appFiles(example, exampleSlug, { icon: defaultIcon }),
     `apps/${exampleSlug}/`,
   );
-  await addToolGuides(files);
   await spellFor(files, choices.packageManager);
 
   // The catalog covers every stack robkit add offers, so adding an app

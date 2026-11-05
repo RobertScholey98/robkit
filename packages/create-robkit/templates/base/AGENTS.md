@@ -38,3 +38,9 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 ## Production
 
 Each app has a `start` script, which migrates its database if it has one and then serves, and a `build` script where it needs one. The `Dockerfile` builds any app's image, named by the `ROBKIT_APP` build argument. The image holds only the app's production dependencies, so an app's `dependencies` are what its server and `start` script import, and what only its build uses, everything Vite bundles included, goes in `devDependencies`. The hub and admin serve what Vite built, so React, the theme and any UI kit are dev dependencies there. In production, core's container gives every app its database before core starts, with a password derived from the install's secret, so each app's `DATABASE_URL` is set once on the host. `docs/deploy.md` describes the deploy and its one-time setup.
+
+## Dev tools
+
+- **ESLint and Prettier.** `pnpm lint` runs ESLint after `robkit check`, with the rules in `eslint.config.js`. `pnpm format` formats the install with Prettier, and CI fails on a file Prettier would change.
+- **Vitest.** Each test sits beside the code it covers, as `<name>.test.ts`, and `pnpm test` runs every package's tests. In a test, `fakeCore` from `@internal/core-client/fake-core` answers for core.
+- **Husky and lint-staged.** Before each commit, a hook in `.husky/pre-commit` runs lint-staged, which runs what `lint-staged.config.js` names on the staged files and refuses the commit if any of it fails. `pnpm install` sets the hook up.
