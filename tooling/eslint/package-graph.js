@@ -1,31 +1,30 @@
 /**
  * Which workspace package may depend on which: the only edges the repo
- * allows between them. `graph-check.test.ts` fails on a `package.json`
- * dependency or an import that isn't here, on an edge here that no
- * `package.json` has, and on a cycle. The `layer` ESLint rule must agree
- * with it, and a test checks that too.
+ * allows between them. `graph-check.test.ts` in `tooling/repo-checks`
+ * fails on a `package.json` dependency or an import that isn't here, on an
+ * edge here that no `package.json` has, and on a cycle. The `layer` ESLint
+ * rule must agree with it, and a test checks that too.
  *
  * Edges to an external package aren't here. The catalog holds those.
+ *
+ * @typedef {object} Edges
+ * @property {readonly string[]} dependencies what the package needs at
+ *   runtime: its `dependencies`
+ * @property {readonly string[]} devDependencies what only its tests and
+ *   tooling use: its `devDependencies`
  */
-export interface Edges {
-  /** What the package needs at runtime: its `dependencies`. */
-  dependencies: readonly string[];
-  /** What only its tests and tooling use: its `devDependencies`. */
-  devDependencies: readonly string[];
-}
 
-export type PackageGraph = Readonly<Record<string, Edges>>;
+/** @typedef {Readonly<Record<string, Edges>>} PackageGraph */
 
 /**
  * Packages any package may take as a dev dependency without an edge here:
  * the shared ESLint and TypeScript configs.
  */
-export const toolchain: readonly string[] = [
-  "@internal/eslint-config",
-  "@internal/tsconfig",
-];
+/** @type {readonly string[]} */
+export const toolchain = ["@internal/eslint-config", "@internal/tsconfig"];
 
-export const packageGraph: PackageGraph = {
+/** @type {PackageGraph} */
+export const packageGraph = {
   // The pure guard: depends on nothing.
   "@robkit/guard": { dependencies: [], devDependencies: [] },
   "@robkit/session": {

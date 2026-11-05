@@ -2,8 +2,8 @@ import { glob, readdir, readFile } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
 import { matchesGlob } from "node:path/posix";
 import ts from "typescript";
-import type { PackageGraph } from "./package-graph.ts";
-import { toolchain } from "./package-graph.ts";
+import type { PackageGraph } from "@internal/eslint-config/package-graph";
+import { toolchain } from "@internal/eslint-config/package-graph";
 
 type Deps = Record<string, string> | undefined;
 
@@ -30,7 +30,7 @@ export interface ImportSite {
   specifier: string;
 }
 
-const graphFile = "tooling/repo-checks/src/package-graph.ts";
+const graphFile = "tooling/eslint/package-graph.js";
 
 /** Every package the workspace's globs find, sorted by folder. */
 export async function readWorkspace(root: string): Promise<WorkspacePackage[]> {

@@ -13,10 +13,13 @@ import {
   type LayerRow,
   type WorkspacePackage,
 } from "./graph-check.ts";
-import { packageGraph, type PackageGraph } from "./package-graph.ts";
+import {
+  packageGraph,
+  type PackageGraph,
+} from "@internal/eslint-config/package-graph";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
-const graphFile = "tooling/repo-checks/src/package-graph.ts";
+const graphFile = "tooling/eslint/package-graph.js";
 
 const guard: WorkspacePackage = {
   name: "@robkit/guard",
