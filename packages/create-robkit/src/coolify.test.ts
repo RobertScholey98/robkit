@@ -204,17 +204,19 @@ describe("deploy", () => {
     const { ok, log } = await run(state, "all");
 
     expect(ok).toBe(false);
-    expect(log).toContain("- core: failed, failed");
+    expect(log).toContain(
+      "- core: failed, failed. Check the deployment's log in Coolify.",
+    );
     expect(log).toContain("- hub: not started, an earlier deploy failed");
   });
 
-  it("gives up on a request Coolify never answers", async () => {
+  it("gives up on a request Coolify never answers, and says what to check", async () => {
     const state = fakeCoolify({
       answer: (route) => (route === "GET /servers" ? "hang" : undefined),
     });
 
     await expect(run(state, "all", { requestTimeoutMs: 20 })).rejects.toThrow(
-      "GET /servers failed: no answer in 20 ms",
+      "Couldn't read Coolify's servers: no answer in 20 ms. Check COOLIFY_URL and that Coolify is up.",
     );
   });
 
@@ -228,6 +230,38 @@ describe("deploy", () => {
     const { ok, log } = await run(state, ["core"], { timeoutMs: 50 });
 
     expect(ok).toBe(false);
-    expect(log).toContain("- core: failed, still queued after 50 ms");
+    expect(log).toContain(
+      "- core: failed, still queued after 50 ms. Check the deployment's log in Coolify.",
+    );
+  });
+
+  it("names the app, the step and what to check when Coolify refuses one", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c"), existing("hub", "h")],
+      answer: (route) =>
+        route === "PATCH /applications/h/envs/bulk"
+          ? { status: 401, body: { message: "Unauthenticated." } }
+          : undefined,
+    });
+
+    const { ok, log } = await run(state, "all");
+
+    expect(ok).toBe(false);
+    expect(log).toContain(
+      '| hub | failed | saving its variables: HTTP 401 {"message":"Unauthenticated."}. Check COOLIFY_TOKEN, and that it may deploy. |',
+    );
+  });
+
+  it("names a failed deployment and where to look", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c")],
+      outcomes: { c: "failed" },
+    });
+
+    const { log } = await run(state, ["core"]);
+
+    expect(log).toContain(
+      "- core: failed, failed. Check the deployment's log in Coolify.",
+    );
   });
 });

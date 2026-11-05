@@ -77,7 +77,31 @@ interface Api {
   requestTimeoutMs: number;
 }
 
-type Called = { ok: true; body: unknown } | { ok: false; detail: string };
+/** A call's answer, or what went wrong and what to check. */
+type Called =
+  { ok: true; body: unknown } | { ok: false; detail: string; check: string };
+
+const checks = {
+  reach: "Check COOLIFY_URL and that Coolify is up.",
+  token: "Check COOLIFY_TOKEN, and that it may deploy.",
+  access:
+    "Check CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET: Cloudflare Access sends a token it refuses to its login page.",
+  page: "Check that COOLIFY_URL is Coolify's own address.",
+  coolify: "Check Coolify's own log.",
+  deployment: "Check the deployment's log in Coolify.",
+} as const;
+
+/** What to check when Coolify answers `status`. */
+function checkFor(status: number): string {
+  if (status >= 300 && status < 400) return checks.access;
+  if (status === 401 || status === 403) return checks.token;
+  return checks.coolify;
+}
+
+/** A failed call as one sentence and what to check. */
+function explain(called: { detail: string; check: string }): string {
+  return `${called.detail}. ${called.check}`;
+}
 
 function duration(ms: number): string {
   if (ms < 1000) return `${String(ms)} ms`;
@@ -136,7 +160,11 @@ async function call(
     });
     const raw = await response.text();
     if (!response.ok) {
-      return { ok: false, detail: `HTTP ${String(response.status)} ${raw}` };
+      return {
+        ok: false,
+        detail: `HTTP ${String(response.status)} ${raw}`,
+        check: checkFor(response.status),
+      };
     }
     try {
       return { ok: true, body: JSON.parse(raw) as unknown };
@@ -146,19 +174,24 @@ async function call(
       return {
         ok: false,
         detail: `HTTP ${String(response.status)} with a body that isn't JSON`,
+        check: checks.page,
       };
     }
   } catch (error) {
     const detail = timeout.aborted
       ? `no answer in ${duration(api.requestTimeoutMs)}`
       : describeError(error);
-    return { ok: false, detail };
+    return { ok: false, detail, check: checks.reach };
   }
 }
 
 async function get(api: Api, path: string): Promise<unknown> {
   const result = await call(api, "GET", path);
-  if (!result.ok) throw new Error(`GET ${path} failed: ${result.detail}`);
+  if (!result.ok) {
+    throw new Error(
+      `Couldn't read Coolify's ${path.slice(1)}: ${explain(result)}`,
+    );
+  }
   return result.body;
 }
 
@@ -290,11 +323,13 @@ async function syncApps(
         });
     const uuid = found ?? (saved.ok ? text(saved.body, "uuid") : undefined);
     if (!saved.ok || !uuid) {
-      const detail = saved.ok ? "Coolify returned no uuid" : saved.detail;
+      const failure = saved.ok
+        ? { detail: "Coolify returned no uuid", check: checks.coolify }
+        : saved;
       results.push({
         slug: app.slug,
         action: "failed",
-        detail: `${found ? "update" : "create"}: ${detail}`,
+        detail: `${found ? "updating it" : "creating it"}: ${explain(failure)}`,
       });
       continue;
     }
@@ -307,7 +342,7 @@ async function syncApps(
         : {
             slug: app.slug,
             action: "failed",
-            detail: `variables: ${envs.detail}`,
+            detail: `saving its variables: ${explain(envs)}`,
           },
     );
   }
@@ -375,7 +410,9 @@ async function deployAndWait(
     `/deploy?uuid=${encodeURIComponent(uuid)}`,
     { deadline },
   );
-  if (!queued.ok) return queued;
+  if (!queued.ok) {
+    return { ok: false, detail: `queueing its deploy: ${explain(queued)}` };
+  }
   const deployments = field(queued.body, "deployments");
   const first: unknown = Array.isArray(deployments)
     ? deployments[0]
@@ -385,7 +422,7 @@ async function deployAndWait(
   if (deployment === undefined) {
     return {
       ok: false,
-      detail: `Coolify queued nothing: ${text(first, "message") ?? JSON.stringify(queued.body)}`,
+      detail: `Coolify queued nothing: ${text(first, "message") ?? JSON.stringify(queued.body)}. ${checks.coolify}`,
     };
   }
 
@@ -401,7 +438,7 @@ async function deployAndWait(
     if (deadline.aborted) {
       return {
         ok: false,
-        detail: `still ${last} after ${duration(timeoutMs)}`,
+        detail: `still ${last} after ${duration(timeoutMs)}. ${checks.deployment}`,
       };
     }
     if (result.ok) {
@@ -409,12 +446,12 @@ async function deployAndWait(
       last = text(result.body, "status") ?? last;
       if (last === "finished") return { ok: true, detail: "finished" };
       if (last === "failed" || last === "cancelled-by-user") {
-        return { ok: false, detail: last };
+        return { ok: false, detail: `${last}. ${checks.deployment}` };
       }
     } else if (++misses >= 3) {
       return {
         ok: false,
-        detail: `lost track of ${deployment}: ${result.detail}`,
+        detail: `lost track of ${deployment}: ${explain(result)}`,
       };
     }
     // The deadline cutting the sleep short ends the wait: the next turn says so.
