@@ -19,10 +19,10 @@ nvm use 24
 rsync -a --delete --exclude node_modules --exclude .turbo --exclude dist --exclude .git \
   /mnt/c/Users/rober/.t3/worktrees/robkit/share-a-export/ ~/robkit-a/
 cd ~/robkit-a
-corepack pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile
 ```
 
-If you've run this test before, clear out the old installs first. This keeps the guestbook:
+If you've run this test before, remove the old installs and their databases first. This keeps the guestbook:
 
 ```sh
 for dir in ~/robkit-demo-a/install-a ~/robkit-demo-a/install-b; do
@@ -31,50 +31,40 @@ done
 rm -rf ~/robkit-demo-a/install-a ~/robkit-demo-a/install-b ~/robkit-demo-a/notes
 ```
 
-## 2. Create install A
-
-```sh
-cd ~/robkit-a
-corepack pnpm create-install ~/robkit-demo-a/install-a --stack start
-echo COMPOSE_PROJECT_NAME=robkit-demo-a-install-a > ~/robkit-demo-a/install-a/.env
-```
-
-The `.env` line names the install's Docker project. Docker otherwise names it after the folder, so another `install-a` folder, such as approach B's, would share its database.
-
-## 3. Import the guestbook
+## 2. Create install A and import the guestbook
 
 The guestbook is an app in its own git repo at `~/robkit-demo-a/guestbook`, outside any install. Its source is `examples/guestbook` in this worktree. If the copy in WSL is missing, this makes it again:
 
 ```sh
 if [ ! -d ~/robkit-demo-a/guestbook ]; then
+  mkdir -p ~/robkit-demo-a
   cp -r ~/robkit-a/examples/guestbook ~/robkit-demo-a/guestbook
-  cd ~/robkit-demo-a/guestbook
-  git init -q && git add -A && git commit -qm "Guestbook"
+  git -C ~/robkit-demo-a/guestbook init -q
+  git -C ~/robkit-demo-a/guestbook add -A
+  git -C ~/robkit-demo-a/guestbook commit -qm "Guestbook"
 fi
 ```
 
-Import it:
+Create install A and import the guestbook:
 
 ```sh
+cd ~/robkit-a
+pnpm create-install ~/robkit-demo-a/install-a --stack start
 cd ~/robkit-demo-a/install-a
-corepack pnpm robkit import ~/robkit-demo-a/guestbook
+pnpm robkit import ~/robkit-demo-a/guestbook
 ```
 
-It says it uses the install's own `@internal/theme`, `@internal/tsconfig` and `@internal/ui`: the guestbook's `shared/` copies matched install A's, so the import dropped them.
+Import says it uses the install's own `@internal/theme`, `@internal/tsconfig` and `@internal/ui`: the guestbook's `shared/` copies matched install A's, so it dropped them.
 
-## 4. Add an app and change it
+Each install's database is its own, even beside approach B's installs of the same names: init names its Docker project after its folder, with a random suffix, in `compose.yaml`.
 
-Add `notes`, open to anyone:
+## 3. Add an app and change it
 
-```sh
-cd ~/robkit-demo-a/install-a
-corepack pnpm robkit add notes --stack start --access open --icon 📝
-```
-
-Change its page, add a table to its schema with a migration, and give it a seed:
+Add `notes`, open to anyone. Change its page, add a table to its schema with a migration, and give it a seed. A `seed.sql` at the app's root is its seed.
 
 ```sh
-cd ~/robkit-demo-a/install-a/apps/notes
+pnpm robkit add notes --stack start --access open --icon 📝
+cd apps/notes
 sed -i 's/Signed in as/Hello from install A. Signed in as/' src/routes/index.tsx
 cat >> src/schema.ts <<'EOF'
 
@@ -84,107 +74,72 @@ export const note = pgTable("note", {
   body: text().notNull(),
 });
 EOF
-corepack pnpm db:generate --name notes
+pnpm db:generate --name notes
 echo "insert into note (body) values ('Seeded in install A');" > seed.sql
-npm pkg set robkit.seed=seed.sql
 ```
 
-`drizzle-kit` writes `drizzle/0001_notes.sql`. `robkit.seed` in `package.json` names the seed.
+`drizzle-kit` writes `drizzle/0001_notes.sql`.
 
-## 5. Run install A
+## 4. Run install A
 
 ```sh
 cd ~/robkit-demo-a/install-a
-corepack pnpm dev
+pnpm dev
 ```
 
+It prints `[guestbook] ran seed.sql once, on its new schema`, and the same for notes.
+
 1. Open http://hub.robkit.localhost:3000 and claim the install: pick a username and password.
-2. The launcher shows guestbook 📖 and notes 📝. Open guestbook: Rob and Grandma signed it. That's its seed, which ran once as `pnpm dev` made its schema.
+2. The launcher shows guestbook 📖 and notes 📝. Open guestbook: Rob and Grandma signed it. That's its seed.
 3. Open notes: it says "Hello from install A. Signed in as the owner".
 
 Press Ctrl-C to stop install A. Install B also uses port 3000.
 
-## 6. Export notes
+## 5. Export notes and import it into install B
 
 ```sh
 cd ~/robkit-demo-a/install-a
-corepack pnpm robkit export notes
-```
-
-It writes `~/robkit-demo-a/notes`, a git repo of its own, and commits it. Have a look:
-
-```sh
-cd ~/robkit-demo-a/notes
-ls -a . shared
-git log --oneline
-```
-
-`shared/` holds install A's `packages/ui`, `packages/theme` and `tooling/typescript`. The repo stands alone:
-
-```sh
-cd ~/robkit-demo-a/notes
-corepack pnpm install
-corepack pnpm lint
-corepack pnpm typecheck
-corepack pnpm test
-```
-
-## 7. Create install B and import notes
-
-```sh
+pnpm robkit export notes
 cd ~/robkit-a
-corepack pnpm create-install ~/robkit-demo-a/install-b --stack start
-echo COMPOSE_PROJECT_NAME=robkit-demo-a-install-b > ~/robkit-demo-a/install-b/.env
+pnpm create-install ~/robkit-demo-a/install-b --stack start
 cd ~/robkit-demo-a/install-b
-corepack pnpm robkit import ~/robkit-demo-a/notes
-corepack pnpm dev
+pnpm robkit import ~/robkit-demo-a/notes
+pnpm dev
 ```
 
-Install B is new, so its cookies mean nothing to install A's and the other way round. Use a new private window to keep them apart:
+Export writes `~/robkit-demo-a/notes`, a git repo of its own, and commits it. It holds notes' files and, in `shared/`, a copy of install A's UI kit, theme and tsconfig, so it installs, lints, typechecks and tests on its own. Import maps them back onto install B's own.
+
+`pnpm dev` prints `[notes] ran seed.sql once, on its new schema`: install B made notes' table and seeded it.
+
+Install B is new, so its cookies mean nothing to install A's. Use a new private window:
 
 1. Open http://hub.robkit.localhost:3000 and claim install B.
 2. Sign out, then sign in as a guest with the code `test`.
 3. Open notes 📝 from the launcher. It says "Hello from install A. Signed in as a guest".
 
-The new table and its seed are there. In a second WSL terminal:
+Press Ctrl-C to stop install B.
+
+## 6. Change notes in both installs, then update install B
+
+Install B's owner changes the button on notes' page. Install A changes its greeting and exports again. Then install B updates notes:
 
 ```sh
 cd ~/robkit-demo-a/install-b
-docker compose exec postgres psql -U postgres robkit -c 'select * from notes.note'
-```
-
-It shows `Seeded in install A`. Press Ctrl-C in the first terminal to stop install B.
-
-## 8. Export again and update
-
-Change notes in install A and export again. The same repo gets a second commit:
-
-```sh
-cd ~/robkit-demo-a/install-a/apps/notes
-sed -i 's/Hello from install A/Hello again from install A/' src/routes/index.tsx
+sed -i 's/Visit again/Count me again/' apps/notes/src/routes/index.tsx
 cd ~/robkit-demo-a/install-a
-corepack pnpm robkit export notes
-git -C ~/robkit-demo-a/notes log --oneline
-```
-
-Importing it into install B again says how to update:
-
-```sh
+sed -i 's/Hello from install A/Hello again from install A/' apps/notes/src/routes/index.tsx
+pnpm robkit export notes
 cd ~/robkit-demo-a/install-b
-corepack pnpm robkit import ~/robkit-demo-a/notes || true
+pnpm robkit update notes
+pnpm dev
 ```
 
-Update it as it says. Its schema and data stay, and the seed doesn't run again:
+Update says it updated `apps/notes`, keeping your own edits. It merged install A's change with install B's, as git merges a branch. This time `pnpm dev` doesn't run the seed: the schema and its data stay.
 
-```sh
-cd ~/robkit-demo-a/install-b
-rm -rf apps/notes
-corepack pnpm robkit import ~/robkit-demo-a/notes
-```
-
-The next `corepack pnpm dev` in install B shows "Hello again from install A".
+Reload notes in the private window, or sign in as a guest again if you closed it. Notes says "Hello again from install A. Signed in as a guest", and its button says "Count me again".
 
 ## If something goes wrong
 
 - If Docker can't pull Postgres because of Docker Desktop's credential helper, run `mkdir -p ~/.docker-empty && echo '{}' > ~/.docker-empty/config.json && export DOCKER_CONFIG=~/.docker-empty`, then try again.
-- If port 3000 is taken, stop the other install, or run `ROBKIT_DEV_PORT=3100 corepack pnpm dev` and use port 3100 in the URLs.
+- If port 3000 is taken, stop the other install, or run `ROBKIT_DEV_PORT=3100 pnpm dev` and use port 3100 in the URLs.
+- If Postgres can't start because port 54320 is taken, another install's `pnpm dev` is still running. Stop it first.
