@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFile, stat } from "node:fs/promises";
+import { stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -347,10 +347,6 @@ describe("generateInstall", () => {
     async (stack, viewer) => {
       const files = await stackTemplate(stack);
       const agents = files.get("AGENTS.md") ?? "";
-      const ormSection = await readFile(
-        new URL("../templates/orms/drizzle/AGENTS.md", import.meta.url),
-        "utf8",
-      );
 
       // How to read the viewer, call core and add a migration.
       expect(agents).toContain(`read who is asking as \`${viewer}\``);
@@ -358,7 +354,7 @@ describe("generateInstall", () => {
         "over HTTP from the server at `process.env.ROBKIT_CORE_URL`",
       );
       expect(agents).toContain("`src/migrate.ts` applies the migrations");
-      expect(agents.endsWith(ormSection.replaceAll("\r\n", "\n"))).toBe(true);
+      expect(agents).toContain("## The database");
       expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
     },
   );

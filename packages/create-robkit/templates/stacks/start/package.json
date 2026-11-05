@@ -5,7 +5,9 @@
     "dev": "vite dev",
     "typecheck": "tsc",
     "build": "vite build",
-    "start": "node --run migrate && node src/serve.ts"
+    "start": "node --run migrate && node src/serve.ts",
+    "migrate": "node src/migrate.ts",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@hono/node-server": "catalog:",
@@ -13,7 +15,9 @@
     "@robkit/start": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
+    "drizzle-orm": "catalog:",
     "hono": "catalog:",
+    "postgres": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
@@ -23,6 +27,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "drizzle-kit": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:"
   }

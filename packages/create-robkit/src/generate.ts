@@ -140,19 +140,9 @@ function layersFor(choices: Choices): string[] {
   ].filter((layer) => layer !== undefined);
 }
 
-/** A file under `templates/`, with LF endings. */
-async function readTemplate(path: string): Promise<string> {
-  // A Windows checkout may hold the templates with CRLF endings.
-  return (await readFile(join(templatesDir, path), "utf8")).replaceAll(
-    "\r\n",
-    "\n",
-  );
-}
-
 /**
  * The template robkit ships for `stack`: an app's files, from its folder,
- * with Drizzle's app files laid over them, and the UI kit's when the app
- * uses one. Its `AGENTS.md` ends with Drizzle's section.
+ * with the UI kit's laid over them when the app uses one.
  */
 export async function stackTemplate(
   stack: Generator,
@@ -163,16 +153,10 @@ export async function stackTemplate(
     throw new Error(`the ${stack} stack has no template`);
   }
   const files = await readLayer(layer);
-  overlay(files, await readLayer("orms/drizzle/app"));
   const kitLayer =
     uiKit === null ? undefined : optionOf(choiceTable.uiKit, uiKit)?.optInLayer;
   if (kitLayer !== undefined) {
     overlay(files, await readLayer(`${kitLayer}/${stack}`));
-  }
-  const agents = files.get("AGENTS.md");
-  if (agents !== undefined) {
-    const guide = await readTemplate("orms/drizzle/AGENTS.md");
-    files.set("AGENTS.md", `${agents}\n${guide}`);
   }
   return files;
 }
