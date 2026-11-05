@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { deploy, readCoolifyConfig, type CoolifyConfig } from "./coolify.ts";
+import {
+  deploy,
+  readCoolifyConfig,
+  type CoolifyConfig,
+  type DeployOptions,
+} from "./coolify.ts";
 import type { Deployment } from "./deployment.ts";
 import {
   fakeCoolify,
@@ -49,6 +54,7 @@ function existing(slug: string, uuid: string): Record<string, unknown> {
 async function run(
   state: FakeCoolify,
   affected: string[] | "all",
+  options: Pick<DeployOptions, "requestTimeoutMs" | "timeoutMs"> = {},
 ): Promise<{ ok: boolean; log: string[] }> {
   const log: string[] = [];
   const ok = await deploy({
@@ -59,6 +65,7 @@ async function run(
     fetch: fakeFetch(state),
     log: (line) => log.push(line),
     intervalMs: 0,
+    ...options,
   });
   return { ok, log };
 }
@@ -199,5 +206,28 @@ describe("deploy", () => {
     expect(ok).toBe(false);
     expect(log).toContain("- core: failed, failed");
     expect(log).toContain("- hub: not started, an earlier deploy failed");
+  });
+
+  it("gives up on a request Coolify never answers", async () => {
+    const state = fakeCoolify({
+      answer: (route) => (route === "GET /servers" ? "hang" : undefined),
+    });
+
+    await expect(run(state, "all", { requestTimeoutMs: 20 })).rejects.toThrow(
+      "GET /servers failed: no answer in 20 ms",
+    );
+  });
+
+  it("stops waiting at its deadline, even while a request hangs", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c")],
+      answer: (route) =>
+        route.startsWith("GET /deployments/") ? "hang" : undefined,
+    });
+
+    const { ok, log } = await run(state, ["core"], { timeoutMs: 50 });
+
+    expect(ok).toBe(false);
+    expect(log).toContain("- core: failed, still queued after 50 ms");
   });
 });

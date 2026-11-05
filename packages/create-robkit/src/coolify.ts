@@ -1,3 +1,4 @@
+import { setTimeout as sleep } from "node:timers/promises";
 import { install } from "@robkit/session/addresses";
 import {
   containerPort,
@@ -68,7 +69,21 @@ export interface Coolify {
   accessSecret?: string;
 }
 
+/** Coolify's API as one deploy reaches it. */
+interface Api {
+  coolify: Coolify;
+  fetch: typeof fetch;
+  /** How long one request may take before the deploy gives up on it. */
+  requestTimeoutMs: number;
+}
+
 type Called = { ok: true; body: unknown } | { ok: false; detail: string };
+
+function duration(ms: number): string {
+  if (ms < 1000) return `${String(ms)} ms`;
+  if (ms < 60_000) return `${String(Math.round(ms / 1000))} seconds`;
+  return `${String(Math.round(ms / 60_000))} minutes`;
+}
 
 function field(value: unknown, key: string): unknown {
   return typeof value === "object" && value !== null
@@ -90,17 +105,20 @@ function describeError(error: unknown): string {
 /**
  * Calls the Coolify API. A redirect counts as a failure, because Cloudflare
  * Access answers a rejected service token with a redirect to its login page.
+ * Each call gives up after `api.requestTimeoutMs`, or when `deadline`
+ * aborts, whichever comes first.
  */
 async function call(
-  coolify: Coolify,
-  fetchImpl: typeof fetch,
+  api: Api,
   method: string,
   path: string,
-  body?: unknown,
+  { body, deadline }: { body?: unknown; deadline?: AbortSignal } = {},
 ): Promise<Called> {
+  const { coolify } = api;
   const base = coolify.url.replace(/\/+$/, "");
+  const timeout = AbortSignal.timeout(api.requestTimeoutMs);
   try {
-    const response = await fetchImpl(`${base}/api/v1${path}`, {
+    const response = await api.fetch(`${base}/api/v1${path}`, {
       method,
       headers: {
         Authorization: `Bearer ${coolify.token}`,
@@ -114,6 +132,7 @@ async function call(
       },
       ...(body !== undefined && { body: JSON.stringify(body) }),
       redirect: "manual",
+      signal: deadline ? AbortSignal.any([timeout, deadline]) : timeout,
     });
     const raw = await response.text();
     if (!response.ok) {
@@ -122,22 +141,23 @@ async function call(
     try {
       return { ok: true, body: JSON.parse(raw) as unknown };
     } catch {
+      // A body that isn't JSON comes from something in front of Coolify,
+      // and the parser's own message adds nothing.
       return {
         ok: false,
         detail: `HTTP ${String(response.status)} with a body that isn't JSON`,
       };
     }
   } catch (error) {
-    return { ok: false, detail: describeError(error) };
+    const detail = timeout.aborted
+      ? `no answer in ${duration(api.requestTimeoutMs)}`
+      : describeError(error);
+    return { ok: false, detail };
   }
 }
 
-async function get(
-  coolify: Coolify,
-  fetchImpl: typeof fetch,
-  path: string,
-): Promise<unknown> {
-  const result = await call(coolify, fetchImpl, "GET", path);
+async function get(api: Api, path: string): Promise<unknown> {
+  const result = await call(api, "GET", path);
   if (!result.ok) throw new Error(`GET ${path} failed: ${result.detail}`);
   return result.body;
 }
@@ -241,14 +261,13 @@ type Synced =
  * that the install doesn't name are left alone.
  */
 async function syncApps(
-  coolify: Coolify,
-  fetchImpl: typeof fetch,
+  api: Api,
   config: CoolifyConfig,
   desired: Desired[],
 ): Promise<Synced[]> {
   const [projects, servers, githubApps, applications] = await Promise.all(
     ["/projects", "/servers", "/github-apps", "/applications"].map((path) =>
-      get(coolify, fetchImpl, path),
+      get(api, path),
     ),
   );
   const target = {
@@ -263,24 +282,12 @@ async function syncApps(
   for (const app of desired) {
     const found = findApp(existing, app);
     const saved = found
-      ? await call(
-          coolify,
-          fetchImpl,
-          "PATCH",
-          `/applications/${found}`,
-          app.settings,
-        )
-      : await call(
-          coolify,
-          fetchImpl,
-          "POST",
-          "/applications/private-github-app",
-          {
-            ...target,
-            instant_deploy: false,
-            ...app.settings,
-          },
-        );
+      ? await call(api, "PATCH", `/applications/${found}`, {
+          body: app.settings,
+        })
+      : await call(api, "POST", "/applications/private-github-app", {
+          body: { ...target, instant_deploy: false, ...app.settings },
+        });
     const uuid = found ?? (saved.ok ? text(saved.body, "uuid") : undefined);
     if (!saved.ok || !uuid) {
       const detail = saved.ok ? "Coolify returned no uuid" : saved.detail;
@@ -291,13 +298,9 @@ async function syncApps(
       });
       continue;
     }
-    const envs = await call(
-      coolify,
-      fetchImpl,
-      "PATCH",
-      `/applications/${uuid}/envs/bulk`,
-      { data: app.envs },
-    );
+    const envs = await call(api, "PATCH", `/applications/${uuid}/envs/bulk`, {
+      body: { data: app.envs },
+    });
     results.push(
       envs.ok
         ? { slug: app.slug, action: found ? "synced" : "created", uuid }
@@ -356,18 +359,21 @@ interface WaitOptions {
   timeoutMs: number;
 }
 
-/** Queues a deploy of `uuid`, then polls it until Coolify says it ended. */
+/**
+ * Queues a deploy of `uuid`, then polls it until Coolify says it ended. The
+ * deadline bounds the whole wait, a request in flight included.
+ */
 async function deployAndWait(
-  coolify: Coolify,
-  fetchImpl: typeof fetch,
+  api: Api,
   uuid: string,
   { intervalMs, timeoutMs }: WaitOptions,
 ): Promise<{ ok: boolean; detail: string }> {
+  const deadline = AbortSignal.timeout(timeoutMs);
   const queued = await call(
-    coolify,
-    fetchImpl,
+    api,
     "POST",
     `/deploy?uuid=${encodeURIComponent(uuid)}`,
+    { deadline },
   );
   if (!queued.ok) return queued;
   const deployments = field(queued.body, "deployments");
@@ -383,16 +389,21 @@ async function deployAndWait(
     };
   }
 
-  const deadline = Date.now() + timeoutMs;
   let last = "queued";
   let misses = 0;
   for (;;) {
     const result = await call(
-      coolify,
-      fetchImpl,
+      api,
       "GET",
       `/deployments/${encodeURIComponent(deployment)}`,
+      { deadline },
     );
+    if (deadline.aborted) {
+      return {
+        ok: false,
+        detail: `still ${last} after ${duration(timeoutMs)}`,
+      };
+    }
     if (result.ok) {
       misses = 0;
       last = text(result.body, "status") ?? last;
@@ -406,13 +417,10 @@ async function deployAndWait(
         detail: `lost track of ${deployment}: ${result.detail}`,
       };
     }
-    if (Date.now() >= deadline) {
-      return {
-        ok: false,
-        detail: `still ${last} after ${String(Math.round(timeoutMs / 60_000))} minutes`,
-      };
-    }
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    // The deadline cutting the sleep short ends the wait: the next turn says so.
+    await sleep(intervalMs, undefined, { signal: deadline }).catch(
+      () => undefined,
+    );
   }
 }
 
@@ -424,8 +432,12 @@ export interface DeployOptions {
   affected: string[] | "all";
   fetch?: typeof fetch;
   log?: (line: string) => void;
+  /** How long to wait between polls of a deployment. */
   intervalMs?: number;
+  /** How long one app's deploy may take, from queueing it to its end. */
   timeoutMs?: number;
+  /** How long one request to Coolify may take. */
+  requestTimeoutMs?: number;
 }
 
 /**
@@ -444,10 +456,11 @@ export async function deploy({
   log = console.log,
   intervalMs = 10_000,
   timeoutMs = 20 * 60_000,
+  requestTimeoutMs = 30_000,
 }: DeployOptions): Promise<boolean> {
+  const api: Api = { coolify, fetch: fetchImpl, requestTimeoutMs };
   const synced = await syncApps(
-    coolify,
-    fetchImpl,
+    api,
     config,
     deployments.map((deployment) => desiredApp(deployment, config)),
   );
@@ -466,7 +479,7 @@ export async function deploy({
     const outcomes = await Promise.all(
       wave.map(async ({ app, uuid }) => ({
         app,
-        ...(await deployAndWait(coolify, fetchImpl, uuid, {
+        ...(await deployAndWait(api, uuid, {
           intervalMs,
           timeoutMs,
         })),
