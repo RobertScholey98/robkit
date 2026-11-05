@@ -388,3 +388,38 @@ export async function updateApp(root: string, slug: string): Promise<Updated> {
   await recordApp(root, slug, { source, revision });
   return { source, revision, incoming };
 }
+
+export interface Restored {
+  /** The apps cloned again, by slug, each at the commit recorded. */
+  restored: string[];
+  /** Apps robkit.json lists but has no source for: never shared. */
+  unshared: string[];
+}
+
+/**
+ * Brings back every app repo `robkit.json` lists that the install at `root`
+ * lacks, as a fresh clone of the install's repository does: clones each
+ * from its source and checks out the commit recorded. An app that was never
+ * shared has no source, so it can't come back; it's listed in `unshared`.
+ */
+export async function restoreApps(root: string): Promise<Restored> {
+  const { apps = {} } = await readInstallRecord(root);
+  const restored: string[] = [];
+  const unshared: string[] = [];
+  for (const [slug, { source, revision }] of Object.entries(apps)) {
+    const dir = appDir(root, slug);
+    if (existsSync(join(dir, "package.json"))) continue;
+    if (source === undefined) {
+      unshared.push(slug);
+      continue;
+    }
+    await rm(dir, { recursive: true, force: true });
+    await git(root, ["clone", "--quiet", source, dir]);
+    if (revision !== undefined) {
+      const branch = await git(dir, ["rev-parse", "--abbrev-ref", "HEAD"]);
+      await git(dir, ["checkout", "--quiet", "-B", branch, revision]);
+    }
+    restored.push(slug);
+  }
+  return { restored, unshared };
+}

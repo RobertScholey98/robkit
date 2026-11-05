@@ -7,7 +7,13 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { addApp, type AppChoices } from "./add.ts";
-import { installApp, shareApp, UpdateConflict, updateApp } from "./app-repo.ts";
+import {
+  installApp,
+  restoreApps,
+  shareApp,
+  UpdateConflict,
+  updateApp,
+} from "./app-repo.ts";
 import { checkInstall } from "./check.ts";
 import { readyStacks, type Stack } from "./choices.ts";
 import { init } from "./init.ts";
@@ -412,6 +418,72 @@ describe("updateApp", { timeout: 60_000 }, () => {
   });
 });
 
+describe("restoreApps", { timeout: 60_000 }, () => {
+  /** A clone of install A's repository, as a deploy or a new machine gets. */
+  async function cloneOf(parent: string, a: string): Promise<string> {
+    await git(a, "add", "--all");
+    await git(a, "commit", "--quiet", "--message", "Record the apps");
+    const clone = join(parent, "install-a-clone");
+    await git(parent, "clone", "--quiet", a, clone);
+    return clone;
+  }
+
+  it("clones each app repo the install's clone lacks, at the commit robkit.json records", async () => {
+    const { parent, a, shared } = await sharedFromA();
+    const clone = await cloneOf(parent, a);
+    // A later push the install hasn't recorded.
+    await append(a, "apps/notes/AGENTS.md", "\nUnrecorded.\n");
+    await git(
+      join(a, "apps/notes"),
+      "commit",
+      "--quiet",
+      "--all",
+      "-m",
+      "Later",
+    );
+    await git(join(a, "apps/notes"), "push", "--quiet");
+    expect(existsSync(join(clone, "apps/notes"))).toBe(false);
+
+    const restored = await restoreApps(clone);
+
+    const app = join(clone, "apps/notes");
+    expect(restored).toEqual({ restored: ["notes"], unshared: [] });
+    expect(await git(app, "rev-parse", "HEAD")).toBe(shared.revision);
+    expect(await git(app, "rev-parse", "--abbrev-ref", "HEAD")).toBe("main");
+    expect(await git(app, "remote", "get-url", "origin")).toBe(shared.source);
+    expect(await restoreApps(clone)).toEqual({ restored: [], unshared: [] });
+  });
+
+  it("names an app that was never shared, which it can't fetch", async () => {
+    const parent = await machine();
+    const a = await freshInstall(parent, "install-a");
+    await addApp(a, notes());
+    const clone = await cloneOf(parent, a);
+
+    expect(await restoreApps(clone)).toEqual({
+      restored: [],
+      unshared: ["notes"],
+    });
+  });
+
+  it("is what robkit install does with no argument", async () => {
+    const parent = await machine();
+    const a = await freshInstall(parent, "install-a");
+    await addApp(a, notes());
+    await shareApp(a, "notes");
+    await addApp(a, { ...notes(), slug: "drafts" });
+    const clone = await cloneOf(parent, a);
+
+    const { code, output } = await drive(bin, clone, ["install"]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output:
+        "Restored apps/notes.\napps/drafts was never shared, so this install can't fetch it. Share it from the install that made it with pnpm robkit share drafts <git URL>, then commit that install's robkit.json.\n",
+    });
+  });
+});
+
 describe.each(readyStacks)(
   "an app on the %s stack",
   { timeout: 60_000 },
@@ -508,7 +580,7 @@ Restart pnpm dev to migrate the app's database and serve the new version.
 
   it.each([
     [["share"], "Usage: robkit share <app>"],
-    [["install"], "Usage: robkit install <git URL or path>"],
+    [["install", "one", "two"], "Usage: robkit install <git URL or path>"],
     [["update"], "Usage: robkit update <app>"],
   ])("refuses %j, showing its usage", async (args, message) => {
     const a = await freshInstall(await machine(), "install-a");

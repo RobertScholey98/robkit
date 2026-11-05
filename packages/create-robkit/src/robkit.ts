@@ -10,7 +10,7 @@ import {
   install as addresses,
 } from "@robkit/session/addresses";
 import { addApp } from "./add.ts";
-import { installApp, shareApp, updateApp } from "./app-repo.ts";
+import { installApp, restoreApps, shareApp, updateApp } from "./app-repo.ts";
 import {
   addCommandFor,
   addUsage,
@@ -37,7 +37,12 @@ gets a bare one. The app's upstream becomes where it went.`;
 const installUsage = `Usage: robkit install <git URL or path> [--as <app>]
 
 Clones an app repo into apps/<app>, named after the repo unless --as names
-it, if its manifest names a robkit contract this install runs.`;
+it, if its manifest names a robkit contract this install runs.
+
+Usage: robkit install
+
+Clones again every app repo robkit.json lists that the install lacks, at
+the commit it records, as a fresh clone of the install needs.`;
 
 const updateUsage = `Usage: robkit update <app>
 
@@ -287,8 +292,13 @@ async function installCommand(): Promise<void> {
     options: { as: { type: "string" } },
   });
   const [, source, ...rest] = positionals;
-  if (source === undefined || rest.length > 0) throw new Error(installUsage);
+  if (rest.length > 0) throw new Error(installUsage);
   const root = process.cwd();
+  if (source === undefined) {
+    if (values.as !== undefined) throw new Error(installUsage);
+    await restore(root);
+    return;
+  }
   const installed = await installApp(root, source, { as: values.as });
   const hasDependencies = await refreshDependencies(root);
   const about = installed.description ? `\n${installed.description}\n` : "";
@@ -299,6 +309,25 @@ ${hasDependencies ? "" : "\n  pnpm install"}
   pnpm dev
 
 Then open ${dev.origin(installed.slug)}.`);
+}
+
+async function restore(root: string): Promise<void> {
+  const { restored, unshared } = await restoreApps(root);
+  for (const slug of restored) console.log(`Restored apps/${slug}.`);
+  if (restored.length > 0) await refreshDependencies(root);
+  if (unshared.length > 0) {
+    throw new Error(
+      unshared
+        .map(
+          (slug) =>
+            `apps/${slug} was never shared, so this install can't fetch it. Share it from the install that made it with pnpm robkit share ${slug} <git URL>, then commit that install's robkit.json.`,
+        )
+        .join("\n"),
+    );
+  }
+  if (restored.length === 0) {
+    console.log("Every app robkit.json lists is here.");
+  }
 }
 
 async function update(): Promise<void> {
