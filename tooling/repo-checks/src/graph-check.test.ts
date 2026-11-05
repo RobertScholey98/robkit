@@ -300,13 +300,22 @@ describe("layerConflicts", () => {
 });
 
 describe("the robkit workspace", () => {
-  it("agrees with the layer ESLint rule", async () => {
+  it("agrees with the layer ESLint rule, whose core rows it feeds", async () => {
     const forbidden = layerForbids(await readWorkspace(root), layers);
 
     expect(forbidden.map(({ from, to }) => `${from} -> ${to}`)).toEqual([
+      "create-robkit -> @robkit/core",
+      "@robkit/dev -> @robkit/core",
+      "@robkit/guard -> @robkit/core",
       "@robkit/hono -> @robkit/core",
       "@robkit/react -> @robkit/core",
+      "@robkit/session -> @robkit/core",
       "@robkit/start -> @robkit/core",
+      "@internal/e2e -> @robkit/core",
+      "@internal/eslint-config -> @robkit/core",
+      "@internal/test-postgres -> @robkit/core",
+      "@internal/test-session -> @robkit/core",
+      "@internal/tsconfig -> @robkit/core",
     ]);
     expect(layerConflicts(packageGraph, forbidden)).toEqual([]);
   });

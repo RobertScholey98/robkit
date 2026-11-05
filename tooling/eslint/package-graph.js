@@ -3,7 +3,8 @@
  * allows between them. `graph-check.test.ts` in `tooling/repo-checks`
  * fails on a `package.json` dependency or an import that isn't here, on an
  * edge here that no `package.json` has, and on a cycle. The `layer` ESLint
- * rule must agree with it, and a test checks that too.
+ * rule builds its core rows from it, and the same test checks the rule's
+ * other rows forbid no edge it allows.
  *
  * Edges to an external package aren't here. The catalog holds those.
  *
