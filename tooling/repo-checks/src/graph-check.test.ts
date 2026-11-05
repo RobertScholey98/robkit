@@ -137,6 +137,87 @@ describe("importProblems", () => {
   });
 });
 
+describe("importProblems on runtime code", () => {
+  const testPostgres: WorkspacePackage = {
+    name: "@internal/test-postgres",
+    folder: "tooling/test-postgres",
+    manifest: { private: true },
+  };
+  const coreWithTests: WorkspacePackage = {
+    ...core,
+    manifest: {
+      ...core.manifest,
+      devDependencies: { "@internal/test-postgres": "workspace:*" },
+    },
+  };
+  const testSession: WorkspacePackage = {
+    name: "@internal/test-session",
+    folder: "tooling/test-session",
+    manifest: {
+      private: true,
+      devDependencies: { "@robkit/guard": "workspace:*" },
+    },
+  };
+  const all = [...packages, testPostgres, testSession];
+  const withTests: PackageGraph = {
+    ...graph,
+    "@robkit/core": {
+      dependencies: ["@robkit/guard"],
+      devDependencies: ["@internal/test-postgres"],
+    },
+    "@internal/test-postgres": { dependencies: [], devDependencies: [] },
+    "@internal/test-session": {
+      dependencies: [],
+      devDependencies: ["@robkit/guard"],
+    },
+  };
+  const importing = (file: string) => ({
+    file,
+    line: 1,
+    specifier: "@internal/test-postgres",
+  });
+
+  it("rejects a dev-only package imported from a runtime file", () => {
+    expect(
+      importProblems(withTests, coreWithTests, all, [
+        importing("packages/core/src/app.ts"),
+      ]),
+    ).toEqual([
+      `packages/core/src/app.ts:1 imports @internal/test-postgres, which ${graphFile} lets @robkit/core take only in tests and config`,
+    ]);
+  });
+
+  it("accepts a dev-only package in tests, test helpers and config", () => {
+    expect(
+      importProblems(
+        withTests,
+        coreWithTests,
+        all,
+        [
+          "packages/core/src/app.test.ts",
+          "packages/core/src/types.test-d.ts",
+          "packages/core/src/test/global-setup.ts",
+          "packages/core/src/__snapshots__/x.ts",
+          "packages/core/vitest.config.ts",
+          "packages/core/drizzle.config.ts",
+        ].map(importing),
+      ),
+    ).toEqual([]);
+  });
+
+  it("accepts dev edges anywhere in a private package, which has no runtime", () => {
+    expect(
+      importProblems(withTests, testSession, all, [
+        {
+          file: "tooling/test-session/src/index.ts",
+          line: 1,
+          specifier: "@robkit/guard",
+        },
+      ]),
+    ).toEqual([]);
+  });
+});
+
 describe("cycles", () => {
   it("finds none in an acyclic graph", () => {
     expect(cycles(graph)).toEqual([]);

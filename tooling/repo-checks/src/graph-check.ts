@@ -13,6 +13,8 @@ export interface WorkspacePackage {
   /** Its folder from the repo root, such as `packages/guard`. */
   folder: string;
   manifest: {
+    /** A private package is never published, so it has no runtime code. */
+    private?: boolean;
     dependencies?: Deps;
     devDependencies?: Deps;
     peerDependencies?: Deps;
@@ -129,9 +131,24 @@ export function manifestProblems(
 }
 
 /**
+ * Whether a file is code a published package runs: under `src`, and not a
+ * test, a test helper under `src/test` or a snapshot. Config files sit
+ * beside `src`, and a private package has no runtime code at all.
+ */
+export function isRuntimeFile(pkg: WorkspacePackage, file: string): boolean {
+  if (pkg.manifest.private === true) return false;
+  const inside = posix.relative(pkg.folder, file);
+  return (
+    inside.startsWith("src/") &&
+    !/\.test(-d)?\.[cm]?[jt]sx?$/.test(inside) &&
+    !/^src\/(.+\/)?(test|__snapshots__)\//.test(inside)
+  );
+}
+
+/**
  * Imports that leave their package other than through a dependency the graph
- * allows: a workspace package it doesn't list, or a relative path into
- * another folder.
+ * allows: a workspace package it doesn't list, a dev-only package imported
+ * from runtime code, or a relative path into another folder.
  */
 export function importProblems(
   graph: PackageGraph,
@@ -144,6 +161,10 @@ export function importProblems(
     pkg.name,
     ...allowed(graph, pkg.name, "devDependencies"),
   ]);
+  const runtime = new Set([
+    pkg.name,
+    ...allowed(graph, pkg.name, "dependencies"),
+  ]);
   return imports.flatMap(({ file, line, specifier }) => {
     const at = `${file}:${String(line)}`;
     if (/^\.\.?(\/|$)/.test(specifier)) {
@@ -155,9 +176,15 @@ export function importProblems(
           ];
     }
     const name = packageName(specifier);
-    return names.has(name) && !mayUse.has(name)
+    if (!names.has(name)) return [];
+    if (!mayUse.has(name)) {
+      return [
+        `${at} imports ${name}, which ${graphFile} doesn't let ${pkg.name} depend on`,
+      ];
+    }
+    return isRuntimeFile(pkg, file) && !runtime.has(name)
       ? [
-          `${at} imports ${name}, which ${graphFile} doesn't let ${pkg.name} depend on`,
+          `${at} imports ${name}, which ${graphFile} lets ${pkg.name} take only in tests and config`,
         ]
       : [];
   });
