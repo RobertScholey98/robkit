@@ -1,16 +1,11 @@
 import { CANCEL_SYMBOL, intro, isCancel, select, text } from "@clack/prompts";
-import {
-  defaultChoices,
-  stackFrom,
-  stacks,
-  type Generator,
-} from "./choices.ts";
+import { defaultChoices, stackFrom, stacks, type Stack } from "./choices.ts";
 import { folderInUse } from "./write.ts";
 
 /** init's answers: the install's folder and the example app's stack. */
 export interface Answers {
   folder: string;
-  stack: Generator;
+  stack: Stack;
 }
 
 /**

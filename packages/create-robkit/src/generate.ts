@@ -3,7 +3,7 @@ import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
-import { readyStacks, type Choices, type Generator } from "./choices.ts";
+import { readyStacks, type Choices, type Stack } from "./choices.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -113,7 +113,7 @@ function editJson(files: Files, path: string, edit: (json: Json) => Json) {
 }
 
 /** The template robkit ships for `stack`: an app's files, from its folder. */
-export function stackTemplate(stack: Generator): Promise<Files> {
+export function stackTemplate(stack: Stack): Promise<Files> {
   return readLayer(`stacks/${stack}`);
 }
 

@@ -4,7 +4,7 @@ export {
   stackFrom,
   stacks,
   type Choices,
-  type Generator,
+  type Stack,
 } from "./choices.ts";
 export {
   deploymentOf,

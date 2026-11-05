@@ -10,7 +10,7 @@ import {
   defaultChoices,
   readyStackOptions,
   stackFrom,
-  type Generator,
+  type Stack,
 } from "./choices.ts";
 import { defaultIcon } from "./generate.ts";
 
@@ -103,7 +103,7 @@ export async function askAdd(
   }
   intro("robkit add");
   const stack = answered(
-    await select<Generator>({
+    await select<Stack>({
       message: "Which stack?",
       options: readyStackOptions,
     }),

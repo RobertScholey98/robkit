@@ -3,7 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { slugProblem } from "@robkit/dev";
 import { isPlatformApp, platformApps } from "@robkit/session/addresses";
-import type { Choices, Generator } from "./choices.ts";
+import type { Choices, Stack } from "./choices.ts";
 import {
   appFiles,
   readFolder,
@@ -17,7 +17,7 @@ import { writeInstall } from "./write.ts";
  * icon.
  */
 export interface AppChoices {
-  stack: Generator;
+  stack: Stack;
   slug: string;
   /** Who may open the app once core adds it. A rule's roles are named. */
   access: NonNullable<Declares["access"]>;
@@ -78,7 +78,7 @@ export function newSlugProblem(root: string, slug: string): string | undefined {
  * install's own `robkit/templates/<stack>` folder if it has one, which
  * replaces robkit's template whole, or else robkit's.
  */
-async function templateFor(root: string, stack: Generator) {
+async function templateFor(root: string, stack: Stack) {
   const own = join(root, "robkit", "templates", stack);
   if (await exists(own)) return readFolder(own);
   return stackTemplate(stack);

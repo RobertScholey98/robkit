@@ -24,7 +24,7 @@ export const stacks = [
 type Ready = Exclude<(typeof stacks)[number], { comingLater: true }>;
 
 /** A stack robkit can make an app on today. */
-export type Generator = Ready["value"];
+export type Stack = Ready["value"];
 
 /** The stacks robkit can make today, with their labels. */
 export const readyStackOptions: Ready[] = stacks.filter(
@@ -32,20 +32,20 @@ export const readyStackOptions: Ready[] = stacks.filter(
 );
 
 /** The stacks robkit can make today. Every install's robkit add offers them all. */
-export const readyStacks: Generator[] = readyStackOptions.map(
+export const readyStacks: Stack[] = readyStackOptions.map(
   (stack) => stack.value,
 );
 
 /** Everything init asks, as `robkit.json` records it. */
 export interface Choices {
   /** The stack of the example app init adds. */
-  exampleStack: Generator;
+  exampleStack: Stack;
 }
 
 export const defaultChoices: Choices = { exampleStack: "start" };
 
 /** The stack `--stack` names, refusing one robkit can't make. */
-export function stackFrom(value: string): Generator {
+export function stackFrom(value: string): Stack {
   const stack = readyStacks.find((ready) => ready === value);
   if (stack === undefined) {
     throw new Error(
