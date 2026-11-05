@@ -493,6 +493,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)
+      prettier:
+        specifier: 'catalog:'
+        version: 3.9.10
       publint:
         specifier: 'catalog:'
         version: 0.3.25
