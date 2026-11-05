@@ -257,6 +257,7 @@ function readme(
   slug: string,
   shared: SharedPackage[],
   linked: boolean,
+  seeds: boolean,
 ): string {
   const { name = slug, description, stack, contract } = manifest.robkit ?? {};
   return `<!-- ${writtenByExport} robkit import leaves it out. -->
@@ -273,7 +274,7 @@ From an install's root:
 pnpm robkit import <this repo's folder or git URL>
 \`\`\`
 
-\`--as <slug>\` gives it another name. The next \`pnpm dev\` gives it its own schema, runs its migrations and, on a new schema, its seed${manifest.robkit?.seed ? ` (\`${manifest.robkit.seed}\`)` : ""}.
+\`--as <slug>\` gives it another name. The next \`pnpm dev\` gives it its own schema, runs its migrations and, on a new schema, its seed${seeds ? " (`seed.sql`)" : ""}.
 
 ## Work on it here
 
@@ -393,7 +394,7 @@ async function repoTree(
     tree.set(
       "README.md",
       await formatted(
-        readme(own, slug, shared, overrides.size > 0),
+        readme(own, slug, shared, overrides.size > 0, app.has("seed.sql")),
         "README.md",
       ),
     );

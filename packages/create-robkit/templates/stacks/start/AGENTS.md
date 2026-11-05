@@ -36,6 +36,6 @@ The app talks to Postgres with Drizzle over `DATABASE_URL`, as its own role. The
 - `src/schema.ts` declares the tables. Use `pgTable`, never `pgSchema`: the app's schema is the role's, and naming another one fails.
 - `src/database.ts` gives queries the database, connected on first use. `src/visits.ts` shows a query.
 - `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run.
-- A seed, if the app has one, is a SQL file its `package.json` names as `robkit.seed`, such as `"seed": "seed.sql"`. `pnpm dev` runs it once, as the app's role, after the migrations, when it first makes the app's schema, and never again. Seed rows, never real data.
+- A seed, if the app has one, is `seed.sql` at the root of its folder. `pnpm dev` runs it once, as the app's role, after the migrations, when it first makes the app's schema, and never again. Seed rows, never real data.
 
 `src/migrate.ts` applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It follows Drizzle's migrator but skips its `CREATE SCHEMA`, which the app's role may not run, and keeps its journal table in the app's schema.

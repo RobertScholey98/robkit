@@ -296,7 +296,7 @@ describe("provisionApps", () => {
 
 /**
  * Adds an app at `apps/<slug>` to the install at `root` that migrates as
- * ledger does, with `seed.sql` as its manifest's seed when given.
+ * ledger does, with `seed` as its `seed.sql` when given.
  */
 async function seeded(root: string, slug: string, seed: string | undefined) {
   const dir = join(root, "apps", slug);
@@ -308,7 +308,6 @@ async function seeded(root: string, slug: string, seed: string | undefined) {
       private: true,
       type: "module",
       scripts: { migrate: "node ../../migrate.js" },
-      ...(seed !== undefined && { robkit: { seed: "seed.sql" } }),
     }),
   );
   if (seed !== undefined) await writeFile(join(dir, "seed.sql"), seed);

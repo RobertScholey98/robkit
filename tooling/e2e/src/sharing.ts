@@ -137,12 +137,6 @@ export const note = pgTable("note", {
     join(app, "seed.sql"),
     `insert into note (body) values ('${seededNote}');\n`,
   );
-  const manifestPath = join(app, "package.json");
-  const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
-    robkit: Record<string, unknown>;
-  };
-  manifest.robkit.seed = "seed.sql";
-  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
   await pnpm(a, "run", "robkit", "export", sharedSlug);
   // pnpm on CI refuses an install with no lockfile unless told.

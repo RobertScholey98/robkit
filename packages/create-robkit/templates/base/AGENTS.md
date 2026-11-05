@@ -23,7 +23,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 - `packages/` holds code the apps share, such as `packages/core-client`, which the hub and admin call core through.
 - `packages/theme/theme.css` holds the install's look: its colour, radius and font variables. The hub and admin draw with Tailwind classes named after them, such as `bg-primary`, so changing a variable restyles both. Every control they draw comes from their own `ui.tsx`, which draws with the install's UI kit: shadcn on Base UI, in `packages/ui`, with its own `AGENTS.md`. Every app draws with it too.
 - `robkit.json` marks this folder as a robkit install, and records the stack init gave the example app. The `robkit` commands refuse a folder without it.
-- An app's `package.json` declares a `robkit` field, its manifest: its name, the stack it was made on, the robkit contract version it was made for, who may open it when core first sees it, the emoji the launcher shows, and optionally a `seed` SQL file. After core first sees it, the owner sets who may open it in admin.
+- An app's `package.json` declares a `robkit` field, its manifest: its name, the stack it was made on, the robkit contract version it was made for, who may open it when core first sees it, and the emoji the launcher shows. After core first sees it, the owner sets who may open it in admin.
 
 ## The layer rule
 
@@ -35,7 +35,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 
 ## Databases
 
-`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time. When `pnpm dev` first makes an app's schema, it then runs the app's seed, the SQL file its manifest names as `robkit.seed`, once, as the app's role. It never runs it again, and a deploy doesn't run it.
+`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time. When `pnpm dev` first makes an app's schema, it then runs the app's seed, the `seed.sql` at the root of its folder if it has one, once, as the app's role. It never runs it again, and a deploy doesn't run it.
 
 ## Sharing an app
 

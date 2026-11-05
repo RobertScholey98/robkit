@@ -4,9 +4,9 @@
  * versions, the install's own `packages/ui`, `packages/theme`,
  * `packages/core-client` and `tooling/typescript` by name, the catalog's
  * dependency versions, and the provision step's rules: a `migrate` script, an
- * optional `robkit.seed` file, `DATABASE_URL`, `ROBKIT_APP`, `PORT`, and the
- * guard owning every path under `/_robkit/`. robkit raises it when an app
- * made for one version would break on the next.
+ * optional `seed.sql` at the app's root, `DATABASE_URL`, `ROBKIT_APP`,
+ * `PORT`, and the guard owning every path under `/_robkit/`. robkit raises
+ * it when an app made for one version would break on the next.
  */
 export const contractVersion = 1;
 

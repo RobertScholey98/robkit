@@ -142,8 +142,7 @@ export function stackTemplate(stack: Stack): Promise<Files> {
  * `package.json`: its name, the stack it was made on, the robkit contract
  * version it was made for, who may open it once core adds it, with roles
  * named, and the emoji the launcher shows. Core's catalog takes the access
- * rule and icon. Export and import read the rest, and the provision step
- * reads the seed.
+ * rule and icon. Export and import read the rest.
  */
 export interface Declares {
   name?: string;
@@ -153,8 +152,6 @@ export interface Declares {
   access?:
     { kind: "open" } | { kind: "owner" } | { kind: "roles"; roles: string[] };
   icon?: string;
-  /** A SQL file, from the app's folder, that runs once on a new schema. */
-  seed?: string;
 }
 
 /** The icon an app gets when nobody picks one, the example app included. */

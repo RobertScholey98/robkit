@@ -1,5 +1,6 @@
+import { existsSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
-import { isAbsolute, join } from "node:path";
+import { join } from "node:path";
 import { install, isPlatformApp } from "@robkit/session/addresses";
 import type { Route } from "./proxy.ts";
 import { slugProblem } from "./slug.ts";
@@ -15,16 +16,19 @@ export interface App {
   port: number;
   migrates: boolean;
   /**
-   * The SQL file, from the app's folder, that the provision step runs once
-   * when it first makes the app's schema: the manifest's `robkit.seed`.
+   * Whether the app has a seed: a `seed.sql` in its folder, which the
+   * provision step runs once, when it first makes the app's schema.
    */
-  seed?: string;
+  seeds: boolean;
   /**
    * What the manifest's `robkit` field declares for core's catalog: who may
    * open the app once core adds it, and its icon. Core checks both.
    */
   declares: Declares;
 }
+
+/** An app's seed, by convention, at the root of its folder. */
+export const seedFile = "seed.sql";
 
 export interface Declares {
   access?: unknown;
@@ -33,7 +37,7 @@ export interface Declares {
 
 interface PackageJson {
   scripts?: Record<string, string>;
-  robkit?: Declares & { seed?: unknown };
+  robkit?: Declares;
 }
 
 async function readManifest(dir: string): Promise<PackageJson | undefined> {
@@ -45,16 +49,6 @@ async function readManifest(dir: string): Promise<PackageJson | undefined> {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw error;
   }
-}
-
-/** Whether `path` is a relative path to a file inside the app's folder. */
-function isOwnFile(path: unknown): path is string {
-  return (
-    typeof path === "string" &&
-    path !== "" &&
-    !isAbsolute(path) &&
-    !path.split(/[\\/]/).includes("..")
-  );
 }
 
 /**
@@ -85,18 +79,12 @@ export async function discoverApps(
     if (!manifest) continue;
     const problem = slugProblem(slug);
     if (problem) throw new Error(`apps/${slug}: ${problem}`);
-    const seed = manifest.robkit?.seed;
-    if (seed !== undefined && !isOwnFile(seed)) {
-      throw new Error(
-        `apps/${slug}: its manifest's robkit.seed must name a file in its folder, such as "seed.sql".`,
-      );
-    }
     apps.push({
       slug,
       dir,
       port: firstPort + apps.length,
       migrates: manifest.scripts?.migrate !== undefined,
-      ...(seed !== undefined && { seed }),
+      seeds: existsSync(join(dir, seedFile)),
       declares: {
         access: manifest.robkit?.access,
         icon: manifest.robkit?.icon,

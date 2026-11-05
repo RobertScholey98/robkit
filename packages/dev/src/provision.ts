@@ -2,7 +2,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import postgres from "postgres";
-import { discoverApps, type App } from "./apps.ts";
+import { discoverApps, seedFile, type App } from "./apps.ts";
 import { exec } from "./exec.ts";
 import { slugProblem } from "./slug.ts";
 
@@ -18,10 +18,10 @@ export interface ProvisionOptions {
 /**
  * The provision step: gives every app in the install at `root` that has a
  * `migrate` script its database, then runs that script as the app. An app
- * whose schema this step made new then gets its seed, if its manifest names
- * one: a SQL file that runs once, as the app, and never again. Apps go one at
- * a time in slug order, and the step stops at the first failure. Safe to run
- * on every start: a second run changes nothing but the passwords.
+ * whose schema this step made new then gets its seed, if its folder has a
+ * `seed.sql`: SQL that runs once, as the app, and never again. Apps go one
+ * at a time in slug order, and the step stops at the first failure. Safe to
+ * run on every start: a second run changes nothing but the passwords.
  *
  * @returns each provisioned app's `DATABASE_URL`, by slug
  */
@@ -65,13 +65,13 @@ async function seedOnce(app: App, databaseUrl: string): Promise<void> {
         select obj_description(oid, 'pg_namespace') as note
         from pg_namespace where nspname = ${app.slug}`;
       if (schema?.note !== seedPending) return;
-      if (app.seed !== undefined) {
-        const text = await readFile(join(app.dir, app.seed), "utf8");
+      if (app.seeds) {
+        const text = await readFile(join(app.dir, seedFile), "utf8");
         try {
           await tx.unsafe(text);
         } catch (error) {
           throw new Error(
-            `apps/${app.slug}: its seed, ${app.seed}, failed: ${error instanceof Error ? error.message : String(error)}`,
+            `apps/${app.slug}: its seed, ${seedFile}, failed: ${error instanceof Error ? error.message : String(error)}`,
             { cause: error },
           );
         }
