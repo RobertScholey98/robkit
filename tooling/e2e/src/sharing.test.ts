@@ -13,6 +13,7 @@ import {
   testTag,
 } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
+import { updateApp } from "create-robkit";
 import {
   defaultDomain,
   install,
@@ -25,8 +26,10 @@ import { takeBrowserLog } from "./browser.ts";
 import {
   changedHeading,
   greeting,
+  ownEdit,
   seededNote,
   sharedSlug,
+  updatedHeading,
   type Sharing,
 } from "./sharing.ts";
 
@@ -38,7 +41,8 @@ interface Dev {
   adminUrl: string;
   /** What `pnpm dev` has said so far. */
   output: () => string;
-  stop: () => Promise<void>;
+  /** Stops pnpm dev and removes its Postgres, unless told to keep it. */
+  stop: (options?: { keepDatabase?: boolean }) => Promise<void>;
 }
 
 function get(
@@ -74,10 +78,22 @@ function get(
   });
 }
 
-async function startDev(dir: string, name: string): Promise<Dev> {
+/**
+ * Starts `pnpm dev` in the install at `dir`. Its Postgres keeps its data in
+ * memory, gone once it stops, unless `keepsData`, for a test that stops the
+ * install and starts it again on the same `postgresPort`.
+ */
+async function startDev(
+  dir: string,
+  name: string,
+  {
+    keepsData = false,
+    postgresPort,
+  }: { keepsData?: boolean; postgresPort?: number } = {},
+): Promise<Dev> {
   const devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
   const addresses = install({ domain: defaultDomain, port: devPort });
-  const postgresPort = await freePostgresPort();
+  postgresPort ??= await freePostgresPort();
   const project = `robkit-e2e-sharing-${name}-${String(process.pid)}`;
   const tag = testTag();
   removeWhenGone({ tagged: tag }, { docker: project });
@@ -88,7 +104,9 @@ async function startDev(dir: string, name: string): Promise<Dev> {
       ...process.env,
       ROBKIT_DEV_PORT: String(devPort),
       ROBKIT_POSTGRES_PORT: String(postgresPort),
-      COMPOSE_FILE: testComposeFiles(),
+      COMPOSE_FILE: keepsData
+        ? (process.env.COMPOSE_FILE ?? "compose.yaml")
+        : testComposeFiles(),
       ROBKIT_TEST_TAG: tag,
       COMPOSE_PROJECT_NAME: project,
     },
@@ -101,11 +119,12 @@ async function startDev(dir: string, name: string): Promise<Dev> {
     addresses,
     adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
     output: () => output,
-    stop: async () => {
+    stop: async ({ keepDatabase = false } = {}) => {
       if (dev.exitCode === null && dev.pid) {
         process.kill(-dev.pid, "SIGINT");
         await once(dev, "exit");
       }
+      if (keepDatabase) return;
       await run("docker", ["compose", "-p", project, "down", "-v"], {
         cwd: dir,
       });
@@ -221,6 +240,7 @@ describe("sharing apps between installs", () => {
     });
 
     expect(stdout.trim().split("\n")).toEqual([
+      `Export ${sharedSlug} again`,
       `Export ${sharedSlug} from a robkit install`,
     ]);
   });
@@ -255,30 +275,69 @@ describe("sharing apps between installs", () => {
   );
 
   it(
-    "lets a guest open the app install B imported, with install A's change, table and seed",
-    { timeout: 300_000 },
+    "lets a guest open the app install B imported, with install A's change, table and seed, then updates it keeping B's edit and data",
+    { timeout: 600_000 },
     async () => {
-      const dev = await startDev(sharing.b, "b");
+      const notes = `select body from ${sharedSlug}.note order by id`;
+      const first = await startDev(sharing.b, "b", { keepsData: true });
+      let opened: unknown;
+      let seeded: unknown;
+      const postgresPort = Number(new URL(first.adminUrl).port);
       try {
-        await answers(dev, "hub", 200);
-        await answers(dev, sharedSlug, 200);
-        await claim(dev);
+        await answers(first, "hub", 200);
+        await answers(first, sharedSlug, 200);
+        await claim(first);
+        opened = await addedAppJourney({
+          install: first.addresses,
+          slug: sharedSlug,
+        });
+        seeded = await rows(first.adminUrl, notes);
+        // Data of install B's own, which the update must keep.
+        await rows(
+          first.adminUrl,
+          `insert into ${sharedSlug}.note (body) values ('Written in install B')`,
+        );
+      } finally {
+        await first.stop({ keepDatabase: true });
+      }
 
-        const journey = await addedAppJourney({
-          install: dev.addresses,
+      const updated = await updateApp(sharing.b, sharedSlug);
+
+      const second = await startDev(sharing.b, "b", {
+        keepsData: true,
+        postgresPort,
+      });
+      try {
+        await answers(second, "hub", 200);
+        await answers(second, sharedSlug, 200);
+        const reopened = await addedAppJourney({
+          install: second.addresses,
           slug: sharedSlug,
         });
 
-        expect(journey).toEqual({
-          icon: "📝",
-          openedAt: `${dev.addresses.origin(sharedSlug)}/`,
-          heading: changedHeading,
+        expect({ opened, seeded }).toEqual({
+          opened: {
+            icon: "📝",
+            openedAt: `${first.addresses.origin(sharedSlug)}/`,
+            heading: changedHeading,
+          },
+          seeded: [{ body: seededNote }],
         });
+        expect(updated).toMatchObject({ changed: true, conflicts: [] });
+        expect(reopened.heading).toBe(updatedHeading);
         expect(
-          await rows(dev.adminUrl, `select body from ${sharedSlug}.note`),
-        ).toEqual([{ body: seededNote }]);
+          await readFile(
+            join(sharing.b, "apps", sharedSlug, ownEdit.file),
+            "utf8",
+          ),
+        ).toContain(ownEdit.to);
+        // The schema and its data stayed, and the seed didn't run again.
+        expect(await rows(second.adminUrl, notes)).toEqual([
+          { body: seededNote },
+          { body: "Written in install B" },
+        ]);
       } finally {
-        await dev.stop();
+        await second.stop();
       }
     },
   );

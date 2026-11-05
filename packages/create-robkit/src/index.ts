@@ -13,3 +13,4 @@ export {
   type Value,
 } from "./deployment.ts";
 export { init, type InitOptions } from "./init.ts";
+export { updateApp, type Updated, type UpdateOptions } from "./update.ts";

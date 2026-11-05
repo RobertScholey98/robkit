@@ -22,6 +22,19 @@ export const greeting = "Hello from install A.";
 /** The shared app's heading for a guest, after install A's change. */
 export const changedHeading = `${greeting} Signed in as a guest`;
 
+/** What install A's second change makes of its greeting. */
+export const updatedGreeting = "Hello again from install A.";
+
+/** The shared app's heading for a guest, after install A's second change. */
+export const updatedHeading = `${updatedGreeting} Signed in as a guest`;
+
+/** Install B's owner's own edit to the shared app, which an update keeps. */
+export const ownEdit = {
+  file: "src/routes/index.tsx",
+  from: "Visit again",
+  to: "Count me again",
+};
+
 /** The row the shared app's seed puts in the table install A added. */
 export const seededNote = "Seeded in install A";
 
@@ -81,11 +94,18 @@ async function step(dir: string, ...args: string[]): Promise<Step> {
   }
 }
 
+/** Replaces every `from` with `to` in the file at `path`. */
+async function edit(path: string, from: string, to: string): Promise<void> {
+  await writeFile(path, (await readFile(path, "utf8")).replaceAll(from, to));
+}
+
 /**
  * R's acceptance test, up to the browser: install A imports the guestbook
  * from its own repo, adds `notes`, changes its page and its schema, with a
  * migration and a seed, and exports it. The export installs, lints,
- * typechecks and tests on its own. A fresh install B imports it. Every
+ * typechecks and tests on its own. A fresh install B imports it. Then, for
+ * the update round, B's owner edits the app, and A changes it again and
+ * exports again; B updates in the suite, between two runs. Every
  * install is made as `pnpm create-install` makes one, linked to this
  * checkout. It runs in the global setup, since installing beside a running
  * dev stack restarts its core.
@@ -147,6 +167,14 @@ export const note = pgTable("note", {
 
   await init(defaultChoices, b, { link: true, install: true });
   await pnpm(b, "run", "robkit", "import", exported);
+
+  await edit(
+    join(b, "apps", sharedSlug, ownEdit.file),
+    ownEdit.from,
+    ownEdit.to,
+  );
+  await edit(page, greeting, updatedGreeting);
+  await pnpm(a, "run", "robkit", "export", sharedSlug);
 
   return { dir, a, b, guestbook, exported, standalone };
 }
