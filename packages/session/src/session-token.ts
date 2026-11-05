@@ -13,17 +13,26 @@ export const sessionCookie = "robkit_session";
 export const sessionTokenLifetimeSeconds = 15 * 60;
 
 /**
- * Whose session a token is for, and which session. A guest's id is their
- * access code's id, never the code itself, since apps see it. A guest's
- * token carries their code's roles, by id, as they were when core issued it.
+ * Who a token is for. A guest's id is their access code's id, never the
+ * code itself, since apps see it. A guest's token carries their code's
+ * roles, by id, as they were when core issued it.
  */
-export type SessionTokenClaims =
-  | { kind: "owner"; id: string; sessionId: string }
-  | { kind: "guest"; id: string; sessionId: string; roles: string[] };
+export type ViewerClaims =
+  | { kind: "owner"; id: string }
+  | { kind: "guest"; id: string; roles: string[] };
+
+/** Whose session a token is for, and which session. */
+export type SessionTokenClaims = ViewerClaims & { sessionId: string };
 
 /** A session token's claims, once its signature checks out. */
 export type ReadSessionToken = SessionTokenClaims & {
   /** The token's lifetime has passed; its session may still be live. */
+  expired: boolean;
+};
+
+/** An app token's claims, once its signature and audience check out. */
+export type ReadAppToken = ViewerClaims & {
+  /** The token's lifetime has passed; core may still hold the session. */
   expired: boolean;
 };
 
@@ -48,14 +57,48 @@ function isRoleList(value: unknown): value is string[] {
   );
 }
 
-function claimsIn(payload: JWTPayload): SessionTokenClaims | undefined {
-  const { sub, sid, kind, roles } = payload;
-  if (typeof sub !== "string" || typeof sid !== "string") return undefined;
-  if (kind === "owner") return { kind, id: sub, sessionId: sid };
-  if (kind === "guest" && isRoleList(roles)) {
-    return { kind, id: sub, sessionId: sid, roles };
-  }
+function viewerIn(payload: JWTPayload): ViewerClaims | undefined {
+  const { sub, kind, roles } = payload;
+  if (typeof sub !== "string") return undefined;
+  if (kind === "owner") return { kind, id: sub };
+  if (kind === "guest" && isRoleList(roles)) return { kind, id: sub, roles };
   return undefined;
+}
+
+function claimsIn(payload: JWTPayload): SessionTokenClaims | undefined {
+  const viewer = viewerIn(payload);
+  const { sid } = payload;
+  return viewer && typeof sid === "string"
+    ? { ...viewer, sessionId: sid }
+    : undefined;
+}
+
+/**
+ * A token's payload once its signature checks out, even once it has
+ * expired. A bad token reads as undefined. Failing to load the keys throws,
+ * so a caller can tell "not signed in" from "can't check".
+ */
+async function verified(
+  key: VerifyKey,
+  token: string,
+  now: Date,
+): Promise<{ payload: JWTPayload; expired: boolean } | undefined> {
+  const options = { algorithms: ["EdDSA"], currentDate: now };
+  try {
+    const { payload } =
+      typeof key === "function"
+        ? await jwtVerify(token, key, options)
+        : await jwtVerify(token, key, options);
+    return { payload, expired: false };
+  } catch (error) {
+    if (error instanceof errors.JOSEError && badToken.has(error.code)) {
+      return undefined;
+    }
+    // jose checks the signature before the expiry, so an expired token's
+    // payload is still one core signed.
+    if (!(error instanceof errors.JWTExpired)) throw error;
+    return { payload: error.payload, expired: true };
+  }
 }
 
 /**
@@ -69,22 +112,41 @@ export async function readSessionToken(
   token: string,
   now: Date,
 ): Promise<ReadSessionToken | undefined> {
-  const options = { algorithms: ["EdDSA"], currentDate: now };
-  try {
-    const { payload } =
-      typeof key === "function"
-        ? await jwtVerify(token, key, options)
-        : await jwtVerify(token, key, options);
-    const claims = claimsIn(payload);
-    return claims && { ...claims, expired: false };
-  } catch (error) {
-    if (error instanceof errors.JOSEError && badToken.has(error.code)) {
-      return undefined;
-    }
-    // jose checks the signature before the expiry, so an expired token's
-    // payload is still one core signed.
-    if (!(error instanceof errors.JWTExpired)) throw error;
-    const claims = claimsIn(error.payload);
-    return claims && { ...claims, expired: true };
+  const read = await verified(key, token, now);
+  const claims = read && claimsIn(read.payload);
+  return claims && { ...claims, expired: read.expired };
+}
+
+/**
+ * Checks an app token's signature and that its audience is `app`, and reads
+ * who it is for, even once it has expired. A token for any other audience,
+ * core's included, reads as undefined, as a bad one does. Failing to load
+ * the keys throws.
+ */
+export async function readAppToken(
+  key: VerifyKey,
+  token: string,
+  now: Date,
+  app: string,
+): Promise<ReadAppToken | undefined> {
+  const read = await verified(key, token, now);
+  if (read?.payload.aud !== app) return undefined;
+  const viewer = viewerIn(read.payload);
+  return viewer && { ...viewer, expired: read.expired };
+}
+
+/**
+ * Every session cookie's value a request's `Cookie` header carries, in the
+ * order it sends them. A browser can hold more than one: a host-only cookie,
+ * and one an older robkit set on the parent domain.
+ */
+export function sessionTokensIn(
+  cookieHeader: string | null | undefined,
+): string[] {
+  const tokens: string[] = [];
+  for (const pair of cookieHeader?.split(";") ?? []) {
+    const [name, ...value] = pair.split("=");
+    if (name?.trim() === sessionCookie) tokens.push(value.join("=").trim());
   }
+  return tokens;
 }
