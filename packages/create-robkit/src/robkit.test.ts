@@ -220,6 +220,19 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
     });
   });
 
+  it.each([
+    ["{", /^coolify\.json isn't valid JSON \(.+\)\. Fix its syntax\.\n$/],
+    ["null", /^coolify\.json must be a JSON object with project/],
+  ])("names coolify.json when it holds %s", async (text, message) => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "coolify.json"), text);
+
+    const { code, output } = await drive(bin, dir, ["deploy", "--dry-run"]);
+
+    expect(code).toBe(1);
+    expect(output).toMatch(message);
+  });
+
   it("prints each app's variables on a dry run", async () => {
     const dir = await freshInstall();
     await writeFile(join(dir, "coolify.json"), coolifyJson);

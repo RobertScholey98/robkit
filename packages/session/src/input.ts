@@ -87,6 +87,11 @@ export function readHost(env: Env): string | Problem {
 const label = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
 const domainPattern = new RegExp(`^${label}(\\.${label})*$`, "i");
 
+/** Whether `value` is a domain alone, with no scheme, port or path. */
+export function isDomain(value: unknown): value is string {
+  return typeof value === "string" && domainPattern.test(value);
+}
+
 /** The install's domain: `ROBKIT_DOMAIN`, or `fallback`. */
 export function readDomain(env: Env, fallback?: string): string | Problem {
   const value = valueOf(env, "ROBKIT_DOMAIN");
@@ -99,7 +104,7 @@ export function readDomain(env: Env, fallback?: string): string | Problem {
       )
     );
   }
-  if (domainPattern.test(value)) return value;
+  if (isDomain(value)) return value;
   return {
     error: `ROBKIT_DOMAIN is "${value}", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
   };

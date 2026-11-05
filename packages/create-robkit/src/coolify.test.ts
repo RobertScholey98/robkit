@@ -64,27 +64,51 @@ async function run(
 }
 
 describe("readCoolifyConfig", () => {
-  it("names a setting that's missing", () => {
-    expect(() =>
-      readCoolifyConfig(JSON.stringify({ ...config, githubApp: "" })),
-    ).toThrow("coolify.json needs a non-empty string `githubApp`.");
+  it("reads where the install deploys", () => {
+    expect(readCoolifyConfig(config)).toEqual(config);
   });
 
   it("reads a trusted proxy when the install sits behind Cloudflare", () => {
     expect(
-      readCoolifyConfig(
-        JSON.stringify({ ...config, trustedProxy: "cloudflare" }),
-      ),
+      readCoolifyConfig({ ...config, trustedProxy: "cloudflare" }),
     ).toEqual({ ...config, trustedProxy: "cloudflare" });
-    expect(readCoolifyConfig(JSON.stringify(config))).toEqual(config);
+  });
+
+  it.each([null, [], "robkit"])("refuses %j", (value) => {
+    expect(readCoolifyConfig(value)).toEqual({
+      error:
+        "coolify.json must be a JSON object with project, environment, server, githubApp, repository, branch and domain. See docs/deploy.md.",
+    });
+  });
+
+  it.each([
+    [
+      "githubApp",
+      undefined,
+      "the GitHub App Coolify builds the repository through",
+    ],
+    ["githubApp", "", "the GitHub App Coolify builds the repository through"],
+    ["branch", 1, "the branch to deploy, such as main"],
+    ["project", null, "the Coolify project's name"],
+  ])("names %s when it is %j", (key, value, what) => {
+    expect(readCoolifyConfig({ ...config, [key]: value })).toEqual({
+      error: `coolify.json: ${key} must be a non-empty string: ${what}.`,
+    });
+  });
+
+  it("refuses a domain with a scheme", () => {
+    expect(
+      readCoolifyConfig({ ...config, domain: "https://robkit.dev" }),
+    ).toEqual({
+      error: `coolify.json: domain is "https://robkit.dev", which isn't a domain. Set it to the domain the install answers on alone, such as robkit.dev.`,
+    });
   });
 
   it("refuses a trusted proxy it doesn't know", () => {
-    expect(() =>
-      readCoolifyConfig(JSON.stringify({ ...config, trustedProxy: "traefik" })),
-    ).toThrow(
-      'coolify.json\'s `trustedProxy` must be "cloudflare" or left out.',
-    );
+    expect(readCoolifyConfig({ ...config, trustedProxy: "traefik" })).toEqual({
+      error:
+        'coolify.json: trustedProxy must be "cloudflare", when only a Cloudflare tunnel reaches the host, or left out.',
+    });
   });
 });
 

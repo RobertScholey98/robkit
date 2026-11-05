@@ -9,6 +9,7 @@ import {
   defaultDomain,
   install as addresses,
 } from "@robkit/session/addresses";
+import { isProblem, parseJson } from "@robkit/session/input";
 import { addApp, readInstallChoices } from "./add.ts";
 import {
   addCommandFor,
@@ -134,7 +135,9 @@ async function deployInstall(): Promise<void> {
       "This install has no coolify.json. See docs/deploy.md to set one up.",
     );
   }
-  const config = readCoolifyConfig(await readFile(configPath, "utf8"));
+  const parsed = parseJson(await readFile(configPath, "utf8"), "coolify.json");
+  const config = isProblem(parsed) ? parsed : readCoolifyConfig(parsed.json);
+  if (isProblem(config)) throw new Error(config.error);
   const deployments = await deploymentOf(root, {
     domain: config.domain,
     trustedProxy: config.trustedProxy,
