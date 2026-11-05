@@ -44,8 +44,6 @@ export interface Stack {
   /** Holds the Caddyfile and Caddy's root certificate. */
   caDir: string;
   addresses: Install;
-  /** Names the install's layers in the build cache, when there is one. */
-  cacheScope: string;
 }
 
 async function docker(...args: string[]): Promise<string> {
@@ -106,11 +104,7 @@ http://*.${domain}:${String(tunnelPort)} {
  * `slugs` inside the network too, so the apps reach core over https as
  * they would on Coolify.
  */
-export async function startStack(
-  dir: string,
-  slugs: string[],
-  cacheScope: string,
-): Promise<Stack> {
+export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
   const name = stackName;
   // Its containers, images and network go even if this process is killed.
   removeWhenGone({ docker: name });
@@ -178,7 +172,6 @@ export async function startStack(
     port,
     caDir,
     addresses: install({ domain, protocol: "https", port }),
-    cacheScope,
   };
 }
 
@@ -206,13 +199,13 @@ export async function stopStack(): Promise<void> {
  *
  * With `ROBKIT_BUILD_CACHE` set to a BuildKit cache backend, such as
  * `type=gha` on GitHub's runners, the build reads and writes its layers
- * there, one scope per install and app, so a run after one that built the
- * same install reuses them. Without it, the local Docker's own cache
+ * there, one scope per app, so a run after one that built the same install
+ * reuses them. Without it, the local Docker's own cache
  * serves, as it does between runs on a laptop.
  */
 export async function buildApp(stack: Stack, slug: string): Promise<void> {
   const cache = process.env.ROBKIT_BUILD_CACHE;
-  const scope = `scope=${stack.cacheScope}-${slug}`;
+  const scope = `scope=${slug}`;
   const { stderr } = await run(
     "docker",
     [
@@ -236,7 +229,7 @@ export async function buildApp(stack: Stack, slug: string): Promise<void> {
     ],
     { cwd: stack.dir, maxBuffer: 64 * 1024 * 1024 },
   );
-  console.log(`${stack.cacheScope} ${slug}: ${cachedSteps(stderr)}`);
+  console.log(`${slug}: ${cachedSteps(stderr)}`);
 }
 
 /**

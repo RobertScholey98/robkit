@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { defaultChoices, init, type Choices } from "create-robkit";
+import { defaultChoices, init } from "create-robkit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { takeBrowserLog } from "./browser.ts";
 import {
@@ -44,26 +44,7 @@ async function whatWentWrong(stack: Stack): Promise<string> {
   return `What the browser saw:\n${takeBrowserLog()}\n\nThe stack's containers:\n${await stackReport(stack)}`;
 }
 
-/** Each install by the key `E2E_PRODUCTION_INSTALL` picks it by. */
-const installs: [string, Choices][] = [["default", defaultChoices]];
-
-/**
- * The installs this run deploys: every one, or the one
- * `E2E_PRODUCTION_INSTALL` names, as each CI job runs one.
- */
-function chosen(): [string, Choices][] {
-  const key = process.env.E2E_PRODUCTION_INSTALL;
-  if (!key) return installs;
-  const picked = installs.filter(([name]) => name === key);
-  if (picked.length === 0) {
-    throw new Error(
-      `E2E_PRODUCTION_INSTALL is ${key}, not one of ${installs.map(([name]) => name).join(", ")}`,
-    );
-  }
-  return picked;
-}
-
-// Each install, deployed as on Coolify: an image per app from its
+// The default install, deployed as on Coolify: an image per app from its
 // Dockerfile, core first, every app behind TLS on its own subdomain of a
 // domain that isn't localhost. Opt in with pnpm test:production.
 //
@@ -73,23 +54,19 @@ function chosen(): [string, Choices][] {
 // ERR_NETWORK_CHANGED. So every deploy below finishes before the journey
 // after it launches a browser, each launch waits for the host's interfaces
 // to settle, and each journey closes its browser.
-describe.each(chosen())("the %s install in production", (key, choices) => {
+describe("the default install in production", () => {
   let dir: string;
   let stack: Stack;
   let setUp: OwnerSetUp;
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
-    await init(choices, dir, { link: true, install: true });
+    await init(defaultChoices, dir, { link: true, install: true });
     // A host can't reach this checkout, so the install takes tarballs.
     await run("pnpm", ["run", "robkit", "vendor"], {
       cwd: dir,
     });
-    stack = await startStack(
-      dir,
-      ["core", "hub", "admin", "example", later],
-      key,
-    );
+    stack = await startStack(dir, ["core", "hub", "admin", "example", later]);
     await deployApps(stack, ["core"]);
     await answers(stack, "core", 200, "/status");
     await deployApps(stack, ["hub", "admin"]);
