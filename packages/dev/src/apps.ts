@@ -94,7 +94,7 @@ export async function appManifestIn(
   const manifest = isProblem(parsed)
     ? parsed
     : readAppManifest(parsed.json, file);
-  if (isProblem(manifest)) throw new Error(manifest.error);
+  if (isProblem(manifest)) throw new Problem(manifest.error);
   return manifest;
 }
 

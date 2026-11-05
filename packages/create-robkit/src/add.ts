@@ -44,7 +44,7 @@ export async function readInstallChoices(root: string): Promise<Choices> {
   }
   const parsed = parseJson(text, "robkit.json");
   const choices = isProblem(parsed) ? parsed : readChoices(parsed.json);
-  if (isProblem(choices)) throw new Error(choices.error);
+  if (isProblem(choices)) throw new Problem(choices.error);
   return choices;
 }
 

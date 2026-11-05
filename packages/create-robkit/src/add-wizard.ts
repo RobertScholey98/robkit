@@ -65,7 +65,7 @@ function accessFrom(
 /** The app robkit add's flags describe, with a default for each left out. */
 export function appChoicesFromFlags(name: string, flags: AddFlags): AppChoices {
   const slug = readSlug(name);
-  if (typeof slug !== "string") throw new Error(slug.error);
+  if (typeof slug !== "string") throw new Problem(slug.error);
   return {
     stack: stackFrom(flags.stack ?? defaultChoices.exampleStack),
     slug,
@@ -125,7 +125,7 @@ export async function askAdd(
         }),
       ),
   );
-  if (typeof slug !== "string") throw new Error(slug.error);
+  if (typeof slug !== "string") throw new Problem(slug.error);
   const access = answered(
     await select<Access>({
       message: "Who can open it?",

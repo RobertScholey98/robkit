@@ -124,7 +124,7 @@ async function deployInstall(): Promise<number | undefined> {
   await readInstallChoices(root);
   const dryRun = values["dry-run"];
   const coolify = dryRun ? undefined : readCoolify(process.env);
-  if (isProblem(coolify)) throw new Error(coolify.error);
+  if (isProblem(coolify)) throw new Problem(coolify.error);
   // An install's CI deploys from its first push, before Coolify is set up.
   if (!coolify && !dryRun) {
     console.log("COOLIFY_URL is not set, so nothing was deployed.");
@@ -138,7 +138,7 @@ async function deployInstall(): Promise<number | undefined> {
   }
   const parsed = parseJson(await readFile(configPath, "utf8"), "coolify.json");
   const config = isProblem(parsed) ? parsed : readCoolifyConfig(parsed.json);
-  if (isProblem(config)) throw new Error(config.error);
+  if (isProblem(config)) throw new Problem(config.error);
   const deployments = await deploymentOf(root, {
     domain: config.domain,
     trustedProxy: config.trustedProxy,
@@ -160,7 +160,7 @@ async function deployInstall(): Promise<number | undefined> {
     : values.apps === undefined
       ? await affectedApps(root)
       : readAppList(values.apps);
-  if (isProblem(affected)) throw new Error(affected.error);
+  if (isProblem(affected)) throw new Problem(affected.error);
   const ok = await deploy({
     coolify,
     config,
