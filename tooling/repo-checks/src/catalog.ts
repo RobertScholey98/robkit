@@ -51,7 +51,9 @@ export async function readWorkspaceManifests(
   const manifests: Manifest[] = [];
   const paths = glob("**/package.json", {
     cwd: root,
-    exclude: ["**/node_modules/**", ".scratch/**", ".skills/**"],
+    // examples/ holds app repos as robkit export writes them, with the
+    // catalog's versions written out, which a test checks are robkit's.
+    exclude: ["**/node_modules/**", ".scratch/**", ".skills/**", "examples/**"],
   });
   for await (const path of paths) {
     const json = JSON.parse(

@@ -1,0 +1,7 @@
+# Written by robkit export. robkit import leaves it out.
+node_modules/
+.turbo/
+dist/
+.env
+.env.*
+!.env.example
