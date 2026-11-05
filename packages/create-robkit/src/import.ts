@@ -82,13 +82,23 @@ async function git(dir: string, ...args: string[]): Promise<string> {
 
 /**
  * The commit `dir` is at, if it's the top of a git repository with nothing
- * uncommitted, so that commit holds exactly what an import reads.
+ * uncommitted, so that commit holds exactly what an import reads. A
+ * lockfile from installing the repo on its own doesn't count: import leaves
+ * it out.
  */
 async function cleanCommit(dir: string): Promise<string | undefined> {
   try {
     const top = await git(dir, "rev-parse", "--show-toplevel");
     if (realpathSync(top) !== realpathSync(dir)) return undefined;
-    if ((await git(dir, "status", "--porcelain")) !== "") return undefined;
+    const changes = await git(
+      dir,
+      "status",
+      "--porcelain",
+      "--",
+      ".",
+      ":!pnpm-lock.yaml",
+    );
+    if (changes !== "") return undefined;
     return await git(dir, "rev-parse", "HEAD");
   } catch {
     return undefined;

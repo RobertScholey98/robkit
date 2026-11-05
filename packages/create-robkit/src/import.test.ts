@@ -301,6 +301,18 @@ describe("importApp", { timeout: 30_000 }, () => {
     );
   });
 
+  it("records the commit when only the repo's own lockfile is uncommitted", async () => {
+    const { repo } = await exported();
+    await writeFile(join(repo, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    const b = await freshInstall("b");
+
+    await importApp(b, repo);
+
+    expect(await json(b, "apps/notes/package.json")).toMatchObject({
+      robkit: { imported: { commit: expect.any(String) as unknown } },
+    });
+  });
+
   it("leaves the record of where it came from out of the next export", async () => {
     const { repo } = await exported();
     const b = await freshInstall("b");
