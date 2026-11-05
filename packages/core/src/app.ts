@@ -1,10 +1,10 @@
 import { sql } from "drizzle-orm";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { getCookie, setCookie } from "hono/cookie";
+import { setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { validator } from "hono/validator";
-import { sessionCookie } from "@robkit/session";
+import { sessionCookie, sessionTokensIn } from "@robkit/session";
 import { install, isLocal, platformApps } from "@robkit/session/addresses";
 import {
   listCodes,
@@ -148,10 +148,11 @@ export function createApp({
     sessionToken: string,
     maxAge = sessionLifetimeSeconds,
   ) => {
+    // Host-only, with no Domain, so only core's host ever receives it. The
+    // hub and admin call core from the browser, so it goes with those calls.
     setCookie(c, sessionCookie, sessionToken, {
       httpOnly: true,
       path: "/",
-      domain,
       sameSite: "Lax",
       maxAge,
       secure: !isLocal(domain),
@@ -159,7 +160,7 @@ export function createApp({
   };
 
   /**
-   * Reads who is asking from the session cookie into `c.var.session`, for
+   * Reads who is asking from core's own cookie into `c.var.session`, for
    * every route that needs the viewer, and puts a live session's fresh token
    * on the answer's cookie. With `renew`, as `/refresh` asks, a live
    * session's token is reissued even if it hasn't expired, and the cookie of
@@ -172,14 +173,18 @@ export function createApp({
     ownerOnly = false,
   } = {}): MiddlewareHandler<CoreEnv> =>
     async function readViewer(c, next) {
-      const sessionToken = getCookie(c, sessionCookie);
-      const session = await readSession(ctx, sessionToken, { renew });
+      const sessionTokens = sessionTokensIn(c.req.header("cookie"));
+      const session = await readSession(ctx, sessionTokens, { renew });
       const { answer, freshSessionToken } = session;
       const isOwner =
         answer.state === "signed-in" && answer.viewer.kind === "owner";
       if (ownerOnly && !isOwner) return c.json({ error: "Not found" }, 404);
       if (freshSessionToken) setSessionCookie(c, freshSessionToken);
-      else if (renew && sessionToken && answer.state !== "signed-in") {
+      else if (
+        renew &&
+        sessionTokens.length > 0 &&
+        answer.state !== "signed-in"
+      ) {
         setSessionCookie(c, "", 0);
       }
       c.set("session", session);
@@ -336,7 +341,7 @@ export function createApp({
 
   // The hub sends no body here, so none is read.
   app.post("/logout", async (c) => {
-    await signOut(ctx, getCookie(c, sessionCookie));
+    await signOut(ctx, sessionTokensIn(c.req.header("cookie")));
     setSessionCookie(c, "", 0);
     return c.body(null, 204);
   });

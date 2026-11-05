@@ -28,7 +28,6 @@ describe("POST /login", () => {
     });
     expect(sessionCookieOf(res)?.attributes).toEqual({
       "Max-Age": "2592000",
-      Domain: "robkit.test",
       Path: "/",
       HttpOnly: true,
       Secure: true,

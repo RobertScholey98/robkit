@@ -1,7 +1,12 @@
 import { sql } from "drizzle-orm";
 import type { Hono } from "hono";
 import { describe, expect, it } from "vitest";
-import { claim, freshCore, sessionCookieOf } from "./test/fresh-app.ts";
+import {
+  claim,
+  freshCore,
+  resigned,
+  sessionCookieOf,
+} from "./test/fresh-app.ts";
 
 const minute = 60_000;
 const back = "https://notes.robkit.test/list?sort=new";
@@ -36,7 +41,6 @@ describe("GET /refresh", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(fresh?.attributes).toEqual({
       "Max-Age": "2592000",
-      Domain: "robkit.test",
       Path: "/",
       HttpOnly: true,
       Secure: true,
@@ -75,13 +79,22 @@ describe("GET /refresh", () => {
       value: "",
       attributes: {
         "Max-Age": "0",
-        Domain: "robkit.test",
         Path: "/",
         HttpOnly: true,
         Secure: true,
         SameSite: "Lax",
       },
     });
+  });
+
+  it("never renews from an app's token, though core signed it for a live session", async () => {
+    const { app, db, advance } = await freshCore();
+    const appToken = await resigned(db, await claim(app), { aud: "notes" });
+    advance(16 * minute);
+
+    const res = await refresh(app, back, appToken);
+
+    expect(sessionCookieOf(res)?.value).toBe("");
   });
 
   it("sends a browser without a cookie back without setting one", async () => {

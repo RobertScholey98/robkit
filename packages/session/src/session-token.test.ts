@@ -11,7 +11,11 @@ async function keyPair() {
 
 function sign(
   privateKey: CryptoKey,
-  claims: Record<string, unknown> = { sid: "session-1", kind: "owner" },
+  claims: Record<string, unknown> = {
+    aud: "core",
+    sid: "session-1",
+    kind: "owner",
+  },
   subject = "owner-1",
 ): Promise<string> {
   const iat = Math.floor(issuedAt.getTime() / 1000);
@@ -80,7 +84,12 @@ describe("readSessionToken", () => {
     const { privateKey, publicKey } = await keyPair();
     const guest = await sign(
       privateKey,
-      { sid: "session-1", kind: "guest", roles: ["role-1", "role-2"] },
+      {
+        aud: "core",
+        sid: "session-1",
+        kind: "guest",
+        roles: ["role-1", "role-2"],
+      },
       "code-1",
     );
 
@@ -98,7 +107,12 @@ describe("readSessionToken", () => {
     const read = async (claims: Record<string, unknown>) =>
       readSessionToken(
         publicKey,
-        await sign(privateKey, { sid: "session-1", kind: "guest", ...claims }),
+        await sign(privateKey, {
+          aud: "core",
+          sid: "session-1",
+          kind: "guest",
+          ...claims,
+        }),
         issuedAt,
       );
 
@@ -110,8 +124,12 @@ describe("readSessionToken", () => {
 
   it("refuses a token that isn't an owner's or a guest's session", async () => {
     const { privateKey, publicKey } = await keyPair();
-    const stranger = await sign(privateKey, { sid: "session-1", kind: "bot" });
-    const sessionless = await sign(privateKey, { kind: "owner" });
+    const stranger = await sign(privateKey, {
+      aud: "core",
+      sid: "session-1",
+      kind: "bot",
+    });
+    const sessionless = await sign(privateKey, { aud: "core", kind: "owner" });
 
     expect(
       await readSessionToken(publicKey, stranger, issuedAt),
@@ -123,6 +141,26 @@ describe("readSessionToken", () => {
       await readSessionToken(publicKey, await sign(privateKey), issuedAt),
     ).toMatchObject({ sessionId: "session-1" });
   });
+
+  it.each([
+    ["an app", { aud: "notes", sid: "session-1", kind: "owner" }],
+    ["no audience", { sid: "session-1", kind: "owner" }],
+  ])(
+    "refuses a token for %s, live or expired, so core never renews one",
+    async (_, claims) => {
+      const { privateKey, publicKey } = await keyPair();
+      const token = await sign(privateKey, claims);
+
+      const live = await readSessionToken(publicKey, token, issuedAt);
+      const expired = await readSessionToken(
+        publicKey,
+        token,
+        new Date(issuedAt.getTime() + 16 * minute),
+      );
+
+      expect([live, expired]).toEqual([undefined, undefined]);
+    },
+  );
 
   it("refuses something that isn't a token", async () => {
     const { publicKey } = await keyPair();

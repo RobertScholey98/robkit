@@ -6,11 +6,17 @@ import {
   type JWTVerifyGetKey,
 } from "jose";
 
-/** The cookie that carries the session token on every subdomain. */
+/**
+ * The cookie that carries a session token: core's own on core's host, and
+ * each app's own on the app's host. None is set on the parent domain.
+ */
 export const sessionCookie = "robkit_session";
 
 /** A session token lives 15 minutes; core reissues it while the session lives. */
 export const sessionTokenLifetimeSeconds = 15 * 60;
+
+/** The audience of core's own token. An app's token names the app's slug. */
+export const coreAudience = "core";
 
 /**
  * Who a token is for. A guest's id is their access code's id, never the
@@ -102,10 +108,11 @@ async function verified(
 }
 
 /**
- * Checks a session token's signature and reads its claims, even once it has
- * expired: core holds the session itself, so it can renew an expired token.
- * A bad token reads as undefined. Failing to load the keys throws, so a
- * caller can tell "not signed in" from "can't check".
+ * Checks core's own session token's signature and audience and reads its
+ * claims, even once it has expired: core holds the session itself, so it
+ * can renew an expired token. An app's token, or any bad token, reads as
+ * undefined. Failing to load the keys throws, so a caller can tell "not
+ * signed in" from "can't check".
  */
 export async function readSessionToken(
   key: VerifyKey,
@@ -113,7 +120,8 @@ export async function readSessionToken(
   now: Date,
 ): Promise<ReadSessionToken | undefined> {
   const read = await verified(key, token, now);
-  const claims = read && claimsIn(read.payload);
+  if (read?.payload.aud !== coreAudience) return undefined;
+  const claims = claimsIn(read.payload);
   return claims && { ...claims, expired: read.expired };
 }
 

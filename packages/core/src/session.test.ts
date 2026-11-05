@@ -6,6 +6,7 @@ import {
   claim,
   freshCore,
   postJson,
+  resigned,
   sessionCookieOf,
 } from "./test/fresh-app.ts";
 
@@ -78,6 +79,39 @@ describe("GET /session", () => {
     expect(await res.json()).toEqual({ state: "signed-out" });
   });
 
+  it.each([
+    ["an app's token", { aud: "notes" }],
+    ["a token with no audience, as an older robkit set", { aud: undefined }],
+  ])(
+    "says signed-out to %s, though core signed it for a live session",
+    async (_, claims) => {
+      const { app, db } = await freshCore();
+      const sessionToken = await claim(app);
+
+      const res = await getSession(
+        app,
+        await resigned(db, sessionToken, claims),
+      );
+
+      expect(await res.json()).toEqual({ state: "signed-out" });
+      expect(sessionCookieOf(res)).toBeUndefined();
+    },
+  );
+
+  it("finds core's own token among the cookies a browser sends", async () => {
+    const { app, db } = await freshCore();
+    const sessionToken = await claim(app);
+    const older = await resigned(db, sessionToken, { aud: undefined });
+
+    const res = await app.request("/session", {
+      headers: {
+        cookie: `robkit_session=${older}; robkit_session=${sessionToken}`,
+      },
+    });
+
+    expect(await res.json()).toMatchObject({ state: "signed-in" });
+  });
+
   it("says signed-out once the session is revoked", async () => {
     const { app, db } = await freshCore();
     const sessionToken = await claim(app);
@@ -123,7 +157,6 @@ describe("GET /session", () => {
     expect(await res.json()).toEqual({ state: "signed-in", viewer });
     expect(fresh?.attributes).toMatchObject({
       "Max-Age": "2592000",
-      Domain: "robkit.test",
       HttpOnly: true,
     });
     expect(payload).toEqual({
