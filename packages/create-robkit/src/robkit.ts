@@ -22,6 +22,7 @@ import { deploy, readCoolifyConfig } from "./coolify.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { git } from "./git.ts";
 import {
+  commitRecord,
   movedAppRepos,
   readInstallRecord,
   type InstallRecord,
@@ -267,21 +268,28 @@ async function add(): Promise<void> {
     : appChoicesFromFlags(given ?? fail(addUsage), values);
   await addApp(root, choices);
   // An install whose dependencies are in keeps them in, new app included.
-  const hasDependencies = existsSync(join(root, "node_modules"));
-  if (hasDependencies) {
-    await installDependencies(root);
-  }
+  const hasDependencies = await refreshDependencies(root);
+  const unrecorded = await commitRecord(
+    root,
+    choices.slug,
+    `Add ${choices.slug}`,
+  );
   console.log(`Added apps/${choices.slug}. Next:
 ${hasDependencies ? "" : "\n  pnpm install"}
   pnpm dev
 
-Then open ${dev.origin(choices.slug)}.`);
+Then open ${dev.origin(choices.slug)}.${aside(unrecorded)}`);
   if (asked) {
     console.log(`
 The same app without the questions:
 
   pnpm ${addCommandFor(choices)}`);
   }
+}
+
+/** A note after a command's message, on its own paragraph, if any. */
+function aside(note: string | undefined): string {
+  return note === undefined ? "" : `\n\n${note}`;
 }
 
 /** Installs the install's dependencies again, if they're installed. */
@@ -298,17 +306,19 @@ async function share(): Promise<void> {
   });
   const [, slug, target, ...rest] = positionals;
   if (slug === undefined || rest.length > 0) throw new Error(shareUsage);
-  const shared = await shareApp(process.cwd(), slug, {
+  const root = process.cwd();
+  const shared = await shareApp(root, slug, {
     target,
     ...(values.message !== undefined && { message: values.message }),
   });
+  const unrecorded = await commitRecord(root, slug, `Share ${slug}`);
   console.log(`Shared apps/${slug} to ${shared.source}${shared.created ? ", a new bare repository" : ""}, at ${shared.revision.slice(0, 7)}.
 
 Another install takes it with:
 
   pnpm robkit install ${shared.source}
 
-and brings in later shares with pnpm robkit update ${slug}.`);
+and brings in later shares with pnpm robkit update ${slug}.${aside(unrecorded)}`);
 }
 
 async function installCommand(): Promise<void> {
@@ -326,6 +336,11 @@ async function installCommand(): Promise<void> {
   }
   const installed = await installApp(root, source, { as: values.as });
   const hasDependencies = await refreshDependencies(root);
+  const unrecorded = await commitRecord(
+    root,
+    installed.slug,
+    `Install ${installed.slug}`,
+  );
   const about = installed.description ? `\n${installed.description}\n` : "";
   console.log(`Installed ${installed.name} as apps/${installed.slug}, from ${installed.source}.
 ${about}
@@ -333,7 +348,7 @@ Next:
 ${hasDependencies ? "" : "\n  pnpm install"}
   pnpm dev
 
-Then open ${dev.origin(installed.slug)}.`);
+Then open ${dev.origin(installed.slug)}.${aside(unrecorded)}`);
 }
 
 async function restore(root: string): Promise<void> {
@@ -361,15 +376,18 @@ async function update(): Promise<void> {
   if (slug === undefined || rest.length > 0) throw new Error(updateUsage);
   const root = process.cwd();
   const updated = await updateApp(root, slug);
+  if (updated.incoming > 0) await refreshDependencies(root);
+  const unrecorded = await commitRecord(root, slug, `Update ${slug}`);
   if (updated.incoming === 0) {
-    console.log(`apps/${slug} already has everything ${updated.source} has.`);
+    console.log(
+      `apps/${slug} already has everything ${updated.source} has.${aside(unrecorded)}`,
+    );
     return;
   }
-  await refreshDependencies(root);
   const commits = updated.incoming === 1 ? "commit" : "commits";
   console.log(`Brought ${String(updated.incoming)} ${commits} into apps/${slug} from ${updated.source}.
 
-Restart pnpm dev to migrate the app's database and serve the new version.`);
+Restart pnpm dev to migrate the app's database and serve the new version.${aside(unrecorded)}`);
 }
 
 function fail(message: string): never {

@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { format } from "prettier";
 import type { Choices } from "./choices.ts";
+import { git, GitError, isRepo } from "./git.ts";
 
 /**
  * Where an app repo comes from: the remote or path it was installed from or
@@ -92,4 +93,55 @@ export function movedAppRepos(
       ([slug, { revision }]) => before?.apps?.[slug]?.revision !== revision,
     )
     .map(([slug]) => slug);
+}
+
+/**
+ * What robkit changes in the install's own repository as it adds, shares,
+ * installs or updates an app repo. The lockfile changes when the install's
+ * dependencies are in, and CI and the image install from it frozen.
+ */
+const recordPaths = [recordFile, ".gitignore", "pnpm-lock.yaml"];
+
+/**
+ * Commits what robkit changed in the install's own repository for app
+ * `slug`: `robkit.json`, `.gitignore`, the lockfile, and the app's folder if
+ * the install stopped tracking it. It commits only in an install whose repository has
+ * a commit, since the first is the owner's, and only when nothing else is
+ * staged, so it never sweeps up the owner's own work.
+ *
+ * @returns why it left the record for the owner to commit, if it did
+ */
+export async function commitRecord(
+  root: string,
+  slug: string,
+  message: string,
+): Promise<string | undefined> {
+  if (!isRepo(root)) return undefined;
+  try {
+    await git(root, ["rev-parse", "--verify", "--quiet", "HEAD"]);
+  } catch (error) {
+    if (error instanceof GitError) return undefined;
+    throw error;
+  }
+  const ours = (path: string) =>
+    recordPaths.includes(path) || path.startsWith(`apps/${slug}/`);
+  const staged = await git(root, ["diff", "--cached", "--name-only"]);
+  if (staged.split("\n").some((path) => path !== "" && !ours(path))) {
+    return "The install has other changes staged, so robkit left robkit.json, .gitignore and pnpm-lock.yaml for you to commit with them.";
+  }
+  await git(root, [
+    "add",
+    "--",
+    ...recordPaths.filter((path) => existsSync(join(root, path))),
+  ]);
+  if ((await git(root, ["diff", "--cached", "--name-only"])) === "") {
+    return undefined;
+  }
+  try {
+    await git(root, ["commit", "--quiet", "--message", message]);
+  } catch (error) {
+    if (!(error instanceof GitError)) throw error;
+    return `robkit couldn't commit robkit.json, .gitignore and pnpm-lock.yaml, so commit them yourself. git said:\n${error.output.trim()}`;
+  }
+  return undefined;
 }

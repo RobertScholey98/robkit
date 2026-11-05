@@ -636,6 +636,66 @@ Restart pnpm dev to migrate the app's database and serve the new version.
     });
   });
 
+  it("commit what they change in the install's own repo, as add does", async () => {
+    const parent = await machine();
+    const a = await freshInstall(parent, "install-a");
+    const b = await freshInstall(parent, "install-b");
+    const source = join(parent, "robkit-apps", "notes.git");
+
+    await drive(bin, a, ["add", "notes", "--stack", "react-hono"]);
+    await drive(bin, a, ["share", "notes"]);
+    await drive(bin, b, ["install", source]);
+    await append(a, "apps/notes/AGENTS.md", "\nLater.\n");
+    await drive(bin, a, ["share", "notes"]);
+    await drive(bin, b, ["update", "notes"]);
+
+    expect(await git(a, "log", "--format=%s")).toBe(
+      "Share notes\nShare notes\nAdd notes\nInit",
+    );
+    expect(await git(b, "log", "--format=%s")).toBe(
+      "Update notes\nInstall notes\nInit",
+    );
+    expect(await git(a, "status", "--porcelain")).toBe("");
+    expect(await git(b, "status", "--porcelain")).toBe("");
+    expect(await git(b, "show", "HEAD:robkit.json")).toBe(
+      (await read(b, "robkit.json")).trim(),
+    );
+  });
+
+  it("leave robkit.json to the owner when other changes are staged", async () => {
+    const a = await freshInstall(await machine(), "install-a");
+    await addApp(a, notes());
+    await writeFile(join(a, "plans.md"), "Mine.\n");
+    await git(a, "add", "plans.md");
+
+    const { code, output } = await drive(bin, a, ["share", "notes"]);
+
+    expect(code).toBe(0);
+    expect(output).toContain(
+      "\nThe install has other changes staged, so robkit left robkit.json, .gitignore and pnpm-lock.yaml for you to commit with them.\n",
+    );
+    expect(await git(a, "log", "--format=%s")).toBe("Init");
+  });
+
+  it("commit nothing in an install with no commits yet", async () => {
+    const dir = join(await machine(), "install-a");
+    await init({ exampleStack: "start" }, dir);
+    await git(dir, "init", "--quiet");
+
+    const { code, output } = await drive(bin, dir, [
+      "add",
+      "notes",
+      "--stack",
+      "react-hono",
+    ]);
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: expect.stringMatching(/^Added apps\/notes\. Next:/) as string,
+    });
+    expect(await git(dir, "status", "--porcelain")).toContain("?? robkit.json");
+  });
+
   it.each([
     [["share"], "Usage: robkit share <app>"],
     [["install", "one", "two"], "Usage: robkit install <git URL or path>"],
