@@ -8,6 +8,7 @@ import {
   readDatabaseUrl,
   readDeclaredApp,
   readDeclares,
+  readDevServerEnv,
   readDomain,
   readGuardEnv,
   readHost,
@@ -307,6 +308,24 @@ describe("readDeclaredApp", () => {
       readDeclaredApp({ access: { kind: "open" } }, "ROBKIT_APPS[2]"),
     ).toEqual({
       error: `ROBKIT_APPS[2].slug: Nothing can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+    });
+  });
+});
+
+describe("readDevServerEnv", () => {
+  it("reads the port and domain pnpm dev hands Vite, when it does", () => {
+    expect(readDevServerEnv({})).toEqual({});
+    expect(
+      readDevServerEnv({ PORT: "3004", ROBKIT_DOMAIN: "robkit.localhost" }),
+    ).toEqual({ port: 3004, domain: "robkit.localhost" });
+  });
+
+  it("names every variable that won't do", () => {
+    expect(readDevServerEnv({ PORT: "x", ROBKIT_DOMAIN: "a b" })).toEqual({
+      error: [
+        `PORT is "x", which isn't a port. Set it to a whole number from 1 to 65535.`,
+        `ROBKIT_DOMAIN is "a b", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
+      ].join("\n"),
     });
   });
 });

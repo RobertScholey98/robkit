@@ -170,6 +170,23 @@ export function readServeEnv(
   return { host, port };
 }
 
+/**
+ * What `pnpm dev` hands an app's Vite dev server, each when it's set: the
+ * port to listen on, and the domain its host is under.
+ */
+export function readDevServerEnv(
+  env: Env,
+): { port?: number; domain?: string } | Problem {
+  const port = valueOf(env, "PORT") === undefined ? undefined : readPort(env);
+  const domain =
+    valueOf(env, "ROBKIT_DOMAIN") === undefined ? undefined : readDomain(env);
+  if (isProblem(port) || isProblem(domain)) return allProblems(port, domain);
+  return {
+    ...(port !== undefined && { port }),
+    ...(domain !== undefined && { domain }),
+  };
+}
+
 /** What an app's guard needs: its slug and core's public origin. */
 export function readGuardEnv(env: Env): { app: Slug; core: string } | Problem {
   const app = readAppSlug(env);
