@@ -8,7 +8,7 @@ const page = "http://start.robkit.localhost:3000/notes?x=1";
 const refresh: SessionLapsed = {
   outcome: "refresh",
   error: "Your session needs refreshing.",
-  location: "http://core.robkit.localhost:3000/refresh",
+  location: "http://start.robkit.localhost:3000/_robkit/refresh",
 };
 const login: SessionLapsed = {
   outcome: "login",
@@ -100,7 +100,7 @@ describe("sessionFetch", () => {
     expect(visited).toEqual([]);
   });
 
-  it("sends the browser through core's refresh and back to this page", async () => {
+  it("sends the browser through its app's refresh and core, back to this page", async () => {
     const sessionFetch = await freshSessionFetch();
     serverAnswering(guardSays(refresh));
 
@@ -108,7 +108,7 @@ describe("sessionFetch", () => {
 
     expect(await settled(call)).toBe("pending");
     expect(visited).toEqual([
-      `http://core.robkit.localhost:3000/refresh?next=${encodeURIComponent(page)}`,
+      `http://start.robkit.localhost:3000/_robkit/refresh?next=${encodeURIComponent(page)}`,
     ]);
   });
 
