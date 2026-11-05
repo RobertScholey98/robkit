@@ -24,7 +24,9 @@ const honoExample: Choices = { exampleStack: "react-hono" };
 
 describe("generateInstall", () => {
   it("writes the default install", async () => {
-    const files = await generateInstall(defaultChoices);
+    const files = await generateInstall(defaultChoices, {
+      project: "my-install-0a1b2c",
+    });
 
     // Every path, and the text of each file the generator renders rather
     // than copies from one template.
@@ -34,6 +36,7 @@ describe("generateInstall", () => {
       "pnpm-workspace.yaml",
       "package.json",
       "apps/example/package.json",
+      "compose.yaml",
     ]) {
       expect(files.get(path)).toMatchSnapshot(path);
     }
@@ -380,7 +383,9 @@ describe("generateInstall", () => {
     ["the default", defaultChoices],
     ["the Hono example", honoExample],
   ])("keeps every file of %s pnpm install", async (_, choices) => {
-    const files = await generateInstall(choices);
+    const files = await generateInstall(choices, {
+      project: "my-install-0a1b2c",
+    });
 
     // A digest per file: any change to a pnpm install's output fails here.
     expect(

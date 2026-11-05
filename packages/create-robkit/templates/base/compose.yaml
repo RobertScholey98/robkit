@@ -1,5 +1,8 @@
 # Postgres for local development. Every app gets its own schema and role in
 # the robkit database; `pnpm dev` provisions them.
+# The Compose project is this install's own: init names it after the folder,
+# with a suffix of its own, so no other install shares its database.
+name: robkit
 services:
   postgres:
     image: postgres:18-alpine

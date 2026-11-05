@@ -67,7 +67,7 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   "apps/hub/src/ui.tsx": "8dd3c9d18a80d226",
   "apps/hub/tsconfig.json": "d21aed3104ad44e6",
   "apps/hub/vite.config.ts": "1918fe616ddb3985",
-  "compose.yaml": "ce13ca1c7c6b4775",
+  "compose.yaml": "f25867da873fce1a",
   "docs/deploy.md": "cb87a255748e31f7",
   "eslint.config.js": "1a465b635da72234",
   "lint-staged.config.js": "8508de0e3c78adba",
@@ -174,7 +174,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "apps/hub/src/ui.tsx": "8dd3c9d18a80d226",
   "apps/hub/tsconfig.json": "d21aed3104ad44e6",
   "apps/hub/vite.config.ts": "1918fe616ddb3985",
-  "compose.yaml": "ce13ca1c7c6b4775",
+  "compose.yaml": "f25867da873fce1a",
   "docs/deploy.md": "cb87a255748e31f7",
   "eslint.config.js": "1a465b635da72234",
   "lint-staged.config.js": "8508de0e3c78adba",
@@ -254,6 +254,52 @@ exports[`generateInstall > writes the default install > apps/example/package.jso
     "icon": "📦"
   }
 }
+"
+`;
+
+exports[`generateInstall > writes the default install > compose.yaml 1`] = `
+"# Postgres for local development. Every app gets its own schema and role in
+# the robkit database; \`pnpm dev\` provisions them.
+# The Compose project is this install's own: init names it after the folder,
+# with a suffix of its own, so no other install shares its database.
+name: my-install-0a1b2c
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: robkit
+    ports:
+      - "127.0.0.1:\${ROBKIT_POSTGRES_PORT:-54320}:5432"
+    volumes:
+      # Postgres 18 images keep data under a versioned folder in /var/lib/postgresql.
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      # Over TCP, because the image's first-run setup server listens only on
+      # the socket and would pass a socket check before Postgres restarts.
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-h",
+          "127.0.0.1",
+          "-U",
+          "postgres",
+          "-d",
+          "robkit",
+        ]
+      # Every second while Postgres starts, which takes longer on a busy
+      # machine, then every 10 seconds. Docker runs each check as an exec, and
+      # on Docker Desktop a stream of them slows every other Docker command.
+      start_period: 120s
+      start_interval: 1s
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgres:
 "
 `;
 
