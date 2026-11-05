@@ -1,11 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import {
-  defaultDevPort,
-  defaultDomain,
-  install,
-} from "@robkit/session/addresses";
+import { install } from "@robkit/session/addresses";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
+import { readDevConfig } from "./env.ts";
 import { exec, prefixLines } from "./exec.ts";
 import { createProxy } from "./proxy.ts";
 import { provisionApps } from "./provision.ts";
@@ -54,12 +51,13 @@ export async function runDev(
   root: string,
   env: NodeJS.ProcessEnv,
 ): Promise<number> {
-  const domain = env.ROBKIT_DOMAIN ?? defaultDomain;
-  const devPort = Number(env.ROBKIT_DEV_PORT ?? defaultDevPort);
+  const config = readDevConfig(env);
+  if ("error" in config) {
+    console.error(config.error);
+    return 1;
+  }
+  const { domain, devPort, adminUrl } = config;
   const addresses = install({ domain, port: devPort });
-  const adminUrl =
-    env.ROBKIT_DATABASE_URL ??
-    `postgres://postgres:postgres@127.0.0.1:${env.ROBKIT_POSTGRES_PORT ?? "54320"}/robkit`;
   let apps: App[];
   try {
     apps = await discoverApps(root, devPort + 1);
