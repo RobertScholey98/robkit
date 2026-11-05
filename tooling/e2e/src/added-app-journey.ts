@@ -1,17 +1,19 @@
 import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
-/** What a guest saw of the app robkit add made, open to anyone. */
+/** What a guest saw of an app open to anyone, opened from the launcher. */
 export interface AddedAppJourney {
   /** The emoji the hub's launcher showed beside the app. */
   icon: string | null;
   /** Where the launcher's link took the guest, and the page's heading. */
   openedAt: string;
   heading: string | null;
+  /** The page's main text. */
+  text: string;
 }
 
 /**
- * A guest signs in with the test code, finds the added app in the hub's
+ * A guest signs in with the test code, finds the app `slug` in the hub's
  * launcher with its icon, and opens it from there.
  */
 export async function addedAppJourney({
@@ -35,6 +37,7 @@ export async function addedAppJourney({
       icon,
       openedAt: guest.url(),
       heading: await guest.getByRole("heading").textContent(),
+      text: await guest.getByRole("main").innerText(),
     };
   } finally {
     await browser.close();

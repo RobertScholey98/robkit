@@ -399,6 +399,7 @@ export function describeJourneys(
         icon: addedIcon,
         openedAt: at(addedSlug),
         heading: "Signed in as a guest",
+        text: expect.stringContaining("Viewer id:") as string,
       });
     });
 
