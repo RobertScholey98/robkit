@@ -67,7 +67,18 @@ describe("init with no flags", { timeout: 30_000 }, () => {
     expect(fromAnswers.get("robkit.json")).toContain(
       `"exampleStack": "react-hono"`,
     );
-    expect(await readTree(join(flagged, "my-app"))).toEqual(fromAnswers);
+    // The same install, but for the Compose project each install has to
+    // itself.
+    const ownProject = (tree: Map<string, string>) =>
+      new Map(
+        [...tree].map(([path, text]) => [
+          path,
+          text.replace(/^name: my-app-[0-9a-f]{6}$/m, "name: my-app-<own>"),
+        ]),
+      );
+    expect(ownProject(await readTree(join(flagged, "my-app")))).toEqual(
+      ownProject(fromAnswers),
+    );
   });
 
   it("skips the folder question for a folder it's given, keeping --link", async () => {
