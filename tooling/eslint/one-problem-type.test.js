@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import rule from "./one-problem-type.js";
 
 const typeMessage =
-  "A failed read is an InputProblem from @robkit/session/input, not a { error: string } of its own. See docs/conventions/input.md.";
+  "A failed read is an InputProblem from @robkit/input, not a { error: string } of its own. See docs/conventions/input.md.";
 const checkMessage =
-  'Check a read with isProblem from @robkit/session/input, not "error" in. See docs/conventions/input.md.';
+  'Check a read with isProblem from @robkit/input, not "error" in. See docs/conventions/input.md.';
 
 /**
  * Lints `code` as a TypeScript file.
@@ -43,7 +43,7 @@ describe("robkit/one-problem-type", () => {
   it("accepts InputProblem and other shapes with an error", () => {
     expect(
       lint(
-        'import type { InputProblem } from "@robkit/session/input";\nfunction read(): number | InputProblem { return 1; }',
+        'import type { InputProblem } from "@robkit/input";\nfunction read(): number | InputProblem { return 1; }',
       ),
     ).toEqual([]);
     expect(lint("type Answer = { error: string; status: number };")).toEqual(

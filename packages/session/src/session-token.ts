@@ -11,7 +11,7 @@ import {
   type CodeId,
   type RoleId,
 } from "@robkit/guard";
-import type { Slug } from "./addresses.ts";
+import type { Slug } from "@robkit/input";
 
 /**
  * The cookie that carries a session token: core's own on core's host, and

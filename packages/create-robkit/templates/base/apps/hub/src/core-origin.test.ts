@@ -1,5 +1,4 @@
-import { readSlug } from "@robkit/session/addresses";
-import { isProblem } from "@robkit/session/input";
+import { isProblem, readSlug } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { appOrigin, coreOrigin, returnTo } from "./core-origin.ts";
 

@@ -5,9 +5,12 @@ import {
   type GuardedOptions,
   type RequestDecision,
 } from "./index.ts";
-import type { InputProblem } from "./input.ts";
-import type { DeclaredAccess } from "./manifest.ts";
-import { readSlug, type Slug } from "./addresses.ts";
+import {
+  readSlug,
+  type DeclaredAccess,
+  type InputProblem,
+  type Slug,
+} from "@robkit/input";
 import { readSessionLapsed, type SessionLapsed } from "./lapsed.ts";
 
 declare const notes: Slug;

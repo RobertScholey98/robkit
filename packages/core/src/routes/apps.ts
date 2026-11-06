@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { isProblem } from "@robkit/session/input";
+import { isProblem } from "@robkit/input";
 import {
   accessOf,
   launcherApps,

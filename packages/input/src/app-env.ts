@@ -3,18 +3,16 @@
 // needs. pnpm dev and robkit deploy set these variables. See
 // docs/conventions/input.md.
 
-import type { Slug } from "./addresses.ts";
+import type { Slug } from "./slug.ts";
 import {
-  allProblems,
-  isProblem,
   readAppSlug,
   readCoreUrl,
   readDomain,
   readHost,
   readPort,
   type Env,
-  type InputProblem,
-} from "./input.ts";
+} from "./env.ts";
+import { allProblems, isProblem, type InputProblem } from "./problem.ts";
 
 /** Where a server listens: `HOST` and `PORT`, by default 127.0.0.1:3000. */
 export function readServeEnv(

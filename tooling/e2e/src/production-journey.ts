@@ -3,7 +3,8 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
 import type { Browser, Page } from "playwright";
 import { launch as launchChromium } from "./browser.ts";
-import type { Install, Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
+import type { Install } from "@robkit/session/addresses";
 
 const run = promisify(execFile);
 

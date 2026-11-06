@@ -1,9 +1,9 @@
 import {
+  type InputProblem,
   isDomain,
   isProblem,
   isRecord,
-  type InputProblem,
-} from "@robkit/session/input";
+} from "@robkit/input";
 import type { TrustedProxy } from "./deployment.ts";
 
 /** Where the install deploys: `coolify.json` at its root. */

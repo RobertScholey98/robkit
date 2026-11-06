@@ -1,5 +1,4 @@
-import { readSlug, type Slug } from "../addresses.ts";
-import { isProblem } from "../problem.ts";
+import { isProblem, readSlug, type Slug } from "@robkit/input";
 
 /** `name` as a slug, for a test that names its apps. */
 export function slug(name: string): Slug {

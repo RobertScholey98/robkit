@@ -1,4 +1,4 @@
-import { isProblem, type InputProblem } from "@robkit/session/input";
+import { type InputProblem, isProblem } from "@robkit/input";
 import { hashPassword } from "./password.ts";
 import { owner } from "./schema.ts";
 import {

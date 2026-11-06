@@ -4,7 +4,8 @@ import {
   databaseUrl,
   discoverApps,
 } from "@robkit/dev";
-import { install, type Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
+import { install } from "@robkit/session/addresses";
 
 /**
  * A variable's value on the host: written as is, or taken from one of the

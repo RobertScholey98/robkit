@@ -4,7 +4,7 @@ import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { CommandProblem } from "@robkit/dev/cli";
 import { format } from "prettier";
-import { isProblem, isRecord, parseJson } from "@robkit/session/input";
+import { isProblem, isRecord, parseJson } from "@robkit/input";
 import { parseDocument } from "yaml";
 import { readInstallChoices } from "./add.ts";
 import { pnpmSettings } from "./generate.ts";

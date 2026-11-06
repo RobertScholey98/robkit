@@ -5,11 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./app-env": "./src/app-env.ts",
     "./addresses": "./src/addresses.ts",
-    "./input": "./src/input.ts",
-    "./lapsed": "./src/lapsed.ts",
-    "./manifest": "./src/manifest.ts"
+    "./lapsed": "./src/lapsed.ts"
   },
   "publishConfig": {
     "exports": {
@@ -17,25 +14,13 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       },
-      "./app-env": {
-        "types": "./dist/app-env.d.ts",
-        "default": "./dist/app-env.js"
-      },
       "./addresses": {
         "types": "./dist/addresses.d.ts",
         "default": "./dist/addresses.js"
       },
-      "./input": {
-        "types": "./dist/input.d.ts",
-        "default": "./dist/input.js"
-      },
       "./lapsed": {
         "types": "./dist/lapsed.d.ts",
         "default": "./dist/lapsed.js"
-      },
-      "./manifest": {
-        "types": "./dist/manifest.d.ts",
-        "default": "./dist/manifest.js"
       }
     }
   },
@@ -56,6 +41,7 @@
   },
   "dependencies": {
     "@robkit/guard": "workspace:*",
+    "@robkit/input": "workspace:*",
     "jose": "catalog:"
   },
   "devDependencies": {

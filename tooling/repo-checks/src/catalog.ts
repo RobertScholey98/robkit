@@ -1,7 +1,7 @@
 import { glob, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
-import { isRecord } from "@robkit/session/input";
+import { isRecord } from "@robkit/input";
 import { isStrings, readJsonFile, readManifest } from "./manifest.ts";
 
 const checkedFields = [

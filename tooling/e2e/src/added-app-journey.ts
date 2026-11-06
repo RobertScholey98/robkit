@@ -1,4 +1,4 @@
-import type { Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
 import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 

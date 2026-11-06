@@ -8,7 +8,7 @@ import {
   readHost,
   readPort,
   readSet,
-} from "./input.ts";
+} from "./index.ts";
 
 describe("readPort", () => {
   it("reads a port", () => {

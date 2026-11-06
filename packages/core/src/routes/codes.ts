@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { readCodeId } from "@robkit/guard";
-import { isProblem } from "@robkit/session/input";
+import { isProblem } from "@robkit/input";
 import {
   listCodes,
   mintCode,

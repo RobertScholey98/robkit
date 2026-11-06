@@ -6,8 +6,7 @@ import {
   type CANCEL_SYMBOL,
 } from "@clack/prompts";
 import { CommandProblem } from "@robkit/dev/cli";
-import { readSlug } from "@robkit/session/addresses";
-import { isProblem } from "@robkit/session/input";
+import { isProblem, readSlug } from "@robkit/input";
 import { newSlugProblem, readNewSlug, type AppChoices } from "./add.ts";
 import {
   defaultChoices,

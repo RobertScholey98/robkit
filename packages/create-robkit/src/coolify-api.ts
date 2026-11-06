@@ -1,5 +1,5 @@
 import { CommandProblem } from "@robkit/dev/cli";
-import { isRecord } from "@robkit/session/input";
+import { isRecord } from "@robkit/input";
 
 // The Coolify API as robkit deploy calls it: one request with its deadline,
 // and what to check when Coolify, or something in front of it, refuses.

@@ -2,7 +2,7 @@
 // package.json's `robkit` field, and how the install hands that to core in
 // `ROBKIT_APPS`. See docs/conventions/input.md.
 
-import { readSlug, type Slug } from "./addresses.ts";
+import { readSlug, type Slug } from "./slug.ts";
 import { isProblem, isRecord, type InputProblem } from "./problem.ts";
 
 /**

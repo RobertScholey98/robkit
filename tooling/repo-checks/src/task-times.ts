@@ -1,6 +1,6 @@
 // Reading how long turbo took over each test task, from its run summary.
 // print-test-times.ts prints them for CI.
-import { isRecord, type InputProblem } from "@robkit/session/input";
+import { type InputProblem, isRecord } from "@robkit/input";
 
 /** A task turbo ran, and how long it took. */
 export interface TaskTime {

@@ -1,6 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { CommandProblem } from "@robkit/dev/cli";
-import { install, type Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
+import { install } from "@robkit/session/addresses";
 import {
   call,
   checks,

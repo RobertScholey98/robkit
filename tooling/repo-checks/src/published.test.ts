@@ -38,6 +38,7 @@ describe("every published package, packed", { timeout: 60_000 }, () => {
       "@robkit/dev",
       "@robkit/guard",
       "@robkit/hono",
+      "@robkit/input",
       "@robkit/react",
       "@robkit/session",
       "@robkit/start",

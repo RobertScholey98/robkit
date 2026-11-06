@@ -104,6 +104,17 @@ export const layers = [
     modules: builtinModules,
     globals: ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "process"],
   },
+  {
+    applies: inside("packages/input"),
+    rule: "Layer rule: @robkit/input imports no framework.",
+    modules: frameworks,
+  },
+  {
+    applies: inside("packages/input"),
+    rule: "Layer rule: @robkit/input does no I/O.",
+    modules: builtinModules,
+    globals: ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "process"],
+  },
   ...coreRows(packageGraph, folders),
 ];
 

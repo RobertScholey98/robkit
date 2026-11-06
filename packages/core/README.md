@@ -17,7 +17,7 @@ import {
   readCoreConfig,
   registerApps,
 } from "@robkit/core";
-import { isProblem } from "@robkit/session/input";
+import { isProblem } from "@robkit/input";
 
 const config = readCoreConfig(process.env);
 if (isProblem(config)) {

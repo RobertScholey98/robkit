@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { guarded } from "@robkit/hono";
-import { isProblem, isRecord, readCoreUrl } from "@robkit/session/input";
+import { isProblem, isRecord, readCoreUrl } from "@robkit/input";
 import { Hono } from "hono";
 import { html } from "hono/html";
 

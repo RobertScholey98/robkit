@@ -1,18 +1,10 @@
-// robkit's readers for what comes from outside its own code: environment
-// variables and JSON. Each takes the raw input and returns the typed value
-// or an InputProblem that names the variable or key and says what to do.
-// The caller decides what a problem means: core and the dev runner refuse
-// to start, a command prints it. See docs/conventions/input.md.
+// Readers for environment variables. Each takes the environment and returns
+// the typed value or an InputProblem that names the variable and says what
+// to do. The caller decides what a problem means: core and the dev runner
+// refuse to start, a command prints it. See docs/conventions/input.md.
 
-import { installAt, readSlug, type Slug } from "./addresses.ts";
-import {
-  allProblems,
-  isProblem,
-  isRecord,
-  type InputProblem,
-} from "./problem.ts";
-
-export { allProblems, isProblem, isRecord, type InputProblem };
+import { isProblem, type InputProblem } from "./problem.ts";
+import { readSlug, type Slug } from "./slug.ts";
 
 /** A process's environment, such as `process.env`. */
 export type Env = Readonly<Record<string, string | undefined>>;
@@ -97,6 +89,17 @@ export function readDomain(env: Env, fallback?: string): string | InputProblem {
   };
 }
 
+/** Whether `value` is an http(s) URL on `core.<domain>`. */
+function isCoreUrl(value: string): boolean {
+  if (!URL.canParse(value)) return false;
+  const { protocol, hostname } = new URL(value);
+  return (
+    (protocol === "https:" || protocol === "http:") &&
+    hostname.startsWith("core.") &&
+    hostname.length > "core.".length
+  );
+}
+
 /** Core's public origin, `ROBKIT_CORE_URL`, which an app's guard asks. */
 export function readCoreUrl(env: Env): string | InputProblem {
   const value = valueOf(env, "ROBKIT_CORE_URL");
@@ -106,7 +109,7 @@ export function readCoreUrl(env: Env): string | InputProblem {
       "Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.",
     );
   }
-  if (installAt(value, "core")) return value;
+  if (isCoreUrl(value)) return value;
   return {
     error: `ROBKIT_CORE_URL is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
   };
@@ -141,17 +144,4 @@ export function readDatabaseUrl(
   return {
     error: `${name} isn't a postgres:// URL. Set it to one, such as postgres://user:password@host:5432/database.`,
   };
-}
-
-/** `text` parsed as JSON, or a problem naming `source`. */
-export function parseJson(
-  text: string,
-  source: string,
-): { json: unknown } | InputProblem {
-  try {
-    return { json: JSON.parse(text) };
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    return { error: `${source} isn't valid JSON (${reason}). Fix its syntax.` };
-  }
 }

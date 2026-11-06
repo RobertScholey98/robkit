@@ -1,14 +1,14 @@
 import {
   allProblems,
+  type DeclaredApp,
+  type Env,
+  type InputProblem,
   isProblem,
   readDatabaseUrl,
   readDomain,
   readHost,
   readPort,
-  type Env,
-  type InputProblem,
-} from "@robkit/session/input";
-import type { DeclaredApp } from "@robkit/session/manifest";
+} from "@robkit/input";
 import { readDeclaredApps } from "./apps.ts";
 import { readTrustedProxy, type TrustedProxy } from "./client.ts";
 

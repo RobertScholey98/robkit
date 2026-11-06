@@ -25,9 +25,9 @@ interface InputProblem {
   | `RoleId` | A role's id                    | `readRoleId`, `readRoleIds` and `readAccessRule`, and core's readers |
   | `CodeId` | An access code's id, a guest's | `readCodeId`, and core's readers                                     |
 
-  `Slug` is in `@robkit/session/addresses`, and an install's `host` and `origin` take one. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
+  `Slug` is in `@robkit/input`, and an install's `host` and `origin` take one. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
 
-The shared readers live in `@robkit/session/input` (environment variables and JSON, and `InputProblem`, `isProblem`, `isRecord` and `allProblems`), `@robkit/session/app-env` (what an app's server reads from its environment), `@robkit/session/manifest` (an app's `robkit` field), `@robkit/session/addresses` (slugs) and `@robkit/guard` (role and code ids, and access rules). Every robkit package and every app can import them. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
+The shared readers live in `@robkit/input`: environment variables and JSON, `InputProblem`, `isProblem`, `isRecord` and `allProblems`, slugs, what an app's server reads from its environment, and an app's `robkit` field. Role and code ids, and access rules, are read in `@robkit/guard`. Every robkit package and every app can import them. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
 
 ## What lint enforces
 
@@ -43,17 +43,17 @@ Lint can't tell `typeof core !== "string"` on a reader's result from any other `
 
 ## Example
 
-`readServeEnv` in `@robkit/session/app-env` reads where a server listens:
+`readServeEnv` in `@robkit/input` reads where a server listens:
 
 ```ts
 import {
   allProblems,
+  type Env,
+  type InputProblem,
   isProblem,
   readHost,
   readPort,
-  type Env,
-  type InputProblem,
-} from "@robkit/session/input";
+} from "@robkit/input";
 
 export function readServeEnv(
   env: Env,
@@ -71,8 +71,7 @@ An app's `serve.ts` calls it once, at start:
 
 ```ts
 import { serve } from "@hono/node-server";
-import { isProblem } from "@robkit/session/input";
-import { readServeEnv } from "@robkit/session/app-env";
+import { isProblem, readServeEnv } from "@robkit/input";
 import { Hono } from "hono";
 
 const app = new Hono(); // the app's routes go here

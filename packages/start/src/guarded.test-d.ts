@@ -1,4 +1,4 @@
-import type { Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
 import type { ServerEntry } from "@tanstack/react-start/server-entry";
 import { describe, expectTypeOf, it } from "vitest";
 import { guarded, type GuardedContext, type Viewer } from "./index.ts";

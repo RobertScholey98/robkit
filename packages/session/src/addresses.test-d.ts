@@ -1,6 +1,7 @@
 import { describe, expectTypeOf, it } from "vitest";
 import type { GuardFault } from "./index.ts";
-import { install, type Install, type Slug } from "./addresses.ts";
+import type { Slug } from "@robkit/input";
+import { install, type Install } from "./addresses.ts";
 
 declare const notes: Slug;
 const addresses = install({ domain: "robkit.dev" });

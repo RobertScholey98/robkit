@@ -1,4 +1,4 @@
-import type { Env, InputProblem } from "@robkit/session/input";
+import type { Env, InputProblem } from "@robkit/input";
 import type { Context } from "hono";
 
 /** A proxy in front of the one that reaches core, which names the visitor. */

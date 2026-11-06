@@ -1,4 +1,4 @@
-import type { Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
 import { Hono, type MiddlewareHandler } from "hono";
 import { describe, expectTypeOf, it } from "vitest";
 import { guarded, type GuardedEnv, type Viewer } from "./index.ts";

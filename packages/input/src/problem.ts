@@ -1,5 +1,4 @@
-// The one type for a failed read, shared by `./input` and `./addresses`. It
-// imports nothing, so the browser can load the addresses. See
+// The one type for a failed read, and the checks every reader shares. See
 // docs/conventions/input.md.
 
 /** Why some input won't do: where it is, what's wrong, and what to do. */

@@ -1,4 +1,4 @@
-import { isProblem, readDatabaseUrl } from "@robkit/session/input";
+import { isProblem, readDatabaseUrl } from "@robkit/input";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema.ts";

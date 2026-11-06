@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader } from "@internal/ui/components/ui/card";
 import { guarded, type GuardedEnv, type Viewer } from "@robkit/hono";
-import { isProblem } from "@robkit/session/input";
-import { readGuardEnv } from "@robkit/session/app-env";
+import { isProblem, readGuardEnv } from "@robkit/input";
 import { Hono } from "hono";
 import { renderToString } from "react-dom/server";
 import styles from "./styles.css?url";

@@ -9,8 +9,7 @@ Apps on the TanStack Start stack use it.
 From the Start template (`templates/stacks/start/src/server.ts`):
 
 ```ts
-import { isProblem } from "@robkit/session/input";
-import { readGuardEnv } from "@robkit/session/app-env";
+import { isProblem, readGuardEnv } from "@robkit/input";
 import { guarded, type GuardedContext } from "@robkit/start";
 import entry from "@tanstack/react-start/server-entry";
 
