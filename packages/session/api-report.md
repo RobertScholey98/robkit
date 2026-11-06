@@ -72,8 +72,8 @@ export type ViewerClaims =
     }
   | {
       kind: "guest";
-      id: string;
-      roles: string[];
+      id: CodeId;
+      roles: RoleId[];
     };
 ```
 

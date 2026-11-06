@@ -1,5 +1,10 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
-import type { SessionState, SignedInViewer } from "@robkit/guard";
+import type {
+  CodeId,
+  RoleId,
+  SessionState,
+  SignedInViewer,
+} from "@robkit/guard";
 import {
   readSessionToken,
   type ReadSessionToken,
@@ -34,7 +39,7 @@ export interface OwnerViewer {
 /** A guest, by their access code's id, and the name the owner gave them. */
 export interface GuestViewer {
   kind: "guest";
-  id: string;
+  id: CodeId;
   name: string;
 }
 
@@ -69,7 +74,7 @@ type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 /** Who holds a session: the viewer, and a guest's roles, by id. */
 interface Holder {
   viewer: Viewer;
-  roles: string[];
+  roles: RoleId[];
 }
 
 function guardViewerOf({ viewer, roles }: Holder): SignedInViewer {
@@ -78,7 +83,7 @@ function guardViewerOf({ viewer, roles }: Holder): SignedInViewer {
     : { kind: viewer.kind, id: viewer.id, roles };
 }
 
-function sameRoles(a: readonly string[], b: readonly string[]): boolean {
+function sameRoles(a: readonly RoleId[], b: readonly RoleId[]): boolean {
   return a.length === b.length && a.every((role, i) => role === b[i]);
 }
 

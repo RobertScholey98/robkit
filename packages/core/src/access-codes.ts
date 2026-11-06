@@ -1,5 +1,6 @@
 import { randomInt } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
+import type { CodeId } from "@robkit/guard";
 import { isLocal } from "@robkit/session/addresses";
 import type { InputProblem } from "@robkit/session/input";
 import type { Database } from "./database.ts";
@@ -63,7 +64,7 @@ export function standingOf(
 
 /** An access code as admin shows it to the owner. */
 export interface CodeView {
-  id: string;
+  id: CodeId;
   code: string;
   /** The guest's name. */
   name: string;
@@ -181,7 +182,7 @@ export function isUuid(id: string): boolean {
  */
 export async function revokeCode(
   db: Database,
-  id: string,
+  id: CodeId,
   now: Date,
 ): Promise<boolean> {
   if (!isUuid(id)) return false;

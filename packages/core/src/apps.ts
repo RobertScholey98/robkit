@@ -2,6 +2,7 @@ import {
   guard,
   readAccessRule,
   type AccessRule,
+  type RoleId,
   type SessionState,
 } from "@robkit/guard";
 import {
@@ -146,7 +147,7 @@ export async function listApps(db: Database): Promise<AppView[]> {
 
 function ruleOf(
   kind: (typeof apps.$inferSelect)["access"],
-  roleIds: string[],
+  roleIds: RoleId[],
 ): AccessRule {
   return kind === "roles" ? { kind, roles: roleIds } : { kind };
 }

@@ -9,6 +9,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { CodeId, RoleId } from "@robkit/guard";
 import type { JWK } from "jose";
 
 const core = pgSchema("core");
@@ -33,7 +34,7 @@ export const owner = core.table(
 export const accessCodes = core.table(
   "access_codes",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid("id").$type<CodeId>().primaryKey().defaultRandom(),
     // Plain text, so admin can show it again.
     code: text("code").notNull().unique(),
     name: text("name").notNull(),
@@ -47,7 +48,7 @@ export const accessCodes = core.table(
 );
 
 export const roles = core.table("roles", {
-  id: uuid("id").primaryKey().defaultRandom(),
+  id: uuid("id").$type<RoleId>().primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
   createdAt: createdAt(),
 });
@@ -57,9 +58,11 @@ export const codeRoles = core.table(
   "code_roles",
   {
     codeId: uuid("code_id")
+      .$type<CodeId>()
       .notNull()
       .references(() => accessCodes.id, { onDelete: "cascade" }),
     roleId: uuid("role_id")
+      .$type<RoleId>()
       .notNull()
       .references(() => roles.id, { onDelete: "cascade" }),
   },
@@ -95,6 +98,7 @@ export const appRoles = core.table(
       .notNull()
       .references(() => apps.slug, { onDelete: "cascade" }),
     roleId: uuid("role_id")
+      .$type<RoleId>()
       .notNull()
       .references(() => roles.id, { onDelete: "cascade" }),
   },
@@ -108,9 +112,11 @@ export const sessions = core.table(
     ownerId: uuid("owner_id").references(() => owner.id, {
       onDelete: "cascade",
     }),
-    codeId: uuid("code_id").references(() => accessCodes.id, {
-      onDelete: "cascade",
-    }),
+    codeId: uuid("code_id")
+      .$type<CodeId>()
+      .references(() => accessCodes.id, {
+        onDelete: "cascade",
+      }),
     createdAt: createdAt(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),

@@ -5,6 +5,7 @@ import { setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
+import { readCodeId, readRoleId } from "@robkit/guard";
 import { appSessionUrl, sessionCookie, sessionTokensIn } from "@robkit/session";
 import { install, isLocal, platformApps } from "@robkit/session/addresses";
 import { isProblem, isRecord, type InputProblem } from "@robkit/session/input";
@@ -399,7 +400,8 @@ export function createApp({
   });
 
   app.post("/codes/:id/revoke", owner, async (c) => {
-    if (!(await revokeCode(db, c.req.param("id"), now()))) {
+    const id = readCodeId(c.req.param("id"));
+    if (!id || !(await revokeCode(db, id, now()))) {
       return c.json({ error: "Not found" }, 404);
     }
     return c.body(null, 204);
@@ -451,7 +453,10 @@ export function createApp({
   app.post("/roles/:id/codes", owner, async (c) => {
     const request = await readBody(c, readCodeIds);
     if (isProblem(request)) return c.json(request, 400);
-    const change = await setRoleCodes(db, c.req.param("id"), request.codeIds);
+    const roleId = readRoleId(c.req.param("id"));
+    const change = roleId
+      ? await setRoleCodes(db, roleId, request.codeIds)
+      : { outcome: "unknown-role" as const };
     switch (change.outcome) {
       case "unknown-role":
         return c.json({ error: "Not found" }, 404);
