@@ -11,6 +11,16 @@ import {
   type Viewer,
 } from "./index.ts";
 
+// The guard's own reader makes the test guest's code id. @internal/test-session
+// has builders for the packages above the guard, but it depends on the guard.
+function aCodeId(id: string): CodeId {
+  const read = readCodeId(id);
+  if (read === undefined) throw new Error(`${id} isn't a code id.`);
+  return read;
+}
+
+const guestId = aCodeId("code-1");
+
 function viewerOf({
   session,
   guestRoles = [],
@@ -24,7 +34,7 @@ function viewerOf({
     case "owner":
       return { kind: "owner", id: "owner-1" };
     case "guest":
-      return { kind: "guest", id: "code-1" as CodeId, roles: guestRoles };
+      return { kind: "guest", id: guestId, roles: guestRoles };
   }
 }
 

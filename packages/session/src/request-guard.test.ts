@@ -1,4 +1,5 @@
 import {
+  aRoleId,
   callbackFor,
   conformanceAnswer,
   fakeCore,
@@ -10,7 +11,7 @@ import {
   stateIn,
   type FakeCore,
 } from "@internal/test-session";
-import type { AccessRule, RoleId } from "@robkit/guard";
+import type { AccessRule } from "@robkit/guard";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { requestGuard, type GuardedOptions, type GuardFault } from "./index.ts";
@@ -489,7 +490,7 @@ describe("requestGuard, with core's keys", () => {
 });
 
 describe("requestGuard, with its rule in core", () => {
-  const family: AccessRule = { kind: "roles", roles: ["family" as RoleId] };
+  const family: AccessRule = { kind: "roles", roles: [aRoleId("family")] };
 
   it("lets in only the guests holding a role core gates the app to", async () => {
     const core = await fakeCore();
