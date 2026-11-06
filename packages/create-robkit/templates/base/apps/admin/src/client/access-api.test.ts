@@ -1,4 +1,5 @@
 import { fakeCore, unreachable } from "@internal/core-client/fake-core";
+import { readRoleId } from "@robkit/guard";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createRole,
@@ -140,7 +141,9 @@ describe("listApps", () => {
 
 describe("setAccess", () => {
   it("sends the app's new rule, and reads the rule core kept", async () => {
-    const rule: AccessRule = { kind: "roles", roles: ["r_1"] };
+    const family = readRoleId("r_1");
+    if (family === undefined) throw new Error("r_1 isn't a role id.");
+    const rule: AccessRule = { kind: "roles", roles: [family] };
     vi.stubGlobal(
       "fetch",
       fakeCore(core, {
