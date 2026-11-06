@@ -68,5 +68,5 @@ Raises rubric categories 7 (error handling) and 6 (consistency). Evidence: `../r
 ### For the coordinator
 
 - **Ticket 15:** `no-bare-error` found nothing in `packages/session/src/` today. A new fixed-sentence `throw new Error` in `core-access.ts` without a `cause` will fail lint once both land. `session/src/test/slug.ts` is a test helper, so the new check skips it.
-- **Ticket 19:** core's `session-store.ts`, `owner.ts` and `signing-key.ts` now call `storedRow` from `database.ts` after their inserts, and `access-codes.ts`'s free-code fault names its attempts. Those lines may conflict with the extraction.
+- **Ticket 19** landed while this ran. Merging `56-round-3` in conflicted only in `AGENTS.md`, the ESLint README and `tooling/eslint/index.js`, where each side added a rule; the merge keeps both. After it, `pnpm check` passed 48 of 48 tasks, and core's suite in WSL passed 324 tests.
 - **Docs another ticket may own:** `packages/session/README.md`, `packages/hono/README.md` and `packages/start/README.md` show `orThrow(readGuardEnv(...))` in a module that reads its environment as it loads. That still works, but a server would read better with `orExit`.
