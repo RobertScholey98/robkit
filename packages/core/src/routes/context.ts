@@ -4,9 +4,9 @@ import { sessionCookie, sessionTokensIn, type Report } from "@robkit/session";
 import { isLocal } from "@robkit/session/addresses";
 import { isRecord, type InputProblem } from "@robkit/session/input";
 import type { TrustedProxy } from "../client.ts";
+import { sessionLifetimeSeconds } from "../session-claims.ts";
 import {
   readSession,
-  sessionLifetimeSeconds,
   type SessionContext,
   type SessionRead,
 } from "../sessions.ts";
