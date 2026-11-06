@@ -3,6 +3,7 @@ import { extname, join, posix } from "node:path";
 import { matchesGlob } from "node:path/posix";
 import ts from "typescript";
 import type { PackageGraph } from "@internal/eslint-config/package-graph";
+import { reachesOutside } from "@internal/eslint-config/layers";
 import { toolchain } from "@internal/eslint-config/package-graph";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
@@ -170,9 +171,7 @@ export function importProblems(
       const target = posix.join(posix.dirname(file), specifier);
       return target === pkg.folder || target.startsWith(`${pkg.folder}/`)
         ? []
-        : [
-            `${at} reaches outside ${pkg.folder} with ${specifier}. Import the package by name.`,
-          ];
+        : [`${at} ${reachesOutside(pkg.folder, specifier)}`];
     }
     const name = packageName(specifier);
     if (!names.has(name)) return [];

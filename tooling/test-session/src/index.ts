@@ -1,10 +1,15 @@
 import { once } from "node:events";
 import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
-import type { AccessRule, Viewer } from "@robkit/guard";
+import {
+  readCodeId,
+  type AccessRule,
+  type RoleId,
+  type Viewer,
+} from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
+import { known, listeningPort } from "./known.ts";
 
 // Written out rather than imported from @robkit/session, whose own tests use
 // this package. If session's cookie, lifetime, callback or word that nobody
@@ -176,7 +181,7 @@ export async function fakeCore(): Promise<FakeCore> {
     server.close();
     await once(server, "close");
   });
-  const { port } = server.address() as AddressInfo;
+  const port = listeningPort(server);
   core.origin = `http://core.robkit.localhost:${String(port)}`;
   core.hub = `http://hub.robkit.localhost:${String(port)}`;
   return core;
@@ -189,16 +194,18 @@ const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * Matches where the guard sends a page load on `page` to ask core: core's
- * `/refresh`, back to `page`, with a state of its own.
+ * `/refresh`, back to `page`, with a state of its own. A Vitest matcher, which
+ * `toEqual` compares with a location.
  */
 export function refreshLocation(
   page: string,
   core: Pick<FakeCore, "origin">,
-): string {
+): unknown {
   const next = `${core.origin}/refresh?next=${encodeURIComponent(page)}`;
-  return expect.stringMatching(
+  const matcher: unknown = expect.stringMatching(
     new RegExp(`^${escaped(next)}&state=${state}$`),
-  ) as string;
+  );
+  return matcher;
 }
 
 /** The state a refresh's location carries. */
@@ -221,10 +228,17 @@ export function callbackFor(
   return url.href;
 }
 
+/** `guest(roles)` as the guard hands them to an app's handlers. */
+function guestViewer(roles: RoleId[] = []): Viewer {
+  const id = known(readCodeId(guest().id), "The test guest's code id");
+  return { kind: "guest", id, roles };
+}
+
 /** What an adapter answers a conformance case's page load with. */
 export interface PageAnswer {
   status: number;
-  location: string | null;
+  /** A URL, null for none, or `refreshLocation`'s matcher for one. */
+  location: unknown;
   /** The viewer the app's handlers get, when the guard lets them in. */
   viewer?: Viewer | undefined;
 }
@@ -240,14 +254,14 @@ export function conformanceAnswer(
 ): PageAnswer {
   switch (outcome) {
     case "allow": {
-      const viewer = {
+      const viewers: Record<ConformanceCase["session"], Viewer | undefined> = {
         unknown: undefined,
-        "signed-out": { kind: "nobody" } as const,
+        "signed-out": { kind: "nobody" },
         expired: undefined,
         owner,
-        guest: guest(guestRoles),
-      }[session] as Viewer;
-      return { status: 200, location: null, viewer };
+        guest: guestViewer(guestRoles),
+      };
+      return { status: 200, location: null, viewer: viewers[session] };
     }
     case "login":
       return {

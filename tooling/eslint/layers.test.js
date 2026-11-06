@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { Linter } from "eslint";
 import globals from "globals";
 import { describe, expect, it } from "vitest";
-import layer, { coreRows, repoRoot } from "./layers.js";
+import layer, { coreRows, reachesOutside, repoRoot } from "./layers.js";
 
 /**
  * Lints `code` as `src/index.ts` in `workspace`.
@@ -106,6 +106,25 @@ describe("the layer rule", () => {
       adapters,
     ]);
     expect(lint("packages/hono", 'import "./guard.ts";')).toEqual([]);
+  });
+
+  it.each([
+    ["packages/guard", "../../session/src/input.ts"],
+    ["packages/hono", "../../../tooling/test-session/src/index.ts"],
+    ["tooling/test-session", "../../../packages/guard/src/guard.ts"],
+    ["tooling/e2e", "../../../package.json"],
+  ])(
+    "catches a relative import out of %s, with graph-check's message",
+    (workspace, specifier) => {
+      expect(lint(workspace, `import "${specifier}";`)).toEqual([
+        `Layer rule: this import ${reachesOutside(workspace, specifier)}`,
+      ]);
+    },
+  );
+
+  it("lets a relative import stay inside its workspace", () => {
+    expect(lint("packages/guard", 'import "../package.json";')).toEqual([]);
+    expect(lint("packages/guard", 'import "./test/slug.ts";')).toEqual([]);
   });
 
   it.each([

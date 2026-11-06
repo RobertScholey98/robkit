@@ -7,9 +7,13 @@ export default defineConfig({
     testTimeout: 30_000,
     coverage: {
       include: ["src/**"],
+      // The command-line scripts. Their tests run them as child processes,
+      // which coverage can't see, and cli-tests.test.ts makes sure each has
+      // one.
+      exclude: ["src/check-*.ts", "src/print-*.ts"],
       // Today's coverage, rounded down. Raise them as it rises; CI fails a
       // pull request that lowers one.
-      thresholds: { statements: 86, branches: 78, functions: 89, lines: 88 },
+      thresholds: { statements: 96, branches: 86, functions: 95, lines: 98 },
     },
   },
 });
