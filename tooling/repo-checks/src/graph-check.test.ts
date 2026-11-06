@@ -300,24 +300,18 @@ describe("layerConflicts", () => {
 });
 
 describe("the robkit workspace", () => {
-  it("agrees with the layer ESLint rule, whose core rows it feeds", async () => {
-    const forbidden = layerForbids(await readWorkspace(root), layers);
+  it("keeps every package but the repo checks off core, as the layer ESLint rule does", async () => {
+    const packages = await readWorkspace(root);
+    const forbidden = layerForbids(packages, layers);
+    // Only the repo checks take core, to pack it and check its API.
+    const mayTakeCore = new Set(["@robkit/core", "@internal/repo-checks"]);
 
-    expect(forbidden.map(({ from, to }) => `${from} -> ${to}`)).toEqual([
-      "create-robkit -> @robkit/core",
-      "@robkit/dev -> @robkit/core",
-      "@robkit/guard -> @robkit/core",
-      "@robkit/hono -> @robkit/core",
-      "@robkit/input -> @robkit/core",
-      "@robkit/react -> @robkit/core",
-      "@robkit/session -> @robkit/core",
-      "@robkit/start -> @robkit/core",
-      "@internal/e2e -> @robkit/core",
-      "@internal/eslint-config -> @robkit/core",
-      "@internal/test-postgres -> @robkit/core",
-      "@internal/test-session -> @robkit/core",
-      "@internal/tsconfig -> @robkit/core",
-    ]);
+    expect(forbidden.map(({ from, to }) => `${from} -> ${to}`)).toEqual(
+      packages
+        .filter(({ name }) => !mayTakeCore.has(name))
+        .map(({ name }) => `${name} -> @robkit/core`),
+    );
+    expect(forbidden).toHaveLength(packages.length - 2);
     expect(layerConflicts(packageGraph, forbidden)).toEqual([]);
   });
 
