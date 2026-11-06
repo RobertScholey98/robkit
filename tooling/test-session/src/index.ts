@@ -1,10 +1,20 @@
+import { orThrow, readCoreUrl, type CoreOrigin } from "@robkit/input";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
 import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
+import { aViewer } from "./brands.ts";
+import { listeningPort } from "./known.ts";
+
+export {
+  aCodeId,
+  aRoleId,
+  aViewer,
+  slug,
+  type ViewerOptions,
+} from "./brands.ts";
 
 // Written out rather than imported from @robkit/session, whose own tests use
 // this package. If session's cookie, lifetime, callback or word that nobody
@@ -123,7 +133,7 @@ export async function signingKey(): Promise<SigningKey> {
 /** Core as an app's guard sees it: its JWKS and its app catalog's rules. */
 export interface FakeCore {
   /** Core's public origin, `http://core.robkit.localhost:<port>`. */
-  origin: string;
+  origin: CoreOrigin;
   /** The hub's origin beside it, `http://hub.robkit.localhost:<port>`. */
   hub: string;
   /** The key core signs sessions with. */
@@ -148,14 +158,6 @@ export async function fakeCore(): Promise<FakeCore> {
     kid: "key-1",
     alg: "EdDSA",
   };
-  const core: FakeCore = {
-    origin: "",
-    hub: "",
-    key,
-    rules: {},
-    status: 200,
-    fetched: [],
-  };
   const server = createServer((req, res) => {
     const path = String(req.url);
     core.fetched.push(`${String(req.headers.host)} ${path}`);
@@ -176,9 +178,19 @@ export async function fakeCore(): Promise<FakeCore> {
     server.close();
     await once(server, "close");
   });
-  const { port } = server.address() as AddressInfo;
-  core.origin = `http://core.robkit.localhost:${String(port)}`;
-  core.hub = `http://hub.robkit.localhost:${String(port)}`;
+  const port = listeningPort(server);
+  const core: FakeCore = {
+    origin: orThrow(
+      readCoreUrl({
+        ROBKIT_CORE_URL: `http://core.robkit.localhost:${String(port)}`,
+      }),
+    ),
+    hub: `http://hub.robkit.localhost:${String(port)}`,
+    key,
+    rules: {},
+    status: 200,
+    fetched: [],
+  };
   return core;
 }
 
@@ -189,16 +201,18 @@ const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * Matches where the guard sends a page load on `page` to ask core: core's
- * `/refresh`, back to `page`, with a state of its own.
+ * `/refresh`, back to `page`, with a state of its own. A Vitest matcher, which
+ * `toEqual` compares with a location.
  */
 export function refreshLocation(
   page: string,
-  core: Pick<FakeCore, "origin">,
-): string {
+  core: { origin: string },
+): unknown {
   const next = `${core.origin}/refresh?next=${encodeURIComponent(page)}`;
-  return expect.stringMatching(
+  const matcher: unknown = expect.stringMatching(
     new RegExp(`^${escaped(next)}&state=${state}$`),
-  ) as string;
+  );
+  return matcher;
 }
 
 /** The state a refresh's location carries. */
@@ -224,7 +238,8 @@ export function callbackFor(
 /** What an adapter answers a conformance case's page load with. */
 export interface PageAnswer {
   status: number;
-  location: string | null;
+  /** A URL, null for none, or `refreshLocation`'s matcher for one. */
+  location: unknown;
   /** The viewer the app's handlers get, when the guard lets them in. */
   viewer?: Viewer | undefined;
 }
@@ -236,18 +251,18 @@ export interface PageAnswer {
 export function conformanceAnswer(
   { session, guestRoles, outcome }: ConformanceCase,
   page: string,
-  core: Pick<FakeCore, "origin" | "hub">,
+  core: { origin: string; hub: string },
 ): PageAnswer {
   switch (outcome) {
     case "allow": {
-      const viewer = {
+      const viewers: Record<ConformanceCase["session"], Viewer | undefined> = {
         unknown: undefined,
-        "signed-out": { kind: "nobody" } as const,
+        "signed-out": { kind: "nobody" },
         expired: undefined,
         owner,
-        guest: guest(guestRoles),
-      }[session] as Viewer;
-      return { status: 200, location: null, viewer };
+        guest: aViewer({ kind: "guest", roles: guestRoles ?? [] }),
+      };
+      return { status: 200, location: null, viewer: viewers[session] };
     }
     case "login":
       return {

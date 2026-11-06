@@ -53,7 +53,7 @@ describe("POST /login/code", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       state: "signed-in",
-      viewer: { kind: "guest", id, name: "Grandma" },
+      profile: { kind: "guest", id, name: "Grandma" },
     });
     expect(sessionCookieOf(res)?.attributes).toEqual({
       "Max-Age": "2592000",
@@ -92,7 +92,7 @@ describe("POST /login/code", () => {
 
     expect(await res.json()).toEqual({
       state: "signed-in",
-      viewer: { kind: "guest", id, name: "Grandma" },
+      profile: { kind: "guest", id, name: "Grandma" },
     });
   });
 
@@ -105,7 +105,7 @@ describe("POST /login/code", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       state: "signed-in",
-      viewer: { kind: "guest", name: "Test" },
+      profile: { kind: "guest", name: "Test" },
     });
   });
 

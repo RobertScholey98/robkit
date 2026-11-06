@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { defaultChoices, init } from "create-robkit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import type { Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
 import { takeBrowserLog } from "./browser.ts";
 import {
   guestOpens,
@@ -26,7 +26,7 @@ import {
   withVisitors,
 } from "./production-stack.ts";
 import { exampleSlug } from "./install.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-session";
 
 const run = promisify(execFile);
 

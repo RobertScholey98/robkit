@@ -2,14 +2,14 @@ import type { Context, MiddlewareHandler } from "hono";
 import { setCookie } from "hono/cookie";
 import { sessionCookie, sessionTokensIn, type Report } from "@robkit/session";
 import { isLocal } from "@robkit/session/addresses";
-import { isRecord, type InputProblem } from "@robkit/session/input";
+import { type InputProblem, isProblem, isRecord } from "@robkit/input";
 import type { TrustedProxy } from "../client.ts";
+import { sessionLifetimeSeconds } from "../session-claims.ts";
 import {
   readSession,
-  sessionLifetimeSeconds,
   type SessionContext,
   type SessionRead,
-} from "../sessions.ts";
+} from "../session-store.ts";
 
 /** What each routes module takes from `createApp`. */
 export interface RouteContext extends SessionContext {
@@ -24,15 +24,16 @@ export interface CoreEnv {
 
 type Fields = Record<string, unknown>;
 
-/** The fields of the JSON object a POST sent, or undefined if it isn't JSON. */
-export async function fieldsOf(c: Context): Promise<Fields | undefined> {
+/** The fields of the JSON object a POST sent, or why it isn't one. */
+export async function fieldsOf(c: Context): Promise<Fields | InputProblem> {
+  let body: unknown;
   try {
-    const body: unknown = await c.req.json();
-    return isRecord(body) ? body : {};
+    body = await c.req.json();
   } catch {
     // A body that isn't JSON is the caller's mistake, answered with a 400.
-    return undefined;
+    return { error: "Send a valid JSON body." };
   }
+  return isRecord(body) ? body : { error: "Send a JSON object." };
 }
 
 /** A POST's JSON fields read by one of core's input rules, or why they won't do. */
@@ -41,7 +42,7 @@ export async function readBody<T>(
   read: (fields: Fields) => T | InputProblem,
 ): Promise<T | InputProblem> {
   const fields = await fieldsOf(c);
-  return fields ? read(fields) : { error: "Send a valid JSON body." };
+  return isProblem(fields) ? fields : read(fields);
 }
 
 /** Puts `sessionToken` on core's cookie, or clears it with a `maxAge` of 0. */
@@ -81,7 +82,7 @@ export function viewer(
     const session = await readSession(context, sessionTokens, { renew });
     const { answer, freshSessionToken } = session;
     const isOwner =
-      answer.state === "signed-in" && answer.viewer.kind === "owner";
+      answer.state === "signed-in" && answer.profile.kind === "owner";
     if (ownerOnly && !isOwner) return c.json({ error: "Not found" }, 404);
     if (freshSessionToken) {
       setSessionCookie(c, context.domain, freshSessionToken);

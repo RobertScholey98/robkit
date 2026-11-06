@@ -14,7 +14,7 @@ pnpm create-install                                  # asks for a folder and the
 pnpm create-install ../my-install --stack start      # or asks nothing
 ```
 
-`pnpm create-install` runs `src/bin.ts --link --install`: it links the install's `@robkit/*` packages to this checkout, initialises git and installs dependencies. Once the packages are on npm, `npm create robkit my-install -- --stack start --install` will do the same without the checkout.
+`pnpm create-install` runs `src/create-robkit-command.ts --link --install`: it links the install's `@robkit/*` packages to this checkout, initialises git and installs dependencies. Once the packages are on npm, `npm create robkit my-install -- --stack start --install` will do the same without the checkout.
 
 Inside an install:
 
@@ -74,6 +74,62 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 - The templates are an install's own files: the install lints and tests them, so robkit's ESLint and TypeScript skip them.
 - The Dockerfile builds an app in a turbo-pruned workspace, then deletes every `node_modules` and installs only that app's production dependencies, and runs it on the Node image without npm, Yarn or Corepack. So an app's `dependencies` are what its server imports, and what Vite bundles is a dev dependency: the hub's and admin's React, theme and UI kit.
 - The hub and admin call core only through `callCore` from the install's `packages/core-client`, whose `fakeCore` their tests answer from.
+
+### Change a template
+
+The hub, admin and core-client are template files, not packages of this repo. Init copies them into each install, so a change shows up only in installs made after it.
+
+| What            | Where, under `templates/`                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| The hub         | `base/apps/hub/src/`: the launcher (`launcher.tsx`), sign-in forms and `core-api.ts`              |
+| Admin           | `base/apps/admin/src/client/` for its screens, and `src/server.ts` for its server                 |
+| core-client     | `base/packages/core-client/src/`: `call-core.ts`, and `fake-core.ts`, which the tests answer from |
+| Core's app      | `base/apps/core/src/`, which starts `@robkit/core`                                                |
+| The example app | `stacks/<stack>/`, mounted at `apps/example`                                                      |
+
+An install's paths match the template's: `templates/base/apps/hub/src/launcher.tsx` becomes `apps/hub/src/launcher.tsx`. The one exception is `.gitignore`, which the template keeps as `gitignore` because npm would drop it from the package.
+
+To change one:
+
+1. **Make a linked install** from the root of your checkout:
+
+   ```sh
+   pnpm create-install ../try --stack start
+   ```
+
+2. **Make the change in the install first**, where you can run it. Check it there with no Docker:
+
+   ```sh
+   cd ../try
+   pnpm turbo run test --filter=@internal/hub-app --filter=@internal/admin-app --filter=@internal/core-client
+   pnpm lint
+   pnpm typecheck
+   ```
+
+   These take seconds. `pnpm dev` shows the change in a browser, but it starts Postgres in Docker.
+
+   Once the change is back in the template (step 3), `src/install-checks.test.ts` runs the same tests and lint in a fresh install made from it, with no Docker. `pnpm check` runs it, or run it alone from your checkout:
+
+   ```sh
+   pnpm --filter create-robkit exec vitest run src/install-checks.test.ts
+   ```
+
+3. **Copy the changed files back** into the template, from the root of your checkout:
+
+   ```sh
+   cp ../try/apps/hub/src/launcher.tsx packages/create-robkit/templates/base/apps/hub/src/launcher.tsx
+   ```
+
+4. **Update create-robkit's tests.** `generate.test.ts` keeps a digest of every file init writes, so any template change fails it. Check that the files it names are the ones you changed, then update the snapshot and run the package's tests:
+
+   ```sh
+   pnpm --filter create-robkit exec vitest run src/generate.test.ts -u
+   pnpm --filter create-robkit test
+   ```
+
+5. **Add a changeset** for create-robkit: a template change needs one, as a change to `src` does.
+
+CI's whole-stack test then makes fresh installs from the templates and drives their hub, admin and apps in Chromium. On the Start install it also runs the install's own CI workflow: lint, typecheck and tests.
 
 ### The robkit command
 

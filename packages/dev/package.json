@@ -4,7 +4,7 @@
   "description": "robkit's local dev runner and proxy.",
   "type": "module",
   "bin": {
-    "robkit-dev": "./src/bin.ts"
+    "robkit-dev": "./src/robkit-dev-command.ts"
   },
   "exports": {
     ".": "./src/index.ts",
@@ -22,7 +22,7 @@
       }
     },
     "bin": {
-      "robkit-dev": "./dist/bin.js"
+      "robkit-dev": "./dist/robkit-dev-command.js"
     }
   },
   "files": [
@@ -42,12 +42,14 @@
     "test:unit": "vitest run --project unit"
   },
   "dependencies": {
+    "@robkit/input": "workspace:*",
     "@robkit/session": "workspace:*",
     "postgres": "catalog:"
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/test-postgres": "workspace:*",
+    "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",

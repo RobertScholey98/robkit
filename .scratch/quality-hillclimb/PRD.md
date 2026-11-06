@@ -43,7 +43,8 @@ The hillclimb ends when council's median score beats "robkit needs" in every cat
 | Round | Tickets | Council median |
 | --- | --- | --- |
 | 1 | 01 to 05 | 78 of 100; passes 1 and 5 |
-| 2 | 06 to 12 | pending |
+| 2 | 06 to 12 | 82 of 100; passes 1, 2, 3 and 5 |
+| 3 | 13 to 19 | pending |
 
 ### Round 1 council (commit 6b912f9)
 
@@ -65,3 +66,26 @@ Reports: `research/council-r1-*.md`.
 All three found the same top problems: `pnpm check` timed out on a cold Windows run and skips core's and dev's tests, README examples don't compile, `{ error: string }` and `InputProblem` both mean a failed read, and `@robkit/session` and `@robkit/dev` export more than their users need.
 
 Round 2 runs in two waves. Tickets 06, 07, 08, 10 and 12 touch different files and run together. Tickets 09 and 11 reshape the same modules, so they wait for the first wave.
+
+### Round 2 council (commit f2a16c1)
+
+Reports: `research/council-r2-*.md`.
+
+| # | Category | Opus 5.5 | Sol 6.1 | Sonnet 5.5 | Median | Needs |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Module boundaries | 8 | 8 | 9 | 8 | 8 |
+| 2 | Public API design | 8 | 8 | 8 | 8 | 8 |
+| 3 | Type safety at the edges | 8 | 9 | 9 | 9 | 9 |
+| 4 | Naming and domain language | 8 | 8 | 9 | 8 | 9 |
+| 5 | Simplicity | 7 | 8 | 8 | 8 | 7 |
+| 6 | Consistency | 8 | 8 | 9 | 8 | 9 |
+| 7 | Error handling | 8 | 8 | 8 | 8 | 9 |
+| 8 | Testing | 8 | 8 | 9 | 8 | 9 |
+| 9 | Keeping standards up | 7 | 9 | 9 | 9 | 10 |
+| 10 | Nice to work in as a human | 8 | 8 | 8 | 8 | 9 |
+
+CI on GitHub failed on every round-2 commit, and on `47-round-1`. test-postgres measures less branch coverage on CI than in WSL, so its threshold fails there. The rounds checked the WSL gate but never CI. From round 3, a branch merges only when its CI `gate` is green. Opus also found that `main` has no branch protection, so nothing requires `gate`; only R can turn that on.
+
+All three reviewers want `@robkit/session` smaller. They want the input readers, the manifest format and the app env readers in a package of their own, and `requestGuard` split into its refresh protocol and its decision.
+
+Round 3 starts with ticket 13, alone, so that CI is green before other branches start. Tickets 14, 17, 18 and 19 then run together. Tickets 15 and 16 change code that 14 moves, so they wait for it.

@@ -1,6 +1,5 @@
 import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
-import { readSlug, type Slug } from "@robkit/session/addresses";
-import { isProblem } from "@robkit/session/input";
+import { isProblem, readSlug, type Slug } from "@robkit/input";
 
 /** An app the launcher lists: core lists only those the viewer may open. */
 export interface LauncherApp {

@@ -5,6 +5,8 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/session
 
 ```ts
+export type AccessRuleFailure =
+  "unknown-app" | "bad-answer" | "invalid-json" | "interrupted-body";
 export const appRefreshPath: "/_robkit/refresh";
 export const appSessionPath: "/_robkit/session";
 export function appSessionUrl(
@@ -21,14 +23,21 @@ export const coreAudience: "core";
 export interface GuardedOptions {
   app: Slug;
   access?: AccessRule | undefined;
-  core: string;
+  core: CoreOrigin;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
-export interface GuardFault {
+export type GuardFault = {
   app: Slug;
-  failed: "core-key" | "access-rule" | "network";
   cause: unknown;
-}
+} & (
+  | {
+      failed: "core-key" | "network";
+    }
+  | {
+      failed: "access-rule";
+      reason: AccessRuleFailure;
+    }
+);
 export function readAppToken(
   key: VerifyKey,
   token: string,
@@ -79,32 +88,10 @@ export type ViewerClaims =
     };
 ```
 
-## @robkit/session/app-env
-
-```ts
-export function readDevServerEnv(env: Env):
-  | {
-      port?: number;
-      domain?: string;
-    }
-  | InputProblem;
-export function readGuardEnv(env: Env):
-  | {
-      app: Slug;
-      core: string;
-    }
-  | InputProblem;
-export function readServeEnv(env: Env):
-  | {
-      host: string;
-      port: number;
-    }
-  | InputProblem;
-```
-
 ## @robkit/session/addresses
 
 ```ts
+export function coreInstall(core: CoreOrigin): Install;
 export const defaultDevPort: 3000;
 export const defaultDomain: "robkit.localhost";
 export function install({ domain, protocol, port }: InstallOptions): Install;
@@ -122,56 +109,6 @@ export interface InstallOptions {
   port?: number | undefined;
 }
 export function isLocal(domain: string): boolean;
-export function isPlatformApp(slug: string): slug is PlatformApp;
-export type PlatformApp = (typeof platformApps)[number];
-export const platformApps: readonly ["core", "hub", "admin"];
-export function readSlug(value: unknown): Slug | InputProblem;
-export type Slug =
-  | PlatformApp
-  | (string & {
-      readonly [slugBrand]: true;
-    });
-export function slugProblem(name: string): string | undefined;
-```
-
-## @robkit/session/input
-
-```ts
-export function allProblems(...reads: unknown[]): InputProblem;
-export type Env = Readonly<Record<string, string | undefined>>;
-export interface InputProblem {
-  readonly error: string;
-}
-export function isDomain(value: string): boolean;
-export function isProblem(value: unknown): value is InputProblem;
-export function isRecord(value: unknown): value is Record<string, unknown>;
-export function parseJson(
-  text: string,
-  source: string,
-):
-  | {
-      json: unknown;
-    }
-  | InputProblem;
-export function readAppSlug(env: Env): Slug | InputProblem;
-export function readCoreUrl(env: Env): string | InputProblem;
-export function readDatabaseUrl(
-  env: Env,
-  name?: string,
-  unsetFix?: string,
-): string | InputProblem;
-export function readDomain(env: Env, fallback?: string): string | InputProblem;
-export function readHost(env: Env): string | InputProblem;
-export function readPort(
-  env: Env,
-  name?: string,
-  fallback?: number,
-): number | InputProblem;
-export function readSet(
-  env: Env,
-  name: string,
-  fix: string,
-): string | InputProblem;
 ```
 
 ## @robkit/session/lapsed
@@ -191,39 +128,4 @@ export function sessionLapsedResponse({
   error,
   location,
 }: SessionLapsed): Response;
-```
-
-## @robkit/session/manifest
-
-```ts
-export interface AppDeclaration {
-  access?: DeclaredAccess;
-  icon?: string;
-}
-export function appDeclarationJson({
-  access,
-  icon,
-}: AppDeclaration): Record<string, unknown>;
-export type DeclaredAccess =
-  | {
-      kind: "open";
-    }
-  | {
-      kind: "owner";
-    }
-  | {
-      kind: "roles";
-      roleNames: string[];
-    };
-export interface DeclaredApp extends AppDeclaration {
-  slug: Slug;
-}
-export function readAppDeclaration(
-  value: unknown,
-  field?: string,
-): AppDeclaration | InputProblem;
-export function readDeclaredApp(
-  value: unknown,
-  field: string,
-): DeclaredApp | InputProblem;
 ```

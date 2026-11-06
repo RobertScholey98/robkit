@@ -1,3 +1,4 @@
+import { isProblem } from "@robkit/input";
 import cases from "../conformance.json" with { type: "json" };
 import {
   readAccessRule,
@@ -57,7 +58,7 @@ function readCase(value: unknown, index: number): ConformanceCase {
   const refuse = (problem: string) => new Error(`${at} (${name}): ${problem}`);
 
   const rule = readAccessRule(field("rule"));
-  if (!rule) {
+  if (isProblem(rule)) {
     throw refuse('rule must be an access rule, such as {"kind": "open"}.');
   }
   const session = oneOf(sessions, field("session"));
@@ -69,8 +70,9 @@ function readCase(value: unknown, index: number): ConformanceCase {
     throw refuse(`outcome must be one of ${outcomes.join(", ")}.`);
   }
   const guestRolesField = field("guestRoles");
-  const guestRoles = readRoleIds(guestRolesField);
-  if (guestRolesField !== undefined && !guestRoles) {
+  const guestRoles =
+    guestRolesField === undefined ? undefined : readRoleIds(guestRolesField);
+  if (isProblem(guestRoles)) {
     throw refuse("guestRoles must be a list of role ids, or left out.");
   }
   const otherToken = field("otherToken");
@@ -93,7 +95,15 @@ function readCase(value: unknown, index: number): ConformanceCase {
 /** The cases in `value`, as conformance.json holds them. Throws on a bad one. */
 export function readConformanceCases(value: unknown): ConformanceCase[] {
   if (!Array.isArray(value)) {
-    throw new Error("conformance.json must be a list of cases.");
+    const holds =
+      value === null
+        ? "null"
+        : typeof value === "object"
+          ? "an object"
+          : `a ${typeof value}`;
+    throw new Error(
+      `conformance.json must be a list of cases, but it holds ${holds}.`,
+    );
   }
   return value.map(readCase);
 }

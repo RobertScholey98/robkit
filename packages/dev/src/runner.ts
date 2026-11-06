@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { install } from "@robkit/session/addresses";
-import { isProblem } from "@robkit/session/input";
+import { isProblem } from "@robkit/input";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { readDevConfig } from "./env.ts";
 import { exec, prefixLines, startProblem } from "./exec.ts";

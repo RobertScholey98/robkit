@@ -6,7 +6,6 @@
 //
 // It also rewrites the install's theme tokens from the CLI's, which the hub,
 // admin and every app read.
-import { spawnSync } from "node:child_process";
 import {
   mkdir,
   mkdtemp,
@@ -18,6 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { CommandProblem, exec, runCommand } from "@robkit/dev/cli";
 import { format } from "prettier";
 import { jsonObject, stringsIn } from "../src/json.ts";
 import { readRobkitRepo } from "../src/robkit-repo.ts";
@@ -37,28 +37,29 @@ const components = [
 /** The CSS shadcn adds that is the kit's own rather than a theme token. */
 const kitImports = ["tailwindcss", "tw-animate-css", "shadcn/tailwind.css"];
 
-if (process.argv.length > 2) throw new Error("Usage: shadcn-kit");
-
 const templates = fileURLToPath(new URL("../templates/", import.meta.url));
 const ui = join(templates, "base", "packages", "ui");
 const { catalog } = await readRobkitRepo();
 
 function version(name: string): string {
   const pinned = catalog.get(name);
-  if (pinned === undefined)
-    throw new Error(`${name} isn't in robkit's catalog`);
+  if (pinned === undefined) {
+    throw new CommandProblem(
+      `${name} isn't in the catalog in robkit's pnpm-workspace.yaml. Add it there, then run shadcn-kit again.`,
+    );
+  }
   return pinned;
 }
 
-function shadcn(cwd: string, args: string[]): void {
-  const command = ["npx", "--yes", `shadcn@${version("shadcn")}`, ...args];
-  // npx is a .cmd on Windows, which only a shell runs. The arguments are
-  // this script's own words, so joining them is safe.
-  const result =
-    process.platform === "win32"
-      ? spawnSync(command.join(" "), { cwd, stdio: "inherit", shell: true })
-      : spawnSync("npx", command.slice(1), { cwd, stdio: "inherit" });
-  if (result.status !== 0) throw new Error(`shadcn ${args.join(" ")} failed`);
+/**
+ * Runs shadcn's CLI in `cwd`. If it fails, the CommandProblem names the
+ * command, the folder and its exit code.
+ */
+async function shadcn(cwd: string, args: string[]): Promise<void> {
+  await exec("npx", ["--yes", `shadcn@${version("shadcn")}`, ...args], {
+    cwd,
+    env: process.env,
+  });
 }
 
 async function formatted(text: string, filepath: string): Promise<string> {
@@ -100,96 +101,111 @@ async function scratchProject(): Promise<string> {
 /** shadcn's @/ imports, as the install's packages/ui names itself. */
 function selfImports(text: string, file: string): string {
   const rewritten = text.replaceAll('"@/', '"@internal/ui/');
-  if (rewritten.includes("@/")) throw new Error(`${file} imports through @/`);
+  if (rewritten.includes("@/")) {
+    throw new CommandProblem(
+      `shadcn's ${file} imports through @/ in a way shadcn-kit can't rewrite. Extend selfImports in scripts/shadcn-kit.ts to cover it.`,
+    );
+  }
   return rewritten;
 }
 
-const dir = await scratchProject();
-try {
-  shadcn(dir, [
-    "init",
-    "--base",
-    "base",
-    "--preset",
-    "nova",
-    "--no-monorepo",
-    "--no-rtl",
-  ]);
-  shadcn(dir, ["add", "--yes", ...components]);
+process.exitCode = await runCommand(async () => {
+  if (process.argv.length > 2) {
+    throw new CommandProblem(
+      "shadcn-kit takes no arguments. Run it as: pnpm --filter create-robkit shadcn-kit",
+    );
+  }
 
-  // The components, as the install's packages/ui holds them.
-  const generated = join(dir, "src", "components", "ui");
-  const target = join(ui, "src", "components", "ui");
-  await rm(target, { recursive: true, force: true });
-  await mkdir(target, { recursive: true });
-  for (const file of await readdir(generated)) {
-    const text = await readFile(join(generated, file), "utf8");
+  const dir = await scratchProject();
+  try {
+    await shadcn(dir, [
+      "init",
+      "--base",
+      "base",
+      "--preset",
+      "nova",
+      "--no-monorepo",
+      "--no-rtl",
+    ]);
+    await shadcn(dir, ["add", "--yes", ...components]);
+
+    // The components, as the install's packages/ui holds them.
+    const generated = join(dir, "src", "components", "ui");
+    const target = join(ui, "src", "components", "ui");
+    await rm(target, { recursive: true, force: true });
+    await mkdir(target, { recursive: true });
+    for (const file of await readdir(generated)) {
+      const text = await readFile(join(generated, file), "utf8");
+      await writeFile(
+        join(target, file),
+        await formatted(selfImports(text, file), file),
+      );
+    }
+    await mkdir(join(ui, "src", "lib"), { recursive: true });
     await writeFile(
-      join(target, file),
-      await formatted(selfImports(text, file), file),
+      join(ui, "src", "lib", "utils.ts"),
+      await formatted(
+        await readFile(join(dir, "src", "lib", "utils.ts"), "utf8"),
+        "utils.ts",
+      ),
     );
-  }
-  await mkdir(join(ui, "src", "lib"), { recursive: true });
-  await writeFile(
-    join(ui, "src", "lib", "utils.ts"),
-    await formatted(
-      await readFile(join(dir, "src", "lib", "utils.ts"), "utf8"),
-      "utils.ts",
-    ),
-  );
 
-  // Where shadcn's CLI writes the components an owner adds later.
-  const config = jsonObject(
-    await readFile(join(dir, "components.json"), "utf8"),
-    "components.json",
-  );
-  config.aliases = Object.fromEntries(
-    Object.entries(stringsIn(config.aliases)).map(([key, alias]) => [
-      key,
-      alias.replace(/^@\//, "@internal/ui/"),
-    ]),
-  );
-  await writeFile(
-    join(ui, "components.json"),
-    await formatted(JSON.stringify(config), "components.json"),
-  );
+    // Where shadcn's CLI writes the components an owner adds later.
+    const config = jsonObject(
+      await readFile(join(dir, "components.json"), "utf8"),
+      "components.json",
+    );
+    config.aliases = Object.fromEntries(
+      Object.entries(stringsIn(config.aliases)).map(([key, alias]) => [
+        key,
+        alias.replace(/^@\//, "@internal/ui/"),
+      ]),
+    );
+    await writeFile(
+      join(ui, "components.json"),
+      await formatted(JSON.stringify(config), "components.json"),
+    );
 
-  // The theme tokens: the rest of shadcn's stylesheet, without the kit's own.
-  const styles = await readFile(join(dir, "src", "styles.css"), "utf8");
-  const tokens = styles
-    .split("\n")
-    .filter((line) => !kitImports.some((name) => line === `@import "${name}";`))
-    .join("\n");
-  const theme = join(templates, "base", "packages", "theme", "theme.css");
-  const header = (await readFile(theme, "utf8")).split("*/")[0] ?? "";
-  await writeFile(
-    theme,
-    await formatted(`${header}*/\n${tokens}`, "theme.css"),
-  );
+    // The theme tokens: the rest of shadcn's stylesheet, without the kit's own.
+    const styles = await readFile(join(dir, "src", "styles.css"), "utf8");
+    const tokens = styles
+      .split("\n")
+      .filter(
+        (line) => !kitImports.some((name) => line === `@import "${name}";`),
+      )
+      .join("\n");
+    const theme = join(templates, "base", "packages", "theme", "theme.css");
+    const header = (await readFile(theme, "utf8")).split("*/")[0] ?? "";
+    await writeFile(
+      theme,
+      await formatted(`${header}*/\n${tokens}`, "theme.css"),
+    );
 
-  // Every dependency shadcn added must be in the kit's manifest and the catalog.
-  const added = Object.keys(
-    stringsIn(
+    // Every dependency shadcn added must be in the kit's manifest and the catalog.
+    const added = Object.keys(
+      stringsIn(
+        jsonObject(
+          await readFile(join(dir, "package.json"), "utf8"),
+          "shadcn's package.json",
+        ).dependencies,
+      ),
+    );
+    const kitDependencies = stringsIn(
       jsonObject(
-        await readFile(join(dir, "package.json"), "utf8"),
-        "shadcn's package.json",
+        await readFile(join(ui, "package.json"), "utf8"),
+        "packages/ui/package.json",
       ).dependencies,
-    ),
-  );
-  const kitDependencies = stringsIn(
-    jsonObject(
-      await readFile(join(ui, "package.json"), "utf8"),
-      "packages/ui/package.json",
-    ).dependencies,
-  );
-  const missing = added.filter(
-    (name) => !(name in kitDependencies) || !catalog.has(name),
-  );
-  if (missing.length > 0) {
-    throw new Error(
-      `Add these to packages/ui/package.json and robkit's catalog: ${missing.join(", ")}`,
     );
+    const missing = added.filter(
+      (name) => !(name in kitDependencies) || !catalog.has(name),
+    );
+    if (missing.length > 0) {
+      throw new CommandProblem(
+        `shadcn added dependencies the kit doesn't list: ${missing.join(", ")}. Add each to packages/ui/package.json and to the catalog in robkit's pnpm-workspace.yaml, then run shadcn-kit again.`,
+      );
+    }
+  } finally {
+    await rm(dir, { recursive: true, force: true });
   }
-} finally {
-  await rm(dir, { recursive: true, force: true });
-}
+  return 0;
+});

@@ -2,7 +2,9 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   loweredThresholds,
+  readCoverage,
   readWorkspaceCoverage,
+  thresholdsBelowCoverage,
   thresholdsIn,
 } from "./coverage-thresholds.ts";
 
@@ -89,5 +91,96 @@ describe("the robkit workspace", () => {
         .filter((p) => !p.coverage || p.thresholds === undefined)
         .map((p) => p.name),
     ).toEqual([]);
+  });
+});
+
+/** One file's Istanbul coverage: statements by the line each starts on. */
+const file = (
+  statements: [line: number, count: number][],
+  functions: number[],
+  branches: number[][],
+) => ({
+  statementMap: Object.fromEntries(
+    statements.map(([line], i) => [String(i), { start: { line } }]),
+  ),
+  s: Object.fromEntries(statements.map(([, count], i) => [String(i), count])),
+  f: Object.fromEntries(functions.map((count, i) => [String(i), count])),
+  b: Object.fromEntries(branches.map((counts, i) => [String(i), counts])),
+});
+
+describe("readCoverage", () => {
+  it("totals every file the way Vitest checks thresholds", () => {
+    const json = {
+      "/a.ts": file(
+        [
+          [1, 1],
+          [2, 0],
+          [2, 3],
+        ],
+        [1, 0],
+        [[1, 0, 2]],
+      ),
+      "/b.ts": file([[1, 0]], [0], [[0, 0]]),
+    };
+    // 2 of 4 statements, 1 of 3 functions, 2 of 5 branches, and 2 of 3
+    // lines: a line counts when any statement on it ran.
+    expect(readCoverage(json, "coverage-final.json")).toEqual({
+      statements: 50,
+      functions: 33.33,
+      branches: 40,
+      lines: 66.66,
+    });
+  });
+
+  it("counts a package with nothing to cover as fully covered", () => {
+    expect(readCoverage({}, "coverage-final.json")).toEqual({
+      statements: 100,
+      functions: 100,
+      branches: 100,
+      lines: 100,
+    });
+  });
+
+  it.each([
+    ["a list", [], "coverage-final.json must be a JSON object."],
+    [
+      "a file without counts",
+      { "/a.ts": { s: {} } },
+      "coverage-final.json has no Istanbul coverage for /a.ts.",
+    ],
+    [
+      "a statement without a line",
+      { "/a.ts": { ...file([], [], []), statementMap: { 0: {} } } },
+      "coverage-final.json has no Istanbul coverage for /a.ts.",
+    ],
+  ])("refuses %s", (_, json, error) => {
+    expect(readCoverage(json, "coverage-final.json")).toEqual({ error });
+  });
+});
+
+describe("thresholdsBelowCoverage", () => {
+  const measured = { statements: 90, branches: 82.5, functions: 80, lines: 92 };
+
+  it("passes thresholds within 2 points of what the tests cover", () => {
+    expect(
+      thresholdsBelowCoverage(
+        "packages/guard/vitest.config.ts",
+        { statements: 88, branches: 82, functions: 80, lines: 92 },
+        measured,
+      ),
+    ).toEqual([]);
+  });
+
+  it("names each threshold more than 2 points under, and what to raise it to", () => {
+    expect(
+      thresholdsBelowCoverage(
+        "packages/guard/vitest.config.ts",
+        { statements: 87, branches: 80 },
+        measured,
+      ),
+    ).toEqual([
+      "packages/guard/vitest.config.ts sets the statements threshold to 87, but its tests cover 90%. Raise it to 90.",
+      "packages/guard/vitest.config.ts sets the branches threshold to 80, but its tests cover 82.5%. Raise it to 82.",
+    ]);
   });
 });

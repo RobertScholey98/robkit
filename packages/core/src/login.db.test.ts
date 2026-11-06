@@ -20,7 +20,7 @@ describe("POST /login", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       state: "signed-in",
-      viewer: {
+      profile: {
         kind: "owner",
         id: expect.any(String) as string,
         username: "rob",
@@ -69,20 +69,19 @@ describe("POST /login", () => {
     });
   });
 
-  it.each([{ username: "rob" }, { password: rob.password }, "rob"])(
-    "refuses %j with 400",
-    async (body) => {
-      const { app } = await freshCore();
-      await claim(app);
+  it.each([
+    [{ username: "rob" }, "Send a username and a password."],
+    [{ password: rob.password }, "Send a username and a password."],
+    ["rob", "Send a JSON object."],
+  ])("refuses %j with 400", async (body, error) => {
+    const { app } = await freshCore();
+    await claim(app);
 
-      const res = await postJson(app, "/login", body);
+    const res = await postJson(app, "/login", body);
 
-      expect(res.status).toBe(400);
-      expect(await res.json()).toEqual({
-        error: "Send a username and a password.",
-      });
-    },
-  );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error });
+  });
 });
 
 describe("POST /login's rate limit", () => {

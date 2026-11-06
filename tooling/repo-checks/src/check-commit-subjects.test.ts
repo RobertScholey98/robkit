@@ -103,4 +103,14 @@ describe("check-commit-subjects", () => {
       output: "",
     });
   });
+
+  it("prints its usage without a message file or a range", () => {
+    for (const args of [[], ["--range"]]) {
+      expect(check(...args)).toEqual({
+        status: 2,
+        output:
+          "Usage: check-commit-subjects.ts <message-file> | --range <base>..<head>\n",
+      });
+    }
+  });
 });

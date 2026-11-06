@@ -1,15 +1,16 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { CommandProblem } from "@robkit/dev/cli";
-import { install, type Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
+import { install } from "@robkit/session/addresses";
 import {
-  call,
-  checks,
-  duration,
-  explain,
-  field,
-  get,
-  text,
-  type Api,
+  callCoolify,
+  whatToCheck,
+  describeDuration,
+  describeFailure,
+  fieldOf,
+  readFromCoolify,
+  stringFieldOf,
+  type CoolifyApi,
   type Coolify,
 } from "./coolify-api.ts";
 import type { CoolifyConfig } from "./coolify-config.ts";
@@ -93,26 +94,27 @@ function findApp(
   const repo = normalizeRepo(String(desired.settings.git_repository));
   const matches = applications.filter(
     (app) =>
-      normalizeRepo(text(app, "git_repository") ?? "") === repo &&
-      text(app, "name") === desired.settings.name,
+      normalizeRepo(stringFieldOf(app, "git_repository") ?? "") === repo &&
+      stringFieldOf(app, "name") === desired.settings.name,
   );
   if (matches.length > 1) {
     throw new CommandProblem(
       `${String(matches.length)} Coolify applications are named ${String(desired.settings.name)}. Delete the extras.`,
     );
   }
-  return text(matches[0], "uuid");
+  return stringFieldOf(matches[0], "uuid");
 }
 
 function pick(list: unknown, name: string, kind: string): string {
   const items: unknown[] = Array.isArray(list) ? list : [];
   const chosen =
-    items.find((item) => text(item, "name") === name) ??
+    items.find((item) => stringFieldOf(item, "name") === name) ??
     (items.length === 1 ? items[0] : undefined);
-  const uuid = text(chosen, "uuid");
+  const uuid = stringFieldOf(chosen, "uuid");
   if (uuid) return uuid;
   const names =
-    items.map((item) => text(item, "name") ?? "?").join(", ") || "none";
+    items.map((item) => stringFieldOf(item, "name") ?? "?").join(", ") ||
+    "none";
   throw new CommandProblem(
     `No Coolify ${kind} named ${name}. Found: ${names}.`,
   );
@@ -128,13 +130,13 @@ type Synced =
  * that the install doesn't name are left alone.
  */
 async function syncApps(
-  api: Api,
+  api: CoolifyApi,
   config: CoolifyConfig,
   desired: Desired[],
 ): Promise<Synced[]> {
   const [projects, servers, githubApps, applications] = await Promise.all(
     ["/projects", "/servers", "/github-apps", "/applications"].map((path) =>
-      get(api, path),
+      readFromCoolify(api, path),
     ),
   );
   const target = {
@@ -149,34 +151,40 @@ async function syncApps(
   for (const app of desired) {
     const found = findApp(existing, app);
     const saved = found
-      ? await call(api, "PATCH", `/applications/${found}`, {
+      ? await callCoolify(api, "PATCH", `/applications/${found}`, {
           body: app.settings,
         })
-      : await call(api, "POST", "/applications/private-github-app", {
+      : await callCoolify(api, "POST", "/applications/private-github-app", {
           body: { ...target, instant_deploy: false, ...app.settings },
         });
-    const uuid = found ?? (saved.ok ? text(saved.body, "uuid") : undefined);
+    const uuid =
+      found ?? (saved.ok ? stringFieldOf(saved.body, "uuid") : undefined);
     if (!saved.ok || !uuid) {
       const failure = saved.ok
-        ? { detail: "Coolify returned no uuid", check: checks.coolify }
+        ? { detail: "Coolify returned no uuid", check: whatToCheck.coolify }
         : saved;
       results.push({
         slug: app.slug,
         action: "failed",
-        detail: `${found ? "updating it" : "creating it"}: ${explain(failure)}`,
+        detail: `${found ? "updating it" : "creating it"}: ${describeFailure(failure)}`,
       });
       continue;
     }
-    const envs = await call(api, "PATCH", `/applications/${uuid}/envs/bulk`, {
-      body: { data: app.envs },
-    });
+    const envs = await callCoolify(
+      api,
+      "PATCH",
+      `/applications/${uuid}/envs/bulk`,
+      {
+        body: { data: app.envs },
+      },
+    );
     results.push(
       envs.ok
         ? { slug: app.slug, action: found ? "synced" : "created", uuid }
         : {
             slug: app.slug,
             action: "failed",
-            detail: `saving its variables: ${explain(envs)}`,
+            detail: `saving its variables: ${describeFailure(envs)}`,
           },
     );
   }
@@ -233,37 +241,40 @@ interface WaitOptions {
  * deadline bounds the whole wait, a request in flight included.
  */
 async function deployAndWait(
-  api: Api,
+  api: CoolifyApi,
   uuid: string,
   { intervalMs, timeoutMs }: WaitOptions,
 ): Promise<{ ok: boolean; detail: string }> {
   const deadline = AbortSignal.timeout(timeoutMs);
-  const queued = await call(
+  const queued = await callCoolify(
     api,
     "POST",
     `/deploy?uuid=${encodeURIComponent(uuid)}`,
     { deadline },
   );
   if (!queued.ok) {
-    return { ok: false, detail: `queueing its deploy: ${explain(queued)}` };
+    return {
+      ok: false,
+      detail: `queueing its deploy: ${describeFailure(queued)}`,
+    };
   }
-  const deployments = field(queued.body, "deployments");
+  const deployments = fieldOf(queued.body, "deployments");
   const first: unknown = Array.isArray(deployments)
     ? deployments[0]
     : undefined;
-  const deployment = text(first, "deployment_uuid");
+  const deployment = stringFieldOf(first, "deployment_uuid");
   // Coolify answers 200 even when it queued nothing.
   if (deployment === undefined) {
     return {
       ok: false,
-      detail: `Coolify queued nothing: ${text(first, "message") ?? JSON.stringify(queued.body)}. ${checks.coolify}`,
+      detail: `Coolify queued nothing: ${stringFieldOf(first, "message") ?? JSON.stringify(queued.body)}. ${whatToCheck.coolify}`,
     };
   }
 
   let last = "queued";
   let misses = 0;
   for (;;) {
-    const result = await call(
+    const result = await callCoolify(
       api,
       "GET",
       `/deployments/${encodeURIComponent(deployment)}`,
@@ -272,20 +283,20 @@ async function deployAndWait(
     if (deadline.aborted) {
       return {
         ok: false,
-        detail: `still ${last} after ${duration(timeoutMs)}. ${checks.deployment}`,
+        detail: `still ${last} after ${describeDuration(timeoutMs)}. ${whatToCheck.deployment}`,
       };
     }
     if (result.ok) {
       misses = 0;
-      last = text(result.body, "status") ?? last;
+      last = stringFieldOf(result.body, "status") ?? last;
       if (last === "finished") return { ok: true, detail: "finished" };
       if (last === "failed" || last === "cancelled-by-user") {
-        return { ok: false, detail: `${last}. ${checks.deployment}` };
+        return { ok: false, detail: `${last}. ${whatToCheck.deployment}` };
       }
     } else if (++misses >= 3) {
       return {
         ok: false,
-        detail: `lost track of ${deployment}: ${explain(result)}`,
+        detail: `lost track of ${deployment}: ${describeFailure(result)}`,
       };
     }
     // The deadline cutting the sleep short ends the wait: the next turn says so.
@@ -329,7 +340,7 @@ export async function deploy({
   timeoutMs = 20 * 60_000,
   requestTimeoutMs = 30_000,
 }: DeployOptions): Promise<boolean> {
-  const api: Api = { coolify, fetch: fetchImpl, requestTimeoutMs };
+  const api: CoolifyApi = { coolify, fetch: fetchImpl, requestTimeoutMs };
   const synced = await syncApps(
     api,
     config,

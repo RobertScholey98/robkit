@@ -34,6 +34,7 @@
   },
   "dependencies": {
     "@robkit/guard": "workspace:*",
+    "@robkit/input": "workspace:*",
     "@robkit/session": "workspace:*",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/test-postgres": "workspace:*",
+    "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@robkit/dev": "workspace:*",
     "@types/node": "catalog:",

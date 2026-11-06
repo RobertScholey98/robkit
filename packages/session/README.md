@@ -10,14 +10,10 @@ An adapter runs `requestGuard` on every request (`packages/hono/src/guarded.ts`)
 
 ```ts
 import { requestGuard } from "@robkit/session";
-import { isProblem } from "@robkit/session/input";
-import { readGuardEnv } from "@robkit/session/app-env";
+import { orExit, readGuardEnv } from "@robkit/input";
 
 // The app's slug and core's address, which pnpm dev and robkit deploy set.
-const options = readGuardEnv(process.env);
-if (isProblem(options)) throw new Error(options.error);
-
-const check = requestGuard(options);
+const check = requestGuard(orExit(readGuardEnv(process.env)));
 
 async function handle(request: Request): Promise<Response> {
   const decision = await check(request);
@@ -43,7 +39,8 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 | Export                                                                                | What it is                                                                                                                         |
 | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `requestGuard(options)`                                                               | A function from `Request` to `{ viewer }` or `{ response }`. Answers `/_robkit/session` and `/_robkit/refresh` itself              |
-| `GuardedOptions`                                                                      | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule, as admin uses                                |
+| `GuardedOptions`                                                                      | `app` (the slug), `core` (core's public origin), an optional fixed `access` rule, as admin uses, and an optional `onUnavailable`   |
+| `GuardFault`, `AccessRuleFailure`                                                     | What `onUnavailable` hears when the guard answers 503: what failed, the cause, and for the access rule how core's answer failed    |
 | `RequestDecision`                                                                     | `requestGuard`'s answer                                                                                                            |
 | `readSessionToken`, `readAppToken`                                                    | Verify core's token or an app token, and read its claims                                                                           |
 | `sessionTokensIn(cookieHeader)`                                                       | The session tokens in a `Cookie` header                                                                                            |
@@ -52,24 +49,19 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 | `SessionTokenClaims`, `ViewerClaims`, `ReadSessionToken`, `ReadAppToken`, `VerifyKey` | Their types                                                                                                                        |
 | `Report`, `reportToConsole`                                                           | The one shape for reporting a fault, `(message, cause?)`, and its default, which prints the message, then the cause with its stack |
 
-`@robkit/session/addresses` imports nothing, so the browser can load it:
+`@robkit/session/addresses` imports only `@robkit/input`, which imports nothing, so the browser can load it. `Slug`, `readSlug` and the platform apps' names are in `@robkit/input`.
 
-| Export                                         | What it is                                                                                                                                 |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `install({ domain, protocol, port })`          | An install's addresses: each app's `host` and `origin`, which take a `Slug`, `onInstall(url)`, `appOf(url)`                                |
-| `installAt(url, app)`                          | The install `url` is on, given that it is `app`'s address                                                                                  |
-| `platformApps`, `isPlatformApp`                | Core, the hub and admin                                                                                                                    |
-| `isLocal(domain)`                              | Whether the domain is `localhost` or under it                                                                                              |
-| `defaultDomain`, `defaultDevPort`              | `robkit.localhost` and `3000`                                                                                                              |
-| `readSlug(value)`, `Slug`, `slugProblem(name)` | A slug: lowercase letters and digits, starting with a letter. `readSlug` returns a `Slug` or an `InputProblem`, and only it makes a `Slug` |
+| Export                                | What it is                                                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `install({ domain, protocol, port })` | An install's addresses: each app's `host` and `origin`, which take a `Slug`, `onInstall(url)`, `appOf(url)` |
+| `installAt(url, app)`                 | The install `url` is on, given that it is `app`'s address                                                   |
+| `isLocal(domain)`                     | Whether the domain is `localhost` or under it                                                               |
+| `defaultDomain`, `defaultDevPort`     | `robkit.localhost` and `3000`                                                                               |
+| `coreInstall(core)`                   | The install core's origin is on. Takes a `CoreOrigin` from `readCoreUrl`                                    |
 
-`@robkit/session/input` holds the readers every package and app use for input from outside robkit's own code (see `docs/conventions/input.md`). Each returns the value or an `InputProblem` naming the variable or file, the key and the fix: `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl`, `readSet` and `parseJson`, with `isProblem`, `allProblems` and `isRecord`.
+The readers for input from outside robkit's own code, an app's environment and the manifest format are in `@robkit/input`.
 
-`@robkit/session/app-env` holds what an app's own server reads from its environment, each read whole: `readServeEnv` (where it listens, `HOST` and `PORT`), `readDevServerEnv` (the port and domain `pnpm dev` hands its Vite dev server) and `readGuardEnv` (its slug and core's origin, for `requestGuard`). The templates call them.
-
-`@robkit/session/manifest` holds the manifest format: what an app declares in its `package.json`'s `robkit` field (`AppDeclaration`, read by `readAppDeclaration` and written by `appDeclarationJson`), and each app as `ROBKIT_APPS` hands it to core (`DeclaredApp`, read by `readDeclaredApp`). A declared access rule names its roles (`DeclaredAccess`), where the guard's takes role ids.
-
-`@robkit/session/lapsed` imports nothing either. It holds the guard's 401 for a call whose token lapsed: `sessionLapsedResponse`, which the guard writes, and `readSessionLapsed`, which `sessionFetch` reads.
+`@robkit/session/lapsed` imports nothing. It holds the guard's 401 for a call whose token lapsed: `sessionLapsedResponse`, which the guard writes, and `readSessionLapsed`, which `sessionFetch` reads.
 
 ## What it must never do
 
@@ -80,17 +72,15 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 
 ## For contributors
 
-- A slug is lowercase letters and digits, starting with a letter. `readSlug` in `@robkit/session/addresses` holds the rule, returns an `InputProblem` for anything else, and is the only maker of the `Slug` brand, which every function that puts a slug into a token, SQL or an address takes.
+- A slug is lowercase letters and digits, starting with a letter. `readSlug` in `@robkit/input` holds the rule, returns an `InputProblem` for anything else, and is the only maker of the `Slug` brand, which every function that puts a slug into a token, SQL or an address takes.
 - No cookie goes on the parent domain.
 - Core's own token has the audience `core` and sits in a host-only cookie on core's host, and core reads no other.
 - Each app, admin included, holds its own app token, with its slug as the audience and no session id, in a host-only cookie on its own host. `requestGuard` takes the slug as `app` and accepts no other token.
 - A page load it holds nothing for goes to core's `/refresh` with a random state, and core sends the browser back to the app's `/_robkit/session` with a token for that app, or none if nobody is signed in.
 - The guard answers that callback, and `/_robkit/refresh`, where a call whose token lapsed sends the browser, itself, so the adapters and the app's code never see them.
 - It fetches core's public key once, so apps verify tokens locally, and keeps an app's access rule from core for a minute.
-- When it can't check a request it answers 503 and tells `onUnavailable` why: what failed (`core-key`, `access-rule` or `network`) and the cause. By default that reports the app, what failed and the cause through `reportToConsole`.
+- When it can't check a request it answers 503 and tells `onUnavailable` why: what failed (`core-key`, `access-rule` or `network`) and the cause. An `access-rule` fault also has a `reason`: `unknown-app`, `bad-answer`, `invalid-json` or `interrupted-body`. By default that reports the app, what failed and the cause through `reportToConsole`.
+- The guard's code is in four files. `request-guard.ts` is the dispatcher: it reads the session, reads the rule, asks `guard` and turns the decision into an answer. `refresh-protocol.ts` holds the trip through core and back, with the state cookie and the app's own cookie, and reads the session from that cookie. `core-access.ts` loads the app's rule, keeps it for a minute, and throws an `AccessRuleError` that says how core's answer failed. `guard-http.ts` holds the helpers for reading the request and writing the answer.
 - `Report` is the one shape for reporting a fault nobody calling can handle. Core's `logError`, the guard's default `onUnavailable` and dev's `runCommand` all report through it (see `docs/conventions/errors.md`).
 - `@robkit/session/lapsed` is the guard's 401 for a call whose session has lapsed, which `sessionFetch` reads. It imports nothing, so the browser can load it.
-- `@robkit/session/input` holds the readers for input from outside robkit's own code: environment variables and JSON. Each returns the value or an `InputProblem`.
-- `@robkit/session/app-env` reads the variables `pnpm dev` and `robkit deploy` set for an app, each set at once, so an app reports every one that won't do.
-- `@robkit/session/manifest` reads and writes what an app declares in its `robkit` field. The dev runner reads it from each app, core reads it from `ROBKIT_APPS`, and `robkit add` writes it.
-- `@robkit/session/addresses` turns an install's domain into its addresses: each app on `<slug>.<domain>`, the platform apps' names, the default domain and dev port, and whether a URL is on the install. Core, the guard, the hub, admin, the dev runner, init and the whole-stack test all take their addresses from it. It imports nothing either.
+- `@robkit/session/addresses` turns an install's domain into its addresses: each app on `<slug>.<domain>`, the default domain and dev port, and whether a URL is on the install. Core, the guard, the hub, admin, the dev runner, init and the whole-stack test all take their addresses from it. It imports only `@robkit/input`.

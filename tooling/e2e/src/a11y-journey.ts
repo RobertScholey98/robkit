@@ -1,4 +1,4 @@
-import type { Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
 import { join } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "playwright";

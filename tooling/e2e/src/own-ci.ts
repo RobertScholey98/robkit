@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { isRecord } from "@robkit/session/input";
+import { isRecord } from "@robkit/input";
 import { parse } from "yaml";
 
 const run = promisify(execFile);
@@ -14,17 +14,16 @@ export interface Step {
 
 /** The `run` steps of the install's own CI workflow, in order. */
 export async function ownCiSteps(dir: string): Promise<Step[]> {
-  const workflow: unknown = parse(
-    await readFile(join(dir, ".github/workflows/ci.yml"), "utf8"),
-  );
+  const path = join(dir, ".github/workflows/ci.yml");
+  const workflow: unknown = parse(await readFile(path, "utf8"));
   const jobs = isRecord(workflow) ? workflow.jobs : undefined;
   if (!isRecord(jobs)) {
-    throw new Error("The install's ci.yml has no jobs.");
+    throw new Error(`${path} has no jobs.`);
   }
-  return Object.values(jobs).flatMap((job) => {
+  return Object.entries(jobs).flatMap(([name, job]) => {
     const steps = isRecord(job) ? job.steps : undefined;
     if (!Array.isArray(steps)) {
-      throw new Error("Each job in the install's ci.yml needs its steps.");
+      throw new Error(`${path}'s job ${name} has no steps.`);
     }
     return steps.flatMap((step): Step[] => {
       const run = isRecord(step) ? step.run : undefined;

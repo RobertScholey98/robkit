@@ -20,7 +20,7 @@ describe("POST /setup", () => {
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({
       state: "signed-in",
-      viewer: {
+      profile: {
         kind: "owner",
         id: expect.stringMatching(uuid) as string,
         username: "rob",
@@ -59,7 +59,7 @@ describe("POST /setup", () => {
     const { app } = await freshCore();
 
     const res = await postJson(app, "/setup", rob);
-    const { viewer } = (await res.json()) as { viewer: { id: string } };
+    const { profile } = (await res.json()) as { profile: { id: string } };
     const jwks = (await (
       await app.request("/.well-known/jwks.json")
     ).json()) as JSONWebKeySet;
@@ -71,7 +71,7 @@ describe("POST /setup", () => {
 
     expect(protectedHeader).toEqual({ alg: "EdDSA", kid: jwks.keys[0]?.kid });
     expect(payload).toEqual({
-      sub: viewer.id,
+      sub: profile.id,
       aud: "core",
       sid: expect.stringMatching(uuid) as string,
       kind: "owner",
@@ -115,7 +115,6 @@ describe("POST /setup", () => {
       { username: 7, password: rob.password },
       "Send a username and a password.",
     ],
-    [null, "Send a username and a password."],
   ])("refuses %j with 400", async (body, error) => {
     const { app } = await freshCore();
 
@@ -207,6 +206,18 @@ describe("POST bodies", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Send a valid JSON body." });
   });
+
+  it.each([[[rob]], ["rob"], [null], [7]])(
+    "refuses JSON that isn't an object, such as %j, with 400",
+    async (body) => {
+      const { app } = await freshCore();
+
+      const res = await postJson(app, "/setup", body);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Send a JSON object." });
+    },
+  );
 
   it("refuses a body over 16 KiB with 413, and takes one just under", async () => {
     const { app } = await freshCore();

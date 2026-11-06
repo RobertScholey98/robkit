@@ -14,7 +14,40 @@ const readName = (body: unknown) =>
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
+
+/**
+ * A `fetch` whose answer's headers arrive at once but whose body sends
+ * `start` and then stalls, until the call's signal gives up on it.
+ */
+const stalledBody =
+  (start: string): typeof fetch =>
+  (_, init) => {
+    const signal = init?.signal;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(start));
+        signal?.addEventListener("abort", () => {
+          controller.error(signal.reason);
+        });
+      },
+    });
+    return Promise.resolve(
+      new Response(body, { headers: { "content-type": "application/json" } }),
+    );
+  };
+
+/** Stands in for the call's deadline, so a test can pass it at once. */
+function deadline(): () => void {
+  const controller = new AbortController();
+  vi.spyOn(AbortSignal, "timeout").mockReturnValue(controller.signal);
+  return () => {
+    controller.abort(
+      new DOMException("The operation timed out.", "TimeoutError"),
+    );
+  };
+}
 
 describe("callCore", () => {
   it("reads core's answer to a GET", async () => {
@@ -159,5 +192,78 @@ describe("callCore", () => {
         "Core at https://core.example.com didn't answer in 10 seconds. Try again.",
     });
     expect(signals[0]).toBeInstanceOf(AbortSignal);
+  });
+
+  it("gives up on core when its answer starts but never finishes", async () => {
+    const pass = deadline();
+    vi.stubGlobal("fetch", stalledBody('{"name": "Gr'));
+
+    const calling = callCore(core, "GET", "/me", { read: readName });
+    pass();
+
+    expect(await calling).toEqual({
+      ok: false,
+      error:
+        "Core at https://core.example.com didn't answer in 10 seconds. Try again.",
+    });
+  });
+
+  it("says when core's answer breaks off", async () => {
+    vi.stubGlobal("fetch", () =>
+      Promise.resolve(
+        new Response(
+          new ReadableStream({
+            pull(controller) {
+              controller.error(new TypeError("network error"));
+            },
+          }),
+        ),
+      ),
+    );
+
+    expect(await callCore(core, "GET", "/me", { read: readName })).toEqual({
+      ok: false,
+      error: "Couldn't reach core at https://core.example.com.",
+    });
+  });
+
+  it("tells report what went wrong underneath", async () => {
+    const pass = deadline();
+    vi.stubGlobal("fetch", stalledBody("{"));
+    const reported: unknown[][] = [];
+
+    const calling = callCore(core, "GET", "/me", {
+      read: readName,
+      report: (message, cause) => reported.push([message, cause]),
+    });
+    pass();
+    await calling;
+
+    expect(reported).toEqual([
+      [
+        "Core at https://core.example.com didn't answer GET /me in 10 seconds.",
+        new DOMException("The operation timed out.", "TimeoutError"),
+      ],
+    ]);
+  });
+
+  it("tells report when core's answer isn't JSON", async () => {
+    vi.stubGlobal(
+      "fetch",
+      fakeCore(core, { "GET /me": () => new Response("<html>") }),
+    );
+    const reported: unknown[][] = [];
+
+    await callCore(core, "GET", "/me", {
+      read: readName,
+      report: (message, cause) => reported.push([message, cause]),
+    });
+
+    expect(reported).toEqual([
+      [
+        "Core at https://core.example.com answered GET /me with something that isn't JSON.",
+        expect.any(SyntaxError),
+      ],
+    ]);
   });
 });

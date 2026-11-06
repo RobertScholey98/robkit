@@ -1,5 +1,4 @@
-import { isProblem } from "@robkit/session/input";
-import { readGuardEnv } from "@robkit/session/app-env";
+import { orExit, readGuardEnv } from "@robkit/input";
 import { guarded, type GuardedContext } from "@robkit/start";
 import entry from "@tanstack/react-start/server-entry";
 
@@ -11,8 +10,7 @@ declare module "@tanstack/react-start" {
 }
 
 // The app's slug and core's address, which pnpm dev and robkit deploy set.
-const guard = readGuardEnv(process.env);
-if (isProblem(guard)) throw new Error(guard.error);
+const guard = orExit(readGuardEnv(process.env));
 
 // The rule is the one the owner set for this app in admin.
 export default guarded(entry, guard);

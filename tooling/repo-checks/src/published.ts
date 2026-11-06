@@ -11,7 +11,7 @@ import {
 import { problemKindInfo } from "@arethetypeswrong/core/problems";
 import { publint, type Message } from "publint";
 import { formatMessage } from "publint/utils";
-import { isProblem, parseJson } from "@robkit/session/input";
+import { isProblem, orThrow, parseJson } from "@robkit/input";
 import { readJsonFile, readManifest, readNamedManifest } from "./manifest.ts";
 
 const run = promisify(execFile);
@@ -62,10 +62,11 @@ export async function pack(dir: string): Promise<Packed> {
       { cwd: out },
     );
     const parsed = parseJson(manifest, `${dir}'s packed package.json`);
-    const json = isProblem(parsed)
-      ? parsed
-      : readNamedManifest(parsed.json, `${dir}'s packed package.json`);
-    if (isProblem(json)) throw new Error(json.error);
+    const json = orThrow(
+      isProblem(parsed)
+        ? parsed
+        : readNamedManifest(parsed.json, `${dir}'s packed package.json`),
+    );
     const targets = [
       ...Object.values(json.exports ?? {}).flatMap((target) =>
         typeof target === "string" ? [target] : Object.values(target),

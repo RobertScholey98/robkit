@@ -11,11 +11,11 @@ import {
   testTag,
 } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
+import type { Slug } from "@robkit/input";
 import {
   defaultDomain,
   install,
   type Install,
-  type Slug,
 } from "@robkit/session/addresses";
 import type { Choices } from "create-robkit";
 import {
@@ -271,7 +271,7 @@ export function describeJourneys(
       const signedIn: unknown = JSON.parse(setup.body);
       expect(signedIn).toMatchObject({
         state: "signed-in",
-        viewer: { kind: "owner", username: "rob" },
+        profile: { kind: "owner", username: "rob" },
       });
       // The session core reads back is the one setup started.
       expect(JSON.parse(after.body)).toEqual(signedIn);
@@ -476,7 +476,7 @@ export function describeJourneys(
     // Last, since it stops the stack.
     it("stops every app and Postgres on Ctrl-C", async () => {
       const apps = await discoverApps(dir, devPort + 1);
-      if (!dev.pid) throw new Error("dev never started");
+      if (!dev.pid) throw new Error(`pnpm dev never started in ${dir}.`);
 
       process.kill(-dev.pid, "SIGINT");
       const [code] = (await once(dev, "exit")) as [number | null];

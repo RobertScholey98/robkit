@@ -1,4 +1,4 @@
-import { isProblem, type InputProblem } from "@robkit/session/input";
+import { type InputProblem, isProblem } from "@robkit/input";
 import { readCodeId, type CodeId, type RoleId } from "@robkit/guard";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid, testCode } from "./access-codes.ts";
@@ -28,7 +28,7 @@ export function readCodeIds(
   const read: CodeId[] = [];
   for (const value of codeIds) {
     const id = readCodeId(value);
-    if (id === undefined) return problem;
+    if (isProblem(id)) return problem;
     read.push(id);
   }
   return { codeIds: read };
@@ -53,18 +53,34 @@ export type RoleCreation =
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-export async function listRoles(db: Database): Promise<RoleView[]> {
-  const [rows, holders] = await Promise.all([
-    db.select().from(roles).orderBy(asc(roles.name)),
-    db.select().from(codeRoles),
-  ]);
+/** A code holding a role, as `code_roles` stores it. */
+export interface Membership {
+  roleId: RoleId;
+  codeId: CodeId;
+}
+
+/**
+ * Each role with the codes that hold it, in the roles' order. It indexes
+ * the memberships by role once, so it reads each membership once.
+ */
+export function roleViews(
+  rows: readonly { id: RoleId; name: string }[],
+  memberships: readonly Membership[],
+): RoleView[] {
+  const byRole = Map.groupBy(memberships, (membership) => membership.roleId);
   return rows.map(({ id, name }) => ({
     id,
     name,
-    codeIds: holders
-      .filter((holder) => holder.roleId === id)
-      .map((holder) => holder.codeId),
+    codeIds: (byRole.get(id) ?? []).map((membership) => membership.codeId),
   }));
+}
+
+export async function listRoles(db: Database): Promise<RoleView[]> {
+  const [rows, memberships] = await Promise.all([
+    db.select().from(roles).orderBy(asc(roles.name)),
+    db.select().from(codeRoles),
+  ]);
+  return roleViews(rows, memberships);
 }
 
 /** Each code id once, if every one names a code that exists. */

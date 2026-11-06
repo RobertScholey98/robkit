@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { freePort, removeWhenGone } from "@internal/test-postgres";
-import { install, type Install, type Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
+import { install, type Install } from "@robkit/session/addresses";
 import { deploymentOf } from "create-robkit";
 
 const run = promisify(execFile);

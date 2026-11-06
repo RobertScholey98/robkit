@@ -1,15 +1,11 @@
 import { fileURLToPath } from "node:url";
-import { isProblem, readDatabaseUrl } from "@robkit/session/input";
+import { orExit, readDatabaseUrl } from "@robkit/input";
 import { sql } from "drizzle-orm";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-const databaseUrl = readDatabaseUrl(process.env);
-if (isProblem(databaseUrl)) {
-  console.error(databaseUrl.error);
-  process.exit(1);
-}
+const databaseUrl = orExit(readDatabaseUrl(process.env));
 
 const migrations = readMigrationFiles({
   migrationsFolder: fileURLToPath(new URL("../drizzle", import.meta.url)),

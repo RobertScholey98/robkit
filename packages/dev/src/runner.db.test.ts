@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { reportFaultsAt } from "./run-command.ts";
 
 const run = promisify(execFile);
-const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
+const bin = fileURLToPath(new URL("robkit-dev-command.ts", import.meta.url));
 const fixture = fileURLToPath(new URL("test/fixture-install", import.meta.url));
 
 interface Dev {
@@ -257,7 +257,10 @@ describe("robkit-dev", () => {
   });
 
   it("stops everything and fails when an app exits", async () => {
-    const dev = await startDev({ FIXTURE_CRASH: "beta" });
+    const dev = await startDev({
+      FIXTURE_CRASH: "beta",
+      FIXTURE_SLOW_START: "alpha",
+    });
 
     expect(await exitCode(dev.child)).not.toBe(0);
     expect(await startedApps(dev.root)).toEqual(["alpha", "beta"]);

@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { Linter } from "eslint";
 import globals from "globals";
 import { describe, expect, it } from "vitest";
-import layer, { coreRows, repoRoot } from "./layers.js";
+import layer, { coreRows, reachesOutside, repoRoot } from "./layers.js";
 
 /**
  * Lints `code` as `src/index.ts` in `workspace`.
@@ -33,6 +33,7 @@ const offCore = (name) =>
   `Layer rule: ${name} never imports @robkit/core. Code reaches core over HTTP only.`;
 const adapters = offCore("@robkit/hono");
 const noIo = "Layer rule: @robkit/guard does no I/O.";
+const inputNoIo = "Layer rule: @robkit/input does no I/O.";
 
 describe("coreRows", () => {
   it("keeps every package the graph doesn't let take core off it", () => {
@@ -109,8 +110,28 @@ describe("the layer rule", () => {
   });
 
   it.each([
+    ["packages/guard", "../../session/src/input.ts"],
+    ["packages/hono", "../../../tooling/test-session/src/index.ts"],
+    ["tooling/test-session", "../../../packages/guard/src/guard.ts"],
+    ["tooling/e2e", "../../../package.json"],
+  ])(
+    "catches a relative import out of %s, with graph-check's message",
+    (workspace, specifier) => {
+      expect(lint(workspace, `import "${specifier}";`)).toEqual([
+        `Layer rule: this import ${reachesOutside(workspace, specifier)}`,
+      ]);
+    },
+  );
+
+  it("lets a relative import stay inside its workspace", () => {
+    expect(lint("packages/guard", 'import "../package.json";')).toEqual([]);
+    expect(lint("packages/guard", 'import "./test/slug.ts";')).toEqual([]);
+  });
+
+  it.each([
     ["packages/session", "@robkit/session"],
     ["packages/guard", "@robkit/guard"],
+    ["packages/input", "@robkit/input"],
   ])("keeps frameworks out of %s", (workspace, name) => {
     const message = `Layer rule: ${name} imports no framework.`;
     for (const framework of [
@@ -142,15 +163,17 @@ describe("the layer rule", () => {
     'await import("node:fs/promises");',
     'import "child_process";',
     'import "node:test";',
-  ])("keeps `%s` out of @robkit/guard", (code) => {
+  ])("keeps `%s` out of @robkit/guard and @robkit/input", (code) => {
     expect(lint("packages/guard", code)).toEqual([noIo]);
+    expect(lint("packages/input", code)).toEqual([inputNoIo]);
     expect(lint("packages/dev", code)).toEqual([]);
   });
 
   it.each(["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "process"])(
-    "keeps the %s global out of @robkit/guard",
+    "keeps the %s global out of @robkit/guard and @robkit/input",
     (name) => {
       expect(lint("packages/guard", `${name};`)).toEqual([noIo]);
+      expect(lint("packages/input", `${name};`)).toEqual([inputNoIo]);
       expect(lint("packages/dev", `${name};`)).toEqual([]);
     },
   );

@@ -308,6 +308,7 @@ describe("the robkit workspace", () => {
       "@robkit/dev -> @robkit/core",
       "@robkit/guard -> @robkit/core",
       "@robkit/hono -> @robkit/core",
+      "@robkit/input -> @robkit/core",
       "@robkit/react -> @robkit/core",
       "@robkit/session -> @robkit/core",
       "@robkit/start -> @robkit/core",

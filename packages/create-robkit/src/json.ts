@@ -1,16 +1,18 @@
-import { isProblem, isRecord, parseJson } from "@robkit/session/input";
+import { isRecord, orThrow, parseJson } from "@robkit/input";
 
-/** `text` as a JSON object. Throws, naming `source`, if it isn't one. */
+/**
+ * `text` as a JSON object. Throws, naming `source`, if it isn't one. It
+ * reads files robkit ships, such as its templates, so a bad one is a fault
+ * in robkit. Read a file the person owns with `parseJson`, and throw its
+ * problem as a CommandProblem.
+ */
 export function jsonObject(
   text: string,
   source: string,
 ): Record<string, unknown> {
-  const parsed = parseJson(text, source);
-  if (isProblem(parsed)) throw new Error(parsed.error);
-  if (!isRecord(parsed.json)) {
-    throw new Error(`${source} must be a JSON object.`);
-  }
-  return parsed.json;
+  const { json } = orThrow(parseJson(text, source));
+  if (!isRecord(json)) throw new Error(`${source} must be a JSON object.`);
+  return json;
 }
 
 /**

@@ -1,7 +1,7 @@
 import { glob, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse } from "yaml";
-import { isRecord } from "@robkit/session/input";
+import { isRecord } from "@robkit/input";
 import { isStrings, readJsonFile, readManifest } from "./manifest.ts";
 
 const checkedFields = [
@@ -89,14 +89,13 @@ export function findUnusedCatalogEntries(
 export async function readCatalog(
   root: string,
 ): Promise<Readonly<Record<string, string>>> {
-  const workspace: unknown = parse(
-    await readFile(join(root, "pnpm-workspace.yaml"), "utf8"),
-  );
+  const path = join(root, "pnpm-workspace.yaml");
+  const workspace: unknown = parse(await readFile(path, "utf8"));
   const catalog = isRecord(workspace) ? workspace.catalog : undefined;
   if (catalog === undefined) return {};
   if (!isStrings(catalog)) {
     throw new Error(
-      "pnpm-workspace.yaml's catalog must map each package to a version.",
+      `${path}'s catalog must map each package to a version, such as typescript: 6.0.3.`,
     );
   }
   return catalog;

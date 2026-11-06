@@ -9,14 +9,22 @@ const oneProblemType = [
     selector:
       "TSTypeLiteral[members.length=1] > TSPropertySignature[key.name='error'][optional!=true] > TSTypeAnnotation > TSStringKeyword",
     message:
-      "A failed read is an InputProblem from @robkit/session/input, not a { error: string } of its own.",
+      "A failed read is an InputProblem from @robkit/input, not a { error: string } of its own.",
   },
   {
     selector: "BinaryExpression[operator='in'][left.value='error']",
-    message:
-      'Check a read with isProblem from @robkit/session/input, not "error" in.',
+    message: 'Check a read with isProblem from @robkit/input, not "error" in.',
   },
 ];
+
+// A problem the person can fix isn't a fault, so outside tests it isn't
+// thrown as a plain Error.
+const thrownProblem = {
+  selector:
+    "ThrowStatement > NewExpression[callee.name='Error'][arguments.0.type='MemberExpression'][arguments.0.property.name='error']",
+  message:
+    "A problem the person can fix isn't a fault. End a server with orExit from @robkit/input, or use orThrow where nothing better fits.",
+};
 
 // Parsed JSON is any, which no-unsafe-type-assertion lets a cast through.
 const parsedJson =
@@ -53,7 +61,12 @@ export default defineConfig(
     ignores: ["**/*.test.ts", "**/*.test.tsx", "**/test/**"],
     rules: {
       "@typescript-eslint/no-unsafe-type-assertion": "error",
-      "no-restricted-syntax": ["error", ...oneProblemType, jsonCast],
+      "no-restricted-syntax": [
+        "error",
+        ...oneProblemType,
+        thrownProblem,
+        jsonCast,
+      ],
     },
   },
   {

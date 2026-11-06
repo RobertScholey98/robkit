@@ -1,5 +1,5 @@
 import { CommandProblem } from "@robkit/dev/cli";
-import { isRecord } from "@robkit/session/input";
+import { isRecord } from "@robkit/input";
 
 // The Coolify API as robkit deploy calls it: one request with its deadline,
 // and what to check when Coolify, or something in front of it, refuses.
@@ -14,7 +14,7 @@ export interface Coolify {
 }
 
 /** Coolify's API as one deploy reaches it. */
-export interface Api {
+export interface CoolifyApi {
   coolify: Coolify;
   fetch: typeof fetch;
   /** How long one request may take before the deploy gives up on it. */
@@ -22,10 +22,10 @@ export interface Api {
 }
 
 /** A call's answer, or what went wrong and what to check. */
-type Called =
+type CoolifyAnswer =
   { ok: true; body: unknown } | { ok: false; detail: string; check: string };
 
-export const checks = {
+export const whatToCheck = {
   reach: "Check COOLIFY_URL and that Coolify is up.",
   token: "Check COOLIFY_TOKEN, and that it may deploy.",
   access:
@@ -36,29 +36,32 @@ export const checks = {
 } as const;
 
 /** What to check when Coolify answers `status`. */
-function checkFor(status: number): string {
-  if (status >= 300 && status < 400) return checks.access;
-  if (status === 401 || status === 403) return checks.token;
-  return checks.coolify;
+function checkForStatus(status: number): string {
+  if (status >= 300 && status < 400) return whatToCheck.access;
+  if (status === 401 || status === 403) return whatToCheck.token;
+  return whatToCheck.coolify;
 }
 
 /** A failed call as one sentence and what to check. */
-export function explain(called: { detail: string; check: string }): string {
+export function describeFailure(called: {
+  detail: string;
+  check: string;
+}): string {
   return `${called.detail}. ${called.check}`;
 }
 
-export function duration(ms: number): string {
+export function describeDuration(ms: number): string {
   if (ms < 1000) return `${String(ms)} ms`;
   if (ms < 60_000) return `${String(Math.round(ms / 1000))} seconds`;
   return `${String(Math.round(ms / 60_000))} minutes`;
 }
 
-export function field(value: unknown, key: string): unknown {
+export function fieldOf(value: unknown, key: string): unknown {
   return isRecord(value) ? value[key] : undefined;
 }
 
-export function text(value: unknown, key: string): string | undefined {
-  const found = field(value, key);
+export function stringFieldOf(value: unknown, key: string): string | undefined {
+  const found = fieldOf(value, key);
   return typeof found === "string" ? found : undefined;
 }
 
@@ -74,12 +77,12 @@ function describeError(error: unknown): string {
  * Each call gives up after `api.requestTimeoutMs`, or when `deadline`
  * aborts, whichever comes first.
  */
-export async function call(
-  api: Api,
+export async function callCoolify(
+  api: CoolifyApi,
   method: string,
   path: string,
   { body, deadline }: { body?: unknown; deadline?: AbortSignal } = {},
-): Promise<Called> {
+): Promise<CoolifyAnswer> {
   const { coolify } = api;
   const base = coolify.url.replace(/\/+$/, "");
   const timeout = AbortSignal.timeout(api.requestTimeoutMs);
@@ -105,7 +108,7 @@ export async function call(
       return {
         ok: false,
         detail: `HTTP ${String(response.status)} ${raw}`,
-        check: checkFor(response.status),
+        check: checkForStatus(response.status),
       };
     }
     try {
@@ -117,22 +120,25 @@ export async function call(
       return {
         ok: false,
         detail: `HTTP ${String(response.status)} with a body that isn't JSON`,
-        check: checks.page,
+        check: whatToCheck.page,
       };
     }
   } catch (error) {
     const detail = timeout.aborted
-      ? `no answer in ${duration(api.requestTimeoutMs)}`
+      ? `no answer in ${describeDuration(api.requestTimeoutMs)}`
       : describeError(error);
-    return { ok: false, detail, check: checks.reach };
+    return { ok: false, detail, check: whatToCheck.reach };
   }
 }
 
-export async function get(api: Api, path: string): Promise<unknown> {
-  const result = await call(api, "GET", path);
+export async function readFromCoolify(
+  api: CoolifyApi,
+  path: string,
+): Promise<unknown> {
+  const result = await callCoolify(api, "GET", path);
   if (!result.ok) {
     throw new CommandProblem(
-      `Couldn't read Coolify's ${path.slice(1)}: ${explain(result)}`,
+      `Couldn't read Coolify's ${path.slice(1)}: ${describeFailure(result)}`,
     );
   }
   return result.body;

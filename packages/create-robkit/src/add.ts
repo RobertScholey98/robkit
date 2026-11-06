@@ -3,18 +3,16 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import {
+  type DeclaredAccess,
+  type InputProblem,
   isPlatformApp,
-  platformApps,
-  readSlug,
-  type Slug,
-} from "@robkit/session/addresses";
-import {
   isProblem,
   isRecord,
   parseJson,
-  type InputProblem,
-} from "@robkit/session/input";
-import type { DeclaredAccess } from "@robkit/session/manifest";
+  platformApps,
+  readSlug,
+  type Slug,
+} from "@robkit/input";
 import { readChoices, type Choices, type Stack } from "./choices.ts";
 import { appFiles, readFolder, stackTemplate, type Files } from "./generate.ts";
 import { writeInstall } from "./write.ts";

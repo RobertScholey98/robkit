@@ -8,7 +8,7 @@ import { defaultChoices } from "./choices.ts";
 import { init } from "./init.ts";
 import { drive } from "./test/drive.ts";
 
-const bin = fileURLToPath(new URL("robkit.ts", import.meta.url));
+const bin = fileURLToPath(new URL("robkit-command.ts", import.meta.url));
 
 const otherApp =
   "Layer rule: an app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.";

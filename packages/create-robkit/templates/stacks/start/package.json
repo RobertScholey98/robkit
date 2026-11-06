@@ -12,7 +12,7 @@
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@internal/ui": "workspace:*",
-    "@robkit/session": "catalog:",
+    "@robkit/input": "catalog:",
     "@robkit/react": "catalog:",
     "@robkit/start": "catalog:",
     "@tanstack/react-router": "catalog:",

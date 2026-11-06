@@ -1,3 +1,4 @@
+import { orThrow } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { conformanceCases, type ConformanceCase } from "./conformance.ts";
 import {
@@ -6,10 +7,13 @@ import {
   readCodeId,
   readRoleId,
   readRoleIds,
-  type CodeId,
   type SessionState,
   type Viewer,
 } from "./index.ts";
+
+// The guard's own reader makes the test guest's code id. @internal/test-session
+// has builders for the packages above the guard, but it depends on the guard.
+const guestId = orThrow(readCodeId("code-1"));
 
 function viewerOf({
   session,
@@ -24,7 +28,7 @@ function viewerOf({
     case "owner":
       return { kind: "owner", id: "owner-1" };
     case "guest":
-      return { kind: "guest", id: "code-1" as CodeId, roles: guestRoles };
+      return { kind: "guest", id: guestId, roles: guestRoles };
   }
 }
 
@@ -88,7 +92,9 @@ describe("readAccessRule", () => {
     { kind: "roles", roles: ["role-1", 2] },
     { kind: "roles", roles: ["role-1", ""] },
   ])("refuses %j", (value) => {
-    expect(readAccessRule(value)).toBeUndefined();
+    expect(readAccessRule(value)).toEqual({
+      error: `${JSON.stringify(value)} isn't an access rule. Use {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": [...]} listing role ids.`,
+    });
   });
 });
 
@@ -100,15 +106,30 @@ describe("the id readers", () => {
     expect(readRoleIds([])).toEqual([]);
   });
 
-  it.each([undefined, null, "", 1, ["role-1"], {}])("refuse %j", (value) => {
-    expect(readRoleId(value)).toBeUndefined();
-    expect(readCodeId(value)).toBeUndefined();
+  it.each([
+    [undefined, "Nothing"],
+    [null, "null"],
+    ["", '""'],
+    [1, "1"],
+    [["role-1"], '["role-1"]'],
+    [{}, "{}"],
+  ])("refuse %j", (value, shown) => {
+    expect(readRoleId(value)).toEqual({
+      error: `${shown} isn't a role's id, which is text that isn't empty.`,
+    });
+    expect(readCodeId(value)).toEqual({
+      error: `${shown} isn't an access code's id, which is text that isn't empty.`,
+    });
   });
 
-  it.each([undefined, "role-1", ["role-1", 2], [""]])(
-    "refuse %j as a list of role ids",
-    (value) => {
-      expect(readRoleIds(value)).toBeUndefined();
-    },
-  );
+  it.each([
+    [undefined, "Nothing"],
+    ["role-1", '"role-1"'],
+    [["role-1", 2], '["role-1",2]'],
+    [[""], '[""]'],
+  ])("refuse %j as a list of role ids", (value, shown) => {
+    expect(readRoleIds(value)).toEqual({
+      error: `${shown} isn't a list of role ids, each text that isn't empty.`,
+    });
+  });
 });

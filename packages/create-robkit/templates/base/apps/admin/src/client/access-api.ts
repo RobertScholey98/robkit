@@ -5,6 +5,7 @@ import {
   type RoleId,
 } from "@robkit/guard";
 import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
+import { isProblem } from "@robkit/input";
 
 export type { AccessRule, RoleId };
 
@@ -57,7 +58,13 @@ export function setAccess(
   access: AccessRule,
 ): Promise<Result<AccessRule>> {
   const path = `/apps/${encodeURIComponent(slug)}/access`;
-  return callCore(core, "POST", path, { body: access, read: readAccessRule });
+  return callCore(core, "POST", path, { body: access, read: accessIn });
+}
+
+/** The access rule in `body`, if it holds one. */
+function accessIn(body: unknown): AccessRule | undefined {
+  const access = readAccessRule(body);
+  return isProblem(access) ? undefined : access;
 }
 
 function readRole(body: unknown): Role | undefined {
@@ -67,7 +74,7 @@ function readRole(body: unknown): Role | undefined {
   const ids = listOf(codeIds, (id) =>
     typeof id === "string" ? id : undefined,
   );
-  return id !== undefined && typeof name === "string" && ids
+  return !isProblem(id) && typeof name === "string" && ids
     ? { id, name, codeIds: ids }
     : undefined;
 }
@@ -75,7 +82,7 @@ function readRole(body: unknown): Role | undefined {
 function readApp(body: unknown): App | undefined {
   if (!isRecord(body)) return undefined;
   const { slug, name } = body;
-  const access = readAccessRule(body.access);
+  const access = accessIn(body.access);
   return typeof slug === "string" && typeof name === "string" && access
     ? { slug, name, access }
     : undefined;

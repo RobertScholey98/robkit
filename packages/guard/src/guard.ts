@@ -1,3 +1,5 @@
+import { isProblem, isRecord, type InputProblem } from "@robkit/input";
+
 declare const roleIdBrand: unique symbol;
 declare const codeIdBrand: unique symbol;
 
@@ -21,23 +23,37 @@ function isCodeId(value: unknown): value is CodeId {
   return typeof value === "string" && value !== "";
 }
 
+/** `value` as a problem shows it. */
+function shown(value: unknown): string {
+  return value === undefined ? "Nothing" : JSON.stringify(value);
+}
+
 /** `value` as a role id, if it is a string that isn't empty. */
-export function readRoleId(value: unknown): RoleId | undefined {
-  return isRoleId(value) ? value : undefined;
+export function readRoleId(value: unknown): RoleId | InputProblem {
+  if (isRoleId(value)) return value;
+  return {
+    error: `${shown(value)} isn't a role's id, which is text that isn't empty.`,
+  };
 }
 
 /** `value` as a code id, if it is a string that isn't empty. */
-export function readCodeId(value: unknown): CodeId | undefined {
-  return isCodeId(value) ? value : undefined;
+export function readCodeId(value: unknown): CodeId | InputProblem {
+  if (isCodeId(value)) return value;
+  return {
+    error: `${shown(value)} isn't an access code's id, which is text that isn't empty.`,
+  };
 }
 
-/** `value` as a list of role ids, or undefined if it isn't one. */
-export function readRoleIds(value: unknown): RoleId[] | undefined {
-  if (!Array.isArray(value)) return undefined;
+/** `value` as a list of role ids. */
+export function readRoleIds(value: unknown): RoleId[] | InputProblem {
+  const problem = {
+    error: `${shown(value)} isn't a list of role ids, each text that isn't empty.`,
+  };
+  if (!Array.isArray(value)) return problem;
   const roles: RoleId[] = [];
   for (const item of value) {
     const role = readRoleId(item);
-    if (role === undefined) return undefined;
+    if (isProblem(role)) return problem;
     roles.push(role);
   }
   return roles;
@@ -139,12 +155,14 @@ export function guard(rule: AccessRule, session: SessionState): Decision {
   };
 }
 
-/** Reads an access rule sent as JSON, or undefined if it isn't one. */
-export function readAccessRule(value: unknown): AccessRule | undefined {
-  if (typeof value !== "object" || value === null) return undefined;
-  const kind = "kind" in value ? value.kind : undefined;
-  const roles = "roles" in value ? value.roles : undefined;
+/** Reads an access rule sent as JSON. */
+export function readAccessRule(value: unknown): AccessRule | InputProblem {
+  const problem = {
+    error: `${shown(value)} isn't an access rule. Use {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": [...]} listing role ids.`,
+  };
+  if (!isRecord(value)) return problem;
+  const { kind } = value;
   if (kind === "open" || kind === "owner") return { kind };
-  const roleIds = readRoleIds(roles);
-  return kind === "roles" && roleIds ? { kind, roles: roleIds } : undefined;
+  const roles = readRoleIds(value.roles);
+  return kind === "roles" && !isProblem(roles) ? { kind, roles } : problem;
 }

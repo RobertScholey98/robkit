@@ -21,10 +21,10 @@ async function write(path: string, text: string) {
 const config = (lines: number) =>
   `export default { test: { coverage: { thresholds: { lines: ${String(lines)} } } } };\n`;
 
-function check(base: string) {
+function check(...args: string[]) {
   const { status, stdout, stderr } = spawnSync(
     process.execPath,
-    [script, base],
+    [script, ...args],
     { cwd: repo, encoding: "utf8" },
   );
   return { status, output: stdout + stderr };
@@ -74,5 +74,12 @@ describe("check-coverage-thresholds", () => {
     await rm(join(repo, "packages/guard"), { recursive: true });
 
     expect(check("main")).toEqual({ status: 0, output: "" });
+  });
+
+  it("prints its usage without a base", () => {
+    expect(check()).toEqual({
+      status: 2,
+      output: "Usage: check-coverage-thresholds.ts <base-ref>\n",
+    });
   });
 });

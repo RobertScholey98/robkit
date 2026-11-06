@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isRecord } from "@robkit/session/input";
+import { isRecord } from "@robkit/input";
 import { parse } from "yaml";
 import { jsonObject, stringsIn } from "./json.ts";
 
@@ -39,7 +39,9 @@ export async function readRobkitRepo(): Promise<RobkitRepo> {
   );
   const root = await readManifest(robkitRoot);
   if (!root.packageManager) {
-    throw new Error("robkit's package.json has no packageManager");
+    throw new Error(
+      `${join(robkitRoot, "package.json")} has no packageManager, which names the pnpm an install uses. Put it back, such as "packageManager": "pnpm@11.28.9".`,
+    );
   }
 
   const packages = new Map<string, RobkitPackage>();

@@ -4,11 +4,13 @@ import { promisify } from "node:util";
 import postgres from "postgres";
 import { describe, expect, it } from "vitest";
 import { createServer } from "node:net";
+import { fileURLToPath } from "node:url";
 import {
   freePortBlock,
   publishedPorts,
   removeWhenGone,
   startPostgres,
+  testComposeFiles,
 } from "./index.ts";
 
 const run = promisify(execFile);
@@ -60,6 +62,22 @@ describe("a test Postgres", () => {
     } finally {
       await stop();
     }
+  });
+});
+
+// Each path gets its own env, so coverage is the same whether or not the
+// machine running the tests sets COMPOSE_FILE. CI sets it; WSL doesn't.
+describe("testComposeFiles", () => {
+  const inMemory = fileURLToPath(new URL("../in-memory.yaml", import.meta.url));
+
+  it("adds in-memory.yaml to the install's compose.yaml", () => {
+    expect(testComposeFiles({})).toBe(`compose.yaml:${inMemory}`);
+  });
+
+  it("adds in-memory.yaml to the files COMPOSE_FILE already names", () => {
+    expect(testComposeFiles({ COMPOSE_FILE: "compose.yaml:host.yaml" })).toBe(
+      `compose.yaml:host.yaml:${inMemory}`,
+    );
   });
 });
 

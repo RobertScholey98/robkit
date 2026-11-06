@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { mintCode, parseAccessCode } from "./access-codes.ts";
 import { claim, freshCore, postJson } from "./test/fresh-app.ts";
 
 /** The picks `randomInt` makes next; once empty it is random again. */
@@ -24,5 +25,30 @@ describe("a generated code", () => {
 
     expect(res.status).toBe(201);
     expect(await res.json()).toMatchObject({ code: "BBBBB", name: "Bob" });
+  });
+
+  it("names the attempts it made when every code it generates is taken", async () => {
+    const { db } = await freshCore();
+    const now = new Date("2026-11-06T00:00:00Z");
+    const taken = parseAccessCode("AAAAA");
+    if (!taken) throw new Error("AAAAA must read as an access code.");
+    await mintCode(
+      db,
+      { name: "Gran", code: taken, expiresAt: null },
+      now,
+      "robkit.test",
+    );
+    picks.push(...Array.from({ length: 25 }, () => 0));
+
+    const minting = mintCode(
+      db,
+      { name: "Bob", expiresAt: null },
+      now,
+      "robkit.test",
+    );
+
+    await expect(minting).rejects.toThrow(
+      "Core couldn't find a free access code in 5 attempts: each code it generated was already in core.access_codes.",
+    );
   });
 });

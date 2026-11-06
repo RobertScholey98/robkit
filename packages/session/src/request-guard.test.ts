@@ -1,4 +1,5 @@
 import {
+  aRoleId,
   callbackFor,
   conformanceAnswer,
   fakeCore,
@@ -9,13 +10,15 @@ import {
   signingKey,
   stateIn,
   type FakeCore,
+  slug,
 } from "@internal/test-session";
-import type { AccessRule, RoleId } from "@robkit/guard";
+import type { AccessRule } from "@robkit/guard";
+import type { CoreOrigin } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { requestGuard, type GuardedOptions, type GuardFault } from "./index.ts";
-import { readSessionLapsed } from "./session-lapsed.ts";
-import { slug } from "./test/slug.ts";
+import { readSessionLapsed } from "./lapsed.ts";
+import { coreOrigin } from "./test/core-origin.ts";
 
 const example = slug("example");
 
@@ -100,7 +103,7 @@ describe("requestGuard, on a page load", () => {
     const check = requestGuard({
       app: slug("notes"),
       access: { kind: "owner" },
-      core: "https://core.example.com",
+      core: coreOrigin("https://core.example.com"),
     });
 
     const decision = await check(
@@ -112,7 +115,7 @@ describe("requestGuard, on a page load", () => {
     const res = "response" in decision ? decision.response : undefined;
     expect(res?.headers.get("location")).toEqual(
       refreshLocation("https://notes.example.com/", {
-        origin: "https://core.example.com",
+        origin: coreOrigin("https://core.example.com"),
       }),
     );
     expect(res?.headers.getSetCookie()).toEqual([
@@ -489,7 +492,7 @@ describe("requestGuard, with core's keys", () => {
 });
 
 describe("requestGuard, with its rule in core", () => {
-  const family: AccessRule = { kind: "roles", roles: ["family" as RoleId] };
+  const family: AccessRule = { kind: "roles", roles: [aRoleId("family")] };
 
   it("lets in only the guests holding a role core gates the app to", async () => {
     const core = await fakeCore();
@@ -531,23 +534,9 @@ describe("requestGuard, with its rule in core", () => {
   });
 });
 
-describe("requestGuard's options", () => {
-  it("refuses a core origin that isn't core.<domain>", () => {
-    expect(() =>
-      requestGuard({
-        app: example,
-        access: { kind: "owner" },
-        core: "http://localhost:3000",
-      }),
-    ).toThrow(
-      "core must be core's public origin, such as http://core.robkit.localhost:3000, not http://localhost:3000",
-    );
-  });
-});
-
 describe("requestGuard, when it can't check a request", () => {
   /** The guard's 503s on `core`, each with what it handed `onUnavailable`. */
-  async function unavailable(core: FakeCore | { origin: string }) {
+  async function unavailable(core: FakeCore | { origin: CoreOrigin }) {
     const faults: GuardFault[] = [];
     const check = requestGuard({
       app: example,
@@ -606,7 +595,7 @@ describe("requestGuard, when it can't check a request", () => {
   });
 
   it("names core being down, and keeps the network's own error", async () => {
-    const down = "http://core.robkit.localhost:1";
+    const down = coreOrigin("http://core.robkit.localhost:1");
 
     const { status, faults } = await unavailable({ origin: down });
 
@@ -619,6 +608,31 @@ describe("requestGuard, when it can't check a request", () => {
       },
     ]);
     expect((faults[0]?.cause as Error).cause).toBeInstanceOf(Error);
+  });
+
+  it("says which way core's answer for the rule failed", async () => {
+    const core = await fakeCore();
+
+    const { faults } = await unavailable(core);
+
+    expect(faults).toMatchObject([
+      { failed: "access-rule", reason: "unknown-app" },
+    ]);
+  });
+
+  it("names core being down when it loads the rule", async () => {
+    const faults: GuardFault[] = [];
+    const check = requestGuard({
+      app: example,
+      core: coreOrigin("http://core.robkit.localhost:1"),
+      onUnavailable: (fault) => faults.push(fault),
+    });
+
+    // With no cookie, there is no token to check against core's key.
+    const decision = await check(new Request(page, { headers: navigate }));
+
+    expect("response" in decision && decision.response.status).toBe(503);
+    expect(faults.map((fault) => fault.failed)).toEqual(["network"]);
   });
 
   it("names core's key when core answers but its key set won't load", async () => {
