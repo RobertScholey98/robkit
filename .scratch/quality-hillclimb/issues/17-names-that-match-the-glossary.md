@@ -28,7 +28,7 @@ You own `GLOSSARY.md` this round. List doc edits for ticket 18 under Comments.
 - [x] Every `Profile` value is named `profile`, including in core's JSON
 - [x] The glossary separates the three meanings of session, and core's store file is `session-store.ts`
 - [x] `routes/access-codes.ts`, alike command entry files and intent-named Coolify helpers
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -39,12 +39,13 @@ You own `GLOSSARY.md` this round. List doc edits for ticket 18 under Comments.
 - **Access codes.** `routes/codes.ts` is `routes/access-codes.ts`, and its function is `accessCodeRoutes`. Its tests, `codes.db.test.ts`, moved to `access-codes.db.test.ts` to match.
 - **Command entry files.** All three are named `<command>-command.ts`: `create-robkit-command.ts`, `robkit-command.ts` and dev's `robkit-dev-command.ts`. Their tests moved with them. The `bin` and `publishConfig.bin` paths, the root `create-install` script, and `manifest.test.ts`'s fixture point at the new names. Changeset: `.changeset/command-entry-names.md`.
 - **Coolify helpers.** I renamed them with TypeScript's rename service, not by hand: `call` → `callCoolify`, `get` → `readFromCoolify`, `field` → `fieldOf`, `text` → `stringFieldOf`, `explain` → `describeFailure`, `duration` → `describeDuration`, `checks` → `whatToCheck`, `checkFor` → `checkForStatus`, `Api` → `CoolifyApi`, `Called` → `CoolifyAnswer`. `Coolify` keeps its name because `env.ts` imports it and it already says what it is.
-- **Commits.** Each rename is its own commit. The JSON change is the one behaviour commit, and its tests went red first: in WSL, six core tests failed on `viewer`; five hub `core-api` tests failed too.
+- **Commits.** Each rename is its own commit. The JSON change is the one behaviour commit, and its tests went red first: core's session, setup, login and code sign-in tests failed on `viewer` in WSL, and so did five of the hub's `core-api` tests.
 
 **Proof**
 
 - `pnpm check`: 44 of 44 tasks pass.
 - WSL with Docker, `pnpm --filter @robkit/core --filter @robkit/dev test`: core 239 tests, dev 75, all pass, with coverage thresholds.
+- CI on PR #56: `gate`, `check` and `pull-request` pass (https://github.com/RobertScholey98/robkit/actions/runs/42161430217).
 - I ran the hub template's `core-api.test.ts` with a throwaway Vitest config that aliased `@internal/core-client`: 21 pass.
 
 **What I couldn't verify**
