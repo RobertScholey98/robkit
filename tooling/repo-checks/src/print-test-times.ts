@@ -1,7 +1,7 @@
 // Prints how long each test task took in the newest turbo run summary, the
 // slowest first, as a Markdown table. Turbo writes one to .turbo/runs/ when
 // TURBO_RUN_SUMMARY is true. CI adds the table to its job summary:
-//   node tooling/repo-checks/src/print-test-times.ts >> "$GITHUB_STEP_SUMMARY"
+//   node tooling/repo-checks/src/print-test-times.ts | tee -a "$GITHUB_STEP_SUMMARY"
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { readJsonFile } from "./manifest.ts";

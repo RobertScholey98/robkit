@@ -37,8 +37,11 @@ jobs:
           TURBO_RUN_SUMMARY: "true"
       # The job summary lists each test task's time, the whole-stack test's
       # among them.
+      # It prints them in the log too. `shell: bash` sets pipefail, so the
+      # step still fails if the script does.
       - if: ${{ !cancelled() }}
-        run: node tooling/repo-checks/src/print-test-times.ts >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
+        run: node tooling/repo-checks/src/print-test-times.ts | tee -a "$GITHUB_STEP_SUMMARY"
       # Fails on a coverage threshold more than 2 points under what this run
       # just measured, and says what to raise it to.
       - run: node tooling/repo-checks/src/check-coverage-ratchet.ts
