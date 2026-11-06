@@ -8,7 +8,11 @@ import {
 import type { CoreOrigin, Slug } from "@robkit/input";
 import { coreInstall, isLocal } from "./addresses.ts";
 import { appRefreshPath } from "./app-session.ts";
-import { coreAccess } from "./core-access.ts";
+import {
+  AccessRuleError,
+  coreAccess,
+  type AccessRuleFailure,
+} from "./core-access.ts";
 import { isNavigation, publicUrl, redirect, text } from "./guard-http.ts";
 import { sessionLapsedResponse } from "./lapsed.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
@@ -43,19 +47,20 @@ export interface GuardedOptions {
 
 /**
  * Why the guard couldn't check a request, so answered 503 rather than
- * treating the viewer as signed out.
+ * treating the viewer as signed out. `failed` says what failed: checking
+ * the session against core's key, loading the app's access rule, or
+ * reaching core at all. When core answered but not with the rule, `reason`
+ * says how.
  */
-export interface GuardFault {
+export type GuardFault = {
   /** The app's slug. */
   app: Slug;
-  /**
-   * What failed: checking the session against core's key, loading the
-   * app's access rule, or reaching core at all.
-   */
-  failed: "core-key" | "access-rule" | "network";
   /** The error behind it. */
   cause: unknown;
-}
+} & (
+  | { failed: "core-key" | "network" }
+  | { failed: "access-rule"; reason: AccessRuleFailure }
+);
 
 const whatFailed: Record<GuardFault["failed"], string> = {
   "core-key": "couldn't check the session against core's key",
@@ -101,20 +106,28 @@ export function requestGuard(
   const ruleOf = access ? () => Promise.resolve(access) : coreAccess(core, app);
 
   /** A 503 for a check that failed, after telling `onUnavailable` why. */
-  const unavailable = (
-    failed: "core-key" | "access-rule",
-    cause: unknown,
-    body: string,
-  ): Response => {
-    onUnavailable({
-      app,
-      failed: cause instanceof CoreUnreachableError ? "network" : failed,
-      cause,
-    });
+  const unavailable = (fault: GuardFault, body: string): Response => {
+    onUnavailable(fault);
     return text(body, 503);
   };
   const keyUnavailable = (cause: unknown) =>
-    unavailable("core-key", cause, errors.keys);
+    unavailable(
+      {
+        app,
+        failed: cause instanceof CoreUnreachableError ? "network" : "core-key",
+        cause,
+      },
+      errors.keys,
+    );
+  // coreAccess throws an AccessRuleError when core answered, and a
+  // CoreUnreachableError when it didn't.
+  const ruleUnavailable = (cause: unknown) =>
+    unavailable(
+      cause instanceof AccessRuleError
+        ? { app, failed: "access-rule", reason: cause.failure, cause }
+        : { app, failed: "network", cause },
+      errors.rule,
+    );
 
   const protocol = refreshProtocol({
     app,
@@ -178,7 +191,7 @@ export function requestGuard(
     try {
       rule = await ruleOf();
     } catch (error) {
-      return { response: unavailable("access-rule", error, errors.rule) };
+      return { response: ruleUnavailable(error) };
     }
     const decision = guard(rule, session);
     if (decision.outcome === "allow") return { viewer: decision.viewer };
