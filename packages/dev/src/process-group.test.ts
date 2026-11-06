@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { stopGroup } from "./process-group.ts";
 
 /** A system error with `code`, as `process.kill` throws. */
@@ -22,6 +22,10 @@ function fakeKill(answers: Partial<Record<string, string>>) {
 }
 
 describe("stopGroup", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("does nothing for an app that never started", async () => {
     const { kill, sent } = fakeKill({});
 
@@ -47,6 +51,20 @@ describe("stopGroup", () => {
       [-42, "SIGTERM"],
       [-42, 0],
     ]);
+  });
+
+  it("kills a group that outlives SIGTERM by five seconds", async () => {
+    vi.useFakeTimers();
+    const { kill, sent } = fakeKill({});
+
+    const stopping = stopGroup("alpha", 42, kill);
+    await vi.advanceTimersByTimeAsync(4950);
+    expect(sent).not.toContainEqual([-42, "SIGKILL"]);
+    await vi.advanceTimersByTimeAsync(50);
+    await stopping;
+
+    expect(sent[0]).toEqual([-42, "SIGTERM"]);
+    expect(sent.at(-1)).toEqual([-42, "SIGKILL"]);
   });
 
   it.each([
