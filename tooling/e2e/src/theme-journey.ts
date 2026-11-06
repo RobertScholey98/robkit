@@ -1,3 +1,5 @@
+import { expect, it } from "vitest";
+import type { DevStack } from "./dev-stack.ts";
 import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
@@ -66,4 +68,27 @@ export async function themeJourney({
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * The theme's journey, as a test of `dev`. The hub draws from the theme's
+ * variables, so changing them restyles it.
+ */
+export function testThemeJourney(dev: DevStack): void {
+  it("draws the hub from the theme's variables", async () => {
+    const journey = await themeJourney({ install: dev.addresses() });
+
+    expect(journey).toEqual({
+      before: {
+        buttonBackground: "oklch(0.205 0 0)",
+        buttonText: "oklch(0.985 0 0)",
+        cardRadius: "14px",
+      },
+      after: {
+        buttonBackground: "rgb(200, 30, 60)",
+        buttonText: "rgb(250, 240, 200)",
+        cardRadius: "28px",
+      },
+    });
+  });
 }

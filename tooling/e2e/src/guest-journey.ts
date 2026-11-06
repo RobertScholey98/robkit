@@ -1,3 +1,6 @@
+import { expect, it } from "vitest";
+import { handedBack, refreshing } from "./bounces.ts";
+import type { DevStack } from "./dev-stack.ts";
 import type { Slug } from "@robkit/input";
 import type { Browser, Page } from "playwright";
 import { launch } from "./browser.ts";
@@ -120,4 +123,35 @@ export async function guestJourney({
   } finally {
     await browser.close();
   }
+}
+
+/** The guests' journey, as a test of `dev`. */
+export function testGuestJourney(dev: DevStack): void {
+  it("signs guests in with codes, keeps them out of owner-only apps, and ends a revoked code's session", async () => {
+    const example = dev.at(exampleSlug);
+    const notFound = { status: 404, body: "Not found" };
+
+    const journey = await guestJourney(dev.journey());
+
+    expect(journey).toEqual({
+      code: expect.stringMatching(
+        /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{5}$/,
+      ) as string,
+      introLink: dev.at("hub", `/i/${journey.code ?? ""}`),
+      introLandedAt: dev.at("hub"),
+      introGreeting: "Signed in as Grandma",
+      admin: notFound,
+      example: notFound,
+      testCodeGreeting: "Signed in as Test",
+      revokedStanding: "Revoked",
+      bounce: [
+        example,
+        refreshing(dev, example),
+        handedBack(example, { token: false }),
+        example,
+        dev.at("hub", `/?next=${encodeURIComponent(example)}`),
+      ],
+      afterRevokeAt: dev.at("hub", `/?next=${encodeURIComponent(example)}`),
+    });
+  });
 }

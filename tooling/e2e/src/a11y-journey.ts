@@ -1,3 +1,6 @@
+import { expect, it } from "vitest";
+import type { DevStack } from "./dev-stack.ts";
+import { addedSlug } from "./install.ts";
 import type { Slug } from "@robkit/input";
 import { join } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
@@ -69,4 +72,28 @@ export async function a11yJourney({
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * The accessibility journey, as a test of `dev`. `E2E_SCREENSHOTS` names a
+ * folder to save each page in, to look at, each named after `prefix`.
+ */
+export function testA11yJourney(dev: DevStack, prefix: string): void {
+  it("draws every page with no accessibility violations axe finds", async () => {
+    const dir = process.env.E2E_SCREENSHOTS;
+
+    const journey = await a11yJourney({
+      ...dev.journey(),
+      slug: addedSlug,
+      screenshots: dir ? { dir, prefix } : undefined,
+    });
+
+    expect(journey).toEqual({
+      "hub-sign-in": [],
+      launcher: [],
+      admin: [],
+      example: [],
+      added: [],
+    });
+  });
 }
