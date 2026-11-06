@@ -26,7 +26,15 @@
     "tooling/repo-checks": {
       // Not imported: listed so turbo builds them before the packed-package
       // and API report checks read their dist.
-      "ignoreDependencies": ["@robkit/*", "create-robkit"],
+      // The rest are imported only by the docs' examples, which
+      // doc-examples.test.ts compiles from here.
+      "ignoreDependencies": [
+        "@robkit/*",
+        "create-robkit",
+        "@hono/node-server",
+        "@tanstack/react-start",
+        "hono",
+      ],
     },
   },
 }

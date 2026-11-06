@@ -125,7 +125,7 @@ R reviews commit by commit, so keep each one small and about one thing.
 
 - One logical change per commit. A test goes in the same commit as the behaviour it covers.
 - Refactors, renames and formatting get their own commits, apart from behaviour changes.
-- Write the subject in the imperative, under about 60 characters: "Add a README to each package", not "Added READMEs". Use the body to say why when the diff doesn't show it. The commit-msg hook, and CI on every commit of a pull request, refuse a subject over 72 characters, one ending in a period, one starting with a lowercase letter, or one whose first word ends in "ed" or "ing".
+- Write the subject in the imperative, in 72 characters at most: "Add a README to each package", not "Added READMEs". Use the body to say why when the diff doesn't show it. The commit-msg hook, and CI on every commit of a pull request, refuse a subject over 72 characters, one ending in a period, one starting with a lowercase letter, or one whose first word ends in "ed" or "ing".
 - If the subject needs an "and", split the commit.
 
 ### Writing
@@ -146,7 +146,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 3. **Write a failing test through the public interface.** Add the empty list to the values `readAccessRule` refuses, in `guard.test.ts`:
 
-   ```ts
+   ```ts nocheck
    { kind: "roles", roles: [] },
    ```
 
@@ -159,7 +159,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 4. **Make it pass.** In `readAccessRule`, require at least one role:
 
-   ```ts
+   ```ts nocheck
    const isRoleList =
      Array.isArray(roles) &&
      roles.length > 0 &&
@@ -180,7 +180,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
    git commit -m "Refuse a roles rule that names no role"
    ```
 
-6. **Add a changeset.** The change is in a published package's source, so run `pnpm changeset`, pick `@robkit/session` and `patch`, describe the change in a sentence, and commit the file it writes.
+6. **Add a changeset.** The change is in a published package's source, so run `pnpm changeset`, pick `@robkit/guard` and `patch`, describe the change in a sentence, and commit the file it writes.
 
 7. **Run the gates.** `pnpm check`, then `pnpm check:all`.
 
@@ -195,17 +195,9 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 ## When a test fails
 
-- **Rerun it alone** before you change code: `pnpm --filter <package> exec vitest run <file>`. Under load, a test can fail for reasons that aren't the code. In WSL, Node 24 occasionally crashes under a heavy gate; rerun before you blame the change.
-- **A whole-stack journey prints what its browser saw** when it fails: console errors, failed requests, every 4xx and 5xx answer, each open page's text, and what the dev runner said meanwhile. Start with that output.
-- **Screenshots.** Set `E2E_SCREENSHOTS=<folder>` and the whole-stack test saves each page it checks there:
+Rerun it alone before you change code: `pnpm --filter <package> exec vitest run <file>`. Under load, a test can fail for reasons that aren't the code.
 
-  ```sh
-  E2E_SCREENSHOTS=/tmp/shots pnpm --filter @internal/e2e test
-  ```
-
-- **A failed production journey** prints what the browser saw and each container's state and last logs.
-- **Leftover containers.** Every test registers what it starts, and a watcher removes it when the test process exits, however it ends. If a machine crashed mid-run, `docker ps` shows any `robkit-test-*` or `robkit-install-*` containers left; remove them before the next run.
-- **`ERR_NETWORK_CHANGED` in Chromium** where Docker runs natively on Linux: set `COMPOSE_FILE` as `.github/workflows/ci.yml` does, so every test Postgres uses the host's network. Docker Desktop doesn't need it.
+[docs/testing.md](docs/testing.md#when-a-test-fails) says what each suite prints when it fails, how to save the whole-stack test's screenshots, and how to clear containers a crashed run left behind.
 
 ## For coding agents
 

@@ -22,6 +22,8 @@ export const startInstance = createStart(() => ({
 Or call it directly:
 
 ```ts
+import { sessionFetch } from "@robkit/react";
+
 const response = await sessionFetch("/api/notes");
 ```
 

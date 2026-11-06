@@ -1,5 +1,8 @@
+import { glob, readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { subjectProblems } from "./commit-subject.ts";
+import { maxSubjectLength, subjectProblems } from "./commit-subject.ts";
+import { repoRoot } from "./doc-examples.ts";
 
 describe("subjectProblems", () => {
   it.each([
@@ -64,6 +67,29 @@ describe("subjectProblems", () => {
       "The subject ends with a period.",
       "The subject starts with a capital letter.",
       `The subject starts with an imperative verb ("Add", not "Added" or "Adding").`,
+    ]);
+  });
+});
+
+describe("maxSubjectLength", () => {
+  it("is the number every doc quotes for a subject", async () => {
+    const quotes: string[] = [];
+    for await (const file of glob(["*.md", "docs/**/*.md"], {
+      cwd: repoRoot,
+    })) {
+      const text = await readFile(join(repoRoot, file), "utf8");
+      for (const line of text.split("\n")) {
+        if (!/subject/i.test(line)) continue;
+        for (const [, length] of line.matchAll(/(\d+) characters/g)) {
+          quotes.push(`${file.replaceAll("\\", "/")}: ${String(length)}`);
+        }
+      }
+    }
+
+    expect(quotes.sort()).toEqual([
+      `CLAUDE.md: ${String(maxSubjectLength)}`,
+      `CONTRIBUTING.md: ${String(maxSubjectLength)}`,
+      `CONTRIBUTING.md: ${String(maxSubjectLength)}`,
     ]);
   });
 });

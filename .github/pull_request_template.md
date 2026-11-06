@@ -1,6 +1,6 @@
 ## Ticket
 
-<!-- The ticket this PR works, for example .scratch/quality-hillclimb/issues/05-guardrails-for-contributors.md. -->
+<!-- The ticket this PR works, for example .scratch/v0.1-build/issues/22-app-slugs-checked-at-start.md. -->
 
 ## What changed
 
