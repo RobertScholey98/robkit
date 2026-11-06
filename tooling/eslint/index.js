@@ -58,7 +58,8 @@ export function config(tsconfigRootDir) {
     },
     {
       // Only a reader makes a branded value, in tests too: a test builds
-      // one with the reader or a builder from @internal/test-session.
+      // one with the reader or a builder from @internal/test-session or
+      // @internal/test-addresses.
       files: ["**/*.ts", "**/*.tsx"],
       plugins: { robkit },
       rules: { "robkit/no-brand-cast": "error" },
