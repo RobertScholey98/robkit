@@ -5,4 +5,4 @@
 
 export { exec } from "./exec.ts";
 export { isMissing } from "./files.ts";
-export { Problem, reportFaultsAt, runCommand } from "./run-command.ts";
+export { CommandProblem, reportFaultsAt, runCommand } from "./run-command.ts";

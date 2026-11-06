@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { Problem, runCommand } from "@robkit/dev/cli";
+import { CommandProblem, runCommand } from "@robkit/dev/cli";
 import {
   defaultDevPort,
   defaultDomain,
@@ -19,7 +19,7 @@ const hubOrigin = addresses({
 }).origin("hub");
 
 function fail(message: string): never {
-  throw new Problem(message);
+  throw new CommandProblem(message);
 }
 
 process.exitCode = await runCommand(async () => {
@@ -31,7 +31,7 @@ process.exitCode = await runCommand(async () => {
       link: { type: "boolean", default: false },
     },
   });
-  if (positionals.length > 1) throw new Problem(usage);
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const { install, link } = values;
   const [given] = positionals;
   // --stack answers init's questions, so it needs the folder too.

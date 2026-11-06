@@ -5,7 +5,7 @@ import {
   text,
   type CANCEL_SYMBOL,
 } from "@clack/prompts";
-import { Problem } from "@robkit/dev/cli";
+import { CommandProblem } from "@robkit/dev/cli";
 import { readSlug } from "@robkit/session/addresses";
 import { isProblem } from "@robkit/session/input";
 import { newSlugProblem, readNewSlug, type AppChoices } from "./add.ts";
@@ -50,15 +50,17 @@ function accessFrom(
     .filter((role) => role !== "");
   if (access === "roles") {
     if (named.length === 0) {
-      throw new Problem("--access roles needs --roles, naming at least one.");
+      throw new CommandProblem(
+        "--access roles needs --roles, naming at least one.",
+      );
     }
     return { kind: "roles", roleNames: named };
   }
   if (roles !== undefined) {
-    throw new Problem("--roles only goes with --access roles.");
+    throw new CommandProblem("--roles only goes with --access roles.");
   }
   if (access === "open" || access === "owner") return { kind: access };
-  throw new Problem(
+  throw new CommandProblem(
     `--access ${access} isn't an option. Choose from: ${accessOptions.map((option) => option.value).join(", ")}.`,
   );
 }
@@ -66,7 +68,7 @@ function accessFrom(
 /** The app robkit add's flags describe, with a default for each left out. */
 export function appChoicesFromFlags(name: string, flags: AddFlags): AppChoices {
   const slug = readSlug(name);
-  if (isProblem(slug)) throw new Problem(slug.error);
+  if (isProblem(slug)) throw new CommandProblem(slug.error);
   return {
     stack: stackFrom(flags.stack ?? defaultChoices.exampleStack),
     slug,
@@ -92,7 +94,8 @@ export function addCommandFor({ stack, slug, access, icon }: AppChoices) {
 }
 
 function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
-  if (isCancel(answer)) throw new Problem("Cancelled. Nothing was written.");
+  if (isCancel(answer))
+    throw new CommandProblem("Cancelled. Nothing was written.");
   return answer;
 }
 
@@ -106,7 +109,7 @@ export async function askAdd(
 ): Promise<AppChoices> {
   if (given !== undefined) {
     const problem = newSlugProblem(root, given);
-    if (problem) throw new Problem(problem);
+    if (problem) throw new CommandProblem(problem);
   }
   intro("robkit add");
   const stack = answered(
@@ -126,7 +129,7 @@ export async function askAdd(
         }),
       ),
   );
-  if (isProblem(slug)) throw new Problem(slug.error);
+  if (isProblem(slug)) throw new CommandProblem(slug.error);
   const access = answered(
     await select<Access>({
       message: "Who can open it?",

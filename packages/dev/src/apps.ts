@@ -19,7 +19,7 @@ import {
 } from "@robkit/session/manifest";
 import { isMissing } from "./files.ts";
 import type { Route } from "./proxy.ts";
-import { Problem } from "./run-command.ts";
+import { CommandProblem } from "./run-command.ts";
 
 /**
  * One folder under `apps/`. Its folder name is its slug, which is also its
@@ -96,7 +96,7 @@ export async function appManifestIn(
   const manifest = isProblem(parsed)
     ? parsed
     : readAppManifest(parsed.json, file);
-  if (isProblem(manifest)) throw new Problem(manifest.error);
+  if (isProblem(manifest)) throw new CommandProblem(manifest.error);
   return manifest;
 }
 
@@ -127,7 +127,8 @@ export async function discoverApps(
     const manifest = await appManifestIn(root, name);
     if (!manifest) continue;
     const slug = readSlug(name);
-    if (isProblem(slug)) throw new Problem(`apps/${name}: ${slug.error}`);
+    if (isProblem(slug))
+      throw new CommandProblem(`apps/${name}: ${slug.error}`);
     apps.push({
       slug,
       dir,

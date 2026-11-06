@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
-import { Problem } from "@robkit/dev/cli";
+import { CommandProblem } from "@robkit/dev/cli";
 
 /**
  * Runs `command` in `dir`, showing its output.
  *
- * @throws a {@link Problem} naming the command, the folder and its exit
+ * @throws a {@link CommandProblem} naming the command, the folder and its exit
  *   code if it fails, or saying why it couldn't start, with the spawn error
  *   as its cause
  */
@@ -15,7 +15,7 @@ function run(command: string, dir: string): Promise<void> {
     child.on("error", (error) => {
       const [program] = command.split(" ");
       reject(
-        new Problem(
+        new CommandProblem(
           `${command} couldn't start in ${dir} (${error.message}). Check that ${String(program)} is installed and on your PATH, and that the folder exists.`,
           { cause: error },
         ),
@@ -27,7 +27,7 @@ function run(command: string, dir: string): Promise<void> {
         return;
       }
       reject(
-        new Problem(
+        new CommandProblem(
           `${command} exited with ${String(code ?? signal)} in ${dir}. Its output is above: fix what it says, then try again.`,
         ),
       );

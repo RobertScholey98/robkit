@@ -76,6 +76,9 @@ export function runDev(root: string, env: NodeJS.ProcessEnv): Promise<number>;
 ## @robkit/dev/cli
 
 ```ts
+export class CommandProblem extends Error {
+  name: string;
+}
 export function exec(
   command: string,
   args: string[],
@@ -86,9 +89,6 @@ export function exec(
   },
 ): Promise<void>;
 export function isMissing(error: unknown): boolean;
-export class Problem extends Error {
-  name: string;
-}
 export const reportFaultsAt: "https://github.com/RobertScholey98/robkit/issues";
 export function runCommand(
   main: () => Promise<number | undefined>,

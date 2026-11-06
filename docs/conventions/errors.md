@@ -42,11 +42,11 @@ A boundary is where robkit meets a person or another program: an HTTP route, a c
 
 - **Core.** A route answers an expected failure with its status and `{ error }` sentence. One `app.onError` handler catches every unexpected fault and gives it a fresh request id. It logs the route, the id and the cause through `logError`, and answers 500 with a generic JSON error that carries the id, as `requestId` and in an `X-Request-Id` header. The cause stays in core's log, not in the response; the id finds it there.
 - **The guard.** It answers 503 when it can't check a request, rather than treating the viewer as signed out. It hands the cause to `onUnavailable` with the app's slug and what failed: `core-key`, `access-rule` or `network`. By default that reports them.
-- **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/dev/cli`. Throw a `Problem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints a line saying it's a bug and where to report it, then the fault with its stack and cause, and exits 1.
+- **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/dev/cli`. Throw a `CommandProblem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints a line saying it's a bug and where to report it, then the fault with its stack and cause, and exits 1.
 
 ## Whose fault is it
 
-A file or program the person owns, or can install, fails as a `Problem` that names it:
+A file or program the person owns, or can install, fails as a `CommandProblem` that names it:
 
 - A malformed file the person owns, such as `robkit.json` or an install's own `robkit/templates/<stack>` override, names the file and says how to fix it.
 - A command that fails names itself, the folder it ran in and its exit code, and says its output is above: "pnpm install --no-frozen-lockfile exited with 1 in /home/me/robkit. Its output is above: fix what it says, then try again."
@@ -66,7 +66,7 @@ The message says what robkit was doing; the cause is the error underneath. Core'
 
 ## Cleaning up
 
-Code that starts several things, such as the dev runner with its apps, proxy and Postgres, stops every one of them even when stopping one fails. Run each step, collect what failed, then throw: one failure as it is, so a `Problem` still prints alone, or several in an `AggregateError` that keeps each.
+Code that starts several things, such as the dev runner with its apps, proxy and Postgres, stops every one of them even when stopping one fails. Run each step, collect what failed, then throw: one failure as it is, so a `CommandProblem` still prints alone, or several in an `AggregateError` that keeps each.
 
 Only the error that means "already gone" counts as gone. A signal to a process group that fails with `ESRCH` means the group has exited; any other code, such as `EPERM`, is rethrown with its cause.
 
@@ -74,7 +74,7 @@ Only the error that means "already gone" counts as gone. A signal to a process g
 
 A `catch` does one of three things:
 
-1. Translate the error into a value or an answer, such as a 400 for a body that isn't JSON, or a `Problem` for a command that couldn't start.
+1. Translate the error into a value or an answer, such as a 400 for a body that isn't JSON, or a `CommandProblem` for a command that couldn't start.
 2. Recover, with a comment or a log line saying why that's safe.
 3. Rethrow, with the caught error as `cause`.
 

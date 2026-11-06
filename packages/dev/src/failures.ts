@@ -20,7 +20,7 @@ function messageOf(failure: unknown): string {
 }
 
 /**
- * Throws what failed: one failure as it is, so a `Problem` still prints
+ * Throws what failed: one failure as it is, so a `CommandProblem` still prints
  * alone, or several as an AggregateError that names each and keeps each.
  */
 export function throwFailures(failures: unknown[]): void {

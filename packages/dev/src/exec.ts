@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
-import { Problem } from "./run-command.ts";
+import { CommandProblem } from "./run-command.ts";
 
 /** Copies each line from `from` to `to`, prefixed with the app's slug. */
 export function prefixLines(
@@ -25,9 +25,9 @@ export function startProblem(
   args: string[],
   cwd: string,
   error: unknown,
-): Problem {
+): CommandProblem {
   const reason = error instanceof Error ? error.message : String(error);
-  return new Problem(
+  return new CommandProblem(
     `${[command, ...args].join(" ")} couldn't start in ${cwd} (${reason}). Check that ${command} is installed and on your PATH, and that the folder exists.`,
     { cause: error },
   );
@@ -37,7 +37,7 @@ export function startProblem(
  * Runs a command to completion. With a slug, its output is prefixed with
  * the slug; without one, it shares this process's output.
  *
- * @throws a {@link Problem} naming the command, its folder and its exit
+ * @throws a {@link CommandProblem} naming the command, its folder and its exit
  *   code if it fails, or saying why it couldn't start
  */
 export async function exec(
@@ -63,7 +63,7 @@ export async function exec(
   }
   const [code, signal] = exited;
   if (code !== 0) {
-    throw new Problem(
+    throw new CommandProblem(
       `${[command, ...args].join(" ")} exited with ${String(code ?? signal)} in ${options.cwd}. Its output is above: fix what it says, then try again.`,
     );
   }

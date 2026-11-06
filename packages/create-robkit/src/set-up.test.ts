@@ -3,7 +3,7 @@ import { mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { Problem } from "@robkit/dev/cli";
+import { CommandProblem } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { initGit, installDependencies } from "./set-up.ts";
 
@@ -30,7 +30,7 @@ describe("installDependencies", { timeout: 30_000 }, () => {
 
     const installing = installDependencies(dir);
 
-    await expect(installing).rejects.toThrow(Problem);
+    await expect(installing).rejects.toThrow(CommandProblem);
     await expect(installing).rejects.toThrow(
       `pnpm install --no-frozen-lockfile exited with 1 in ${dir}. Its output is above: fix what it says, then try again.`,
     );
@@ -54,7 +54,7 @@ describe("initGit", () => {
 
     const initialising = initGit(dir);
 
-    await expect(initialising).rejects.toThrow(Problem);
+    await expect(initialising).rejects.toThrow(CommandProblem);
     await expect(initialising).rejects.toThrow(
       /^git init --quiet couldn't start in .+gone \(spawn .+ ENOENT\)\. Check that git is installed and on your PATH, and that the folder exists\.$/,
     );

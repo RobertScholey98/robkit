@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import { Problem } from "@robkit/dev/cli";
+import { CommandProblem } from "@robkit/dev/cli";
 import { install, type Slug } from "@robkit/session/addresses";
 import {
   isDomain,
@@ -229,7 +229,7 @@ async function call(
 async function get(api: Api, path: string): Promise<unknown> {
   const result = await call(api, "GET", path);
   if (!result.ok) {
-    throw new Problem(
+    throw new CommandProblem(
       `Couldn't read Coolify's ${path.slice(1)}: ${explain(result)}`,
     );
   }
@@ -306,7 +306,7 @@ function findApp(
       text(app, "name") === desired.settings.name,
   );
   if (matches.length > 1) {
-    throw new Problem(
+    throw new CommandProblem(
       `${String(matches.length)} Coolify applications are named ${String(desired.settings.name)}. Delete the extras.`,
     );
   }
@@ -322,7 +322,9 @@ function pick(list: unknown, name: string, kind: string): string {
   if (uuid) return uuid;
   const names =
     items.map((item) => text(item, "name") ?? "?").join(", ") || "none";
-  throw new Problem(`No Coolify ${kind} named ${name}. Found: ${names}.`);
+  throw new CommandProblem(
+    `No Coolify ${kind} named ${name}. Found: ${names}.`,
+  );
 }
 
 type Synced =

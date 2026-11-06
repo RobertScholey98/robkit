@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseArgs, promisify } from "node:util";
-import { Problem, runCommand } from "@robkit/dev/cli";
+import { CommandProblem, runCommand } from "@robkit/dev/cli";
 import {
   defaultDevPort,
   defaultDomain,
@@ -73,7 +73,7 @@ process.exitCode = await runCommand(async () => {
 
 async function check(): Promise<number> {
   const { positionals } = parseArgs({ allowPositionals: true });
-  if (positionals.length > 1) throw new Problem(usage);
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
@@ -86,7 +86,7 @@ async function check(): Promise<number> {
 
 async function vendor(): Promise<undefined> {
   const { positionals } = parseArgs({ allowPositionals: true });
-  if (positionals.length > 1) throw new Problem(usage);
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
@@ -101,11 +101,11 @@ async function vendor(): Promise<undefined> {
 
 async function printDatabaseUrls(): Promise<undefined> {
   const { positionals } = parseArgs({ allowPositionals: true });
-  if (positionals.length > 1) throw new Problem(usage);
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   await readInstallChoices(root);
   const config = readDatabaseUrlsConfig(process.env);
-  if (isProblem(config)) throw new Problem(config.error);
+  if (isProblem(config)) throw new CommandProblem(config.error);
   for (const [name, url] of await databaseUrls(root, config)) {
     console.log(`${name}=${url}`);
   }
@@ -120,12 +120,12 @@ async function deployInstall(): Promise<number | undefined> {
       "dry-run": { type: "boolean", default: false },
     },
   });
-  if (positionals.length > 1) throw new Problem(usage);
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   await readInstallChoices(root);
   const dryRun = values["dry-run"];
   const coolify = dryRun ? undefined : readCoolify(process.env);
-  if (isProblem(coolify)) throw new Problem(coolify.error);
+  if (isProblem(coolify)) throw new CommandProblem(coolify.error);
   // An install's CI deploys from its first push, before Coolify is set up.
   if (!coolify && !dryRun) {
     console.log("COOLIFY_URL is not set, so nothing was deployed.");
@@ -133,13 +133,13 @@ async function deployInstall(): Promise<number | undefined> {
   }
   const configPath = join(root, "coolify.json");
   if (!existsSync(configPath)) {
-    throw new Problem(
+    throw new CommandProblem(
       "This install has no coolify.json. See docs/deploy.md to set one up.",
     );
   }
   const parsed = parseJson(await readFile(configPath, "utf8"), "coolify.json");
   const config = isProblem(parsed) ? parsed : readCoolifyConfig(parsed.json);
-  if (isProblem(config)) throw new Problem(config.error);
+  if (isProblem(config)) throw new CommandProblem(config.error);
   const deployments = await deploymentOf(root, {
     domain: config.domain,
     trustedProxy: config.trustedProxy,
@@ -161,7 +161,7 @@ async function deployInstall(): Promise<number | undefined> {
     : values.apps === undefined
       ? await affectedApps(root)
       : readAppList(values.apps);
-  if (isProblem(affected)) throw new Problem(affected.error);
+  if (isProblem(affected)) throw new CommandProblem(affected.error);
   const ok = await deploy({
     coolify,
     config,
@@ -192,7 +192,7 @@ async function add(): Promise<undefined> {
     },
   });
   const [command, given, ...rest] = positionals;
-  if (command !== "add" || rest.length > 0) throw new Problem(usage);
+  if (command !== "add" || rest.length > 0) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
@@ -220,5 +220,5 @@ The same app without the questions:
 }
 
 function fail(message: string): never {
-  throw new Problem(message);
+  throw new CommandProblem(message);
 }

@@ -1,4 +1,4 @@
-import { Problem } from "@robkit/dev/cli";
+import { CommandProblem } from "@robkit/dev/cli";
 import { isRecord, type InputProblem } from "@robkit/session/input";
 
 /** A stack an app can be made on. */
@@ -51,7 +51,7 @@ export const defaultChoices: Choices = { exampleStack: "start" };
 export function stackFrom(value: string): Stack {
   const stack = readyStacks.find((ready) => ready === value);
   if (stack === undefined) {
-    throw new Problem(
+    throw new CommandProblem(
       `--stack ${value} isn't an option. Choose from: ${readyStacks.join(", ")}.`,
     );
   }
