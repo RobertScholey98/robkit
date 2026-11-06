@@ -220,6 +220,17 @@ export interface DeclaredApp extends Declares {
   slug: Slug;
 }
 
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+// A whole emoji: one code point, or a sequence such as a flag, a keycap or
+// a family joined with zero-width joiners, as Unicode lists them.
+const emoji = /^\p{RGI_Emoji}$/v;
+
+/** Whether `text` is one emoji: one grapheme, and that grapheme an emoji. */
+function isOneEmoji(text: string): boolean {
+  const [first, ...rest] = graphemes.segment(text);
+  return first !== undefined && rest.length === 0 && emoji.test(first.segment);
+}
+
 function readDeclaredAccess(value: unknown): DeclaredAccess | undefined {
   const rule = readAccessRule(value);
   if (rule?.kind !== "roles") return rule;
@@ -255,7 +266,7 @@ export function readDeclares(
   }
   if (value.icon !== undefined) {
     const { icon } = value;
-    if (typeof icon !== "string" || icon === "" || icon.length > 16) {
+    if (typeof icon !== "string" || !isOneEmoji(icon)) {
       return { error: `${field}.icon must be one emoji, such as "📝".` };
     }
     declares.icon = icon;

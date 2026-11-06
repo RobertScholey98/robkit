@@ -11,3 +11,5 @@ A failed read has one type, `InputProblem`, checked one way, `isProblem`. `readS
 An install's `host` and `origin` take a `Slug`, so a string nobody read, such as `bad/path`, can't become an address, and `GuardFault.app` is a `Slug`.
 
 Role and code ids are brands, `RoleId` and `CodeId`, in `@robkit/guard`. `AccessRule`, the guest viewer and a session token's claims hold them, and only a reader makes one: `readRoleId`, `readCodeId`, `readRoleIds`, `readAccessRule` and core's readers.
+
+A manifest's `icon` must be one emoji, as its message always said: one grapheme, and that grapheme an emoji. It used to take any text of 1 to 16 characters.
