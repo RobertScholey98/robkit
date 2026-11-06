@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { reportFaultsAt } from "./run-command.ts";
 
 const run = promisify(execFile);
-const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
+const bin = fileURLToPath(new URL("robkit-dev-command.ts", import.meta.url));
 const fixture = fileURLToPath(new URL("test/fixture-install", import.meta.url));
 
 interface Dev {
