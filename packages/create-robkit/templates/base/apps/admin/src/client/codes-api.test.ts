@@ -28,7 +28,17 @@ const read = {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
+
+/** What callCore's default report printed, a call each. */
+function printed(): unknown[][] {
+  const calls: unknown[][] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    calls.push(args);
+  });
+  return calls;
+}
 
 describe("listCodes", () => {
   it("reads every code core lists", async () => {
@@ -37,7 +47,7 @@ describe("listCodes", () => {
       fakeCore(core, { "GET /codes": () => ({ body: { codes: [sent] } }) }),
     );
 
-    expect(await listCodes(core)).toEqual({ ok: true, value: [read] });
+    expect(await listCodes(core)).toEqual({ outcome: "ok", value: [read] });
   });
 
   it("passes on core's refusal", async () => {
@@ -48,21 +58,42 @@ describe("listCodes", () => {
       }),
     );
 
-    expect(await listCodes(core)).toEqual({ ok: false, error: "Owner only." });
+    expect(await listCodes(core)).toEqual({
+      outcome: "failed",
+      error: "Owner only.",
+    });
   });
 
   it.each([
-    ["an unknown standing", { codes: [{ ...sent, standing: "asleep" }] }],
-    ["a code without a name", { codes: [{ ...sent, name: undefined }] }],
-    ["a date that isn't one", { codes: [{ ...sent, createdAt: "soon" }] }],
-    ["no list", {}],
-  ])("refuses %s", async (_, body) => {
+    [
+      "an unknown standing",
+      { codes: [{ ...sent, standing: "asleep" }] },
+      "Item 1 of the codes field: The code's standing isn't one of live, revoked, expired, local-only.",
+    ],
+    [
+      "a code without a name",
+      { codes: [{ ...sent, name: undefined }] },
+      "Item 1 of the codes field: The code's name isn't text.",
+    ],
+    [
+      "a date that isn't one",
+      { codes: [{ ...sent, createdAt: "soon" }] },
+      "Item 1 of the codes field: The code's createdAt isn't a date as ISO text, or null.",
+    ],
+    ["no list", {}, "The codes field isn't a list."],
+  ])("refuses %s, and reports why", async (_, body, why) => {
     vi.stubGlobal("fetch", fakeCore(core, { "GET /codes": () => ({ body }) }));
+    const reported = printed();
 
     expect(await listCodes(core)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
+    expect(reported).toEqual([
+      [
+        `Core at ${core} answered GET /codes with 200, which this page can't read: ${why}`,
+      ],
+    ]);
   });
 });
 
@@ -88,7 +119,7 @@ describe("mintCode", () => {
         code: "K7XQ2",
         expiresAt: read.expiresAt,
       }),
-    ).toEqual({ ok: true, value: read });
+    ).toEqual({ outcome: "ok", value: read });
   });
 
   it("leaves out a code and expiry the owner didn't give", async () => {
@@ -104,7 +135,9 @@ describe("mintCode", () => {
 
     const result = await mintCode(core, { name: "Grandma" });
 
-    expect(result.ok && result.value.name).toBe('{"name":"Grandma"}');
+    expect(result.outcome === "ok" && result.value.name).toBe(
+      '{"name":"Grandma"}',
+    );
   });
 
   it("passes on a taken code as core's sentence", async () => {
@@ -119,7 +152,7 @@ describe("mintCode", () => {
     );
 
     expect(await mintCode(core, { name: "Grandma", code: "TEST" })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "That code is taken.",
     });
   });
@@ -135,7 +168,7 @@ describe("revokeCode", () => {
     );
 
     expect(await revokeCode(core, "c/1")).toEqual({
-      ok: true,
+      outcome: "ok",
       value: undefined,
     });
   });
@@ -152,7 +185,7 @@ describe("revokeCode", () => {
     );
 
     expect(await revokeCode(core, "c_9")).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "There's no such code.",
     });
   });
@@ -167,7 +200,7 @@ describe("every call", () => {
     vi.stubGlobal("fetch", unreachable);
 
     expect(await call()).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Couldn't reach core at https://core.example.com.",
     });
   });

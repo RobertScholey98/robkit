@@ -44,7 +44,7 @@ function guardedBy(
   const check = requestGuard({ ...options, core: core.origin });
   return async (url: string, init: RequestInit = {}) => {
     const decision = await check(new Request(url, init));
-    return "response" in decision
+    return decision.outcome === "answer"
       ? decision.response
       : Response.json(decision.viewer);
   };
@@ -99,6 +99,23 @@ describe("requestGuard, on a page load", () => {
     ]);
   });
 
+  it("tags what it decides: serve the viewer, or answer for the app", async () => {
+    const core = await fakeCore();
+    const check = requestGuard({
+      app: example,
+      access: { kind: "owner" },
+      core: core.origin,
+    });
+    const signedIn = { ...navigate, ...cookie(await core.key.token()) };
+
+    expect(await check(new Request(page, { headers: signedIn }))).toEqual({
+      outcome: "serve",
+      viewer: owner,
+    });
+    const away = await check(new Request(page, { headers: navigate }));
+    expect(away.outcome === "answer" && away.response.status).toBe(302);
+  });
+
   it("keeps the public scheme the proxy saw, and sets Secure cookies off localhost", async () => {
     const check = requestGuard({
       app: slug("notes"),
@@ -112,7 +129,7 @@ describe("requestGuard, on a page load", () => {
       }),
     );
 
-    const res = "response" in decision ? decision.response : undefined;
+    const res = decision.outcome === "answer" ? decision.response : undefined;
     expect(res?.headers.get("location")).toEqual(
       refreshLocation("https://notes.example.com/", {
         origin: coreOrigin("https://core.example.com"),
@@ -552,7 +569,8 @@ describe("requestGuard, when it can't check a request", () => {
         },
       }),
     );
-    const status = "response" in decision ? decision.response.status : 200;
+    const status =
+      decision.outcome === "answer" ? decision.response.status : 200;
     return { status, faults };
   }
 
@@ -631,7 +649,7 @@ describe("requestGuard, when it can't check a request", () => {
     // With no cookie, there is no token to check against core's key.
     const decision = await check(new Request(page, { headers: navigate }));
 
-    expect("response" in decision && decision.response.status).toBe(503);
+    expect(decision.outcome === "answer" && decision.response.status).toBe(503);
     expect(faults.map((fault) => fault.failed)).toEqual(["network"]);
   });
 

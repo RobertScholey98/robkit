@@ -1,5 +1,6 @@
 import { installAt } from "@robkit/input/addresses";
-import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
+import { callCore, listOf, problem, type Result } from "@internal/core-client";
+import { type InputProblem, isProblem, isRecord } from "@robkit/input";
 
 /** Whether a code signs a guest in, and if not, why not. */
 export type Standing = "live" | "revoked" | "expired" | "local-only";
@@ -24,7 +25,10 @@ export interface NewCode {
 
 export function listCodes(core: string): Promise<Result<Code[]>> {
   return callCore(core, "GET", "/codes", {
-    read: (body) => (isRecord(body) ? listOf(body.codes, readCode) : undefined),
+    read: (body) =>
+      isRecord(body)
+        ? listOf(body.codes, "codes", readCode)
+        : problem("The codes' answer isn't an object."),
   });
 }
 
@@ -69,24 +73,22 @@ function isStanding(value: unknown): value is Standing {
   return standings.some((standing) => standing === value);
 }
 
-function readCode(body: unknown): Code | undefined {
-  if (!isRecord(body)) return undefined;
+function readCode(body: unknown): Code | InputProblem {
+  if (!isRecord(body)) return problem("The code isn't an object.");
   const { id, code, name, standing } = body;
-  const expiresAt = readDate(body.expiresAt);
-  const revokedAt = readDate(body.revokedAt);
-  const createdAt = readDate(body.createdAt);
-  if (
-    typeof id !== "string" ||
-    typeof code !== "string" ||
-    typeof name !== "string" ||
-    !isStanding(standing) ||
-    expiresAt === undefined ||
-    revokedAt === undefined ||
-    createdAt === undefined ||
-    createdAt === null
-  ) {
-    return undefined;
+  if (typeof id !== "string") return problem("The code's id isn't text.");
+  if (typeof code !== "string") return problem("The code's code isn't text.");
+  if (typeof name !== "string") return problem("The code's name isn't text.");
+  if (!isStanding(standing)) {
+    return problem(`The code's standing isn't one of ${standings.join(", ")}.`);
   }
+  const expiresAt = readDate(body.expiresAt, "The code's expiresAt");
+  if (isProblem(expiresAt)) return expiresAt;
+  const revokedAt = readDate(body.revokedAt, "The code's revokedAt");
+  if (isProblem(revokedAt)) return revokedAt;
+  const createdAt = readDate(body.createdAt, "The code's createdAt");
+  if (isProblem(createdAt)) return createdAt;
+  if (createdAt === null) return problem("The code's createdAt is null.");
   return {
     id,
     code,
@@ -98,10 +100,11 @@ function readCode(body: unknown): Code | undefined {
   };
 }
 
-/** A date core sent as ISO text, null for none, or undefined if unreadable. */
-function readDate(value: unknown): Date | null | undefined {
+/** A date core sent as ISO text, `what`, or null for none. */
+function readDate(value: unknown, what: string): Date | null | InputProblem {
   if (value === null) return null;
-  if (typeof value !== "string") return undefined;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? undefined : date;
+  const date = typeof value === "string" ? new Date(value) : undefined;
+  return date === undefined || Number.isNaN(date.getTime())
+    ? problem(`${what} isn't a date as ISO text, or null.`)
+    : date;
 }

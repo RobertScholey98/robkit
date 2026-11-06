@@ -4,7 +4,12 @@ robkit sorts every failure into one of two kinds, and handles each kind one way.
 
 ## Expected failures are values
 
-A failure the caller should handle, such as a wrong password, a taken slug or a guest without the role, is part of the function's return type. Return a discriminated union with a field that says which outcome it is, and let the caller switch on it. The guard does this:
+A failure the caller should handle, such as a wrong password, a taken slug or a guest without the role, is part of the function's return type. A result has one of two shapes:
+
+- **A reader returns `T | InputProblem`**, and its caller checks it with `isProblem`. [input.md](input.md) says how.
+- **Any other union of outcomes is tagged with `outcome`**, a string literal in each of its shapes, and the caller switches on it. Don't tell the shapes apart with `"key" in`, a boolean `ok`, or which fields are there.
+
+The guard decides this way:
 
 ```ts
 import type { Viewer } from "@robkit/guard";
@@ -16,7 +21,26 @@ type Decision =
   | { outcome: "not-found" };
 ```
 
-Core's `claimInstall` returns `{ outcome: "taken" }` rather than throwing, and the route turns that into a 409.
+So does `requestGuard`, which an adapter switches on:
+
+```ts
+import { requestGuard } from "@robkit/session";
+import { orExit, readGuardEnv } from "@robkit/input";
+
+const check = requestGuard(orExit(readGuardEnv(process.env)));
+
+async function handle(request: Request): Promise<Response> {
+  const decision = await check(request);
+  switch (decision.outcome) {
+    case "answer":
+      return decision.response;
+    case "serve":
+      return new Response(`Hello, ${decision.viewer.kind}`);
+  }
+}
+```
+
+Core's `claimInstall` returns `{ outcome: "taken" }` rather than throwing, and the route turns that into a 409. The hub's and admin's `callCore` answers `{ outcome: "ok", value }` or `{ outcome: "failed", error }`.
 
 ## Unexpected faults throw an `Error` with `cause`
 
@@ -54,7 +78,7 @@ A boundary is where robkit meets a person or another program: an HTTP route, a c
 - **Core.** A route answers an expected failure with its status and `{ error }` sentence. A body that isn't JSON gets "Send a valid JSON body.", and JSON that isn't an object gets "Send a JSON object." One `app.onError` handler catches every unexpected fault and gives it a fresh request id. It logs the route, the id and the cause through `logError`, and answers 500 with a generic JSON error that carries the id, as `requestId` and in an `X-Request-Id` header. The cause stays in core's log, not in the response; the id finds it there.
 - **The guard.** It answers 503 when it can't check a request, rather than treating the viewer as signed out. It hands the cause to `onUnavailable` with the app's slug and what failed: `core-key`, `access-rule` or `network`. An `access-rule` fault also has a `reason`, the `AccessRuleError`'s `failure`, so `onUnavailable` can tell "core doesn't know this app" from a broken answer without reading the message. By default it reports them.
 - **App servers.** An app's `serve.ts`, `server.ts`, `database.ts` and scripts read their environment with `orExit` from `@robkit/input`. A variable that won't do prints its problem alone and exits 1, so the owner sees the line that says how to fix it, not a stack. A Vite config uses `orThrow` instead, since Vite prints what it throws.
-- **The hub and admin.** Their `callCore` answers `{ ok: true, value }` or `{ ok: false, error }`, with `error` a sentence to show. Its optional `report(message, cause)` gets the error underneath a failure, for the console or a log.
+- **The hub and admin.** Their `callCore`, in an install's `packages/core-client`, answers `{ outcome: "ok", value }` or `{ outcome: "failed", error }`, with `error` a sentence to show. It reads core's answer with a reader that returns `T | InputProblem`. It tells `report(message, cause?)` what went wrong underneath: no answer, an answer that isn't JSON, or one the reader refuses, with the method, path, status and the reader's problem. It never passes on what core sent, so `JSON.parse`'s error, which quotes the answer, isn't the cause. `report` defaults to core-client's `reportToConsole`.
 - **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/dev/cli`. Throw a `CommandProblem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints a line saying it's a bug and where to report it, then the fault with its stack and cause, and exits 1.
 
 ## Whose fault is it
@@ -75,7 +99,7 @@ A malformed file robkit ships, such as one of its own templates, is a fault: the
 type Report = (message: string, cause?: unknown) => void;
 ```
 
-The message says what robkit was doing; the cause is the error underneath. Core's `logError`, the guard's default `onUnavailable` and `runCommand` all report through it, and `reportToConsole`, their default, prints the message and then the cause on its own. A new place that logs a fault takes a `Report`, defaulting to `reportToConsole`.
+The message says what robkit was doing; the cause is the error underneath. Core's `logError`, the guard's default `onUnavailable` and `runCommand` all report through it, and `reportToConsole`, their default, prints the message and then the cause on its own. A new place that logs a fault takes a `Report`, defaulting to `reportToConsole`. An install's `packages/core-client` runs in the browser, so it has its own `Report` and `reportToConsole` of the same shape.
 
 ## Cleaning up
 
@@ -91,7 +115,7 @@ A `catch` does one of three things:
 2. Recover, with a comment or a log line saying why that's safe.
 3. Rethrow, with the caught error as `cause`.
 
-A `catch` that drops its error needs a comment saying why. Lint enforces these rules. ESLint's `preserve-caught-error` fails a `throw` inside a `catch` without `cause`. `robkit/no-silent-catch` fails a `catch` block or `.catch()` handler that never reads its error and has no comment inside it or on the line above its statement. Outside tests, `robkit/no-bare-error` fails a thrown `Error` whose message is fixed text and that has no `cause`, and `robkit/one-problem-type` fails `throw new Error(x.error)`: a problem the person can fix is a `CommandProblem`, ends a server with `orExit`, or goes through `orThrow`.
+A `catch` that drops its error needs a comment saying why. Lint enforces these rules. ESLint's `preserve-caught-error` fails a `throw` inside a `catch` without `cause`. `robkit/no-silent-catch` fails a `catch` block or `.catch()` handler that never reads its error and has no comment inside it or on the line above its statement. Outside tests, `robkit/no-bare-error` fails a thrown `Error` whose message is fixed text and that has no `cause`, and `robkit/one-problem-type` fails `throw new Error(x.error)`: a problem the person can fix is a `CommandProblem`, ends a server with `orExit`, or goes through `orThrow`. An install lints with the same rules: see [input.md](input.md#what-lint-enforces).
 
 ## Outbound requests time out
 

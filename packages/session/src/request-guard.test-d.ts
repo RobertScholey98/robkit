@@ -30,7 +30,8 @@ describe("session's types", () => {
       (request: Request) => Promise<RequestDecision>
     >();
     expectTypeOf<RequestDecision>().toEqualTypeOf<
-      { viewer: Viewer } | { response: Response }
+      | { outcome: "serve"; viewer: Viewer }
+      | { outcome: "answer"; response: Response }
     >();
   });
 

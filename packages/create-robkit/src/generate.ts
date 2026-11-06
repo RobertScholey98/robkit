@@ -153,6 +153,9 @@ async function renderSettings(
   }));
 }
 
+/** Where an install keeps robkit's lint policy, from its root. */
+const lintPolicyDir = "tooling/eslint";
+
 /** The install init writes for `choices`, file by file. */
 export async function generateInstall(
   choices: Choices,
@@ -175,7 +178,12 @@ export async function generateInstall(
     ...files,
     ...stacks.flatMap((stack) => [...stack]),
   ]);
-  await renderSettings(files, names, await readRobkitRepo(), options);
+  const repo = await readRobkitRepo();
+  await renderSettings(files, names, repo, options);
+  // The install lints with the policy robkit lints itself with.
+  for (const [name, text] of repo.lintPolicy) {
+    files.set(`${lintPolicyDir}/${name}`, text);
+  }
   files.set(
     "robkit.json",
     await format(JSON.stringify(choices), { filepath: "robkit.json" }),

@@ -77,7 +77,9 @@ function reportFault({ app, failed, cause }: GuardFault): void {
 }
 
 /** What the app does with a request: serve it to the viewer, or answer it. */
-export type RequestDecision = { viewer: Viewer } | { response: Response };
+export type RequestDecision =
+  | { outcome: "serve"; viewer: Viewer }
+  | { outcome: "answer"; response: Response };
 
 const errors = {
   login: "Sign in to use this app.",
@@ -177,7 +179,7 @@ export function requestGuard(
   return async (request) => {
     const url = publicUrl(request);
     const own = await protocol.answer(request, url);
-    if (own) return { response: own };
+    if (own) return { outcome: "answer", response: own };
 
     let session: SessionState;
     try {
@@ -185,16 +187,18 @@ export function requestGuard(
     } catch (error) {
       // Not knowing who is asking isn't the same as nobody asking, so the
       // browser isn't sent to log in.
-      return { response: keyUnavailable(error) };
+      return { outcome: "answer", response: keyUnavailable(error) };
     }
     let rule: AccessRule;
     try {
       rule = await ruleOf();
     } catch (error) {
-      return { response: ruleUnavailable(error) };
+      return { outcome: "answer", response: ruleUnavailable(error) };
     }
     const decision = guard(rule, session);
-    if (decision.outcome === "allow") return { viewer: decision.viewer };
-    return { response: respond(decision, request, url) };
+    if (decision.outcome === "allow") {
+      return { outcome: "serve", viewer: decision.viewer };
+    }
+    return { outcome: "answer", response: respond(decision, request, url) };
   };
 }

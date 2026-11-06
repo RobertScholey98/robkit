@@ -18,7 +18,7 @@ const check = requestGuard(orExit(readGuardEnv(process.env)));
 async function handle(request: Request): Promise<Response> {
   const decision = await check(request);
   // A redirect to the hub or core, the guard's 401 for a call, or a 404.
-  if ("response" in decision) return decision.response;
+  if (decision.outcome === "answer") return decision.response;
   return new Response(`Hello, ${decision.viewer.kind}`);
 }
 ```
@@ -27,17 +27,17 @@ async function handle(request: Request): Promise<Response> {
 
 `@robkit/session`:
 
-| Export                                                                                | What it is                                                                                                                       |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `requestGuard(options)`                                                               | A function from `Request` to `{ viewer }` or `{ response }`. Answers `/_robkit/session` and `/_robkit/refresh` itself            |
-| `GuardedOptions`                                                                      | `app` (the slug), `core` (core's public origin), an optional fixed `access` rule, as admin uses, and an optional `onUnavailable` |
-| `GuardFault`, `AccessRuleFailure`                                                     | What `onUnavailable` hears when the guard answers 503: what failed, the cause, and for the access rule how core's answer failed  |
-| `RequestDecision`                                                                     | `requestGuard`'s answer                                                                                                          |
-| `readSessionToken`, `readAppToken`                                                    | Verify core's token or an app token, and read its claims                                                                         |
-| `sessionTokensIn(cookieHeader)`                                                       | The session tokens in a `Cookie` header                                                                                          |
-| `sessionCookie`, `coreAudience`, `sessionTokenLifetimeSeconds`                        | The cookie's name, core's audience, and a token's lifetime (15 minutes)                                                          |
-| `appSessionPath`, `appRefreshPath`, `appSessionUrl`                                   | The guard's two paths, and the callback URL core sends the browser to                                                            |
-| `SessionTokenClaims`, `ViewerClaims`, `ReadSessionToken`, `ReadAppToken`, `VerifyKey` | Their types                                                                                                                      |
+| Export                                                                                | What it is                                                                                                                                                 |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requestGuard(options)`                                                               | A function from `Request` to `{ outcome: "serve", viewer }` or `{ outcome: "answer", response }`. Answers `/_robkit/session` and `/_robkit/refresh` itself |
+| `GuardedOptions`                                                                      | `app` (the slug), `core` (core's public origin), an optional fixed `access` rule, as admin uses, and an optional `onUnavailable`                           |
+| `GuardFault`, `AccessRuleFailure`                                                     | What `onUnavailable` hears when the guard answers 503: what failed, the cause, and for the access rule how core's answer failed                            |
+| `RequestDecision`                                                                     | `requestGuard`'s answer                                                                                                                                    |
+| `readSessionToken`, `readAppToken`                                                    | Verify core's token or an app token, and read its claims                                                                                                   |
+| `sessionTokensIn(cookieHeader)`                                                       | The session tokens in a `Cookie` header                                                                                                                    |
+| `sessionCookie`, `coreAudience`, `sessionTokenLifetimeSeconds`                        | The cookie's name, core's audience, and a token's lifetime (15 minutes)                                                                                    |
+| `appSessionPath`, `appRefreshPath`, `appSessionUrl`                                   | The guard's two paths, and the callback URL core sends the browser to                                                                                      |
+| `SessionTokenClaims`, `ViewerClaims`, `ReadSessionToken`, `ReadAppToken`, `VerifyKey` | Their types                                                                                                                                                |
 
 The readers for input from outside robkit's own code, an app's environment, the manifest format, an install's addresses and `Report` are in `@robkit/input`.
 

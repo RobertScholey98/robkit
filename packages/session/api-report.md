@@ -57,9 +57,11 @@ export type ReadSessionToken = SessionTokenClaims & {
 };
 export type RequestDecision =
   | {
+      outcome: "serve";
       viewer: Viewer;
     }
   | {
+      outcome: "answer";
       response: Response;
     };
 export function requestGuard(

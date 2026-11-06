@@ -23,7 +23,7 @@ export function useSend(
   async function send(request: () => Promise<Result<Session>>) {
     setSending({ state: "sending" });
     const result = await request();
-    if (result.ok) onSession(result.value);
+    if (result.outcome === "ok") onSession(result.value);
     else fail(result.error);
   }
 

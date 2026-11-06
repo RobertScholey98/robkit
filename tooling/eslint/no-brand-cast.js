@@ -34,7 +34,7 @@ export default {
     type: "problem",
     docs: { description: "Refuse a cast to a branded type" },
     messages: {
-      cast: "Only a reader makes a branded value. Call the reader, or in a test a builder from @internal/test-session, rather than casting.",
+      cast: "Only a reader makes a branded value. Call the reader, or in a test a builder that calls it, rather than casting.",
     },
     schema: [],
   },
