@@ -1,8 +1,10 @@
+import type { Slug } from "@robkit/session/addresses";
 import { join } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "playwright";
 import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
+import { exampleSlug } from "./install.ts";
 
 /** The axe rules each page broke, by page. */
 export type A11yJourney = Record<string, string[]>;
@@ -20,10 +22,10 @@ export async function a11yJourney({
   slug,
   screenshots,
 }: Omit<JourneyOptions, "adminUrl"> & {
-  slug: string;
+  slug: Slug;
   screenshots?: { dir: string; prefix: string } | undefined;
 }): Promise<A11yJourney> {
-  const at = (app: string) => `${install.origin(app)}/`;
+  const at = (app: Slug) => `${install.origin(app)}/`;
   const broken: A11yJourney = {};
   const check = async (page: Page, name: string) => {
     const { violations } = await new AxeBuilder({ page }).analyze();
@@ -56,7 +58,7 @@ export async function a11yJourney({
     await page.getByRole("heading", { name: "Roles" }).waitFor();
     await check(page, "admin");
 
-    await page.goto(at("example"));
+    await page.goto(at(exampleSlug));
     await page.getByTestId("viewer-id").waitFor();
     await check(page, "example");
 

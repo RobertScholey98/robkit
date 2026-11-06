@@ -2,6 +2,7 @@ import {
   guard,
   readAccessRule,
   type AccessRule,
+  type RoleId,
   type SessionState,
 } from "@robkit/guard";
 import {
@@ -34,7 +35,7 @@ export type AccessChange =
 /** The rule the owner sent for an app, or why it won't do. */
 export function readAccess(
   fields: Record<string, unknown>,
-): AccessRule | { error: string } {
+): AccessRule | InputProblem {
   const rule = readAccessRule(fields);
   if (rule && !(rule.kind === "roles" && rule.roles.length === 0)) return rule;
   return fields.kind === "roles"
@@ -146,7 +147,7 @@ export async function listApps(db: Database): Promise<AppView[]> {
 
 function ruleOf(
   kind: (typeof apps.$inferSelect)["access"],
-  roleIds: string[],
+  roleIds: RoleId[],
 ): AccessRule {
   return kind === "roles" ? { kind, roles: roleIds } : { kind };
 }

@@ -2,11 +2,11 @@
 // what it left. Arguments: the owner's pid and the leftovers as JSON.
 import { execFileSync } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
-import type { Leftover } from "./clean-up.ts";
+import { readLeftovers } from "./clean-up.ts";
 
 const [ownerArg = "", leftoversArg = "[]"] = process.argv.slice(2);
 const owner = Number(ownerArg);
-const leftovers = JSON.parse(leftoversArg) as Leftover[];
+const leftovers = readLeftovers(leftoversArg);
 
 function alive(pid: number): boolean {
   try {

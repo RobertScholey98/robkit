@@ -3,6 +3,7 @@ import postgres from "postgres";
 import { discoverApps } from "./apps.ts";
 import { Problem } from "./cli.ts";
 import { readSlug, type Slug } from "@robkit/session/addresses";
+import { isProblem } from "@robkit/session/input";
 import { exec } from "./exec.ts";
 
 export interface ProvisionOptions {
@@ -111,7 +112,7 @@ export async function provisionDatabase(
 ): Promise<string> {
   // The slug goes into DDL, so a caller in plain JavaScript is checked too.
   const read = readSlug(slug);
-  if (typeof read !== "string") throw new Problem(read.error);
+  if (isProblem(read)) throw new Problem(read.error);
   const role = `"${slug}"`;
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
   try {

@@ -6,9 +6,10 @@ import {
   readCoreConfig,
   registerApps,
 } from "@robkit/core";
+import { isProblem } from "@robkit/session/input";
 
 const config = readCoreConfig(process.env);
-if ("error" in config) {
+if (isProblem(config)) {
   console.error(config.error);
   process.exit(1);
 }

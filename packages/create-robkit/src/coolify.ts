@@ -207,7 +207,8 @@ async function call(
       };
     }
     try {
-      return { ok: true, body: JSON.parse(raw) as unknown };
+      const body: unknown = JSON.parse(raw);
+      return { ok: true, body };
     } catch {
       // A body that isn't JSON comes from something in front of Coolify,
       // and the parser's own message adds nothing.

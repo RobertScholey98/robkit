@@ -262,7 +262,37 @@ describe("readDeclares", () => {
     });
   });
 
-  it.each([null, 1, "", "x".repeat(17)])("refuses the icon %j", (icon) => {
+  it.each([
+    "📝",
+    "📦",
+    "🧪",
+    // A skin tone, a family joined by zero-width joiners, a flag, a keycap
+    // and a heart with its emoji presentation selector are each one emoji.
+    "👍🏽",
+    "👨‍👩‍👧",
+    "🇬🇧",
+    "1️⃣",
+    "❤️",
+  ])("reads the icon %s", (icon) => {
+    expect(readDeclares({ icon })).toEqual({ icon });
+  });
+
+  it.each([
+    null,
+    1,
+    "",
+    "x".repeat(17),
+    "x",
+    "1",
+    "#",
+    "📝📝",
+    "📝 ",
+    " 📝",
+    "a📝",
+    "🇬🇧🇫🇷",
+    "‍",
+    "️",
+  ])("refuses the icon %j", (icon) => {
     expect(readDeclares({ icon })).toEqual({
       error: `robkit.icon must be one emoji, such as "📝".`,
     });

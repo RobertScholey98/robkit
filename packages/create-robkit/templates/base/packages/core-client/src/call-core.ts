@@ -75,8 +75,13 @@ export async function callCore<T>(
     : { ok: true, value };
 }
 
+/**
+ * Whether `value` is a plain object: not `null`, and not an array. It means
+ * what `isRecord` from `@robkit/session/input` does, and a robkit test
+ * checks the two agree.
+ */
 export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** Reads a list whose every item `read` accepts. */

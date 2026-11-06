@@ -1,3 +1,4 @@
+import { isProblem, type InputProblem } from "@robkit/session/input";
 import { hashPassword } from "./password.ts";
 import { owner } from "./schema.ts";
 import {
@@ -15,7 +16,7 @@ export interface Credentials {
 /** The username and password a request sent, or why they won't do. */
 export function readCredentials(
   fields: Record<string, unknown>,
-): Credentials | { error: string } {
+): Credentials | InputProblem {
   const { username, password } = fields;
   if (typeof username !== "string" || typeof password !== "string") {
     return { error: "Send a username and a password." };
@@ -26,9 +27,9 @@ export function readCredentials(
 /** The new owner's username and password, or why they won't do. */
 export function readNewOwner(
   fields: Record<string, unknown>,
-): Credentials | { error: string } {
+): Credentials | InputProblem {
   const credentials = readCredentials(fields);
-  if ("error" in credentials) return credentials;
+  if (isProblem(credentials)) return credentials;
   const { username, password } = credentials;
   if (username.length < 1 || username.length > 64) {
     return { error: "Pick a username of 1 to 64 characters." };

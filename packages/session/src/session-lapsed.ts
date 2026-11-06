@@ -46,8 +46,8 @@ export async function readSessionLapsed(
     .json()
     .catch(() => undefined);
   if (typeof body !== "object" || body === null) return undefined;
-  const error = "error" in body ? body.error : undefined;
-  const location = "location" in body ? body.location : undefined;
+  const error: unknown = Reflect.get(body, "error");
+  const location: unknown = Reflect.get(body, "location");
   if (typeof error !== "string" || typeof location !== "string") {
     return undefined;
   }

@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { readServeEnv } from "@robkit/session/input";
+import { isProblem, readServeEnv } from "@robkit/session/input";
 import { Hono } from "hono";
 import server from "./server.tsx";
 
@@ -12,7 +12,7 @@ app.use("/assets/*", serveStatic({ root: "dist" }));
 app.route("/", server);
 
 const listen = readServeEnv(process.env);
-if ("error" in listen) {
+if (isProblem(listen)) {
   console.error(listen.error);
   process.exit(1);
 }

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { defaultChoices, init } from "create-robkit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { Slug } from "@robkit/session/addresses";
 import { takeBrowserLog } from "./browser.ts";
 import {
   guestOpens,
@@ -24,14 +25,16 @@ import {
   type Stack,
   withVisitors,
 } from "./production-stack.ts";
+import { exampleSlug } from "./install.ts";
+import { slug } from "./test/slug.ts";
 
 const run = promisify(execFile);
 
 /** The app the owner adds with robkit add after the first deploy. */
-const later = "later";
+const later = slug("later");
 
 /** Builds each app's image and starts its container with its env. */
-async function deployApps(stack: Stack, slugs: string[]): Promise<void> {
+async function deployApps(stack: Stack, slugs: Slug[]): Promise<void> {
   await Promise.all(slugs.map((slug) => buildApp(stack, slug)));
   const env = await hostEnv(stack);
   for (const slug of slugs) {
@@ -73,14 +76,14 @@ describe("the default install in production", () => {
     await answers(stack, "hub", 200);
     // The owner opens the example to anyone before it starts, so its guard
     // never keeps the owner-only rule it would start with.
-    setUp = await ownerSetsUp(stack.addresses, "example").catch(
+    setUp = await ownerSetsUp(stack.addresses, exampleSlug).catch(
       async (error: unknown) => {
         console.error(await whatWentWrong(stack));
         throw error;
       },
     );
-    await deployApps(stack, ["example"]);
-    await answers(stack, "example", 200);
+    await deployApps(stack, [exampleSlug]);
+    await answers(stack, exampleSlug, 200);
   });
 
   // A journey that times out says only what it waited for.
@@ -108,12 +111,12 @@ describe("the default install in production", () => {
     const visit = await guestOpens(
       stack.addresses,
       setUp.code ?? "",
-      "example",
+      exampleSlug,
     );
 
     expect(visit).toEqual({
       greeting: "Signed in as Grandma",
-      openedAt: `${stack.addresses.origin("example")}/`,
+      openedAt: `${stack.addresses.origin(exampleSlug)}/`,
       heading: "Signed in as a guest",
       stylesheets: [200],
     });
@@ -121,8 +124,8 @@ describe("the default install in production", () => {
 
   it.each(["core", "hub", "admin", "example"])(
     "builds %s's image with no package production doesn't need",
-    async (slug) => {
-      expect(await extraneousPackages(stack, slug)).toEqual([]);
+    async (name) => {
+      expect(await extraneousPackages(stack, slug(name))).toEqual([]);
     },
   );
 

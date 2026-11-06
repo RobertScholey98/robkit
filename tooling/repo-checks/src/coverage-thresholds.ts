@@ -1,5 +1,6 @@
 import { glob, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
 const metrics = ["statements", "branches", "functions", "lines"] as const;
 
@@ -72,10 +73,7 @@ export async function readWorkspaceCoverage(
   for await (const path of glob("{packages,tooling}/*/package.json", {
     cwd: root,
   })) {
-    const json = JSON.parse(await readFile(join(root, path), "utf8")) as {
-      name: string;
-      scripts?: Record<string, string>;
-    };
+    const json = await readJsonFile(join(root, path), readNamedManifest);
     const test = json.scripts?.test;
     if (test === undefined) continue;
     const config = configs.get(dirname(path));
