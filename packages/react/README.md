@@ -31,9 +31,9 @@ A call that finds the token lapsed never settles, because the page is leaving. D
 
 ## Exports
 
-| Export         | What it is                                                                                                         |
-| -------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `sessionFetch` | `typeof fetch`. Acts only on the guard's 401 (marked with the `Robkit-Session` header); returns every other answer |
+| Export         | What it is                                                                                                                                                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sessionFetch` | `typeof fetch`. Acts only on the guard's 401 (marked with the `Robkit-Session` header); returns every other answer. Gives up after 30 seconds with a `TimeoutError`; a signal the caller passes still stops it sooner |
 
 ## What it must never do
 

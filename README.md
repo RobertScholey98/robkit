@@ -61,28 +61,31 @@ flowchart LR
 - **One Postgres** holds core's schema and one schema per app. Each app's database role reaches its own schema and nothing else.
 - **The proxy** routes each subdomain to its app: `robkit-dev` on port 3000 locally, and Traefik behind Coolify in production.
 
+[docs/tour.md](docs/tour.md) walks through a new install's folders.
+
 Every install uses the same tools: pnpm, Drizzle, shadcn on Base UI, ESLint with Prettier, Husky with lint-staged, and Vitest. An app can be built on TanStack Start or on React with Hono.
 
 ## Learn more
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): setting up, the gates, and how to propose a change, with or without a ticket.
+- [docs/tour.md](docs/tour.md): every folder of a new install, what it's for and which robkit package it uses.
 - [docs/architecture.md](docs/architecture.md): how a request and a session token flow, and which package depends on which.
 - [docs/adr/](docs/adr/README.md): the settled decisions and why we made them.
 - [GLOSSARY.md](GLOSSARY.md): the words robkit uses, such as install, owner, guest, role and viewer.
 - [SECURITY.md](SECURITY.md): how to report a vulnerability, and what an imported app can and can't do.
 - The packages, each with its own README:
 
-| Package                                   | What it does                                                                                                  |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| [`create-robkit`](packages/create-robkit) | `npm create robkit`, and the `robkit` command an install runs                                                 |
-| [`@robkit/core`](packages/core)           | Core, the backend                                                                                             |
-| [`@robkit/session`](packages/session)     | Session tokens, the request guard and an install's addresses                                                  |
-| [`@robkit/input`](packages/input)         | Readers for input from outside robkit: env, JSON, slugs, the manifest; `InputProblem`, `orExit` and `orThrow` |
-| [`@robkit/guard`](packages/guard)         | The pure decision of who may open an app                                                                      |
-| [`@robkit/hono`](packages/hono)           | The Hono adapter                                                                                              |
-| [`@robkit/start`](packages/start)         | The TanStack Start adapter                                                                                    |
-| [`@robkit/react`](packages/react)         | `sessionFetch`, for calls from the page when a session lapses                                                 |
-| [`@robkit/dev`](packages/dev)             | `robkit-dev`, the runner and proxy behind `pnpm dev`                                                          |
+| Package                                   | What it does                                                                                                                                       |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`create-robkit`](packages/create-robkit) | `npm create robkit`, and the `robkit` command an install runs                                                                                      |
+| [`@robkit/core`](packages/core)           | Core, the backend                                                                                                                                  |
+| [`@robkit/session`](packages/session)     | Session tokens and the request guard                                                                                                               |
+| [`@robkit/input`](packages/input)         | Readers for input from outside robkit: env, JSON, slugs, the manifest; `InputProblem`, `orExit` and `orThrow`; an install's addresses and `Report` |
+| [`@robkit/guard`](packages/guard)         | The pure decision of who may open an app                                                                                                           |
+| [`@robkit/hono`](packages/hono)           | The Hono adapter                                                                                                                                   |
+| [`@robkit/start`](packages/start)         | The TanStack Start adapter                                                                                                                         |
+| [`@robkit/react`](packages/react)         | `sessionFetch`, for calls from the page when a session lapses                                                                                      |
+| [`@robkit/dev`](packages/dev)             | `robkit-dev`, the runner and proxy behind `pnpm dev`                                                                                               |
 
 ## Contributing
 

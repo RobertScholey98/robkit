@@ -2,7 +2,7 @@
 
 The `robkit-dev` runner behind an install's `pnpm dev`, and the provision step that gives each app its database.
 
-`robkit-dev` finds every app under `apps/`, starts Postgres with Docker Compose, gives each app with a `migrate` script its own schema and role, runs that script, starts every app, and puts a proxy on port 3000 in front so each app answers on `<slug>.robkit.localhost`. It stops everything on Ctrl+C, or as soon as any app exits.
+`robkit-dev` first checks that Node 24, pnpm 11 and Docker with Compose are ready, and says what to install or start if one isn't. Then it finds every app under `apps/`, starts Postgres with Docker Compose, gives each app with a `migrate` script its own schema and role, runs that script, starts every app, and puts a proxy on port 3000 in front so each app answers on `<slug>.robkit.localhost`. It stops everything on Ctrl+C, or as soon as any app exits.
 
 Every install runs it as `pnpm dev`. In production, core's container runs the provision step from it before core starts.
 

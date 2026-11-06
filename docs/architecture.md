@@ -52,11 +52,11 @@ sequenceDiagram
   R->>G: guard(rule, session state)
   G-->>R: allow, login, refresh or not-found
   alt allow
-    R-->>A: { viewer }
+    R-->>A: { outcome: "serve", viewer }
     A->>H: request, with the viewer
     H-->>B: the page
   else login, refresh or not-found
-    R-->>A: { response }
+    R-->>A: { outcome: "answer", response }
     A-->>B: redirect to the hub or core, 401 for a call, or 404
   end
 ```
@@ -115,13 +115,13 @@ When an app token expires, a page load goes back through core's `/refresh` as ab
 
 ## The package map
 
-Arrows point from a package to what it imports. Adapters never import core: code reaches core over HTTP only. `tooling/eslint` enforces each arrow that is a rule (see [`AGENTS.md`](../AGENTS.md#the-layer-rule)). Every package here except `@robkit/react` also imports `@robkit/input`, which imports nothing; the map draws only the guard's and session's arrows to it.
+Arrows point from a package to what it imports. Adapters never import core: code reaches core over HTTP only. `tooling/eslint` enforces each arrow that is a rule (see [`AGENTS.md`](../AGENTS.md#the-layer-rule)). Every package here except `@robkit/react` also imports `@robkit/input`, which imports nothing; the map draws only the guard's, session's and dev's arrows to it.
 
 ```mermaid
 flowchart TD
-  input["@robkit/input<br/>readers, InputProblem, the manifest, no I/O"]
+  input["@robkit/input<br/>readers, InputProblem, the manifest, addresses, Report"]
   guard["@robkit/guard<br/>pure guard, no I/O"]
-  session["@robkit/session<br/>tokens, requestGuard, addresses"]
+  session["@robkit/session<br/>tokens, requestGuard"]
   hono["@robkit/hono<br/>adapter"]
   start["@robkit/start<br/>adapter"]
   react["@robkit/react<br/>sessionFetch"]
@@ -139,7 +139,7 @@ flowchart TD
   react --> session
   core --> session
   core --> guard
-  dev --> session
+  dev --> input
   create --> session
   create --> dev
 ```
@@ -168,8 +168,8 @@ flowchart TD
 | Reading cookies, verifying tokens, `/_robkit/*` | `packages/session/src/request-guard.ts`                                                    |
 | Token claims and cookies                        | `packages/session/src/session-token.ts`                                                    |
 | Reading env, JSON, slugs and the manifest       | `packages/input/src/` (`@robkit/input`), and `docs/conventions/input.md`                   |
-| An install's addresses                          | `packages/session/src/addresses.ts` (`@robkit/session/addresses`)                          |
-| What an app declares in its manifest            | `packages/input/src/manifest.ts` (`@robkit/input`)                                         |
+| An install's addresses                          | `packages/input/src/addresses.ts` (`@robkit/input/addresses`)                              |
+| What an app declares in its manifest            | `packages/input/src/manifest.ts` (`@robkit/input/manifest`)                                |
 | Core's routes                                   | `packages/core/src/routes/`, mounted in `app.ts`                                           |
 | Core's tables                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                      |
 | Sessions, refresh and minting app tokens        | `packages/core/src/session-store.ts`, `packages/core/src/mint-token.ts`                    |

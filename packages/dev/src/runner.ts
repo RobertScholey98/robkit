@@ -6,15 +6,17 @@ import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { readDevConfig } from "./env.ts";
 import { exec, prefixLines, startProblem } from "./exec.ts";
 import { failuresOf, throwFailures } from "./failures.ts";
+import { checkPrerequisites } from "./prerequisites.ts";
 import { createProxy } from "./proxy.ts";
 import { stopGroup } from "./process-group.ts";
 import { provisionApps } from "./provision.ts";
 
 /**
- * `robkit-dev`: runs the install in `root` for local development. Finds the
- * apps, refusing any folder that isn't a slug before it starts anything. Starts
- * Postgres, runs the provision step, starts every app and puts the proxy in
- * front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
+ * `robkit-dev`: runs the install in `root` for local development. Checks
+ * that Node, pnpm and Docker are ready, then finds the apps, refusing any
+ * folder that isn't a slug, all before it starts anything. Starts Postgres,
+ * runs the provision step, starts every app and puts the proxy in front.
+ * Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
  *
  * @returns the exit code: 0 after a signal, 1 if an app exited
  * @throws what failed while starting or stopping, once everything stopped:
@@ -29,6 +31,7 @@ export async function runDev(
     console.error(config.error);
     return 1;
   }
+  await checkPrerequisites(root, env);
   const { domain, devPort, adminUrl } = config;
   const addresses = install({ domain, port: devPort });
   const apps = await discoverApps(root, devPort + 1);
