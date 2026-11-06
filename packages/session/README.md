@@ -62,7 +62,7 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 | `defaultDomain`, `defaultDevPort`              | `robkit.localhost` and `3000`                                                                                                              |
 | `readSlug(value)`, `Slug`, `slugProblem(name)` | A slug: lowercase letters and digits, starting with a letter. `readSlug` returns a `Slug` or an `InputProblem`, and only it makes a `Slug` |
 
-`@robkit/session/input` holds the readers every package and app use for input from outside robkit's own code (see `docs/conventions/input.md`). Each returns the value or an `InputProblem` naming the variable or file, the key and the fix: `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl`, `readSet`, `readServeEnv`, `readDevServerEnv`, `readGuardEnv`, `parseJson`, `readDeclares` and `readDeclaredApp`, with `isProblem`, `allProblems` and `isRecord`.
+`@robkit/session/input` holds the readers every package and app use for input from outside robkit's own code (see `docs/conventions/input.md`). Each returns the value or an `InputProblem` naming the variable or file, the key and the fix: `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl`, `readSet`, `readServeEnv`, `readDevServerEnv`, `readGuardEnv`, `parseJson`, `readAppDeclaration` and `readDeclaredApp`, with `isProblem`, `allProblems` and `isRecord`.
 
 `@robkit/session/lapsed` imports nothing either. It holds the guard's 401 for a call whose token lapsed: `sessionLapsedResponse`, which the guard writes, and `readSessionLapsed`, which `sessionFetch` reads.
 

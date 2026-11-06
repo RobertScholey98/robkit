@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
-  declaresJson,
+  appDeclarationJson,
   isProblem,
   parseJson,
   readAppSlug,
   readCoreUrl,
   readDatabaseUrl,
   readDeclaredApp,
-  readDeclares,
+  readAppDeclaration,
   readDevServerEnv,
   readDomain,
   readGuardEnv,
@@ -228,22 +228,22 @@ describe("parseJson", () => {
   });
 });
 
-describe("readDeclares", () => {
+describe("readAppDeclaration", () => {
   it("reads what an app declares", () => {
     expect(
-      readDeclares({
+      readAppDeclaration({
         access: { kind: "roles", roles: ["Family"] },
         icon: "📝",
       }),
     ).toEqual({ access: { kind: "roles", roleNames: ["Family"] }, icon: "📝" });
-    expect(readDeclares({ access: { kind: "open" } })).toEqual({
+    expect(readAppDeclaration({ access: { kind: "open" } })).toEqual({
       access: { kind: "open" },
     });
-    expect(readDeclares(undefined)).toEqual({});
+    expect(readAppDeclaration(undefined)).toEqual({});
   });
 
   it.each([null, [], "open", 1])("refuses %j as the field", (value) => {
-    expect(readDeclares(value)).toEqual({
+    expect(readAppDeclaration(value)).toEqual({
       error: `robkit must be an object, such as {"access": {"kind": "open"}, "icon": "📝"}, or left out.`,
     });
   });
@@ -257,7 +257,7 @@ describe("readDeclares", () => {
     { kind: "roles", roles: [""] },
     { kind: "roles", roles: [1] },
   ])("refuses the access %j", (access) => {
-    expect(readDeclares({ access })).toEqual({
+    expect(readAppDeclaration({ access })).toEqual({
       error: `robkit.access must be {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": ["Family"]} naming at least one role.`,
     });
   });
@@ -274,7 +274,7 @@ describe("readDeclares", () => {
     "1️⃣",
     "❤️",
   ])("reads the icon %s", (icon) => {
-    expect(readDeclares({ icon })).toEqual({ icon });
+    expect(readAppDeclaration({ icon })).toEqual({ icon });
   });
 
   it.each([
@@ -293,25 +293,25 @@ describe("readDeclares", () => {
     "‍",
     "️",
   ])("refuses the icon %j", (icon) => {
-    expect(readDeclares({ icon })).toEqual({
+    expect(readAppDeclaration({ icon })).toEqual({
       error: `robkit.icon must be one emoji, such as "📝".`,
     });
   });
 
   it("names the field it was given", () => {
-    expect(readDeclares({ icon: 1 }, "ROBKIT_APPS[0]")).toEqual({
+    expect(readAppDeclaration({ icon: 1 }, "ROBKIT_APPS[0]")).toEqual({
       error: `ROBKIT_APPS[0].icon must be one emoji, such as "📝".`,
     });
   });
 
   it("writes them back as a manifest holds them", () => {
     expect(
-      declaresJson({
+      appDeclarationJson({
         access: { kind: "roles", roleNames: ["Family"] },
         icon: "📝",
       }),
     ).toEqual({ access: { kind: "roles", roles: ["Family"] }, icon: "📝" });
-    expect(declaresJson({ access: { kind: "owner" } })).toEqual({
+    expect(appDeclarationJson({ access: { kind: "owner" } })).toEqual({
       access: { kind: "owner" },
     });
   });

@@ -7,12 +7,12 @@ import {
   type Slug,
 } from "@robkit/session/addresses";
 import {
-  declaresJson,
+  appDeclarationJson,
   isProblem,
   isRecord,
   parseJson,
-  readDeclares,
-  type Declares,
+  readAppDeclaration,
+  type AppDeclaration,
   type InputProblem,
 } from "@robkit/session/input";
 import { isMissing } from "./files.ts";
@@ -33,14 +33,14 @@ export interface App {
    * What the manifest's `robkit` field declares for core's catalog: who may
    * open the app once core adds it, and its icon.
    */
-  declares: Declares;
+  declares: AppDeclaration;
 }
 
 /** What robkit reads from an app's `package.json`. */
 export interface AppManifest {
   name?: string;
   scripts: Record<string, string>;
-  declares: Declares;
+  declares: AppDeclaration;
 }
 
 function isScripts(value: unknown): value is Record<string, string> {
@@ -69,7 +69,7 @@ export function readAppManifest(
       error: `${file}: scripts must be an object of script names to commands.`,
     };
   }
-  const declares = readDeclares(robkit);
+  const declares = readAppDeclaration(robkit);
   if (isProblem(declares)) return { error: `${file}: ${declares.error}` };
   return { ...(name !== undefined && { name }), scripts, declares };
 }
@@ -154,6 +154,6 @@ export function catalogOf(apps: readonly App[]): string {
   return JSON.stringify(
     apps
       .filter((app) => !isPlatformApp(app.slug))
-      .map(({ slug, declares }) => ({ slug, ...declaresJson(declares) })),
+      .map(({ slug, declares }) => ({ slug, ...appDeclarationJson(declares) })),
   );
 }

@@ -10,12 +10,12 @@ export interface App {
   dir: string;
   port: number;
   migrates: boolean;
-  declares: Declares;
+  declares: AppDeclaration;
 }
 export interface AppManifest {
   name?: string;
   scripts: Record<string, string>;
-  declares: Declares;
+  declares: AppDeclaration;
 }
 export function appManifestIn(
   root: string,

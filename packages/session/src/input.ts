@@ -208,7 +208,7 @@ export type DeclaredAccess =
   { kind: "open" } | { kind: "owner" } | { kind: "roles"; roleNames: string[] };
 
 /** What an app's manifest declares in its `robkit` field, for core's catalog. */
-export interface Declares {
+export interface AppDeclaration {
   /** Who may open the app once core adds it. Owner-only if left out. */
   access?: DeclaredAccess;
   /** An emoji the launcher shows. */
@@ -216,7 +216,7 @@ export interface Declares {
 }
 
 /** An app as the install declares it to core, in `ROBKIT_APPS`. */
-export interface DeclaredApp extends Declares {
+export interface DeclaredApp extends AppDeclaration {
   slug: Slug;
 }
 
@@ -244,17 +244,17 @@ function readDeclaredAccess(value: unknown): DeclaredAccess | undefined {
  * What an app declares, from its manifest's `robkit` field. `field` is
  * where the value sits, which each problem names.
  */
-export function readDeclares(
+export function readAppDeclaration(
   value: unknown,
   field = "robkit",
-): Declares | InputProblem {
+): AppDeclaration | InputProblem {
   if (value === undefined) return {};
   if (!isRecord(value)) {
     return {
       error: `${field} must be an object, such as {"access": {"kind": "open"}, "icon": "📝"}, or left out.`,
     };
   }
-  const declares: Declares = {};
+  const declares: AppDeclaration = {};
   if (value.access !== undefined) {
     const access = readDeclaredAccess(value.access);
     if (!access) {
@@ -275,10 +275,10 @@ export function readDeclares(
 }
 
 /** What an app declares, as its manifest and `ROBKIT_APPS` write it. */
-export function declaresJson({
+export function appDeclarationJson({
   access,
   icon,
-}: Declares): Record<string, unknown> {
+}: AppDeclaration): Record<string, unknown> {
   return {
     ...(access && {
       access:
@@ -304,6 +304,6 @@ export function readDeclaredApp(
   if (isProblem(slug)) {
     return { error: `${field}.slug: ${slug.error}` };
   }
-  const declares = readDeclares(value, field);
+  const declares = readAppDeclaration(value, field);
   return isProblem(declares) ? declares : { slug, ...declares };
 }

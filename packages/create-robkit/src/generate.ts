@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { declaresJson, type Declares } from "@robkit/session/input";
+import { appDeclarationJson, type AppDeclaration } from "@robkit/session/input";
 import { jsonObject, stringsIn } from "./json.ts";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
@@ -133,14 +133,14 @@ export const defaultIcon = "📦";
 export function appFiles(
   template: Files,
   slug: string,
-  declares: Declares = {},
+  declares: AppDeclaration = {},
 ): Files {
   const files: Files = new Map(template);
   editJson(files, "package.json", (json) => ({
     name: `@internal/${slug}-app`,
     ...json,
     ...(Object.keys(declares).length > 0 && {
-      robkit: declaresJson(declares),
+      robkit: appDeclarationJson(declares),
     }),
   }));
   return files;
