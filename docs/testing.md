@@ -20,6 +20,7 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 - It takes a browser through each install's example and added app in Chromium. It needs Chromium once: `pnpm --filter @internal/e2e exec playwright install --with-deps chromium`.
 - On the Start install it also runs the install's own CI workflow on a `PATH` that can't see any `node_modules/.bin`, checks that `pnpm lint` catches a cross-app import, and checks that the pre-commit hook refuses a commit that breaks the layer rule.
 - axe checks every install's hub, admin and apps. A theme journey changes the theme's variables on the hub and checks its controls follow them.
+- CI's job summary lists how long it took, beside each package's tests.
 
 ## The production test
 

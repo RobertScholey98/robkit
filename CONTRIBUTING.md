@@ -89,7 +89,7 @@ pnpm --filter @robkit/hono test -- -t "conformance"               # tests whose 
 
 Every test in `@internal/e2e` and `@internal/test-postgres` needs Docker and Linux, and so do core's and dev's `*.db.test.ts` files. The rest run anywhere, core's and dev's other tests included, and `pnpm check` runs them.
 
-A package's `test` script measures coverage and fails below the thresholds in its `vitest.config`. When your change raises coverage, raise the thresholds with it. CI fails a pull request that lowers one.
+A package's `test` script measures coverage and fails below the thresholds in its `vitest.config`. When your change raises coverage, raise the thresholds with it, to what CI measures. CI fails a pull request that lowers one, and fails a threshold more than 2 points under what CI measured, naming the number to set. The `check` job's `coverage` artifact has CI's reports.
 
 ## How work is organised
 
@@ -115,7 +115,7 @@ Take the lowest-numbered ticket that is ready and whose `**Blocked by:**` ticket
 - One branch and one pull request per ticket. Name the branch after the ticket, such as `22-app-slugs-checked-at-start`.
 - Open the pull request against `main`, or against the branch it builds on if it stacks on another ticket's.
 - Fill in the template, `.github/pull_request_template.md`: the ticket (CI checks that it names the ticket's file under `.scratch/`), what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
-- A change to a published package's `src` (tests aside) needs a changeset. Run `pnpm changeset`, pick the packages and `patch`, and commit the file it writes.
+- A change to a published package's `src`, or to create-robkit's `templates` (tests aside), needs a changeset. Run `pnpm changeset`, pick the packages and `patch`, and commit the file it writes.
 - CI's `gate` job passes only when every other job does. It is the one check a pull request needs.
 - R reviews and merges. Don't merge your own.
 
