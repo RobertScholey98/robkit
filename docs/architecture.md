@@ -165,7 +165,7 @@ flowchart TD
 | Reading cookies, verifying tokens, `/_robkit/*` | `packages/session/src/request-guard.ts`                                                    |
 | Token claims and cookies                        | `packages/session/src/session-token.ts`                                                    |
 | An install's addresses                          | `packages/session/src/install-addresses.ts` (`@robkit/session/addresses`)                  |
-| Core's routes                                   | `packages/core/src/app.ts`                                                                 |
+| Core's routes                                   | `packages/core/src/routes/`, mounted in `app.ts`                                           |
 | Core's tables                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                      |
 | Sessions, refresh and minting app tokens        | `packages/core/src/sessions.ts`, `packages/core/src/session-token.ts`                      |
 | Access codes, roles and the app catalog         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                 |
@@ -175,7 +175,7 @@ flowchart TD
 | What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/` |
 | `robkit add`                                    | `packages/create-robkit/src/add.ts`, `add-wizard.ts`                                       |
 | The install's layer rule                        | `packages/create-robkit/src/check.ts`                                                      |
-| Deploying to Coolify                            | `packages/create-robkit/src/coolify.ts`, `deployment.ts`                                   |
+| Deploying to Coolify                            | `packages/create-robkit/src/coolify-*.ts`, `deployment.ts`                                 |
 | The hub and admin                               | `packages/create-robkit/templates/base/apps/hub`, `apps/admin`                             |
 | robkit's own layer rule                         | `tooling/eslint/layers.js`, `core-schema.js`                                               |
 | The whole-stack test                            | `tooling/e2e/src/`                                                                         |

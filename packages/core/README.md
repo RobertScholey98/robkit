@@ -70,7 +70,7 @@ await migrate(databaseUrl);
 | `registerApps(db, apps)`             | Adds apps core hasn't seen, with their declared rule or owner-only. Keeps the owner's edits                                                                      |
 | `TrustedProxy`                       | `cloudflare`, or nothing                                                                                                                                         |
 
-Core's routes are in `src/app.ts`. `docs/architecture.md` shows how they fit the request and token flows.
+Core's routes are in `src/routes/`, one Hono app each for status, the session, codes, apps and roles. `createApp` in `src/app.ts` mounts them behind CORS and the rules every POST meets, and its one error handler answers what a route didn't expect. `docs/architecture.md` shows how they fit the request and token flows.
 
 ## What it must never do
 

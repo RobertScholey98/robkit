@@ -52,7 +52,7 @@ export const exceptions: Exceptions = {
     },
     {
       word: "service",
-      file: "packages/create-robkit/src/coolify.ts",
+      file: "packages/create-robkit/src/coolify-api.ts",
       text: "service token",
       why: "Cloudflare Access's name for a token a program holds.",
     },
