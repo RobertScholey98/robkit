@@ -59,9 +59,11 @@ export type Report = (message: string, cause?: unknown) => void;
 export const reportToConsole: Report;
 export type RequestDecision =
   | {
+      outcome: "serve";
       viewer: Viewer;
     }
   | {
+      outcome: "answer";
       response: Response;
     };
 export function requestGuard(

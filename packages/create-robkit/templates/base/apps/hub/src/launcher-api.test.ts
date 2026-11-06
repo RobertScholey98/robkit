@@ -19,7 +19,10 @@ describe("listLauncherApps", () => {
       fakeCore(core, { "GET /launcher": () => ({ body: { apps } }) }),
     );
 
-    expect(await listLauncherApps(core)).toEqual({ ok: true, value: apps });
+    expect(await listLauncherApps(core)).toEqual({
+      outcome: "ok",
+      value: apps,
+    });
   });
 
   it.each([
@@ -43,7 +46,10 @@ describe("listLauncherApps", () => {
         fakeCore(core, { "GET /launcher": () => ({ status, body }) }),
       );
 
-      expect(await listLauncherApps(core)).toEqual({ ok: false, error });
+      expect(await listLauncherApps(core)).toEqual({
+        outcome: "failed",
+        error,
+      });
     },
   );
 
@@ -51,7 +57,7 @@ describe("listLauncherApps", () => {
     vi.stubGlobal("fetch", unreachable);
 
     expect(await listLauncherApps(core)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: `Couldn't reach core at ${core}.`,
     });
   });

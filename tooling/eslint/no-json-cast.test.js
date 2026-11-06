@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import rule from "./no-json-cast.js";
 
 const message =
-  "Parsed JSON is unknown until a reader checks it. Read it with one rather than casting it. See docs/conventions/input.md.";
+  "Parsed JSON is unknown until a reader checks it. Read it with one rather than casting it. See robkit's docs/conventions/input.md.";
 
 /**
  * Lints `code` as a TypeScript file.

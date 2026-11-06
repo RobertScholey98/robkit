@@ -35,7 +35,7 @@ export default {
     type: "problem",
     docs: { description: "Refuse a cast of parsed JSON" },
     messages: {
-      cast: "Parsed JSON is unknown until a reader checks it. Read it with one rather than casting it. See docs/conventions/input.md.",
+      cast: "Parsed JSON is unknown until a reader checks it. Read it with one rather than casting it. See robkit's docs/conventions/input.md.",
     },
     schema: [],
   },

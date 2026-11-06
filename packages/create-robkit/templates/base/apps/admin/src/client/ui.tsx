@@ -160,7 +160,7 @@ export function Choices<Value extends string>({
   onValueChange,
 }: {
   legend: string;
-  /** Names the group's inputs, unique on the page. */
+  /** Names the options' inputs, unique on the page. */
   name: string;
   value: Value;
   options: readonly { value: Value; label: string }[];

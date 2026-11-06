@@ -29,7 +29,7 @@ interface InputProblem {
 
   `Slug`, `Domain` and `CoreOrigin` are in `@robkit/input`. An install's `host` and `origin` take a `Slug`, `requestGuard` takes core's origin as a `CoreOrigin`, and core's config holds its domain as a `Domain`. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
 
-The shared readers live in `@robkit/input`: environment variables and JSON, `InputProblem`, `isProblem`, `isRecord` and `allProblems`, slugs, what an app's server reads from its environment, and an app's `robkit` field. Role and code ids, and access rules, are read in `@robkit/guard`, which takes `InputProblem` from `@robkit/input`, so its readers return one like every other. `@robkit/input` imports nothing, so the guard stays pure and the browser can load it. Every robkit package and every app can import them. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
+The shared readers live in `@robkit/input`: environment variables and JSON, `InputProblem`, `isProblem`, `isRecord` and `allProblems`, slugs, what an app's server reads from its environment, and an app's `robkit` field. Role and code ids, and access rules, are read in `@robkit/guard`, which takes `InputProblem` from `@robkit/input`, so its readers return one like every other. `@robkit/input` imports nothing, so the guard stays pure and the browser can load it. Every robkit package and every app can import them. An install's `packages/core-client` reads core's answers with them, and its readers return an `InputProblem` like every other. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
 
 ## What lint enforces
 
@@ -39,7 +39,7 @@ The shared readers live in `@robkit/input`: environment variables and JSON, `Inp
 | `robkit/no-json-cast`                         | A cast of `JSON.parse(...)` or a `.json()` result, which are `any` and so slip past the rule above                            | Every file but tests |
 | `robkit/one-problem-type`                     | A type literal whose only property is a required `error: string`, and `"error" in`; outside tests, `throw new Error(x.error)` | Every file           |
 
-The rules live in `tooling/eslint`, each with its tests. An install's `eslint.config.js` refuses the same three with `no-restricted-syntax` selectors, so the templates and every app `robkit add` writes keep to them too.
+The rules live in `tooling/eslint`, each with its tests. `policy.js` there holds every rule that doesn't know robkit's own packages, these three and the `catch` rules in [errors.md](errors.md) among them. create-robkit copies it, and each rule file it imports, into a new install's `tooling/eslint`, and the install's `eslint.config.js` lints with it. So the templates and every app `robkit add` writes keep to the same rules as robkit, and a create-robkit test lints the same samples with both configs to prove it.
 
 Lint can't tell `typeof core !== "string"` on a reader's result from any other `typeof`, and it happens to work for a reader that returns a string. A repo check, `tooling/repo-checks/src/problem-checks.ts`, finds it by name in robkit's source, the templates and the docs, and fails.
 

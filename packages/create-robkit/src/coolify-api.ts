@@ -23,7 +23,8 @@ export interface CoolifyApi {
 
 /** A call's answer, or what went wrong and what to check. */
 type CoolifyAnswer =
-  { ok: true; body: unknown } | { ok: false; detail: string; check: string };
+  | { outcome: "answered"; body: unknown }
+  | { outcome: "failed"; detail: string; check: string };
 
 export const whatToCheck = {
   reach: "Check COOLIFY_URL and that Coolify is up.",
@@ -106,19 +107,19 @@ export async function callCoolify(
     const raw = await response.text();
     if (!response.ok) {
       return {
-        ok: false,
+        outcome: "failed",
         detail: `HTTP ${String(response.status)} ${raw}`,
         check: checkForStatus(response.status),
       };
     }
     try {
       const body: unknown = JSON.parse(raw);
-      return { ok: true, body };
+      return { outcome: "answered", body };
     } catch {
       // A body that isn't JSON comes from something in front of Coolify,
       // and the parser's own message adds nothing.
       return {
-        ok: false,
+        outcome: "failed",
         detail: `HTTP ${String(response.status)} with a body that isn't JSON`,
         check: whatToCheck.page,
       };
@@ -127,7 +128,7 @@ export async function callCoolify(
     const detail = timeout.aborted
       ? `no answer in ${describeDuration(api.requestTimeoutMs)}`
       : describeError(error);
-    return { ok: false, detail, check: whatToCheck.reach };
+    return { outcome: "failed", detail, check: whatToCheck.reach };
   }
 }
 
@@ -136,7 +137,7 @@ export async function readFromCoolify(
   path: string,
 ): Promise<unknown> {
   const result = await callCoolify(api, "GET", path);
-  if (!result.ok) {
+  if (result.outcome === "failed") {
     throw new CommandProblem(
       `Couldn't read Coolify's ${path.slice(1)}: ${describeFailure(result)}`,
     );

@@ -4,11 +4,11 @@ import { describe, expect, it } from "vitest";
 import rule from "./one-problem-type.js";
 
 const typeMessage =
-  "A failed read is an InputProblem from @robkit/input, not a { error: string } of its own. See docs/conventions/input.md.";
+  "A failed read is an InputProblem from @robkit/input, not a { error: string } of its own. See robkit's docs/conventions/input.md.";
 const checkMessage =
-  'Check a read with isProblem from @robkit/input, not "error" in. See docs/conventions/input.md.';
+  'Check a read with isProblem from @robkit/input, not "error" in. See robkit\'s docs/conventions/input.md.';
 const thrownMessage =
-  "A problem the person can fix isn't a fault. Throw it as a CommandProblem in a command line, end an app server with orExit, or use orThrow where nothing better fits. See docs/conventions/input.md.";
+  "A problem the person can fix isn't a fault. Throw it as a CommandProblem in a command line, end an app server with orExit, or use orThrow where nothing better fits. See robkit's docs/conventions/input.md.";
 
 /**
  * Lints `code` as a TypeScript file.

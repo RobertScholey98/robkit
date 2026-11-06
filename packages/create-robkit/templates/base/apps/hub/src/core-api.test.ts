@@ -32,7 +32,17 @@ const signsIn = fakeCore(core, {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
+
+/** What callCore's default report printed, a call each. */
+function printed(): unknown[][] {
+  const calls: unknown[][] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    calls.push(args);
+  });
+  return calls;
+}
 
 describe("getSession", () => {
   it.each([
@@ -46,26 +56,41 @@ describe("getSession", () => {
       fakeCore(core, { "GET /session": () => ({ body: session }) }),
     );
 
-    expect(await getSession(core)).toEqual({ ok: true, value: session });
+    expect(await getSession(core)).toEqual({ outcome: "ok", value: session });
   });
 
   it.each([
-    ["an unknown state", { state: "sleeping" }],
-    ["a profile that is nobody", { state: "signed-in", profile: {} }],
+    [
+      "an unknown state",
+      { state: "sleeping" },
+      "The session's state isn't unclaimed, signed-out or signed-in.",
+    ],
+    [
+      "a profile that is nobody",
+      { state: "signed-in", profile: {} },
+      "The profile's id isn't text.",
+    ],
     [
       "a guest without a name",
       { state: "signed-in", profile: { kind: "guest", id: "c_1" } },
+      "The profile isn't an owner with a username or a guest with a name.",
     ],
-  ])("refuses %s", async (_, body) => {
+  ])("refuses %s, and reports why", async (_, body, why) => {
     vi.stubGlobal(
       "fetch",
       fakeCore(core, { "GET /session": () => ({ body }) }),
     );
+    const reported = printed();
 
     expect(await getSession(core)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
+    expect(reported).toEqual([
+      [
+        `Core at ${core} answered GET /session with 200, which this page can't read: ${why}`,
+      ],
+    ]);
   });
 });
 
@@ -76,7 +101,7 @@ describe("setUp", () => {
     const result = await setUp(core, { ...credentials, username: "ann" });
 
     expect(result).toEqual({
-      ok: true,
+      outcome: "ok",
       value: {
         state: "signed-in",
         profile: { ...owner, username: "ann" },
@@ -96,7 +121,7 @@ describe("setUp", () => {
     );
 
     expect(await setUp(core, credentials)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "This install already has an owner.",
     });
   });
@@ -107,7 +132,7 @@ describe("signIn", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signIn(core, credentials)).toEqual({
-      ok: true,
+      outcome: "ok",
       value: { state: "signed-in", profile: owner },
     });
   });
@@ -116,7 +141,7 @@ describe("signIn", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signIn(core, { ...credentials, password: "nope" })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Wrong username or password.",
     });
   });
@@ -133,7 +158,7 @@ describe("signIn", () => {
     );
 
     expect(await signIn(core, credentials)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Too many attempts. Try again in a minute.",
     });
   });
@@ -144,7 +169,7 @@ describe("signInWithCode", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signInWithCode(core, "k7xq2")).toEqual({
-      ok: true,
+      outcome: "ok",
       value: { state: "signed-in", profile: guest },
     });
   });
@@ -153,7 +178,7 @@ describe("signInWithCode", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signInWithCode(core, "NOPE2")).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "That code doesn't work.",
     });
   });
@@ -164,7 +189,7 @@ describe("signOut", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signOut(core)).toEqual({
-      ok: true,
+      outcome: "ok",
       value: { state: "signed-out" },
     });
   });
@@ -178,7 +203,7 @@ describe("signOut", () => {
     );
 
     expect(await signOut(core)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core answered 502.",
     });
   });
@@ -195,7 +220,7 @@ describe("every call", () => {
     vi.stubGlobal("fetch", unreachable);
 
     expect(await call()).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Couldn't reach core at https://core.example.com.",
     });
   });
