@@ -35,11 +35,11 @@ export const packageGraph = {
   // Adapters take session and guard, never core.
   "@robkit/hono": {
     dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: ["@internal/test-session"],
+    devDependencies: ["@internal/test-addresses", "@internal/test-session"],
   },
   "@robkit/start": {
     dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: ["@internal/test-session"],
+    devDependencies: ["@internal/test-addresses", "@internal/test-session"],
   },
   "@robkit/react": {
     dependencies: ["@robkit/session"],
@@ -48,15 +48,19 @@ export const packageGraph = {
   // Core's tests provision their database with the dev runner's step.
   "@robkit/core": {
     dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: ["@internal/test-postgres", "@robkit/dev"],
+    devDependencies: [
+      "@internal/test-addresses",
+      "@internal/test-postgres",
+      "@robkit/dev",
+    ],
   },
   "@robkit/dev": {
     dependencies: ["@robkit/session"],
-    devDependencies: ["@internal/test-postgres"],
+    devDependencies: ["@internal/test-addresses", "@internal/test-postgres"],
   },
   "create-robkit": {
     dependencies: ["@robkit/dev", "@robkit/session"],
-    devDependencies: [],
+    devDependencies: ["@internal/test-addresses"],
   },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
   "@internal/tsconfig": { dependencies: [], devDependencies: [] },
@@ -64,6 +68,12 @@ export const packageGraph = {
   "@internal/test-session": {
     dependencies: [],
     devDependencies: ["@robkit/guard"],
+  },
+  // Builds session's checked addresses for the tests above session. Not in
+  // test-session, which session's own tests use.
+  "@internal/test-addresses": {
+    dependencies: [],
+    devDependencies: ["@robkit/session"],
   },
   // Packs and checks every published package.
   "@internal/repo-checks": {
@@ -83,6 +93,7 @@ export const packageGraph = {
   "@internal/e2e": {
     dependencies: [],
     devDependencies: [
+      "@internal/test-addresses",
       "@internal/test-postgres",
       "@robkit/dev",
       "@robkit/session",

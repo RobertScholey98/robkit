@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { addApp, readNewSlug, type AppChoices } from "./add.ts";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-addresses";
 
 async function freshInstall(choices: Choices = defaultChoices) {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");

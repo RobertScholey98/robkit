@@ -8,7 +8,7 @@ import {
 import { conformanceCases } from "@robkit/guard/conformance";
 import { describe, expect, it } from "vitest";
 import { guarded, type GuardedOptions } from "./index.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-addresses";
 
 // requestGuard's own tests cover the guard. These cover the Start glue: the
 // guard's answer goes out as is, and Start gets the viewer as context.

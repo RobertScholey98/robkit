@@ -10,7 +10,7 @@ import {
   sessionCookieOf,
   withSession,
 } from "./test/fresh-app.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-addresses";
 
 const minute = 60_000;
 

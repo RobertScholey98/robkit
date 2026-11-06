@@ -6,7 +6,7 @@ import { addApp } from "./add.ts";
 import { defaultChoices } from "./choices.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { init } from "./init.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-addresses";
 
 /** The default install, plus `brochure` on react-hono, open to anyone. */
 async function makeInstall(): Promise<string> {

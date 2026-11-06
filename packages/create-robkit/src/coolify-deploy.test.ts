@@ -7,7 +7,7 @@ import {
   fakeFetch,
   type FakeCoolify,
 } from "./test/fake-coolify.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-addresses";
 
 const config: CoolifyConfig = {
   project: "robkit",
