@@ -78,7 +78,7 @@ A boundary is where robkit meets a person or another program: an HTTP route, a c
 - **Core.** A route answers an expected failure with its status and `{ error }` sentence. A body that isn't JSON gets "Send a valid JSON body.", and JSON that isn't an object gets "Send a JSON object." One `app.onError` handler catches every unexpected fault and gives it a fresh request id. It logs the route, the id and the cause through `logError`, and answers 500 with a generic JSON error that carries the id, as `requestId` and in an `X-Request-Id` header. The cause stays in core's log, not in the response; the id finds it there.
 - **The guard.** It answers 503 when it can't check a request, rather than treating the viewer as signed out. It hands the cause to `onUnavailable` with the app's slug and what failed: `core-key`, `access-rule` or `network`. An `access-rule` fault also has a `reason`, the `AccessRuleError`'s `failure`, so `onUnavailable` can tell "core doesn't know this app" from a broken answer without reading the message. By default it reports them.
 - **App servers.** An app's `serve.ts`, `server.ts`, `database.ts` and scripts read their environment with `orExit` from `@robkit/input`. A variable that won't do prints its problem alone and exits 1, so the owner sees the line that says how to fix it, not a stack. A Vite config uses `orThrow` instead, since Vite prints what it throws.
-- **The hub and admin.** Their `callCore`, in an install's `packages/core-client`, answers `{ outcome: "ok", value }` or `{ outcome: "failed", error }`, with `error` a sentence to show. It reads core's answer with a reader that returns `T | InputProblem`. It tells `report(message, cause?)` what went wrong underneath: no answer, an answer that isn't JSON, or one the reader refuses, with the method, path, status and the reader's problem. It never passes on what core sent, so `JSON.parse`'s error, which quotes the answer, isn't the cause. `report` defaults to core-client's `reportToConsole`.
+- **The hub and admin.** Their `callCore`, in an install's `packages/core-client`, answers `{ outcome: "ok", value }` or `{ outcome: "failed", error }`, with `error` a sentence to show. It reads core's answer with a reader that returns `T | InputProblem`. It tells `report(message, cause?)` what went wrong underneath: no answer, an answer that isn't JSON, or one the reader refuses, with the method, path, status and the reader's problem. It never passes on what core sent, so `JSON.parse`'s error, which quotes the answer, isn't the cause. `report` defaults to `reportToConsole` from `@robkit/input/report`.
 - **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/dev/cli`. Throw a `CommandProblem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints a line saying it's a bug and where to report it, then the fault with its stack and cause, and exits 1.
 
 ## Whose fault is it
@@ -93,13 +93,13 @@ A malformed file robkit ships, such as one of its own templates, is a fault: the
 
 ## One way to report
 
-`Report` in `@robkit/session` is the one shape for saying what went wrong when nobody calling can handle it:
+`Report` in `@robkit/input/report` is the one shape for saying what went wrong when nobody calling can handle it:
 
 ```ts
 type Report = (message: string, cause?: unknown) => void;
 ```
 
-The message says what robkit was doing; the cause is the error underneath. Core's `logError`, the guard's default `onUnavailable` and `runCommand` all report through it, and `reportToConsole`, their default, prints the message and then the cause on its own. A new place that logs a fault takes a `Report`, defaulting to `reportToConsole`. An install's `packages/core-client` runs in the browser, so it has its own `Report` and `reportToConsole` of the same shape.
+The message says what robkit was doing; the cause is the error underneath. Core's `logError`, the guard's default `onUnavailable` and `runCommand` all report through it, and `reportToConsole`, their default, prints the message and then the cause on its own. A new place that logs a fault takes a `Report`, defaulting to `reportToConsole`. An install's hub and `packages/core-client` take both from there too, since `@robkit/input` runs in the browser.
 
 ## Cleaning up
 
@@ -119,7 +119,7 @@ A `catch` that drops its error needs a comment saying why. Lint enforces these r
 
 ## Outbound requests time out
 
-Every request robkit sends has a deadline. Pass `AbortSignal.timeout(ms)` as its `signal`, and read the body under it too: a body that stalls after the headers arrive is then cut off by the same signal, and fails the same way as no answer. When a longer wait bounds several requests, such as a Coolify deploy waiting for its build, combine the two with `AbortSignal.any`, so the outer deadline also cuts off a request in flight. The current limits:
+Every request robkit sends has a deadline. Pass `AbortSignal.timeout(ms)` as its `signal`, and read the body under it too: a body that stalls after the headers arrive is then cut off by the same signal, and fails the same way as no answer. A repo check, `tooling/repo-checks/src/deadlines.ts`, fails a `fetch` in a package's `src` or the templates whose `signal` holds no `AbortSignal.timeout`. When a longer wait bounds several requests, such as a Coolify deploy waiting for its build, combine the two with `AbortSignal.any`, so the outer deadline also cuts off a request in flight. The current limits:
 
 | Request                                                                                      | Limit                      |
 | -------------------------------------------------------------------------------------------- | -------------------------- |
@@ -128,6 +128,7 @@ Every request robkit sends has a deadline. Pass `AbortSignal.timeout(ms)` as its
 | One request to Coolify                                                                       | 30 seconds                 |
 | One app's Coolify deploy, from queueing to its end                                           | 20 minutes                 |
 | The hub's and admin's `callCore`, headers and body                                           | 10 seconds                 |
+| A page's `sessionFetch` call to its own app, headers and body                                | 30 seconds                 |
 
 ## Messages say what to do
 
