@@ -115,7 +115,6 @@ describe("POST /setup", () => {
       { username: 7, password: rob.password },
       "Send a username and a password.",
     ],
-    [null, "Send a username and a password."],
   ])("refuses %j with 400", async (body, error) => {
     const { app } = await freshCore();
 
@@ -207,6 +206,18 @@ describe("POST bodies", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Send a valid JSON body." });
   });
+
+  it.each([[[rob]], ["rob"], [null], [7]])(
+    "refuses JSON that isn't an object, such as %j, with 400",
+    async (body) => {
+      const { app } = await freshCore();
+
+      const res = await postJson(app, "/setup", body);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Send a JSON object." });
+    },
+  );
 
   it("refuses a body over 16 KiB with 413, and takes one just under", async () => {
     const { app } = await freshCore();

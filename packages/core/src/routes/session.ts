@@ -148,7 +148,7 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
 
   routes.post("/login/code", async (c) => {
     const fields = await fieldsOf(c);
-    if (typeof fields?.code !== "string") {
+    if (isProblem(fields) || typeof fields.code !== "string") {
       return c.json({ error: "Send a code." }, 400);
     }
     const client = clientOf(c, trustedProxy);
