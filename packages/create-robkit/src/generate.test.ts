@@ -34,6 +34,9 @@ const rendered = [
   "robkit.json",
 ];
 
+/** Where an install keeps the copy of robkit's lint policy. */
+const lintPolicyDir = "tooling/eslint/";
+
 describe("generateInstall", () => {
   it.each<[string, Choices]>([
     ["the default", defaultChoices],
@@ -53,15 +56,51 @@ describe("generateInstall", () => {
         ),
       ]);
 
-      // Every file is a template's or one the generator writes.
+      // Every file is a template's, one the generator writes, or robkit's
+      // lint policy, which the next test checks.
+      const policy = [...files.keys()].filter((path) =>
+        path.startsWith(lintPolicyDir),
+      );
       expect([...files.keys()].sort()).toEqual(
-        [...new Set([...templates.keys(), ...rendered])].sort(),
+        [...new Set([...templates.keys(), ...rendered, ...policy])].sort(),
       );
       for (const [path, text] of templates) {
         if (!rendered.includes(path)) expect(files.get(path), path).toBe(text);
       }
     },
   );
+
+  it("copies robkit's lint policy whole: policy.js and what it imports, nothing else", async () => {
+    const files = await generateInstall(defaultChoices);
+    const policy = new Map(
+      [...files]
+        .filter(([path]) => path.startsWith(lintPolicyDir))
+        .map(([path, text]) => [path.slice(lintPolicyDir.length), text]),
+    );
+    const imported = new Set(
+      [...policy.values()].flatMap((text) =>
+        [...text.matchAll(/from "\.\/([\w.-]+\.js)"/g)].flatMap(([, name]) =>
+          name === undefined ? [] : [name],
+        ),
+      ),
+    );
+
+    expect(policy.has("policy.js")).toBe(true);
+    // Nothing a copied file imports is missing, and nothing else is copied.
+    expect([...imported].filter((name) => !policy.has(name))).toEqual([]);
+    expect(
+      [...policy.keys()].filter(
+        (name) => name !== "policy.js" && !imported.has(name),
+      ),
+    ).toEqual([]);
+    for (const [name, text] of policy) {
+      const robkits = await readFile(
+        new URL(`../../../tooling/eslint/${name}`, import.meta.url),
+        "utf8",
+      );
+      expect(text, name).toBe(robkits.replaceAll("\r\n", "\n"));
+    }
+  });
 
   it("records the example's stack in robkit.json", async () => {
     const start = await generateInstall(defaultChoices);
