@@ -1,3 +1,4 @@
+import type { Slug } from "@robkit/session/addresses";
 import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
@@ -18,9 +19,9 @@ export async function addedAppJourney({
   install,
   slug,
 }: Pick<JourneyOptions, "install"> & {
-  slug: string;
+  slug: Slug;
 }): Promise<AddedAppJourney> {
-  const at = (app: string) => `${install.origin(app)}/`;
+  const at = (app: Slug) => `${install.origin(app)}/`;
   const browser = await launch();
   try {
     const guest = await (await browser.newContext()).newPage();

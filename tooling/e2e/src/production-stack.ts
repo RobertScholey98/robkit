@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { freePort, removeWhenGone } from "@internal/test-postgres";
-import { install, type Install } from "@robkit/session/addresses";
+import { install, type Install, type Slug } from "@robkit/session/addresses";
 import { deploymentOf } from "create-robkit";
 
 const run = promisify(execFile);
@@ -204,7 +204,7 @@ export async function stopStack(): Promise<void> {
  * reuses them. Without it, the local Docker's own cache
  * serves, as it does between runs on a laptop.
  */
-export async function buildApp(stack: Stack, slug: string): Promise<void> {
+export async function buildApp(stack: Stack, slug: Slug): Promise<void> {
   const cache = process.env.ROBKIT_BUILD_CACHE;
   const scope = `scope=${slug}`;
   const { stderr } = await run(
@@ -258,7 +258,7 @@ export function cachedSteps(progress: string): string {
  */
 export async function extraneousPackages(
   stack: Stack,
-  slug: string,
+  slug: Slug,
 ): Promise<string[]> {
   const script = await readFile(
     new URL("extraneous-packages.js", import.meta.url),
@@ -339,7 +339,7 @@ export async function hostEnv(
  */
 export async function startApp(
   stack: Stack,
-  slug: string,
+  slug: Slug,
   env: Record<string, string>,
 ): Promise<void> {
   const container = `${stack.name}-${slug}`;
@@ -366,7 +366,7 @@ export async function startApp(
 }
 
 /** What `slug` answers at `path` over https through Caddy. */
-function status(stack: Stack, slug: string, path: string): Promise<number> {
+function status(stack: Stack, slug: Slug, path: string): Promise<number> {
   const host = stack.addresses.host(slug);
   return new Promise((resolve, reject) => {
     request(
@@ -420,7 +420,7 @@ export async function stackReport(stack: Stack): Promise<string> {
 /** Waits until `slug` answers `path` with `expected`, naming its logs if not. */
 export async function answers(
   stack: Stack,
-  slug: string,
+  slug: Slug,
   expected: number,
   path = "/",
 ): Promise<void> {

@@ -3,6 +3,7 @@ import type { BrowserContext, Cookie, Page } from "playwright";
 import { launch } from "./browser.ts";
 import postgres from "postgres";
 import type { Install } from "@robkit/session/addresses";
+import { exampleSlug } from "./install.ts";
 
 export interface JourneyOptions {
   /** The install's addresses under pnpm dev. */
@@ -95,7 +96,7 @@ export async function ownerJourney({
   username,
   password,
 }: JourneyOptions): Promise<Journey> {
-  const example = `${install.origin("example")}/`;
+  const example = `${install.origin(exampleSlug)}/`;
   const browser = await launch();
   try {
     const context = await browser.newContext();
