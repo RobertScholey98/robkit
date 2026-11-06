@@ -29,6 +29,7 @@
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run --coverage",
+    "test:unit": "vitest run --project unit",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {

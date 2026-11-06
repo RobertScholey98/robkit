@@ -35,7 +35,7 @@ async function readTree(dir: string): Promise<Map<string, string>> {
   );
 }
 
-describe("init with no flags", { timeout: 30_000 }, () => {
+describe("init with no flags", () => {
   it("asks init's questions and prints the command that skips them", async () => {
     const asked = await mkdtemp(join(tmpdir(), "robkit-"));
 
@@ -176,7 +176,7 @@ describe("init with no flags", { timeout: 30_000 }, () => {
   });
 });
 
-describe("init with --stack", { timeout: 30_000 }, () => {
+describe("init with --stack", () => {
   it("asks nothing", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
 

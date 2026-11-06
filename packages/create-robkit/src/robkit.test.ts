@@ -18,6 +18,17 @@ async function freshInstall(choices: Choices = defaultChoices) {
   return dir;
 }
 
+let readOnly: Promise<string> | undefined;
+
+/**
+ * One install, made on first use, for the tests that only read it. A test
+ * that adds an app or writes a file makes its own with freshInstall.
+ */
+function readOnlyInstall(): Promise<string> {
+  readOnly ??= freshInstall();
+  return readOnly;
+}
+
 async function declared(dir: string, slug: string): Promise<unknown> {
   const manifest = JSON.parse(
     await readFile(join(dir, "apps", slug, "package.json"), "utf8"),
@@ -25,7 +36,7 @@ async function declared(dir: string, slug: string): Promise<unknown> {
   return manifest.robkit;
 }
 
-describe("robkit add with flags", { timeout: 30_000 }, () => {
+describe("robkit add with flags", () => {
   it("adds the app without asking anything", async () => {
     const dir = await freshInstall();
 
@@ -93,7 +104,7 @@ Then open http://notes.robkit.localhost:3000.
     ],
     [["remove", "notes"], "Usage: robkit add [name]"],
   ])("refuses %j", async (args, message) => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, args);
 
@@ -118,7 +129,7 @@ Then open http://notes.robkit.localhost:3000.
   });
 });
 
-describe("robkit's failures", { timeout: 30_000 }, () => {
+describe("robkit's failures", () => {
   it("prints a fault it didn't expect whole, with where to report it", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-"));
     await mkdir(join(dir, "robkit.json"));
@@ -211,7 +222,7 @@ describe("robkit's failures", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit add with no flags", { timeout: 30_000 }, () => {
+describe("robkit add with no flags", () => {
   it("asks for the stack, name, access, roles and icon, then prints the command that skips them", async () => {
     const dir = await freshInstall();
 
@@ -246,7 +257,7 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
   });
 
   it("refuses a name that's taken before asking anything", async () => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, ["add", "example"]);
 
@@ -257,9 +268,9 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit database-urls", { timeout: 30_000 }, () => {
+describe("robkit database-urls", () => {
   it("prints each database app's URL for the host, from the admin URL and secret", async () => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, ["database-urls"], [], {
       ROBKIT_ADMIN_DATABASE_URL: "postgres://postgres:pw@db:5432/robkit",
@@ -275,7 +286,7 @@ describe("robkit database-urls", { timeout: 30_000 }, () => {
   });
 
   it("says what to set when the admin URL or secret is missing", async () => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, ["database-urls"], [], {
       ROBKIT_ADMIN_DATABASE_URL: "",
@@ -290,7 +301,7 @@ describe("robkit database-urls", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit deploy", { timeout: 30_000 }, () => {
+describe("robkit deploy", () => {
   const coolifyJson = JSON.stringify({
     project: "robkit",
     environment: "production",
@@ -302,7 +313,7 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
   });
 
   it("says how to set up an install with no coolify.json", async () => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, ["deploy"], [], {
       COOLIFY_URL: "https://coolify.example",

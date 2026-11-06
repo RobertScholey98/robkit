@@ -57,10 +57,10 @@ The install uses your checkout's `@robkit/*` packages, so a change in `packages/
 
 There are two gates.
 
-| Command          | What it runs                                                                                              | Needs Docker | Time               |
-| ---------------- | --------------------------------------------------------------------------------------------------------- | ------------ | ------------------ |
-| `pnpm check`     | Prettier's check, lint, typecheck, and every test that needs no Docker                                    | No           | Under a minute     |
-| `pnpm check:all` | What CI runs: Prettier's check, lint, typecheck and every test, the whole-stack test in Chromium included | Yes          | About four minutes |
+| Command          | What it runs                                                                                              | Needs Docker | Time                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------ |
+| `pnpm check`     | Prettier's check, lint, typecheck, and every test that needs no Docker                                    | No           | 53 to 65 seconds cold (`--force`), 25 to 34 warm, on Windows |
+| `pnpm check:all` | What CI runs: Prettier's check, lint, typecheck and every test, the whole-stack test in Chromium included | Yes          | About four minutes                                           |
 
 Run `pnpm check` while you work and `pnpm check:all` before you open a pull request. The whole-stack test needs Chromium once: `pnpm --filter @internal/e2e exec playwright install --with-deps chromium`.
 

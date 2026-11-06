@@ -98,6 +98,10 @@ describe("readCoolifyConfig", () => {
     ["githubApp", "", "the GitHub App Coolify builds the repository through"],
     ["branch", 1, "the branch to deploy, such as main"],
     ["project", null, "the Coolify project's name"],
+    ["environment", "", "the project's environment, such as production"],
+    ["server", "", "the Coolify server's name, such as localhost"],
+    ["repository", "", "the install's repository, such as owner/name"],
+    ["domain", "", "the domain the install answers on, such as robkit.dev"],
   ])("names %s when it is %j", (key, value, what) => {
     expect(readCoolifyConfig({ ...config, [key]: value })).toEqual({
       error: `coolify.json: ${key} must be a non-empty string: ${what}.`,
@@ -287,6 +291,206 @@ describe("deploy", () => {
 
     expect(log).toContain(
       "- core: failed, failed. Check the deployment's log in Coolify.",
+    );
+  });
+});
+
+describe("deploy's plan", () => {
+  /** Every app Coolify already has, as a sync made them. */
+  const all = () => [
+    existing("core", "c"),
+    existing("hub", "h"),
+    existing("notes", "n"),
+  ];
+
+  const deploysOf = (state: FakeCoolify) =>
+    state.requests
+      .filter(({ path }) => path.startsWith("/deploy?"))
+      .map(({ path }) => path);
+
+  it("deploys nothing and logs only the plan when no app changed", async () => {
+    const state = fakeCoolify({ applications: all() });
+
+    const { ok, log } = await run(state, []);
+
+    expect(ok).toBe(true);
+    expect(deploysOf(state)).toEqual([]);
+    expect(log).toEqual([
+      "| App | Action | Detail |",
+      "| --- | --- | --- |",
+      "| core | skip | unchanged |",
+      "| hub | skip | unchanged |",
+      "| notes | skip | unchanged |",
+    ]);
+  });
+
+  it("deploys the changed apps together when core is unchanged", async () => {
+    const state = fakeCoolify({ applications: all() });
+
+    const { ok, log } = await run(state, ["hub", "notes"]);
+
+    expect(ok).toBe(true);
+    expect(log).toContain("| core | skip | unchanged |");
+    // One wave: both are queued before either is polled.
+    expect(
+      state.requests
+        .map(({ method, path }) => `${method} ${path.split("?")[0] ?? ""}`)
+        .filter((route) => /^(POST \/deploy|GET \/deployments)/.test(route))
+        .slice(0, 2),
+    ).toEqual(["POST /deploy", "POST /deploy"]);
+    expect(deploysOf(state)).toEqual(["/deploy?uuid=h", "/deploy?uuid=n"]);
+    expect(log.slice(-2)).toEqual([
+      "- hub: deployed, finished",
+      "- notes: deployed, finished",
+    ]);
+  });
+
+  it("deploys every app with all, core first", async () => {
+    const state = fakeCoolify({ applications: all() });
+
+    const { ok } = await run(state, "all");
+
+    expect(ok).toBe(true);
+    expect(deploysOf(state)).toEqual([
+      "/deploy?uuid=c",
+      "/deploy?uuid=h",
+      "/deploy?uuid=n",
+    ]);
+  });
+
+  it("still deploys the others when one app fails to sync, and reports failure", async () => {
+    const state = fakeCoolify({
+      applications: all(),
+      answer: (route) =>
+        route === "PATCH /applications/h"
+          ? { status: 500, body: { message: "Server Error" } }
+          : undefined,
+    });
+
+    const { ok, log } = await run(state, "all");
+
+    expect(ok).toBe(false);
+    expect(log).toContain(
+      `| hub | failed | updating it: HTTP 500 {"message":"Server Error"}. Check Coolify's own log. |`,
+    );
+    expect(deploysOf(state)).toEqual(["/deploy?uuid=c", "/deploy?uuid=n"]);
+  });
+});
+
+describe("deploy's lookups", () => {
+  it("refuses two Coolify applications with one app's name", async () => {
+    const state = fakeCoolify({
+      applications: [existing("hub", "h1"), existing("hub", "h2")],
+    });
+
+    await expect(run(state, [])).rejects.toThrow(
+      "2 Coolify applications are named robkit-hub. Delete the extras.",
+    );
+  });
+
+  it("names the server it can't find, and those it found", async () => {
+    const state = fakeCoolify({
+      servers: [
+        { uuid: "a", name: "alpha" },
+        { uuid: "b", name: "beta" },
+      ],
+    });
+
+    await expect(run(state, [])).rejects.toThrow(
+      "No Coolify server named localhost. Found: alpha, beta.",
+    );
+  });
+
+  it("takes Coolify's only server, whatever its name", async () => {
+    const state = fakeCoolify({ servers: [{ uuid: "only", name: "box" }] });
+
+    await run(state, []);
+
+    expect(
+      state.requests
+        .filter(({ path }) => path === "/applications/private-github-app")
+        .map(({ body }) => (body as { server_uuid: string }).server_uuid),
+    ).toEqual(["only", "only", "only"]);
+  });
+});
+
+describe("deploy's failures", () => {
+  it("names the app when Coolify won't create it", async () => {
+    const state = fakeCoolify({
+      answer: (route) =>
+        route === "POST /applications/private-github-app"
+          ? { status: 201, body: {} }
+          : undefined,
+    });
+
+    const { ok, log } = await run(state, []);
+
+    expect(ok).toBe(false);
+    expect(log).toContain(
+      "| notes | failed | creating it: Coolify returned no uuid. Check Coolify's own log. |",
+    );
+  });
+
+  it("says what to check when Cloudflare Access turns a call away", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c")],
+      answer: (route) =>
+        route === "POST /deploy" ? { status: 302, body: "" } : undefined,
+    });
+
+    const { ok, log } = await run(state, ["core"]);
+
+    expect(ok).toBe(false);
+    expect(log).toContain(
+      '- core: failed, queueing its deploy: HTTP 302 "". Check CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET: Cloudflare Access sends a token it refuses to its login page.',
+    );
+  });
+
+  it("says when Coolify queued nothing", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c")],
+      answer: (route) =>
+        route === "POST /deploy"
+          ? {
+              status: 200,
+              body: { deployments: [{ message: "nothing to deploy" }] },
+            }
+          : undefined,
+    });
+
+    const { log } = await run(state, ["core"]);
+
+    expect(log).toContain(
+      "- core: failed, Coolify queued nothing: nothing to deploy. Check Coolify's own log.",
+    );
+  });
+
+  it("gives up on a deployment it can't read three times running", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c")],
+      answer: (route) =>
+        route.startsWith("GET /deployments/")
+          ? { status: 500, body: { message: "Server Error" } }
+          : undefined,
+    });
+
+    const { log } = await run(state, ["core"]);
+
+    expect(log).toContain(
+      `- core: failed, lost track of dep-c: HTTP 500 {"message":"Server Error"}. Check Coolify's own log.`,
+    );
+  });
+
+  it("names a deployment someone cancelled", async () => {
+    const state = fakeCoolify({
+      applications: [existing("core", "c")],
+      outcomes: { c: "cancelled-by-user" },
+    });
+
+    const { log } = await run(state, ["core"]);
+
+    expect(log).toContain(
+      "- core: failed, cancelled-by-user. Check the deployment's log in Coolify.",
     );
   });
 });
