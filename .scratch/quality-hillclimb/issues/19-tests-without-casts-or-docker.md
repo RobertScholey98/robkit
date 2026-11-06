@@ -55,6 +55,7 @@ Raises rubric categories 8 (testing), 5 (simplicity) and 9 (keeping standards up
 - CI's third run (42166191447) failed the new `no-brand-cast` test: its first case, which builds the TypeScript program, timed out at 30 s under `check:all`'s load (about 1 s locally). The test's program now loads one lib and no `@types`, and a `beforeAll` builds it with a 120 s timeout.
 - CI green before the merge, `gate` included: https://github.com/RobertScholey98/robkit/actions/runs/42166455597 (head 06a3410). `pnpm check:all` passed 49 of 49 tasks in 5 min 13 s; e2e took 2 min 47 s and create-robkit 1 min 41 s. The job took 14 min because installing Playwright took 8.5.
 - Merging `56-round-3` (tickets 14, 17 and 18) conflicted in eight places. I kept both sides' graph edges, kept the builders and `session-claims.ts` and dropped the functions it took from `session-store.ts`, kept the six `slug.ts` copies deleted, and took the base's coverage thresholds for session, which drops my raise of its branches to 94. After the merge and the `slug()` move, `pnpm check` passed 48 of 48 tasks.
+- CI green after the merge, `gate` included: https://github.com/RobertScholey98/robkit/actions/runs/42169360690 (head 46603a7).
 
 ### Not verified
 
