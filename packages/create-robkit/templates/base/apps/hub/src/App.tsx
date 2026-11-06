@@ -33,7 +33,7 @@ function Hub({ core }: { core: string }) {
       void getSession(core).then((result) => {
         if (!current) return;
         setScreen(
-          result.ok
+          result.outcome === "ok"
             ? result.value
             : { state: "unreachable", reason: result.error },
         );
@@ -45,7 +45,7 @@ function Hub({ core }: { core: string }) {
       void signInWithCode(core, intro).then((result) => {
         if (!current) return;
         setScreen(
-          result.ok
+          result.outcome === "ok"
             ? result.value
             : { state: "code-refused", error: result.error },
         );

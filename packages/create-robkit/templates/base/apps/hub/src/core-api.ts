@@ -61,7 +61,9 @@ export function signInWithCode(
 
 export async function signOut(core: string): Promise<Result<Session>> {
   const result = await callCore(core, "POST", "/logout");
-  return result.ok ? { ok: true, value: { state: "signed-out" } } : result;
+  return result.outcome === "ok"
+    ? { outcome: "ok", value: { state: "signed-out" } }
+    : result;
 }
 
 function readSession(body: unknown): Session | undefined {

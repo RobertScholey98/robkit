@@ -57,7 +57,7 @@ describe("callCore", () => {
     );
 
     expect(await callCore(core, "GET", "/me", { read: readName })).toEqual({
-      ok: true,
+      outcome: "ok",
       value: "Grandma",
     });
   });
@@ -75,7 +75,7 @@ describe("callCore", () => {
         body: { name: "Grandma" },
         read: readName,
       }),
-    ).toEqual({ ok: true, value: "Grandma" });
+    ).toEqual({ outcome: "ok", value: "Grandma" });
   });
 
   it("sends the viewer's cookie, and the JSON type that makes the browser preflight", async () => {
@@ -97,7 +97,7 @@ describe("callCore", () => {
         read: (answer: unknown) => answer,
       }),
     ).toEqual({
-      ok: true,
+      outcome: "ok",
       value: { credentials: "include", type: "application/json" },
     });
   });
@@ -111,7 +111,7 @@ describe("callCore", () => {
     );
 
     expect(await callCore(core, "POST", "/logout")).toEqual({
-      ok: true,
+      outcome: "ok",
       value: undefined,
     });
   });
@@ -128,7 +128,7 @@ describe("callCore", () => {
     );
 
     expect(await callCore(core, "POST", "/login", { body: {} })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Wrong username or password.",
     });
   });
@@ -142,7 +142,7 @@ describe("callCore", () => {
     );
 
     expect(await callCore(core, "GET", "/me", { read: readName })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core answered 502.",
     });
   });
@@ -151,7 +151,7 @@ describe("callCore", () => {
     vi.stubGlobal("fetch", fakeCore(core, {}));
 
     expect(await callCore(core, "GET", "/nowhere")).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core answered 404.",
     });
   });
@@ -163,7 +163,7 @@ describe("callCore", () => {
     vi.stubGlobal("fetch", fakeCore(core, { "GET /me": () => answer }));
 
     expect(await callCore(core, "GET", "/me", { read: readName })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
   });
@@ -172,7 +172,7 @@ describe("callCore", () => {
     vi.stubGlobal("fetch", unreachable);
 
     expect(await callCore(core, "GET", "/me", { read: readName })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Couldn't reach core at https://core.example.com.",
     });
   });
@@ -187,7 +187,7 @@ describe("callCore", () => {
     });
 
     expect(await callCore(core, "GET", "/me", { read: readName })).toEqual({
-      ok: false,
+      outcome: "failed",
       error:
         "Core at https://core.example.com didn't answer in 10 seconds. Try again.",
     });
@@ -202,7 +202,7 @@ describe("callCore", () => {
     pass();
 
     expect(await calling).toEqual({
-      ok: false,
+      outcome: "failed",
       error:
         "Core at https://core.example.com didn't answer in 10 seconds. Try again.",
     });
@@ -222,7 +222,7 @@ describe("callCore", () => {
     );
 
     expect(await callCore(core, "GET", "/me", { read: readName })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Couldn't reach core at https://core.example.com.",
     });
   });

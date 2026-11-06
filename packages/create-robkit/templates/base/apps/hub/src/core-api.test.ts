@@ -46,7 +46,7 @@ describe("getSession", () => {
       fakeCore(core, { "GET /session": () => ({ body: session }) }),
     );
 
-    expect(await getSession(core)).toEqual({ ok: true, value: session });
+    expect(await getSession(core)).toEqual({ outcome: "ok", value: session });
   });
 
   it.each([
@@ -63,7 +63,7 @@ describe("getSession", () => {
     );
 
     expect(await getSession(core)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
   });
@@ -76,7 +76,7 @@ describe("setUp", () => {
     const result = await setUp(core, { ...credentials, username: "ann" });
 
     expect(result).toEqual({
-      ok: true,
+      outcome: "ok",
       value: {
         state: "signed-in",
         profile: { ...owner, username: "ann" },
@@ -96,7 +96,7 @@ describe("setUp", () => {
     );
 
     expect(await setUp(core, credentials)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "This install already has an owner.",
     });
   });
@@ -107,7 +107,7 @@ describe("signIn", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signIn(core, credentials)).toEqual({
-      ok: true,
+      outcome: "ok",
       value: { state: "signed-in", profile: owner },
     });
   });
@@ -116,7 +116,7 @@ describe("signIn", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signIn(core, { ...credentials, password: "nope" })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Wrong username or password.",
     });
   });
@@ -133,7 +133,7 @@ describe("signIn", () => {
     );
 
     expect(await signIn(core, credentials)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Too many attempts. Try again in a minute.",
     });
   });
@@ -144,7 +144,7 @@ describe("signInWithCode", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signInWithCode(core, "k7xq2")).toEqual({
-      ok: true,
+      outcome: "ok",
       value: { state: "signed-in", profile: guest },
     });
   });
@@ -153,7 +153,7 @@ describe("signInWithCode", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signInWithCode(core, "NOPE2")).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "That code doesn't work.",
     });
   });
@@ -164,7 +164,7 @@ describe("signOut", () => {
     vi.stubGlobal("fetch", signsIn);
 
     expect(await signOut(core)).toEqual({
-      ok: true,
+      outcome: "ok",
       value: { state: "signed-out" },
     });
   });
@@ -178,7 +178,7 @@ describe("signOut", () => {
     );
 
     expect(await signOut(core)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core answered 502.",
     });
   });
@@ -195,7 +195,7 @@ describe("every call", () => {
     vi.stubGlobal("fetch", unreachable);
 
     expect(await call()).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Couldn't reach core at https://core.example.com.",
     });
   });

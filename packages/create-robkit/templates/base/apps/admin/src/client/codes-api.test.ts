@@ -37,7 +37,7 @@ describe("listCodes", () => {
       fakeCore(core, { "GET /codes": () => ({ body: { codes: [sent] } }) }),
     );
 
-    expect(await listCodes(core)).toEqual({ ok: true, value: [read] });
+    expect(await listCodes(core)).toEqual({ outcome: "ok", value: [read] });
   });
 
   it("passes on core's refusal", async () => {
@@ -48,7 +48,10 @@ describe("listCodes", () => {
       }),
     );
 
-    expect(await listCodes(core)).toEqual({ ok: false, error: "Owner only." });
+    expect(await listCodes(core)).toEqual({
+      outcome: "failed",
+      error: "Owner only.",
+    });
   });
 
   it.each([
@@ -60,7 +63,7 @@ describe("listCodes", () => {
     vi.stubGlobal("fetch", fakeCore(core, { "GET /codes": () => ({ body }) }));
 
     expect(await listCodes(core)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
   });
@@ -88,7 +91,7 @@ describe("mintCode", () => {
         code: "K7XQ2",
         expiresAt: read.expiresAt,
       }),
-    ).toEqual({ ok: true, value: read });
+    ).toEqual({ outcome: "ok", value: read });
   });
 
   it("leaves out a code and expiry the owner didn't give", async () => {
@@ -104,7 +107,9 @@ describe("mintCode", () => {
 
     const result = await mintCode(core, { name: "Grandma" });
 
-    expect(result.ok && result.value.name).toBe('{"name":"Grandma"}');
+    expect(result.outcome === "ok" && result.value.name).toBe(
+      '{"name":"Grandma"}',
+    );
   });
 
   it("passes on a taken code as core's sentence", async () => {
@@ -119,7 +124,7 @@ describe("mintCode", () => {
     );
 
     expect(await mintCode(core, { name: "Grandma", code: "TEST" })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "That code is taken.",
     });
   });
@@ -135,7 +140,7 @@ describe("revokeCode", () => {
     );
 
     expect(await revokeCode(core, "c/1")).toEqual({
-      ok: true,
+      outcome: "ok",
       value: undefined,
     });
   });
@@ -152,7 +157,7 @@ describe("revokeCode", () => {
     );
 
     expect(await revokeCode(core, "c_9")).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "There's no such code.",
     });
   });
@@ -167,7 +172,7 @@ describe("every call", () => {
     vi.stubGlobal("fetch", unreachable);
 
     expect(await call()).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Couldn't reach core at https://core.example.com.",
     });
   });

@@ -25,7 +25,7 @@ describe("listRoles", () => {
       fakeCore(core, { "GET /roles": () => ({ body: { roles: [family] } }) }),
     );
 
-    expect(await listRoles(core)).toEqual({ ok: true, value: [family] });
+    expect(await listRoles(core)).toEqual({ outcome: "ok", value: [family] });
   });
 
   it("refuses a role it can't read", async () => {
@@ -39,7 +39,7 @@ describe("listRoles", () => {
     );
 
     expect(await listRoles(core)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
   });
@@ -62,7 +62,7 @@ describe("createRole", () => {
       codeIds: ["c_1", "c_2"],
     });
 
-    expect(result).toEqual({ ok: true, value: family });
+    expect(result).toEqual({ outcome: "ok", value: family });
   });
 
   it("passes on core's refusal", async () => {
@@ -77,7 +77,7 @@ describe("createRole", () => {
     );
 
     expect(await createRole(core, { name: "Family", codeIds: [] })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "There's a role with that name.",
     });
   });
@@ -95,7 +95,7 @@ describe("setRoleCodes", () => {
     );
 
     expect(await setRoleCodes(core, "r/1", ["c_2"])).toEqual({
-      ok: true,
+      outcome: "ok",
       value: { ...family, codeIds: ["c_2"] },
     });
   });
@@ -116,7 +116,7 @@ describe("listApps", () => {
       fakeCore(core, { "GET /apps": () => ({ body: { apps } }) }),
     );
 
-    expect(await listApps(core)).toEqual({ ok: true, value: apps });
+    expect(await listApps(core)).toEqual({ outcome: "ok", value: apps });
   });
 
   it("refuses an app whose rule it can't read", async () => {
@@ -134,7 +134,7 @@ describe("listApps", () => {
     );
 
     expect(await listApps(core)).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
   });
@@ -152,7 +152,7 @@ describe("setAccess", () => {
     );
 
     expect(await setAccess(core, "example", rule)).toEqual({
-      ok: true,
+      outcome: "ok",
       value: rule,
     });
   });
@@ -169,7 +169,7 @@ describe("setAccess", () => {
     );
 
     expect(await setAccess(core, "example", { kind: "owner" })).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "That role doesn't exist.",
     });
   });
@@ -186,7 +186,7 @@ describe("every call", () => {
     vi.stubGlobal("fetch", unreachable);
 
     expect(await call()).toEqual({
-      ok: false,
+      outcome: "failed",
       error: "Couldn't reach core at https://core.example.com.",
     });
   });

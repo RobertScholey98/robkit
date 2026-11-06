@@ -58,7 +58,7 @@ function NewRoleForm({
       name: typeof name === "string" ? name : "",
       codeIds: [...picked],
     });
-    if (!result.ok) {
+    if (result.outcome === "failed") {
       setSending({ state: "failed", error: result.error });
       return;
     }
@@ -111,7 +111,7 @@ function RoleRow({
   async function save(codeIds: Set<string>) {
     setSending({ state: "sending" });
     const result = await setRoleCodes(core, role.id, [...codeIds]);
-    if (!result.ok) {
+    if (result.outcome === "failed") {
       setSending({ state: "failed", error: result.error });
       return;
     }
