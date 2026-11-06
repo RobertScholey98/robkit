@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "create-install": "node packages/create-robkit/src/create-robkit-command.ts --link --install",
+    "preview-install": "node packages/create-robkit/src/preview-command.ts",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
