@@ -76,7 +76,7 @@ export interface Route {
 export function routesFor(apps: readonly App[], domain: string): Route[];
 export function runCommand(
   main: () => Promise<number | undefined>,
-  print?: (...line: unknown[]) => void,
+  report?: Report,
 ): Promise<number>;
 export function runDev(root: string, env: NodeJS.ProcessEnv): Promise<number>;
 ```

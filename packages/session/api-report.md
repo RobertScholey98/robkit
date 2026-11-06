@@ -46,6 +46,8 @@ export function readSessionToken(
 export type ReadSessionToken = SessionTokenClaims & {
   expired: boolean;
 };
+export type Report = (message: string, cause?: unknown) => void;
+export const reportToConsole: Report;
 export type RequestDecision =
   | {
       viewer: Viewer;
