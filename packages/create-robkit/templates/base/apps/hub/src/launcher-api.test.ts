@@ -27,6 +27,11 @@ describe("listLauncherApps", () => {
     [200, { apps: [{ slug: 1 }] }, "Core sent an answer this page can't read."],
     [
       200,
+      { apps: [{ slug: "Notes", name: "Notes", icon: null }] },
+      "Core sent an answer this page can't read.",
+    ],
+    [
+      200,
       { apps: [{ slug: "notes", name: "Notes", icon: 7 }] },
       "Core sent an answer this page can't read.",
     ],
