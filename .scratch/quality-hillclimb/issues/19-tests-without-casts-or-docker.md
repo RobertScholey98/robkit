@@ -23,14 +23,14 @@ Raises rubric categories 8 (testing), 5 (simplicity) and 9 (keeping standards up
 
 **Blocked by:** 13
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] One `slug()` and brand builders in test-session, and no brand casts in tests
 - [x] `pnpm check` runs the generated templates' unit tests and lint without Docker
 - [x] Core's pure logic has unit tests in `test:unit`
 - [x] `listRoles` indexes memberships once, with a test
 - [x] `typeofReadChecks` works on the AST, with a test for each syntax form
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -53,7 +53,7 @@ Raises rubric categories 8 (testing), 5 (simplicity) and 9 (keeping standards up
 - CI's first run (42164261443) passed `pnpm check:all`, 49 of 49 tasks with e2e, and failed only the coverage ratchet: repo-checks' branches rose to 88.45% against a threshold of 86. From that run's coverage I raised core's branches to 96, session's to 94, repo-checks' to 88 (functions 96) and test-session's to 94. On CI the install test took 47 s under `check:all`'s load.
 - CI's second run (42164970841) failed dev's `runner.db.test.ts` > "stops everything and fails when an app exits": alpha hadn't written its `started` marker before beta's crash stopped it. Run alone with `--retry 0` in WSL, it passed 5 of 5 on this branch and 5 of 5 on `56-round-3`, so it fails only under load. The rerun of that job then failed e2e's react-hono journeys with 503s. That one was mine: the install test's `pnpm install` hard-links packages from the shared store, which restarts a running dev stack's core, as `tooling/e2e/src/install.ts` warns. turbo now starts `@internal/e2e#test` after `create-robkit#test`. That costs CI about a minute and costs `pnpm check` nothing. A copying install (`--package-import-method=copy`) also avoids it, but it took the test from 24 to 40 s on Windows.
 - CI's third run (42166191447) failed the new `no-brand-cast` test: its first case, which builds the TypeScript program, timed out at 30 s under `check:all`'s load (about 1 s locally). The test's program now loads one lib and no `@types`, and a `beforeAll` builds it with a 120 s timeout.
-- CI: see the PR for the run after that fix.
+- CI green, `gate` included: https://github.com/RobertScholey98/robkit/actions/runs/42166455597 (head 06a3410). `pnpm check:all` passed 49 of 49 tasks in 5 min 13 s; e2e took 2 min 47 s and create-robkit 1 min 41 s. The job took 14 min because installing Playwright took 8.5.
 
 ### Not verified
 
