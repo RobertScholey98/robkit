@@ -57,10 +57,12 @@ The install uses your checkout's `@robkit/*` packages, so a change in `packages/
 
 There are two gates.
 
-| Command          | What it runs                                                                                              | Needs Docker | Time                                                         |
-| ---------------- | --------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------ |
-| `pnpm check`     | Prettier's check, lint, typecheck, and every test that needs no Docker                                    | No           | 53 to 65 seconds cold (`--force`), 25 to 34 warm, on Windows |
-| `pnpm check:all` | What CI runs: Prettier's check, lint, typecheck and every test, the whole-stack test in Chromium included | Yes          | About four minutes                                           |
+| Command          | What it runs                                                                                                    | Needs Docker | Time                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------- |
+| `pnpm check`     | Prettier's check, knip, lint, typecheck, and every test that needs no Docker                                    | No           | About a minute, cold (`--force`) or warm |
+| `pnpm check:all` | What CI runs: Prettier's check, knip, lint, typecheck and every test, the whole-stack test in Chromium included | Yes          | About five and a half minutes on CI      |
+
+Measured on 2026-11-06. On Windows 11 with Node 24, three cold runs of `pnpm check --force` took 56, 56 and 91 seconds (the slow one while other builds ran), and two warm runs 41 and 57 seconds. A warm run saves little, because repo-checks' tests miss turbo's cache every time. `pnpm check:all` took 5 minutes 25 seconds in [CI run 42158416018](https://github.com/RobertScholey98/robkit/actions/runs/42158416018).
 
 Run `pnpm check` while you work and `pnpm check:all` before you open a pull request. The whole-stack test needs Chromium once: `pnpm --filter @internal/e2e exec playwright install --with-deps chromium`.
 
