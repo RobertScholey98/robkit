@@ -39,7 +39,7 @@ export function guarded(
   return {
     async fetch(request, opts) {
       const decision = await check(request);
-      if ("response" in decision) return decision.response;
+      if (decision.outcome === "answer") return decision.response;
       const context: GuardedContext = { viewer: decision.viewer };
       return entry.fetch(request, {
         ...opts,
