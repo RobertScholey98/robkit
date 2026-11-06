@@ -28,7 +28,7 @@ export function createApp({
   logError,
 }: CoreOptions): Hono;
 export function createDatabase(databaseUrl: string): Database;
-export interface Database extends Connection {}
+export type Database = ReturnType<typeof connect>;
 export function ensureSigningKey(db: Database): Promise<SigningKey>;
 export function migrate(databaseUrl: string): Promise<void>;
 export function readCoreConfig(env: Env): CoreConfig | InputProblem;
