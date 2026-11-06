@@ -2,6 +2,10 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    // Most tests spend their time waiting on a process they spawned or on
+    // files they write, so the tests in a file run side by side. A test
+    // that shares an install only reads it.
+    sequence: { concurrent: true },
     // The templates hold an install's own tests, which run in a generated install.
     include: ["src/**/*.test.ts"],
     // Many tests write a whole install to disk, which takes seconds on
