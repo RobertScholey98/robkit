@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import rule from "./no-bare-error.js";
 
 const bare =
-  "This error's message is fixed text with no cause. Name what was tried, such as the table, key, file or attempt count, or pass the error underneath as { cause }. See docs/conventions/errors.md.";
+  "This error's message is fixed text with no cause. Name what was tried, such as the table, key, file or attempt count, or pass the error underneath as { cause }. See robkit's docs/conventions/errors.md.";
 
 /**
  * Lints `code` as a TypeScript file.

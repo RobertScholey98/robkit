@@ -24,7 +24,7 @@ export default {
         "Give a thrown Error the detail that tells one failure from another, or its cause",
     },
     messages: {
-      bare: "This error's message is fixed text with no cause. Name what was tried, such as the table, key, file or attempt count, or pass the error underneath as { cause }. See docs/conventions/errors.md.",
+      bare: "This error's message is fixed text with no cause. Name what was tried, such as the table, key, file or attempt count, or pass the error underneath as { cause }. See robkit's docs/conventions/errors.md.",
     },
     schema: [],
   },
