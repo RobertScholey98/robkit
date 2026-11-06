@@ -9,7 +9,7 @@ import { initGit, installDependencies } from "./set-up.ts";
 const run = promisify(execFile);
 
 // A real pnpm install takes about 5s on a cold CI runner.
-describe("installDependencies", { timeout: 30_000 }, () => {
+describe("installDependencies", () => {
   it("installs with pnpm, writing its lockfile", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-"));
     await writeFile(join(dir, "package.json"), `{ "private": true }\n`);

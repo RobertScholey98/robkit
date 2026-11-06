@@ -35,7 +35,7 @@ async function declared(dir: string, slug: string): Promise<unknown> {
   return manifest.robkit;
 }
 
-describe("robkit add with flags", { timeout: 30_000 }, () => {
+describe("robkit add with flags", () => {
   it("adds the app without asking anything", async () => {
     const dir = await freshInstall();
 
@@ -128,7 +128,7 @@ Then open http://notes.robkit.localhost:3000.
   });
 });
 
-describe("robkit's failures", { timeout: 30_000 }, () => {
+describe("robkit's failures", () => {
   it("prints a fault it didn't expect whole, with where to report it", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-"));
     await mkdir(join(dir, "robkit.json"));
@@ -142,7 +142,7 @@ describe("robkit's failures", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit add with no flags", { timeout: 30_000 }, () => {
+describe("robkit add with no flags", () => {
   it("asks for the stack, name, access, roles and icon, then prints the command that skips them", async () => {
     const dir = await freshInstall();
 
@@ -188,7 +188,7 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit database-urls", { timeout: 30_000 }, () => {
+describe("robkit database-urls", () => {
   it("prints each database app's URL for the host, from the admin URL and secret", async () => {
     const dir = await readOnlyInstall();
 
@@ -221,7 +221,7 @@ describe("robkit database-urls", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit deploy", { timeout: 30_000 }, () => {
+describe("robkit deploy", () => {
   const coolifyJson = JSON.stringify({
     project: "robkit",
     environment: "production",

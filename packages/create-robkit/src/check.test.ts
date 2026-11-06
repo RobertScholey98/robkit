@@ -41,7 +41,7 @@ async function installWith(path: string, text: string): Promise<string> {
   return dir;
 }
 
-describe("checkInstall", { timeout: 30_000 }, () => {
+describe("checkInstall", () => {
   it("finds nothing in a fresh install", async () => {
     expect(await checkInstall(await readOnlyInstall())).toEqual([]);
   });
@@ -186,7 +186,7 @@ describe("checkInstall", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit check", { timeout: 30_000 }, () => {
+describe("robkit check", () => {
   it("prints nothing and exits 0 when the rule holds", async () => {
     expect(await drive(bin, await readOnlyInstall(), ["check"])).toEqual({
       code: 0,
