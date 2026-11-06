@@ -1,4 +1,5 @@
 import { type InputProblem, isProblem, isRecord, problem } from "@robkit/input";
+import { type Report, reportToConsole } from "@robkit/input/report";
 
 /** What a call to core comes to: the answer it read, or a sentence to show. */
 export type Result<T> =
@@ -9,18 +10,6 @@ export type Result<T> =
  * the log, not to the person, so it names the field, not what core sent.
  */
 export type Reader<T> = (body: unknown) => T | InputProblem;
-
-/**
- * Told what went wrong underneath a failed call, such as to log it: what
- * the call was doing, and the error it hit, if there is one.
- */
-export type Report = (message: string, cause?: unknown) => void;
-
-/** The default `report`: prints the message, then the cause on its own. */
-export const reportToConsole: Report = (message, cause) => {
-  console.error(message);
-  if (cause !== undefined) console.error(cause);
-};
 
 /**
  * A reader's problem, saying what's wrong with core's answer. Only

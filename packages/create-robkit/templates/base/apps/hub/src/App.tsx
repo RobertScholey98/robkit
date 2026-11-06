@@ -1,4 +1,4 @@
-import { reportToConsole } from "@internal/core-client";
+import { reportToConsole } from "@robkit/input/report";
 import { useEffect, useState } from "react";
 import { getSession, signInWithCode, type Session } from "./core-api.ts";
 import { coreOrigin, returnTo } from "./core-origin.ts";
