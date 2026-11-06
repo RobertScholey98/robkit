@@ -2,7 +2,6 @@
 // package.json's `robkit` field, and how the install hands that to core in
 // `ROBKIT_APPS`. See docs/conventions/input.md.
 
-import { readAccessRule } from "@robkit/guard";
 import { readSlug, type Slug } from "./addresses.ts";
 import { isProblem, isRecord, type InputProblem } from "./problem.ts";
 
@@ -39,10 +38,14 @@ function isOneEmoji(text: string): boolean {
 }
 
 function readDeclaredAccess(value: unknown): DeclaredAccess | undefined {
-  const rule = readAccessRule(value);
-  if (rule?.kind !== "roles") return rule;
-  const roleNames = rule.roles;
-  return roleNames.length > 0 && roleNames.every((name) => name !== "")
+  if (!isRecord(value)) return undefined;
+  const { kind, roles } = value;
+  if (kind === "open" || kind === "owner") return { kind };
+  if (kind !== "roles" || !Array.isArray(roles)) return undefined;
+  const roleNames = roles.filter(
+    (name): name is string => typeof name === "string" && name !== "",
+  );
+  return roleNames.length > 0 && roleNames.length === roles.length
     ? { kind: "roles", roleNames }
     : undefined;
 }
