@@ -5,6 +5,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import coreSchema from "./core-schema.js";
 import layer from "./layers.js";
+import noBareError from "./no-bare-error.js";
 import noJsonCast from "./no-json-cast.js";
 import noSilentCatch from "./no-silent-catch.js";
 import oneProblemType from "./one-problem-type.js";
@@ -15,6 +16,7 @@ const robkit = {
   rules: {
     "core-schema": coreSchema,
     layer,
+    "no-bare-error": noBareError,
     "no-json-cast": noJsonCast,
     "no-silent-catch": noSilentCatch,
     "one-problem-type": oneProblemType,
@@ -41,12 +43,14 @@ export function config(tsconfigRootDir) {
     {
       // Input from outside goes through a reader; a cast would skip it.
       // Parsed JSON is any, which no-unsafe-type-assertion lets through.
-      // Tests may cast to build what they feed the code under test.
+      // Tests may cast to build what they feed the code under test, and
+      // throw a fixed error to see what the code does with one.
       files: ["**/*.ts", "**/*.tsx"],
       ignores: testFiles,
       plugins: { robkit },
       rules: {
         "@typescript-eslint/no-unsafe-type-assertion": "error",
+        "robkit/no-bare-error": "error",
         "robkit/no-json-cast": "error",
       },
     },
