@@ -49,11 +49,12 @@ Raises rubric categories 8 (testing), 5 (simplicity) and 9 (keeping standards up
 - `pnpm check` on Windows, cold (`--force`): 49 and 53 s without the install test, 57, 58 and 59 s with it, so it adds about 8 s and stays inside CONTRIBUTING's 53 to 65 s. Warm: 24 s. The first version took 60 to 74 s; installing with `--ignore-scripts`, running tests and lint together, and removing the folder in the background brought it down.
 - Red first: `roleViews`' tests on the old `roles.ts`; 11 of the 14 problem-checks tests on the old regex check; the install test with a core-client test broken (it names the failing test) and with a cast in the hub's source (it names the lint error).
 - Core's full suite in WSL with Postgres: 26 files and 317 tests passed, the new `GET /roles` test included.
-- CI: pending.
+- dev, core and create-robkit in WSL: 75, 317 and 211 tests passed. The install test took 16 s there.
+- CI's first run (42164261443) passed `pnpm check:all`, 49 of 49 tasks with e2e, and failed only the coverage ratchet: repo-checks' branches rose to 88.45% against a threshold of 86. From that run's coverage I raised core's branches to 96, session's to 94, repo-checks' to 88 (functions 96) and test-session's to 94. On CI the install test took 47 s under `check:all`'s load.
+- CI: pending on the threshold commit.
 
 ### Not verified
 
-- Coverage thresholds are unchanged until CI measures them.
 - `pnpm check:all` and e2e in WSL. CI runs them.
 
 ### For ticket 14
