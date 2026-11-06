@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { reportFaultsAt } from "@robkit/dev";
+import { reportFaultsAt } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 
@@ -109,6 +109,24 @@ describe("init with no flags", () => {
     expect(output).toMatch(
       /^--stack nope isn't an option\. Choose from: [^\n]+\.\n$/,
     );
+  });
+
+  it.each([
+    [["--help"], "--help isn't an option."],
+    [["my-app", "--stack"], "Option '--stack <value>' argument missing"],
+  ])("refuses %j, printing why and the usage, not a bug", async (args, why) => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(cwd, args);
+
+    expect(code).toBe(1);
+    expect(
+      output.startsWith(
+        `${why}\n\nUsage: npm create robkit [folder] -- [options]\n`,
+      ),
+    ).toBe(true);
+    expect(output).not.toContain(reportFaultsAt);
+    expect(await readdir(cwd)).toEqual([]);
   });
 
   it("prints a fault it didn't expect whole, with where to report it", async () => {

@@ -79,6 +79,29 @@ export type ViewerClaims =
     };
 ```
 
+## @robkit/session/app-env
+
+```ts
+export function readDevServerEnv(env: Env):
+  | {
+      port?: number;
+      domain?: string;
+    }
+  | InputProblem;
+export function readGuardEnv(env: Env):
+  | {
+      app: Slug;
+      core: string;
+    }
+  | InputProblem;
+export function readServeEnv(env: Env):
+  | {
+      host: string;
+      port: number;
+    }
+  | InputProblem;
+```
+
 ## @robkit/session/addresses
 
 ```ts
@@ -115,28 +138,6 @@ export function slugProblem(name: string): string | undefined;
 
 ```ts
 export function allProblems(...reads: unknown[]): InputProblem;
-export type DeclaredAccess =
-  | {
-      kind: "open";
-    }
-  | {
-      kind: "owner";
-    }
-  | {
-      kind: "roles";
-      roleNames: string[];
-    };
-export interface DeclaredApp extends Declares {
-  slug: Slug;
-}
-export interface Declares {
-  access?: DeclaredAccess;
-  icon?: string;
-}
-export function declaresJson({
-  access,
-  icon,
-}: Declares): Record<string, unknown>;
 export type Env = Readonly<Record<string, string | undefined>>;
 export interface InputProblem {
   readonly error: string;
@@ -159,39 +160,13 @@ export function readDatabaseUrl(
   name?: string,
   unsetFix?: string,
 ): string | InputProblem;
-export function readDeclaredApp(
-  value: unknown,
-  field: string,
-): DeclaredApp | InputProblem;
-export function readDeclares(
-  value: unknown,
-  field?: string,
-): Declares | InputProblem;
-export function readDevServerEnv(env: Env):
-  | {
-      port?: number;
-      domain?: string;
-    }
-  | InputProblem;
 export function readDomain(env: Env, fallback?: string): string | InputProblem;
-export function readGuardEnv(env: Env):
-  | {
-      app: Slug;
-      core: string;
-    }
-  | InputProblem;
 export function readHost(env: Env): string | InputProblem;
 export function readPort(
   env: Env,
   name?: string,
   fallback?: number,
 ): number | InputProblem;
-export function readServeEnv(env: Env):
-  | {
-      host: string;
-      port: number;
-    }
-  | InputProblem;
 export function readSet(
   env: Env,
   name: string,
@@ -216,4 +191,39 @@ export function sessionLapsedResponse({
   error,
   location,
 }: SessionLapsed): Response;
+```
+
+## @robkit/session/manifest
+
+```ts
+export interface AppDeclaration {
+  access?: DeclaredAccess;
+  icon?: string;
+}
+export function appDeclarationJson({
+  access,
+  icon,
+}: AppDeclaration): Record<string, unknown>;
+export type DeclaredAccess =
+  | {
+      kind: "open";
+    }
+  | {
+      kind: "owner";
+    }
+  | {
+      kind: "roles";
+      roleNames: string[];
+    };
+export interface DeclaredApp extends AppDeclaration {
+  slug: Slug;
+}
+export function readAppDeclaration(
+  value: unknown,
+  field?: string,
+): AppDeclaration | InputProblem;
+export function readDeclaredApp(
+  value: unknown,
+  field: string,
+): DeclaredApp | InputProblem;
 ```

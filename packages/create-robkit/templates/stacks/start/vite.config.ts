@@ -1,8 +1,5 @@
-import {
-  isProblem,
-  readCoreUrl,
-  readDevServerEnv,
-} from "@robkit/session/input";
+import { isProblem, readCoreUrl } from "@robkit/session/input";
+import { readDevServerEnv } from "@robkit/session/app-env";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
@@ -18,7 +15,7 @@ export default defineConfig(({ command }) => {
   // Start loads the server entry on the first request, so check its config now.
   if (command === "serve") {
     const core = readCoreUrl(process.env);
-    if (typeof core !== "string") throw new Error(core.error);
+    if (isProblem(core)) throw new Error(core.error);
   }
   return {
     plugins: [

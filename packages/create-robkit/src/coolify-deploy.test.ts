@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CoolifyConfig } from "./coolify-config.ts";
 import { deploy, type DeployOptions } from "./coolify-deploy.ts";
-import type { Deployment } from "./deployment.ts";
+import type { AppDeployment } from "./deployment.ts";
 import {
   fakeCoolify,
   fakeFetch,
@@ -21,7 +21,7 @@ const config: CoolifyConfig = {
 
 const coolify = { url: "https://coolify.example", token: "t" };
 
-const apps: Deployment[] = [
+const apps: AppDeployment[] = [
   {
     slug: "core",
     env: {

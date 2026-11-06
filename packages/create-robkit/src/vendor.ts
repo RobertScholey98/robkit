@@ -2,7 +2,7 @@ import { exec as execCallback } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
-import { Problem } from "@robkit/dev";
+import { CommandProblem } from "@robkit/dev/cli";
 import { format } from "prettier";
 import { isProblem, isRecord, parseJson } from "@robkit/session/input";
 import { parseDocument } from "yaml";
@@ -52,7 +52,7 @@ export async function vendorPackages(root: string): Promise<void> {
   );
   const [first] = linked;
   if (first === undefined) {
-    throw new Problem(
+    throw new CommandProblem(
       "This install doesn't link to a robkit checkout, so there is nothing to vendor. Make it with --link.",
     );
   }
@@ -60,7 +60,7 @@ export async function vendorPackages(root: string): Promise<void> {
   const names = linked.map(([name]) => name);
   const unsafe = names.find((name) => !packageName.test(name));
   if (unsafe !== undefined) {
-    throw new Problem(
+    throw new CommandProblem(
       `${JSON.stringify(unsafe)} in ${pnpmSettings}'s overrides isn't a package name. Fix it, or make the install again with --link.`,
     );
   }

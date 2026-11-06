@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { reportFaultsAt, runCommand } from "@robkit/dev";
+import { reportFaultsAt, runCommand } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { appFiles } from "./generate.ts";
@@ -130,6 +130,20 @@ Then open http://notes.robkit.localhost:3000.
 });
 
 describe("robkit's failures", () => {
+  it.each([["check"], ["add"]])(
+    "refuses an option %s doesn't take, printing why and the usage, not a bug",
+    async (command) => {
+      const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+
+      const { code, output } = await drive(bin, dir, [command, "--nope"]);
+
+      expect(code).toBe(1);
+      expect(output).toMatch(/^--nope isn't an option\.\n\nUsage: robkit add/);
+      expect(output).toContain("Usage: robkit check");
+      expect(output).not.toContain(reportFaultsAt);
+    },
+  );
+
   it("prints a fault it didn't expect whole, with where to report it", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-"));
     await mkdir(join(dir, "robkit.json"));

@@ -5,7 +5,8 @@ import {
   type GuardedOptions,
   type RequestDecision,
 } from "./index.ts";
-import type { DeclaredAccess, InputProblem } from "./input.ts";
+import type { InputProblem } from "./input.ts";
+import type { DeclaredAccess } from "./manifest.ts";
 import { readSlug, type Slug } from "./install-addresses.ts";
 import { readSessionLapsed, type SessionLapsed } from "./session-lapsed.ts";
 

@@ -1,12 +1,12 @@
 import { fileURLToPath } from "node:url";
-import { readDatabaseUrl } from "@robkit/session/input";
+import { isProblem, readDatabaseUrl } from "@robkit/session/input";
 import { sql } from "drizzle-orm";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
 const databaseUrl = readDatabaseUrl(process.env);
-if (typeof databaseUrl !== "string") {
+if (isProblem(databaseUrl)) {
   console.error(databaseUrl.error);
   process.exit(1);
 }

@@ -165,9 +165,10 @@ flowchart TD
 | Reading cookies, verifying tokens, `/_robkit/*` | `packages/session/src/request-guard.ts`                                                    |
 | Token claims and cookies                        | `packages/session/src/session-token.ts`                                                    |
 | An install's addresses                          | `packages/session/src/install-addresses.ts` (`@robkit/session/addresses`)                  |
+| What an app declares in its manifest            | `packages/session/src/manifest.ts` (`@robkit/session/manifest`)                            |
 | Core's routes                                   | `packages/core/src/routes/`, mounted in `app.ts`                                           |
 | Core's tables                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                      |
-| Sessions, refresh and minting app tokens        | `packages/core/src/sessions.ts`, `packages/core/src/session-token.ts`                      |
+| Sessions, refresh and minting app tokens        | `packages/core/src/sessions.ts`, `packages/core/src/mint-token.ts`                         |
 | Access codes, roles and the app catalog         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                 |
 | The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`                                             |
 | `pnpm dev`: finding apps, the proxy, the runner | `packages/dev/src/apps.ts`, `proxy.ts`, `runner.ts`                                        |

@@ -1,4 +1,5 @@
-import { isProblem, readGuardEnv } from "@robkit/session/input";
+import { isProblem } from "@robkit/session/input";
+import { readGuardEnv } from "@robkit/session/app-env";
 import { guarded, type GuardedContext } from "@robkit/start";
 import entry from "@tanstack/react-start/server-entry";
 

@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import { Problem } from "@robkit/dev";
+import { CommandProblem } from "@robkit/dev/cli";
 import { install, type Slug } from "@robkit/session/addresses";
 import {
   call,
@@ -13,7 +13,11 @@ import {
   type Coolify,
 } from "./coolify-api.ts";
 import type { CoolifyConfig } from "./coolify-config.ts";
-import { containerPort, type Deployment, type Value } from "./deployment.ts";
+import {
+  containerPort,
+  type AppDeployment,
+  type DeploymentValue,
+} from "./deployment.ts";
 
 // robkit deploy: R's Coolify method, adapted from robnet's deploy job. Each
 // app is a Coolify application built from the install's one Dockerfile. A
@@ -32,11 +36,14 @@ interface Desired {
   }[];
 }
 
-function valueOf(value: Value): string {
+function valueOf(value: DeploymentValue): string {
   return "literal" in value ? value.literal : `{{environment.${value.shared}}}`;
 }
 
-function desiredApp({ slug, env }: Deployment, config: CoolifyConfig): Desired {
+function desiredApp(
+  { slug, env }: AppDeployment,
+  config: CoolifyConfig,
+): Desired {
   const port = String(containerPort);
   return {
     slug,
@@ -90,7 +97,7 @@ function findApp(
       text(app, "name") === desired.settings.name,
   );
   if (matches.length > 1) {
-    throw new Problem(
+    throw new CommandProblem(
       `${String(matches.length)} Coolify applications are named ${String(desired.settings.name)}. Delete the extras.`,
     );
   }
@@ -106,7 +113,9 @@ function pick(list: unknown, name: string, kind: string): string {
   if (uuid) return uuid;
   const names =
     items.map((item) => text(item, "name") ?? "?").join(", ") || "none";
-  throw new Problem(`No Coolify ${kind} named ${name}. Found: ${names}.`);
+  throw new CommandProblem(
+    `No Coolify ${kind} named ${name}. Found: ${names}.`,
+  );
 }
 
 type Synced =
@@ -289,7 +298,7 @@ async function deployAndWait(
 export interface DeployOptions {
   coolify: Coolify;
   config: CoolifyConfig;
-  deployments: Deployment[];
+  deployments: AppDeployment[];
   /** The apps whose code changed, by slug, or every app. */
   affected: readonly Slug[] | "all";
   fetch?: typeof fetch;

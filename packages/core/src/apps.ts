@@ -8,12 +8,14 @@ import {
 import {
   isProblem,
   parseJson,
-  readDeclaredApp,
-  type DeclaredAccess,
-  type DeclaredApp,
   type Env,
   type InputProblem,
 } from "@robkit/session/input";
+import {
+  readDeclaredApp,
+  type DeclaredAccess,
+  type DeclaredApp,
+} from "@robkit/session/manifest";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";

@@ -86,6 +86,9 @@ _Avoid_: app cookie, per-app session
 Who is asking, as an app sees it after the guard: the owner, a guest with roles, or nobody.
 _Avoid_: user, current user
 
+**Profile**:
+Who is signed in, as core shows them to the hub and admin: the owner with their username, or a guest with the name the owner gave their code. It carries no roles, so it decides no access; the **Viewer** does.
+
 **Guard**:
 The pure function that turns an app's access rule and the viewer into allow, login, refresh or not found.
 _Avoid_: middleware, auth check

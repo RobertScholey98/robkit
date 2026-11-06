@@ -1,9 +1,6 @@
 import devServer from "@hono/vite-dev-server";
-import {
-  isProblem,
-  readCoreUrl,
-  readDevServerEnv,
-} from "@robkit/session/input";
+import { isProblem, readCoreUrl } from "@robkit/session/input";
+import { readDevServerEnv } from "@robkit/session/app-env";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
@@ -18,7 +15,7 @@ export default defineConfig(({ command }) => {
   // Vite loads the server on the first request, so check its config now.
   if (command === "serve") {
     const core = readCoreUrl(process.env);
-    if (typeof core !== "string") throw new Error(core.error);
+    if (isProblem(core)) throw new Error(core.error);
   }
   return {
     plugins: [devServer({ entry: "src/server.ts" }), tailwindcss()],

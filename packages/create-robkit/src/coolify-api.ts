@@ -1,4 +1,4 @@
-import { Problem } from "@robkit/dev";
+import { CommandProblem } from "@robkit/dev/cli";
 import { isRecord } from "@robkit/session/input";
 
 // The Coolify API as robkit deploy calls it: one request with its deadline,
@@ -131,7 +131,7 @@ export async function call(
 export async function get(api: Api, path: string): Promise<unknown> {
   const result = await call(api, "GET", path);
   if (!result.ok) {
-    throw new Problem(
+    throw new CommandProblem(
       `Couldn't read Coolify's ${path.slice(1)}: ${explain(result)}`,
     );
   }

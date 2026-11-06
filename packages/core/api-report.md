@@ -27,14 +27,8 @@ export function createApp({
   trustedProxy,
   logError,
 }: CoreOptions): Hono;
-export function createDatabase(
-  databaseUrl: string,
-): import("drizzle-orm/postgres-js").PostgresJsDatabase<
-  Record<string, never>
-> & {
-  $client: postgres.Sql<{}>;
-};
-export type Database = ReturnType<typeof createDatabase>;
+export function createDatabase(databaseUrl: string): Database;
+export interface Database extends Connection {}
 export function ensureSigningKey(db: Database): Promise<SigningKey>;
 export function migrate(databaseUrl: string): Promise<void>;
 export function readCoreConfig(env: Env): CoreConfig | InputProblem;

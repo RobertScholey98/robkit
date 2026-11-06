@@ -1,10 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
-import { appManifestIn, Problem } from "@robkit/dev";
+import { appManifestIn } from "@robkit/dev";
+import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import { sessionCookie } from "@robkit/session";
 import { isProblem, isRecord, parseJson } from "@robkit/session/input";
 import ts from "typescript";
-import { isMissing } from "./files.ts";
 
 /**
  * Code the layer rule binds: an app, `apps/<slug>`, or a shared package,
@@ -142,9 +142,11 @@ async function packageNameIn(
     throw error;
   }
   const parsed = parseJson(text, file);
-  if (isProblem(parsed)) throw new Problem(parsed.error);
+  if (isProblem(parsed)) throw new CommandProblem(parsed.error);
   if (!isRecord(parsed.json)) {
-    throw new Problem(`${file} must be a JSON object. Fix it, or delete it.`);
+    throw new CommandProblem(
+      `${file} must be a JSON object. Fix it, or delete it.`,
+    );
   }
   const { name } = parsed.json;
   return { name: typeof name === "string" ? name : undefined };

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { Problem } from "@robkit/dev";
+import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import {
   isPlatformApp,
   platformApps,
@@ -12,11 +12,10 @@ import {
   isProblem,
   isRecord,
   parseJson,
-  type DeclaredAccess,
   type InputProblem,
 } from "@robkit/session/input";
+import type { DeclaredAccess } from "@robkit/session/manifest";
 import { readChoices, type Choices, type Stack } from "./choices.ts";
-import { isMissing } from "./files.ts";
 import { appFiles, readFolder, stackTemplate, type Files } from "./generate.ts";
 import { writeInstall } from "./write.ts";
 
@@ -39,14 +38,14 @@ export async function readInstallChoices(root: string): Promise<Choices> {
     text = await readFile(join(root, "robkit.json"), "utf8");
   } catch (error) {
     if (!isMissing(error)) throw error;
-    throw new Problem(
+    throw new CommandProblem(
       `${root} has no robkit.json. Run robkit add in an install's folder.`,
       { cause: error },
     );
   }
   const parsed = parseJson(text, "robkit.json");
   const choices = isProblem(parsed) ? parsed : readChoices(parsed.json);
-  if (isProblem(choices)) throw new Problem(choices.error);
+  if (isProblem(choices)) throw new CommandProblem(choices.error);
   return choices;
 }
 
@@ -97,7 +96,7 @@ export function newSlugProblem(root: string, name: string): string | undefined {
  * install's own `robkit/templates/<stack>` folder if it has one, which
  * replaces robkit's template whole, or else robkit's.
  *
- * @throws a {@link Problem} naming the file if the install's own template
+ * @throws a {@link CommandProblem} naming the file if the install's own template
  *   has no `package.json` or one that isn't a JSON object, since the person
  *   owns it and can fix it
  */
@@ -108,14 +107,14 @@ async function templateFor(root: string, stack: Stack): Promise<Files> {
   const files = await readFolder(own);
   const text = files.get("package.json");
   if (text === undefined) {
-    throw new Problem(
+    throw new CommandProblem(
       `${folder} has no package.json. Add one, or delete the folder to use robkit's template.`,
     );
   }
   const parsed = parseJson(text, `${folder}/package.json`);
-  if (isProblem(parsed)) throw new Problem(parsed.error);
+  if (isProblem(parsed)) throw new CommandProblem(parsed.error);
   if (!isRecord(parsed.json)) {
-    throw new Problem(
+    throw new CommandProblem(
       `${folder}/package.json must be a JSON object. Fix it, or delete ${folder} to use robkit's template.`,
     );
   }
@@ -132,7 +131,7 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
   const problem = newSlugProblem(root, choices.slug);
-  if (problem) throw new Problem(problem);
+  if (problem) throw new CommandProblem(problem);
   const template = await templateFor(root, choices.stack);
   await writeInstall(
     join(root, "apps", choices.slug),

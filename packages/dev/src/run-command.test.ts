@@ -1,6 +1,6 @@
 import type { Report } from "@robkit/session";
 import { describe, expect, it } from "vitest";
-import { Problem, reportFaultsAt, runCommand } from "./cli.ts";
+import { CommandProblem, reportFaultsAt, runCommand } from "./run-command.ts";
 
 /** What `runCommand` reported and returned for `main`. */
 async function run(main: () => Promise<number | undefined>) {
@@ -26,7 +26,7 @@ describe("runCommand", () => {
   it("reports a known problem's message alone and exits 1", async () => {
     const result = await run(() =>
       Promise.reject(
-        new Problem("Set COOLIFY_TOKEN to deploy.", {
+        new CommandProblem("Set COOLIFY_TOKEN to deploy.", {
           cause: new Error("underneath"),
         }),
       ),

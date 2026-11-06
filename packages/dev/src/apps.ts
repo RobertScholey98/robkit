@@ -7,17 +7,19 @@ import {
   type Slug,
 } from "@robkit/session/addresses";
 import {
-  declaresJson,
   isProblem,
   isRecord,
   parseJson,
-  readDeclares,
-  type Declares,
   type InputProblem,
 } from "@robkit/session/input";
+import {
+  appDeclarationJson,
+  readAppDeclaration,
+  type AppDeclaration,
+} from "@robkit/session/manifest";
 import { isMissing } from "./files.ts";
 import type { Route } from "./proxy.ts";
-import { Problem } from "./cli.ts";
+import { CommandProblem } from "./run-command.ts";
 
 /**
  * One folder under `apps/`. Its folder name is its slug, which is also its
@@ -33,14 +35,14 @@ export interface App {
    * What the manifest's `robkit` field declares for core's catalog: who may
    * open the app once core adds it, and its icon.
    */
-  declares: Declares;
+  declares: AppDeclaration;
 }
 
 /** What robkit reads from an app's `package.json`. */
 export interface AppManifest {
   name?: string;
   scripts: Record<string, string>;
-  declares: Declares;
+  declares: AppDeclaration;
 }
 
 function isScripts(value: unknown): value is Record<string, string> {
@@ -69,7 +71,7 @@ export function readAppManifest(
       error: `${file}: scripts must be an object of script names to commands.`,
     };
   }
-  const declares = readDeclares(robkit);
+  const declares = readAppDeclaration(robkit);
   if (isProblem(declares)) return { error: `${file}: ${declares.error}` };
   return { ...(name !== undefined && { name }), scripts, declares };
 }
@@ -94,7 +96,7 @@ export async function appManifestIn(
   const manifest = isProblem(parsed)
     ? parsed
     : readAppManifest(parsed.json, file);
-  if (isProblem(manifest)) throw new Problem(manifest.error);
+  if (isProblem(manifest)) throw new CommandProblem(manifest.error);
   return manifest;
 }
 
@@ -125,7 +127,8 @@ export async function discoverApps(
     const manifest = await appManifestIn(root, name);
     if (!manifest) continue;
     const slug = readSlug(name);
-    if (isProblem(slug)) throw new Problem(`apps/${name}: ${slug.error}`);
+    if (isProblem(slug))
+      throw new CommandProblem(`apps/${name}: ${slug.error}`);
     apps.push({
       slug,
       dir,
@@ -154,6 +157,6 @@ export function catalogOf(apps: readonly App[]): string {
   return JSON.stringify(
     apps
       .filter((app) => !isPlatformApp(app.slug))
-      .map(({ slug, declares }) => ({ slug, ...declaresJson(declares) })),
+      .map(({ slug, declares }) => ({ slug, ...appDeclarationJson(declares) })),
   );
 }

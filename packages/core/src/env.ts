@@ -5,10 +5,10 @@ import {
   readDomain,
   readHost,
   readPort,
-  type DeclaredApp,
   type Env,
   type InputProblem,
 } from "@robkit/session/input";
+import type { DeclaredApp } from "@robkit/session/manifest";
 import { readDeclaredApps } from "./apps.ts";
 import { readTrustedProxy, type TrustedProxy } from "./client.ts";
 

@@ -1,7 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 import postgres from "postgres";
 import { discoverApps } from "./apps.ts";
-import { Problem } from "./cli.ts";
+import { CommandProblem } from "./run-command.ts";
 import { readSlug, type Slug } from "@robkit/session/addresses";
 import { isProblem } from "@robkit/session/input";
 import { exec } from "./exec.ts";
@@ -79,7 +79,9 @@ export async function provisionDatabases({
  */
 export function databasePassword(secret: string, slug: Slug): string {
   if (secret.length < 32) {
-    throw new Problem("The database secret must be at least 32 characters.");
+    throw new CommandProblem(
+      "The database secret must be at least 32 characters.",
+    );
   }
   return createHmac("sha256", secret).update(slug).digest("hex");
 }
@@ -112,7 +114,7 @@ export async function provisionDatabase(
 ): Promise<string> {
   // The slug goes into DDL, so a caller in plain JavaScript is checked too.
   const read = readSlug(slug);
-  if (isProblem(read)) throw new Problem(read.error);
+  if (isProblem(read)) throw new CommandProblem(read.error);
   const role = `"${slug}"`;
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
   try {

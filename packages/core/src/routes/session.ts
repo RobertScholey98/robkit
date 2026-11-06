@@ -7,7 +7,7 @@ import { parseAccessCode } from "../access-codes.ts";
 import { clientOf } from "../client.ts";
 import { claimInstall, readCredentials, readNewOwner } from "../owner.ts";
 import { createRateLimiter } from "../rate-limit.ts";
-import { mintAppToken } from "../session-token.ts";
+import { mintAppToken } from "../mint-token.ts";
 import {
   signIn,
   signInWithCode,

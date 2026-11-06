@@ -5,23 +5,30 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## create-robkit
 
 ```ts
+export interface AppDeployment {
+  slug: Slug;
+  env: Record<string, DeploymentValue>;
+}
 export interface Choices {
   exampleStack: Stack;
 }
 export const defaultChoices: Choices;
-export interface Deployment {
-  slug: Slug;
-  env: Record<string, Value>;
-}
 export function deploymentOf(
   root: string,
   { domain, port, trustedProxy }: DeploymentOptions,
-): Promise<Deployment[]>;
+): Promise<AppDeployment[]>;
 export interface DeploymentOptions {
   domain: string;
   port?: number;
   trustedProxy?: TrustedProxy | undefined;
 }
+export type DeploymentValue =
+  | {
+      literal: string;
+    }
+  | {
+      shared: string;
+    };
 export function init(
   choices: Choices,
   dir: string,
@@ -58,11 +65,4 @@ export const stacks: readonly [
     readonly comingLater: true;
   },
 ];
-export type Value =
-  | {
-      literal: string;
-    }
-  | {
-      shared: string;
-    };
 ```
