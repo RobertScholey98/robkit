@@ -6,20 +6,16 @@ Every robkit package and every app can import it. It imports nothing, so the bro
 
 ## Example
 
-An app's `serve.ts` reads where to listen once, at start:
+An app's `serve.ts` reads where to listen once, at start. `orExit` gives back the value, or prints the problem alone and exits 1:
 
 ```ts
-import { isProblem, readServeEnv } from "@robkit/input";
+import { orExit, readServeEnv } from "@robkit/input";
 
-const listen = readServeEnv(process.env);
-if (isProblem(listen)) {
-  console.error(listen.error);
-  process.exit(1);
-}
+const listen = orExit(readServeEnv(process.env));
 console.log(`listening on ${listen.host}:${String(listen.port)}`);
 ```
 
-With `PORT=80000` it prints:
+With `PORT=80000` it prints this, with no stack, and stops:
 
 ```text
 PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, or leave it unset for 3000.
@@ -31,7 +27,8 @@ PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, o
 | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `InputProblem`, `isProblem`                                                                                      | The one type for a failed read, `{ error }`, and the one check for it                                                                       |
 | `allProblems(...reads)`                                                                                          | Every problem among several reads as one, a line each                                                                                       |
-| `orThrow(read)`                                                                                                  | The value, or its problem thrown as an `Error`, for a place that can't go on without it, such as a config file                              |
+| `orExit(read)`                                                                                                   | The value, or its problem printed alone and the process ended with 1, for an app's server or script as it starts                            |
+| `orThrow(read)`                                                                                                  | The value, or its problem thrown as an `Error`, for a place that can't go on without it and prints what it throws, such as a Vite config    |
 | `isRecord(value)`                                                                                                | Whether a value is a plain object                                                                                                           |
 | `parseJson(text, source)`                                                                                        | `{ json }`, typed `unknown`, or a problem naming `source`                                                                                   |
 | `Env`                                                                                                            | A process's environment, such as `process.env`                                                                                              |
@@ -45,5 +42,6 @@ PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, o
 ## What it must never do
 
 - Import anything: another package, or Node's own modules. The browser loads it, and every robkit package depends on it.
-- Throw or exit on bad input. A reader returns a problem, and its caller decides what that means.
+- Throw or exit on bad input. A reader returns a problem, and its caller decides what that means, such as with `orExit` or `orThrow`.
+- Do I/O, apart from `orExit`'s one line and exit, which only a server calls.
 - Show a database URL in a problem. It may hold a password.

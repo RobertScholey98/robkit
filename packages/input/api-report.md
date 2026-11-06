@@ -42,6 +42,7 @@ export function isDomain(value: string): boolean;
 export function isPlatformApp(slug: string): slug is PlatformApp;
 export function isProblem(value: unknown): value is InputProblem;
 export function isRecord(value: unknown): value is Record<string, unknown>;
+export function orExit<T>(read: T | InputProblem): T;
 export function orThrow<T>(read: T | InputProblem): T;
 export function parseJson(
   text: string,
