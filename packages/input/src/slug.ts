@@ -2,7 +2,7 @@
 // The manifest, the app's environment and an install's addresses all take
 // one, so it sits here, below them all.
 
-import { isProblem, type InputProblem } from "./problem.ts";
+import { isProblem, problem, type InputProblem } from "./problem.ts";
 
 /** Core, the hub and admin. Core's app catalog doesn't list them. */
 export const platformApps = ["core", "hub", "admin"] as const;
@@ -40,9 +40,9 @@ function isSlug(value: unknown): value is Slug {
 export function readSlug(value: unknown): Slug | InputProblem {
   if (isSlug(value)) return value;
   const shown = value === undefined ? "Nothing" : JSON.stringify(value);
-  return {
-    error: `${shown} can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
-  };
+  return problem(
+    `${shown} can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+  );
 }
 
 /**

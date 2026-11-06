@@ -6,14 +6,18 @@ import {
   type SessionState,
 } from "@robkit/guard";
 import {
-  type DeclaredAccess,
-  type DeclaredApp,
   type Env,
   type InputProblem,
   isProblem,
   parseJson,
-  readDeclaredApp,
+  problem,
+  type Slug,
 } from "@robkit/input";
+import {
+  type ManifestAccess,
+  type ListedApp,
+  readListedApp,
+} from "@robkit/input/manifest";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -41,8 +45,8 @@ export function readAccess(
     return rule;
   }
   return fields.kind === "roles"
-    ? { error: "Pick at least one role." }
-    : { error: "Pick open, roles or owner." };
+    ? problem("Pick at least one role.")
+    : problem("Pick open, roles or owner.");
 }
 
 /**
@@ -50,20 +54,20 @@ export function readAccess(
  * themselves, which the dev runner and robkit deploy write from each app's
  * manifest. Empty or unset means none.
  */
-export function readDeclaredApps(env: Env): DeclaredApp[] | InputProblem {
+export function readListedApps(env: Env): ListedApp[] | InputProblem {
   const text = env.ROBKIT_APPS;
   if (text === undefined || text.trim() === "") return [];
   const parsed = parseJson(text, "ROBKIT_APPS");
   if (isProblem(parsed)) return parsed;
   const { json } = parsed;
   if (!Array.isArray(json)) {
-    return {
-      error: `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`,
-    };
+    return problem(
+      `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`,
+    );
   }
-  const apps: DeclaredApp[] = [];
+  const apps: ListedApp[] = [];
   for (const [index, value] of json.entries()) {
-    const app = readDeclaredApp(value, `ROBKIT_APPS[${String(index)}]`);
+    const app = readListedApp(value, `ROBKIT_APPS[${String(index)}]`);
     if (isProblem(app)) return app;
     apps.push(app);
   }
@@ -76,11 +80,11 @@ export function readDeclaredApps(env: Env): DeclaredApp[] | InputProblem {
  * if the owner has none of that name. An app core knows keeps the rule the
  * owner gave it, and takes the icon it declares now.
  */
-const owner: DeclaredAccess = { kind: "owner" };
+const owner: ManifestAccess = { kind: "owner" };
 
 export async function registerApps(
   db: Database,
-  declared: readonly DeclaredApp[],
+  declared: readonly ListedApp[],
 ): Promise<void> {
   if (declared.length === 0) return;
   await db.transaction(async (tx) => {
@@ -157,7 +161,7 @@ function ruleOf(
 /** Who may open the app, or undefined if core doesn't know it. */
 export async function accessOf(
   db: Database,
-  slug: string,
+  slug: Slug,
 ): Promise<AccessRule | undefined> {
   const rows = await db
     .select({ access: apps.access, roleId: appRoles.roleId })
@@ -177,7 +181,7 @@ export async function accessOf(
 /** Sets who may open the app. A rule's roles must all exist. */
 export async function setAccess(
   db: Database,
-  slug: string,
+  slug: Slug,
   rule: AccessRule,
 ): Promise<AccessChange> {
   return db.transaction(async (tx) => {

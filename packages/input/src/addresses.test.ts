@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { orThrow, readCoreUrl } from "@robkit/input";
 import {
   coreInstall,
   defaultDevPort,
@@ -8,7 +7,16 @@ import {
   installAt,
   isLocal,
 } from "./addresses.ts";
-import { slug } from "@internal/test-session";
+import { readCoreUrl, readDomain } from "./env.ts";
+import { orThrow } from "./problem.ts";
+import { readSlug, type Slug } from "./slug.ts";
+
+const robkitDev = orThrow(readDomain({ ROBKIT_DOMAIN: "robkit.dev" }));
+
+/** `name` read as a slug, for a test that names one. */
+function slug(name: string): Slug {
+  return orThrow(readSlug(name));
+}
 
 describe("an install's addresses", () => {
   it("puts each app on its own subdomain of a local install", () => {
@@ -24,17 +32,17 @@ describe("an install's addresses", () => {
   });
 
   it("serves a hosted install over https on the default port", () => {
-    const hosted = install({ domain: "robkit.dev", protocol: "https" });
+    const hosted = install({ domain: robkitDev, protocol: "https" });
 
     expect(hosted.origin("core")).toBe("https://core.robkit.dev");
     expect(hosted.origin("hub")).toBe("https://hub.robkit.dev");
     expect(
-      install({ domain: "robkit.dev", protocol: "https", port: 443 }).origin(
+      install({ domain: robkitDev, protocol: "https", port: 443 }).origin(
         "hub",
       ),
     ).toBe("https://hub.robkit.dev");
     expect(
-      install({ domain: "robkit.dev", protocol: "https", port: 8443 }).origin(
+      install({ domain: robkitDev, protocol: "https", port: 8443 }).origin(
         "hub",
       ),
     ).toBe("https://hub.robkit.dev:8443");
@@ -101,6 +109,7 @@ describe("the install an address is on", () => {
     ["http://localhost:3000", "core"],
     ["http://hub.robkit.localhost:3000", "core"],
     ["http://core.:3000", "core"],
+    ["http://core.robkit_dev:3000", "core"],
     ["ftp://core.robkit.dev", "core"],
     ["not a url", "core"],
   ])("finds none for %s as %s", (url, app) => {
@@ -109,7 +118,7 @@ describe("the install an address is on", () => {
 });
 
 describe("whether a URL is on the install", () => {
-  const hosted = install({ domain: "robkit.dev", protocol: "https" });
+  const hosted = install({ domain: robkitDev, protocol: "https" });
 
   it.each([
     "https://notes.robkit.dev/list?x=1",
@@ -134,7 +143,7 @@ describe("whether a URL is on the install", () => {
 });
 
 describe("the app a URL is on", () => {
-  const hosted = install({ domain: "robkit.dev", protocol: "https" });
+  const hosted = install({ domain: robkitDev, protocol: "https" });
 
   it.each([
     ["https://notes.robkit.dev/list?x=1", "notes"],

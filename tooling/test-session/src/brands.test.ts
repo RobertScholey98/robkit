@@ -1,7 +1,7 @@
 import { readCodeId, readRoleId } from "@robkit/guard";
-import { readSlug } from "@robkit/input";
+import { readDomain, readSlug } from "@robkit/input";
 import { describe, expect, it } from "vitest";
-import { aCodeId, aRoleId, aViewer, slug } from "./brands.ts";
+import { aCodeId, aDomain, aRoleId, aViewer, slug } from "./brands.ts";
 
 describe("slug", () => {
   it("builds the slug the reader reads", () => {
@@ -12,6 +12,21 @@ describe("slug", () => {
   it("throws for a name that isn't a slug", () => {
     expect(() => slug("Notes")).toThrow(
       `"Notes" can't be an app's slug, which is also its subdomain and database role.`,
+    );
+  });
+});
+
+describe("aDomain", () => {
+  it("builds the domain the reader reads", () => {
+    expect(aDomain("robkit.dev")).toBe(
+      readDomain({ ROBKIT_DOMAIN: "robkit.dev" }),
+    );
+    expect(aDomain()).toBe("robkit.localhost");
+  });
+
+  it("throws for a value that isn't a domain alone", () => {
+    expect(() => aDomain("https://robkit.dev")).toThrow(
+      `ROBKIT_DOMAIN is "https://robkit.dev", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
     );
   });
 });

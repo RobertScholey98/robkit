@@ -1,4 +1,4 @@
-import { type InputProblem, isProblem } from "@robkit/input";
+import { type InputProblem, isProblem, problem } from "@robkit/input";
 import { readCodeId, type CodeId, type RoleId } from "@robkit/guard";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid, testCode } from "./access-codes.ts";
@@ -22,13 +22,13 @@ export interface NewRole {
 export function readCodeIds(
   fields: Record<string, unknown>,
 ): { codeIds: CodeId[] } | InputProblem {
-  const problem = { error: "Send codeIds, a list of code ids." };
+  const wrong = problem("Send codeIds, a list of code ids.");
   const { codeIds } = fields;
-  if (!Array.isArray(codeIds)) return problem;
+  if (!Array.isArray(codeIds)) return wrong;
   const read: CodeId[] = [];
   for (const value of codeIds) {
     const id = readCodeId(value);
-    if (isProblem(id)) return problem;
+    if (isProblem(id)) return wrong;
     read.push(id);
   }
   return { codeIds: read };
@@ -40,7 +40,7 @@ export function readNewRole(
 ): NewRole | InputProblem {
   const name = typeof fields.name === "string" ? fields.name.trim() : "";
   if (name.length < 1 || name.length > 40) {
-    return { error: "Give the role a name of 1 to 40 characters." };
+    return problem("Give the role a name of 1 to 40 characters.");
   }
   const holders = readCodeIds(fields);
   return isProblem(holders) ? holders : { name, ...holders };

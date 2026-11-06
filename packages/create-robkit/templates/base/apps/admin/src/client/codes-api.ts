@@ -1,4 +1,4 @@
-import { installAt } from "@robkit/session/addresses";
+import { installAt } from "@robkit/input/addresses";
 import { callCore, listOf, problem, type Result } from "@internal/core-client";
 import { type InputProblem, isProblem, isRecord } from "@robkit/input";
 

@@ -1,4 +1,4 @@
-import { type InputProblem, isProblem, isRecord } from "@robkit/input";
+import { type InputProblem, isProblem, isRecord, problem } from "@robkit/input";
 
 /** What a call to core comes to: the answer it read, or a sentence to show. */
 export type Result<T> =
@@ -22,10 +22,11 @@ export const reportToConsole: Report = (message, cause) => {
   if (cause !== undefined) console.error(cause);
 };
 
-/** A reader's problem, saying what's wrong with core's answer. */
-export function problem(error: string): InputProblem {
-  return { error };
-}
+/**
+ * A reader's problem, saying what's wrong with core's answer. Only
+ * `@robkit/input`'s `problem` makes one that `isProblem` accepts.
+ */
+export { problem };
 
 export interface CallOptions<T> {
   /** Posted as JSON. */

@@ -6,39 +6,18 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 
 ```ts
 export function allProblems(...reads: unknown[]): InputProblem;
-export interface AppDeclaration {
-  access?: DeclaredAccess;
-  icon?: string;
-}
-export function appDeclarationJson({
-  access,
-  icon,
-}: AppDeclaration): Record<string, unknown>;
 export type CoreOrigin = string & {
   readonly [coreOriginBrand]: true;
 };
-export type DeclaredAccess =
-  | {
-      kind: "open";
-    }
-  | {
-      kind: "owner";
-    }
-  | {
-      kind: "roles";
-      roleNames: string[];
-    };
-export interface DeclaredApp extends AppDeclaration {
-  slug: Slug;
-}
 export type Domain = string & {
   readonly [domainBrand]: true;
 };
 export type Env = Readonly<Record<string, string | undefined>>;
 export interface InputProblem {
   readonly error: string;
+  readonly [problemMark]: true;
 }
-export function isDomain(value: string): boolean;
+export function isDomain(value: string): value is Domain;
 export function isPlatformApp(slug: string): slug is PlatformApp;
 export function isProblem(value: unknown): value is InputProblem;
 export function isRecord(value: unknown): value is Record<string, unknown>;
@@ -54,10 +33,7 @@ export function parseJson(
   | InputProblem;
 export type PlatformApp = (typeof platformApps)[number];
 export const platformApps: readonly ["core", "hub", "admin"];
-export function readAppDeclaration(
-  value: unknown,
-  field?: string,
-): AppDeclaration | InputProblem;
+export function problem(message: string): InputProblem;
 export function readAppSlug(env: Env): Slug | InputProblem;
 export function readCoreUrl(env: Env): CoreOrigin | InputProblem;
 export function readDatabaseUrl(
@@ -65,10 +41,6 @@ export function readDatabaseUrl(
   name?: string,
   unsetFix?: string,
 ): string | InputProblem;
-export function readDeclaredApp(
-  value: unknown,
-  field: string,
-): DeclaredApp | InputProblem;
 export function readDevServerEnv(env: Env):
   | {
       port?: number;
@@ -106,4 +78,69 @@ export type Slug =
       readonly [slugBrand]: true;
     });
 export function slugProblem(name: string): string | undefined;
+```
+
+## @robkit/input/addresses
+
+```ts
+export function coreInstall(core: CoreOrigin): Install;
+export const defaultDevPort: 3000;
+export const defaultDomain: Domain;
+export function install({ domain, protocol, port }: InstallOptions): Install;
+export interface Install {
+  readonly domain: Domain;
+  host(slug: Slug): string;
+  origin(slug: Slug): string;
+  onInstall(url: string | undefined): string | undefined;
+  appOf(url: string | URL): Slug | undefined;
+}
+export function installAt(url: string | URL, app: string): Install | undefined;
+export interface InstallOptions {
+  domain: Domain;
+  protocol?: "http" | "https";
+  port?: number | undefined;
+}
+export function isLocal(domain: string): boolean;
+```
+
+## @robkit/input/report
+
+```ts
+export type Report = (message: string, cause?: unknown) => void;
+export const reportToConsole: Report;
+```
+
+## @robkit/input/manifest
+
+```ts
+export interface AppManifest {
+  access?: ManifestAccess;
+  icon?: string;
+}
+export function appManifestJson({
+  access,
+  icon,
+}: AppManifest): Record<string, unknown>;
+export interface ListedApp extends AppManifest {
+  slug: Slug;
+}
+export type ManifestAccess =
+  | {
+      kind: "open";
+    }
+  | {
+      kind: "owner";
+    }
+  | {
+      kind: "roles";
+      roleNames: string[];
+    };
+export function readAppManifest(
+  value: unknown,
+  field?: string,
+): AppManifest | InputProblem;
+export function readListedApp(
+  value: unknown,
+  field: string,
+): ListedApp | InputProblem;
 ```

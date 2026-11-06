@@ -2,8 +2,13 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { catalogOf, discoverApps, readAppManifest, routesFor } from "./apps.ts";
-import { slug } from "@internal/test-session";
+import {
+  catalogOf,
+  discoverApps,
+  readAppManifestFile,
+  routesFor,
+} from "./apps.ts";
+import { slug, aDomain } from "@internal/test-session";
 
 async function installWith(
   apps: Record<string, Record<string, string> | null>,
@@ -36,21 +41,21 @@ describe("discoverApps", () => {
         dir: join(root, "apps", "core"),
         port: 3001,
         migrates: true,
-        declares: {},
+        manifest: {},
       },
       {
         slug: "hub",
         dir: join(root, "apps", "hub"),
         port: 3002,
         migrates: false,
-        declares: {},
+        manifest: {},
       },
       {
         slug: "notes",
         dir: join(root, "apps", "notes"),
         port: 3003,
         migrates: false,
-        declares: {},
+        manifest: {},
       },
     ]);
   });
@@ -108,12 +113,12 @@ describe("discoverApps", () => {
   });
 });
 
-describe("readAppManifest", () => {
+describe("readAppManifestFile", () => {
   const file = "apps/notes/package.json";
 
   it("reads the scripts and what the app declares", () => {
     expect(
-      readAppManifest(
+      readAppManifestFile(
         {
           name: "@internal/notes-app",
           scripts: { dev: "vite", migrate: "drizzle-kit migrate" },
@@ -124,16 +129,19 @@ describe("readAppManifest", () => {
     ).toEqual({
       name: "@internal/notes-app",
       scripts: { dev: "vite", migrate: "drizzle-kit migrate" },
-      declares: {
+      manifest: {
         access: { kind: "roles", roleNames: ["Family"] },
         icon: "📝",
       },
     });
-    expect(readAppManifest({}, file)).toEqual({ scripts: {}, declares: {} });
+    expect(readAppManifestFile({}, file)).toEqual({
+      scripts: {},
+      manifest: {},
+    });
   });
 
   it.each([null, [], "notes"])("refuses %j", (value) => {
-    expect(readAppManifest(value, file)).toEqual({
+    expect(readAppManifestFile(value, file)).toEqual({
       error: "apps/notes/package.json must be a JSON object, as npm expects.",
     });
   });
@@ -160,7 +168,7 @@ describe("readAppManifest", () => {
       `apps/notes/package.json: robkit.icon must be one emoji, such as "📝".`,
     ],
   ])("refuses %j", (value, error) => {
-    expect(readAppManifest(value, file)).toEqual({ error });
+    expect(readAppManifestFile(value, file)).toEqual({ error });
   });
 });
 
@@ -173,17 +181,17 @@ describe("routesFor", () => {
           dir: "/x/apps/core",
           port: 3001,
           migrates: true,
-          declares: {},
+          manifest: {},
         },
         {
           slug: "hub",
           dir: "/x/apps/hub",
           port: 3002,
           migrates: false,
-          declares: {},
+          manifest: {},
         },
       ],
-      "robkit.test",
+      aDomain("robkit.test"),
     );
 
     expect(routes).toEqual([
@@ -194,12 +202,12 @@ describe("routesFor", () => {
 });
 
 describe("catalogOf", () => {
-  const app = (name: string, declares = {}) => ({
+  const app = (name: string, manifest = {}) => ({
     slug: slug(name),
     dir: `/x/apps/${name}`,
     port: 3001,
     migrates: false,
-    declares,
+    manifest,
   });
 
   it("lists the owner's apps for core's catalog, leaving out the platform apps", () => {
@@ -246,7 +254,7 @@ describe("discoverApps reading a manifest's robkit field", () => {
 
     const [notes] = await discoverApps(root);
 
-    expect(notes?.declares).toEqual({
+    expect(notes?.manifest).toEqual({
       access: { kind: "roles", roleNames: ["Family"] },
       icon: "📝",
     });

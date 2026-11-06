@@ -1,4 +1,4 @@
-import { isProblem, isRecord, type InputProblem } from "@robkit/input";
+import { isProblem, isRecord, type InputProblem, problem } from "@robkit/input";
 
 declare const roleIdBrand: unique symbol;
 declare const codeIdBrand: unique symbol;
@@ -31,29 +31,29 @@ function shown(value: unknown): string {
 /** `value` as a role id, if it is a string that isn't empty. */
 export function readRoleId(value: unknown): RoleId | InputProblem {
   if (isRoleId(value)) return value;
-  return {
-    error: `${shown(value)} isn't a role's id, which is text that isn't empty.`,
-  };
+  return problem(
+    `${shown(value)} isn't a role's id, which is text that isn't empty.`,
+  );
 }
 
 /** `value` as a code id, if it is a string that isn't empty. */
 export function readCodeId(value: unknown): CodeId | InputProblem {
   if (isCodeId(value)) return value;
-  return {
-    error: `${shown(value)} isn't an access code's id, which is text that isn't empty.`,
-  };
+  return problem(
+    `${shown(value)} isn't an access code's id, which is text that isn't empty.`,
+  );
 }
 
 /** `value` as a list of role ids. */
 export function readRoleIds(value: unknown): RoleId[] | InputProblem {
-  const problem = {
-    error: `${shown(value)} isn't a list of role ids, each text that isn't empty.`,
-  };
-  if (!Array.isArray(value)) return problem;
+  const wrong = problem(
+    `${shown(value)} isn't a list of role ids, each text that isn't empty.`,
+  );
+  if (!Array.isArray(value)) return wrong;
   const roles: RoleId[] = [];
   for (const item of value) {
     const role = readRoleId(item);
-    if (isProblem(role)) return problem;
+    if (isProblem(role)) return wrong;
     roles.push(role);
   }
   return roles;
@@ -157,12 +157,12 @@ export function guard(rule: AccessRule, session: SessionState): Decision {
 
 /** Reads an access rule sent as JSON. */
 export function readAccessRule(value: unknown): AccessRule | InputProblem {
-  const problem = {
-    error: `${shown(value)} isn't an access rule. Use {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": [...]} listing role ids.`,
-  };
-  if (!isRecord(value)) return problem;
+  const wrong = problem(
+    `${shown(value)} isn't an access rule. Use {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": [...]} listing role ids.`,
+  );
+  if (!isRecord(value)) return wrong;
   const { kind } = value;
   if (kind === "open" || kind === "owner") return { kind };
   const roles = readRoleIds(value.roles);
-  return kind === "roles" && !isProblem(roles) ? { kind, roles } : problem;
+  return kind === "roles" && !isProblem(roles) ? { kind, roles } : wrong;
 }

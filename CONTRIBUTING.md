@@ -192,20 +192,23 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
    ```ts
    import { readRoleIds, type AccessRule } from "@robkit/guard";
-   import { isProblem, isRecord, type InputProblem } from "@robkit/input";
+   import {
+     isProblem,
+     isRecord,
+     problem,
+     type InputProblem,
+   } from "@robkit/input";
 
    /** Reads an access rule sent as JSON, or says what is wrong with it. */
    export function readAccessRule(value: unknown): AccessRule | InputProblem {
-     const problem = {
-       error: `${JSON.stringify(value)} isn't an access rule.`,
-     };
-     if (!isRecord(value)) return problem;
+     const wrong = problem(`${JSON.stringify(value)} isn't an access rule.`);
+     if (!isRecord(value)) return wrong;
      const { kind } = value;
      if (kind === "open" || kind === "owner") return { kind };
      const roles = readRoleIds(value.roles);
      return kind === "roles" && !isProblem(roles) && roles.length > 0
        ? { kind, roles }
-       : problem;
+       : wrong;
    }
    ```
 

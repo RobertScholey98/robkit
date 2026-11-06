@@ -23,4 +23,3 @@ export {
   appSessionPath,
   appSessionUrl,
 } from "./app-session.ts";
-export { reportToConsole, type Report } from "./report.ts";

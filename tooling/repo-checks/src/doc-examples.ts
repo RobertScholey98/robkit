@@ -80,7 +80,7 @@ export async function docExamples(root: string): Promise<DocExample[]> {
 }
 
 /**
- * Maps each published entry point, such as `@robkit/session/addresses`, to
+ * Maps each published entry point, such as `@robkit/input/addresses`, to
  * its built declarations, so an example sees what an install gets from npm.
  */
 async function builtEntries(): Promise<Record<string, string[]>> {

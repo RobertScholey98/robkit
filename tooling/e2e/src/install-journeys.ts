@@ -12,11 +12,7 @@ import {
 } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
 import type { Slug } from "@robkit/input";
-import {
-  defaultDomain,
-  install,
-  type Install,
-} from "@robkit/session/addresses";
+import { defaultDomain, install, type Install } from "@robkit/input/addresses";
 import type { Choices } from "create-robkit";
 import {
   afterAll,

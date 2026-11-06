@@ -10,6 +10,7 @@ import { listeningPort } from "./known.ts";
 
 export {
   aCodeId,
+  aDomain,
   aRoleId,
   aViewer,
   slug,

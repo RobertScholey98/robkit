@@ -10,17 +10,17 @@ import {
 import {
   readSlug,
   type CoreOrigin,
-  type DeclaredAccess,
   type InputProblem,
   type Slug,
 } from "@robkit/input";
+import { type ManifestAccess } from "@robkit/input/manifest";
 import { readSessionLapsed, type SessionLapsed } from "./lapsed.ts";
 
 declare const notes: Slug;
 declare const family: RoleId;
 declare const core: CoreOrigin;
 const options = (value: GuardedOptions) => value;
-const declared = (value: DeclaredAccess) => value;
+const declared = (value: ManifestAccess) => value;
 const rule = (value: AccessRule) => value;
 const fault = (value: GuardFault) => value;
 
@@ -68,6 +68,10 @@ describe("session's types", () => {
     fault({ app: notes, failed: "access-rule", cause: 1 });
     // @ts-expect-error A fault reaching core has no answer to have failed.
     fault({ app: notes, failed: "network", reason: "unknown-app", cause: 1 });
+  });
+
+  it("names the guard's app by its slug when it can't check a request", () => {
+    expectTypeOf<GuardFault["app"]>().toEqualTypeOf<Slug>();
   });
 
   it("keeps role names apart from the guard's role ids", () => {

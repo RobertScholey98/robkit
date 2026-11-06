@@ -244,9 +244,6 @@ importers:
       '@robkit/input':
         specifier: workspace:*
         version: link:../input
-      '@robkit/session':
-        specifier: workspace:*
-        version: link:../session
       postgres:
         specifier: 'catalog:'
         version: 3.4.9
@@ -523,9 +520,6 @@ importers:
       '@robkit/input':
         specifier: workspace:*
         version: link:../../packages/input
-      '@robkit/session':
-        specifier: workspace:*
-        version: link:../../packages/session
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5

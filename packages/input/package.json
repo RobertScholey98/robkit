@@ -4,13 +4,28 @@
   "description": "robkit's readers for input from outside its own code: environment variables, JSON, slugs and an app's manifest.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./addresses": "./src/addresses.ts",
+    "./report": "./src/report.ts",
+    "./manifest": "./src/manifest.ts"
   },
   "publishConfig": {
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./addresses": {
+        "types": "./dist/addresses.d.ts",
+        "default": "./dist/addresses.js"
+      },
+      "./report": {
+        "types": "./dist/report.d.ts",
+        "default": "./dist/report.js"
+      },
+      "./manifest": {
+        "types": "./dist/manifest.d.ts",
+        "default": "./dist/manifest.js"
       }
     }
   },

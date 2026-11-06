@@ -1,8 +1,15 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { setCookie } from "hono/cookie";
-import { sessionCookie, sessionTokensIn, type Report } from "@robkit/session";
-import { isLocal } from "@robkit/session/addresses";
-import { type InputProblem, isProblem, isRecord } from "@robkit/input";
+import type { Report } from "@robkit/input/report";
+import { sessionCookie, sessionTokensIn } from "@robkit/session";
+import { isLocal } from "@robkit/input/addresses";
+import {
+  type InputProblem,
+  isProblem,
+  isRecord,
+  problem,
+  type Domain,
+} from "@robkit/input";
 import type { TrustedProxy } from "../client.ts";
 import { sessionLifetimeSeconds } from "../session-claims.ts";
 import {
@@ -31,9 +38,9 @@ export async function fieldsOf(c: Context): Promise<Fields | InputProblem> {
     body = await c.req.json();
   } catch {
     // A body that isn't JSON is the caller's mistake, answered with a 400.
-    return { error: "Send a valid JSON body." };
+    return problem("Send a valid JSON body.");
   }
-  return isRecord(body) ? body : { error: "Send a JSON object." };
+  return isRecord(body) ? body : problem("Send a JSON object.");
 }
 
 /** A POST's JSON fields read by one of core's input rules, or why they won't do. */
@@ -48,7 +55,7 @@ export async function readBody<T>(
 /** Puts `sessionToken` on core's cookie, or clears it with a `maxAge` of 0. */
 export function setSessionCookie(
   c: Context,
-  domain: string,
+  domain: Domain,
   sessionToken: string,
   maxAge = sessionLifetimeSeconds,
 ): void {

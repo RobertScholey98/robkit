@@ -43,7 +43,6 @@
   },
   "dependencies": {
     "@robkit/input": "workspace:*",
-    "@robkit/session": "workspace:*",
     "postgres": "catalog:"
   },
   "devDependencies": {

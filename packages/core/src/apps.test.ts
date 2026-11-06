@@ -1,16 +1,16 @@
 import { isProblem } from "@robkit/input";
 import { describe, expect, it } from "vitest";
-import { readAccess, readDeclaredApps } from "./apps.ts";
+import { readAccess, readListedApps } from "./apps.ts";
 
-describe("readDeclaredApps", () => {
+describe("readListedApps", () => {
   it("reads nothing from an unset or empty ROBKIT_APPS", () => {
-    expect(readDeclaredApps({})).toEqual([]);
-    expect(readDeclaredApps({ ROBKIT_APPS: " " })).toEqual([]);
+    expect(readListedApps({})).toEqual([]);
+    expect(readListedApps({ ROBKIT_APPS: " " })).toEqual([]);
   });
 
   it("reads each app's slug, rule and icon", () => {
     expect(
-      readDeclaredApps({
+      readListedApps({
         ROBKIT_APPS: JSON.stringify([
           { slug: "example" },
           {
@@ -61,7 +61,7 @@ describe("readDeclaredApps", () => {
       'ROBKIT_APPS[0].icon must be one emoji, such as "📝".',
     ],
   ])("refuses %s", (text, message) => {
-    const read = readDeclaredApps({ ROBKIT_APPS: text });
+    const read = readListedApps({ ROBKIT_APPS: text });
     expect(isProblem(read) && read.error).toMatch(message);
   });
 });

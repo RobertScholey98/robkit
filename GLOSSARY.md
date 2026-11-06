@@ -60,8 +60,8 @@ The shared React component library every **Install** has: shadcn on Base UI, in 
 _Avoid_: design system
 
 **Manifest**:
-An app's declaration of its name, icon, access rule and settings.
-_Avoid_: config
+What an app says about itself in its `package.json`: its name, icon, access rule and settings.
+_Avoid_: config, declaration
 
 ### Access
 

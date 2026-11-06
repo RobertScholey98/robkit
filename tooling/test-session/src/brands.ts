@@ -5,7 +5,13 @@ import {
   type RoleId,
   type Viewer,
 } from "@robkit/guard";
-import { orThrow, readSlug, type Slug } from "@robkit/input";
+import {
+  orThrow,
+  readDomain,
+  readSlug,
+  type Domain,
+  type Slug,
+} from "@robkit/input";
 
 // A test builds a branded value as the code does, with its reader.
 // robkit/no-brand-cast refuses a cast to one, tests included.
@@ -13,6 +19,14 @@ import { orThrow, readSlug, type Slug } from "@robkit/input";
 /** `name` as an app's slug. Throws the reader's problem if it isn't one. */
 export function slug(name: string): Slug {
   return orThrow(readSlug(name));
+}
+
+/**
+ * `name` as an install's domain, `robkit.localhost` unless it says. Throws
+ * the reader's problem if it isn't one.
+ */
+export function aDomain(name = "robkit.localhost"): Domain {
+  return orThrow(readDomain({ ROBKIT_DOMAIN: name }));
 }
 
 /** `id` as a code id. Throws the guard's problem if it isn't one. */

@@ -1,3 +1,4 @@
+import { aDomain } from "@internal/test-session";
 import { describe, expect, it } from "vitest";
 import { readCoolifyConfig, type CoolifyConfig } from "./coolify-config.ts";
 
@@ -8,7 +9,7 @@ const config: CoolifyConfig = {
   githubApp: "robkit-coolify",
   repository: "RobertScholey98/robkit-dev",
   branch: "main",
-  domain: "robkit.dev",
+  domain: aDomain("robkit.dev"),
 };
 
 describe("readCoolifyConfig", () => {

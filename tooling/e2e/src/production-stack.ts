@@ -6,14 +6,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { freePort, removeWhenGone } from "@internal/test-postgres";
-import type { Slug } from "@robkit/input";
-import { install, type Install } from "@robkit/session/addresses";
+import { type Slug, orThrow, readDomain } from "@robkit/input";
+import { install, type Install } from "@robkit/input/addresses";
 import { deploymentOf } from "create-robkit";
 
 const run = promisify(execFile);
 
 /** A domain no real host answers, so the stack can't reach the internet. */
-export const domain = "robkit.test";
+export const domain = orThrow(readDomain({}, "robkit.test"));
 
 /** The host's Postgres admin URL, as the containers reach it. */
 const adminUrl = "postgres://postgres:postgres@postgres:5432/robkit";
