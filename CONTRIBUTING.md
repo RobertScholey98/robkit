@@ -163,26 +163,40 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
    git switch -c 43-roles-rule-names-a-role main
    ```
 
-3. **Write a failing test through the public interface.** Add the empty list to the values `readAccessRule` refuses, in `guard.test.ts`:
+3. **Write a failing test through the public interface.** In `guard.test.ts`, inside `describe("readAccessRule")`:
 
-   ```ts nocheck
-   { kind: "roles", roles: [] },
+   ```ts
+   import { readAccessRule } from "@robkit/guard";
+   import { expect, it } from "vitest";
+
+   it("refuses a roles rule that names no role", () => {
+     expect(readAccessRule({ kind: "roles", roles: [] })).toBeUndefined();
+   });
    ```
 
    Run the guard's tests and watch it fail:
 
    ```sh
    pnpm --filter @robkit/guard test
-   # FAIL  src/guard.test.ts > readAccessRule > refuses {"kind":"roles","roles":[]}
+   # FAIL  src/guard.test.ts > readAccessRule > refuses a roles rule that names no role
    ```
 
-4. **Make it pass.** In `readAccessRule`, require at least one role:
+4. **Make it pass.** In `readAccessRule`, refuse an empty list. Check the length of what `readRoleIds` returns, not of the raw value: `readRoleIds` gives back `RoleId[]`, the branded type `AccessRule` needs, where the raw array is only `unknown`. Here is the whole function after the change. In `guard.ts`, `readRoleIds` and `AccessRule` are in the same file; the example imports them so it compiles on its own.
 
-   ```ts nocheck
-   const isRoleList =
-     Array.isArray(roles) &&
-     roles.length > 0 &&
-     roles.every((role) => typeof role === "string");
+   ```ts
+   import { readRoleIds, type AccessRule } from "@robkit/guard";
+
+   /** Reads an access rule sent as JSON, or undefined if it isn't one. */
+   export function readAccessRule(value: unknown): AccessRule | undefined {
+     if (typeof value !== "object" || value === null) return undefined;
+     const kind = "kind" in value ? value.kind : undefined;
+     const roles = "roles" in value ? value.roles : undefined;
+     if (kind === "open" || kind === "owner") return { kind };
+     const roleIds = readRoleIds(roles);
+     return kind === "roles" && roleIds !== undefined && roleIds.length > 0
+       ? { kind, roles: roleIds }
+       : undefined;
+   }
    ```
 
    Run the tests again, and the packages that use it:
