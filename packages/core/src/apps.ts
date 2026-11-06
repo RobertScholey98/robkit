@@ -157,7 +157,19 @@ export async function accessOf(
   db: Database,
   slug: string,
 ): Promise<AccessRule | undefined> {
-  return (await listApps(db)).find((app) => app.slug === slug)?.access;
+  const rows = await db
+    .select({ access: apps.access, roleId: appRoles.roleId })
+    .from(apps)
+    .leftJoin(appRoles, eq(appRoles.appSlug, apps.slug))
+    .leftJoin(roles, eq(appRoles.roleId, roles.id))
+    .where(eq(apps.slug, slug))
+    .orderBy(asc(roles.name));
+  const [app] = rows;
+  if (!app) return undefined;
+  return ruleOf(
+    app.access,
+    rows.flatMap(({ roleId }) => (roleId === null ? [] : [roleId])),
+  );
 }
 
 /** Sets who may open the app. A rule's roles must all exist. */
