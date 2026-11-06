@@ -13,13 +13,13 @@ Raises rubric categories 5 (simplicity), 7 (error handling) and 1 (module bounda
 
 **Blocked by:** 14
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `requestGuard` is a dispatcher, and the callback and refresh protocol is its own module
 - [x] No file in session's `src` is over about 200 lines, tests aside
 - [x] Core-access failures say which one happened and keep their cause, each with a test
 - [x] The conformance and adapter tests are unchanged
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -36,7 +36,9 @@ Raises rubric categories 5 (simplicity), 7 (error handling) and 1 (module bounda
 - Went red first: the loopback test of a body cut off ("Error: aborted" from the request itself), the cancel test (times out without `cancel`), the four core-access failure tests (no `AccessRuleError`), the guard's `reason` test and its type test. "names core being down when it loads the rule" passed on the old code too: it pins the `network` branch the new mapping added.
 - `pnpm check` on Windows: 48 of 48 tasks pass. Session, hono and start tests in WSL: 147, 28 and 29 pass. Session's coverage: 97.97 / 94.17 / 100 / 99.23, all above its thresholds.
 - A scratch script with a 300 ms limit and a body that never ends: `loopbackFetch`'s body read failed after 304 ms, so the deadline still covers the body.
-- CI: see below.
+- CI on PR #60: `check`, `pull-request` and `gate` pass at 3ee1acf, https://github.com/RobertScholey98/robkit/actions/runs/42172483377.
+- The first CI run failed in dev's `runner.db.test.ts` ("stops everything and fails when an app exits": only beta had started). Dev uses only session's `addresses` and `reportToConsole`, which this ticket didn't change. Run alone in WSL with `--retry=0`, that file passed 3 of 3 times on this branch. On the base (051675c) it failed 1 of 3, on a different test in the same file. So it is flaky under load, not caused by this ticket. The rerun's `check:all` passed.
+- The rerun then failed only on the coverage ratchet, which asked for session's functions threshold to go from 97 to 100. It now does.
 
 ### What I couldn't verify
 
