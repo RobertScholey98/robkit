@@ -21,6 +21,9 @@ const body = (ticketSection: string) =>
     "Mentions .scratch/elsewhere.md, which isn't the ticket line.",
   ].join("\n");
 
+const namesNoFile =
+  "The pull request's Ticket section names no file under .scratch/. Name the ticket's file, such as .scratch/<feature>/issues/<ticket>.md. No ticket yet? Add one with **Status:** needs-triage in this pull request, as CONTRIBUTING.md's \"Without a ticket\" says.";
+
 describe("ticketProblems", () => {
   it("accepts a Ticket section that names an existing file under .scratch/", () => {
     for (const line of [
@@ -41,9 +44,7 @@ describe("ticketProblems", () => {
   });
 
   it("rejects a Ticket section that names no file, counting the template's comment as nothing", () => {
-    expect(ticketProblems(body("Ticket 12."), exists)).toEqual([
-      "The pull request's Ticket section names no file under .scratch/. Name the ticket's file, such as .scratch/<feature>/issues/<ticket>.md.",
-    ]);
+    expect(ticketProblems(body("Ticket 12."), exists)).toEqual([namesNoFile]);
   });
 
   it("rejects the template as it comes, whatever its comment's example names", async () => {
@@ -52,9 +53,7 @@ describe("ticketProblems", () => {
       "utf8",
     );
 
-    expect(ticketProblems(template, () => true)).toEqual([
-      "The pull request's Ticket section names no file under .scratch/. Name the ticket's file, such as .scratch/<feature>/issues/<ticket>.md.",
-    ]);
+    expect(ticketProblems(template, () => true)).toEqual([namesNoFile]);
   });
 
   it("rejects a file that doesn't exist, or one outside .scratch/", () => {
