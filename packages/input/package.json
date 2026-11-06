@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./addresses": "./src/addresses.ts",
-    "./report": "./src/report.ts"
+    "./report": "./src/report.ts",
+    "./manifest": "./src/manifest.ts"
   },
   "publishConfig": {
     "exports": {
@@ -21,6 +22,10 @@
       "./report": {
         "types": "./dist/report.d.ts",
         "default": "./dist/report.js"
+      },
+      "./manifest": {
+        "types": "./dist/manifest.d.ts",
+        "default": "./dist/manifest.js"
       }
     }
   },

@@ -1,6 +1,6 @@
 # @robkit/input
 
-Readers for input from outside robkit's own code: environment variables, JSON, an app's slug and its manifest. Each takes the raw value and returns the typed value or an `InputProblem` that says what to fix. `docs/conventions/input.md` says how robkit uses them.
+Readers for input from outside robkit's own code: environment variables, JSON, an app's slug and its manifest. Each takes the raw value and returns the typed value or an `InputProblem` that says what to fix. `docs/conventions/input.md` says how robkit uses them. Its subpaths hold the manifest format, an install's addresses and `Report`, which robkit's packages share.
 
 Every robkit package and every app can import it. It imports nothing, so the browser can load it.
 
@@ -23,21 +23,32 @@ PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, o
 
 ## Exports
 
-| Export                                                                                                           | What it is                                                                                                                                  |
-| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `InputProblem`, `isProblem`                                                                                      | The one type for a failed read, `{ error }`, and the one check for it                                                                       |
-| `allProblems(...reads)`                                                                                          | Every problem among several reads as one, a line each                                                                                       |
-| `orExit(read)`                                                                                                   | The value, or its problem printed alone and the process ended with 1, for an app's server or script as it starts                            |
-| `orThrow(read)`                                                                                                  | The value, or its problem thrown as an `Error`, for a place that can't go on without it and prints what it throws, such as a Vite config    |
-| `isRecord(value)`                                                                                                | Whether a value is a plain object                                                                                                           |
-| `parseJson(text, source)`                                                                                        | `{ json }`, typed `unknown`, or a problem naming `source`                                                                                   |
-| `Env`                                                                                                            | A process's environment, such as `process.env`                                                                                              |
-| `readSet`, `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl`                 | One variable each. An empty variable counts as unset                                                                                        |
-| `isDomain(value)`                                                                                                | Whether a string is a domain alone                                                                                                          |
-| `readServeEnv`, `readDevServerEnv`, `readGuardEnv`                                                               | What an app's server reads, each read whole: where it listens, what its Vite dev server needs, and its slug and core's origin for the guard |
-| `readSlug(value)`, `Slug`, `slugProblem(name)`                                                                   | An app's slug: lowercase letters and digits, starting with a letter. Only `readSlug` makes a `Slug`                                         |
-| `platformApps`, `isPlatformApp`, `PlatformApp`                                                                   | Core, the hub and admin, whose names are slugs as they stand                                                                                |
-| `readAppDeclaration`, `appDeclarationJson`, `readDeclaredApp`, `AppDeclaration`, `DeclaredApp`, `DeclaredAccess` | The manifest format: what an app declares in its `package.json`'s `robkit` field, and each app as `ROBKIT_APPS` hands it to core            |
+`@robkit/input`, the reading primitives:
+
+| Export                                                                                           | What it is                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `InputProblem`, `isProblem`                                                                      | The one type for a failed read, `{ error }`, and the one check for it                                                                       |
+| `allProblems(...reads)`                                                                          | Every problem among several reads as one, a line each                                                                                       |
+| `orExit(read)`                                                                                   | The value, or its problem printed alone and the process ended with 1, for an app's server or script as it starts                            |
+| `orThrow(read)`                                                                                  | The value, or its problem thrown as an `Error`, for a place that can't go on without it and prints what it throws, such as a Vite config    |
+| `isRecord(value)`                                                                                | Whether a value is a plain object                                                                                                           |
+| `parseJson(text, source)`                                                                        | `{ json }`, typed `unknown`, or a problem naming `source`                                                                                   |
+| `Env`                                                                                            | A process's environment, such as `process.env`                                                                                              |
+| `readSet`, `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl` | One variable each. An empty variable counts as unset                                                                                        |
+| `isDomain(value)`                                                                                | Whether a string is a domain alone                                                                                                          |
+| `readServeEnv`, `readDevServerEnv`, `readGuardEnv`                                               | What an app's server reads, each read whole: where it listens, what its Vite dev server needs, and its slug and core's origin for the guard |
+| `readSlug(value)`, `Slug`, `slugProblem(name)`                                                   | An app's slug: lowercase letters and digits, starting with a letter. Only `readSlug` makes a `Slug`                                         |
+| `platformApps`, `isPlatformApp`, `PlatformApp`                                                   | Core, the hub and admin, whose names are slugs as they stand                                                                                |
+
+### `@robkit/input/manifest`
+
+The manifest format: what an app declares in its `package.json`'s `robkit` field, and each app as `ROBKIT_APPS` hands it to core.
+
+| Export                                                   | What it is                                                                               |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `readAppDeclaration`, `AppDeclaration`, `DeclaredAccess` | What an app's `robkit` field declares: its access rule, with roles by name, and its icon |
+| `appDeclarationJson`                                     | That declaration as the `robkit` field and `ROBKIT_APPS` write it                        |
+| `readDeclaredApp`, `DeclaredApp`                         | One app in `ROBKIT_APPS`: its slug and what it declares                                  |
 
 ### `@robkit/input/addresses`
 

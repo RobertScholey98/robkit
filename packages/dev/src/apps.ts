@@ -1,17 +1,19 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
-  type AppDeclaration,
-  appDeclarationJson,
   type InputProblem,
   isPlatformApp,
   isProblem,
   isRecord,
   parseJson,
-  readAppDeclaration,
   readSlug,
   type Slug,
 } from "@robkit/input";
+import {
+  type AppDeclaration,
+  appDeclarationJson,
+  readAppDeclaration,
+} from "@robkit/input/manifest";
 import { install } from "@robkit/input/addresses";
 import { isMissing } from "./files.ts";
 import type { Route } from "./proxy.ts";

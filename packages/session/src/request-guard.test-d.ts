@@ -10,10 +10,10 @@ import {
 import {
   readSlug,
   type CoreOrigin,
-  type DeclaredAccess,
   type InputProblem,
   type Slug,
 } from "@robkit/input";
+import { type DeclaredAccess } from "@robkit/input/manifest";
 import { readSessionLapsed, type SessionLapsed } from "./lapsed.ts";
 
 declare const notes: Slug;

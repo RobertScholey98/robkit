@@ -3,7 +3,6 @@ import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import {
-  type DeclaredAccess,
   type InputProblem,
   isPlatformApp,
   isProblem,
@@ -13,6 +12,7 @@ import {
   readSlug,
   type Slug,
 } from "@robkit/input";
+import { type DeclaredAccess } from "@robkit/input/manifest";
 import { readChoices, type Choices, type Stack } from "./choices.ts";
 import { appFiles, readFolder, stackTemplate, type Files } from "./generate.ts";
 import { writeInstall } from "./write.ts";

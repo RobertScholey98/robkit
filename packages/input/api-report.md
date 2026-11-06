@@ -6,31 +6,9 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 
 ```ts
 export function allProblems(...reads: unknown[]): InputProblem;
-export interface AppDeclaration {
-  access?: DeclaredAccess;
-  icon?: string;
-}
-export function appDeclarationJson({
-  access,
-  icon,
-}: AppDeclaration): Record<string, unknown>;
 export type CoreOrigin = string & {
   readonly [coreOriginBrand]: true;
 };
-export type DeclaredAccess =
-  | {
-      kind: "open";
-    }
-  | {
-      kind: "owner";
-    }
-  | {
-      kind: "roles";
-      roleNames: string[];
-    };
-export interface DeclaredApp extends AppDeclaration {
-  slug: Slug;
-}
 export type Domain = string & {
   readonly [domainBrand]: true;
 };
@@ -54,10 +32,6 @@ export function parseJson(
   | InputProblem;
 export type PlatformApp = (typeof platformApps)[number];
 export const platformApps: readonly ["core", "hub", "admin"];
-export function readAppDeclaration(
-  value: unknown,
-  field?: string,
-): AppDeclaration | InputProblem;
 export function readAppSlug(env: Env): Slug | InputProblem;
 export function readCoreUrl(env: Env): CoreOrigin | InputProblem;
 export function readDatabaseUrl(
@@ -65,10 +39,6 @@ export function readDatabaseUrl(
   name?: string,
   unsetFix?: string,
 ): string | InputProblem;
-export function readDeclaredApp(
-  value: unknown,
-  field: string,
-): DeclaredApp | InputProblem;
 export function readDevServerEnv(env: Env):
   | {
       port?: number;
@@ -136,4 +106,39 @@ export function isLocal(domain: string): boolean;
 ```ts
 export type Report = (message: string, cause?: unknown) => void;
 export const reportToConsole: Report;
+```
+
+## @robkit/input/manifest
+
+```ts
+export interface AppDeclaration {
+  access?: DeclaredAccess;
+  icon?: string;
+}
+export function appDeclarationJson({
+  access,
+  icon,
+}: AppDeclaration): Record<string, unknown>;
+export type DeclaredAccess =
+  | {
+      kind: "open";
+    }
+  | {
+      kind: "owner";
+    }
+  | {
+      kind: "roles";
+      roleNames: string[];
+    };
+export interface DeclaredApp extends AppDeclaration {
+  slug: Slug;
+}
+export function readAppDeclaration(
+  value: unknown,
+  field?: string,
+): AppDeclaration | InputProblem;
+export function readDeclaredApp(
+  value: unknown,
+  field: string,
+): DeclaredApp | InputProblem;
 ```

@@ -6,14 +6,16 @@ import {
   type SessionState,
 } from "@robkit/guard";
 import {
-  type DeclaredAccess,
-  type DeclaredApp,
   type Env,
   type InputProblem,
   isProblem,
   parseJson,
-  readDeclaredApp,
 } from "@robkit/input";
+import {
+  type DeclaredAccess,
+  type DeclaredApp,
+  readDeclaredApp,
+} from "@robkit/input/manifest";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
