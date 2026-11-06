@@ -16,7 +16,7 @@ import {
   testTag,
 } from "@internal/test-postgres";
 import { afterEach, describe, expect, it } from "vitest";
-import { reportFaultsAt } from "./cli.ts";
+import { reportFaultsAt } from "./run-command.ts";
 
 const run = promisify(execFile);
 const bin = fileURLToPath(new URL("bin.ts", import.meta.url));

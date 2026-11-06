@@ -2,7 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { Problem } from "./cli.ts";
+import { Problem } from "./run-command.ts";
 import { exec } from "./exec.ts";
 
 describe("exec", () => {

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
-import { Problem } from "./cli.ts";
+import { Problem } from "./run-command.ts";
 
 /** Copies each line from `from` to `to`, prefixed with the app's slug. */
 export function prefixLines(

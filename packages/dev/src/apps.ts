@@ -19,7 +19,7 @@ import {
 } from "@robkit/session/manifest";
 import { isMissing } from "./files.ts";
 import type { Route } from "./proxy.ts";
-import { Problem } from "./cli.ts";
+import { Problem } from "./run-command.ts";
 
 /**
  * One folder under `apps/`. Its folder name is its slug, which is also its
