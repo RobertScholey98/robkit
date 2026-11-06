@@ -1,6 +1,7 @@
 // Every command-line script here, one that sets its exit code, has a test
 // beside it that runs it as a child process. A broken entry point then fails
-// here rather than first on CI.
+// here rather than first on CI. Each is named check-* or print-*, which
+// vitest.config.ts leaves out of coverage.
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -30,5 +31,9 @@ describe("the repo checks' command-line scripts", () => {
 
     expect(scripts).toContain("check-pr-ticket.ts");
     expect(untested).toEqual([]);
+    // vitest.config.ts leaves them out of coverage by these names.
+    expect(scripts.filter((script) => !/^(check|print)-/.test(script))).toEqual(
+      [],
+    );
   });
 });
