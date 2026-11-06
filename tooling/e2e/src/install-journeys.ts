@@ -40,6 +40,11 @@ export interface JourneyOptions {
 /**
  * Runs `pnpm dev` in the install `name`, and takes the owner and guests
  * through it in a browser.
+ *
+ * Each journey waits for the stack and claims the install if nothing has,
+ * so `vitest -t "<journey>"` runs any one alone. The claim test needs the
+ * install unclaimed, so it comes before every journey, and Ctrl-C's comes
+ * last, since it stops the stack.
  */
 export function describeJourneys(
   name: InstallName,
@@ -70,6 +75,7 @@ export function describeJourneys(
     });
 
     it("lets the owner claim the install and stay signed in", async () => {
+      await dev.up();
       const core = dev.hostOf("core");
       const origin = dev.addresses().origin("hub");
 
@@ -106,9 +112,8 @@ export function describeJourneys(
     testA11yJourney(dev, name);
     testRoleJourney(dev, roles);
 
-    // Last, since it stops the stack.
-
     it("stops every app and Postgres on Ctrl-C", async () => {
+      await dev.up();
       const apps = await discoverApps(dev.dir, dev.port() + 1);
 
       const code = await interrupt(dev);

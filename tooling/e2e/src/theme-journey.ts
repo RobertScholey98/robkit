@@ -76,6 +76,8 @@ export async function themeJourney({
  */
 export function testThemeJourney(dev: DevStack): void {
   it("draws the hub from the theme's variables", async () => {
+    await dev.claimed();
+
     const journey = await themeJourney({ install: dev.addresses() });
 
     expect(journey).toEqual({

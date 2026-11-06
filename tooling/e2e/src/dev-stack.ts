@@ -10,7 +10,7 @@ import {
   testTag,
 } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
-import type { Slug } from "@robkit/input";
+import { isRecord, type Slug } from "@robkit/input";
 import {
   defaultDomain,
   install,
@@ -18,7 +18,7 @@ import {
 } from "@robkit/session/addresses";
 import { afterAll, beforeAll, beforeEach, inject } from "vitest";
 import { takeBrowserLog } from "./browser.ts";
-import type { InstallName } from "./install.ts";
+import { addedSlug, exampleSlug, type InstallName } from "./install.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
 const run = promisify(execFile);
@@ -35,7 +35,7 @@ export interface Send {
   body?: string;
 }
 
-/** The owner every journey signs in as, once the claim test has made them. */
+/** The owner every journey signs in as, once `claimed()` has made them. */
 export const owner = { username: "rob", password: "correct horse battery" };
 
 /**
@@ -61,6 +61,10 @@ export interface DevStack {
     attempt: () => Promise<Reply>,
     status?: number,
   ) => Promise<Reply>;
+  /** Waits until core, the hub, admin and both apps answer. */
+  up: () => Promise<void>;
+  /** Waits for `up`, then claims the install as `owner` unless it's claimed. */
+  claimed: () => Promise<void>;
   /** What a journey needs to sign the owner in and reach the database. */
   journey: () => JourneyOptions;
   /** The `pnpm dev` process. */
@@ -80,6 +84,8 @@ export function useDevStack(name: InstallName): DevStack {
   let addresses: Install | undefined;
   let postgresPort = 0;
   let output = "";
+  let isUp: Promise<void> | undefined;
+  let isClaimed: Promise<void> | undefined;
 
   const started = <T>(value: T | undefined, what: string): T => {
     if (value === undefined) {
@@ -137,6 +143,36 @@ export function useDevStack(name: InstallName): DevStack {
     }
   };
 
+  // pnpm dev waits for no app, and the proxy answers 502 for one still
+  // starting. Signed out, a guarded app answers a fetch with 401.
+  const up = () =>
+    (isUp ??= Promise.all([
+      eventually(() => send(hostOf("hub"), "/")),
+      eventually(() => send(hostOf("core"), "/status")),
+      eventually(() => send(hostOf("admin"), "/"), 401),
+      eventually(() => send(hostOf(exampleSlug), "/"), 401),
+      eventually(() => send(hostOf(addedSlug), "/")),
+    ]).then(() => undefined));
+
+  const claimed = () =>
+    (isClaimed ??= up().then(async () => {
+      const core = hostOf("core");
+      const origin = addressesOf().origin("hub");
+      const session = await send(core, "/session", { headers: { origin } });
+      const answer: unknown = JSON.parse(session.body);
+      if (!isRecord(answer) || answer.state !== "unclaimed") return;
+      const setup = await send(core, "/setup", {
+        method: "POST",
+        headers: { origin, "content-type": "application/json" },
+        body: JSON.stringify(owner),
+      });
+      if (setup.status !== 201) {
+        throw new Error(
+          `Claiming the install answered ${String(setup.status)}: ${setup.body}`,
+        );
+      }
+    }));
+
   beforeAll(async () => {
     devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
     addresses = install({ domain: defaultDomain, port: devPort });
@@ -190,6 +226,8 @@ export function useDevStack(name: InstallName): DevStack {
     at,
     send,
     eventually,
+    up,
+    claimed,
     journey: () => ({
       install: addressesOf(),
       adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,

@@ -187,6 +187,8 @@ export function testRoleJourney(dev: DevStack, runs: boolean): void {
     "lets a guest open an app through a role, and not once it's gated to another",
     { timeout: 300_000 },
     async () => {
+      await dev.claimed();
+
       const journey = await roleJourney(dev.journey());
 
       expect(journey).toEqual({

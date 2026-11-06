@@ -80,6 +80,7 @@ export async function a11yJourney({
  */
 export function testA11yJourney(dev: DevStack, prefix: string): void {
   it("draws every page with no accessibility violations axe finds", async () => {
+    await dev.claimed();
     const dir = process.env.E2E_SCREENSHOTS;
 
     const journey = await a11yJourney({

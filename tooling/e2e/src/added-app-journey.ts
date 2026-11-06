@@ -48,8 +48,7 @@ export async function addedAppJourney({
 /** The added app's journey, as a test of `dev`. */
 export function testAddedAppJourney(dev: DevStack): void {
   it("lets a guest open the app robkit add made, open to anyone", async () => {
-    // Open lets a signed-out visitor in too.
-    await dev.eventually(() => dev.send(dev.hostOf(addedSlug), "/"));
+    await dev.claimed();
 
     const journey = await addedAppJourney({
       install: dev.addresses(),

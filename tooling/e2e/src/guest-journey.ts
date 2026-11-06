@@ -128,6 +128,7 @@ export async function guestJourney({
 /** The guests' journey, as a test of `dev`. */
 export function testGuestJourney(dev: DevStack): void {
   it("signs guests in with codes, keeps them out of owner-only apps, and ends a revoked code's session", async () => {
+    await dev.claimed();
     const example = dev.at(exampleSlug);
     const notFound = { status: 404, body: "Not found" };
 

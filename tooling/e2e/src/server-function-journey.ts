@@ -88,6 +88,7 @@ export function testServerFunctionJourney(dev: DevStack, runs: boolean): void {
   it.runIf(runs)(
     "sends a server function call with an expired session through core's refresh",
     async () => {
+      await dev.claimed();
       const example = dev.at(exampleSlug);
 
       const journey = await serverFunctionJourney(dev.journey());

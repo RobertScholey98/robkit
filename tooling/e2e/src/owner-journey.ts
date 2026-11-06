@@ -153,9 +153,7 @@ export async function ownerJourney({
 /** The owner's journey through the example app, as a test of `dev`. */
 export function testOwnerJourney(dev: DevStack): void {
   it("guards the example app with its own token: login, return and refresh bounce", async () => {
-    // pnpm dev waits for no app. Until the guard answers a signed-out
-    // fetch with 401, the proxy may still be answering 502.
-    await dev.eventually(() => dev.send(dev.hostOf(exampleSlug), "/"), 401);
+    await dev.claimed();
     const example = dev.at(exampleSlug);
 
     const journey = await ownerJourney(dev.journey());
