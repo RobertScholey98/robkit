@@ -35,7 +35,7 @@ The shared readers live in `@robkit/session/input` (environment variables, JSON,
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------- |
 | `@typescript-eslint/no-unsafe-type-assertion` | A cast that narrows a type                                                                         | Every file but tests |
 | `robkit/no-json-cast`                         | A cast of `JSON.parse(...)` or a `.json()` result, which are `any` and so slip past the rule above | Every file but tests |
-| `robkit/one-problem-type`                     | A type literal whose one member is a required `error: string`, and `"error" in`                    | Every file           |
+| `robkit/one-problem-type`                     | A type literal whose only property is a required `error: string`, and `"error" in`                 | Every file           |
 
 The rules live in `tooling/eslint`, each with its tests. An install's `eslint.config.js` refuses the same three with `no-restricted-syntax` selectors, so the templates and every app `robkit add` writes keep to them too.
 
