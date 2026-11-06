@@ -39,7 +39,7 @@
       ]
     },
     "@internal/e2e#test": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build", "create-robkit#test"],
       "cache": false
     },
     "@internal/repo-checks#test": {

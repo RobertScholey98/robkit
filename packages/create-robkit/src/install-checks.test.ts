@@ -10,6 +10,10 @@ import { defaultChoices, init } from "./index.ts";
 // lint, run in a new install linked to this checkout. They need no Docker,
 // so pnpm check runs them; the whole-stack test runs them too, in the
 // install's own CI workflow.
+//
+// pnpm hard-links the install's packages from its store, which restarts
+// any running dev stack's core, so turbo runs the whole-stack test only
+// after this one.
 
 const run = promisify(execCallback);
 
