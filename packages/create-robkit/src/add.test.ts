@@ -107,6 +107,12 @@ describe("addApp", () => {
       "my-notes",
       `"my-notes" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
     ],
+    // Not a slug, so it never reaches an address: origin would make it
+    // http://bad.
+    [
+      "bad/path",
+      `"bad/path" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+    ],
     ["hub", "hub is one of the platform apps: core, hub and admin."],
     ["example", "apps/example already exists. Choose another name."],
   ])("refuses the name %j", async (name, message) => {

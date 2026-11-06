@@ -25,7 +25,7 @@ export interface GuardedOptions {
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export interface GuardFault {
-  app: string;
+  app: Slug;
   failed: "core-key" | "access-rule" | "network";
   cause: unknown;
 }
@@ -85,8 +85,8 @@ export const defaultDomain: "robkit.localhost";
 export function install({ domain, protocol, port }: InstallOptions): Install;
 export interface Install {
   readonly domain: string;
-  host(slug: string): string;
-  origin(slug: string): string;
+  host(slug: Slug): string;
+  origin(slug: Slug): string;
   onInstall(url: string | undefined): string | undefined;
   appOf(url: string | URL): Slug | undefined;
 }

@@ -77,9 +77,9 @@ export interface Install {
   /** The domain every app is a subdomain of, such as `robkit.dev`. */
   readonly domain: string;
   /** An app's host name, such as `notes.robkit.dev`. */
-  host(slug: string): string;
+  host(slug: Slug): string;
   /** An app's origin, such as `https://notes.robkit.dev`. */
-  origin(slug: string): string;
+  origin(slug: Slug): string;
   /**
    * `url`, if it is an http(s) URL on one of the install's subdomains, such
    * as the `next` an app's guard sends the browser away with.
