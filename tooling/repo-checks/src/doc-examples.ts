@@ -2,6 +2,7 @@ import { glob, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
+import { readJsonFile, readNamedManifest } from "./manifest.ts";
 import { publishedPackages } from "./published.ts";
 
 /** The checkout's root folder. */
@@ -71,13 +72,6 @@ export async function docExamples(root: string): Promise<DocExample[]> {
   return examples.flat();
 }
 
-interface Manifest {
-  name: string;
-  publishConfig?: {
-    exports?: Record<string, string | { types?: string }>;
-  };
-}
-
 /**
  * Maps each published entry point, such as `@robkit/session/addresses`, to
  * its built declarations, so an example sees what an install gets from npm.
@@ -85,9 +79,10 @@ interface Manifest {
 async function builtEntries(): Promise<Record<string, string[]>> {
   const paths: Record<string, string[]> = {};
   for (const dir of await publishedPackages()) {
-    const manifest = JSON.parse(
-      await readFile(join(dir, "package.json"), "utf8"),
-    ) as Manifest;
+    const manifest = await readJsonFile(
+      join(dir, "package.json"),
+      readNamedManifest,
+    );
     const exports = manifest.publishConfig?.exports ?? {};
     for (const [subpath, target] of Object.entries(exports)) {
       if (typeof target === "string" || target.types === undefined) continue;

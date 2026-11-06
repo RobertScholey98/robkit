@@ -1,5 +1,6 @@
-import { glob, readFile } from "node:fs/promises";
+import { glob } from "node:fs/promises";
 import { join } from "node:path";
+import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
 export const scripts = [
   "build",
@@ -94,11 +95,7 @@ export async function readWorkspaceScripts(
   for await (const path of glob("{packages,tooling}/*/package.json", {
     cwd: root,
   })) {
-    const json = JSON.parse(await readFile(join(root, path), "utf8")) as {
-      name: string;
-      private?: boolean;
-      scripts?: Record<string, string>;
-    };
+    const json = await readJsonFile(join(root, path), readNamedManifest);
     const defined = json.scripts ?? {};
     if (defined.test === undefined) continue;
     packages.push({
