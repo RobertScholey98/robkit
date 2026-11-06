@@ -53,14 +53,14 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 
 `@robkit/session/addresses` imports nothing, so the browser can load it:
 
-| Export                                         | What it is                                                                                   |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `install({ domain, protocol, port })`          | An install's addresses: each app's `host` and `origin`, `onInstall(url)`, `appOf(url)`       |
-| `installAt(url, app)`                          | The install `url` is on, given that it is `app`'s address                                    |
-| `platformApps`, `isPlatformApp`                | Core, the hub and admin                                                                      |
-| `isLocal(domain)`                              | Whether the domain is `localhost` or under it                                                |
-| `defaultDomain`, `defaultDevPort`              | `robkit.localhost` and `3000`                                                                |
-| `readSlug(value)`, `Slug`, `slugProblem(name)` | A slug: lowercase letters and digits, starting with a letter. Only `readSlug` makes a `Slug` |
+| Export                                         | What it is                                                                                                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `install({ domain, protocol, port })`          | An install's addresses: each app's `host` and `origin`, which take a `Slug`, `onInstall(url)`, `appOf(url)`                                |
+| `installAt(url, app)`                          | The install `url` is on, given that it is `app`'s address                                                                                  |
+| `platformApps`, `isPlatformApp`                | Core, the hub and admin                                                                                                                    |
+| `isLocal(domain)`                              | Whether the domain is `localhost` or under it                                                                                              |
+| `defaultDomain`, `defaultDevPort`              | `robkit.localhost` and `3000`                                                                                                              |
+| `readSlug(value)`, `Slug`, `slugProblem(name)` | A slug: lowercase letters and digits, starting with a letter. `readSlug` returns a `Slug` or an `InputProblem`, and only it makes a `Slug` |
 
 `@robkit/session/input` holds the readers every package and app use for input from outside robkit's own code (see `docs/conventions/input.md`). Each returns the value or an `InputProblem` naming the variable or file, the key and the fix: `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl`, `readSet`, `readServeEnv`, `readDevServerEnv`, `readGuardEnv`, `parseJson`, `readDeclares` and `readDeclaredApp`, with `isProblem`, `allProblems` and `isRecord`.
 
@@ -75,7 +75,7 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 
 ## For contributors
 
-- A slug is lowercase letters and digits, starting with a letter. `readSlug` in `@robkit/session/addresses` holds the rule and is the only maker of the `Slug` brand, which every function that puts a slug into a token, SQL or an address takes.
+- A slug is lowercase letters and digits, starting with a letter. `readSlug` in `@robkit/session/addresses` holds the rule, returns an `InputProblem` for anything else, and is the only maker of the `Slug` brand, which every function that puts a slug into a token, SQL or an address takes.
 - No cookie goes on the parent domain.
 - Core's own token has the audience `core` and sits in a host-only cookie on core's host, and core reads no other.
 - Each app, admin included, holds its own app token, with its slug as the audience and no session id, in a host-only cookie on its own host. `requestGuard` takes the slug as `app` and accepts no other token.

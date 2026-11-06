@@ -58,7 +58,8 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 - Each package with tests sets coverage thresholds in its `vitest.config`. Raise them when coverage rises; CI fails a pull request that lowers one. e2e has none.
 - Words `GLOSSARY.md` says to avoid fail a repo check (`tooling/repo-checks/src/glossary.ts`). Where one is right in context, add an exception there with the reason.
 - Every `eslint-disable` gives its reason after `--`, and lint fails on one that disables nothing.
-- A cast fails lint outside tests (`no-unsafe-type-assertion`). Use a reader or a type guard instead.
+- A cast fails lint outside tests (`no-unsafe-type-assertion`, and `robkit/no-json-cast` for `JSON.parse` and `.json()`). Use a reader or a type guard instead.
+- A failed read is an `InputProblem`, checked with `isProblem`. `robkit/one-problem-type` refuses a `{ error: string }` of your own and `"error" in`.
 - An adapter-facing package (guard, session, hono, start, react) keeps a `*.test-d.ts` file saying what must and mustn't compile, and its `test` script runs `vitest run --typecheck`.
 - The pre-commit hook runs ESLint's fixes and Prettier on staged files. The commit-msg hook, and CI on each commit of a pull request, check the subject with `tooling/repo-checks/src/check-commit-subjects.ts`.
 - A change to a published package's `src`, tests aside, needs a changeset (`pnpm changeset`). CI's `gate` job is the one required check, and a pull request fills in `.github/pull_request_template.md`. Its Ticket section must name the ticket's file under `.scratch/`; CI checks it.
