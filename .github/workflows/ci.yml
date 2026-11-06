@@ -32,6 +32,13 @@ jobs:
       # The end-to-end journey drives the stack in Chromium.
       - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
       - run: pnpm check:all
+        env:
+          # Turbo writes each task's times to .turbo/runs/, for the summary.
+          TURBO_RUN_SUMMARY: "true"
+      # The job summary lists each test task's time, the whole-stack test's
+      # among them.
+      - if: ${{ !cancelled() }}
+        run: node tooling/repo-checks/src/print-test-times.ts >> "$GITHUB_STEP_SUMMARY"
       # Fails on a coverage threshold more than 2 points under what this run
       # just measured, and says what to raise it to.
       - run: node tooling/repo-checks/src/check-coverage-ratchet.ts
