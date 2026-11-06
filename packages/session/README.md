@@ -10,10 +10,10 @@ An adapter runs `requestGuard` on every request (`packages/hono/src/guarded.ts`)
 
 ```ts
 import { requestGuard } from "@robkit/session";
-import { orThrow, readGuardEnv } from "@robkit/input";
+import { orExit, readGuardEnv } from "@robkit/input";
 
 // The app's slug and core's address, which pnpm dev and robkit deploy set.
-const check = requestGuard(orThrow(readGuardEnv(process.env)));
+const check = requestGuard(orExit(readGuardEnv(process.env)));
 
 async function handle(request: Request): Promise<Response> {
   const decision = await check(request);
