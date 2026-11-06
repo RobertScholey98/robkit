@@ -53,18 +53,44 @@ export function readPort(
   };
 }
 
-/** The address to listen on: `HOST`, or loopback. */
+const octet = String.raw`(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)`;
+const ipv4Pattern = new RegExp(String.raw`^${octet}(?:\.${octet}){3}$`);
+
+/** Whether `value` is an IPv4 address in dotted decimal, such as 0.0.0.0. */
+function isIPv4(value: string): boolean {
+  return ipv4Pattern.test(value);
+}
+
+/**
+ * Whether `value` is an IPv6 address as Node listens on one: without
+ * brackets or a zone, such as `::` or `2001:db8::1`. The URL parser checks
+ * the rest.
+ */
+function isIPv6(value: string): boolean {
+  return (
+    value.includes(":") &&
+    /^[\da-f:.]+$/i.test(value) &&
+    URL.canParse(`http://[${value}]`)
+  );
+}
+
+/**
+ * The address to listen on: `HOST`, or loopback. It may be an IPv4 or IPv6
+ * address, or a host name.
+ */
 export function readHost(env: Env): string | InputProblem {
   const value = valueOf(env, "HOST");
   if (value === undefined) return "127.0.0.1";
-  if (/^[\w.:-]+$/.test(value) && !value.includes("//")) return value;
+  if (isIPv4(value) || isIPv6(value) || isDomainName(value)) return value;
   return {
     error: `HOST is "${value}", which isn't an address to listen on. Set it to an IP address or host name, such as 0.0.0.0, or leave it unset for 127.0.0.1.`,
   };
 }
 
-const label = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
-const domainPattern = new RegExp(`^${label}(\\.${label})*$`, "i");
+// A label is 1 to 63 letters, digits and hyphens, with no hyphen at either
+// end. A name is labels joined by single dots, 253 characters at most.
+const label = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
+const domainPattern = new RegExp(String.raw`^${label}(?:\.${label})*$`, "i");
 
 declare const domainBrand: unique symbol;
 
@@ -74,8 +100,15 @@ declare const domainBrand: unique symbol;
  */
 export type Domain = string & { readonly [domainBrand]: true };
 
+/**
+ * Whether `value` is a host name. Its last label isn't all digits, so an IP
+ * address, or something like one, isn't a name.
+ */
 function isDomainName(value: string): value is Domain {
-  return domainPattern.test(value);
+  const last = value.slice(value.lastIndexOf(".") + 1);
+  return (
+    value.length <= 253 && domainPattern.test(value) && !/^\d+$/.test(last)
+  );
 }
 
 /** Whether `value` is a domain alone, with no scheme, port or path. */
