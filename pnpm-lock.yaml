@@ -159,6 +159,9 @@ importers:
       '@internal/test-postgres':
         specifier: workspace:*
         version: link:../../tooling/test-postgres
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../../tooling/test-session
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript

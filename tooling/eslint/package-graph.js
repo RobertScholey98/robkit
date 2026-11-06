@@ -51,6 +51,7 @@ export const packageGraph = {
     devDependencies: [
       "@internal/test-addresses",
       "@internal/test-postgres",
+      "@internal/test-session",
       "@robkit/dev",
     ],
   },
