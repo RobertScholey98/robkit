@@ -13,18 +13,14 @@ import {
   testCodeAnswer,
   type OwnerSetUp,
 } from "./production-journey.ts";
+import { buildApp, hostEnv, startApp } from "./production-apps.ts";
 import {
   answers,
-  buildApp,
   extraneousPackages,
-  hostEnv,
   stackReport,
-  startApp,
-  startStack,
-  stopStack,
-  type Stack,
   withVisitors,
-} from "./production-stack.ts";
+} from "./production-checks.ts";
+import { startStack, stopStack, type Stack } from "./production-stack.ts";
 import { exampleSlug } from "./install.ts";
 import { slug } from "@internal/test-session";
 

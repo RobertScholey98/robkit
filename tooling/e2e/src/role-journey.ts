@@ -1,3 +1,6 @@
+import { expect, it } from "vitest";
+import type { DevStack } from "./dev-stack.ts";
+import { addedSlug } from "./install.ts";
 import type { Slug } from "@robkit/input";
 import type { Browser, Locator, Page } from "playwright";
 import { launch } from "./browser.ts";
@@ -173,4 +176,30 @@ export async function roleJourney({
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * The role journey, as a test of `dev`, when `runs` says so. The example
+ * app keeps its rule for a minute, and this journey waits it out twice.
+ */
+export function testRoleJourney(dev: DevStack, runs: boolean): void {
+  it.runIf(runs)(
+    "lets a guest open an app through a role, and not once it's gated to another",
+    { timeout: 300_000 },
+    async () => {
+      await dev.claimed();
+
+      const journey = await roleJourney(dev.journey());
+
+      expect(journey).toEqual({
+        createdWith: "Alex, Sam",
+        editedTo: "Sam",
+        launcherGatedToFamily: [addedSlug, "example"],
+        openedAt: dev.at(exampleSlug),
+        heading: "Signed in as a guest",
+        launcherGatedToFriends: [addedSlug],
+        example: { status: 404, body: "Not found" },
+      });
+    },
+  );
 }

@@ -1,3 +1,6 @@
+import { expect, it } from "vitest";
+import { handedBack, refreshing } from "./bounces.ts";
+import type { DevStack } from "./dev-stack.ts";
 import { decodeJwt, importJWK, SignJWT, type JWK } from "jose";
 import type { BrowserContext, Cookie, Page } from "playwright";
 import { launch } from "./browser.ts";
@@ -145,4 +148,53 @@ export async function ownerJourney({
   } finally {
     await browser.close();
   }
+}
+
+/** The owner's journey through the example app, as a test of `dev`. */
+export function testOwnerJourney(dev: DevStack): void {
+  it("guards the example app with its own token: login, return and refresh bounce", async () => {
+    await dev.claimed();
+    const example = dev.at(exampleSlug);
+
+    const journey = await ownerJourney(dev.journey());
+
+    // The example's token opens nothing else: admin asks core for its
+    // own, and core finds nobody signed in.
+    const withExampleToken = {
+      cookie: `robkit_session=${journey.appToken}`,
+      "sec-fetch-mode": "navigate",
+    };
+    const admin = await dev.send(dev.hostOf("admin"), "/", {
+      headers: withExampleToken,
+    });
+    const core = await dev.send(dev.hostOf("core"), "/session", {
+      headers: withExampleToken,
+    });
+
+    expect(journey).toEqual({
+      signedOutAt: dev.at("hub", `/?next=${encodeURIComponent(example)}`),
+      signedInAt: example,
+      heading: "Signed in as the owner",
+      viewerId: journey.ownerId,
+      ownerId: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
+      appToken: journey.appToken,
+      sessionCookieHosts: [
+        dev.addresses().host("core"),
+        dev.addresses().host(exampleSlug),
+      ],
+      bounce: [
+        example,
+        refreshing(dev, example),
+        handedBack(example, { token: true }),
+        example,
+      ],
+      bouncedTo: example,
+      bouncedViewerId: journey.ownerId,
+    });
+    expect([admin.status, admin.headers.location]).toEqual([
+      302,
+      refreshing(dev, dev.at("admin")),
+    ]);
+    expect(JSON.parse(core.body)).toEqual({ state: "signed-out" });
+  });
 }
