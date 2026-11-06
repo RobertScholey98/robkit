@@ -11,11 +11,11 @@ const refreshMs = 30_000;
 
 export function Launcher({
   core,
-  viewer,
+  profile,
   onSession,
 }: {
   core: string;
-  viewer: Profile;
+  profile: Profile;
   onSession: (session: Session) => void;
 }) {
   const { sending, send } = useSend(onSession);
@@ -50,7 +50,7 @@ export function Launcher({
             <p className="text-sm text-muted-foreground">
               Signed in as{" "}
               <span className="font-medium text-foreground">
-                {viewer.kind === "owner" ? viewer.username : viewer.name}
+                {profile.kind === "owner" ? profile.username : profile.name}
               </span>
             </p>
             <Button
@@ -71,24 +71,24 @@ export function Launcher({
             <FormError>{sending.error}</FormError>
           </div>
         )}
-        <AppList viewer={viewer} listing={listing} />
+        <AppList profile={profile} listing={listing} />
       </main>
     </div>
   );
 }
 
 function AppList({
-  viewer,
+  profile,
   listing,
 }: {
-  viewer: Profile;
+  profile: Profile;
   listing: Result<LauncherApp[]> | undefined;
 }) {
   if (listing === undefined) {
     return <p className="text-sm text-muted-foreground">Loading apps…</p>;
   }
   if (!listing.ok) return <FormError>{listing.error}</FormError>;
-  if (listing.value.length === 0) return <NoApps viewer={viewer} />;
+  if (listing.value.length === 0) return <NoApps profile={profile} />;
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {listing.value.map((app) => (
@@ -109,12 +109,12 @@ function AppList({
   );
 }
 
-function NoApps({ viewer }: { viewer: Profile }) {
+function NoApps({ profile }: { profile: Profile }) {
   return (
     <div className="rounded-xl border border-dashed bg-card px-6 py-16 text-center">
       <h2 className="text-lg font-semibold tracking-tight">No apps yet.</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        {viewer.kind === "owner" ? (
+        {profile.kind === "owner" ? (
           <>
             Apps you add with <InlineCode>robkit add</InlineCode> show up here.
           </>
