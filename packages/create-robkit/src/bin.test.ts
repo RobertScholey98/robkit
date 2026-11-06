@@ -111,6 +111,24 @@ describe("init with no flags", () => {
     );
   });
 
+  it.each([
+    [["--help"], "--help isn't an option."],
+    [["my-app", "--stack"], "Option '--stack <value>' argument missing"],
+  ])("refuses %j, printing why and the usage, not a bug", async (args, why) => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(cwd, args);
+
+    expect(code).toBe(1);
+    expect(
+      output.startsWith(
+        `${why}\n\nUsage: npm create robkit [folder] -- [options]\n`,
+      ),
+    ).toBe(true);
+    expect(output).not.toContain(reportFaultsAt);
+    expect(await readdir(cwd)).toEqual([]);
+  });
+
   it("prints a fault it didn't expect whole, with where to report it", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
     await writeFile(join(cwd, "notes.txt"), "mine");

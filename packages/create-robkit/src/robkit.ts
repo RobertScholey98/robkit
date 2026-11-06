@@ -3,7 +3,7 @@ import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { parseArgs, promisify } from "node:util";
+import { promisify } from "node:util";
 import { CommandProblem, runCommand } from "@robkit/dev/cli";
 import {
   defaultDevPort,
@@ -13,6 +13,7 @@ import {
 } from "@robkit/session/addresses";
 import { isProblem, parseJson, type InputProblem } from "@robkit/session/input";
 import { addApp, readInstallChoices } from "./add.ts";
+import { readArgs } from "./args.ts";
 import {
   addCommandFor,
   addUsage,
@@ -72,7 +73,7 @@ process.exitCode = await runCommand(async () => {
 });
 
 async function check(): Promise<number> {
-  const { positionals } = parseArgs({ allowPositionals: true });
+  const { positionals } = readArgs({ allowPositionals: true }, usage);
   if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
@@ -85,7 +86,7 @@ async function check(): Promise<number> {
 }
 
 async function vendor(): Promise<undefined> {
-  const { positionals } = parseArgs({ allowPositionals: true });
+  const { positionals } = readArgs({ allowPositionals: true }, usage);
   if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
@@ -100,7 +101,7 @@ async function vendor(): Promise<undefined> {
 }
 
 async function printDatabaseUrls(): Promise<undefined> {
-  const { positionals } = parseArgs({ allowPositionals: true });
+  const { positionals } = readArgs({ allowPositionals: true }, usage);
   if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   await readInstallChoices(root);
@@ -112,14 +113,17 @@ async function printDatabaseUrls(): Promise<undefined> {
 }
 
 async function deployInstall(): Promise<number | undefined> {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      all: { type: "boolean", default: false },
-      apps: { type: "string" },
-      "dry-run": { type: "boolean", default: false },
+  const { values, positionals } = readArgs(
+    {
+      allowPositionals: true,
+      options: {
+        all: { type: "boolean", default: false },
+        apps: { type: "string" },
+        "dry-run": { type: "boolean", default: false },
+      },
     },
-  });
+    usage,
+  );
   if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   await readInstallChoices(root);
@@ -182,15 +186,18 @@ async function affectedApps(root: string): Promise<Slug[] | InputProblem> {
 }
 
 async function add(): Promise<undefined> {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      stack: { type: "string" },
-      access: { type: "string" },
-      roles: { type: "string" },
-      icon: { type: "string" },
+  const { values, positionals } = readArgs(
+    {
+      allowPositionals: true,
+      options: {
+        stack: { type: "string" },
+        access: { type: "string" },
+        roles: { type: "string" },
+        icon: { type: "string" },
+      },
     },
-  });
+    usage,
+  );
   const [command, given, ...rest] = positionals;
   if (command !== "add" || rest.length > 0) throw new CommandProblem(usage);
   const root = process.cwd();

@@ -130,6 +130,20 @@ Then open http://notes.robkit.localhost:3000.
 });
 
 describe("robkit's failures", () => {
+  it.each([["check"], ["add"]])(
+    "refuses an option %s doesn't take, printing why and the usage, not a bug",
+    async (command) => {
+      const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+
+      const { code, output } = await drive(bin, dir, [command, "--nope"]);
+
+      expect(code).toBe(1);
+      expect(output).toMatch(/^--nope isn't an option\.\n\nUsage: robkit add/);
+      expect(output).toContain("Usage: robkit check");
+      expect(output).not.toContain(reportFaultsAt);
+    },
+  );
+
   it("prints a fault it didn't expect whole, with where to report it", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-"));
     await mkdir(join(dir, "robkit.json"));
