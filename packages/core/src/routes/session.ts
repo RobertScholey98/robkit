@@ -110,7 +110,7 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     }
     setSessionCookie(c, domain, claim.sessionToken);
     return c.json<SessionAnswer>(
-      { state: "signed-in", viewer: claim.viewer },
+      { state: "signed-in", profile: claim.profile },
       201,
     );
   });
@@ -140,7 +140,10 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     }
     loginLimiter.clear(client);
     setSessionCookie(c, domain, result.sessionToken);
-    return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
+    return c.json<SessionAnswer>({
+      state: "signed-in",
+      profile: result.profile,
+    });
   });
 
   routes.post("/login/code", async (c) => {
@@ -167,7 +170,10 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
       return c.json({ error: "That code doesn't work." }, 401);
     }
     setSessionCookie(c, domain, result.sessionToken);
-    return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
+    return c.json<SessionAnswer>({
+      state: "signed-in",
+      profile: result.profile,
+    });
   });
 
   // The hub sends no body here, so none is read.

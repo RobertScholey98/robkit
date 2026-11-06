@@ -49,10 +49,10 @@ export type Profile = OwnerProfile | GuestProfile;
 export type SessionAnswer =
   | { state: "unclaimed" }
   | { state: "signed-out" }
-  | { state: "signed-in"; viewer: Profile };
+  | { state: "signed-in"; profile: Profile };
 
 export interface SignedIn {
-  viewer: Profile;
+  profile: Profile;
   sessionToken: string;
 }
 
@@ -116,7 +116,7 @@ export async function startSession(
     .returning({ id: sessions.id });
   if (!session) throw new Error("Core couldn't store the session.");
   return {
-    viewer: profile,
+    profile,
     sessionToken: await mintSessionToken(
       await ctx.signingKey(),
       claimsFor(holder, session.id),
@@ -278,7 +278,10 @@ export async function readSession(
   const holder = await holderOf(ctx, claims, found, now);
   if (!holder) return signedOut;
 
-  const answer: SessionAnswer = { state: "signed-in", viewer: holder.profile };
+  const answer: SessionAnswer = {
+    state: "signed-in",
+    profile: holder.profile,
+  };
   const forGuard: SessionState = {
     state: "signed-in",
     viewer: guardViewerOf(holder),

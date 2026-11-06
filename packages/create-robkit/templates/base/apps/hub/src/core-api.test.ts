@@ -17,15 +17,15 @@ const credentials = { username: "rob", password: "correct horse battery" };
 const signsIn = fakeCore(core, {
   "POST /setup": ({ body }) => ({
     status: 201,
-    body: { state: "signed-in", viewer: { ...owner, ...(body as object) } },
+    body: { state: "signed-in", profile: { ...owner, ...(body as object) } },
   }),
   "POST /login": ({ body }) =>
     JSON.stringify(body) === JSON.stringify(credentials)
-      ? { body: { state: "signed-in", viewer: owner } }
+      ? { body: { state: "signed-in", profile: owner } }
       : { status: 401, body: { error: "Wrong username or password." } },
   "POST /login/code": ({ body }) =>
     JSON.stringify(body) === JSON.stringify({ code: "k7xq2" })
-      ? { body: { state: "signed-in", viewer: guest } }
+      ? { body: { state: "signed-in", profile: guest } }
       : { status: 401, body: { error: "That code doesn't work." } },
   "POST /logout": () => new Response(null, { status: 204 }),
 });
@@ -38,8 +38,8 @@ describe("getSession", () => {
   it.each([
     [{ state: "unclaimed" }],
     [{ state: "signed-out" }],
-    [{ state: "signed-in", viewer: owner }],
-    [{ state: "signed-in", viewer: guest }],
+    [{ state: "signed-in", profile: owner }],
+    [{ state: "signed-in", profile: guest }],
   ])("reads %o", async (session) => {
     vi.stubGlobal(
       "fetch",
@@ -51,10 +51,10 @@ describe("getSession", () => {
 
   it.each([
     ["an unknown state", { state: "sleeping" }],
-    ["a viewer that is nobody", { state: "signed-in", viewer: {} }],
+    ["a profile that is nobody", { state: "signed-in", profile: {} }],
     [
       "a guest without a name",
-      { state: "signed-in", viewer: { kind: "guest", id: "c_1" } },
+      { state: "signed-in", profile: { kind: "guest", id: "c_1" } },
     ],
   ])("refuses %s", async (_, body) => {
     vi.stubGlobal(
@@ -79,7 +79,7 @@ describe("setUp", () => {
       ok: true,
       value: {
         state: "signed-in",
-        viewer: { ...owner, username: "ann" },
+        profile: { ...owner, username: "ann" },
       },
     });
   });
@@ -108,7 +108,7 @@ describe("signIn", () => {
 
     expect(await signIn(core, credentials)).toEqual({
       ok: true,
-      value: { state: "signed-in", viewer: owner },
+      value: { state: "signed-in", profile: owner },
     });
   });
 
@@ -145,7 +145,7 @@ describe("signInWithCode", () => {
 
     expect(await signInWithCode(core, "k7xq2")).toEqual({
       ok: true,
-      value: { state: "signed-in", viewer: guest },
+      value: { state: "signed-in", profile: guest },
     });
   });
 

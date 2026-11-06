@@ -80,7 +80,7 @@ function Hub({ core }: { core: string }) {
       return <SignIn core={core} onSession={onSignedIn} />;
     case "signed-in":
       return (
-        <Launcher core={core} viewer={screen.viewer} onSession={setScreen} />
+        <Launcher core={core} viewer={screen.profile} onSession={setScreen} />
       );
   }
 }

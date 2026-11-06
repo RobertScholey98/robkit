@@ -81,7 +81,7 @@ export function viewer(
     const session = await readSession(context, sessionTokens, { renew });
     const { answer, freshSessionToken } = session;
     const isOwner =
-      answer.state === "signed-in" && answer.viewer.kind === "owner";
+      answer.state === "signed-in" && answer.profile.kind === "owner";
     if (ownerOnly && !isOwner) return c.json({ error: "Not found" }, 404);
     if (freshSessionToken) {
       setSessionCookie(c, context.domain, freshSessionToken);

@@ -26,8 +26,8 @@ async function setUp(app: Hono) {
     username: "rob",
     password: "correct horse battery",
   });
-  const { viewer } = (await res.json()) as { viewer: unknown };
-  return { viewer, sessionToken: sessionCookieOf(res)?.value ?? "" };
+  const { profile } = (await res.json()) as { profile: unknown };
+  return { profile, sessionToken: sessionCookieOf(res)?.value ?? "" };
 }
 
 describe("GET /session", () => {
@@ -50,14 +50,14 @@ describe("GET /session", () => {
     expect(await res.json()).toEqual({ state: "signed-out" });
   });
 
-  it("says signed-in, with the owner as viewer, to the owner's browser", async () => {
+  it("says signed-in, with the owner's profile, to the owner's browser", async () => {
     const { app } = await freshCore();
-    const { viewer, sessionToken } = await setUp(app);
+    const { profile, sessionToken } = await setUp(app);
 
     const res = await getSession(app, sessionToken);
 
-    expect(await res.json()).toEqual({ state: "signed-in", viewer });
-    expect(viewer).toMatchObject({ kind: "owner", username: "rob" });
+    expect(await res.json()).toEqual({ state: "signed-in", profile });
+    expect(profile).toMatchObject({ kind: "owner", username: "rob" });
     expect(sessionCookieOf(res)).toBeUndefined();
   });
 
@@ -137,7 +137,7 @@ describe("GET /session", () => {
 
   it("reissues an expired session token while its session lives", async () => {
     const { app, advance, now } = await freshCore();
-    const { viewer, sessionToken } = await setUp(app);
+    const { profile, sessionToken } = await setUp(app);
 
     advance(16 * minute);
     const res = await getSession(app, sessionToken);
@@ -154,7 +154,7 @@ describe("GET /session", () => {
       currentDate: new Date(0),
     });
 
-    expect(await res.json()).toEqual({ state: "signed-in", viewer });
+    expect(await res.json()).toEqual({ state: "signed-in", profile });
     expect(fresh?.attributes).toMatchObject({
       "Max-Age": "2592000",
       HttpOnly: true,

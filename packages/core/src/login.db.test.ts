@@ -20,7 +20,7 @@ describe("POST /login", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       state: "signed-in",
-      viewer: {
+      profile: {
         kind: "owner",
         id: expect.any(String) as string,
         username: "rob",

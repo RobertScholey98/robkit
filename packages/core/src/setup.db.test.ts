@@ -20,7 +20,7 @@ describe("POST /setup", () => {
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({
       state: "signed-in",
-      viewer: {
+      profile: {
         kind: "owner",
         id: expect.stringMatching(uuid) as string,
         username: "rob",
@@ -59,7 +59,7 @@ describe("POST /setup", () => {
     const { app } = await freshCore();
 
     const res = await postJson(app, "/setup", rob);
-    const { viewer } = (await res.json()) as { viewer: { id: string } };
+    const { profile } = (await res.json()) as { profile: { id: string } };
     const jwks = (await (
       await app.request("/.well-known/jwks.json")
     ).json()) as JSONWebKeySet;
@@ -71,7 +71,7 @@ describe("POST /setup", () => {
 
     expect(protectedHeader).toEqual({ alg: "EdDSA", kid: jwks.keys[0]?.kid });
     expect(payload).toEqual({
-      sub: viewer.id,
+      sub: profile.id,
       aud: "core",
       sid: expect.stringMatching(uuid) as string,
       kind: "owner",
