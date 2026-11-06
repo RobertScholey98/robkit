@@ -4,7 +4,7 @@ This page covers the suites that start Docker: what they do, how they clean up, 
 
 ## Tests that start Docker
 
-The tests in `@robkit/core`, `@robkit/dev`, `@internal/e2e` and `@internal/test-postgres` start their own Postgres containers.
+The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postgres containers, and so do core's and dev's `*.db.test.ts` files. Core and dev run those in a `db` Vitest project, with the Postgres global setup and longer timeouts; their other tests are the `unit` project, which `test:unit` and `pnpm check` run.
 
 - Each suite gets its own test Postgres from `tooling/test-postgres`, whose data stays in memory (`in-memory.yaml`, added to `COMPOSE_FILE` by `testComposeFiles()`).
 - A test registers what it starts with `removeWhenGone`: a detached watcher removes its Compose project and stops every process carrying its `ROBKIT_TEST_TAG` once the test process exits, however it ends, so a failed or interrupted gate leaves nothing running.

@@ -6,7 +6,7 @@ Thanks for helping. This page gets you from a fresh machine to a merged change. 
 
 - **Node 24.** `.node-version` names it.
 - **pnpm 11, through Corepack.** Run `corepack enable` once. The root `package.json` pins the exact pnpm version, and Corepack uses it. A pnpm installed some other way may be the wrong version.
-- **Docker**, with Compose. The tests for core, the dev runner and the whole-stack test start their own Postgres containers.
+- **Docker**, with Compose. Core's and the dev runner's `*.db.test.ts` files, the test Postgres's tests and the whole-stack test start their own Postgres containers.
 - **Linux or macOS** for the full test suite and `pnpm dev`. The dev runner stops apps with POSIX process groups.
 
 ### On Windows, use WSL
@@ -87,7 +87,7 @@ pnpm --filter @robkit/guard exec vitest run src/guard.test.ts     # one file
 pnpm --filter @robkit/hono test -- -t "conformance"               # tests whose name matches
 ```
 
-The tests in `@robkit/core`, `@robkit/dev`, `@internal/e2e` and `@internal/test-postgres` need Docker and Linux. The rest run anywhere, and `pnpm check` runs them.
+Every test in `@internal/e2e` and `@internal/test-postgres` needs Docker and Linux, and so do core's and dev's `*.db.test.ts` files. The rest run anywhere, core's and dev's other tests included, and `pnpm check` runs them.
 
 A package's `test` script measures coverage and fails below the thresholds in its `vitest.config`. When your change raises coverage, raise the thresholds with it. CI fails a pull request that lowers one.
 
