@@ -6,7 +6,7 @@ import { reportFaultsAt } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 
-const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
+const bin = fileURLToPath(new URL("create-robkit-command.ts", import.meta.url));
 
 const defaultAnswers: [question: string, keys: string][] = [
   ["Which stack should the example app use?", keys.enter],

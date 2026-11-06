@@ -57,7 +57,7 @@ describe("readManifest", () => {
           publishConfig: {
             exports: { ".": { types: "./dist/index.d.ts" } },
           },
-          bin: { robkit: "./src/robkit.ts" },
+          bin: { robkit: "./src/robkit-command.ts" },
         },
         "package.json",
       ),
@@ -71,7 +71,7 @@ describe("readManifest", () => {
       optionalDependencies: { fsevents: "catalog:" },
       exports: { ".": "./src/index.ts" },
       publishConfig: { exports: { ".": { types: "./dist/index.d.ts" } } },
-      bin: { robkit: "./src/robkit.ts" },
+      bin: { robkit: "./src/robkit-command.ts" },
     });
   });
 

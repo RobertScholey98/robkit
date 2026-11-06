@@ -15,7 +15,7 @@ import {
 } from "./context.ts";
 
 /** The owner's access codes: listing, minting and revoking them. */
-export function codeRoutes(context: RouteContext): Hono<CoreEnv> {
+export function accessCodeRoutes(context: RouteContext): Hono<CoreEnv> {
   const { db, domain, now } = context;
   const routes = new Hono<CoreEnv>();
   const owner = viewer(context, { ownerOnly: true });
