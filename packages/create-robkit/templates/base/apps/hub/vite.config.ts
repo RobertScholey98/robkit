@@ -1,11 +1,9 @@
-import { isProblem, readDevServerEnv } from "@robkit/input";
+import { readDevServerEnv, orThrow } from "@robkit/input";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const devServerEnv = readDevServerEnv(process.env);
-if (isProblem(devServerEnv)) throw new Error(devServerEnv.error);
-const { port, domain } = devServerEnv;
+const { port, domain } = orThrow(readDevServerEnv(process.env));
 
 // robkit-dev assigns PORT and serves the hub on hub.<domain> through its proxy.
 export default defineConfig({
