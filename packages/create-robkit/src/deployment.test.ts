@@ -9,7 +9,7 @@ import { init } from "./init.ts";
 import { slug } from "./test/slug.ts";
 
 /** The default install, plus `brochure` on react-hono, open to anyone. */
-async function install(): Promise<string> {
+async function makeInstall(): Promise<string> {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
   await init(defaultChoices, dir);
   await addApp(dir, {
@@ -19,6 +19,14 @@ async function install(): Promise<string> {
     icon: "📰",
   });
   return dir;
+}
+
+let made: Promise<string> | undefined;
+
+/** The install, made on first use and shared, since every test only reads it. */
+function install(): Promise<string> {
+  made ??= makeInstall();
+  return made;
 }
 
 describe("deploymentOf", () => {
