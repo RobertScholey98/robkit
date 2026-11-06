@@ -83,7 +83,7 @@ The package's second command, `robkit`, runs in an install, which takes create-r
 - `pnpm robkit add` adds an app. `addApp` in `src/add.ts` writes `apps/<slug>` on any ready stack, through the same `appFiles` the generator mounts the example with, or from the install's own `robkit/templates/<stack>` folder, which replaces robkit's template whole. It writes files only. The generator catalogs every stack's dependencies, so an added app needs no new versions.
 - `robkit vendor` packs the packages a linked install uses into its `vendor/robkit`, so it builds without the checkout until the packages are on npm.
 - `robkit database-urls` prints each app's production `DATABASE_URL`.
-- `robkit deploy` deploys the install to Coolify (`src/coolify.ts`, with `deploymentOf` in `src/deployment.ts` working out each app's variables).
+- `robkit deploy` deploys the install to Coolify. `src/coolify-config.ts` reads `coolify.json`, `src/coolify-api.ts` makes each request to Coolify, `src/coolify-deploy.ts` syncs the apps and deploys them in order, and `deploymentOf` in `src/deployment.ts` works out each app's variables.
 
 ### The UI kit
 

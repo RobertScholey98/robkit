@@ -8,7 +8,7 @@ import {
   type Env,
   type InputProblem,
 } from "@robkit/session/input";
-import type { Coolify } from "./coolify.ts";
+import type { Coolify } from "./coolify-api.ts";
 
 const secretFix =
   "Set it to the install's database secret, at least 32 characters, such as the output of openssl rand -hex 32.";

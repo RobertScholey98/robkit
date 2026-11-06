@@ -175,7 +175,7 @@ flowchart TD
 | What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/` |
 | `robkit add`                                    | `packages/create-robkit/src/add.ts`, `add-wizard.ts`                                       |
 | The install's layer rule                        | `packages/create-robkit/src/check.ts`                                                      |
-| Deploying to Coolify                            | `packages/create-robkit/src/coolify.ts`, `deployment.ts`                                   |
+| Deploying to Coolify                            | `packages/create-robkit/src/coolify-*.ts`, `deployment.ts`                                 |
 | The hub and admin                               | `packages/create-robkit/templates/base/apps/hub`, `apps/admin`                             |
 | robkit's own layer rule                         | `tooling/eslint/layers.js`, `core-schema.js`                                               |
 | The whole-stack test                            | `tooling/e2e/src/`                                                                         |

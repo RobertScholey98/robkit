@@ -19,7 +19,8 @@ import {
   appChoicesFromFlags,
   askAdd,
 } from "./add-wizard.ts";
-import { deploy, readCoolifyConfig } from "./coolify.ts";
+import { readCoolifyConfig } from "./coolify-config.ts";
+import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import {
   readAffectedApps,
