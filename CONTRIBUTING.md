@@ -100,9 +100,12 @@ When a check refuses your change, its message says what to do. For more:
 
 ## How work is organised
 
-### Tickets
+### Planning
 
-Work is planned as markdown tickets under `.scratch/<feature>/issues/`, numbered in the order they should be built. `.scratch/kit/map.md` is the plan: every decision and the ticket that made it. [docs/adr/](docs/adr/README.md) holds a short record of each settled one.
+All planning lives in `.scratch/`, as markdown:
+
+- `.scratch/<feature>/PRD.md` says what a feature is for, and `.scratch/<feature>/issues/` holds its tickets, numbered in the order they should be built.
+- `.scratch/kit/map.md` is the plan for v0.1: every decision and the ticket that made it. [docs/adr/](docs/adr/README.md) holds a short record of each settled one.
 
 Each ticket has a `**Status:**` line:
 
@@ -115,7 +118,7 @@ Each ticket has a `**Status:**` line:
 | `wontfix`         | Won't be done                                           |
 | `done`            | Finished                                                |
 
-Take the lowest-numbered ticket that is ready and whose `**Blocked by:**` tickets are all `done`. If the ticket leaves a decision open, or the code contradicts it, ask R in the ticket or the pull request rather than guessing, and record the answer in the ticket and the map.
+To find work, take the lowest-numbered `ready-for-agent` ticket whose `**Blocked by:**` tickets are all `done`. If the ticket leaves a decision open, or the code contradicts it, ask R in the ticket or the pull request rather than guessing, and record the answer in the ticket and the map.
 
 ### Branches and pull requests
 
