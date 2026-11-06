@@ -17,7 +17,7 @@ export interface InputProblem {
   readonly error: string;
   readonly [problemMark]: true;
 }
-export function isDomain(value: string): boolean;
+export function isDomain(value: string): value is Domain;
 export function isPlatformApp(slug: string): slug is PlatformApp;
 export function isProblem(value: unknown): value is InputProblem;
 export function isRecord(value: unknown): value is Record<string, unknown>;
@@ -85,10 +85,10 @@ export function slugProblem(name: string): string | undefined;
 ```ts
 export function coreInstall(core: CoreOrigin): Install;
 export const defaultDevPort: 3000;
-export const defaultDomain: "robkit.localhost";
+export const defaultDomain: Domain;
 export function install({ domain, protocol, port }: InstallOptions): Install;
 export interface Install {
-  readonly domain: string;
+  readonly domain: Domain;
   host(slug: Slug): string;
   origin(slug: Slug): string;
   onInstall(url: string | undefined): string | undefined;
@@ -96,7 +96,7 @@ export interface Install {
 }
 export function installAt(url: string | URL, app: string): Install | undefined;
 export interface InstallOptions {
-  domain: string;
+  domain: Domain;
   protocol?: "http" | "https";
   port?: number | undefined;
 }

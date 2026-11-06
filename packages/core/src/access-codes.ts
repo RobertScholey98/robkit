@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import type { CodeId } from "@robkit/guard";
 import { isLocal } from "@robkit/input/addresses";
-import { type InputProblem, problem } from "@robkit/input";
+import { type InputProblem, problem, type Domain } from "@robkit/input";
 import type { Database } from "./database.ts";
 import { accessCodes } from "./schema.ts";
 
@@ -60,7 +60,7 @@ export function standingOf(
     revokedAt,
   }: { code: string; expiresAt: Date | null; revokedAt: Date | null },
   now: Date,
-  domain: string,
+  domain: Domain,
 ): Standing {
   if (revokedAt) return "revoked";
   if (expiresAt && expiresAt <= now) return "expired";
@@ -82,7 +82,7 @@ export interface CodeView {
 
 type CodeRow = typeof accessCodes.$inferSelect;
 
-function viewOf(row: CodeRow, now: Date, domain: string): CodeView {
+function viewOf(row: CodeRow, now: Date, domain: Domain): CodeView {
   return {
     id: row.id,
     code: row.code,
@@ -135,7 +135,7 @@ export type Mint = { outcome: "minted"; code: CodeView } | { outcome: "taken" };
 export async function listCodes(
   db: Database,
   now: Date,
-  domain: string,
+  domain: Domain,
 ): Promise<CodeView[]> {
   const rows = await db
     .select()
@@ -152,7 +152,7 @@ export async function mintCode(
   db: Database,
   { name, code, expiresAt }: NewCode,
   now: Date,
-  domain: string,
+  domain: Domain,
 ): Promise<Mint> {
   const insert = async (value: AccessCode) => {
     const [row] = await db

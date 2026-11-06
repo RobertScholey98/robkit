@@ -4,6 +4,7 @@ import {
   isProblem,
   isRecord,
   problem,
+  type Domain,
 } from "@robkit/input";
 import type { TrustedProxy } from "./deployment.ts";
 
@@ -18,7 +19,7 @@ export interface CoolifyConfig {
   repository: string;
   branch: string;
   /** The domain the install answers on, such as `robkit.dev`. */
-  domain: string;
+  domain: Domain;
   /** `cloudflare` when only a Cloudflare tunnel reaches the host. */
   trustedProxy?: TrustedProxy;
 }

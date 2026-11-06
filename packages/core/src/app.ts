@@ -4,7 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { reportToConsole, type Report } from "@robkit/input/report";
-import { platformApps } from "@robkit/input";
+import { platformApps, type Domain } from "@robkit/input";
 import { install } from "@robkit/input/addresses";
 import type { TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
@@ -19,7 +19,7 @@ import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 export interface CoreOptions {
   db: Database;
   /** The install's domain, such as `robkit.localhost` in development. */
-  domain: string;
+  domain: Domain;
   /** Core's clock, for token times, session expiry and rate limits. */
   now?: () => Date;
   /**

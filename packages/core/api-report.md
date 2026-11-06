@@ -15,7 +15,7 @@ export interface CoreConfig {
 }
 export interface CoreOptions {
   db: Database;
-  domain: string;
+  domain: Domain;
   now?: () => Date;
   trustedProxy?: TrustedProxy | undefined;
   logError?: Report;

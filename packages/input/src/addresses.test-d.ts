@@ -1,9 +1,11 @@
 import { describe, expectTypeOf, it } from "vitest";
-import { install, type Install } from "./addresses.ts";
+import { install, type Install, type InstallOptions } from "./addresses.ts";
+import type { Domain } from "./env.ts";
 import type { Slug } from "./slug.ts";
 
 declare const notes: Slug;
-const addresses = install({ domain: "robkit.dev" });
+declare const robkitDev: Domain;
+const addresses = install({ domain: robkitDev });
 
 describe("the addresses' types", () => {
   it("works out an app's addresses from its slug alone", () => {
@@ -18,5 +20,14 @@ describe("the addresses' types", () => {
     addresses.origin("bad/path");
     // @ts-expect-error Nor has a string from anywhere else.
     addresses.origin(String(notes));
+  });
+
+  it("takes the domain only as readDomain made it", () => {
+    expectTypeOf<InstallOptions["domain"]>().toEqualTypeOf<Domain>();
+    expectTypeOf<Install["domain"]>().toEqualTypeOf<Domain>();
+    // @ts-expect-error A plain string hasn't been read as a domain.
+    install({ domain: "robkit.dev" });
+    // @ts-expect-error Nor has a URL.
+    install({ domain: "https://robkit.dev/" });
   });
 });

@@ -4,7 +4,7 @@ import {
   databaseUrl,
   discoverApps,
 } from "@robkit/dev";
-import type { Slug } from "@robkit/input";
+import { type Slug, type Domain } from "@robkit/input";
 import { install } from "@robkit/input/addresses";
 
 /**
@@ -28,7 +28,7 @@ export type TrustedProxy = "cloudflare";
 
 export interface DeploymentOptions {
   /** The domain the install answers on, such as `robkit.dev`. */
-  domain: string;
+  domain: Domain;
   /** The public https port, when it isn't 443. */
   port?: number;
   /** Set only when nothing but that proxy can reach the host. */

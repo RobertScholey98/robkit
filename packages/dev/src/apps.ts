@@ -9,6 +9,7 @@ import {
   readSlug,
   type Slug,
   problem,
+  type Domain,
 } from "@robkit/input";
 import {
   type AppManifest,
@@ -139,7 +140,7 @@ export async function discoverApps(
   return apps;
 }
 
-export function routesFor(apps: readonly App[], domain: string): Route[] {
+export function routesFor(apps: readonly App[], domain: Domain): Route[] {
   return apps.map(({ slug, port }) => ({
     host: install({ domain }).host(slug),
     app: slug,

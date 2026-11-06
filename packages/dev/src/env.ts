@@ -10,13 +10,14 @@ import {
   readSlug,
   type Slug,
   problem,
+  type Domain,
 } from "@robkit/input";
 import { defaultDevPort, defaultDomain } from "@robkit/input/addresses";
 
 /** What `robkit-dev` runs with, read from its environment. */
 export interface DevConfig {
   /** `ROBKIT_DOMAIN`: every app is on `<slug>.<domain>`. */
-  domain: string;
+  domain: Domain;
   /** `ROBKIT_DEV_PORT`: where the proxy listens. Apps take the ports after. */
   devPort: number;
   /**

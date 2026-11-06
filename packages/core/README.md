@@ -60,15 +60,15 @@ await migrate(databaseUrl);
 
 ## Exports
 
-| Export                               | What it is                                                                                                                                                       |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `domain`, optional `trustedProxy`, `now` and `logError`, a `Report` where every unexpected error is logged                 |
-| `createDatabase(url)`, `Database`    | Core's connection to its schema, to hand to `createApp`, `ensureSigningKey` and `registerApps`                                                                   |
-| `migrate(url)`                       | Applies core's migrations from `drizzle/`                                                                                                                        |
-| `ensureSigningKey(db)`, `SigningKey` | Core's Ed25519 key, made on first boot and kept in core's schema                                                                                                 |
-| `readCoreConfig(env)`, `CoreConfig`  | Reads core's environment once, at start: its database, domain, apps (`ROBKIT_APPS`), trusted proxy, host and port, or an `InputProblem` naming each bad variable |
-| `registerApps(db, apps)`             | Adds apps core hasn't seen, with their declared rule or owner-only. Keeps the owner's edits                                                                      |
-| `TrustedProxy`                       | `cloudflare`, or nothing                                                                                                                                         |
+| Export                               | What it is                                                                                                                                                                                  |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `domain` (a `Domain`, as `readCoreConfig` reads it), optional `trustedProxy`, `now` and `logError`, a `Report` where every unexpected error is logged |
+| `createDatabase(url)`, `Database`    | Core's connection to its schema, to hand to `createApp`, `ensureSigningKey` and `registerApps`                                                                                              |
+| `migrate(url)`                       | Applies core's migrations from `drizzle/`                                                                                                                                                   |
+| `ensureSigningKey(db)`, `SigningKey` | Core's Ed25519 key, made on first boot and kept in core's schema                                                                                                                            |
+| `readCoreConfig(env)`, `CoreConfig`  | Reads core's environment once, at start: its database, domain, apps (`ROBKIT_APPS`), trusted proxy, host and port, or an `InputProblem` naming each bad variable                            |
+| `registerApps(db, apps)`             | Adds apps core hasn't seen, with their declared rule or owner-only. Keeps the owner's edits                                                                                                 |
+| `TrustedProxy`                       | `cloudflare`, or nothing                                                                                                                                                                    |
 
 Core's routes are in `src/routes/`, one Hono app each for status, the session, codes, apps and roles. `createApp` in `src/app.ts` mounts them behind CORS and the rules every POST meets, and its one error handler answers what a route didn't expect. `docs/architecture.md` shows how they fit the request and token flows.
 

@@ -1,3 +1,4 @@
+import { aDomain } from "@internal/test-session";
 import type { Hono } from "hono";
 import { decodeJwt, SignJWT, type JWTPayload } from "jose";
 import { onTestFinished } from "vitest";
@@ -39,7 +40,7 @@ export async function freshCore({
   let now = clockStart.getTime();
   const clock = () => new Date(now);
   return {
-    app: createApp({ db, domain, now: clock, trustedProxy }),
+    app: createApp({ db, domain: aDomain(domain), now: clock, trustedProxy }),
     db,
     now: clock,
     advance: (ms) => {

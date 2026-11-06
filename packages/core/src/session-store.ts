@@ -1,3 +1,4 @@
+import { type Domain } from "@robkit/input";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import type { CodeId, RoleId, SessionState } from "@robkit/guard";
 import {
@@ -23,7 +24,7 @@ import type { SigningKey } from "./signing-key.ts";
 export interface SessionContext {
   db: Database;
   /** The install's domain, which decides whether the test code works. */
-  domain: string;
+  domain: Domain;
   now: () => Date;
   signingKey: () => Promise<SigningKey>;
 }

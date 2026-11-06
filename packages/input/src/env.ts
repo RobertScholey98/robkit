@@ -80,7 +80,7 @@ function isIPv6(value: string): boolean {
 export function readHost(env: Env): string | InputProblem {
   const value = valueOf(env, "HOST");
   if (value === undefined) return "127.0.0.1";
-  if (isIPv4(value) || isIPv6(value) || isDomainName(value)) return value;
+  if (isIPv4(value) || isIPv6(value) || isDomain(value)) return value;
   return problem(
     `HOST is "${value}", which isn't an address to listen on. Set it to an IP address or host name, such as 0.0.0.0, or leave it unset for 127.0.0.1.`,
   );
@@ -100,19 +100,15 @@ declare const domainBrand: unique symbol;
 export type Domain = string & { readonly [domainBrand]: true };
 
 /**
- * Whether `value` is a host name. Its last label isn't all digits, so an IP
- * address, or something like one, isn't a name.
+ * Whether `value` is a domain alone, with no scheme, port or path: a host
+ * name whose last label isn't all digits, so an IP address, or something like
+ * one, isn't a name. With `readDomain`, the only maker of a `Domain`.
  */
-function isDomainName(value: string): value is Domain {
+export function isDomain(value: string): value is Domain {
   const last = value.slice(value.lastIndexOf(".") + 1);
   return (
     value.length <= 253 && domainPattern.test(value) && !/^\d+$/.test(last)
   );
-}
-
-/** Whether `value` is a domain alone, with no scheme, port or path. */
-export function isDomain(value: string): boolean {
-  return isDomainName(value);
 }
 
 /**
@@ -127,7 +123,7 @@ export function readDomain(env: Env, fallback?: string): Domain | InputProblem {
       "Set it to the install's domain, such as robkit.dev.",
     );
   }
-  if (isDomainName(value)) return value;
+  if (isDomain(value)) return value;
   return problem(
     `ROBKIT_DOMAIN is "${value}", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
   );
@@ -148,7 +144,7 @@ function isCoreOrigin(value: string): value is CoreOrigin {
     (protocol === "https:" || protocol === "http:") &&
     origin === value &&
     hostname.startsWith("core.") &&
-    isDomainName(hostname.slice("core.".length))
+    isDomain(hostname.slice("core.".length))
   );
 }
 

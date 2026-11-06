@@ -3,7 +3,13 @@ import { setCookie } from "hono/cookie";
 import type { Report } from "@robkit/input/report";
 import { sessionCookie, sessionTokensIn } from "@robkit/session";
 import { isLocal } from "@robkit/input/addresses";
-import { type InputProblem, isProblem, isRecord, problem } from "@robkit/input";
+import {
+  type InputProblem,
+  isProblem,
+  isRecord,
+  problem,
+  type Domain,
+} from "@robkit/input";
 import type { TrustedProxy } from "../client.ts";
 import { sessionLifetimeSeconds } from "../session-claims.ts";
 import {
@@ -49,7 +55,7 @@ export async function readBody<T>(
 /** Puts `sessionToken` on core's cookie, or clears it with a `maxAge` of 0. */
 export function setSessionCookie(
   c: Context,
-  domain: string,
+  domain: Domain,
   sessionToken: string,
   maxAge = sessionLifetimeSeconds,
 ): void {

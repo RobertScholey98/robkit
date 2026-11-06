@@ -8,7 +8,7 @@ import {
   readAppManifestFile,
   routesFor,
 } from "./apps.ts";
-import { slug } from "@internal/test-session";
+import { slug, aDomain } from "@internal/test-session";
 
 async function installWith(
   apps: Record<string, Record<string, string> | null>,
@@ -191,7 +191,7 @@ describe("routesFor", () => {
           manifest: {},
         },
       ],
-      "robkit.test",
+      aDomain("robkit.test"),
     );
 
     expect(routes).toEqual([
