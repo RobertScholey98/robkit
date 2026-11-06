@@ -7,6 +7,8 @@ robkit sorts every failure into one of two kinds, and handles each kind one way.
 A failure the caller should handle, such as a wrong password, a taken slug or a guest without the role, is part of the function's return type. Return a discriminated union with a field that says which outcome it is, and let the caller switch on it. The guard does this:
 
 ```ts
+import type { Viewer } from "@robkit/guard";
+
 type Decision =
   | { outcome: "allow"; viewer: Viewer }
   | { outcome: "login" }
@@ -21,7 +23,13 @@ Core's `claimInstall` returns `{ outcome: "taken" }` rather than throwing, and t
 A failure nobody can handle where it happens, such as a database that won't answer or a file that should exist, throws. When you throw because of another error, pass it on:
 
 ```ts
-throw new Error("ROBKIT_APPS isn't JSON.", { cause: error });
+function parseApps(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Error("ROBKIT_APPS isn't JSON.", { cause: error });
+  }
+}
 ```
 
 The message says what robkit was doing. The cause keeps what went wrong underneath, so the log shows both.

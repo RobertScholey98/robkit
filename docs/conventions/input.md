@@ -44,6 +44,15 @@ The rules live in `tooling/eslint`, each with its tests. An install's `eslint.co
 `readServeEnv` reads where a server listens:
 
 ```ts
+import {
+  allProblems,
+  isProblem,
+  readHost,
+  readPort,
+  type Env,
+  type InputProblem,
+} from "@robkit/session/input";
+
 export function readServeEnv(
   env: Env,
 ): { host: string; port: number } | InputProblem {
@@ -59,6 +68,12 @@ export function readServeEnv(
 An app's `serve.ts` calls it once, at start:
 
 ```ts
+import { serve } from "@hono/node-server";
+import { isProblem, readServeEnv } from "@robkit/session/input";
+import { Hono } from "hono";
+
+const app = new Hono(); // the app's routes go here
+
 const listen = readServeEnv(process.env);
 if (isProblem(listen)) {
   console.error(listen.error);

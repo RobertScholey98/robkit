@@ -96,35 +96,12 @@ describe("docExamples", () => {
   });
 });
 
-// Tickets 08 and 10 own these docs in round 2's first wave, so their
-// fragments get marked `ts nocheck` once those merge. Take a doc off this
-// list when its examples compile, and this check covers it again.
-const awaitingTheirOwners = [
-  "docs/conventions/errors.md",
-  "docs/conventions/input.md",
-];
-
 describe("the docs' TypeScript examples", async () => {
   const examples = await docExamples(repoRoot);
-  const [pending, checked] = [
-    examples.filter(({ file }) => awaitingTheirOwners.includes(file)),
-    examples.filter(({ file }) => !awaitingTheirOwners.includes(file)),
-  ];
 
   // Fails when an example drifts from the API. Fix the example, or mark a
   // fence that isn't a whole program ```ts nocheck.
   it("compile against the built packages", async () => {
-    expect(await exampleProblems(repoRoot, checked)).toEqual([]);
+    expect(await exampleProblems(repoRoot, examples)).toEqual([]);
   });
-
-  it.each(awaitingTheirOwners)(
-    "%s still has examples that don't compile; once it has none, take it off awaitingTheirOwners",
-    async (file) => {
-      const problems = await exampleProblems(
-        repoRoot,
-        pending.filter((example) => example.file === file),
-      );
-      expect(problems).not.toEqual([]);
-    },
-  );
 });
