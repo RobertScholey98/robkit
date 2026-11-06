@@ -53,12 +53,14 @@ export function Admin({ core }: { core: string }) {
       listApps(core),
     ]);
     setListing(
-      codes.ok
+      codes.outcome === "ok"
         ? { state: "loaded", codes: codes.value }
         : { state: "failed", error: codes.error },
     );
-    if (!roles.ok) setAccess({ state: "failed", error: roles.error });
-    else if (!apps.ok) setAccess({ state: "failed", error: apps.error });
+    if (roles.outcome === "failed")
+      setAccess({ state: "failed", error: roles.error });
+    else if (apps.outcome === "failed")
+      setAccess({ state: "failed", error: apps.error });
     else setAccess({ state: "loaded", roles: roles.value, apps: apps.value });
   }, [core]);
 
@@ -151,7 +153,7 @@ function MintForm({
       ...(code && { code }),
       ...(expiresAt && { expiresAt }),
     });
-    if (!result.ok) {
+    if (result.outcome === "failed") {
       setSending({ state: "failed", error: result.error });
       return;
     }
@@ -257,7 +259,7 @@ function CodeRow({
   async function revoke() {
     setRevoking({ state: "sending" });
     const result = await revokeCode(core, code.id);
-    if (!result.ok) {
+    if (result.outcome === "failed") {
       setRevoking({ state: "failed", error: result.error });
       return;
     }

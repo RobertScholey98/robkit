@@ -1,13 +1,31 @@
 // The one type for a failed read, and the checks every reader shares. See
 // docs/conventions/input.md.
 
-/** Why some input won't do: where it is, what's wrong, and what to do. */
+// Symbol.for, so a problem made by one copy of this package still passes
+// another copy's isProblem, such as when an install resolves the guard's
+// @robkit/input apart from its app's.
+const problemMark: unique symbol = Symbol.for("@robkit/input.InputProblem");
+
+/**
+ * Why some input won't do: where it is, what's wrong, and what to do. Only
+ * {@link problem} makes one, so a value that merely has an `error` field,
+ * such as a JSON body, is never taken for one.
+ */
 export interface InputProblem {
   readonly error: string;
+  readonly [problemMark]: true;
+}
+
+/** A problem saying `message`, which names the input and how to fix it. */
+export function problem(message: string): InputProblem {
+  const made: InputProblem = { error: message, [problemMark]: true };
+  // Hide the mark from enumeration, so a problem prints, compares and
+  // serialises as its `{ error }` alone.
+  return Object.defineProperty(made, problemMark, { enumerable: false });
 }
 
 export function isProblem(value: unknown): value is InputProblem {
-  return isRecord(value) && typeof value.error === "string";
+  return isRecord(value) && problemMark in value && value[problemMark] === true;
 }
 
 /** Whether `value` is a plain object: not `null`, and not an array. */
@@ -17,12 +35,12 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Every problem among `reads` as one, a line each. */
 export function allProblems(...reads: unknown[]): InputProblem {
-  return {
-    error: reads
+  return problem(
+    reads
       .filter(isProblem)
-      .map((problem) => problem.error)
+      .map((read) => read.error)
       .join("\n"),
-  };
+  );
 }
 
 /**

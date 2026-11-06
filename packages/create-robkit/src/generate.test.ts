@@ -1,11 +1,15 @@
-import { createHash } from "node:crypto";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { defaultChoices, readyStacks, type Choices } from "./choices.ts";
 import { layerRule } from "./check.ts";
-import { generateInstall, stackTemplate, type Files } from "./generate.ts";
+import {
+  generateInstall,
+  readFolder,
+  stackTemplate,
+  type Files,
+} from "./generate.ts";
 
 function json(files: Files, path: string): unknown {
   return JSON.parse(files.get(path) ?? "null");
@@ -22,28 +26,150 @@ function workspace(files: Files) {
 
 const honoExample: Choices = { exampleStack: "react-hono" };
 
-describe("generateInstall", () => {
-  it("writes the default install", async () => {
-    const files = await generateInstall(defaultChoices);
+/** The files the generator writes itself, rather than copying from a template. */
+const rendered = [
+  "apps/example/package.json",
+  "package.json",
+  "pnpm-workspace.yaml",
+  "robkit.json",
+];
 
-    // Every path, and the text of each file the generator renders rather
-    // than copies from one template.
-    expect([...files.keys()]).toMatchSnapshot();
-    for (const path of [
-      "robkit.json",
-      "pnpm-workspace.yaml",
-      "package.json",
-      "apps/example/package.json",
-    ]) {
-      expect(files.get(path)).toMatchSnapshot(path);
+/** Where an install keeps the copy of robkit's lint policy. */
+const lintPolicyDir = "tooling/eslint/";
+
+describe("generateInstall", () => {
+  it.each<[string, Choices]>([
+    ["the default", defaultChoices],
+    ["the Hono example", honoExample],
+  ])(
+    "copies every file of the base and the example's stack whole into %s install",
+    async (_, choices) => {
+      const files = await generateInstall(choices);
+      const base = await readFolder(
+        fileURLToPath(new URL("../templates/base/", import.meta.url)),
+      );
+      const stack = await stackTemplate(choices.exampleStack);
+      const templates: Files = new Map([
+        ...base,
+        ...[...stack].map(
+          ([path, text]) => [`apps/example/${path}`, text] as const,
+        ),
+      ]);
+
+      // Every file is a template's, one the generator writes, or robkit's
+      // lint policy, which the next test checks.
+      const policy = [...files.keys()].filter((path) =>
+        path.startsWith(lintPolicyDir),
+      );
+      expect([...files.keys()].sort()).toEqual(
+        [...new Set([...templates.keys(), ...rendered, ...policy])].sort(),
+      );
+      for (const [path, text] of templates) {
+        if (!rendered.includes(path)) expect(files.get(path), path).toBe(text);
+      }
+    },
+  );
+
+  it("copies robkit's lint policy whole: policy.js and what it imports, nothing else", async () => {
+    const files = await generateInstall(defaultChoices);
+    const policy = new Map(
+      [...files]
+        .filter(([path]) => path.startsWith(lintPolicyDir))
+        .map(([path, text]) => [path.slice(lintPolicyDir.length), text]),
+    );
+    const imported = new Set(
+      [...policy.values()].flatMap((text) =>
+        [...text.matchAll(/from "\.\/([\w.-]+\.js)"/g)].flatMap(([, name]) =>
+          name === undefined ? [] : [name],
+        ),
+      ),
+    );
+
+    expect(policy.has("policy.js")).toBe(true);
+    // Nothing a copied file imports is missing, and nothing else is copied.
+    expect([...imported].filter((name) => !policy.has(name))).toEqual([]);
+    expect(
+      [...policy.keys()].filter(
+        (name) => name !== "policy.js" && !imported.has(name),
+      ),
+    ).toEqual([]);
+    for (const [name, text] of policy) {
+      const robkits = await readFile(
+        new URL(`../../../tooling/eslint/${name}`, import.meta.url),
+        "utf8",
+      );
+      expect(text, name).toBe(robkits.replaceAll("\r\n", "\n"));
     }
   });
 
   it("records the example's stack in robkit.json", async () => {
-    const files = await generateInstall(honoExample);
+    const start = await generateInstall(defaultChoices);
+    const hono = await generateInstall(honoExample);
 
-    expect(JSON.parse(files.get("robkit.json") ?? "")).toEqual({
-      exampleStack: "react-hono",
+    expect(start.get("robkit.json")).toBe('{ "exampleStack": "start" }\n');
+    expect(hono.get("robkit.json")).toBe('{ "exampleStack": "react-hono" }\n');
+  });
+
+  it("names robkit's own pnpm in the root package.json", async () => {
+    const files = await generateInstall(defaultChoices);
+    const robkit = JSON.parse(
+      await readFile(new URL("../../../package.json", import.meta.url), "utf8"),
+    ) as { packageManager: string };
+
+    expect(json(files, "package.json")).toMatchObject({
+      packageManager: robkit.packageManager,
+    });
+  });
+
+  it("keeps pnpm's settings from the template, adding the catalog", async () => {
+    const files = await generateInstall(defaultChoices);
+    const settings = parse(files.get("pnpm-workspace.yaml") ?? "") as Record<
+      string,
+      unknown
+    >;
+
+    expect(Object.keys(settings)).toEqual([
+      "packages",
+      "catalogMode",
+      "allowBuilds",
+      "catalog",
+    ]);
+    expect(settings).toMatchObject({
+      packages: ["apps/*", "packages/*", "tooling/*"],
+      catalogMode: "strict",
+      allowBuilds: { esbuild: false },
+    });
+  });
+
+  it("catalogs every dependency a manifest takes from the catalog", async () => {
+    const files = await generateInstall(defaultChoices);
+    const { catalog } = workspace(files);
+    const fromCatalog = [...files]
+      .filter(([path]) => path.endsWith("package.json"))
+      .flatMap(([, text]) => {
+        const manifest = JSON.parse(text) as Record<
+          string,
+          Record<string, string> | undefined
+        >;
+        return [manifest.dependencies, manifest.devDependencies].flatMap(
+          (deps) =>
+            Object.entries(deps ?? {}).flatMap(([name, spec]) =>
+              spec === "catalog:" ? [name] : [],
+            ),
+        );
+      });
+
+    expect(fromCatalog.filter((name) => !(name in catalog))).toEqual([]);
+  });
+
+  it("names the example app's manifest after it, keeping its stack's", async () => {
+    const files = await generateInstall(defaultChoices);
+    const stack = await stackTemplate("start");
+
+    expect(json(files, "apps/example/package.json")).toEqual({
+      name: "@internal/example-app",
+      ...(JSON.parse(stack.get("package.json") ?? "") as object),
+      robkit: { icon: "📦" },
     });
   });
 
@@ -340,23 +466,6 @@ describe("generateInstall", () => {
       "@base-ui/react": "1.9.0",
       shadcn: "4.23.0",
     });
-  });
-
-  it.each<[string, Choices]>([
-    ["the default", defaultChoices],
-    ["the Hono example", honoExample],
-  ])("keeps every file of %s pnpm install", async (_, choices) => {
-    const files = await generateInstall(choices);
-
-    // A digest per file: any change to a pnpm install's output fails here.
-    expect(
-      Object.fromEntries(
-        [...files].map(([path, text]) => [
-          path,
-          createHash("sha256").update(text).digest("hex").slice(0, 16),
-        ]),
-      ),
-    ).toMatchSnapshot();
   });
 
   it("builds images without Corepack, from a pruned frozen install", async () => {

@@ -16,6 +16,9 @@ function leaveFor({ location }: SessionLapsed): void {
   globalThis.location.assign(target.href);
 }
 
+/** How long a call waits for the app's answer, its body included. */
+const timeoutMs = 30_000;
+
 /**
  * `fetch` for calls from the page to its own app, such as Start's server
  * functions. When the guard says the app's token has lapsed, it sends the
@@ -23,9 +26,19 @@ function leaveFor({ location }: SessionLapsed): void {
  * hub to log in, and back to this page. That call never settles, since the
  * page is leaving, so callers don't show an error for it. Every other
  * answer, errors included, goes to the caller untouched.
+ *
+ * A call that gets no answer, or whose body stalls, fails with a
+ * `TimeoutError` after 30 seconds. The caller's own signal still stops it
+ * sooner.
  */
 export const sessionFetch: typeof fetch = async (input, init) => {
-  const response = await fetch(input, init);
+  const caller =
+    init?.signal ?? (input instanceof Request ? input.signal : undefined);
+  const deadline = AbortSignal.timeout(timeoutMs);
+  const response = await fetch(input, {
+    ...init,
+    signal: caller ? AbortSignal.any([caller, deadline]) : deadline,
+  });
   const lapsed = await readSessionLapsed(response);
   if (!lapsed) return response;
   leaveFor(lapsed);

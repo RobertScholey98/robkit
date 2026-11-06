@@ -18,7 +18,7 @@ export function deploymentOf(
   { domain, port, trustedProxy }: DeploymentOptions,
 ): Promise<AppDeployment[]>;
 export interface DeploymentOptions {
-  domain: string;
+  domain: Domain;
   port?: number;
   trustedProxy?: TrustedProxy | undefined;
 }

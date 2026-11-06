@@ -1,4 +1,4 @@
-import { reportToConsole, type Report } from "@robkit/session";
+import { reportToConsole, type Report } from "@robkit/input/report";
 
 /**
  * A problem the person running a command can fix, such as a flag it lacks or

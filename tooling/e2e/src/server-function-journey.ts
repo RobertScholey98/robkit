@@ -1,3 +1,6 @@
+import { expect, it } from "vitest";
+import { handedBack, refreshing } from "./bounces.ts";
+import type { DevStack } from "./dev-stack.ts";
 import type { Page } from "playwright";
 import { launch } from "./browser.ts";
 import {
@@ -75,4 +78,37 @@ export async function serverFunctionJourney({
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * The server function journey, as a test of `dev`. Only a Start app has
+ * server functions, so it runs only when `runs` says the example is one.
+ */
+export function testServerFunctionJourney(dev: DevStack, runs: boolean): void {
+  it.runIf(runs)(
+    "sends a server function call with an expired session through core's refresh",
+    async () => {
+      await dev.claimed();
+      const example = dev.at(exampleSlug);
+
+      const journey = await serverFunctionJourney(dev.journey());
+
+      const [first] = journey.visits;
+      expect(journey).toEqual({
+        visits: [first, first + 1],
+        bounce: [
+          dev.at(
+            exampleSlug,
+            `/_robkit/refresh?next=${encodeURIComponent(example)}`,
+          ),
+          refreshing(dev, example),
+          handedBack(example, { token: true }),
+          example,
+        ],
+        bouncedTo: example,
+        // The expired call recorded nothing. The page load after it did.
+        visitsAfterBounce: first + 2,
+      });
+    },
+  );
 }

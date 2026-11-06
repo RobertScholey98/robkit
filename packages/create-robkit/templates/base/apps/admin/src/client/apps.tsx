@@ -77,7 +77,7 @@ function AppRow({
       kind === "roles" ? { kind, roles: [...picked] } : { kind };
     setSending({ state: "sending" });
     const result = await setAccess(core, app.slug, rule);
-    if (!result.ok) {
+    if (result.outcome === "failed") {
       setSending({ state: "failed", error: result.error });
       return;
     }

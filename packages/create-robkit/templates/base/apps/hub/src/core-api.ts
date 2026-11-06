@@ -1,4 +1,5 @@
-import { callCore, isRecord, type Result } from "@internal/core-client";
+import { callCore, problem, type Result } from "@internal/core-client";
+import { type InputProblem, isRecord } from "@robkit/input";
 
 export interface Owner {
   kind: "owner";
@@ -61,21 +62,31 @@ export function signInWithCode(
 
 export async function signOut(core: string): Promise<Result<Session>> {
   const result = await callCore(core, "POST", "/logout");
-  return result.ok ? { ok: true, value: { state: "signed-out" } } : result;
+  return result.outcome === "ok"
+    ? { outcome: "ok", value: { state: "signed-out" } }
+    : result;
 }
 
-function readSession(body: unknown): Session | undefined {
-  if (!isRecord(body)) return undefined;
+function readSession(body: unknown): Session | InputProblem {
+  if (!isRecord(body)) return problem("The session isn't an object.");
   const { state, profile } = body;
   if (state === "unclaimed" || state === "signed-out") return { state };
-  if (state !== "signed-in" || !isRecord(profile)) return undefined;
+  if (state !== "signed-in") {
+    return problem(
+      "The session's state isn't unclaimed, signed-out or signed-in.",
+    );
+  }
+  if (!isRecord(profile))
+    return problem("The session's profile isn't an object.");
   const { kind, id, username, name } = profile;
-  if (typeof id !== "string") return undefined;
+  if (typeof id !== "string") return problem("The profile's id isn't text.");
   if (kind === "owner" && typeof username === "string") {
     return { state, profile: { kind, id, username } };
   }
   if (kind === "guest" && typeof name === "string") {
     return { state, profile: { kind, id, name } };
   }
-  return undefined;
+  return problem(
+    "The profile isn't an owner with a username or a guest with a name.",
+  );
 }

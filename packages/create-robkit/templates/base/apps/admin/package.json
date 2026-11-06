@@ -12,6 +12,7 @@
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@robkit/hono": "catalog:",
+    "@robkit/input": "catalog:",
     "hono": "catalog:"
   },
   "devDependencies": {
@@ -21,12 +22,15 @@
     "@internal/tsconfig": "workspace:*",
     "@internal/ui": "workspace:*",
     "@robkit/guard": "catalog:",
-    "@robkit/input": "catalog:",
     "@robkit/session": "catalog:",
     "@tailwindcss/vite": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
+    "happy-dom": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "tailwindcss": "catalog:",

@@ -9,13 +9,15 @@ import {
   readSet,
   readSlug,
   type Slug,
+  problem,
+  type Domain,
 } from "@robkit/input";
-import { defaultDevPort, defaultDomain } from "@robkit/session/addresses";
+import { defaultDevPort, defaultDomain } from "@robkit/input/addresses";
 
 /** What `robkit-dev` runs with, read from its environment. */
 export interface DevConfig {
   /** `ROBKIT_DOMAIN`: every app is on `<slug>.<domain>`. */
-  domain: string;
+  domain: Domain;
   /** `ROBKIT_DEV_PORT`: where the proxy listens. Apps take the ports after. */
   devPort: number;
   /**
@@ -72,7 +74,7 @@ export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem {
     if (name.trim() === "") continue;
     const slug = readSlug(name.trim());
     if (isProblem(slug)) {
-      return { error: `ROBKIT_DATABASES: ${slug.error}` };
+      return problem(`ROBKIT_DATABASES: ${slug.error}`);
     }
     slugs.push(slug);
   }

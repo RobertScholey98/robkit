@@ -170,6 +170,16 @@ describe("GET /apps/:slug/access", () => {
 });
 
 describe("POST /apps/:slug/access", () => {
+  it("answers 404 for a name that can't be a slug", async () => {
+    const { app } = await freshCore();
+    const owner = await claim(app);
+
+    const res = await setAccess(app, owner, "Not-A-Slug", { kind: "open" });
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Not found" });
+  });
+
   it("gates an app to roles, then opens it to anyone", async () => {
     const { app, db } = await freshCore();
     const owner = await claim(app);

@@ -7,7 +7,12 @@ const root = document.getElementById("root");
 const core = document
   .querySelector('meta[name="robkit-core"]')
   ?.getAttribute("content");
-if (!root || !core) throw new Error("admin's page has no #root or core origin");
+if (!root || !core) {
+  const missing = root ? "robkit-core meta tag" : "#root element";
+  throw new Error(
+    `Admin's page at ${location.href} has no ${missing}. Admin's server writes both into the page, in apps/admin/src/server.ts.`,
+  );
+}
 
 createRoot(root).render(
   <StrictMode>

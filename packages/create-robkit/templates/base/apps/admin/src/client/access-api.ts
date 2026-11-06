@@ -4,8 +4,8 @@ import {
   type AccessRule,
   type RoleId,
 } from "@robkit/guard";
-import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
-import { isProblem } from "@robkit/input";
+import { callCore, listOf, problem, type Result } from "@internal/core-client";
+import { type InputProblem, isProblem, isRecord } from "@robkit/input";
 
 export type { AccessRule, RoleId };
 
@@ -25,7 +25,10 @@ export interface App {
 
 export function listRoles(core: string): Promise<Result<Role[]>> {
   return callCore(core, "GET", "/roles", {
-    read: (body) => (isRecord(body) ? listOf(body.roles, readRole) : undefined),
+    read: (body) =>
+      isRecord(body)
+        ? listOf(body.roles, "roles", readRole)
+        : problem("The roles' answer isn't an object."),
   });
 }
 
@@ -48,7 +51,10 @@ export function setRoleCodes(
 
 export function listApps(core: string): Promise<Result<App[]>> {
   return callCore(core, "GET", "/apps", {
-    read: (body) => (isRecord(body) ? listOf(body.apps, readApp) : undefined),
+    read: (body) =>
+      isRecord(body)
+        ? listOf(body.apps, "apps", readApp)
+        : problem("The apps' answer isn't an object."),
   });
 }
 
@@ -58,32 +64,28 @@ export function setAccess(
   access: AccessRule,
 ): Promise<Result<AccessRule>> {
   const path = `/apps/${encodeURIComponent(slug)}/access`;
-  return callCore(core, "POST", path, { body: access, read: accessIn });
+  return callCore(core, "POST", path, { body: access, read: readAccessRule });
 }
 
-/** The access rule in `body`, if it holds one. */
-function accessIn(body: unknown): AccessRule | undefined {
-  const access = readAccessRule(body);
-  return isProblem(access) ? undefined : access;
-}
-
-function readRole(body: unknown): Role | undefined {
-  if (!isRecord(body)) return undefined;
-  const { name, codeIds } = body;
+function readRole(body: unknown): Role | InputProblem {
+  if (!isRecord(body)) return problem("The role isn't an object.");
   const id = readRoleId(body.id);
-  const ids = listOf(codeIds, (id) =>
-    typeof id === "string" ? id : undefined,
+  if (isProblem(id)) return id;
+  const { name } = body;
+  if (typeof name !== "string") return problem("The role's name isn't text.");
+  const codeIds = listOf(body.codeIds, "codeIds", (codeId) =>
+    typeof codeId === "string" ? codeId : problem("It isn't text."),
   );
-  return !isProblem(id) && typeof name === "string" && ids
-    ? { id, name, codeIds: ids }
-    : undefined;
+  if (isProblem(codeIds)) return codeIds;
+  return { id, name, codeIds };
 }
 
-function readApp(body: unknown): App | undefined {
-  if (!isRecord(body)) return undefined;
+function readApp(body: unknown): App | InputProblem {
+  if (!isRecord(body)) return problem("The app isn't an object.");
   const { slug, name } = body;
-  const access = accessIn(body.access);
-  return typeof slug === "string" && typeof name === "string" && access
-    ? { slug, name, access }
-    : undefined;
+  if (typeof slug !== "string") return problem("The app's slug isn't text.");
+  if (typeof name !== "string") return problem("The app's name isn't text.");
+  const access = readAccessRule(body.access);
+  if (isProblem(access)) return access;
+  return { slug, name, access };
 }

@@ -7,7 +7,7 @@ import {
   fakeFetch,
   type FakeCoolify,
 } from "./test/fake-coolify.ts";
-import { slug } from "@internal/test-session";
+import { slug, aDomain } from "@internal/test-session";
 
 const config: CoolifyConfig = {
   project: "robkit",
@@ -16,7 +16,7 @@ const config: CoolifyConfig = {
   githubApp: "robkit-coolify",
   repository: "RobertScholey98/robkit-dev",
   branch: "main",
-  domain: "robkit.dev",
+  domain: aDomain("robkit.dev"),
 };
 
 const coolify = { url: "https://coolify.example", token: "t" };

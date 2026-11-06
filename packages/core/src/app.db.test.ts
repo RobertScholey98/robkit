@@ -1,3 +1,4 @@
+import { aDomain } from "@internal/test-session";
 import { freePort } from "@internal/test-postgres";
 import {
   afterAll,
@@ -24,7 +25,7 @@ afterAll(async () => {
 
 describe("GET /status", () => {
   it("answers ok once the database answers", async () => {
-    const app = createApp({ db, domain: "localhost" });
+    const app = createApp({ db, domain: aDomain("localhost") });
 
     const res = await app.request("/status");
 
@@ -39,7 +40,7 @@ describe("GET /status", () => {
     const logged: [string, unknown][] = [];
     const app = createApp({
       db: unreachable,
-      domain: "localhost",
+      domain: aDomain("localhost"),
       logError: (message, cause) => logged.push([message, cause]),
     });
 
@@ -63,7 +64,7 @@ describe("an unexpected error", () => {
     const logged: [string, unknown][] = [];
     const app = createApp({
       db: unreachable,
-      domain: "localhost",
+      domain: aDomain("localhost"),
       logError: (message, cause) => logged.push([message, cause]),
     });
 
@@ -89,7 +90,7 @@ describe("an unexpected error", () => {
     );
     const app = createApp({
       db: unreachable,
-      domain: "localhost",
+      domain: aDomain("localhost"),
       logError: () => undefined,
     });
 
@@ -110,7 +111,7 @@ describe("an unexpected error", () => {
     onTestFinished(() => {
       log.mockRestore();
     });
-    const app = createApp({ db: unreachable, domain: "localhost" });
+    const app = createApp({ db: unreachable, domain: aDomain("localhost") });
 
     await app.request("/.well-known/jwks.json");
     await unreachable.$client.end();
@@ -127,7 +128,7 @@ describe("an unexpected error", () => {
 });
 
 describe("CORS", () => {
-  const app = () => createApp({ db, domain: "robkit.test" });
+  const app = () => createApp({ db, domain: aDomain("robkit.test") });
 
   it.each([
     "http://hub.robkit.test:3000",

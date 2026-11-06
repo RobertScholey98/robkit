@@ -1,3 +1,4 @@
+import { aDomain } from "@internal/test-session";
 import { describe, expect, it } from "vitest";
 import {
   generateAccessCode,
@@ -27,9 +28,9 @@ describe("standingOf", () => {
       "revoked",
     ],
   ])("calls %s %s", (_, times, standing) => {
-    expect(standingOf({ code: "K7XQ2", ...times }, now, "example.com")).toBe(
-      standing,
-    );
+    expect(
+      standingOf({ code: "K7XQ2", ...times }, now, aDomain("example.com")),
+    ).toBe(standing);
   });
 
   it.each([
@@ -42,7 +43,7 @@ describe("standingOf", () => {
       standingOf(
         { code: "TEST", expiresAt: null, revokedAt: null },
         now,
-        domain,
+        aDomain(domain),
       ),
     ).toBe(standing);
   });
@@ -52,7 +53,7 @@ describe("standingOf", () => {
       standingOf(
         { code: "TEST", expiresAt: null, revokedAt: earlier },
         now,
-        "example.com",
+        aDomain("example.com"),
       ),
     ).toBe("revoked");
   });

@@ -33,11 +33,11 @@ export default {
         "Type a failed read as InputProblem and check it with isProblem",
     },
     messages: {
-      type: "A failed read is an InputProblem from @robkit/input, not a { error: string } of its own. See docs/conventions/input.md.",
+      type: "A failed read is an InputProblem from @robkit/input, not a { error: string } of its own. See robkit's docs/conventions/input.md.",
       check:
-        'Check a read with isProblem from @robkit/input, not "error" in. See docs/conventions/input.md.',
+        'Check a read with isProblem from @robkit/input, not "error" in. See robkit\'s docs/conventions/input.md.',
       thrown:
-        "A problem the person can fix isn't a fault. Throw it as a CommandProblem in a command line, end an app server with orExit, or use orThrow where nothing better fits. See docs/conventions/input.md.",
+        "A problem the person can fix isn't a fault. Throw it as a CommandProblem in a command line, end an app server with orExit, or use orThrow where nothing better fits. See robkit's docs/conventions/input.md.",
     },
     schema: [],
   },

@@ -8,6 +8,7 @@ import {
   readSet,
   readSlug,
   type Slug,
+  problem,
 } from "@robkit/input";
 import type { Coolify } from "./coolify-api.ts";
 
@@ -26,7 +27,7 @@ export function readDatabaseUrlsConfig(
   const set = readSet(env, "ROBKIT_DB_SECRET", secretFix);
   const secret =
     typeof set === "string" && set.length < 32
-      ? { error: `ROBKIT_DB_SECRET is too short. ${secretFix}` }
+      ? problem(`ROBKIT_DB_SECRET is too short. ${secretFix}`)
       : set;
   if (isProblem(adminUrl) || isProblem(secret)) {
     return allProblems(adminUrl, secret);
@@ -43,9 +44,9 @@ export function readCoolify(env: Env): Coolify | undefined | InputProblem {
   if (!url) return undefined;
   const protocol = URL.canParse(url) ? new URL(url).protocol : "";
   if (protocol !== "https:" && protocol !== "http:") {
-    return {
-      error: `COOLIFY_URL is "${url}", which isn't a web address. Set it to your Coolify's address, such as https://coolify.example.com.`,
-    };
+    return problem(
+      `COOLIFY_URL is "${url}", which isn't a web address. Set it to your Coolify's address, such as https://coolify.example.com.`,
+    );
   }
   const token = readSet(
     env,
@@ -61,9 +62,9 @@ export function readCoolify(env: Env): Coolify | undefined | InputProblem {
     const missing = accessId
       ? "CF_ACCESS_CLIENT_SECRET"
       : "CF_ACCESS_CLIENT_ID";
-    return {
-      error: `${missing} is not set. Set both CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET when Cloudflare Access guards Coolify, or neither.`,
-    };
+    return problem(
+      `${missing} is not set. Set both CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET when Cloudflare Access guards Coolify, or neither.`,
+    );
   }
   return {
     url,
@@ -77,7 +78,7 @@ export function readAppList(value: string): Slug[] | InputProblem {
   const slugs: Slug[] = [];
   for (const name of value.split(",")) {
     const slug = readSlug(name.trim());
-    if (isProblem(slug)) return { error: `--apps: ${slug.error}` };
+    if (isProblem(slug)) return problem(`--apps: ${slug.error}`);
     slugs.push(slug);
   }
   return slugs;
@@ -88,17 +89,16 @@ export function readAppList(value: string): Slug[] | InputProblem {
  * Packages outside `apps/` aren't apps.
  */
 export function readAffectedApps(json: unknown): Slug[] | InputProblem {
-  const problem = {
-    error:
-      "turbo ls --affected printed JSON robkit can't read. Name the apps to deploy with --apps, or deploy them all with --all.",
-  };
+  const wrong = problem(
+    "turbo ls --affected printed JSON robkit can't read. Name the apps to deploy with --apps, or deploy them all with --all.",
+  );
   const packages = isRecord(json) ? json.packages : undefined;
   const items = isRecord(packages) ? packages.items : undefined;
-  if (!Array.isArray(items)) return problem;
+  if (!Array.isArray(items)) return wrong;
   const slugs: Slug[] = [];
   for (const item of items) {
     const path = isRecord(item) ? item.path : undefined;
-    if (typeof path !== "string") return problem;
+    if (typeof path !== "string") return wrong;
     if (!path.startsWith("apps/")) continue;
     const slug = readSlug(path.slice("apps/".length));
     if (!isProblem(slug)) slugs.push(slug);

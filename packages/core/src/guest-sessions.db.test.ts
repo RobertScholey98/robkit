@@ -1,3 +1,4 @@
+import { aDomain } from "@internal/test-session";
 import type { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
@@ -108,7 +109,7 @@ describe("a guest's session", () => {
     const guest = sessionCookieOf(signIn)?.value ?? "";
     const moved = createApp({
       db: local.db,
-      domain: "robkit.test",
+      domain: aDomain("robkit.test"),
       now: local.now,
     });
 

@@ -52,9 +52,33 @@ export const exceptions: Exceptions = {
     },
     {
       word: "service",
-      file: "packages/create-robkit/src/coolify-api.ts",
+      file: "packages/create-robkit/{src/coolify-api.ts,templates/base/docs/deploy.md}",
       text: "service token",
       why: "Cloudflare Access's name for a token a program holds.",
+    },
+    {
+      word: "service",
+      file: "packages/create-robkit/templates/base/compose.yaml",
+      text: "services:",
+      why: "Compose's key for its containers.",
+    },
+    {
+      word: "user",
+      file: "packages/create-robkit/templates/base/Dockerfile",
+      text: "USER node",
+      why: "Docker's instruction for the user a container runs as.",
+    },
+    {
+      word: "plugin",
+      file: "packages/create-robkit/templates/**/vite.config.ts",
+      text: "plugin",
+      why: "Vite's word for what extends it.",
+    },
+    {
+      word: "group",
+      file: "packages/create-robkit/templates/base/packages/ui/src/components/ui/*.tsx",
+      text: "group",
+      why: "shadcn's components, as its CLI writes them: Tailwind's group variants and Base UI's RadioGroup.",
     },
     {
       word: "grant",
@@ -75,7 +99,7 @@ export const exceptions: Exceptions = {
     },
     {
       word: "middleware",
-      file: "packages/{hono,start}/**",
+      file: "packages/{hono,start,create-robkit/templates/stacks/react-hono}/**",
       text: "middleware",
       why: "Hono's and TanStack Start's word for what an adapter hands them.",
     },
@@ -312,8 +336,8 @@ export function unusedExceptions(
 
 /**
  * The files the check reads: each published package's source and README,
- * `docs/`, `README.md` and `AGENTS.md`. Snapshots are generated, so it skips
- * them.
+ * create-robkit's templates, `docs/`, `README.md` and `AGENTS.md`.
+ * Snapshots and drizzle-kit's migrations are generated, so it skips them.
  */
 export async function readScannedFiles(root: string): Promise<ScannedFile[]> {
   const files: ScannedFile[] = [];
@@ -321,6 +345,8 @@ export async function readScannedFiles(root: string): Promise<ScannedFile[]> {
     [
       "packages/*/src/**/*",
       "packages/*/README.md",
+      // An install's own code, docs and pages.
+      "packages/create-robkit/templates/**/*",
       "docs/**/*.md",
       "README.md",
       "AGENTS.md",
@@ -329,7 +355,9 @@ export async function readScannedFiles(root: string): Promise<ScannedFile[]> {
       cwd: root,
       withFileTypes: true,
       exclude: (dirent) =>
-        ["node_modules", "dist", "__snapshots__"].includes(dirent.name),
+        ["node_modules", "dist", "__snapshots__", "drizzle"].includes(
+          dirent.name,
+        ),
     },
   )) {
     if (!entry.isFile()) continue;

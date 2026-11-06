@@ -1,3 +1,4 @@
+import { aDomain } from "@internal/test-session";
 import { describe, expect, it, vi } from "vitest";
 import { mintCode, parseAccessCode } from "./access-codes.ts";
 import { claim, freshCore, postJson } from "./test/fresh-app.ts";
@@ -36,7 +37,7 @@ describe("a generated code", () => {
       db,
       { name: "Gran", code: taken, expiresAt: null },
       now,
-      "robkit.test",
+      aDomain("robkit.test"),
     );
     picks.push(...Array.from({ length: 25 }, () => 0));
 
@@ -44,7 +45,7 @@ describe("a generated code", () => {
       db,
       { name: "Bob", expiresAt: null },
       now,
-      "robkit.test",
+      aDomain("robkit.test"),
     );
 
     await expect(minting).rejects.toThrow(

@@ -8,6 +8,7 @@ import {
   isRecord,
   orThrow,
   parseJson,
+  problem,
 } from "@robkit/input";
 
 /**
@@ -72,22 +73,22 @@ export function readManifest(
   json: unknown,
   source: string,
 ): Manifest | InputProblem {
-  if (!isRecord(json)) return { error: `${source} must be a JSON object.` };
-  const problem = (field: string, should: string): InputProblem => ({
-    error: `${source}'s "${field}" ${should}.`,
-  });
+  if (!isRecord(json)) return problem(`${source} must be a JSON object.`);
+  const fieldProblem = (field: string, should: string): InputProblem =>
+    problem(`${source}'s "${field}" ${should}.`);
   const exportsRule =
     "must map each subpath to a file or to conditions naming files";
   const manifest: Manifest = {};
 
   const { name, private: isPrivate, scripts, bin, exports } = json;
   if (name !== undefined) {
-    if (typeof name !== "string") return problem("name", "must be a string");
+    if (typeof name !== "string")
+      return fieldProblem("name", "must be a string");
     manifest.name = name;
   }
   if (isPrivate !== undefined) {
     if (typeof isPrivate !== "boolean") {
-      return problem("private", "must be true or false");
+      return fieldProblem("private", "must be true or false");
     }
     manifest.private = isPrivate;
   }
@@ -97,21 +98,22 @@ export function readManifest(
     ["bin", bin],
   ] as const) {
     if (value === undefined) continue;
-    if (!isStrings(value)) return problem(field, "must map names to strings");
+    if (!isStrings(value))
+      return fieldProblem(field, "must map names to strings");
     manifest[field] = value;
   }
   if (exports !== undefined) {
-    if (!isExports(exports)) return problem("exports", exportsRule);
+    if (!isExports(exports)) return fieldProblem("exports", exportsRule);
     manifest.exports = exports;
   }
   const { publishConfig } = json;
   if (publishConfig !== undefined) {
     if (!isRecord(publishConfig)) {
-      return problem("publishConfig", "must be an object");
+      return fieldProblem("publishConfig", "must be an object");
     }
     const published = publishConfig.exports;
     if (published !== undefined && !isExports(published)) {
-      return problem("publishConfig.exports", exportsRule);
+      return fieldProblem("publishConfig.exports", exportsRule);
     }
     manifest.publishConfig =
       published === undefined ? {} : { exports: published };
@@ -131,6 +133,6 @@ export function readNamedManifest(
   if (isProblem(manifest)) return manifest;
   const { name } = manifest;
   return name === undefined
-    ? { error: `${source} needs a "name", the package's name.` }
+    ? problem(`${source} needs a "name", the package's name.`)
     : { ...manifest, name };
 }

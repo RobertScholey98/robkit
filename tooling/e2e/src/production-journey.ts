@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 import type { Browser, Page } from "playwright";
 import { launch as launchChromium } from "./browser.ts";
 import type { Slug } from "@robkit/input";
-import type { Install } from "@robkit/session/addresses";
+import type { Install } from "@robkit/input/addresses";
 
 const run = promisify(execFile);
 

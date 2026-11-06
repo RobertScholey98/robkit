@@ -21,7 +21,7 @@ export function guarded(
   const check = requestGuard(options);
   return async (c, next) => {
     const decision = await check(c.req.raw);
-    if ("response" in decision) return decision.response;
+    if (decision.outcome === "answer") return decision.response;
     c.set("viewer", decision.viewer);
     await next();
   };

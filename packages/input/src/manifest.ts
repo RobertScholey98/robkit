@@ -3,26 +3,26 @@
 // `ROBKIT_APPS`. See docs/conventions/input.md.
 
 import { readSlug, type Slug } from "./slug.ts";
-import { isProblem, isRecord, type InputProblem } from "./problem.ts";
+import { isProblem, isRecord, problem, type InputProblem } from "./problem.ts";
 
 /**
  * Who may open an app, as its manifest declares it. A rule's roles are
  * named, not ids, so this isn't the guard's `AccessRule`: core finds or
  * creates each role by name when it adds the app.
  */
-export type DeclaredAccess =
+export type ManifestAccess =
   { kind: "open" } | { kind: "owner" } | { kind: "roles"; roleNames: string[] };
 
 /** What an app's manifest declares in its `robkit` field, for core's catalog. */
-export interface AppDeclaration {
+export interface AppManifest {
   /** Who may open the app once core adds it. Owner-only if left out. */
-  access?: DeclaredAccess;
+  access?: ManifestAccess;
   /** An emoji the launcher shows. */
   icon?: string;
 }
 
-/** An app as the install declares it to core, in `ROBKIT_APPS`. */
-export interface DeclaredApp extends AppDeclaration {
+/** An app as `ROBKIT_APPS` lists it to core: its slug and its manifest. */
+export interface ListedApp extends AppManifest {
   slug: Slug;
 }
 
@@ -37,7 +37,7 @@ function isOneEmoji(text: string): boolean {
   return first !== undefined && rest.length === 0 && emoji.test(first.segment);
 }
 
-function readDeclaredAccess(value: unknown): DeclaredAccess | undefined {
+function readManifestAccess(value: unknown): ManifestAccess | undefined {
   if (!isRecord(value)) return undefined;
   const { kind, roles } = value;
   if (kind === "open" || kind === "owner") return { kind };
@@ -54,41 +54,41 @@ function readDeclaredAccess(value: unknown): DeclaredAccess | undefined {
  * What an app declares, from its manifest's `robkit` field. `field` is
  * where the value sits, which each problem names.
  */
-export function readAppDeclaration(
+export function readAppManifest(
   value: unknown,
   field = "robkit",
-): AppDeclaration | InputProblem {
+): AppManifest | InputProblem {
   if (value === undefined) return {};
   if (!isRecord(value)) {
-    return {
-      error: `${field} must be an object, such as {"access": {"kind": "open"}, "icon": "📝"}, or left out.`,
-    };
+    return problem(
+      `${field} must be an object, such as {"access": {"kind": "open"}, "icon": "📝"}, or left out.`,
+    );
   }
-  const declares: AppDeclaration = {};
+  const manifest: AppManifest = {};
   if (value.access !== undefined) {
-    const access = readDeclaredAccess(value.access);
+    const access = readManifestAccess(value.access);
     if (!access) {
-      return {
-        error: `${field}.access must be {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": ["Family"]} naming at least one role.`,
-      };
+      return problem(
+        `${field}.access must be {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": ["Family"]} naming at least one role.`,
+      );
     }
-    declares.access = access;
+    manifest.access = access;
   }
   if (value.icon !== undefined) {
     const { icon } = value;
     if (typeof icon !== "string" || !isOneEmoji(icon)) {
-      return { error: `${field}.icon must be one emoji, such as "📝".` };
+      return problem(`${field}.icon must be one emoji, such as "📝".`);
     }
-    declares.icon = icon;
+    manifest.icon = icon;
   }
-  return declares;
+  return manifest;
 }
 
 /** What an app declares, as its manifest and `ROBKIT_APPS` write it. */
-export function appDeclarationJson({
+export function appManifestJson({
   access,
   icon,
-}: AppDeclaration): Record<string, unknown> {
+}: AppManifest): Record<string, unknown> {
   return {
     ...(access && {
       access:
@@ -101,19 +101,19 @@ export function appDeclarationJson({
 }
 
 /** One app in `ROBKIT_APPS`, whose place `field` names. */
-export function readDeclaredApp(
+export function readListedApp(
   value: unknown,
   field: string,
-): DeclaredApp | InputProblem {
+): ListedApp | InputProblem {
   if (!isRecord(value)) {
-    return {
-      error: `${field} must be an object with the app's slug, such as {"slug": "notes"}.`,
-    };
+    return problem(
+      `${field} must be an object with the app's slug, such as {"slug": "notes"}.`,
+    );
   }
   const slug = readSlug(value.slug);
   if (isProblem(slug)) {
-    return { error: `${field}.slug: ${slug.error}` };
+    return problem(`${field}.slug: ${slug.error}`);
   }
-  const declares = readAppDeclaration(value, field);
-  return isProblem(declares) ? declares : { slug, ...declares };
+  const manifest = readAppManifest(value, field);
+  return isProblem(manifest) ? manifest : { slug, ...manifest };
 }

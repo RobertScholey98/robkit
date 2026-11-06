@@ -17,7 +17,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 ## Layout
 
 - `apps/<slug>` is an app. Its folder name is its slug, its subdomain (`<slug>.robkit.localhost` locally) and its Postgres role and schema. A slug is lowercase letters and digits, starting with a letter. Each app has its own `AGENTS.md` for its stack.
-- `apps/core` runs `@robkit/core`, the backend. `apps/hub` and `apps/admin` are the platform's own apps.
+- `apps/core` runs core, from `@robkit/core`. `apps/hub` and `apps/admin` are the platform's own apps.
 - `packages/` holds code the apps share, such as `packages/core-client`, which the hub and admin call core through.
 - `packages/theme/theme.css` holds the install's look: its colour, radius and font variables. The hub and admin draw with Tailwind classes named after them, such as `bg-primary`, so changing a variable restyles both. Every control they draw comes from their own `ui.tsx`, which draws with the install's UI kit: shadcn on Base UI, in `packages/ui`, with its own `AGENTS.md`. Every app draws with it too.
 - `robkit.json` marks this folder as a robkit install, and records the stack init gave the example app. The `robkit` commands refuse a folder without it.
@@ -42,6 +42,6 @@ Each app has a `start` script, which migrates its database if it has one and the
 
 ## Dev tools
 
-- **ESLint and Prettier.** `pnpm lint` runs ESLint after `robkit check`, with the rules in `eslint.config.js`. `pnpm format` formats the install with Prettier, and CI fails on a file Prettier would change.
+- **ESLint and Prettier.** `pnpm lint` runs ESLint after `robkit check`. `eslint.config.js` lints with robkit's own policy, which create-robkit copied into `tooling/eslint`: a `catch` uses its error or says why not, a thrown `Error` names what failed or keeps its `cause`, parsed JSON goes through a reader rather than a cast, and an `eslint-disable` says why after `--`. Each message says what to do. `pnpm format` formats the install with Prettier, and CI fails on a file Prettier would change.
 - **Vitest.** Each test sits beside the code it covers, as `<name>.test.ts`, and `pnpm test` runs every package's tests. In a test, `fakeCore` from `@internal/core-client/fake-core` answers for core.
 - **Husky and lint-staged.** Before each commit, a hook in `.husky/pre-commit` runs lint-staged, which runs what `lint-staged.config.js` names on the staged files and refuses the commit if any of it fails. `pnpm install` sets the hook up.

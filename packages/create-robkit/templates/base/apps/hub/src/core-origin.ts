@@ -1,5 +1,5 @@
 import type { Slug } from "@robkit/input";
-import { type Install, installAt } from "@robkit/session/addresses";
+import { type Install, installAt } from "@robkit/input/addresses";
 
 /**
  * The install the hub's page is on. The hub answers on `hub.<domain>`, so it

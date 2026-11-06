@@ -1,5 +1,5 @@
 import { CommandProblem } from "@robkit/dev/cli";
-import { type InputProblem, isRecord } from "@robkit/input";
+import { type InputProblem, isRecord, problem } from "@robkit/input";
 
 /** A stack an app can be made on. */
 interface StackOption {
@@ -61,23 +61,22 @@ export function stackFrom(value: string): Stack {
 /** The choices `robkit.json` records, read from `value`. */
 export function readChoices(value: unknown): Choices | InputProblem {
   if (!isRecord(value)) {
-    return {
-      error:
-        'robkit.json must be a JSON object, such as {"exampleStack": "start"}. Init wrote it; restore it from git if it has changed.',
-    };
+    return problem(
+      'robkit.json must be a JSON object, such as {"exampleStack": "start"}. Init wrote it; restore it from git if it has changed.',
+    );
   }
   const options = readyStacks.join(" or ");
   const { exampleStack } = value;
   if (exampleStack === undefined) {
-    return {
-      error: `robkit.json: exampleStack is missing. Set it to the example app's stack: ${options}.`,
-    };
+    return problem(
+      `robkit.json: exampleStack is missing. Set it to the example app's stack: ${options}.`,
+    );
   }
   const stack = readyStacks.find((ready) => ready === exampleStack);
   if (stack === undefined) {
-    return {
-      error: `robkit.json: exampleStack is ${JSON.stringify(exampleStack)}, which robkit can't make. Set it to ${options}.`,
-    };
+    return problem(
+      `robkit.json: exampleStack is ${JSON.stringify(exampleStack)}, which robkit can't make. Set it to ${options}.`,
+    );
   }
   return { exampleStack: stack };
 }

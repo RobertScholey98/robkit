@@ -87,7 +87,8 @@ function AppList({
   if (listing === undefined) {
     return <p className="text-sm text-muted-foreground">Loading apps…</p>;
   }
-  if (!listing.ok) return <FormError>{listing.error}</FormError>;
+  if (listing.outcome === "failed")
+    return <FormError>{listing.error}</FormError>;
   if (listing.value.length === 0) return <NoApps profile={profile} />;
   return (
     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

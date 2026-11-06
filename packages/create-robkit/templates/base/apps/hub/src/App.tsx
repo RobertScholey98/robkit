@@ -1,3 +1,4 @@
+import { reportToConsole } from "@robkit/input/report";
 import { useEffect, useState } from "react";
 import { getSession, signInWithCode, type Session } from "./core-api.ts";
 import { coreOrigin, returnTo } from "./core-origin.ts";
@@ -17,7 +18,12 @@ export function App() {
   try {
     core = coreOrigin(location.href);
   } catch (error) {
-    return <Unreachable reason={String(error)} />;
+    // Off hub.<domain>, the hub can't tell where core is. The console gets
+    // why; the page says what to check.
+    reportToConsole("The hub couldn't find core from its address.", error);
+    return (
+      <Unreachable reason="Can't reach core. Check that `pnpm dev` is running, and open the hub at the address it prints." />
+    );
   }
   return <Hub core={core} />;
 }
@@ -33,7 +39,7 @@ function Hub({ core }: { core: string }) {
       void getSession(core).then((result) => {
         if (!current) return;
         setScreen(
-          result.ok
+          result.outcome === "ok"
             ? result.value
             : { state: "unreachable", reason: result.error },
         );
@@ -45,7 +51,7 @@ function Hub({ core }: { core: string }) {
       void signInWithCode(core, intro).then((result) => {
         if (!current) return;
         setScreen(
-          result.ok
+          result.outcome === "ok"
             ? result.value
             : { state: "code-refused", error: result.error },
         );

@@ -1,3 +1,6 @@
+import { expect, it } from "vitest";
+import type { DevStack } from "./dev-stack.ts";
+import { addedIcon, addedSlug } from "./install.ts";
 import type { Slug } from "@robkit/input";
 import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
@@ -40,4 +43,22 @@ export async function addedAppJourney({
   } finally {
     await browser.close();
   }
+}
+
+/** The added app's journey, as a test of `dev`. */
+export function testAddedAppJourney(dev: DevStack): void {
+  it("lets a guest open the app robkit add made, open to anyone", async () => {
+    await dev.claimed();
+
+    const journey = await addedAppJourney({
+      install: dev.addresses(),
+      slug: addedSlug,
+    });
+
+    expect(journey).toEqual({
+      icon: addedIcon,
+      openedAt: dev.at(addedSlug),
+      heading: "Signed in as a guest",
+    });
+  });
 }

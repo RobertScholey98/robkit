@@ -8,14 +8,14 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 export interface CoreConfig {
   databaseUrl: string;
   domain: Domain;
-  apps: DeclaredApp[];
+  apps: ListedApp[];
   trustedProxy?: TrustedProxy;
   host: string;
   port: number;
 }
 export interface CoreOptions {
   db: Database;
-  domain: string;
+  domain: Domain;
   now?: () => Date;
   trustedProxy?: TrustedProxy | undefined;
   logError?: Report;
@@ -28,13 +28,13 @@ export function createApp({
   logError,
 }: CoreOptions): Hono;
 export function createDatabase(databaseUrl: string): Database;
-export interface Database extends Connection {}
+export type Database = ReturnType<typeof connect>;
 export function ensureSigningKey(db: Database): Promise<SigningKey>;
 export function migrate(databaseUrl: string): Promise<void>;
 export function readCoreConfig(env: Env): CoreConfig | InputProblem;
 export function registerApps(
   db: Database,
-  declared: readonly DeclaredApp[],
+  declared: readonly ListedApp[],
 ): Promise<void>;
 export interface SigningKey {
   kid: string;

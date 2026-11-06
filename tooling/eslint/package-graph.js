@@ -57,9 +57,11 @@ export const packageGraph = {
     ],
   },
   "@robkit/dev": {
-    dependencies: ["@robkit/input", "@robkit/session"],
+    dependencies: ["@robkit/input"],
     devDependencies: ["@internal/test-postgres", "@internal/test-session"],
   },
+  // `robkit check` refuses an app that reads the session cookie by its name,
+  // which it takes from session.
   "create-robkit": {
     dependencies: ["@robkit/dev", "@robkit/input", "@robkit/session"],
     devDependencies: ["@internal/test-session"],
@@ -94,7 +96,6 @@ export const packageGraph = {
       "@internal/test-session",
       "@robkit/dev",
       "@robkit/input",
-      "@robkit/session",
       "create-robkit",
     ],
   },

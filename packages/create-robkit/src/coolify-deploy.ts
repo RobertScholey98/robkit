@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { CommandProblem } from "@robkit/dev/cli";
 import type { Slug } from "@robkit/input";
-import { install } from "@robkit/session/addresses";
+import { install } from "@robkit/input/addresses";
 import {
   callCoolify,
   whatToCheck,
@@ -158,11 +158,15 @@ async function syncApps(
           body: { ...target, instant_deploy: false, ...app.settings },
         });
     const uuid =
-      found ?? (saved.ok ? stringFieldOf(saved.body, "uuid") : undefined);
-    if (!saved.ok || !uuid) {
-      const failure = saved.ok
-        ? { detail: "Coolify returned no uuid", check: whatToCheck.coolify }
-        : saved;
+      found ??
+      (saved.outcome === "answered"
+        ? stringFieldOf(saved.body, "uuid")
+        : undefined);
+    if (saved.outcome === "failed" || !uuid) {
+      const failure =
+        saved.outcome === "answered"
+          ? { detail: "Coolify returned no uuid", check: whatToCheck.coolify }
+          : saved;
       results.push({
         slug: app.slug,
         action: "failed",
@@ -179,7 +183,7 @@ async function syncApps(
       },
     );
     results.push(
-      envs.ok
+      envs.outcome === "answered"
         ? { slug: app.slug, action: found ? "synced" : "created", uuid }
         : {
             slug: app.slug,
@@ -252,7 +256,7 @@ async function deployAndWait(
     `/deploy?uuid=${encodeURIComponent(uuid)}`,
     { deadline },
   );
-  if (!queued.ok) {
+  if (queued.outcome === "failed") {
     return {
       ok: false,
       detail: `queueing its deploy: ${describeFailure(queued)}`,
@@ -286,7 +290,7 @@ async function deployAndWait(
         detail: `still ${last} after ${describeDuration(timeoutMs)}. ${whatToCheck.deployment}`,
       };
     }
-    if (result.ok) {
+    if (result.outcome === "answered") {
       misses = 0;
       last = stringFieldOf(result.body, "status") ?? last;
       if (last === "finished") return { ok: true, detail: "finished" };

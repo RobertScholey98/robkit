@@ -3,6 +3,8 @@ import {
   isDomain,
   isProblem,
   isRecord,
+  problem,
+  type Domain,
 } from "@robkit/input";
 import type { TrustedProxy } from "./deployment.ts";
 
@@ -17,7 +19,7 @@ export interface CoolifyConfig {
   repository: string;
   branch: string;
   /** The domain the install answers on, such as `robkit.dev`. */
-  domain: string;
+  domain: Domain;
   /** `cloudflare` when only a Cloudflare tunnel reaches the host. */
   trustedProxy?: TrustedProxy;
 }
@@ -38,18 +40,17 @@ export function readCoolifyConfig(
   value: unknown,
 ): CoolifyConfig | InputProblem {
   if (!isRecord(value)) {
-    return {
-      error:
-        "coolify.json must be a JSON object with project, environment, server, githubApp, repository, branch and domain. See docs/deploy.md.",
-    };
+    return problem(
+      "coolify.json must be a JSON object with project, environment, server, githubApp, repository, branch and domain. See docs/deploy.md.",
+    );
   }
   const text = (key: keyof typeof settings): string | InputProblem => {
     const found = value[key];
     return typeof found === "string" && found !== ""
       ? found
-      : {
-          error: `coolify.json: ${key} must be a non-empty string: ${settings[key]}.`,
-        };
+      : problem(
+          `coolify.json: ${key} must be a non-empty string: ${settings[key]}.`,
+        );
   };
   const project = text("project");
   const environment = text("environment");
@@ -66,16 +67,15 @@ export function readCoolifyConfig(
   if (isProblem(branch)) return branch;
   if (isProblem(domain)) return domain;
   if (!isDomain(domain)) {
-    return {
-      error: `coolify.json: domain is "${domain}", which isn't a domain. Set it to the domain the install answers on alone, such as robkit.dev.`,
-    };
+    return problem(
+      `coolify.json: domain is "${domain}", which isn't a domain. Set it to the domain the install answers on alone, such as robkit.dev.`,
+    );
   }
   const { trustedProxy } = value;
   if (trustedProxy !== undefined && trustedProxy !== "cloudflare") {
-    return {
-      error:
-        'coolify.json: trustedProxy must be "cloudflare", when only a Cloudflare tunnel reaches the host, or left out.',
-    };
+    return problem(
+      'coolify.json: trustedProxy must be "cloudflare", when only a Cloudflare tunnel reaches the host, or left out.',
+    );
   }
   return {
     project,

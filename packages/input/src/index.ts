@@ -1,6 +1,7 @@
 // Reading input from outside robkit's own code: environment variables,
-// JSON, an app's slug and its manifest. Each reader returns the typed value
-// or an InputProblem. It imports nothing, so the browser can load it. See
+// JSON and an app's slug. Each reader returns the typed value or an
+// InputProblem. It imports nothing, so the browser can load it. The manifest
+// format, an install's addresses and Report are subpaths of their own. See
 // docs/conventions/input.md.
 
 export {
@@ -8,6 +9,7 @@ export {
   isProblem,
   isRecord,
   orThrow,
+  problem,
   type InputProblem,
 } from "./problem.ts";
 export { parseJson } from "./json.ts";
@@ -38,11 +40,3 @@ export {
   readGuardEnv,
   readServeEnv,
 } from "./app-env.ts";
-export {
-  appDeclarationJson,
-  readAppDeclaration,
-  readDeclaredApp,
-  type AppDeclaration,
-  type DeclaredAccess,
-  type DeclaredApp,
-} from "./manifest.ts";

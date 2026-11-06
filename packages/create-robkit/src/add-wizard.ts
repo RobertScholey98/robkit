@@ -1,10 +1,4 @@
-import {
-  intro,
-  isCancel,
-  select,
-  text,
-  type CANCEL_SYMBOL,
-} from "@clack/prompts";
+import { isCancel, type CANCEL_SYMBOL } from "@clack/prompts";
 import { CommandProblem } from "@robkit/dev/cli";
 import { isProblem, readSlug } from "@robkit/input";
 import { newSlugProblem, readNewSlug, type AppChoices } from "./add.ts";
@@ -15,6 +9,7 @@ import {
   type Stack,
 } from "./choices.ts";
 import { defaultIcon } from "./generate.ts";
+import { terminalPrompts, type Prompts } from "./prompts.ts";
 
 /** Who may open a new app, as `--access` spells it and the wizard asks it. */
 const accessOptions = [
@@ -99,12 +94,13 @@ function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
 }
 
 /**
- * Asks robkit add's questions for the install at `root`, skipping the name
- * when it's already given.
+ * Asks robkit add's questions for the install at `root` with `prompts`,
+ * skipping the name when it's already given.
  */
 export async function askAdd(
   root: string,
   given?: string,
+  { intro, text, select }: Prompts = terminalPrompts,
 ): Promise<AppChoices> {
   if (given !== undefined) {
     const problem = newSlugProblem(root, given);

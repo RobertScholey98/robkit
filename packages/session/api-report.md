@@ -55,13 +55,13 @@ export function readSessionToken(
 export type ReadSessionToken = SessionTokenClaims & {
   expired: boolean;
 };
-export type Report = (message: string, cause?: unknown) => void;
-export const reportToConsole: Report;
 export type RequestDecision =
   | {
+      outcome: "serve";
       viewer: Viewer;
     }
   | {
+      outcome: "answer";
       response: Response;
     };
 export function requestGuard(
@@ -86,29 +86,6 @@ export type ViewerClaims =
       id: CodeId;
       roles: RoleId[];
     };
-```
-
-## @robkit/session/addresses
-
-```ts
-export function coreInstall(core: CoreOrigin): Install;
-export const defaultDevPort: 3000;
-export const defaultDomain: "robkit.localhost";
-export function install({ domain, protocol, port }: InstallOptions): Install;
-export interface Install {
-  readonly domain: string;
-  host(slug: Slug): string;
-  origin(slug: Slug): string;
-  onInstall(url: string | undefined): string | undefined;
-  appOf(url: string | URL): Slug | undefined;
-}
-export function installAt(url: string | URL, app: string): Install | undefined;
-export interface InstallOptions {
-  domain: string;
-  protocol?: "http" | "https";
-  port?: number | undefined;
-}
-export function isLocal(domain: string): boolean;
 ```
 
 ## @robkit/session/lapsed

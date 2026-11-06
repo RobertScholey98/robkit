@@ -42,6 +42,20 @@ describe("loopbackFetch", () => {
     expect(await res.text()).toBe('{"kind":"owner"}');
   });
 
+  it("leaves a name outside localhost to fetch", async () => {
+    const url = await served((res) => {
+      res.writeHead(201, { "content-type": "application/json" });
+      res.end('{"kind":"open"}');
+    });
+    const direct = new URL(url);
+    direct.hostname = "127.0.0.1";
+
+    const res = await get(direct.href);
+
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ kind: "open" });
+  });
+
   it("answers once the headers arrive, as fetch does, so a body cut off fails its read", async () => {
     const url = await served((res) => {
       res.writeHead(200, { "content-type": "application/json" });

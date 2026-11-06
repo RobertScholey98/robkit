@@ -1,13 +1,13 @@
 import { exec as execCallback, spawn } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { appendFile, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { describe, it, onTestFinished } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { defaultChoices, init } from "./index.ts";
 
 // The hub's, admin's and core-client's own unit tests, and the install's
-// lint, run in a new install linked to this checkout. They need no Docker,
+// lint and typecheck, run in a new install linked to this checkout. They need no Docker,
 // so pnpm check runs them; the whole-stack test runs them too, in the
 // install's own CI workflow.
 //
@@ -45,12 +45,28 @@ function removeLater(dir: string): void {
   ).unref();
 }
 
-describe("a new install", () => {
-  it("passes its hub's, admin's and core-client's tests, and its lint", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "robkit-install-checks-"));
-    onTestFinished(() => {
-      removeLater(dir);
-    });
+/**
+ * What pnpm check runs in a new install: the hub's, admin's and
+ * core-client's tests, the install's lint, and the install's typecheck.
+ * Rejects naming the first that fails.
+ */
+async function checkInstall(dir: string): Promise<void> {
+  await Promise.all([
+    inInstall(
+      dir,
+      "pnpm --filter @internal/hub-app --filter @internal/admin-app --filter @internal/core-client test",
+    ),
+    inInstall(dir, "pnpm lint"),
+    inInstall(dir, "pnpm typecheck"),
+  ]);
+}
+
+// One install for both tests, in order: the second breaks it.
+describe("a new install", { concurrent: false }, () => {
+  let dir: string;
+
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "robkit-install-checks-"));
     await init(defaultChoices, dir, { link: true });
     // pnpm needs no registry for what its store already holds, and the
     // checks need none of the packages' install scripts, such as Husky's.
@@ -58,13 +74,22 @@ describe("a new install", () => {
       dir,
       "pnpm install --no-frozen-lockfile --prefer-offline --ignore-scripts",
     );
+  }, 240_000);
 
-    await Promise.all([
-      inInstall(
-        dir,
-        "pnpm --filter @internal/hub-app --filter @internal/admin-app --filter @internal/core-client test",
-      ),
-      inInstall(dir, "pnpm lint"),
-    ]);
+  afterAll(() => {
+    removeLater(dir);
+  });
+
+  it("passes its hub's, admin's and core-client's tests, its lint and its typecheck", async () => {
+    await checkInstall(dir);
+  }, 240_000);
+
+  it("fails on a type error in a template's file", async () => {
+    const file = join(dir, "apps/hub/src/core-api.ts");
+    await appendFile(file, 'export const port: number = "3000";\n');
+
+    await expect(checkInstall(dir)).rejects.toThrow(
+      "`pnpm typecheck` failed in the new install.",
+    );
   }, 240_000);
 });

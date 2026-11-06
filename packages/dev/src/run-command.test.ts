@@ -1,4 +1,4 @@
-import type { Report } from "@robkit/session";
+import type { Report } from "@robkit/input/report";
 import { describe, expect, it } from "vitest";
 import { CommandProblem, reportFaultsAt, runCommand } from "./run-command.ts";
 

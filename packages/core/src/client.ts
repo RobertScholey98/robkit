@@ -1,4 +1,4 @@
-import type { Env, InputProblem } from "@robkit/input";
+import { type Env, type InputProblem, problem } from "@robkit/input";
 import type { Context } from "hono";
 
 /** A proxy in front of the one that reaches core, which names the visitor. */
@@ -11,9 +11,9 @@ export function readTrustedProxy(
   const value = env.ROBKIT_TRUSTED_PROXY;
   if (!value) return undefined;
   if (value === "cloudflare") return value;
-  return {
-    error: `ROBKIT_TRUSTED_PROXY is "${value}". Set it to cloudflare when only a Cloudflare tunnel reaches the host, or leave it unset.`,
-  };
+  return problem(
+    `ROBKIT_TRUSTED_PROXY is "${value}". Set it to cloudflare when only a Cloudflare tunnel reaches the host, or leave it unset.`,
+  );
 }
 
 /**

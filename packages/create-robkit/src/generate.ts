@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { type AppDeclaration, appDeclarationJson } from "@robkit/input";
+import { type AppManifest, appManifestJson } from "@robkit/input/manifest";
 import { jsonObject, stringsIn } from "./json.ts";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
@@ -80,14 +80,14 @@ export const defaultIcon = "📦";
 export function appFiles(
   template: Files,
   slug: string,
-  declares: AppDeclaration = {},
+  manifest: AppManifest = {},
 ): Files {
   const files: Files = new Map(template);
   editJson(files, "package.json", (json) => ({
     name: `@internal/${slug}-app`,
     ...json,
-    ...(Object.keys(declares).length > 0 && {
-      robkit: appDeclarationJson(declares),
+    ...(Object.keys(manifest).length > 0 && {
+      robkit: appManifestJson(manifest),
     }),
   }));
   return files;
@@ -153,6 +153,9 @@ async function renderSettings(
   }));
 }
 
+/** Where an install keeps robkit's lint policy, from its root. */
+const lintPolicyDir = "tooling/eslint";
+
 /** The install init writes for `choices`, file by file. */
 export async function generateInstall(
   choices: Choices,
@@ -175,7 +178,12 @@ export async function generateInstall(
     ...files,
     ...stacks.flatMap((stack) => [...stack]),
   ]);
-  await renderSettings(files, names, await readRobkitRepo(), options);
+  const repo = await readRobkitRepo();
+  await renderSettings(files, names, repo, options);
+  // The install lints with the policy robkit lints itself with.
+  for (const [name, text] of repo.lintPolicy) {
+    files.set(`${lintPolicyDir}/${name}`, text);
+  }
   files.set(
     "robkit.json",
     await format(JSON.stringify(choices), { filepath: "robkit.json" }),
