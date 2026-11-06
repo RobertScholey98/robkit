@@ -102,7 +102,7 @@ describe("an unexpected error", () => {
     );
   });
 
-  it("goes to console.error when nothing else is set", async () => {
+  it("goes to console.error when nothing else is set, the message then the cause", async () => {
     const unreachable = createDatabase(
       `postgres://core:x@127.0.0.1:${String(await freePort())}/robkit`,
     );
@@ -115,10 +115,13 @@ describe("an unexpected error", () => {
     await app.request("/.well-known/jwks.json");
     await unreachable.$client.end();
 
-    expect(log.mock.calls.map(([message]) => message as unknown)).toEqual([
-      expect.stringMatching(
-        /^GET \/\.well-known\/jwks\.json failed \(request [0-9a-f-]{36}\)\.$/,
-      ),
+    expect(log.mock.calls).toEqual([
+      [
+        expect.stringMatching(
+          /^GET \/\.well-known\/jwks\.json failed \(request [0-9a-f-]{36}\)\.$/,
+        ),
+      ],
+      [expect.any(Error)],
     ]);
   });
 });

@@ -6,7 +6,13 @@ import { setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
-import { appSessionUrl, sessionCookie, sessionTokensIn } from "@robkit/session";
+import {
+  appSessionUrl,
+  reportToConsole,
+  sessionCookie,
+  sessionTokensIn,
+  type Report,
+} from "@robkit/session";
 import { install, isLocal, platformApps } from "@robkit/session/addresses";
 import { isRecord } from "@robkit/session/input";
 import {
@@ -60,9 +66,10 @@ export interface CoreOptions {
   trustedProxy?: TrustedProxy | undefined;
   /**
    * Where core reports what it can't answer usefully: an unexpected error in
-   * a route, or the database being unreachable. Defaults to console.error.
+   * a route, or the database being unreachable. Defaults to
+   * `reportToConsole`.
    */
-  logError?: (message: string, cause: unknown) => void;
+  logError?: Report;
 }
 
 /** What a route that needs the viewer finds in `c.var`. */
@@ -133,7 +140,7 @@ export function createApp({
   domain,
   now = () => new Date(),
   trustedProxy,
-  logError = console.error,
+  logError = reportToConsole,
 }: CoreOptions): Hono {
   const app = new Hono();
   // Hono's own answer to a route that throws. The cause stays in core's log
