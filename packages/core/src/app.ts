@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
@@ -5,7 +6,13 @@ import { setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
-import { appSessionUrl, sessionCookie, sessionTokensIn } from "@robkit/session";
+import {
+  appSessionUrl,
+  reportToConsole,
+  sessionCookie,
+  sessionTokensIn,
+  type Report,
+} from "@robkit/session";
 import { install, isLocal, platformApps } from "@robkit/session/addresses";
 import { isRecord } from "@robkit/session/input";
 import {
@@ -59,9 +66,10 @@ export interface CoreOptions {
   trustedProxy?: TrustedProxy | undefined;
   /**
    * Where core reports what it can't answer usefully: an unexpected error in
-   * a route, or the database being unreachable. Defaults to console.error.
+   * a route, or the database being unreachable. Defaults to
+   * `reportToConsole`.
    */
-  logError?: (message: string, cause: unknown) => void;
+  logError?: Report;
 }
 
 /** What a route that needs the viewer finds in `c.var`. */
@@ -132,17 +140,26 @@ export function createApp({
   domain,
   now = () => new Date(),
   trustedProxy,
-  logError = console.error,
+  logError = reportToConsole,
 }: CoreOptions): Hono {
   const app = new Hono();
   // Hono's own answer to a route that throws. The cause stays in core's log
-  // and the caller gets a generic error.
+  // and the caller gets a generic error, with a request id that finds the
+  // log line.
   app.onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
-    logError(`${c.req.method} ${c.req.path} failed.`, error);
+    const requestId = randomUUID();
+    logError(
+      `${c.req.method} ${c.req.path} failed (request ${requestId}).`,
+      error,
+    );
     return c.json(
-      { error: "Core hit an unexpected error. Its log says what went wrong." },
+      {
+        error: `Core hit an unexpected error. Look for request ${requestId} in core's log to see what went wrong.`,
+        requestId,
+      },
       500,
+      { "X-Request-Id": requestId },
     );
   });
   const addresses = install({ domain });

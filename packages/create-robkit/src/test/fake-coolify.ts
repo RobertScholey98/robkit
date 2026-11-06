@@ -127,7 +127,10 @@ export function fakeFetch(state: FakeCoolify): typeof fetch {
       raw ? (JSON.parse(raw) as unknown) : undefined,
     );
     if (result === "hang") {
-      const { signal } = request;
+      // The caller's own signal: the Request's copy follows it through a
+      // weak reference, so it can miss the abort once the Request is
+      // garbage collected.
+      const signal = init?.signal ?? request.signal;
       return new Promise((_, reject) => {
         signal.addEventListener("abort", () => {
           reject(signal.reason as Error);

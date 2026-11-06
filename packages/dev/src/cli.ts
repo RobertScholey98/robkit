@@ -1,3 +1,5 @@
+import { reportToConsole, type Report } from "@robkit/session";
+
 /**
  * A problem the person running a command can fix, such as a flag it lacks or
  * a folder that isn't an install. Its message says what to do, so the
@@ -13,25 +15,26 @@ export const reportFaultsAt =
 
 /**
  * The one top-level handler of each of robkit's command lines. Runs `main`
- * and returns its exit code. A {@link Problem} prints its message and exits
- * 1. Anything else is a fault in robkit: it prints whole, with its stack and
- * cause, then where to report it, and exits 1.
+ * and returns its exit code. A {@link Problem} reports its message alone and
+ * exits 1. Anything else is a fault in robkit: it reports that it's a bug and
+ * where to report it, with the fault as the cause, so its stack and causes
+ * print whole, and exits 1.
  *
- * @param print where the lines go, `console.error` by default
+ * @param report where the lines go, `reportToConsole` by default
  */
 export async function runCommand(
   main: () => Promise<number | undefined>,
-  print: (...line: unknown[]) => void = console.error,
+  report: Report = reportToConsole,
 ): Promise<number> {
   try {
     return (await main()) ?? 0;
   } catch (error) {
     if (error instanceof Problem) {
-      print(error.message);
+      report(error.message);
     } else {
-      print(error);
-      print(
-        `That's a bug in robkit. Report it at ${reportFaultsAt}, with the output above.`,
+      report(
+        `robkit hit a bug. Report it at ${reportFaultsAt}, with the error below.`,
+        error,
       );
     }
     return 1;
