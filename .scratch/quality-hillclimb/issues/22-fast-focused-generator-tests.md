@@ -53,7 +53,7 @@ Raises rubric categories 8 (testing) and 10 (nice to work in as a human). Eviden
 
 - Red first: the wizard tests hung on clack's terminal prompts before the seam. The type-error test failed with "promise resolved instead of rejecting" without `pnpm typecheck` in the check. The completeness test failed on both stacks when I made the generator drop `Dockerfile` and rewrite `turbo.json`.
 - turbo's dry run hashes before and after a repo-checks run differed only in `coverage/*` files.
-- Coverage on Windows: 81.9 / 76.1 / 90.7 / 82.7, from about 74 / 66 / 80 / 74. The thresholds are 81 / 76 / 90 / 82.
+- Coverage: CI measured 81.9 / 75.9 / 90.7 / 82.7 (Windows: 76.1 branches), from about 74 / 66 / 80 / 74. The thresholds are CI's figures rounded down: 81 / 75 / 90 / 82.
 
 **What I couldn't verify.** Timings on a quiet machine. The install check still takes 25 to 45 seconds and is most of `test:unit`.
 
