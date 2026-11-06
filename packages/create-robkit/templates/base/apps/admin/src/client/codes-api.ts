@@ -1,4 +1,4 @@
-import { installAt } from "@robkit/session/addresses";
+import { installAt } from "@robkit/input/addresses";
 import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
 
 /** Whether a code signs a guest in, and if not, why not. */

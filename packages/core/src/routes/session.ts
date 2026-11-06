@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { validator } from "hono/validator";
 import { appSessionUrl, sessionTokensIn } from "@robkit/session";
-import { install, isLocal } from "@robkit/session/addresses";
+import { install, isLocal } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
 import { parseAccessCode } from "../access-codes.ts";
 import { clientOf } from "../client.ts";

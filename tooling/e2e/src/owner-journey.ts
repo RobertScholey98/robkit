@@ -2,7 +2,7 @@ import { decodeJwt, importJWK, SignJWT, type JWK } from "jose";
 import type { BrowserContext, Cookie, Page } from "playwright";
 import { launch } from "./browser.ts";
 import postgres from "postgres";
-import type { Install } from "@robkit/session/addresses";
+import type { Install } from "@robkit/input/addresses";
 import { exampleSlug } from "./install.ts";
 
 export interface JourneyOptions {

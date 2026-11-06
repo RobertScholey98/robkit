@@ -12,7 +12,7 @@ import {
   readSlug,
   type Slug,
 } from "@robkit/input";
-import { install } from "@robkit/session/addresses";
+import { install } from "@robkit/input/addresses";
 import { isMissing } from "./files.ts";
 import type { Route } from "./proxy.ts";
 import { CommandProblem } from "./run-command.ts";

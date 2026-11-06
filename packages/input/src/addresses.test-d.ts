@@ -1,7 +1,6 @@
 import { describe, expectTypeOf, it } from "vitest";
-import type { GuardFault } from "./index.ts";
-import type { Slug } from "@robkit/input";
 import { install, type Install } from "./addresses.ts";
+import type { Slug } from "./slug.ts";
 
 declare const notes: Slug;
 const addresses = install({ domain: "robkit.dev" });
@@ -19,9 +18,5 @@ describe("the addresses' types", () => {
     addresses.origin("bad/path");
     // @ts-expect-error Nor has a string from anywhere else.
     addresses.origin(String(notes));
-  });
-
-  it("names the guard's app by its slug when it can't check a request", () => {
-    expectTypeOf<GuardFault["app"]>().toEqualTypeOf<Slug>();
   });
 });

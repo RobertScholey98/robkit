@@ -69,6 +69,10 @@ describe("session's types", () => {
     fault({ app: notes, failed: "network", reason: "unknown-app", cause: 1 });
   });
 
+  it("names the guard's app by its slug when it can't check a request", () => {
+    expectTypeOf<GuardFault["app"]>().toEqualTypeOf<Slug>();
+  });
+
   it("keeps role names apart from the guard's role ids", () => {
     declared({ kind: "roles", roleNames: ["Family"] });
     rule({ kind: "roles", roles: [family] });

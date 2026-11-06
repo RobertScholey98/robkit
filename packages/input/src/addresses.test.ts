@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { orThrow, readCoreUrl } from "@robkit/input";
 import {
   coreInstall,
   defaultDevPort,
@@ -8,7 +7,14 @@ import {
   installAt,
   isLocal,
 } from "./addresses.ts";
-import { slug } from "@internal/test-session";
+import { readCoreUrl } from "./env.ts";
+import { orThrow } from "./problem.ts";
+import { readSlug, type Slug } from "./slug.ts";
+
+/** `name` read as a slug, for a test that names one. */
+function slug(name: string): Slug {
+  return orThrow(readSlug(name));
+}
 
 describe("an install's addresses", () => {
   it("puts each app on its own subdomain of a local install", () => {

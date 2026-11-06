@@ -5,7 +5,7 @@ import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { reportToConsole, type Report } from "@robkit/session";
 import { platformApps } from "@robkit/input";
-import { install } from "@robkit/session/addresses";
+import { install } from "@robkit/input/addresses";
 import type { TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
 import type { RouteContext } from "./routes/context.ts";

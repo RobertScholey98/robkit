@@ -5,7 +5,6 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./addresses": "./src/addresses.ts",
     "./lapsed": "./src/lapsed.ts"
   },
   "publishConfig": {
@@ -13,10 +12,6 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
-      },
-      "./addresses": {
-        "types": "./dist/addresses.d.ts",
-        "default": "./dist/addresses.js"
       },
       "./lapsed": {
         "types": "./dist/lapsed.d.ts",

@@ -6,7 +6,7 @@ import {
   type Viewer,
 } from "@robkit/guard";
 import type { CoreOrigin, Slug } from "@robkit/input";
-import { coreInstall, isLocal } from "./addresses.ts";
+import { coreInstall, isLocal } from "@robkit/input/addresses";
 import { appRefreshPath } from "./app-session.ts";
 import {
   AccessRuleError,

@@ -1,8 +1,8 @@
 # @robkit/session
 
-Session tokens, the request guard, and an install's addresses. It reads and verifies the tokens core signs, runs the guard on a web-standard `Request`, and turns an install's domain into each app's address.
+Session tokens and the request guard. It reads and verifies the tokens core signs, and runs the guard on a web-standard `Request`.
 
-The adapters (`@robkit/hono`, `@robkit/start`) wrap `requestGuard`. Core uses the token readers and the addresses. The hub, admin, the dev runner and init use `@robkit/session/addresses`, and `@robkit/react` uses `@robkit/session/lapsed`. An app's own code doesn't import it: it takes the viewer from its adapter.
+The adapters (`@robkit/hono`, `@robkit/start`) wrap `requestGuard`. Core uses the token readers, and `@robkit/react` uses `@robkit/session/lapsed`. An app's own code doesn't import it: it takes the viewer from its adapter.
 
 ## Example
 
@@ -23,15 +23,6 @@ async function handle(request: Request): Promise<Response> {
 }
 ```
 
-The hub finds core from its own address (`templates/base/apps/hub/src/core-origin.ts`):
-
-```ts
-import { installAt } from "@robkit/session/addresses";
-
-installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
-// "http://core.robkit.localhost:3000"
-```
-
 ## Exports
 
 `@robkit/session`:
@@ -49,17 +40,7 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 | `SessionTokenClaims`, `ViewerClaims`, `ReadSessionToken`, `ReadAppToken`, `VerifyKey` | Their types                                                                                                                        |
 | `Report`, `reportToConsole`                                                           | The one shape for reporting a fault, `(message, cause?)`, and its default, which prints the message, then the cause with its stack |
 
-`@robkit/session/addresses` imports only `@robkit/input`, which imports nothing, so the browser can load it. `Slug`, `readSlug` and the platform apps' names are in `@robkit/input`.
-
-| Export                                | What it is                                                                                                  |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `install({ domain, protocol, port })` | An install's addresses: each app's `host` and `origin`, which take a `Slug`, `onInstall(url)`, `appOf(url)` |
-| `installAt(url, app)`                 | The install `url` is on, given that it is `app`'s address                                                   |
-| `isLocal(domain)`                     | Whether the domain is `localhost` or under it                                                               |
-| `defaultDomain`, `defaultDevPort`     | `robkit.localhost` and `3000`                                                                               |
-| `coreInstall(core)`                   | The install core's origin is on. Takes a `CoreOrigin` from `readCoreUrl`                                    |
-
-The readers for input from outside robkit's own code, an app's environment and the manifest format are in `@robkit/input`.
+The readers for input from outside robkit's own code, an app's environment, the manifest format and an install's addresses are in `@robkit/input`.
 
 `@robkit/session/lapsed` imports nothing. It holds the guard's 401 for a call whose token lapsed: `sessionLapsedResponse`, which the guard writes, and `readSessionLapsed`, which `sessionFetch` reads.
 
@@ -83,4 +64,3 @@ The readers for input from outside robkit's own code, an app's environment and t
 - The guard's code is in four files. `request-guard.ts` is the dispatcher: it reads the session, reads the rule, asks `guard` and turns the decision into an answer. `refresh-protocol.ts` holds the trip through core and back, with the state cookie and the app's own cookie, and reads the session from that cookie. `core-access.ts` loads the app's rule, keeps it for a minute, and throws an `AccessRuleError` that says how core's answer failed. `guard-http.ts` holds the helpers for reading the request and writing the answer.
 - `Report` is the one shape for reporting a fault nobody calling can handle. Core's `logError`, the guard's default `onUnavailable` and dev's `runCommand` all report through it (see `docs/conventions/errors.md`).
 - `@robkit/session/lapsed` is the guard's 401 for a call whose session has lapsed, which `sessionFetch` reads. It imports nothing, so the browser can load it.
-- `@robkit/session/addresses` turns an install's domain into its addresses: each app on `<slug>.<domain>`, the default domain and dev port, and whether a URL is on the install. Core, the guard, the hub, admin, the dev runner, init and the whole-stack test all take their addresses from it. It imports only `@robkit/input`.

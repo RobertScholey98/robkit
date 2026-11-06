@@ -5,7 +5,7 @@ import {
   discoverApps,
 } from "@robkit/dev";
 import type { Slug } from "@robkit/input";
-import { install } from "@robkit/session/addresses";
+import { install } from "@robkit/input/addresses";
 
 /**
  * A variable's value on the host: written as is, or taken from one of the

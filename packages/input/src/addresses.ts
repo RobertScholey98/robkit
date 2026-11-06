@@ -1,10 +1,12 @@
 // Where an install's apps answer. Each app, the platform apps included, is
 // on `<slug>.<domain>`, so one domain gives every address. Core, the guard,
 // the hub, admin, the dev runner and the whole-stack test all work their
-// addresses out here. It imports only @robkit/input, which imports nothing,
+// addresses out here. Like the rest of @robkit/input it imports nothing,
 // so the browser can load it.
 
-import { isProblem, readSlug, type CoreOrigin, type Slug } from "@robkit/input";
+import type { CoreOrigin } from "./env.ts";
+import { isProblem } from "./problem.ts";
+import { readSlug, type Slug } from "./slug.ts";
 
 /**
  * Whether the install runs on `localhost` or a name under it, which only

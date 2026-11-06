@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import type { CodeId } from "@robkit/guard";
-import { isLocal } from "@robkit/session/addresses";
+import { isLocal } from "@robkit/input/addresses";
 import type { InputProblem } from "@robkit/input";
 import type { Database } from "./database.ts";
 import { accessCodes } from "./schema.ts";

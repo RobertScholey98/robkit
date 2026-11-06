@@ -15,7 +15,7 @@ import {
   defaultDevPort,
   defaultDomain,
   install as addresses,
-} from "@robkit/session/addresses";
+} from "@robkit/input/addresses";
 import { addApp, readInstallChoices } from "./add.ts";
 import { readArgs } from "./args.ts";
 import {

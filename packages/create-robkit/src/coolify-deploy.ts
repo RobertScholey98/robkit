@@ -1,7 +1,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { CommandProblem } from "@robkit/dev/cli";
 import type { Slug } from "@robkit/input";
-import { install } from "@robkit/session/addresses";
+import { install } from "@robkit/input/addresses";
 import {
   callCoolify,
   whatToCheck,

@@ -39,6 +39,25 @@ PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, o
 | `platformApps`, `isPlatformApp`, `PlatformApp`                                                                   | Core, the hub and admin, whose names are slugs as they stand                                                                                |
 | `readAppDeclaration`, `appDeclarationJson`, `readDeclaredApp`, `AppDeclaration`, `DeclaredApp`, `DeclaredAccess` | The manifest format: what an app declares in its `package.json`'s `robkit` field, and each app as `ROBKIT_APPS` hands it to core            |
 
+### `@robkit/input/addresses`
+
+Where an install's apps answer. Each app is on `<slug>.<domain>`, so one domain gives every address. Core, the guard, the hub, admin, the dev runner, init and the whole-stack test all take their addresses from it. The hub finds core from its own address (`templates/base/apps/hub/src/core-origin.ts`):
+
+```ts
+import { installAt } from "@robkit/input/addresses";
+
+installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
+// "http://core.robkit.localhost:3000"
+```
+
+| Export                                | What it is                                                                                                  |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `install({ domain, protocol, port })` | An install's addresses: each app's `host` and `origin`, which take a `Slug`, `onInstall(url)`, `appOf(url)` |
+| `installAt(url, app)`                 | The install `url` is on, given that it is `app`'s address                                                   |
+| `isLocal(domain)`                     | Whether the domain is `localhost` or under it                                                               |
+| `defaultDomain`, `defaultDevPort`     | `robkit.localhost` and `3000`                                                                               |
+| `coreInstall(core)`                   | The install core's origin is on. Takes a `CoreOrigin` from `readCoreUrl`                                    |
+
 ## What it must never do
 
 - Import anything: another package, or Node's own modules. The browser loads it, and every robkit package depends on it.

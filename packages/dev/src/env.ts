@@ -10,7 +10,7 @@ import {
   readSlug,
   type Slug,
 } from "@robkit/input";
-import { defaultDevPort, defaultDomain } from "@robkit/session/addresses";
+import { defaultDevPort, defaultDomain } from "@robkit/input/addresses";
 
 /** What `robkit-dev` runs with, read from its environment. */
 export interface DevConfig {
