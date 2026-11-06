@@ -1,6 +1,7 @@
-import { CANCEL_SYMBOL, intro, isCancel, select, text } from "@clack/prompts";
+import { CANCEL_SYMBOL, isCancel } from "@clack/prompts";
 import { CommandProblem } from "@robkit/dev/cli";
 import { defaultChoices, stackFrom, stacks, type Stack } from "./choices.ts";
+import { terminalPrompts, type Prompts } from "./prompts.ts";
 import { folderInUse } from "./write.ts";
 
 /** init's answers: the install's folder and the example app's stack. */
@@ -54,8 +55,14 @@ function folderProblem(folder: string | undefined): string | undefined {
 
 const defaultFolder = "my-robkit";
 
-/** Asks init's questions, skipping the folder when it's already given. */
-export async function askInit(folder?: string): Promise<Answers> {
+/**
+ * Asks init's questions with `prompts`, skipping the folder when it's
+ * already given.
+ */
+export async function askInit(
+  folder?: string,
+  { intro, text, select }: Prompts = terminalPrompts,
+): Promise<Answers> {
   const problem = folderProblem(folder);
   if (problem) throw new CommandProblem(problem);
   intro("robkit");
