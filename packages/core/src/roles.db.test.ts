@@ -34,6 +34,41 @@ describe("GET /roles", () => {
       { id: expect.any(String) as string, name: "Friends", codeIds: [] },
     ]);
   });
+
+  it("lists each role with only the codes that hold it", async () => {
+    const { app } = await freshCore();
+    const owner = await claim(app);
+    const gran = await mint(app, owner, "Gran");
+    const sam = await mint(app, owner, "Sam");
+    const kit = await mint(app, owner, "Kit");
+    const create = (name: string, codeIds: string[]) =>
+      postJson(app, "/roles", { name, codeIds }, withSession(owner));
+    await create("Book club", [gran, kit]);
+    await create("Cooks", [sam]);
+    await create("Neighbours", []);
+
+    const byName = Object.fromEntries(
+      (await listRoles(app, owner)).map(({ name, codeIds }) => [
+        name,
+        [...codeIds].sort(),
+      ]),
+    );
+
+    expect(Object.keys(byName)).toEqual([
+      "Book club",
+      "Cooks",
+      "Family",
+      "Friends",
+      "Neighbours",
+    ]);
+    expect(byName).toEqual({
+      "Book club": [gran, kit].sort(),
+      Cooks: [sam],
+      Family: [],
+      Friends: [],
+      Neighbours: [],
+    });
+  });
 });
 
 describe("POST /roles", () => {

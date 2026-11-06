@@ -159,6 +159,9 @@ importers:
       '@internal/test-postgres':
         specifier: workspace:*
         version: link:../../tooling/test-postgres
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../../tooling/test-session
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
@@ -211,6 +214,9 @@ importers:
       '@internal/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../../tooling/test-session
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
@@ -251,6 +257,9 @@ importers:
       '@internal/test-postgres':
         specifier: workspace:*
         version: link:../../tooling/test-postgres
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../../tooling/test-session
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
@@ -502,6 +511,9 @@ importers:
       '@internal/test-postgres':
         specifier: workspace:*
         version: link:../test-postgres
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../test-session
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../typescript

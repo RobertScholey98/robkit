@@ -1,7 +1,6 @@
 import type { Hono } from "hono";
-import { isProblem } from "@robkit/input";
 import { describe, expect, it } from "vitest";
-import { readDeclaredApps, registerApps } from "./apps.ts";
+import { registerApps } from "./apps.ts";
 import {
   claim,
   freshCore,
@@ -10,7 +9,7 @@ import {
   sessionCookieOf,
   withSession,
 } from "./test/fresh-app.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-session";
 
 const minute = 60_000;
 
@@ -101,70 +100,6 @@ describe("registerApps", () => {
         { slug: "notes", name: "notes", icon: "📝", access: { kind: "owner" } },
       ],
     });
-  });
-});
-
-describe("readDeclaredApps", () => {
-  it("reads nothing from an unset or empty ROBKIT_APPS", () => {
-    expect(readDeclaredApps({})).toEqual([]);
-    expect(readDeclaredApps({ ROBKIT_APPS: " " })).toEqual([]);
-  });
-
-  it("reads each app's slug, rule and icon", () => {
-    expect(
-      readDeclaredApps({
-        ROBKIT_APPS: JSON.stringify([
-          { slug: "example" },
-          {
-            slug: "recipes",
-            access: { kind: "roles", roles: ["Family"] },
-            icon: "🍳",
-          },
-        ]),
-      }),
-    ).toEqual([
-      { slug: "example" },
-      {
-        slug: "recipes",
-        access: { kind: "roles", roleNames: ["Family"] },
-        icon: "🍳",
-      },
-    ]);
-  });
-
-  const notSlug = `can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`;
-
-  it.each([
-    [
-      "example,notes",
-      /^ROBKIT_APPS isn't valid JSON \(.+\)\. Fix its syntax\.$/,
-    ],
-    [
-      '{"slug":"notes"}',
-      `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`,
-    ],
-    ["null", /^ROBKIT_APPS must be a JSON list/],
-    [
-      "[null]",
-      `ROBKIT_APPS[0] must be an object with the app's slug, such as {"slug": "notes"}.`,
-    ],
-    ['[{"slug":""}]', `ROBKIT_APPS[0].slug: "" ${notSlug}`],
-    ['[{"icon":"📝"}]', `ROBKIT_APPS[0].slug: Nothing ${notSlug}`],
-    [
-      '[{"slug":"a"},{"slug":"b","access":{"kind":"everyone"}}]',
-      'ROBKIT_APPS[1].access must be {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": ["Family"]} naming at least one role.',
-    ],
-    [
-      '[{"slug":"a","access":{"kind":"roles","roles":[]}}]',
-      /^ROBKIT_APPS\[0\]\.access must be/,
-    ],
-    [
-      '[{"slug":"a","icon":""}]',
-      'ROBKIT_APPS[0].icon must be one emoji, such as "📝".',
-    ],
-  ])("refuses %s", (text, message) => {
-    const read = readDeclaredApps({ ROBKIT_APPS: text });
-    expect(isProblem(read) && read.error).toMatch(message);
   });
 });
 

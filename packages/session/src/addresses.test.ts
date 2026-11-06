@@ -8,7 +8,7 @@ import {
   installAt,
   isLocal,
 } from "./addresses.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-session";
 
 describe("an install's addresses", () => {
   it("puts each app on its own subdomain of a local install", () => {

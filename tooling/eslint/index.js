@@ -5,6 +5,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 import coreSchema from "./core-schema.js";
 import layer from "./layers.js";
+import noBrandCast from "./no-brand-cast.js";
 import noJsonCast from "./no-json-cast.js";
 import noSilentCatch from "./no-silent-catch.js";
 import oneProblemType from "./one-problem-type.js";
@@ -14,6 +15,7 @@ const robkit = {
   rules: {
     "core-schema": coreSchema,
     layer,
+    "no-brand-cast": noBrandCast,
     "no-json-cast": noJsonCast,
     "no-silent-catch": noSilentCatch,
     "one-problem-type": oneProblemType,
@@ -53,6 +55,13 @@ export function config(tsconfigRootDir) {
         "@typescript-eslint/no-unsafe-type-assertion": "error",
         "robkit/no-json-cast": "error",
       },
+    },
+    {
+      // Only a reader makes a branded value, in tests too: a test builds
+      // one with the reader or a builder from @internal/test-session.
+      files: ["**/*.ts", "**/*.tsx"],
+      plugins: { robkit },
+      rules: { "robkit/no-brand-cast": "error" },
     },
     {
       files: ["**/*.js"],

@@ -30,10 +30,14 @@ export interface DocExample {
 const fence = /^( *)(`{3,}|~{3,})\s*(.*)$/;
 
 /**
- * Every `ts` and `tsx` fence in a markdown file, except those marked
- * `ts nocheck`, with a list item's indent taken off.
+ * Every `ts` and `tsx` fence in a markdown file, with a list item's indent
+ * taken off. Fences marked `ts nocheck` are left out unless `nocheck`.
  */
-export function examplesIn(file: string, markdown: string): DocExample[] {
+export function examplesIn(
+  file: string,
+  markdown: string,
+  { nocheck = false }: { nocheck?: boolean } = {},
+): DocExample[] {
   const examples: DocExample[] = [];
   const lines = markdown.split("\n");
   for (let i = 0; i < lines.length; i++) {
@@ -43,7 +47,10 @@ export function examplesIn(file: string, markdown: string): DocExample[] {
     const end = lines.findIndex((text, j) => j > i && text.trim() === marker);
     const close = end === -1 ? lines.length : end;
     const [lang, ...flags] = info.trim().split(/\s+/);
-    if ((lang === "ts" || lang === "tsx") && !flags.includes("nocheck")) {
+    if (
+      (lang === "ts" || lang === "tsx") &&
+      (nocheck || !flags.includes("nocheck"))
+    ) {
       const code = lines
         .slice(i + 1, close)
         .map((text) =>
