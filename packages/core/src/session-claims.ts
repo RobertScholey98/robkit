@@ -1,5 +1,5 @@
 // What core's tokens say about a session's holder, and when they change.
-// No database: sessions.ts reads and writes the rows, and asks these.
+// No database: session-store.ts reads and writes the rows, and asks these.
 
 import type { CodeId, RoleId, SignedInViewer } from "@robkit/guard";
 import type { ReadSessionToken, SessionTokenClaims } from "@robkit/session";
