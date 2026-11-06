@@ -520,9 +520,6 @@ importers:
       '@robkit/input':
         specifier: workspace:*
         version: link:../../packages/input
-      '@robkit/session':
-        specifier: workspace:*
-        version: link:../../packages/session
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5

@@ -96,7 +96,6 @@ export const packageGraph = {
       "@internal/test-session",
       "@robkit/dev",
       "@robkit/input",
-      "@robkit/session",
       "create-robkit",
     ],
   },
