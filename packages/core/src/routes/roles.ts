@@ -45,9 +45,9 @@ export function roleRoutes(context: RouteContext): Hono<CoreEnv> {
     const request = await readBody(c, readCodeIds);
     if (isProblem(request)) return c.json(request, 400);
     const roleId = readRoleId(c.req.param("id"));
-    const change = roleId
-      ? await setRoleCodes(db, roleId, request.codeIds)
-      : { outcome: "unknown-role" as const };
+    const change = isProblem(roleId)
+      ? { outcome: "unknown-role" as const }
+      : await setRoleCodes(db, roleId, request.codeIds);
     switch (change.outcome) {
       case "unknown-role":
         return c.json({ error: "Not found" }, 404);

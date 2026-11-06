@@ -28,7 +28,7 @@ export function readCodeIds(
   const read: CodeId[] = [];
   for (const value of codeIds) {
     const id = readCodeId(value);
-    if (id === undefined) return problem;
+    if (isProblem(id)) return problem;
     read.push(id);
   }
   return { codeIds: read };

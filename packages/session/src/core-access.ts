@@ -1,3 +1,4 @@
+import { isProblem } from "@robkit/input";
 import { readAccessRule, type AccessRule } from "@robkit/guard";
 import { coreFetch } from "./loopback-fetch.ts";
 
@@ -43,7 +44,7 @@ export function coreAccess(
     }
     // A body that isn't JSON is a rule that isn't one, refused below.
     const rule = readAccessRule(await res.json().catch(() => undefined));
-    if (!rule) {
+    if (isProblem(rule)) {
       throw new Error(`Core sent an access rule for ${slug} that isn't one.`);
     }
     cached = { rule, until: now() + accessRuleMaxAgeMs };

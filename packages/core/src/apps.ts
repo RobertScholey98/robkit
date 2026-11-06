@@ -37,7 +37,9 @@ export function readAccess(
   fields: Record<string, unknown>,
 ): AccessRule | InputProblem {
   const rule = readAccessRule(fields);
-  if (rule && !(rule.kind === "roles" && rule.roles.length === 0)) return rule;
+  if (!isProblem(rule) && !(rule.kind === "roles" && rule.roles.length === 0)) {
+    return rule;
+  }
   return fields.kind === "roles"
     ? { error: "Pick at least one role." }
     : { error: "Pick open, roles or owner." };

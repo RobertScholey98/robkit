@@ -274,6 +274,10 @@ importers:
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/guard:
+    dependencies:
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
     devDependencies:
       '@internal/eslint-config':
         specifier: workspace:*
@@ -281,6 +285,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.0.5(vitest@5.0.5)
@@ -682,6 +689,9 @@ importers:
       '@robkit/guard':
         specifier: workspace:*
         version: link:../../packages/guard
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../../packages/input
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5

@@ -1,3 +1,4 @@
+import { orThrow } from "@robkit/input";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import {
@@ -9,7 +10,7 @@ import {
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
-import { known, listeningPort } from "./known.ts";
+import { listeningPort } from "./known.ts";
 
 // Written out rather than imported from @robkit/session, whose own tests use
 // this package. If session's cookie, lifetime, callback or word that nobody
@@ -230,7 +231,7 @@ export function callbackFor(
 
 /** `guest(roles)` as the guard hands them to an app's handlers. */
 function guestViewer(roles: RoleId[] = []): Viewer {
-  const id = known(readCodeId(guest().id), "The test guest's code id");
+  const id = orThrow(readCodeId(guest().id));
   return { kind: "guest", id, roles };
 }
 

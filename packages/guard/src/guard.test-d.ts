@@ -1,9 +1,11 @@
+import type { InputProblem } from "@robkit/input";
 import { describe, expectTypeOf, it } from "vitest";
 import {
   guard,
   readAccessRule,
   readCodeId,
   readRoleId,
+  readRoleIds,
   type AccessRule,
   type CodeId,
   type Decision,
@@ -33,10 +35,10 @@ describe("the guard's types", () => {
     }
   });
 
-  it("reads JSON it can't trust as a rule or nothing", () => {
+  it("reads JSON it can't trust as a rule or a problem", () => {
     expectTypeOf(readAccessRule).parameter(0).toBeUnknown();
     expectTypeOf(readAccessRule).returns.toEqualTypeOf<
-      AccessRule | undefined
+      AccessRule | InputProblem
     >();
   });
 
@@ -55,9 +57,10 @@ describe("the guard's types", () => {
 
   it("makes role and code ids only by reading them", () => {
     expectTypeOf(readRoleId).parameter(0).toBeUnknown();
-    expectTypeOf(readRoleId).returns.toEqualTypeOf<RoleId | undefined>();
+    expectTypeOf(readRoleId).returns.toEqualTypeOf<RoleId | InputProblem>();
     expectTypeOf(readCodeId).parameter(0).toBeUnknown();
-    expectTypeOf(readCodeId).returns.toEqualTypeOf<CodeId | undefined>();
+    expectTypeOf(readCodeId).returns.toEqualTypeOf<CodeId | InputProblem>();
+    expectTypeOf(readRoleIds).returns.toEqualTypeOf<RoleId[] | InputProblem>();
     rule({ kind: "roles", roles: [family] });
     session({
       state: "signed-in",

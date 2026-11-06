@@ -28,8 +28,8 @@ export const toolchain = ["@internal/eslint-config", "@internal/tsconfig"];
 export const packageGraph = {
   // The readers for input from outside robkit: depend on nothing.
   "@robkit/input": { dependencies: [], devDependencies: [] },
-  // The pure guard: depends on nothing.
-  "@robkit/guard": { dependencies: [], devDependencies: [] },
+  // The pure guard: depends only on the readers.
+  "@robkit/guard": { dependencies: ["@robkit/input"], devDependencies: [] },
   "@robkit/session": {
     dependencies: ["@robkit/guard", "@robkit/input"],
     devDependencies: ["@internal/test-session"],
@@ -65,7 +65,7 @@ export const packageGraph = {
   "@internal/test-postgres": { dependencies: [], devDependencies: [] },
   "@internal/test-session": {
     dependencies: [],
-    devDependencies: ["@robkit/guard"],
+    devDependencies: ["@robkit/guard", "@robkit/input"],
   },
   // Packs and checks every published package.
   "@internal/repo-checks": {
