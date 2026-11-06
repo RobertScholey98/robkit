@@ -9,6 +9,7 @@ import noJsonCast from "./no-json-cast.js";
 import noSilentCatch from "./no-silent-catch.js";
 import oneProblemType from "./one-problem-type.js";
 import relativeImportExtension from "./relative-import-extension.js";
+import { testFiles } from "./test-files.js";
 
 const robkit = {
   rules: {
@@ -42,12 +43,7 @@ export function config(tsconfigRootDir) {
       // Parsed JSON is any, which no-unsafe-type-assertion lets through.
       // Tests may cast to build what they feed the code under test.
       files: ["**/*.ts", "**/*.tsx"],
-      ignores: [
-        "**/*.test.ts",
-        "**/*.test-d.ts",
-        "**/*.test.tsx",
-        "**/test/**",
-      ],
+      ignores: testFiles,
       plugins: { robkit },
       rules: {
         "@typescript-eslint/no-unsafe-type-assertion": "error",
