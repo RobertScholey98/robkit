@@ -7,24 +7,27 @@ const typeMessage =
   "A failed read is an InputProblem from @robkit/input, not a { error: string } of its own. See docs/conventions/input.md.";
 const checkMessage =
   'Check a read with isProblem from @robkit/input, not "error" in. See docs/conventions/input.md.';
+const thrownMessage =
+  "A problem the person can fix isn't a fault. Throw it as a CommandProblem in a command line, end an app server with orExit, or use orThrow where nothing better fits. See docs/conventions/input.md.";
 
 /**
  * Lints `code` as a TypeScript file.
  * @param {string} code
+ * @param {string} [filename]
  */
-function lint(code) {
+function lint(code, filename = "src/read.ts") {
   return new Linter()
     .verify(
       code,
       [
         {
-          files: ["**/*.ts"],
+          files: ["**/*.ts", "**/*.tsx"],
           languageOptions: { parser: tseslint.parser },
           plugins: { robkit: { rules: { "one-problem-type": rule } } },
           rules: { "robkit/one-problem-type": "error" },
         },
       ],
-      "src/read.ts",
+      filename,
     )
     .map((m) => m.message);
 }
@@ -68,5 +71,31 @@ describe("robkit/one-problem-type", () => {
     expect(lint("if (isProblem(read)) {}")).toEqual([]);
     expect(lint('if ("location" in body) {}')).toEqual([]);
     expect(lint("if (key in body) {}")).toEqual([]);
+  });
+
+  it.each([
+    "if (isProblem(read)) throw new Error(read.error);",
+    "throw new Error(parsed.error, { cause: reason });",
+    "throw new Error(result.problem.error);",
+  ])("refuses `%s`", (code) => {
+    expect(lint(code)).toEqual([thrownMessage]);
+  });
+
+  it("accepts a problem thrown as a CommandProblem, and other errors", () => {
+    expect(lint("throw new CommandProblem(read.error);")).toEqual([]);
+    expect(lint("throw new Error(`${read.error} Try again.`);")).toEqual([]);
+    expect(lint("throw new Error(read.message);")).toEqual([]);
+    expect(lint('throw new Error(read["error"]);')).toEqual([]);
+    expect(lint("const failure = new Error(read.error);")).toEqual([]);
+  });
+
+  it.each([
+    "src/test/slug.ts",
+    "src/read.test.ts",
+    "src/read.test-d.ts",
+    "src/page.test.tsx",
+    ".t3/robkit/packages/core/src/test/slug.ts",
+  ])("lets the test code in %s throw a problem", (filename) => {
+    expect(lint("throw new Error(read.error);", filename)).toEqual([]);
   });
 });

@@ -27,9 +27,15 @@ const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const generatedLength = 5;
 const generateAttempts = 5;
 
-function generateAccessCode(): AccessCode {
+/**
+ * A new code of 5 characters from `alphabet`. `pick` chooses each one's
+ * index below its argument; it is random unless a test passes its own.
+ */
+export function generateAccessCode(
+  pick: (below: number) => number = randomInt,
+): AccessCode {
   const characters = Array.from({ length: generatedLength }, () =>
-    alphabet.charAt(randomInt(alphabet.length)),
+    alphabet.charAt(pick(alphabet.length)),
   );
   const code = characters.join("");
   if (!isAccessCode(code)) throw new Error(`${code} isn't an access code.`);
@@ -166,7 +172,9 @@ export async function mintCode(
     const row = await insert(generateAccessCode());
     if (row) return { outcome: "minted", code: viewOf(row, now, domain) };
   }
-  throw new Error("Core couldn't find a free access code.");
+  throw new Error(
+    `Core couldn't find a free access code in ${String(generateAttempts)} attempts: each code it generated was already in core.access_codes.`,
+  );
 }
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

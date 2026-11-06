@@ -19,8 +19,27 @@
     "test:unit": {
       "dependsOn": ["^build"]
     },
-    "@internal/e2e#test": {
+    "create-robkit#test": {
       "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/*/src/**",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/pnpm-workspace.yaml"
+      ]
+    },
+    "create-robkit#test:unit": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/*/src/**",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/pnpm-workspace.yaml"
+      ]
+    },
+    "@internal/e2e#test": {
+      "dependsOn": ["^build", "create-robkit#test"],
       "cache": false
     },
     "@internal/repo-checks#test": {

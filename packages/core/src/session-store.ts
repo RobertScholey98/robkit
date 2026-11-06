@@ -1,25 +1,23 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
-import type {
-  CodeId,
-  RoleId,
-  SessionState,
-  SignedInViewer,
-} from "@robkit/guard";
+import type { CodeId, RoleId, SessionState } from "@robkit/guard";
 import {
   readSessionToken,
   type ReadSessionToken,
   type SessionTokenClaims,
 } from "@robkit/session";
 import { standingOf, type AccessCode } from "./access-codes.ts";
-import type { Database } from "./database.ts";
+import { storedRow, type Database } from "./database.ts";
 import { dummyPasswordHash, verifyPassword } from "./password.ts";
 import { accessCodes, owner, sessions } from "./schema.ts";
 import { mintSessionToken } from "./mint-token.ts";
 import { rolesOf } from "./roles.ts";
+import {
+  claimsFor,
+  guardViewerOf,
+  needsFreshToken,
+  sessionExpiry,
+} from "./session-claims.ts";
 import type { SigningKey } from "./signing-key.ts";
-
-/** A session lasts 30 days from sign-in. */
-export const sessionLifetimeSeconds = 30 * 24 * 60 * 60;
 
 /** What core needs to start and read sessions. */
 export interface SessionContext {
@@ -77,25 +75,6 @@ interface Holder {
   roles: RoleId[];
 }
 
-function guardViewerOf({ profile, roles }: Holder): SignedInViewer {
-  return profile.kind === "owner"
-    ? { kind: profile.kind, id: profile.id }
-    : { kind: profile.kind, id: profile.id, roles };
-}
-
-function sameRoles(a: readonly RoleId[], b: readonly RoleId[]): boolean {
-  return a.length === b.length && a.every((role, i) => role === b[i]);
-}
-
-function claimsFor(
-  { profile, roles }: Holder,
-  sessionId: string,
-): SessionTokenClaims {
-  return profile.kind === "owner"
-    ? { kind: profile.kind, id: profile.id, sessionId }
-    : { kind: profile.kind, id: profile.id, sessionId, roles };
-}
-
 /** Starts a session for its holder, in the caller's transaction. */
 export async function startSession(
   ctx: SessionContext,
@@ -104,17 +83,21 @@ export async function startSession(
 ): Promise<SignedIn> {
   const { profile } = holder;
   const now = ctx.now();
-  const [session] = await tx
+  const [inserted] = await tx
     .insert(sessions)
     .values({
       ...(profile.kind === "owner"
         ? { ownerId: profile.id }
         : { codeId: profile.id }),
       createdAt: now,
-      expiresAt: new Date(now.getTime() + sessionLifetimeSeconds * 1000),
+      expiresAt: sessionExpiry(now),
     })
     .returning({ id: sessions.id });
-  if (!session) throw new Error("Core couldn't store the session.");
+  const session = storedRow(
+    inserted,
+    `a session for ${profile.kind} ${profile.id}`,
+    "core.sessions",
+  );
   return {
     profile,
     sessionToken: await mintSessionToken(
@@ -286,13 +269,7 @@ export async function readSession(
     state: "signed-in",
     viewer: guardViewerOf(holder),
   };
-  // A guest whose roles changed gets a token with the new ones at once, so
-  // the apps they open agree with the launcher core lists for them.
-  const rolesChanged =
-    claims.kind === "guest" && !sameRoles(claims.roles, holder.roles);
-  if (!claims.expired && !renew && !rolesChanged) {
-    return { answer, forGuard };
-  }
+  if (!needsFreshToken(claims, holder, renew)) return { answer, forGuard };
   return {
     answer,
     forGuard,

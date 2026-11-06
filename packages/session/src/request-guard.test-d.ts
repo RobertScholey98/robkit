@@ -2,7 +2,9 @@ import type { AccessRule, RoleId, Viewer } from "@robkit/guard";
 import { describe, expectTypeOf, it } from "vitest";
 import {
   requestGuard,
+  type AccessRuleFailure,
   type GuardedOptions,
+  type GuardFault,
   type RequestDecision,
 } from "./index.ts";
 import {
@@ -20,6 +22,7 @@ declare const core: CoreOrigin;
 const options = (value: GuardedOptions) => value;
 const declared = (value: DeclaredAccess) => value;
 const rule = (value: AccessRule) => value;
+const fault = (value: GuardFault) => value;
 
 describe("session's types", () => {
   it("guards a request into a viewer or an answer", () => {
@@ -48,6 +51,22 @@ describe("session's types", () => {
     expectTypeOf<GuardedOptions["core"]>().toEqualTypeOf<CoreOrigin>();
     // @ts-expect-error A plain string hasn't been read as core's origin.
     options({ app: notes, core: "http://core.robkit.localhost:3000" });
+  });
+
+  it("says how core's answer failed only for the access rule", () => {
+    expectTypeOf<AccessRuleFailure>().toEqualTypeOf<
+      "unknown-app" | "bad-answer" | "invalid-json" | "interrupted-body"
+    >();
+    fault({
+      app: notes,
+      failed: "access-rule",
+      reason: "unknown-app",
+      cause: 1,
+    });
+    // @ts-expect-error An access-rule fault says which way it failed.
+    fault({ app: notes, failed: "access-rule", cause: 1 });
+    // @ts-expect-error A fault reaching core has no answer to have failed.
+    fault({ app: notes, failed: "network", reason: "unknown-app", cause: 1 });
   });
 
   it("keeps role names apart from the guard's role ids", () => {

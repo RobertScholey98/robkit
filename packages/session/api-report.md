@@ -5,6 +5,8 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/session
 
 ```ts
+export type AccessRuleFailure =
+  "unknown-app" | "bad-answer" | "invalid-json" | "interrupted-body";
 export const appRefreshPath: "/_robkit/refresh";
 export const appSessionPath: "/_robkit/session";
 export function appSessionUrl(
@@ -24,11 +26,18 @@ export interface GuardedOptions {
   core: CoreOrigin;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
-export interface GuardFault {
+export type GuardFault = {
   app: Slug;
-  failed: "core-key" | "access-rule" | "network";
   cause: unknown;
-}
+} & (
+  | {
+      failed: "core-key" | "network";
+    }
+  | {
+      failed: "access-rule";
+      reason: AccessRuleFailure;
+    }
+);
 export function readAppToken(
   key: VerifyKey,
   token: string,

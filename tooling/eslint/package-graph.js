@@ -50,15 +50,19 @@ export const packageGraph = {
   // Core's tests provision their database with the dev runner's step.
   "@robkit/core": {
     dependencies: ["@robkit/guard", "@robkit/input", "@robkit/session"],
-    devDependencies: ["@internal/test-postgres", "@robkit/dev"],
+    devDependencies: [
+      "@internal/test-postgres",
+      "@internal/test-session",
+      "@robkit/dev",
+    ],
   },
   "@robkit/dev": {
     dependencies: ["@robkit/input", "@robkit/session"],
-    devDependencies: ["@internal/test-postgres"],
+    devDependencies: ["@internal/test-postgres", "@internal/test-session"],
   },
   "create-robkit": {
     dependencies: ["@robkit/dev", "@robkit/input", "@robkit/session"],
-    devDependencies: [],
+    devDependencies: ["@internal/test-session"],
   },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
   "@internal/tsconfig": { dependencies: [], devDependencies: [] },
@@ -87,6 +91,7 @@ export const packageGraph = {
     dependencies: [],
     devDependencies: [
       "@internal/test-postgres",
+      "@internal/test-session",
       "@robkit/dev",
       "@robkit/input",
       "@robkit/session",

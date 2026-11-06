@@ -19,7 +19,9 @@ describe("readConformanceCases", () => {
   });
 
   it.each([
-    [null, "conformance.json must be a list of cases."],
+    [null, "conformance.json must be a list of cases, but it holds null."],
+    [{}, "conformance.json must be a list of cases, but it holds an object."],
+    ["x", "conformance.json must be a list of cases, but it holds a string."],
     [[null], "conformance.json[0] must be an object."],
     [
       [

@@ -1,3 +1,4 @@
+import { orThrow } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { conformanceCases, type ConformanceCase } from "./conformance.ts";
 import {
@@ -6,10 +7,13 @@ import {
   readCodeId,
   readRoleId,
   readRoleIds,
-  type CodeId,
   type SessionState,
   type Viewer,
 } from "./index.ts";
+
+// The guard's own reader makes the test guest's code id. @internal/test-session
+// has builders for the packages above the guard, but it depends on the guard.
+const guestId = orThrow(readCodeId("code-1"));
 
 function viewerOf({
   session,
@@ -24,7 +28,7 @@ function viewerOf({
     case "owner":
       return { kind: "owner", id: "owner-1" };
     case "guest":
-      return { kind: "guest", id: "code-1" as CodeId, roles: guestRoles };
+      return { kind: "guest", id: guestId, roles: guestRoles };
   }
 }
 

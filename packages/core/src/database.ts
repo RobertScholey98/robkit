@@ -21,3 +21,21 @@ function connect(databaseUrl: string) {
 export function createDatabase(databaseUrl: string): Database {
   return connect(databaseUrl);
 }
+
+/**
+ * The row an insert gave back, or a fault naming `what` core was storing
+ * and the `table`. An insert with `returning` always gives one back, so this
+ * fails only if something under core broke.
+ */
+export function storedRow<T>(
+  row: T | undefined,
+  what: string,
+  table: string,
+): T {
+  if (row === undefined) {
+    throw new Error(
+      `Core couldn't store ${what}: the insert into ${table} returned no row.`,
+    );
+  }
+  return row;
+}

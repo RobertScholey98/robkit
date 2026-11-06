@@ -17,6 +17,15 @@ const oneProblemType = [
   },
 ];
 
+// A problem the person can fix isn't a fault, so outside tests it isn't
+// thrown as a plain Error.
+const thrownProblem = {
+  selector:
+    "ThrowStatement > NewExpression[callee.name='Error'][arguments.0.type='MemberExpression'][arguments.0.property.name='error']",
+  message:
+    "A problem the person can fix isn't a fault. End a server with orExit from @robkit/input, or use orThrow where nothing better fits.",
+};
+
 // Parsed JSON is any, which no-unsafe-type-assertion lets a cast through.
 const parsedJson =
   ":matches(CallExpression[callee.object.name='JSON'][callee.property.name='parse'], CallExpression[callee.property.name='json'])";
@@ -52,7 +61,12 @@ export default defineConfig(
     ignores: ["**/*.test.ts", "**/*.test.tsx", "**/test/**"],
     rules: {
       "@typescript-eslint/no-unsafe-type-assertion": "error",
-      "no-restricted-syntax": ["error", ...oneProblemType, jsonCast],
+      "no-restricted-syntax": [
+        "error",
+        ...oneProblemType,
+        thrownProblem,
+        jsonCast,
+      ],
     },
   },
   {

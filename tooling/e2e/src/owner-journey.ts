@@ -48,10 +48,16 @@ export async function expiredTwin(
   const [key] = await sql<{ kid: string; private_jwk: JWK }[]>`
     select kid, private_jwk from core.signing_keys
   `.finally(() => sql.end());
-  if (!key) throw new Error("core has no signing key");
   const claims = decodeJwt(token);
   const { sub } = claims;
-  if (typeof sub !== "string") throw new Error("the token names no one");
+  if (typeof sub !== "string") {
+    throw new Error(`The token names no one: its sub is ${String(sub)}.`);
+  }
+  if (!key) {
+    throw new Error(
+      `core.signing_keys has no key to sign ${sub}'s expired token with.`,
+    );
+  }
   const iat = Math.floor(Date.now() / 1000) - 20 * 60;
   // Every claim, so a guest's twin keeps their roles. The times are reset.
   return new SignJWT(claims)

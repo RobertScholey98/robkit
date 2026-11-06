@@ -4,10 +4,17 @@ export type Result<T> = { ok: true; value: T } | { ok: false; error: string };
 /** Turns core's JSON into a value, or undefined if it can't. */
 export type Reader<T> = (body: unknown) => T | undefined;
 
+/**
+ * Told what went wrong underneath a failed call, such as to log it: what
+ * the call was doing, and the error it hit.
+ */
+export type Report = (message: string, cause: unknown) => void;
+
 export interface CallOptions<T> {
   /** Posted as JSON. */
   body?: object;
   read?: Reader<T>;
+  report?: Report;
 }
 
 /** How long a call waits for core before giving up. */
@@ -21,21 +28,23 @@ export function callCore(
   core: string,
   method: "GET" | "POST",
   path: string,
-  options?: { body?: object },
+  options?: { body?: object; report?: Report },
 ): Promise<Result<undefined>>;
 export function callCore<T>(
   core: string,
   method: "GET" | "POST",
   path: string,
-  options: { body?: object; read: Reader<T> },
+  options: { body?: object; read: Reader<T>; report?: Report },
 ): Promise<Result<T>>;
 export async function callCore<T>(
   core: string,
   method: "GET" | "POST",
   path: string,
-  { body, read }: CallOptions<T> = {},
+  { body, read, report }: CallOptions<T> = {},
 ): Promise<Result<T | undefined>> {
+  // One deadline covers the answer's headers and its body.
   let res: Response;
+  let text: string;
   try {
     res = await fetch(`${core}${path}`, {
       method,
@@ -49,9 +58,16 @@ export async function callCore<T>(
       ...(body && { body: JSON.stringify(body) }),
       signal: AbortSignal.timeout(timeoutSeconds * 1000),
     });
+    text = await res.text();
   } catch (error) {
     const timedOut =
       error instanceof DOMException && error.name === "TimeoutError";
+    report?.(
+      timedOut
+        ? `Core at ${core} didn't answer ${method} ${path} in ${String(timeoutSeconds)} seconds.`
+        : `Couldn't reach core at ${core} for ${method} ${path}.`,
+      error,
+    );
     return {
       ok: false,
       error: timedOut
@@ -59,8 +75,17 @@ export async function callCore<T>(
         : `Couldn't reach core at ${core}.`,
     };
   }
-  const answer: unknown =
-    res.status === 204 ? undefined : await res.json().catch(() => undefined);
+  let answer: unknown;
+  try {
+    answer = text === "" ? undefined : JSON.parse(text);
+  } catch (error) {
+    // Not JSON, such as a proxy's error page. The status or the reader
+    // says what that means to the person; report keeps the detail.
+    report?.(
+      `Core at ${core} answered ${method} ${path} with something that isn't JSON.`,
+      error,
+    );
+  }
   if (!res.ok) {
     const error =
       isRecord(answer) && typeof answer.error === "string"

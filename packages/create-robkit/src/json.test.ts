@@ -1,3 +1,4 @@
+import { CommandProblem } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { jsonObject, stringsIn } from "./json.ts";
 
@@ -10,8 +11,11 @@ describe("jsonObject", () => {
     ["{", /^package\.json isn't valid JSON \(.+\)\. Fix its syntax\.$/],
     ["null", /^package\.json must be a JSON object\.$/],
     ["[]", /^package\.json must be a JSON object\.$/],
-  ])("refuses %j, naming the file", (text, message) => {
-    expect(() => jsonObject(text, "package.json")).toThrow(message);
+  ])("refuses %j as a fault in robkit, naming the file", (text, message) => {
+    const read = () => jsonObject(text, "package.json");
+
+    expect(read).toThrow(message);
+    expect(read).not.toThrow(CommandProblem);
   });
 });
 

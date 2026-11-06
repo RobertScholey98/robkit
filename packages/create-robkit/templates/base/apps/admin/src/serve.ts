@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { isProblem, readServeEnv } from "@robkit/input";
+import { orExit, readServeEnv } from "@robkit/input";
 import { Hono } from "hono";
 import admin from "./server.ts";
 
@@ -10,11 +10,7 @@ app.use("/assets/*", serveStatic({ root: "dist/client" }));
 app.route("/", admin);
 
 // A container sets HOST to listen beyond loopback.
-const listen = readServeEnv(process.env);
-if (isProblem(listen)) {
-  console.error(listen.error);
-  process.exit(1);
-}
+const listen = orExit(readServeEnv(process.env));
 const { host: hostname, port } = listen;
 
 serve({ fetch: app.fetch, hostname, port }, ({ port }) => {

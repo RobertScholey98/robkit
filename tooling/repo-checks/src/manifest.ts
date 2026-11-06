@@ -6,6 +6,7 @@ import {
   type InputProblem,
   isProblem,
   isRecord,
+  orThrow,
   parseJson,
 } from "@robkit/input";
 
@@ -18,9 +19,7 @@ export async function readJsonFile<T>(
   read: (json: unknown, source: string) => T | InputProblem,
 ): Promise<T> {
   const parsed = parseJson(await readFile(path, "utf8"), path);
-  const value = isProblem(parsed) ? parsed : read(parsed.json, path);
-  if (isProblem(value)) throw new Error(value.error);
-  return value;
+  return orThrow(isProblem(parsed) ? parsed : read(parsed.json, path));
 }
 
 /** An export's target: a file, or conditions such as `types` naming files. */

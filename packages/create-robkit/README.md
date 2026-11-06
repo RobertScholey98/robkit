@@ -108,6 +108,12 @@ To change one:
 
    These take seconds. `pnpm dev` shows the change in a browser, but it starts Postgres in Docker.
 
+   Once the change is back in the template (step 3), `src/install-checks.test.ts` runs the same tests and lint in a fresh install made from it, with no Docker. `pnpm check` runs it, or run it alone from your checkout:
+
+   ```sh
+   pnpm --filter create-robkit exec vitest run src/install-checks.test.ts
+   ```
+
 3. **Copy the changed files back** into the template, from the root of your checkout:
 
    ```sh

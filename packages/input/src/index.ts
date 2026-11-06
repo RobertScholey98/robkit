@@ -32,7 +32,12 @@ export {
   type PlatformApp,
   type Slug,
 } from "./slug.ts";
-export { readDevServerEnv, readGuardEnv, readServeEnv } from "./app-env.ts";
+export {
+  orExit,
+  readDevServerEnv,
+  readGuardEnv,
+  readServeEnv,
+} from "./app-env.ts";
 export {
   appDeclarationJson,
   readAppDeclaration,

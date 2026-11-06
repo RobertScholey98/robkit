@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { defaultChoices, init, readyStacks, type Choices } from "create-robkit";
 import type { TestProject } from "vitest/node";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-session";
 
 const run = promisify(execFile);
 
