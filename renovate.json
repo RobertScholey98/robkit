@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Weekly grouped updates. tooling/repo-checks/src/renovate.test.ts checks the release age and the TypeScript cap against pnpm-workspace.yaml.",
+  "extends": ["config:recommended"],
+  "timezone": "Europe/London",
+  "schedule": ["before 6am on monday"],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"]
+  },
+  "minimumReleaseAge": "1 day",
+  "internalChecksFilter": "strict",
+  "rangeStrategy": "pin",
+  "postUpdateOptions": ["pnpmDedupe"],
+  "labels": ["dependencies"],
+  "packageRules": [
+    {
+      "description": "Every minor and patch version in the catalog, pnpm and Node, in one pull request.",
+      "matchManagers": ["npm", "nodenv"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "minor and patch versions"
+    },
+    {
+      "description": "Every GitHub Action, robkit's and the install template's, in one pull request.",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions"
+    },
+    {
+      "description": "typescript-eslint supports TypeScript below 6.1. Raise this with pnpm-workspace.yaml's comment when it supports more.",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<6.1.0"
+    }
+  ]
+}

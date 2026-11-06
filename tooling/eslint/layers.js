@@ -1,7 +1,9 @@
+import { globSync, readFileSync } from "node:fs";
 import { builtinModules } from "node:module";
-import { dirname, relative, resolve } from "node:path";
-import { matchesGlob } from "node:path/posix";
+import { dirname, join, relative, resolve } from "node:path";
+import { matchesGlob, dirname as posixDirname } from "node:path/posix";
 import { fileURLToPath } from "node:url";
+import { packageGraph } from "./package-graph.js";
 
 export const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -33,6 +35,52 @@ const frameworks = [
   "express",
 ];
 
+/**
+ * Code reaches core over HTTP only, so no package imports `@robkit/core`
+ * unless the package graph lets it: one row for each package it doesn't.
+ * @param {import("./package-graph.js").PackageGraph} graph
+ * @param {ReadonlyMap<string, string>} folders each package's folder, by name
+ * @returns {LayerRow[]}
+ */
+export function coreRows(graph, folders) {
+  return Object.entries(graph)
+    .filter(
+      ([name, { dependencies, devDependencies }]) =>
+        name !== "@robkit/core" &&
+        ![...dependencies, ...devDependencies].includes("@robkit/core"),
+    )
+    .flatMap(([name]) => {
+      const folder = folders.get(name);
+      return folder === undefined
+        ? []
+        : [
+            {
+              applies: (/** @type {string} */ workspace) =>
+                workspace === folder,
+              rule: `Layer rule: ${name} never imports @robkit/core. Code reaches core over HTTP only.`,
+              modules: ["@robkit/core"],
+              folders: ["packages/core"],
+            },
+          ];
+    });
+}
+
+/** Each workspace package's folder from the repo root, by name. */
+function workspaceFolders() {
+  /** @type {Map<string, string>} */
+  const folders = new Map();
+  for (const path of globSync(
+    ["packages/*/package.json", "tooling/*/package.json"],
+    { cwd: repoRoot },
+  )) {
+    const manifest = JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
+    if (typeof manifest?.name === "string") {
+      folders.set(manifest.name, posixDirname(path.replaceAll("\\", "/")));
+    }
+  }
+  return folders;
+}
+
 /** @type {LayerRow[]} */
 export const layers = [
   {
@@ -51,12 +99,7 @@ export const layers = [
     modules: builtinModules,
     globals: ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "process"],
   },
-  {
-    applies: inside("packages/hono", "packages/start", "packages/react"),
-    rule: "Layer rule: adapters never import @robkit/core. Code reaches core over HTTP only.",
-    modules: ["@robkit/core"],
-    folders: ["packages/core"],
-  },
+  ...coreRows(packageGraph, workspaceFolders()),
 ];
 
 /** The workspace a file belongs to, such as `packages/guard`. */

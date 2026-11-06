@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./index.js",
-    "./layers": "./layers.js"
+    "./layers": "./layers.js",
+    "./package-graph": "./package-graph.js"
   },
   "scripts": {
     "lint": "eslint .",
