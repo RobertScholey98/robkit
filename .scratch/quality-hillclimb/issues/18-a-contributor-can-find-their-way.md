@@ -31,7 +31,7 @@ You own `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `docs/` (except `docs/conve
 - [x] CONTRIBUTING has troubleshooting, a planning pointer and a refreshed timing table
 - [x] create-robkit's README walks through a template change, and its examples compile
 - [x] The worked example keeps the brands and compiles
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -53,7 +53,7 @@ You own `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `docs/` (except `docs/conve
 - The walkthrough, run for real: `pnpm create-install <scratch>/try-install --stack start` took 18 s. In it, the hub, admin and core-client tests passed (48, 32 and 11), `pnpm lint` and `pnpm typecheck` passed. A one-line edit to `templates/base/apps/hub/src/intro-link.ts` failed `generate.test.ts`'s two digest snapshots, as the README says.
 - Corepack fix: `corepack enable --install-directory <folder> pnpm` wrote `pnpm`, `pnpm.CMD` and `pnpm.ps1`, and with that folder first on `PATH`, `pnpm --version` printed 11.28.9.
 - Node 20 in WSL: pnpm 11.28.9 printed "This version of pnpm requires at least Node.js v22.13", then failed with "No such built-in module: node:sqlite".
-- CI: CI_RESULT
+- CI on PR #57: `check`, `pull-request` and `gate` passed at head 666f41f, https://github.com/RobertScholey98/robkit/actions/runs/42161546782. The `check` job took 6 min 2 s.
 
 ### Not verified
 
