@@ -1,5 +1,5 @@
 import { CANCEL_SYMBOL, intro, isCancel, select, text } from "@clack/prompts";
-import { Problem } from "@robkit/dev";
+import { Problem } from "@robkit/dev/cli";
 import { defaultChoices, stackFrom, stacks, type Stack } from "./choices.ts";
 import { folderInUse } from "./write.ts";
 

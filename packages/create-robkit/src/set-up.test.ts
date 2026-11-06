@@ -3,7 +3,7 @@ import { mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { Problem } from "@robkit/dev";
+import { Problem } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { initGit, installDependencies } from "./set-up.ts";
 

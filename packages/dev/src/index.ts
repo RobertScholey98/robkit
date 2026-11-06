@@ -1,4 +1,3 @@
-export { Problem, reportFaultsAt, runCommand } from "./run-command.ts";
 export {
   appManifestIn,
   catalogOf,

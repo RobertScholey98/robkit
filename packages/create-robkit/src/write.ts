@@ -1,7 +1,7 @@
 import { readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { Problem } from "@robkit/dev";
+import { Problem } from "@robkit/dev/cli";
 import { isMissing } from "./files.ts";
 import type { Files } from "./generate.ts";
 

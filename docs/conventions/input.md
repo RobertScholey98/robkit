@@ -15,7 +15,7 @@ interface InputProblem {
 - `InputProblem` is the only type for a failed read, and `isProblem` the only check for one. Don't write a `{ error: string }` of your own, and don't test a result with `"error" in`.
 - The reader takes `unknown`, or `Env` for environment variables. It never casts. Parsed JSON is `unknown` until a reader checks it: give `JSON.parse` and `.json()` results the type `unknown`, then read them.
 - The problem's `error` names the file or variable, the key, and what to do about it. Write it for the person who has to fix the input.
-- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `Problem` from `@robkit/dev` (see `errors.md`), and an HTTP route answers 400.
+- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `Problem` from `@robkit/dev/cli` (see `errors.md`), and an HTTP route answers 400.
 - When several values are read together, report every problem at once with `allProblems`, a line each, so one run shows everything to fix.
 - A value with a meaning beyond its type gets a brand that only its reader makes, so a function that takes one can't be handed a string nobody checked:
 

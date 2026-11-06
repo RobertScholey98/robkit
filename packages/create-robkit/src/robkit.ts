@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parseArgs, promisify } from "node:util";
-import { Problem, runCommand } from "@robkit/dev";
+import { Problem, runCommand } from "@robkit/dev/cli";
 import {
   defaultDevPort,
   defaultDomain,

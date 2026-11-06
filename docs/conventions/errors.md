@@ -42,7 +42,7 @@ A boundary is where robkit meets a person or another program: an HTTP route, a c
 
 - **Core.** A route answers an expected failure with its status and `{ error }` sentence. One `app.onError` handler catches every unexpected fault and gives it a fresh request id. It logs the route, the id and the cause through `logError`, and answers 500 with a generic JSON error that carries the id, as `requestId` and in an `X-Request-Id` header. The cause stays in core's log, not in the response; the id finds it there.
 - **The guard.** It answers 503 when it can't check a request, rather than treating the viewer as signed out. It hands the cause to `onUnavailable` with the app's slug and what failed: `core-key`, `access-rule` or `network`. By default that reports them.
-- **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/dev`. Throw a `Problem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints a line saying it's a bug and where to report it, then the fault with its stack and cause, and exits 1.
+- **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/dev/cli`. Throw a `Problem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints a line saying it's a bug and where to report it, then the fault with its stack and cause, and exits 1.
 
 ## Whose fault is it
 

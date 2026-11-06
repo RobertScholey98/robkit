@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { reportFaultsAt } from "@robkit/dev";
+import { reportFaultsAt } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 

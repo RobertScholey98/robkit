@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
-import { Problem, runCommand } from "@robkit/dev";
+import { Problem, runCommand } from "@robkit/dev/cli";
 import {
   defaultDevPort,
   defaultDomain,

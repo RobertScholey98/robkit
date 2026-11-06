@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { Problem } from "@robkit/dev";
+import { Problem } from "@robkit/dev/cli";
 
 /**
  * Runs `command` in `dir`, showing its output.

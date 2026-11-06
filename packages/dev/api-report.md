@@ -30,9 +30,6 @@ export function databaseUrl(
   password: string,
 ): string;
 export function discoverApps(root: string, firstPort?: number): Promise<App[]>;
-export class Problem extends Error {
-  name: string;
-}
 export function provisionApps(
   root: string,
   { adminUrl, env, signal }: ProvisionOptions,
@@ -67,16 +64,34 @@ export function readAppManifest(
   file: string,
 ): AppManifest | InputProblem;
 export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem;
-export const reportFaultsAt: "https://github.com/RobertScholey98/robkit/issues";
 export interface Route {
   host: string;
   app: string;
   port: number;
 }
 export function routesFor(apps: readonly App[], domain: string): Route[];
+export function runDev(root: string, env: NodeJS.ProcessEnv): Promise<number>;
+```
+
+## @robkit/dev/cli
+
+```ts
+export function exec(
+  command: string,
+  args: string[],
+  options: {
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    slug?: string;
+  },
+): Promise<void>;
+export function isMissing(error: unknown): boolean;
+export class Problem extends Error {
+  name: string;
+}
+export const reportFaultsAt: "https://github.com/RobertScholey98/robkit/issues";
 export function runCommand(
   main: () => Promise<number | undefined>,
   report?: Report,
 ): Promise<number>;
-export function runDev(root: string, env: NodeJS.ProcessEnv): Promise<number>;
 ```

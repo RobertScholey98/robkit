@@ -1,5 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import { Problem } from "@robkit/dev";
+import { Problem } from "@robkit/dev/cli";
 import { install, type Slug } from "@robkit/session/addresses";
 import {
   isDomain,

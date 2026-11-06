@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { Problem } from "@robkit/dev";
+import { Problem } from "@robkit/dev/cli";
 import {
   isPlatformApp,
   platformApps,

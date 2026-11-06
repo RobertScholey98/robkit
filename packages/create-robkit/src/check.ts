@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
-import { appManifestIn, Problem } from "@robkit/dev";
+import { appManifestIn } from "@robkit/dev";
+import { Problem } from "@robkit/dev/cli";
 import { sessionCookie } from "@robkit/session";
 import { isProblem, isRecord, parseJson } from "@robkit/session/input";
 import ts from "typescript";

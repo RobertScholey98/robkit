@@ -2,7 +2,7 @@ import { exec as execCallback } from "node:child_process";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
-import { Problem } from "@robkit/dev";
+import { Problem } from "@robkit/dev/cli";
 import { format } from "prettier";
 import { isProblem, isRecord, parseJson } from "@robkit/session/input";
 import { parseDocument } from "yaml";
