@@ -24,7 +24,7 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 ## Where things are
 
 - `packages/` holds the published packages: `create-robkit` and `@robkit/*`. Each README says what the package is for, gives an example, and lists its exports and its layer rule. Where a package's code needs more explaining, its README ends with a "For contributors" section.
-- `tooling/` holds private workspace packages: the shared tsconfig and ESLint config; repo checks that run as tests; a per-suite test Postgres; `@internal/test-session`, which signs session tokens and runs a fake core for the guard's and adapters' tests; and the whole-stack test.
+- `tooling/` holds private workspace packages: the shared tsconfig and ESLint config; repo checks that run as tests; a per-suite test Postgres; `@internal/test-session`, which signs session tokens, runs a fake core for the guard's and adapters' tests, and builds branded values for tests; and the whole-stack test.
 
 ## Docs
 
@@ -62,6 +62,7 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 - Words `GLOSSARY.md` says to avoid fail a repo check (`tooling/repo-checks/src/glossary.ts`). Where one is right in context, add an exception there with the reason.
 - Every `eslint-disable` gives its reason after `--`, and lint fails on one that disables nothing.
 - A cast fails lint outside tests (`no-unsafe-type-assertion`, and `robkit/no-json-cast` for `JSON.parse` and `.json()`). Use a reader or a type guard instead.
+- A cast to a branded type fails lint everywhere, tests included (`robkit/no-brand-cast`). Tests build a `Slug`, `CodeId`, `RoleId` or `Viewer` with `slug`, `aCodeId`, `aRoleId` and `aViewer` from `@internal/test-session`.
 - A failed read is an `InputProblem`, checked with `isProblem`. `robkit/one-problem-type` refuses a `{ error: string }` of your own and `"error" in`.
 - An adapter-facing package (guard, session, hono, start, react) keeps a `*.test-d.ts` file saying what must and mustn't compile, and its `test` script runs `vitest run --typecheck`.
 - The pre-commit hook runs ESLint's fixes and Prettier on staged files. The commit-msg hook, and CI on each commit of a pull request, check the subject with `tooling/repo-checks/src/check-commit-subjects.ts`.
