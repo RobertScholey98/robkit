@@ -22,7 +22,6 @@ export function appManifestIn(
   folder: string,
 ): Promise<AppManifest | undefined>;
 export function catalogOf(apps: readonly App[]): string;
-export function createProxy(routes: readonly Route[]): Server;
 export function databasePassword(secret: string, slug: Slug): string;
 export function databaseUrl(
   adminUrl: string,
@@ -30,10 +29,6 @@ export function databaseUrl(
   password: string,
 ): string;
 export function discoverApps(root: string, firstPort?: number): Promise<App[]>;
-export function provisionApps(
-  root: string,
-  { adminUrl, env, signal }: ProvisionOptions,
-): Promise<Map<Slug, string>>;
 export interface ProvisionConfig {
   adminUrl: string;
   secret: string;
@@ -54,23 +49,7 @@ export interface ProvisionDatabasesOptions {
   secret: string;
   slugs: readonly Slug[];
 }
-export interface ProvisionOptions {
-  adminUrl: string;
-  env?: NodeJS.ProcessEnv;
-  signal?: AbortSignal;
-}
-export function readAppManifest(
-  value: unknown,
-  file: string,
-): AppManifest | InputProblem;
 export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem;
-export interface Route {
-  host: string;
-  app: string;
-  port: number;
-}
-export function routesFor(apps: readonly App[], domain: string): Route[];
-export function runDev(root: string, env: NodeJS.ProcessEnv): Promise<number>;
 ```
 
 ## @robkit/dev/cli
