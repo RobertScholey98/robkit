@@ -257,7 +257,10 @@ describe("robkit-dev", () => {
   });
 
   it("stops everything and fails when an app exits", async () => {
-    const dev = await startDev({ FIXTURE_CRASH: "beta" });
+    const dev = await startDev({
+      FIXTURE_CRASH: "beta",
+      FIXTURE_SLOW_START: "alpha",
+    });
 
     expect(await exitCode(dev.child)).not.toBe(0);
     expect(await startedApps(dev.root)).toEqual(["alpha", "beta"]);
