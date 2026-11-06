@@ -61,7 +61,7 @@ await migrate(databaseUrl);
 
 | Export                               | What it is                                                                                                                                                       |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `domain`, optional `trustedProxy`, `now` and `logError`, where every unexpected error is logged                            |
+| `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `domain`, optional `trustedProxy`, `now` and `logError`, a `Report` where every unexpected error is logged                 |
 | `createDatabase(url)`, `Database`    | A Drizzle database on core's schema                                                                                                                              |
 | `migrate(url)`                       | Applies core's migrations from `drizzle/`                                                                                                                        |
 | `ensureSigningKey(db)`, `SigningKey` | Core's Ed25519 key, made on first boot and kept in core's schema                                                                                                 |
@@ -80,5 +80,6 @@ Core's routes are in `src/app.ts`. `docs/architecture.md` shows how they fit the
 
 ## For contributors
 
-- `createApp` takes `logError`, `console.error` by default, where every unexpected error (one handler, `app.onError`, answering a generic 500) and an unreachable database are logged.
+- `createApp` takes `logError`, a `Report` from `@robkit/session` that defaults to `reportToConsole`. Every unexpected error (one handler, `app.onError`, answering a generic 500) and an unreachable database are reported there.
+- Each 500 carries a fresh request id, in the `X-Request-Id` header and the body's `requestId`. The log line names the same id, such as `GET /path failed (request <id>).`, so a 500 a person reports leads to its cause in core's log.
 - Core adds a new app with the rule it declares, or owner-only, and creates any role it names that the owner lacks. After that admin sets who may open it, and core keeps the owner's rule.

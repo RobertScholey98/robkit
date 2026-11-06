@@ -39,16 +39,17 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 
 `@robkit/session`:
 
-| Export                                                                                | What it is                                                                                                            |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `requestGuard(options)`                                                               | A function from `Request` to `{ viewer }` or `{ response }`. Answers `/_robkit/session` and `/_robkit/refresh` itself |
-| `GuardedOptions`                                                                      | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule, as admin uses                   |
-| `RequestDecision`                                                                     | `requestGuard`'s answer                                                                                               |
-| `readSessionToken`, `readAppToken`                                                    | Verify core's token or an app token, and read its claims                                                              |
-| `sessionTokensIn(cookieHeader)`                                                       | The session tokens in a `Cookie` header                                                                               |
-| `sessionCookie`, `coreAudience`, `sessionTokenLifetimeSeconds`                        | The cookie's name, core's audience, and a token's lifetime (15 minutes)                                               |
-| `appSessionPath`, `appRefreshPath`, `appSessionUrl`                                   | The guard's two paths, and the callback URL core sends the browser to                                                 |
-| `SessionTokenClaims`, `ViewerClaims`, `ReadSessionToken`, `ReadAppToken`, `VerifyKey` | Their types                                                                                                           |
+| Export                                                                                | What it is                                                                                                                         |
+| ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `requestGuard(options)`                                                               | A function from `Request` to `{ viewer }` or `{ response }`. Answers `/_robkit/session` and `/_robkit/refresh` itself              |
+| `GuardedOptions`                                                                      | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule, as admin uses                                |
+| `RequestDecision`                                                                     | `requestGuard`'s answer                                                                                                            |
+| `readSessionToken`, `readAppToken`                                                    | Verify core's token or an app token, and read its claims                                                                           |
+| `sessionTokensIn(cookieHeader)`                                                       | The session tokens in a `Cookie` header                                                                                            |
+| `sessionCookie`, `coreAudience`, `sessionTokenLifetimeSeconds`                        | The cookie's name, core's audience, and a token's lifetime (15 minutes)                                                            |
+| `appSessionPath`, `appRefreshPath`, `appSessionUrl`                                   | The guard's two paths, and the callback URL core sends the browser to                                                              |
+| `SessionTokenClaims`, `ViewerClaims`, `ReadSessionToken`, `ReadAppToken`, `VerifyKey` | Their types                                                                                                                        |
+| `Report`, `reportToConsole`                                                           | The one shape for reporting a fault, `(message, cause?)`, and its default, which prints the message, then the cause with its stack |
 
 `@robkit/session/addresses` imports nothing, so the browser can load it:
 
@@ -81,7 +82,8 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 - A page load it holds nothing for goes to core's `/refresh` with a random state, and core sends the browser back to the app's `/_robkit/session` with a token for that app, or none if nobody is signed in.
 - The guard answers that callback, and `/_robkit/refresh`, where a call whose token lapsed sends the browser, itself, so the adapters and the app's code never see them.
 - It fetches core's public key once, so apps verify tokens locally, and keeps an app's access rule from core for a minute.
-- When it can't check a request it answers 503 and tells `onUnavailable` why: what failed (`core-key`, `access-rule` or `network`) and the cause. By default that logs the app, what failed and the cause.
+- When it can't check a request it answers 503 and tells `onUnavailable` why: what failed (`core-key`, `access-rule` or `network`) and the cause. By default that reports the app, what failed and the cause through `reportToConsole`.
+- `Report` is the one shape for reporting a fault nobody calling can handle. Core's `logError`, the guard's default `onUnavailable` and dev's `runCommand` all report through it (see `docs/conventions/errors.md`).
 - `@robkit/session/lapsed` is the guard's 401 for a call whose session has lapsed, which `sessionFetch` reads. It imports nothing, so the browser can load it.
 - `@robkit/session/input` holds the readers for input from outside robkit's own code: environment variables, JSON and an app's `robkit` field. Each returns the value or an `InputProblem`.
 - `@robkit/session/addresses` turns an install's domain into its addresses: each app on `<slug>.<domain>`, the platform apps' names, the default domain and dev port, and whether a URL is on the install. Core, the guard, the hub, admin, the dev runner, init and the whole-stack test all take their addresses from it. It imports nothing either.
