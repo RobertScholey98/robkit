@@ -178,6 +178,31 @@ describe("GET /apps/:slug/access", () => {
     });
   });
 
+  it("answers each app's own rule, whatever the others' are", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [
+      { slug: slug("notes"), access: { kind: "open" } },
+      { slug: slug("diary"), access: { kind: "owner" } },
+      {
+        slug: slug("recipes"),
+        access: { kind: "roles", roleNames: ["Family", "Cooks"] },
+      },
+    ]);
+    const { Cooks, Family } = await roleIdsByName(app, owner);
+
+    const answers = await Promise.all(
+      ["notes", "diary", "recipes", "nope"].map((slug) => accessOf(app, slug)),
+    );
+
+    expect(answers).toEqual([
+      { status: 200, body: { kind: "open" } },
+      { status: 200, body: { kind: "owner" } },
+      { status: 200, body: { kind: "roles", roles: [Cooks, Family] } },
+      { status: 404, body: { error: "Not found" } },
+    ]);
+  });
+
   it("needs no cookie", async () => {
     const { app, db } = await freshCore();
     await registerApps(db, [{ slug: slug("example") }]);
