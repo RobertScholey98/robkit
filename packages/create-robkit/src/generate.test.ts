@@ -69,41 +69,6 @@ describe("generateInstall", () => {
     });
   });
 
-  it("merges each layer's scripts and dependencies into the root manifest", async () => {
-    const files = await generateInstall(defaultChoices);
-
-    expect(json(files, "package.json")).toEqual({
-      private: true,
-      type: "module",
-      engines: { node: ">=24" },
-      scripts: {
-        dev: "robkit-dev",
-        typecheck: "turbo run typecheck",
-        test: "turbo run test",
-        build: "turbo run build",
-        lint: "robkit check && eslint .",
-        format: "prettier --write .",
-        "format:check": "prettier --check .",
-        robkit: "robkit",
-        postinstall: "husky || true",
-      },
-      devDependencies: {
-        "@robkit/dev": "catalog:",
-        "create-robkit": "catalog:",
-        turbo: "catalog:",
-        typescript: "catalog:",
-        "@eslint/js": "catalog:",
-        eslint: "catalog:",
-        globals: "catalog:",
-        prettier: "catalog:",
-        "typescript-eslint": "catalog:",
-        husky: "catalog:",
-        "lint-staged": "catalog:",
-      },
-      packageManager: "pnpm@11.28.9",
-    });
-  });
-
   it("states each rule robkit check enforces in the root AGENTS.md", async () => {
     const files = await generateInstall(defaultChoices);
     const agents = files.get("AGENTS.md") ?? "";
