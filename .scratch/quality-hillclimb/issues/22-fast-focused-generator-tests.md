@@ -26,7 +26,7 @@ Raises rubric categories 8 (testing) and 10 (nice to work in as a human). Eviden
 - [x] The wizards have tests through injected prompts
 - [x] The install check typechecks, and a template type error fails it
 - [x] A warm `pnpm check` with nothing changed hits turbo's cache for repo-checks
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -52,6 +52,7 @@ Raises rubric categories 8 (testing) and 10 (nice to work in as a human). Eviden
 | `pnpm check` (warm, two runs) | 31, 27 s; 47 of 48 tasks cached | 6.7, 7.3 s; 48 of 48 cached |
 
 - Red first: the wizard tests hung on clack's terminal prompts before the seam. The type-error test failed with "promise resolved instead of rejecting" without `pnpm typecheck` in the check. The completeness test failed on both stacks when I made the generator drop `Dockerfile` and rewrite `turbo.json`.
+- CI: the `gate` job passed on https://github.com/RobertScholey98/robkit/actions/runs/42194746071. Its first run failed only on my branch threshold, which I had set from the Windows figure.
 - turbo's dry run hashes before and after a repo-checks run differed only in `coverage/*` files.
 - Coverage: CI measured 81.9 / 75.9 / 90.7 / 82.7 (Windows: 76.1 branches), from about 74 / 66 / 80 / 74. The thresholds are CI's figures rounded down: 81 / 75 / 90 / 82.
 
