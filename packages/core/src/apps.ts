@@ -11,6 +11,7 @@ import {
   isProblem,
   parseJson,
   problem,
+  type Slug,
 } from "@robkit/input";
 import {
   type ManifestAccess,
@@ -160,7 +161,7 @@ function ruleOf(
 /** Who may open the app, or undefined if core doesn't know it. */
 export async function accessOf(
   db: Database,
-  slug: string,
+  slug: Slug,
 ): Promise<AccessRule | undefined> {
   const rows = await db
     .select({ access: apps.access, roleId: appRoles.roleId })
@@ -180,7 +181,7 @@ export async function accessOf(
 /** Sets who may open the app. A rule's roles must all exist. */
 export async function setAccess(
   db: Database,
-  slug: string,
+  slug: Slug,
   rule: AccessRule,
 ): Promise<AccessChange> {
   return db.transaction(async (tx) => {
