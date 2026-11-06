@@ -5,3 +5,4 @@
 An install's code follows the rules robkit's own code does.
 
 - The hub's and admin's pages say which element they lack, and where it comes from, when they can't start.
+- An install lints with robkit's own policy. create-robkit copies `tooling/eslint/policy.js` and the rules it imports into the install's `tooling/eslint`, and the install's `eslint.config.js` uses it, in place of selectors that copied three of the rules. So `no-silent-catch`, `no-bare-error`, `no-brand-cast`, `preserve-caught-error` and the suppression rules now apply to an install too.

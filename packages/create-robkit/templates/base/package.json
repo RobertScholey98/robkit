@@ -16,6 +16,7 @@
     "postinstall": "husky || true"
   },
   "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "catalog:",
     "@eslint/js": "catalog:",
     "@robkit/dev": "catalog:",
     "create-robkit": "catalog:",

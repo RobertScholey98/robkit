@@ -16,6 +16,11 @@ export interface RobkitRepo {
   packageManager: string;
   /** The `@robkit/*` packages and create-robkit, by name. */
   packages: Map<string, RobkitPackage>;
+  /**
+   * robkit's lint policy: `tooling/eslint/policy.js` and each file it
+   * imports, by name, for an install to lint with too.
+   */
+  lintPolicy: Map<string, string>;
 }
 
 export interface RobkitPackage {
@@ -24,6 +29,32 @@ export interface RobkitPackage {
 }
 
 const robkitRoot = fileURLToPath(new URL("../../../", import.meta.url));
+
+/** A relative import of a JS file beside the importer, such as `"./x.js"`. */
+const besideImport = /from "\.\/([\w.-]+\.js)"/g;
+
+/**
+ * `policy.js` in robkit's `tooling/eslint`, and each file it imports from
+ * there, in turn, by name. Their packages come from the install's root.
+ */
+async function readLintPolicy(): Promise<Map<string, string>> {
+  const dir = join(robkitRoot, "tooling", "eslint");
+  const files = new Map<string, string>();
+  const queue = ["policy.js"];
+  for (let name = queue.shift(); name !== undefined; name = queue.shift()) {
+    if (files.has(name)) continue;
+    // A Windows checkout may hold the files with CRLF endings.
+    const text = (await readFile(join(dir, name), "utf8")).replaceAll(
+      "\r\n",
+      "\n",
+    );
+    files.set(name, text);
+    for (const [, imported] of text.matchAll(besideImport)) {
+      if (imported !== undefined) queue.push(imported);
+    }
+  }
+  return files;
+}
 
 /** A manifest's string fields, such as its name and version. */
 async function readManifest(dir: string): Promise<Record<string, string>> {
@@ -62,5 +93,6 @@ export async function readRobkitRepo(): Promise<RobkitRepo> {
     ),
     packageManager: root.packageManager,
     packages,
+    lintPolicy: await readLintPolicy(),
   };
 }

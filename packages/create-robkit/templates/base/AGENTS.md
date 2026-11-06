@@ -42,6 +42,6 @@ Each app has a `start` script, which migrates its database if it has one and the
 
 ## Dev tools
 
-- **ESLint and Prettier.** `pnpm lint` runs ESLint after `robkit check`, with the rules in `eslint.config.js`. `pnpm format` formats the install with Prettier, and CI fails on a file Prettier would change.
+- **ESLint and Prettier.** `pnpm lint` runs ESLint after `robkit check`. `eslint.config.js` lints with robkit's own policy, which create-robkit copied into `tooling/eslint`: a `catch` uses its error or says why not, a thrown `Error` names what failed or keeps its `cause`, parsed JSON goes through a reader rather than a cast, and an `eslint-disable` says why after `--`. Each message says what to do. `pnpm format` formats the install with Prettier, and CI fails on a file Prettier would change.
 - **Vitest.** Each test sits beside the code it covers, as `<name>.test.ts`, and `pnpm test` runs every package's tests. In a test, `fakeCore` from `@internal/core-client/fake-core` answers for core.
 - **Husky and lint-staged.** Before each commit, a hook in `.husky/pre-commit` runs lint-staged, which runs what `lint-staged.config.js` names on the staged files and refuses the commit if any of it fails. `pnpm install` sets the hook up.
