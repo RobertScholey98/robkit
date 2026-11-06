@@ -21,11 +21,12 @@ An install's `apps/core/src/provision.ts`, which runs in production:
 
 ```ts
 import { provisionDatabases, readProvisionConfig } from "@robkit/dev";
+import { isProblem } from "@robkit/session/input";
 
 // ROBKIT_ADMIN_DATABASE_URL, ROBKIT_DB_SECRET, and ROBKIT_DATABASES, which
 // lists the apps with a database, such as "example,notes".
 const config = readProvisionConfig(process.env);
-if ("error" in config) {
+if (isProblem(config)) {
   console.error(config.error);
   process.exit(1);
 }

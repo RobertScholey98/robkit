@@ -9,7 +9,7 @@ Apps on the TanStack Start stack use it.
 From the Start template (`templates/stacks/start/src/server.ts`):
 
 ```ts
-import { readGuardEnv } from "@robkit/session/input";
+import { isProblem, readGuardEnv } from "@robkit/session/input";
 import { guarded, type GuardedContext } from "@robkit/start";
 import entry from "@tanstack/react-start/server-entry";
 
@@ -22,7 +22,7 @@ declare module "@tanstack/react-start" {
 
 // The app's slug and core's address, which pnpm dev and robkit deploy set.
 const guard = readGuardEnv(process.env);
-if ("error" in guard) throw new Error(guard.error);
+if (isProblem(guard)) throw new Error(guard.error);
 
 // The rule is the one the owner set for this app in admin.
 export default guarded(entry, guard);

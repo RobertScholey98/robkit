@@ -10,11 +10,11 @@ An adapter runs `requestGuard` on every request (`packages/hono/src/guarded.ts`)
 
 ```ts
 import { requestGuard } from "@robkit/session";
-import { readGuardEnv } from "@robkit/session/input";
+import { isProblem, readGuardEnv } from "@robkit/session/input";
 
 // The app's slug and core's address, which pnpm dev and robkit deploy set.
 const options = readGuardEnv(process.env);
-if ("error" in options) throw new Error(options.error);
+if (isProblem(options)) throw new Error(options.error);
 
 const check = requestGuard(options);
 

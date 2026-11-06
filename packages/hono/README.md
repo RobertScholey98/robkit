@@ -10,14 +10,14 @@ From the React with Hono template (`templates/stacks/react-hono/src/server.tsx`)
 
 ```ts
 import { guarded, type GuardedEnv } from "@robkit/hono";
-import { readGuardEnv } from "@robkit/session/input";
+import { isProblem, readGuardEnv } from "@robkit/session/input";
 import { Hono } from "hono";
 
 const app = new Hono<GuardedEnv>();
 
 // The app's slug and core's address, which pnpm dev and robkit deploy set.
 const guard = readGuardEnv(process.env);
-if ("error" in guard) throw new Error(guard.error);
+if (isProblem(guard)) throw new Error(guard.error);
 
 // The rule is the one the owner set for this app in admin.
 app.use(guarded(guard));
