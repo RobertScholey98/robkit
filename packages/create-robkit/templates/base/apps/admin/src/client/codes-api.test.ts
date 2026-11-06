@@ -28,7 +28,17 @@ const read = {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
+
+/** What callCore's default report printed, a call each. */
+function printed(): unknown[][] {
+  const calls: unknown[][] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    calls.push(args);
+  });
+  return calls;
+}
 
 describe("listCodes", () => {
   it("reads every code core lists", async () => {
@@ -55,17 +65,35 @@ describe("listCodes", () => {
   });
 
   it.each([
-    ["an unknown standing", { codes: [{ ...sent, standing: "asleep" }] }],
-    ["a code without a name", { codes: [{ ...sent, name: undefined }] }],
-    ["a date that isn't one", { codes: [{ ...sent, createdAt: "soon" }] }],
-    ["no list", {}],
-  ])("refuses %s", async (_, body) => {
+    [
+      "an unknown standing",
+      { codes: [{ ...sent, standing: "asleep" }] },
+      "Item 1 of the codes field: The code's standing isn't one of live, revoked, expired, local-only.",
+    ],
+    [
+      "a code without a name",
+      { codes: [{ ...sent, name: undefined }] },
+      "Item 1 of the codes field: The code's name isn't text.",
+    ],
+    [
+      "a date that isn't one",
+      { codes: [{ ...sent, createdAt: "soon" }] },
+      "Item 1 of the codes field: The code's createdAt isn't a date as ISO text, or null.",
+    ],
+    ["no list", {}, "The codes field isn't a list."],
+  ])("refuses %s, and reports why", async (_, body, why) => {
     vi.stubGlobal("fetch", fakeCore(core, { "GET /codes": () => ({ body }) }));
+    const reported = printed();
 
     expect(await listCodes(core)).toEqual({
       outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
+    expect(reported).toEqual([
+      [
+        `Core at ${core} answered GET /codes with 200, which this page can't read: ${why}`,
+      ],
+    ]);
   });
 });
 

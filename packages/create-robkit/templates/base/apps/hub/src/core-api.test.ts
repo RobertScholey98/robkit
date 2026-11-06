@@ -32,7 +32,17 @@ const signsIn = fakeCore(core, {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
+
+/** What callCore's default report printed, a call each. */
+function printed(): unknown[][] {
+  const calls: unknown[][] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    calls.push(args);
+  });
+  return calls;
+}
 
 describe("getSession", () => {
   it.each([
@@ -50,22 +60,37 @@ describe("getSession", () => {
   });
 
   it.each([
-    ["an unknown state", { state: "sleeping" }],
-    ["a profile that is nobody", { state: "signed-in", profile: {} }],
+    [
+      "an unknown state",
+      { state: "sleeping" },
+      "The session's state isn't unclaimed, signed-out or signed-in.",
+    ],
+    [
+      "a profile that is nobody",
+      { state: "signed-in", profile: {} },
+      "The profile's id isn't text.",
+    ],
     [
       "a guest without a name",
       { state: "signed-in", profile: { kind: "guest", id: "c_1" } },
+      "The profile isn't an owner with a username or a guest with a name.",
     ],
-  ])("refuses %s", async (_, body) => {
+  ])("refuses %s, and reports why", async (_, body, why) => {
     vi.stubGlobal(
       "fetch",
       fakeCore(core, { "GET /session": () => ({ body }) }),
     );
+    const reported = printed();
 
     expect(await getSession(core)).toEqual({
       outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
+    expect(reported).toEqual([
+      [
+        `Core at ${core} answered GET /session with 200, which this page can't read: ${why}`,
+      ],
+    ]);
   });
 });
 

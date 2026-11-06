@@ -1,5 +1,11 @@
-import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
-import { isProblem, readSlug, type Slug } from "@robkit/input";
+import { callCore, listOf, problem, type Result } from "@internal/core-client";
+import {
+  type InputProblem,
+  isProblem,
+  isRecord,
+  readSlug,
+  type Slug,
+} from "@robkit/input";
 
 /** An app the launcher lists: core lists only those the viewer may open. */
 export interface LauncherApp {
@@ -12,17 +18,20 @@ export interface LauncherApp {
 export function listLauncherApps(core: string): Promise<Result<LauncherApp[]>> {
   return callCore(core, "GET", "/launcher", {
     read: (body) =>
-      isRecord(body) ? listOf(body.apps, readLauncherApp) : undefined,
+      isRecord(body)
+        ? listOf(body.apps, "apps", readLauncherApp)
+        : problem("The launcher's answer isn't an object."),
   });
 }
 
-function readLauncherApp(value: unknown): LauncherApp | undefined {
-  if (!isRecord(value)) return undefined;
+function readLauncherApp(value: unknown): LauncherApp | InputProblem {
+  if (!isRecord(value)) return problem("It isn't an object.");
   const { name, icon = null } = value;
   const slug = readSlug(value.slug);
-  return !isProblem(slug) &&
-    typeof name === "string" &&
-    (icon === null || typeof icon === "string")
-    ? { slug, name, icon }
-    : undefined;
+  if (isProblem(slug)) return problem("Its slug isn't a slug.");
+  if (typeof name !== "string") return problem("Its name isn't text.");
+  if (icon !== null && typeof icon !== "string") {
+    return problem("Its icon isn't text or null.");
+  }
+  return { slug, name, icon };
 }

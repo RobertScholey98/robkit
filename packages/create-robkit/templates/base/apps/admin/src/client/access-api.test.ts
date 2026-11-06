@@ -16,7 +16,17 @@ const family = { id: "r_1", name: "Family", codeIds: ["c_1", "c_2"] };
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
+
+/** What callCore's default report printed, a call each. */
+function printed(): unknown[][] {
+  const calls: unknown[][] = [];
+  vi.spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+    calls.push(args);
+  });
+  return calls;
+}
 
 describe("listRoles", () => {
   it("reads every role and the codes that hold it", async () => {
@@ -28,7 +38,7 @@ describe("listRoles", () => {
     expect(await listRoles(core)).toEqual({ outcome: "ok", value: [family] });
   });
 
-  it("refuses a role it can't read", async () => {
+  it("refuses a role it can't read, and reports why", async () => {
     vi.stubGlobal(
       "fetch",
       fakeCore(core, {
@@ -37,11 +47,17 @@ describe("listRoles", () => {
         }),
       }),
     );
+    const reported = printed();
 
     expect(await listRoles(core)).toEqual({
       outcome: "failed",
       error: "Core sent an answer this page can't read.",
     });
+    expect(reported).toEqual([
+      [
+        `Core at ${core} answered GET /roles with 200, which this page can't read: Item 1 of the roles field: The codeIds field isn't a list.`,
+      ],
+    ]);
   });
 });
 
