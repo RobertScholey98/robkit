@@ -31,7 +31,7 @@ Raises rubric categories 7 (error handling) and 6 (consistency). Evidence: `../r
 - [x] Core's faults and the vendor commands say what was tried and what to do
 - [x] `throw new Error(x.error)` and bare errors fail lint, and the repo passes
 - [x] `fieldsOf` refuses JSON that isn't an object
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -59,9 +59,11 @@ Raises rubric categories 7 (error handling) and 6 (consistency). Evidence: `../r
 - `pnpm check` on Windows: 48 of 48 tasks passed.
 - Core's whole suite in WSL with Docker: 246 tests passed, coverage 96.77 / 96.13 / 91.61 / 97.28 against thresholds of 96 / 95 / 91 / 97.
 
+- CI on PR #61: `check`, `pull-request` and `gate` passed at head 0dad531, https://github.com/RobertScholey98/robkit/actions/runs/42172689934. Its `check` job ran the full gate, the new e2e test and the coverage ratchet included.
+
 ### Not verified
 
-- The new e2e test didn't run locally, since other tickets were running. CI's full gate runs it.
+- The new e2e test didn't run locally, since other tickets were running. CI's full gate ran it.
 - shadcn-kit's failure paths beyond the usage message, since running it needs the network. Its shadcn calls go through dev's `exec`, which has its own tests.
 - vendor's message for pack output that isn't JSON. I found no way to make pnpm print that.
 
