@@ -2,6 +2,8 @@
 
 The ESLint config every workspace package lints with, and robkit's own rules. A package's `eslint.config.js` calls `config(import.meta.dirname)` from here. The pre-commit hook runs ESLint's fixes on the files you stage, and both gates run `lint` in every package.
 
+The config has two parts. `policy.js` holds every rule that doesn't know robkit's own packages. create-robkit copies it, with each file it imports from this folder, into every new install's `tooling/eslint`, so an install lints the way robkit does. `index.js` adds the two rules that know robkit's packages, `robkit/layer` and `robkit/core-schema`. `install-lint.test.ts` in create-robkit lints the same samples with an install's config and robkit's, and fails if they differ.
+
 On top of ESLint's recommended rules and typescript-eslint's `strictTypeChecked` and `stylisticTypeChecked`, it turns on the rules below. Each message says what to do; this page says a little more.
 
 ## robkit's rules
@@ -68,7 +70,7 @@ A new workspace package gets an entry here too, even with no edges.
 ## Add a rule
 
 1. Write the rule in its own file, with a `messages` entry that says what to do, not only what's wrong.
-2. Register it in `index.js` under `robkit` and turn it on.
+2. Register it under `robkit` and turn it on: in `policy.js` if it would hold in an install too, or in `index.js` if it knows robkit's packages. A file `policy.js` imports must import only packages, or other files here, since an install gets it.
 3. Test it in a `*.test.js` beside it, with code it passes and code it fails.
 4. Fix or justify every existing violation in the same pull request, so lint stays green.
 5. Add it to the table above, and to [AGENTS.md](../../AGENTS.md) if it enforces a convention there.
