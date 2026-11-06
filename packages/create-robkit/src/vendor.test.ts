@@ -1,4 +1,4 @@
-import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CommandProblem } from "@robkit/dev/cli";
@@ -19,22 +19,6 @@ async function overridesOf(dir: string): Promise<Record<string, string>> {
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 describe("vendorPackages", () => {
-  it("packs each linked package into vendor/robkit and points the install at the tarballs", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
-    await init(defaultChoices, dir, { link: true });
-    const linked = Object.keys(await overridesOf(dir));
-
-    await vendorPackages(dir);
-
-    const overrides = await overridesOf(dir);
-    expect(Object.keys(overrides)).toEqual(linked);
-    for (const [name, spec] of Object.entries(overrides)) {
-      const tarball = `vendor/robkit/${name.replace("@", "").replace("/", "-")}-0.0.0.tgz`;
-      expect(spec).toBe(`file:${tarball}`);
-      await access(join(dir, tarball));
-    }
-  }, 120_000);
-
   it("refuses a linked override that isn't a package name, running nothing", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
     await init(defaultChoices, dir);

@@ -38,7 +38,7 @@
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run --coverage",
-    "test:unit": "vitest run --coverage",
+    "test:unit": "vitest run --project unit",
     "shadcn-kit": "node scripts/shadcn-kit.ts"
   },
   "dependencies": {
