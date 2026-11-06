@@ -13,6 +13,14 @@ async function freshInstall(choices: Choices = defaultChoices) {
   return dir;
 }
 
+let readOnly: Promise<string> | undefined;
+
+/** One fresh install, made on first use, for the tests that only read it. */
+function readOnlyInstall(): Promise<string> {
+  readOnly ??= freshInstall();
+  return readOnly;
+}
+
 async function manifest(dir: string, slug: string): Promise<unknown> {
   return JSON.parse(
     await readFile(join(dir, "apps", slug, "package.json"), "utf8"),
@@ -110,13 +118,13 @@ describe("addApp", () => {
     ["hub", "hub is one of the platform apps: core, hub and admin."],
     ["example", "apps/example already exists. Choose another name."],
   ])("refuses the name %j", async (name, message) => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     expect(readNewSlug(dir, name)).toEqual({ error: message });
   });
 
   it("refuses to write over an app", async () => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     await expect(
       addApp(dir, { ...notes, slug: slug("example") }),

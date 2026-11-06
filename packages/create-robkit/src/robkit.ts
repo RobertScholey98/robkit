@@ -19,7 +19,6 @@ import {
   appChoicesFromFlags,
   askAdd,
 } from "./add-wizard.ts";
-import { checkInstall, describeViolation } from "./check.ts";
 import { deploy, readCoolifyConfig } from "./coolify.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import {
@@ -78,6 +77,8 @@ async function check(): Promise<number> {
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
+  // check.ts loads TypeScript, a third of a second, so only check loads it.
+  const { checkInstall, describeViolation } = await import("./check.ts");
   const violations = await checkInstall(root);
   for (const violation of violations) console.log(describeViolation(violation));
   return violations.length > 0 ? 1 : 0;

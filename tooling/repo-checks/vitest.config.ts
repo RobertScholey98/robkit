@@ -9,7 +9,7 @@ export default defineConfig({
       include: ["src/**"],
       // Today's coverage, rounded down. Raise them as it rises; CI fails a
       // pull request that lowers one.
-      thresholds: { statements: 65, branches: 58, functions: 72, lines: 66 },
+      thresholds: { statements: 82, branches: 73, functions: 87, lines: 84 },
     },
   },
 });

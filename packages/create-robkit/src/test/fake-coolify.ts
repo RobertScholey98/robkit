@@ -127,7 +127,9 @@ export function fakeFetch(state: FakeCoolify): typeof fetch {
       raw ? (JSON.parse(raw) as unknown) : undefined,
     );
     if (result === "hang") {
-      const { signal } = request;
+      // The caller's signal, not the Request's: that only follows it weakly,
+      // so once garbage collection takes the Request, it never aborts.
+      const signal = init?.signal ?? request.signal;
       return new Promise((_, reject) => {
         signal.addEventListener("abort", () => {
           reject(signal.reason as Error);

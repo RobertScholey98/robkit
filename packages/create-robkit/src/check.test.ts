@@ -26,6 +26,14 @@ async function freshInstall(): Promise<string> {
   return dir;
 }
 
+let readOnly: Promise<string> | undefined;
+
+/** One fresh install, made on first use, for the tests that only read it. */
+function readOnlyInstall(): Promise<string> {
+  readOnly ??= freshInstall();
+  return readOnly;
+}
+
 /** The install with one file written, as an agent's change might. */
 async function installWith(path: string, text: string): Promise<string> {
   const dir = await freshInstall();
@@ -33,9 +41,9 @@ async function installWith(path: string, text: string): Promise<string> {
   return dir;
 }
 
-describe("checkInstall", { timeout: 30_000 }, () => {
+describe("checkInstall", () => {
   it("finds nothing in a fresh install", async () => {
-    expect(await checkInstall(await freshInstall())).toEqual([]);
+    expect(await checkInstall(await readOnlyInstall())).toEqual([]);
   });
 
   it.each([
@@ -178,9 +186,9 @@ describe("checkInstall", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit check", { timeout: 30_000 }, () => {
+describe("robkit check", () => {
   it("prints nothing and exits 0 when the rule holds", async () => {
-    expect(await drive(bin, await freshInstall(), ["check"])).toEqual({
+    expect(await drive(bin, await readOnlyInstall(), ["check"])).toEqual({
       code: 0,
       output: "",
     });
