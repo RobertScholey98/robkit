@@ -1,37 +1,44 @@
+import type { Report } from "@robkit/session";
 import { describe, expect, it } from "vitest";
 import { Problem, reportFaultsAt, runCommand } from "./cli.ts";
 
-/** What `runCommand` printed and returned for `main`. */
+/** What `runCommand` reported and returned for `main`. */
 async function run(main: () => Promise<number | undefined>) {
-  const printed: unknown[][] = [];
-  const code = await runCommand(main, (...line) => printed.push(line));
-  return { code, printed };
+  const reported: { message: string; cause?: unknown }[] = [];
+  const report: Report = (message, cause) =>
+    reported.push(cause === undefined ? { message } : { message, cause });
+  const code = await runCommand(main, report);
+  return { code, reported };
 }
 
 describe("runCommand", () => {
   it("returns the command's own exit code", async () => {
     expect(await run(() => Promise.resolve(3))).toEqual({
       code: 3,
-      printed: [],
+      reported: [],
     });
     expect(await run(() => Promise.resolve(undefined))).toEqual({
       code: 0,
-      printed: [],
+      reported: [],
     });
   });
 
-  it("prints a known problem's message alone and exits 1", async () => {
+  it("reports a known problem's message alone and exits 1", async () => {
     const result = await run(() =>
-      Promise.reject(new Problem("Set COOLIFY_TOKEN to deploy.")),
+      Promise.reject(
+        new Problem("Set COOLIFY_TOKEN to deploy.", {
+          cause: new Error("underneath"),
+        }),
+      ),
     );
 
     expect(result).toEqual({
       code: 1,
-      printed: [["Set COOLIFY_TOKEN to deploy."]],
+      reported: [{ message: "Set COOLIFY_TOKEN to deploy." }],
     });
   });
 
-  it("prints an unexpected fault whole, then where to report it, and exits 1", async () => {
+  it("reports an unexpected fault as a bug, with the fault as its cause, and exits 1", async () => {
     const fault = new Error("Cannot read properties of undefined", {
       cause: new Error("the cause"),
     });
@@ -40,11 +47,11 @@ describe("runCommand", () => {
 
     expect(result).toEqual({
       code: 1,
-      printed: [
-        [fault],
-        [
-          `That's a bug in robkit. Report it at ${reportFaultsAt}, with the output above.`,
-        ],
+      reported: [
+        {
+          message: `robkit hit a bug. Report it at ${reportFaultsAt}, with the error below.`,
+          cause: fault,
+        },
       ],
     });
   });

@@ -18,7 +18,7 @@ export interface CoreOptions {
   domain: string;
   now?: () => Date;
   trustedProxy?: TrustedProxy | undefined;
-  logError?: (message: string, cause: unknown) => void;
+  logError?: Report;
 }
 export function createApp({
   db,

@@ -648,8 +648,11 @@ describe("requestGuard, when it can't check a request", () => {
       }),
     );
 
-    expect(log).toHaveBeenCalledTimes(1);
-    const [line, cause] = (log.mock.calls[0] ?? []) as unknown[];
+    expect(log).toHaveBeenCalledTimes(2);
+    const [[line], [cause]] = log.mock.calls as unknown[][] as [
+      [unknown],
+      [unknown],
+    ];
     expect(line).toBe(
       "robkit guard for example answered 503: couldn't load the app's access rule from core.",
     );
