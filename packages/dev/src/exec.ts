@@ -37,7 +37,9 @@ export function startProblem(
  * The command line Windows' shell runs for `command` and `args`, each part
  * in double quotes so the shell reads none of it. A quote can't keep `"`,
  * `%`, a line break or a trailing backslash from the shell, so a part with
- * one is a fault in its caller.
+ * one is a fault in its caller. A plain command name, such as `pnpm`, stays
+ * bare: a batch file the shell finds on PATH by a quoted name can't find its
+ * own folder, which pnpm's .cmd needs.
  */
 export function windowsCommandLine(command: string, args: string[]): string {
   const parts = [command, ...args];
@@ -47,7 +49,9 @@ export function windowsCommandLine(command: string, args: string[]): string {
       `exec can't pass ${JSON.stringify(unsafe)} through the Windows shell. Pass no ", %, line break or trailing backslash.`,
     );
   }
-  return parts.map((part) => `"${part}"`).join(" ");
+  const quote = (part: string) => `"${part}"`;
+  const name = /^[\w.-]+$/.test(command) ? command : quote(command);
+  return [name, ...args.map(quote)].join(" ");
 }
 
 /**

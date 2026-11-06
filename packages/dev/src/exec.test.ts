@@ -51,6 +51,14 @@ describe("exec", () => {
 });
 
 describe("windowsCommandLine", () => {
+  // A batch file the shell finds on PATH by a quoted name can't find its own
+  // folder, which pnpm's .cmd needs.
+  it("leaves a command named without spaces unquoted", () => {
+    expect(windowsCommandLine("pnpm", ["install", "a & b"])).toBe(
+      'pnpm "install" "a & b"',
+    );
+  });
+
   it("quotes each part, so the shell reads none of them", () => {
     expect(
       windowsCommandLine(String.raw`C:\Program Files\nodejs\node.exe`, [
