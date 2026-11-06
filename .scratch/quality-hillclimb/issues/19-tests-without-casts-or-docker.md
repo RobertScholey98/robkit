@@ -51,7 +51,8 @@ Raises rubric categories 8 (testing), 5 (simplicity) and 9 (keeping standards up
 - Core's full suite in WSL with Postgres: 26 files and 317 tests passed, the new `GET /roles` test included.
 - dev, core and create-robkit in WSL: 75, 317 and 211 tests passed. The install test took 16 s there.
 - CI's first run (42164261443) passed `pnpm check:all`, 49 of 49 tasks with e2e, and failed only the coverage ratchet: repo-checks' branches rose to 88.45% against a threshold of 86. From that run's coverage I raised core's branches to 96, session's to 94, repo-checks' to 88 (functions 96) and test-session's to 94. On CI the install test took 47 s under `check:all`'s load.
-- CI: pending on the threshold commit.
+- CI's second run (42164970841) failed dev's `runner.db.test.ts` > "stops everything and fails when an app exits": alpha hadn't written its `started` marker before beta's crash stopped it. Run alone with `--retry 0` in WSL, it passed 5 of 5 on this branch and 5 of 5 on `56-round-3`, so it fails only under load. The rerun of that job then failed e2e's react-hono journeys with 503s. That one was mine: the install test's `pnpm install` hard-links packages from the shared store, which restarts a running dev stack's core, as `tooling/e2e/src/install.ts` warns. turbo now starts `@internal/e2e#test` after `create-robkit#test`. That costs CI about a minute and costs `pnpm check` nothing. A copying install (`--package-import-method=copy`) also avoids it, but it took the test from 24 to 40 s on Windows.
+- CI: see the PR for the run after the ordering fix.
 
 ### Not verified
 
