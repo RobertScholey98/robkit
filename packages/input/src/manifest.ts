@@ -3,7 +3,7 @@
 // `ROBKIT_APPS`. See docs/conventions/input.md.
 
 import { readSlug, type Slug } from "./slug.ts";
-import { isProblem, isRecord, type InputProblem } from "./problem.ts";
+import { isProblem, isRecord, problem, type InputProblem } from "./problem.ts";
 
 /**
  * Who may open an app, as its manifest declares it. A rule's roles are
@@ -60,24 +60,24 @@ export function readAppManifest(
 ): AppManifest | InputProblem {
   if (value === undefined) return {};
   if (!isRecord(value)) {
-    return {
-      error: `${field} must be an object, such as {"access": {"kind": "open"}, "icon": "📝"}, or left out.`,
-    };
+    return problem(
+      `${field} must be an object, such as {"access": {"kind": "open"}, "icon": "📝"}, or left out.`,
+    );
   }
   const manifest: AppManifest = {};
   if (value.access !== undefined) {
     const access = readManifestAccess(value.access);
     if (!access) {
-      return {
-        error: `${field}.access must be {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": ["Family"]} naming at least one role.`,
-      };
+      return problem(
+        `${field}.access must be {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": ["Family"]} naming at least one role.`,
+      );
     }
     manifest.access = access;
   }
   if (value.icon !== undefined) {
     const { icon } = value;
     if (typeof icon !== "string" || !isOneEmoji(icon)) {
-      return { error: `${field}.icon must be one emoji, such as "📝".` };
+      return problem(`${field}.icon must be one emoji, such as "📝".`);
     }
     manifest.icon = icon;
   }
@@ -106,13 +106,13 @@ export function readListedApp(
   field: string,
 ): ListedApp | InputProblem {
   if (!isRecord(value)) {
-    return {
-      error: `${field} must be an object with the app's slug, such as {"slug": "notes"}.`,
-    };
+    return problem(
+      `${field} must be an object with the app's slug, such as {"slug": "notes"}.`,
+    );
   }
   const slug = readSlug(value.slug);
   if (isProblem(slug)) {
-    return { error: `${field}.slug: ${slug.error}` };
+    return problem(`${field}.slug: ${slug.error}`);
   }
   const manifest = readAppManifest(value, field);
   return isProblem(manifest) ? manifest : { slug, ...manifest };

@@ -10,6 +10,7 @@ import {
   type InputProblem,
   isProblem,
   parseJson,
+  problem,
 } from "@robkit/input";
 import {
   type ManifestAccess,
@@ -43,8 +44,8 @@ export function readAccess(
     return rule;
   }
   return fields.kind === "roles"
-    ? { error: "Pick at least one role." }
-    : { error: "Pick open, roles or owner." };
+    ? problem("Pick at least one role.")
+    : problem("Pick open, roles or owner.");
 }
 
 /**
@@ -59,9 +60,9 @@ export function readListedApps(env: Env): ListedApp[] | InputProblem {
   if (isProblem(parsed)) return parsed;
   const { json } = parsed;
   if (!Array.isArray(json)) {
-    return {
-      error: `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`,
-    };
+    return problem(
+      `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`,
+    );
   }
   const apps: ListedApp[] = [];
   for (const [index, value] of json.entries()) {

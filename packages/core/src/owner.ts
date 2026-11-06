@@ -1,4 +1,4 @@
-import { type InputProblem, isProblem } from "@robkit/input";
+import { type InputProblem, isProblem, problem } from "@robkit/input";
 import { hashPassword } from "./password.ts";
 import { storedRow } from "./database.ts";
 import { owner } from "./schema.ts";
@@ -20,7 +20,7 @@ export function readCredentials(
 ): Credentials | InputProblem {
   const { username, password } = fields;
   if (typeof username !== "string" || typeof password !== "string") {
-    return { error: "Send a username and a password." };
+    return problem("Send a username and a password.");
   }
   return { username: username.trim(), password };
 }
@@ -33,10 +33,10 @@ export function readNewOwner(
   if (isProblem(credentials)) return credentials;
   const { username, password } = credentials;
   if (username.length < 1 || username.length > 64) {
-    return { error: "Pick a username of 1 to 64 characters." };
+    return problem("Pick a username of 1 to 64 characters.");
   }
   if (password.length < 12) {
-    return { error: "Pick a password of at least 12 characters." };
+    return problem("Pick a password of at least 12 characters.");
   }
   return credentials;
 }

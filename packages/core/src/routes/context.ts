@@ -3,7 +3,7 @@ import { setCookie } from "hono/cookie";
 import type { Report } from "@robkit/input/report";
 import { sessionCookie, sessionTokensIn } from "@robkit/session";
 import { isLocal } from "@robkit/input/addresses";
-import { type InputProblem, isProblem, isRecord } from "@robkit/input";
+import { type InputProblem, isProblem, isRecord, problem } from "@robkit/input";
 import type { TrustedProxy } from "../client.ts";
 import { sessionLifetimeSeconds } from "../session-claims.ts";
 import {
@@ -32,9 +32,9 @@ export async function fieldsOf(c: Context): Promise<Fields | InputProblem> {
     body = await c.req.json();
   } catch {
     // A body that isn't JSON is the caller's mistake, answered with a 400.
-    return { error: "Send a valid JSON body." };
+    return problem("Send a valid JSON body.");
   }
-  return isRecord(body) ? body : { error: "Send a JSON object." };
+  return isRecord(body) ? body : problem("Send a JSON object.");
 }
 
 /** A POST's JSON fields read by one of core's input rules, or why they won't do. */

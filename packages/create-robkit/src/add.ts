@@ -11,6 +11,7 @@ import {
   platformApps,
   readSlug,
   type Slug,
+  problem,
 } from "@robkit/input";
 import { type ManifestAccess } from "@robkit/input/manifest";
 import { readChoices, type Choices, type Stack } from "./choices.ts";
@@ -70,12 +71,12 @@ export function readNewSlug(root: string, name: string): Slug | InputProblem {
   const slug = readSlug(name);
   if (isProblem(slug)) return slug;
   if (isPlatformApp(slug)) {
-    return {
-      error: `${slug} is one of the platform apps: ${andList(platformApps)}.`,
-    };
+    return problem(
+      `${slug} is one of the platform apps: ${andList(platformApps)}.`,
+    );
   }
   if (existsSync(join(root, "apps", slug))) {
-    return { error: `apps/${slug} already exists. Choose another name.` };
+    return problem(`apps/${slug} already exists. Choose another name.`);
   }
   return slug;
 }

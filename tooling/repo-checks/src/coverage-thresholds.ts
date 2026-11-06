@@ -1,6 +1,6 @@
 import { glob, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { type InputProblem, isRecord } from "@robkit/input";
+import { type InputProblem, isRecord, problem } from "@robkit/input";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
 const metrics = ["statements", "branches", "functions", "lines"] as const;
@@ -129,7 +129,7 @@ export function readCoverage(
   json: unknown,
   source: string,
 ): Coverage | InputProblem {
-  if (!isRecord(json)) return { error: `${source} must be a JSON object.` };
+  if (!isRecord(json)) return problem(`${source} must be a JSON object.`);
   const counted = { statements: 0, branches: 0, functions: 0, lines: 0 };
   const covered = { ...counted };
   for (const [file, data] of Object.entries(json)) {
@@ -140,7 +140,7 @@ export function readCoverage(
     const b = field("b");
     const starts = statementLines(field("statementMap"));
     if (!isCounts(s) || !isCounts(f) || !isBranchCounts(b) || !starts) {
-      return { error: `${source} has no Istanbul coverage for ${file}.` };
+      return problem(`${source} has no Istanbul coverage for ${file}.`);
     }
     const lines = new Map<number, number>();
     for (const [key, count] of Object.entries(s)) {

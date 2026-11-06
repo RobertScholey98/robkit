@@ -9,6 +9,7 @@ import {
   readSet,
   readSlug,
   type Slug,
+  problem,
 } from "@robkit/input";
 import { defaultDevPort, defaultDomain } from "@robkit/input/addresses";
 
@@ -72,7 +73,7 @@ export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem {
     if (name.trim() === "") continue;
     const slug = readSlug(name.trim());
     if (isProblem(slug)) {
-      return { error: `ROBKIT_DATABASES: ${slug.error}` };
+      return problem(`ROBKIT_DATABASES: ${slug.error}`);
     }
     slugs.push(slug);
   }

@@ -5,7 +5,7 @@ import {
   readGuardEnv,
   readServeEnv,
 } from "./app-env.ts";
-import { isProblem } from "./index.ts";
+import { isProblem, problem } from "./index.ts";
 
 describe("readServeEnv", () => {
   it("reads where an app listens", () => {
@@ -84,7 +84,7 @@ describe("orExit", () => {
     });
 
     expect(() =>
-      orExit({ error: "Set ROBKIT_CORE_URL to core's address." }),
+      orExit(problem("Set ROBKIT_CORE_URL to core's address.")),
     ).toThrow("exit 1");
     expect(printed.mock.calls).toEqual([
       ["Set ROBKIT_CORE_URL to core's address."],

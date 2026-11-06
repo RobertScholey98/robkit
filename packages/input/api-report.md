@@ -15,6 +15,7 @@ export type Domain = string & {
 export type Env = Readonly<Record<string, string | undefined>>;
 export interface InputProblem {
   readonly error: string;
+  readonly [problemMark]: true;
 }
 export function isDomain(value: string): boolean;
 export function isPlatformApp(slug: string): slug is PlatformApp;
@@ -32,6 +33,7 @@ export function parseJson(
   | InputProblem;
 export type PlatformApp = (typeof platformApps)[number];
 export const platformApps: readonly ["core", "hub", "admin"];
+export function problem(message: string): InputProblem;
 export function readAppSlug(env: Env): Slug | InputProblem;
 export function readCoreUrl(env: Env): CoreOrigin | InputProblem;
 export function readDatabaseUrl(

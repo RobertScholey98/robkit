@@ -1,6 +1,6 @@
 // Reading how long turbo took over each test task, from its run summary.
 // print-test-times.ts prints them for CI.
-import { type InputProblem, isRecord } from "@robkit/input";
+import { type InputProblem, isRecord, problem } from "@robkit/input";
 
 /** A task turbo ran, and how long it took. */
 export interface TaskTime {
@@ -16,7 +16,7 @@ export function readTestTimes(
 ): TaskTime[] | InputProblem {
   const tasks = isRecord(json) ? json.tasks : undefined;
   if (!Array.isArray(tasks)) {
-    return { error: `${source} has no list of tasks.` };
+    return problem(`${source} has no list of tasks.`);
   }
   const times: TaskTime[] = [];
   for (const task of tasks) {
@@ -30,7 +30,7 @@ export function readTestTimes(
       typeof start !== "number" ||
       typeof end !== "number"
     ) {
-      return { error: `${source} has a task without its id and times.` };
+      return problem(`${source} has a task without its id and times.`);
     }
     if (!id.endsWith("#test")) continue;
     const cached = isRecord(cache) && cache.status === "HIT";

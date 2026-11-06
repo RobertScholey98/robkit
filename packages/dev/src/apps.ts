@@ -8,6 +8,7 @@ import {
   parseJson,
   readSlug,
   type Slug,
+  problem,
 } from "@robkit/input";
 import {
   type AppManifest,
@@ -56,21 +57,21 @@ export function readAppManifestFile(
   file: string,
 ): AppManifestFile | InputProblem {
   if (!isRecord(value)) {
-    return { error: `${file} must be a JSON object, as npm expects.` };
+    return problem(`${file} must be a JSON object, as npm expects.`);
   }
   const { name, scripts = {}, robkit } = value;
   if (name !== undefined && typeof name !== "string") {
-    return {
-      error: `${file}: name must be a string, such as "@internal/notes-app".`,
-    };
+    return problem(
+      `${file}: name must be a string, such as "@internal/notes-app".`,
+    );
   }
   if (!isScripts(scripts)) {
-    return {
-      error: `${file}: scripts must be an object of script names to commands.`,
-    };
+    return problem(
+      `${file}: scripts must be an object of script names to commands.`,
+    );
   }
   const manifest = readAppManifest(robkit);
-  if (isProblem(manifest)) return { error: `${file}: ${manifest.error}` };
+  if (isProblem(manifest)) return problem(`${file}: ${manifest.error}`);
   return { ...(name !== undefined && { name }), scripts, manifest };
 }
 

@@ -9,6 +9,7 @@ export {
   isProblem,
   isRecord,
   orThrow,
+  problem,
   type InputProblem,
 } from "./problem.ts";
 export { parseJson } from "./json.ts";

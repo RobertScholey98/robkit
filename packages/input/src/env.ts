@@ -3,7 +3,7 @@
 // to do. The caller decides what a problem means: core and the dev runner
 // refuse to start, a command prints it. See docs/conventions/input.md.
 
-import { isProblem, type InputProblem } from "./problem.ts";
+import { isProblem, problem, type InputProblem } from "./problem.ts";
 import { readSlug, type Slug } from "./slug.ts";
 
 /** A process's environment, such as `process.env`. */
@@ -15,9 +15,8 @@ function valueOf(env: Env, name: string): string | undefined {
   return value === "" ? undefined : value;
 }
 
-const notSet = (name: string, fix: string): InputProblem => ({
-  error: `${name} is not set. ${fix}`,
-});
+const notSet = (name: string, fix: string): InputProblem =>
+  problem(`${name} is not set. ${fix}`);
 
 /** A variable that must be set, or what to do when it isn't. */
 export function readSet(
@@ -48,9 +47,9 @@ export function readPort(
   if (port >= 1 && port <= 65535) return port;
   const unset =
     fallback === undefined ? "" : `, or leave it unset for ${String(fallback)}`;
-  return {
-    error: `${name} is "${value}", which isn't a port. Set it to a whole number from 1 to 65535${unset}.`,
-  };
+  return problem(
+    `${name} is "${value}", which isn't a port. Set it to a whole number from 1 to 65535${unset}.`,
+  );
 }
 
 const octet = String.raw`(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)`;
@@ -82,9 +81,9 @@ export function readHost(env: Env): string | InputProblem {
   const value = valueOf(env, "HOST");
   if (value === undefined) return "127.0.0.1";
   if (isIPv4(value) || isIPv6(value) || isDomainName(value)) return value;
-  return {
-    error: `HOST is "${value}", which isn't an address to listen on. Set it to an IP address or host name, such as 0.0.0.0, or leave it unset for 127.0.0.1.`,
-  };
+  return problem(
+    `HOST is "${value}", which isn't an address to listen on. Set it to an IP address or host name, such as 0.0.0.0, or leave it unset for 127.0.0.1.`,
+  );
 }
 
 // A label is 1 to 63 letters, digits and hyphens, with no hyphen at either
@@ -129,9 +128,9 @@ export function readDomain(env: Env, fallback?: string): Domain | InputProblem {
     );
   }
   if (isDomainName(value)) return value;
-  return {
-    error: `ROBKIT_DOMAIN is "${value}", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
-  };
+  return problem(
+    `ROBKIT_DOMAIN is "${value}", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
+  );
 }
 
 declare const coreOriginBrand: unique symbol;
@@ -167,9 +166,9 @@ export function readCoreUrl(env: Env): CoreOrigin | InputProblem {
   }
   const origin = URL.canParse(value) ? new URL(value).origin : value;
   if (isCoreOrigin(origin)) return origin;
-  return {
-    error: `ROBKIT_CORE_URL is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
-  };
+  return problem(
+    `ROBKIT_CORE_URL is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
+  );
 }
 
 /** The app's own slug, `ROBKIT_APP`. */
@@ -182,7 +181,7 @@ export function readAppSlug(env: Env): Slug | InputProblem {
     );
   }
   const slug = readSlug(value);
-  return isProblem(slug) ? { error: `ROBKIT_APP: ${slug.error}` } : slug;
+  return isProblem(slug) ? problem(`ROBKIT_APP: ${slug.error}`) : slug;
 }
 
 /**
@@ -198,7 +197,7 @@ export function readDatabaseUrl(
   if (value === undefined) return notSet(name, unsetFix);
   const protocol = URL.canParse(value) ? new URL(value).protocol : "";
   if (protocol === "postgres:" || protocol === "postgresql:") return value;
-  return {
-    error: `${name} isn't a postgres:// URL. Set it to one, such as postgres://user:password@host:5432/database.`,
-  };
+  return problem(
+    `${name} isn't a postgres:// URL. Set it to one, such as postgres://user:password@host:5432/database.`,
+  );
 }

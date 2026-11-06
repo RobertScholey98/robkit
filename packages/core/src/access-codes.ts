@@ -2,7 +2,7 @@ import { randomInt } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
 import type { CodeId } from "@robkit/guard";
 import { isLocal } from "@robkit/input/addresses";
-import type { InputProblem } from "@robkit/input";
+import { type InputProblem, problem } from "@robkit/input";
 import type { Database } from "./database.ts";
 import { accessCodes } from "./schema.ts";
 
@@ -109,7 +109,7 @@ export function readNewCode(
 ): NewCode | InputProblem {
   const name = typeof fields.name === "string" ? fields.name.trim() : "";
   if (name.length < 1 || name.length > 80) {
-    return { error: "Give the guest a name of 1 to 80 characters." };
+    return problem("Give the guest a name of 1 to 80 characters.");
   }
   let code: AccessCode | undefined;
   if (fields.code !== undefined && fields.code !== null) {
@@ -117,14 +117,14 @@ export function readNewCode(
       typeof fields.code === "string"
         ? parseAccessCode(fields.code)
         : undefined;
-    if (!code) return { error: "Use 3 to 32 letters or digits for the code." };
+    if (!code) return problem("Use 3 to 32 letters or digits for the code.");
   }
   let expiresAt: Date | null = null;
   if (fields.expiresAt !== undefined && fields.expiresAt !== null) {
     expiresAt =
       typeof fields.expiresAt === "string" ? new Date(fields.expiresAt) : null;
     if (!expiresAt || !(expiresAt > now)) {
-      return { error: "Pick an expiry in the future." };
+      return problem("Pick an expiry in the future.");
     }
   }
   return code ? { name, code, expiresAt } : { name, expiresAt };
