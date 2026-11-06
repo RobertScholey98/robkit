@@ -14,7 +14,7 @@ import { standingOf, type AccessCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { dummyPasswordHash, verifyPassword } from "./password.ts";
 import { accessCodes, owner, sessions } from "./schema.ts";
-import { mintSessionToken } from "./session-token.ts";
+import { mintSessionToken } from "./mint-token.ts";
 import { rolesOf } from "./roles.ts";
 import type { SigningKey } from "./signing-key.ts";
 

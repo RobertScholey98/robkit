@@ -51,7 +51,7 @@ import {
   signIn,
   signInWithCode,
 } from "./sessions.ts";
-import { mintAppToken } from "./session-token.ts";
+import { mintAppToken } from "./mint-token.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 
 export interface CoreOptions {
