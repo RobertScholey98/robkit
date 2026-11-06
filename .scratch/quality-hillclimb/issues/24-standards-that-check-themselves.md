@@ -21,7 +21,7 @@ Raises rubric category 9 (keeping standards up). Evidence: `../research/council-
 - [x] CI fails if `main`'s ruleset stops requiring `gate` or a pull request, tested against recorded answers
 - [x] An outbound fetch without a deadline fails a check, and the repo passes it
 - [x] `pnpm new:package` makes a package that passes the repo checks, with a test
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -42,6 +42,7 @@ Running it for real showed two tests that listed every package by name: the laye
 - Real run: `pnpm new:package trial-run`, `pnpm install`, then `pnpm check` passed, 52 of 52 tasks, including publint, Are the Types Wrong and the API report against tsc's real build. I removed the package afterwards.
 - `pnpm turbo run test:unit --filter=@internal/repo-checks`: 203 tests pass, coverage 97.04 / 89.16 / 96.96 / 98.21 over thresholds of 96 / 88 / 96 / 98.
 - `gh api repos/RobertScholey98/robkit/rules/branches/main | node tooling/repo-checks/src/check-branch-rules.ts` passes against the live ruleset.
+- CI: the `gate` job passed on https://github.com/RobertScholey98/robkit/actions/runs/42191661598. Its pull-request job ran the branch rules check with the job's own token and printed "main requires a pull request and the gate check, and blocks force pushes and deletion."
 
 **What I couldn't verify.** The temp-copy test can't build or pack without an install, so it doesn't run publint or the real build; the trial run above covered those once. I didn't run anything in WSL: nothing I changed needs Docker.
 
