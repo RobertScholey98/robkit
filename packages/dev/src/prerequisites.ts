@@ -84,19 +84,19 @@ function dockerProblems(version: Probe, info: Probe, compose: Probe): string[] {
   // Without docker itself, info and compose fail too, and say nothing new.
   if (version.outcome === "failed") {
     return [
-      `docker --version didn't run. Install Docker (Docker Desktop, or Docker Engine with its Compose plugin), ${again}`,
+      `docker --version didn't run. Install Docker (Docker Desktop, or Docker Engine and Docker Compose), ${again}`,
     ];
   }
   const problems: string[] = [];
   if (info.outcome === "failed") {
     const said = info.output.split("\n").find((line) => line.trim() !== "");
     problems.push(
-      `docker info couldn't reach Docker${said ? `: ${said.trim()}` : "."} Start Docker Desktop, or the Docker service, ${again}`,
+      `docker info couldn't reach Docker${said ? `: ${said.trim()}` : "."} Start Docker Desktop, or Docker's daemon, ${again}`,
     );
   }
   if (compose.outcome === "failed") {
     problems.push(
-      `docker compose version didn't run. Install Docker's Compose plugin, ${again}`,
+      `docker compose version didn't run. Install Docker Compose, ${again}`,
     );
   }
   return problems;

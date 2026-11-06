@@ -63,13 +63,13 @@ describe("checkPrerequisites", { concurrent: true }, () => {
 
   it("says to install Docker when it isn't there", async () => {
     await expect(check({ pnpm: pnpm11 })).rejects.toThrow(
-      "docker --version didn't run. Install Docker (Docker Desktop, or Docker Engine with its Compose plugin), then run pnpm dev again.",
+      "docker --version didn't run. Install Docker (Docker Desktop, or Docker Engine and Docker Compose), then run pnpm dev again.",
     );
   });
 
   it("says to start Docker when it doesn't answer, with what it said", async () => {
     await expect(check({ pnpm: pnpm11, docker: dockerDown })).rejects.toThrow(
-      "docker info couldn't reach Docker: Cannot connect to the Docker daemon. Start Docker Desktop, or the Docker service, then run pnpm dev again.",
+      "docker info couldn't reach Docker: Cannot connect to the Docker daemon. Start Docker Desktop, or Docker's daemon, then run pnpm dev again.",
     );
   });
 
@@ -80,7 +80,7 @@ describe("checkPrerequisites", { concurrent: true }, () => {
     };
 
     await expect(check({ pnpm: pnpm11, docker: noCompose })).rejects.toThrow(
-      "docker compose version didn't run. Install Docker's Compose plugin, then run pnpm dev again.",
+      "docker compose version didn't run. Install Docker Compose, then run pnpm dev again.",
     );
   });
 
