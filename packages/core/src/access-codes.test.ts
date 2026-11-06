@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { standingOf } from "./access-codes.ts";
+import {
+  generateAccessCode,
+  parseAccessCode,
+  standingOf,
+} from "./access-codes.ts";
 
 const now = new Date("2026-11-01T12:00:00Z");
 const earlier = new Date("2026-11-01T11:00:00Z");
@@ -49,5 +53,29 @@ describe("standingOf", () => {
         "example.com",
       ),
     ).toBe("revoked");
+  });
+});
+
+describe("generateAccessCode", () => {
+  it("picks each of its 5 characters from an alphabet without look-alikes", () => {
+    expect(generateAccessCode(() => 0)).toBe("AAAAA");
+    expect(generateAccessCode((below) => below - 1)).toBe("99999");
+    const picks = [0, 7, 8, 21, 22];
+    expect(generateAccessCode(() => picks.shift() ?? 0)).toBe("AHJYZ");
+  });
+
+  it("makes codes that parse as themselves", () => {
+    const codes = Array.from({ length: 200 }, () => generateAccessCode());
+
+    for (const code of codes) {
+      expect(code).toMatch(/^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{5}$/);
+      expect(parseAccessCode(code)).toBe(code);
+    }
+  });
+
+  it("throws when a pick falls outside the alphabet", () => {
+    expect(() => generateAccessCode((below) => below)).toThrow(
+      " isn't an access code.",
+    );
   });
 });
