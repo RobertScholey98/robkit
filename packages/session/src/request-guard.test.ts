@@ -610,6 +610,31 @@ describe("requestGuard, when it can't check a request", () => {
     expect((faults[0]?.cause as Error).cause).toBeInstanceOf(Error);
   });
 
+  it("says which way core's answer for the rule failed", async () => {
+    const core = await fakeCore();
+
+    const { faults } = await unavailable(core);
+
+    expect(faults).toMatchObject([
+      { failed: "access-rule", reason: "unknown-app" },
+    ]);
+  });
+
+  it("names core being down when it loads the rule", async () => {
+    const faults: GuardFault[] = [];
+    const check = requestGuard({
+      app: example,
+      core: coreOrigin("http://core.robkit.localhost:1"),
+      onUnavailable: (fault) => faults.push(fault),
+    });
+
+    // With no cookie, there is no token to check against core's key.
+    const decision = await check(new Request(page, { headers: navigate }));
+
+    expect("response" in decision && decision.response.status).toBe(503);
+    expect(faults.map((fault) => fault.failed)).toEqual(["network"]);
+  });
+
   it("names core's key when core answers but its key set won't load", async () => {
     const core = await fakeCore();
     core.status = 503;

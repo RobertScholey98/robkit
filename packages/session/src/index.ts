@@ -11,6 +11,7 @@ export {
   type VerifyKey,
   type ViewerClaims,
 } from "./session-token.ts";
+export type { AccessRuleFailure } from "./core-access.ts";
 export {
   requestGuard,
   type GuardedOptions,
