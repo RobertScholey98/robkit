@@ -1,4 +1,4 @@
-import { isProblem, type InputProblem } from "@robkit/session/input";
+import { type InputProblem, isProblem } from "@robkit/input";
 import { readCodeId, type CodeId, type RoleId } from "@robkit/guard";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid, testCode } from "./access-codes.ts";
@@ -28,7 +28,7 @@ export function readCodeIds(
   const read: CodeId[] = [];
   for (const value of codeIds) {
     const id = readCodeId(value);
-    if (id === undefined) return problem;
+    if (isProblem(id)) return problem;
     read.push(id);
   }
   return { codeIds: read };

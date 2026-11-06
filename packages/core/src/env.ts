@@ -1,14 +1,15 @@
 import {
   allProblems,
+  type DeclaredApp,
+  type Domain,
+  type Env,
+  type InputProblem,
   isProblem,
   readDatabaseUrl,
   readDomain,
   readHost,
   readPort,
-  type Env,
-  type InputProblem,
-} from "@robkit/session/input";
-import type { DeclaredApp } from "@robkit/session/manifest";
+} from "@robkit/input";
 import { readDeclaredApps } from "./apps.ts";
 import { readTrustedProxy, type TrustedProxy } from "./client.ts";
 
@@ -17,7 +18,7 @@ export interface CoreConfig {
   /** `DATABASE_URL`: core's own database. */
   databaseUrl: string;
   /** `ROBKIT_DOMAIN`: the install's domain, such as `robkit.dev`. */
-  domain: string;
+  domain: Domain;
   /** `ROBKIT_APPS`: the owner's apps, as each declares itself. */
   apps: DeclaredApp[];
   /** `ROBKIT_TRUSTED_PROXY`: a proxy further out that names each visitor. */

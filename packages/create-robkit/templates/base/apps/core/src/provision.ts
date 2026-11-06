@@ -1,5 +1,5 @@
 import { provisionDatabases, readProvisionConfig } from "@robkit/dev";
-import { isProblem } from "@robkit/session/input";
+import { isProblem } from "@robkit/input";
 
 // The provision step in production. Core's container runs it before core
 // migrates and starts, and core's own process never sees the admin URL or

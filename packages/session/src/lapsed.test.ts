@@ -4,7 +4,7 @@ import {
   sessionLapsedHeader,
   sessionLapsedResponse,
   type SessionLapsed,
-} from "./session-lapsed.ts";
+} from "./lapsed.ts";
 
 const refresh: SessionLapsed = {
   outcome: "refresh",

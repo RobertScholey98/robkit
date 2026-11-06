@@ -11,11 +11,11 @@ import {
   testTag,
 } from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
+import type { Slug } from "@robkit/input";
 import {
   defaultDomain,
   install,
   type Install,
-  type Slug,
 } from "@robkit/session/addresses";
 import type { Choices } from "create-robkit";
 import {

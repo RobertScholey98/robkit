@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { isRecord } from "@robkit/session/input";
+import { isRecord } from "@robkit/input";
 import { parse } from "yaml";
 
 const run = promisify(execFile);

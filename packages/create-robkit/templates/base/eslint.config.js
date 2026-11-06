@@ -9,12 +9,11 @@ const oneProblemType = [
     selector:
       "TSTypeLiteral[members.length=1] > TSPropertySignature[key.name='error'][optional!=true] > TSTypeAnnotation > TSStringKeyword",
     message:
-      "A failed read is an InputProblem from @robkit/session/input, not a { error: string } of its own.",
+      "A failed read is an InputProblem from @robkit/input, not a { error: string } of its own.",
   },
   {
     selector: "BinaryExpression[operator='in'][left.value='error']",
-    message:
-      'Check a read with isProblem from @robkit/session/input, not "error" in.',
+    message: 'Check a read with isProblem from @robkit/input, not "error" in.',
   },
 ];
 

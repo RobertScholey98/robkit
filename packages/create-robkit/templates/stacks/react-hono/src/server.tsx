@@ -1,7 +1,6 @@
 import { Card, CardContent, CardHeader } from "@internal/ui/components/ui/card";
 import { guarded, type GuardedEnv, type Viewer } from "@robkit/hono";
-import { isProblem } from "@robkit/session/input";
-import { readGuardEnv } from "@robkit/session/app-env";
+import { readGuardEnv, orThrow } from "@robkit/input";
 import { Hono } from "hono";
 import { renderToString } from "react-dom/server";
 import styles from "./styles.css?url";
@@ -10,8 +9,7 @@ import { recordVisit } from "./visits.ts";
 const app = new Hono<GuardedEnv>();
 
 // The app's slug and core's address, which pnpm dev and robkit deploy set.
-const guard = readGuardEnv(process.env);
-if (isProblem(guard)) throw new Error(guard.error);
+const guard = orThrow(readGuardEnv(process.env));
 
 // The rule is the one the owner set for this app in admin.
 app.use(guarded(guard));

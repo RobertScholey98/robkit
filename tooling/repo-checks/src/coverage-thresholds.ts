@@ -1,6 +1,6 @@
 import { glob, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { isRecord, type InputProblem } from "@robkit/session/input";
+import { type InputProblem, isRecord } from "@robkit/input";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
 const metrics = ["statements", "branches", "functions", "lines"] as const;

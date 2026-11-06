@@ -1,3 +1,4 @@
+import { orThrow, readCoreUrl, type CoreOrigin } from "@robkit/input";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import {
@@ -9,7 +10,7 @@ import {
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
-import { known, listeningPort } from "./known.ts";
+import { listeningPort } from "./known.ts";
 
 // Written out rather than imported from @robkit/session, whose own tests use
 // this package. If session's cookie, lifetime, callback or word that nobody
@@ -128,7 +129,7 @@ export async function signingKey(): Promise<SigningKey> {
 /** Core as an app's guard sees it: its JWKS and its app catalog's rules. */
 export interface FakeCore {
   /** Core's public origin, `http://core.robkit.localhost:<port>`. */
-  origin: string;
+  origin: CoreOrigin;
   /** The hub's origin beside it, `http://hub.robkit.localhost:<port>`. */
   hub: string;
   /** The key core signs sessions with. */
@@ -153,14 +154,6 @@ export async function fakeCore(): Promise<FakeCore> {
     kid: "key-1",
     alg: "EdDSA",
   };
-  const core: FakeCore = {
-    origin: "",
-    hub: "",
-    key,
-    rules: {},
-    status: 200,
-    fetched: [],
-  };
   const server = createServer((req, res) => {
     const path = String(req.url);
     core.fetched.push(`${String(req.headers.host)} ${path}`);
@@ -182,8 +175,18 @@ export async function fakeCore(): Promise<FakeCore> {
     await once(server, "close");
   });
   const port = listeningPort(server);
-  core.origin = `http://core.robkit.localhost:${String(port)}`;
-  core.hub = `http://hub.robkit.localhost:${String(port)}`;
+  const core: FakeCore = {
+    origin: orThrow(
+      readCoreUrl({
+        ROBKIT_CORE_URL: `http://core.robkit.localhost:${String(port)}`,
+      }),
+    ),
+    hub: `http://hub.robkit.localhost:${String(port)}`,
+    key,
+    rules: {},
+    status: 200,
+    fetched: [],
+  };
   return core;
 }
 
@@ -199,7 +202,7 @@ const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
  */
 export function refreshLocation(
   page: string,
-  core: Pick<FakeCore, "origin">,
+  core: { origin: string },
 ): unknown {
   const next = `${core.origin}/refresh?next=${encodeURIComponent(page)}`;
   const matcher: unknown = expect.stringMatching(
@@ -230,7 +233,7 @@ export function callbackFor(
 
 /** `guest(roles)` as the guard hands them to an app's handlers. */
 function guestViewer(roles: RoleId[] = []): Viewer {
-  const id = known(readCodeId(guest().id), "The test guest's code id");
+  const id = orThrow(readCodeId(guest().id));
   return { kind: "guest", id, roles };
 }
 
@@ -250,7 +253,7 @@ export interface PageAnswer {
 export function conformanceAnswer(
   { session, guestRoles, outcome }: ConformanceCase,
   page: string,
-  core: Pick<FakeCore, "origin" | "hub">,
+  core: { origin: string; hub: string },
 ): PageAnswer {
   switch (outcome) {
     case "allow": {

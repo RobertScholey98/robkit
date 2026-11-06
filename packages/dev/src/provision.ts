@@ -2,8 +2,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import postgres from "postgres";
 import { discoverApps } from "./apps.ts";
 import { CommandProblem } from "./run-command.ts";
-import { readSlug, type Slug } from "@robkit/session/addresses";
-import { isProblem } from "@robkit/session/input";
+import { isProblem, readSlug, type Slug } from "@robkit/input";
 import { exec } from "./exec.ts";
 
 export interface ProvisionOptions {

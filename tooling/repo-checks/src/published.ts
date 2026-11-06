@@ -11,7 +11,7 @@ import {
 import { problemKindInfo } from "@arethetypeswrong/core/problems";
 import { publint, type Message } from "publint";
 import { formatMessage } from "publint/utils";
-import { isProblem, parseJson } from "@robkit/session/input";
+import { isProblem, parseJson } from "@robkit/input";
 import { readJsonFile, readManifest, readNamedManifest } from "./manifest.ts";
 
 const run = promisify(execFile);

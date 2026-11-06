@@ -7,7 +7,7 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ```ts
 export interface CoreConfig {
   databaseUrl: string;
-  domain: string;
+  domain: Domain;
   apps: DeclaredApp[];
   trustedProxy?: TrustedProxy;
   host: string;

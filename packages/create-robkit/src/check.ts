@@ -3,7 +3,7 @@ import { extname, join, posix } from "node:path";
 import { appManifestIn } from "@robkit/dev";
 import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import { sessionCookie } from "@robkit/session";
-import { isProblem, isRecord, parseJson } from "@robkit/session/input";
+import { isProblem, isRecord, parseJson } from "@robkit/input";
 import ts from "typescript";
 
 /**

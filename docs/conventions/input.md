@@ -15,19 +15,21 @@ interface InputProblem {
 - `InputProblem` is the only type for a failed read, and `isProblem` the only check for one. Don't write a `{ error: string }` of your own, and don't test a result with `"error" in`.
 - The reader takes `unknown`, or `Env` for environment variables. It never casts. Parsed JSON is `unknown` until a reader checks it: give `JSON.parse` and `.json()` results the type `unknown`, then read them.
 - The problem's `error` names the file or variable, the key, and what to do about it. Write it for the person who has to fix the input.
-- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `CommandProblem` from `@robkit/dev/cli` (see `errors.md`), and an HTTP route answers 400.
+- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `CommandProblem` from `@robkit/dev/cli` (see `errors.md`), and an HTTP route answers 400. Where the caller can't go on without the value and has nothing better to say, such as a Vite config or a module that reads its environment as it loads, `orThrow(read)` returns the value or throws the problem as an `Error`.
 - When several values are read together, report every problem at once with `allProblems`, a line each, so one run shows everything to fix.
 - A value with a meaning beyond its type gets a brand that only its reader makes, so a function that takes one can't be handed a string nobody checked:
 
-  | Brand    | What it is                     | Made by                                                              |
-  | -------- | ------------------------------ | -------------------------------------------------------------------- |
-  | `Slug`   | An app's slug                  | `readSlug`                                                           |
-  | `RoleId` | A role's id                    | `readRoleId`, `readRoleIds` and `readAccessRule`, and core's readers |
-  | `CodeId` | An access code's id, a guest's | `readCodeId`, and core's readers                                     |
+  | Brand        | What it is                                              | Made by                                                              |
+  | ------------ | ------------------------------------------------------- | -------------------------------------------------------------------- |
+  | `Slug`       | An app's slug                                           | `readSlug`                                                           |
+  | `Domain`     | An install's domain, such as `robkit.dev`               | `readDomain`                                                         |
+  | `CoreOrigin` | Core's public origin, such as `https://core.robkit.dev` | `readCoreUrl`                                                        |
+  | `RoleId`     | A role's id                                             | `readRoleId`, `readRoleIds` and `readAccessRule`, and core's readers |
+  | `CodeId`     | An access code's id, a guest's                          | `readCodeId`, and core's readers                                     |
 
-  `Slug` is in `@robkit/session/addresses`, and an install's `host` and `origin` take one. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
+  `Slug`, `Domain` and `CoreOrigin` are in `@robkit/input`. An install's `host` and `origin` take a `Slug`, `requestGuard` takes core's origin as a `CoreOrigin`, and core's config holds its domain as a `Domain`. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
 
-The shared readers live in `@robkit/session/input` (environment variables and JSON, and `InputProblem`, `isProblem`, `isRecord` and `allProblems`), `@robkit/session/app-env` (what an app's server reads from its environment), `@robkit/session/manifest` (an app's `robkit` field), `@robkit/session/addresses` (slugs) and `@robkit/guard` (role and code ids, and access rules). Every robkit package and every app can import them. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
+The shared readers live in `@robkit/input`: environment variables and JSON, `InputProblem`, `isProblem`, `isRecord` and `allProblems`, slugs, what an app's server reads from its environment, and an app's `robkit` field. Role and code ids, and access rules, are read in `@robkit/guard`, which takes `InputProblem` from `@robkit/input`, so its readers return one like every other. `@robkit/input` imports nothing, so the guard stays pure and the browser can load it. Every robkit package and every app can import them. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
 
 ## What lint enforces
 
@@ -43,17 +45,17 @@ Lint can't tell `typeof core !== "string"` on a reader's result from any other `
 
 ## Example
 
-`readServeEnv` in `@robkit/session/app-env` reads where a server listens:
+`readServeEnv` in `@robkit/input` reads where a server listens:
 
 ```ts
 import {
   allProblems,
+  type Env,
+  type InputProblem,
   isProblem,
   readHost,
   readPort,
-  type Env,
-  type InputProblem,
-} from "@robkit/session/input";
+} from "@robkit/input";
 
 export function readServeEnv(
   env: Env,
@@ -71,8 +73,7 @@ An app's `serve.ts` calls it once, at start:
 
 ```ts
 import { serve } from "@hono/node-server";
-import { isProblem } from "@robkit/session/input";
-import { readServeEnv } from "@robkit/session/app-env";
+import { isProblem, readServeEnv } from "@robkit/input";
 import { Hono } from "hono";
 
 const app = new Hono(); // the app's routes go here
@@ -90,6 +91,15 @@ With `PORT=80000` the app prints this and stops:
 
 ```text
 PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, or leave it unset for 3000.
+```
+
+A Vite config can't go on without the values it reads, and Vite prints what it throws, so it uses `orThrow`:
+
+```ts
+import { orThrow, readDevServerEnv } from "@robkit/input";
+
+const { port, domain } = orThrow(readDevServerEnv(process.env));
+console.log(port, domain);
 ```
 
 ## Tests

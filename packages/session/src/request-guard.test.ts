@@ -11,10 +11,12 @@ import {
   type FakeCore,
 } from "@internal/test-session";
 import type { AccessRule, RoleId } from "@robkit/guard";
+import type { CoreOrigin } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { requestGuard, type GuardedOptions, type GuardFault } from "./index.ts";
-import { readSessionLapsed } from "./session-lapsed.ts";
+import { readSessionLapsed } from "./lapsed.ts";
+import { coreOrigin } from "./test/core-origin.ts";
 import { slug } from "./test/slug.ts";
 
 const example = slug("example");
@@ -100,7 +102,7 @@ describe("requestGuard, on a page load", () => {
     const check = requestGuard({
       app: slug("notes"),
       access: { kind: "owner" },
-      core: "https://core.example.com",
+      core: coreOrigin("https://core.example.com"),
     });
 
     const decision = await check(
@@ -112,7 +114,7 @@ describe("requestGuard, on a page load", () => {
     const res = "response" in decision ? decision.response : undefined;
     expect(res?.headers.get("location")).toEqual(
       refreshLocation("https://notes.example.com/", {
-        origin: "https://core.example.com",
+        origin: coreOrigin("https://core.example.com"),
       }),
     );
     expect(res?.headers.getSetCookie()).toEqual([
@@ -531,23 +533,9 @@ describe("requestGuard, with its rule in core", () => {
   });
 });
 
-describe("requestGuard's options", () => {
-  it("refuses a core origin that isn't core.<domain>", () => {
-    expect(() =>
-      requestGuard({
-        app: example,
-        access: { kind: "owner" },
-        core: "http://localhost:3000",
-      }),
-    ).toThrow(
-      "core must be core's public origin, such as http://core.robkit.localhost:3000, not http://localhost:3000",
-    );
-  });
-});
-
 describe("requestGuard, when it can't check a request", () => {
   /** The guard's 503s on `core`, each with what it handed `onUnavailable`. */
-  async function unavailable(core: FakeCore | { origin: string }) {
+  async function unavailable(core: FakeCore | { origin: CoreOrigin }) {
     const faults: GuardFault[] = [];
     const check = requestGuard({
       app: example,
@@ -606,7 +594,7 @@ describe("requestGuard, when it can't check a request", () => {
   });
 
   it("names core being down, and keeps the network's own error", async () => {
-    const down = "http://core.robkit.localhost:1";
+    const down = coreOrigin("http://core.robkit.localhost:1");
 
     const { status, faults } = await unavailable({ origin: down });
 

@@ -34,10 +34,10 @@ export type Decision =
       outcome: "not-found";
     };
 export function guard(rule: AccessRule, session: SessionState): Decision;
-export function readAccessRule(value: unknown): AccessRule | undefined;
-export function readCodeId(value: unknown): CodeId | undefined;
-export function readRoleId(value: unknown): RoleId | undefined;
-export function readRoleIds(value: unknown): RoleId[] | undefined;
+export function readAccessRule(value: unknown): AccessRule | InputProblem;
+export function readCodeId(value: unknown): CodeId | InputProblem;
+export function readRoleId(value: unknown): RoleId | InputProblem;
+export function readRoleIds(value: unknown): RoleId[] | InputProblem;
 export type RoleId = string & {
   readonly [roleIdBrand]: true;
 };

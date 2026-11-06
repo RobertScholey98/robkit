@@ -1,5 +1,5 @@
 import type { Hono } from "hono";
-import { isProblem } from "@robkit/session/input";
+import { isProblem } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { readDeclaredApps, registerApps } from "./apps.ts";
 import {

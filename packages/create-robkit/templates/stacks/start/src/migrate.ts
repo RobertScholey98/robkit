@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { isProblem, readDatabaseUrl } from "@robkit/session/input";
+import { isProblem, readDatabaseUrl } from "@robkit/input";
 import { sql } from "drizzle-orm";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { drizzle } from "drizzle-orm/postgres-js";

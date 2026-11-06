@@ -8,15 +8,11 @@ import {
 import { appRefreshPath, appSessionPath } from "./app-session.ts";
 import { coreAccess } from "./core-access.ts";
 import { coreKeys } from "./core-keys.ts";
-import {
-  installAt,
-  isLocal,
-  type Install,
-  type Slug,
-} from "./install-addresses.ts";
+import type { CoreOrigin, Slug } from "@robkit/input";
+import { coreInstall, isLocal } from "./addresses.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
 import { reportToConsole } from "./report.ts";
-import { sessionLapsedResponse } from "./session-lapsed.ts";
+import { sessionLapsedResponse } from "./lapsed.ts";
 import {
   cookieValues,
   readAppToken,
@@ -37,11 +33,11 @@ export interface GuardedOptions {
    */
   access?: AccessRule | undefined;
   /**
-   * Core's public origin, such as `http://core.robkit.localhost:3000`. The
-   * hub is beside it on `hub.`. Config, never the request's Host, so a
-   * request can't choose whose keys the app trusts.
+   * Core's public origin, such as `http://core.robkit.localhost:3000`, as
+   * `readCoreUrl` read it. The hub is beside it on `hub.`. Config, never
+   * the request's Host, so a request can't choose whose keys the app trusts.
    */
-  core: string;
+  core: CoreOrigin;
   /**
    * Hears why the guard answered 503 because it couldn't check a request.
    * By default it reports the app's slug, what failed and the cause through
@@ -107,17 +103,6 @@ function publicUrl(request: Request): URL {
   const proto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
   if (proto === "https" || proto === "http") url.protocol = `${proto}:`;
   return url;
-}
-
-/** The install core is on, from core's public origin. */
-function installOf(core: string): Install {
-  const install = installAt(core, "core");
-  if (!install) {
-    throw new Error(
-      `core must be core's public origin, such as http://core.robkit.localhost:3000, not ${core}`,
-    );
-  }
-  return install;
 }
 
 /**
@@ -225,7 +210,7 @@ export function requestGuard(
   options: GuardedOptions,
 ): (request: Request) => Promise<RequestDecision> {
   const { app, access, onUnavailable = reportFault } = options;
-  const install = installOf(options.core);
+  const install = coreInstall(options.core);
   const core = install.origin("core");
   const hub = install.origin("hub");
   const verifyKey = coreKeys(core);

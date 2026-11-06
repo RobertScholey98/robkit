@@ -1,5 +1,4 @@
-import { readSlug } from "@robkit/session/addresses";
-import { isProblem } from "@robkit/session/input";
+import { readSlug, orThrow } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { appOrigin, coreOrigin, returnTo } from "./core-origin.ts";
 
@@ -61,8 +60,7 @@ describe("appOrigin", () => {
     ],
     ["https://hub.example.com/?x=1", "https://example.example.com"],
   ])("puts the app beside the hub at %s", (page, origin) => {
-    const example = readSlug("example");
-    if (isProblem(example)) throw new Error(example.error);
+    const example = orThrow(readSlug("example"));
     expect(appOrigin(page, example)).toBe(origin);
   });
 });

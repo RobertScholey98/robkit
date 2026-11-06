@@ -3,18 +3,18 @@
 // needs. pnpm dev and robkit deploy set these variables. See
 // docs/conventions/input.md.
 
-import type { Slug } from "./install-addresses.ts";
+import type { Slug } from "./slug.ts";
 import {
-  allProblems,
-  isProblem,
   readAppSlug,
   readCoreUrl,
   readDomain,
   readHost,
   readPort,
+  type CoreOrigin,
+  type Domain,
   type Env,
-  type InputProblem,
-} from "./input.ts";
+} from "./env.ts";
+import { allProblems, isProblem, type InputProblem } from "./problem.ts";
 
 /** Where a server listens: `HOST` and `PORT`, by default 127.0.0.1:3000. */
 export function readServeEnv(
@@ -34,7 +34,7 @@ export function readServeEnv(
  */
 export function readDevServerEnv(
   env: Env,
-): { port?: number; domain?: string } | InputProblem {
+): { port?: number; domain?: Domain } | InputProblem {
   // An empty variable counts as unset, as the readers take it.
   const port = env.PORT ? readPort(env) : undefined;
   const domain = env.ROBKIT_DOMAIN ? readDomain(env) : undefined;
@@ -48,7 +48,7 @@ export function readDevServerEnv(
 /** What an app's guard needs: its slug and core's public origin. */
 export function readGuardEnv(
   env: Env,
-): { app: Slug; core: string } | InputProblem {
+): { app: Slug; core: CoreOrigin } | InputProblem {
   const app = readAppSlug(env);
   const core = readCoreUrl(env);
   if (isProblem(app) || isProblem(core)) {

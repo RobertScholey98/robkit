@@ -134,6 +134,9 @@ importers:
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -192,6 +195,9 @@ importers:
       '@robkit/dev':
         specifier: workspace:*
         version: link:../dev
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -229,6 +235,9 @@ importers:
 
   packages/dev:
     dependencies:
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -265,6 +274,10 @@ importers:
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/guard:
+    dependencies:
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
     devDependencies:
       '@internal/eslint-config':
         specifier: workspace:*
@@ -272,6 +285,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.0.5(vitest@5.0.5)
@@ -306,6 +322,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -318,6 +337,33 @@ importers:
       hono:
         specifier: 'catalog:'
         version: 4.13.14
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/input:
+    devDependencies:
+      '@internal/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@internal/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.5(vitest@5.0.5)
+      eslint:
+        specifier: 'catalog:'
+        version: 10.13.0(jiti@2.7.0)
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -361,6 +407,9 @@ importers:
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
       jose:
         specifier: 'catalog:'
         version: 6.2.13
@@ -411,6 +460,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.169.4(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.15)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -456,6 +508,9 @@ importers:
       '@robkit/dev':
         specifier: workspace:*
         version: link:../../packages/dev
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../../packages/input
       '@robkit/session':
         specifier: workspace:*
         version: link:../../packages/session
@@ -544,6 +599,9 @@ importers:
       '@robkit/hono':
         specifier: workspace:*
         version: link:../../packages/hono
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../../packages/input
       '@robkit/react':
         specifier: workspace:*
         version: link:../../packages/react
@@ -631,6 +689,9 @@ importers:
       '@robkit/guard':
         specifier: workspace:*
         version: link:../../packages/guard
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../../packages/input
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5

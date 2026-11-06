@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { readCodeId } from "@robkit/guard";
-import { isProblem } from "@robkit/session/input";
+import { isProblem } from "@robkit/input";
 import {
   listCodes,
   mintCode,
@@ -37,7 +37,7 @@ export function accessCodeRoutes(context: RouteContext): Hono<CoreEnv> {
 
   routes.post("/codes/:id/revoke", owner, async (c) => {
     const id = readCodeId(c.req.param("id"));
-    if (!id || !(await revokeCode(db, id, now()))) {
+    if (isProblem(id) || !(await revokeCode(db, id, now()))) {
       return c.json({ error: "Not found" }, 404);
     }
     return c.body(null, 204);

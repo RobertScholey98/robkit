@@ -15,7 +15,7 @@ export interface GuardedContext {
 export interface GuardedOptions {
   app: Slug;
   access?: AccessRule | undefined;
-  core: string;
+  core: CoreOrigin;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export type Viewer =

@@ -1,4 +1,9 @@
 {
   "extends": "@internal/tsconfig/base.json",
+  "compilerOptions": {
+    // @robkit/input's source uses URL, which Node's types declare. Lint, not
+    // types, keeps the guard's own code free of I/O.
+    "types": ["node"]
+  },
   "include": ["src", "*.js", "*.ts", "*.json"]
 }
