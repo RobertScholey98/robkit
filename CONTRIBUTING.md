@@ -114,7 +114,7 @@ Take the lowest-numbered ticket that is ready and whose `**Blocked by:**` ticket
 
 - One branch and one pull request per ticket. Name the branch after the ticket, such as `22-app-slugs-checked-at-start`.
 - Open the pull request against `main`, or against the branch it builds on if it stacks on another ticket's.
-- Fill in the template, `.github/pull_request_template.md`: the ticket, what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
+- Fill in the template, `.github/pull_request_template.md`: the ticket (CI checks that it names the ticket's file under `.scratch/`), what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
 - A change to a published package's `src` (tests aside) needs a changeset. Run `pnpm changeset`, pick the packages and `patch`, and commit the file it writes.
 - CI's `gate` job passes only when every other job does. It is the one check a pull request needs.
 - R reviews and merges. Don't merge your own.
@@ -130,7 +130,7 @@ R reviews commit by commit, so keep each one small and about one thing.
 
 ### Writing
 
-Write docs, tickets, commit messages and pull requests in short, plain sentences, with the answer before the detail. Use the glossary's words: "core" and "hub", never "backend" and "frontend"; "role", never "grant".
+Write docs, tickets, commit messages and pull requests in short, plain sentences, with the answer before the detail. Use the glossary's words: "core" and "hub", never "backend" and "frontend"; "role", never "grant". A repo check (`tooling/repo-checks/src/glossary.ts`) fails on a word the glossary avoids, in the docs, the package READMEs and the packages' `src`. Where the word is right, such as another tool's name for something, add an exception there with the reason.
 
 ## A first change, from ticket to pull request
 

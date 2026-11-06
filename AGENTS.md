@@ -43,7 +43,7 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 `tooling/eslint` enforces each rule here, and its error names the rule. A new rule goes in with its lint rule, in the same commit.
 
 - `@robkit/session` and `@robkit/guard` import no framework, and the guard does no I/O.
-- Adapters (`@robkit/hono`, `@robkit/start`, `@robkit/react`) import session and guard, never core. Code reaches core over HTTP only.
+- Adapters (`@robkit/hono`, `@robkit/start`, `@robkit/react`) import session and guard, never core. Code reaches core over HTTP only. The lint rule builds this row for every package the package graph keeps off core, not just the adapters.
 - Core's tables live in the `core` schema, declared with `core.table()` in `packages/core/src/schema.ts`.
 - An install has its own layer rule, for its apps and shared packages. `robkit check` (`src/check.ts` in create-robkit, one row per rule) is its only implementation. The install's `lint` script runs it, then ESLint.
 - Only the proxy may reach core, because core trusts `X-Forwarded-For` for its sign-in limit, or `CF-Connecting-IP` when `ROBKIT_TRUSTED_PROXY=cloudflare` says only a Cloudflare tunnel reaches the host. Core listens on 127.0.0.1 unless `HOST` is set.
@@ -52,16 +52,18 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 
 - Read a value from outside robkit's own code as `docs/conventions/input.md` says, and handle failures as `docs/conventions/errors.md` says. In short: expected failures are values, faults throw with `cause`, a fixable command-line failure is a `Problem` from `@robkit/dev` (`runCommand` prints it without a stack), and every outbound request has a timeout. ESLint's `preserve-caught-error` and `robkit/no-silent-catch` enforce the `catch` part.
 - In this workspace the published packages' exports point at `src`. Each also builds to `dist` with `tsconfig.build.json`, and `publishConfig` points the packed package there, because Node won't strip types under `node_modules`. A repo check packs each one and fails on an export that isn't JS.
-- `tooling/repo-checks/src/package-graph.ts` lists which workspace package may depend on which. A new edge goes there in the same commit as the `package.json` change, and a repo check fails on an edge or import it doesn't list, or on a cycle. A new published package gets an entry there and an `api-report.md`.
+- `tooling/eslint/package-graph.js` lists which workspace package may depend on which. A new edge goes there in the same commit as the `package.json` change, and a repo check fails on an edge or import it doesn't list, or on a cycle. A published package's runtime code may import only its `dependencies` edges; `devDependencies` edges are for tests, `src/test` helpers and config. A new published package gets an entry there and an `api-report.md`.
 - Every `ts` or `tsx` fence in the docs compiles against the built packages; a repo check (`tooling/repo-checks/src/doc-examples.ts`) fails on one that doesn't. Mark a fence that is deliberately not a whole program, such as a signature or a fragment, ` ```ts nocheck `.
 - A package whose tests need no Docker defines `test:unit` as well as `test`, so `pnpm check` runs them.
 - Each package with tests sets coverage thresholds in its `vitest.config`. Raise them when coverage rises; CI fails a pull request that lowers one. e2e has none.
+- Words `GLOSSARY.md` says to avoid fail a repo check (`tooling/repo-checks/src/glossary.ts`). Where one is right in context, add an exception there with the reason.
 - Every `eslint-disable` gives its reason after `--`, and lint fails on one that disables nothing.
 - A cast fails lint outside tests (`no-unsafe-type-assertion`). Use a reader or a type guard instead.
 - An adapter-facing package (guard, session, hono, start, react) keeps a `*.test-d.ts` file saying what must and mustn't compile, and its `test` script runs `vitest run --typecheck`.
 - The pre-commit hook runs ESLint's fixes and Prettier on staged files. The commit-msg hook, and CI on each commit of a pull request, check the subject with `tooling/repo-checks/src/check-commit-subjects.ts`.
-- A change to a published package's `src`, tests aside, needs a changeset (`pnpm changeset`). CI's `gate` job is the one required check, and a pull request fills in `.github/pull_request_template.md`.
+- A change to a published package's `src`, tests aside, needs a changeset (`pnpm changeset`). CI's `gate` job is the one required check, and a pull request fills in `.github/pull_request_template.md`. Its Ticket section must name the ticket's file under `.scratch/`; CI checks it.
 - Every external version lives in the catalog in `pnpm-workspace.yaml`, and manifests say `catalog:`. A test in `tooling/repo-checks` fails on any version pinned elsewhere. Peer dependencies are exempt.
+- Renovate proposes version updates weekly once it is installed (`renovate.json`). Its TypeScript cap moves with the catalog's.
 - TypeScript stays on 6.0 until typescript-eslint supports 7.
 - pnpm 11 refuses packages published in the last day. Pin an older version rather than adding an exemption.
 - Relative imports use the `.ts` extension, so Node can run source files directly. ESLint enforces it.
