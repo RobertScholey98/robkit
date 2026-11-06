@@ -30,6 +30,8 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 
 - `README.md`: what robkit is, and the quickstart.
 - `CONTRIBUTING.md`: setting up (WSL on Windows), the gates, a worked first change, tickets, branches and commits.
+- `tooling/eslint/README.md`: each lint rule and what to do about it, and how to add a layer rule row or a package graph edge.
+- `tooling/repo-checks/README.md`: each repo check and CI script, what it fails on, how to fix it, and where its exceptions go.
 - `docs/architecture.md`: the request flow, the token flow, the package map, and where each concern lives.
 - `docs/testing.md`: tests that start Docker, the whole-stack test, the production test, and what each prints when it fails.
 - `docs/adr/`: one short record per settled decision, each linking the ticket that made it.

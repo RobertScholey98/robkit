@@ -91,6 +91,13 @@ Every test in `@internal/e2e` and `@internal/test-postgres` needs Docker and Lin
 
 A package's `test` script measures coverage and fails below the thresholds in its `vitest.config`. When your change raises coverage, raise the thresholds with it, to what CI measures. CI fails a pull request that lowers one, and fails a threshold more than 2 points under what CI measured, naming the number to set. The `check` job's `coverage` artifact has CI's reports.
 
+### What each check does
+
+When a check refuses your change, its message says what to do. For more:
+
+- [tooling/eslint/README.md](tooling/eslint/README.md): each lint rule, its message and what to do about it, and how to add a layer rule row or a package graph edge.
+- [tooling/repo-checks/README.md](tooling/repo-checks/README.md): each repo check and CI script, what it fails on, how to fix it, and where an exception goes.
+
 ## How work is organised
 
 ### Tickets
