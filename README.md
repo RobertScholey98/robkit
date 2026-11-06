@@ -72,16 +72,17 @@ Every install uses the same tools: pnpm, Drizzle, shadcn on Base UI, ESLint with
 - [SECURITY.md](SECURITY.md): how to report a vulnerability, and what an imported app can and can't do.
 - The packages, each with its own README:
 
-| Package                                   | What it does                                                  |
-| ----------------------------------------- | ------------------------------------------------------------- |
-| [`create-robkit`](packages/create-robkit) | `npm create robkit`, and the `robkit` command an install runs |
-| [`@robkit/core`](packages/core)           | Core, the backend                                             |
-| [`@robkit/session`](packages/session)     | Session tokens, the request guard and an install's addresses  |
-| [`@robkit/guard`](packages/guard)         | The pure decision of who may open an app                      |
-| [`@robkit/hono`](packages/hono)           | The Hono adapter                                              |
-| [`@robkit/start`](packages/start)         | The TanStack Start adapter                                    |
-| [`@robkit/react`](packages/react)         | `sessionFetch`, for calls from the page when a session lapses |
-| [`@robkit/dev`](packages/dev)             | `robkit-dev`, the runner and proxy behind `pnpm dev`          |
+| Package                                   | What it does                                                                                        |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| [`create-robkit`](packages/create-robkit) | `npm create robkit`, and the `robkit` command an install runs                                       |
+| [`@robkit/core`](packages/core)           | Core, the backend                                                                                   |
+| [`@robkit/session`](packages/session)     | Session tokens, the request guard and an install's addresses                                        |
+| [`@robkit/input`](packages/input)         | Readers for input from outside robkit: env, JSON, slugs, the manifest; `InputProblem` and `orThrow` |
+| [`@robkit/guard`](packages/guard)         | The pure decision of who may open an app                                                            |
+| [`@robkit/hono`](packages/hono)           | The Hono adapter                                                                                    |
+| [`@robkit/start`](packages/start)         | The TanStack Start adapter                                                                          |
+| [`@robkit/react`](packages/react)         | `sessionFetch`, for calls from the page when a session lapses                                       |
+| [`@robkit/dev`](packages/dev)             | `robkit-dev`, the runner and proxy behind `pnpm dev`                                                |
 
 ## Contributing
 
