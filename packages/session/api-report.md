@@ -21,7 +21,7 @@ export const coreAudience: "core";
 export interface GuardedOptions {
   app: Slug;
   access?: AccessRule | undefined;
-  core: string;
+  core: CoreOrigin;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export interface GuardFault {
@@ -82,6 +82,7 @@ export type ViewerClaims =
 ## @robkit/session/addresses
 
 ```ts
+export function coreInstall(core: CoreOrigin): Install;
 export const defaultDevPort: 3000;
 export const defaultDomain: "robkit.localhost";
 export function install({ domain, protocol, port }: InstallOptions): Install;

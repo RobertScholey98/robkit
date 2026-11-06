@@ -4,7 +4,7 @@
 // addresses out here. It imports only @robkit/input, which imports nothing,
 // so the browser can load it.
 
-import { isProblem, readSlug, type Slug } from "@robkit/input";
+import { isProblem, readSlug, type CoreOrigin, type Slug } from "@robkit/input";
 
 /**
  * Whether the install runs on `localhost` or a name under it, which only
@@ -94,10 +94,24 @@ export function installAt(url: string | URL, app: string): Install | undefined {
   if (!isWeb(at) || !at.hostname.startsWith(label) || domain === "") {
     return undefined;
   }
+  return installOn(at, domain);
+}
+
+/**
+ * The install core is on. `readCoreUrl` checked that the origin is on
+ * `core.<domain>`, so there is always one.
+ */
+export function coreInstall(core: CoreOrigin): Install {
+  const at = new URL(core);
+  return installOn(at, at.hostname.slice("core.".length));
+}
+
+/** The install on `domain`, served the way `url` is. */
+function installOn(url: URL, domain: string): Install {
   return install({
     domain,
-    protocol: at.protocol === "https:" ? "https" : "http",
-    port: at.port === "" ? undefined : Number(at.port),
+    protocol: url.protocol === "https:" ? "https" : "http",
+    port: url.port === "" ? undefined : Number(url.port),
   });
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isDomain,
   parseJson,
   readAppSlug,
   readCoreUrl,
@@ -81,11 +82,30 @@ describe("readDomain", () => {
   });
 });
 
+describe("isDomain", () => {
+  it("says whether a string is a domain alone", () => {
+    expect(
+      ["robkit.dev", "localhost", "https://robkit.dev", "robkit.dev/"].map(
+        isDomain,
+      ),
+    ).toEqual([true, true, false, false]);
+  });
+});
+
 describe("readCoreUrl", () => {
   it("reads core's public origin", () => {
     expect(
       readCoreUrl({ ROBKIT_CORE_URL: "http://core.robkit.localhost:3000" }),
     ).toBe("http://core.robkit.localhost:3000");
+  });
+
+  it("keeps the origin alone", () => {
+    expect(readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev/" })).toBe(
+      "https://core.robkit.dev",
+    );
+    expect(
+      readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev:443/x?y" }),
+    ).toBe("https://core.robkit.dev");
   });
 
   it("says pnpm dev sets it", () => {
@@ -99,6 +119,9 @@ describe("readCoreUrl", () => {
     "core.robkit.dev",
     "https://hub.robkit.dev",
     "ftp://core.robkit.dev",
+    "https://core.",
+    "https://core.-robkit.dev",
+    "https://core.127.0.0.1",
   ])("refuses %j", (value) => {
     expect(readCoreUrl({ ROBKIT_CORE_URL: value })).toEqual({
       error: `ROBKIT_CORE_URL is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,

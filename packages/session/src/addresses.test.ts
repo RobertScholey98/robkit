@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { orThrow, readCoreUrl } from "@robkit/input";
 import {
+  coreInstall,
   defaultDevPort,
   defaultDomain,
   install,
@@ -44,6 +46,24 @@ describe("an install's addresses", () => {
         isLocal,
       ),
     ).toEqual([true, true, false, false]);
+  });
+});
+
+describe("the install core is on", () => {
+  it("works out the install from core's origin", () => {
+    const local = coreInstall(
+      orThrow(
+        readCoreUrl({ ROBKIT_CORE_URL: "http://core.robkit.localhost:3000" }),
+      ),
+    );
+    expect(local.domain).toBe("robkit.localhost");
+    expect(local.origin("hub")).toBe("http://hub.robkit.localhost:3000");
+
+    const hosted = coreInstall(
+      orThrow(readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev" })),
+    );
+    expect(hosted.domain).toBe("robkit.dev");
+    expect(hosted.origin("hub")).toBe("https://hub.robkit.dev");
   });
 });
 

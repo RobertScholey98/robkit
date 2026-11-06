@@ -7,6 +7,7 @@ import {
 } from "./index.ts";
 import {
   readSlug,
+  type CoreOrigin,
   type DeclaredAccess,
   type InputProblem,
   type Slug,
@@ -15,7 +16,7 @@ import { readSessionLapsed, type SessionLapsed } from "./lapsed.ts";
 
 declare const notes: Slug;
 declare const family: RoleId;
-const core = "http://core.robkit.localhost:3000";
+declare const core: CoreOrigin;
 const options = (value: GuardedOptions) => value;
 const declared = (value: DeclaredAccess) => value;
 const rule = (value: AccessRule) => value;
@@ -41,6 +42,12 @@ describe("session's types", () => {
     options({ app: String(notes), core });
     // @ts-expect-error The guard needs core's origin.
     options({ app: notes });
+  });
+
+  it("takes core's origin only as readCoreUrl made it", () => {
+    expectTypeOf<GuardedOptions["core"]>().toEqualTypeOf<CoreOrigin>();
+    // @ts-expect-error A plain string hasn't been read as core's origin.
+    options({ app: notes, core: "http://core.robkit.localhost:3000" });
   });
 
   it("keeps role names apart from the guard's role ids", () => {

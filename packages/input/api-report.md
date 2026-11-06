@@ -14,6 +14,9 @@ export function appDeclarationJson({
   access,
   icon,
 }: AppDeclaration): Record<string, unknown>;
+export type CoreOrigin = string & {
+  readonly [coreOriginBrand]: true;
+};
 export type DeclaredAccess =
   | {
       kind: "open";
@@ -28,6 +31,9 @@ export type DeclaredAccess =
 export interface DeclaredApp extends AppDeclaration {
   slug: Slug;
 }
+export type Domain = string & {
+  readonly [domainBrand]: true;
+};
 export type Env = Readonly<Record<string, string | undefined>>;
 export interface InputProblem {
   readonly error: string;
@@ -52,7 +58,7 @@ export function readAppDeclaration(
   field?: string,
 ): AppDeclaration | InputProblem;
 export function readAppSlug(env: Env): Slug | InputProblem;
-export function readCoreUrl(env: Env): string | InputProblem;
+export function readCoreUrl(env: Env): CoreOrigin | InputProblem;
 export function readDatabaseUrl(
   env: Env,
   name?: string,
@@ -65,14 +71,14 @@ export function readDeclaredApp(
 export function readDevServerEnv(env: Env):
   | {
       port?: number;
-      domain?: string;
+      domain?: Domain;
     }
   | InputProblem;
-export function readDomain(env: Env, fallback?: string): string | InputProblem;
+export function readDomain(env: Env, fallback?: string): Domain | InputProblem;
 export function readGuardEnv(env: Env):
   | {
       app: Slug;
-      core: string;
+      core: CoreOrigin;
     }
   | InputProblem;
 export function readHost(env: Env): string | InputProblem;

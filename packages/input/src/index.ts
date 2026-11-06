@@ -20,6 +20,8 @@ export {
   readHost,
   readPort,
   readSet,
+  type CoreOrigin,
+  type Domain,
   type Env,
 } from "./env.ts";
 export {
