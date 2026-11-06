@@ -7,6 +7,20 @@ export function publicUrl(request: Request): URL {
 }
 
 /**
+ * The `next` a request names, if it is a page on the same app. A page under
+ * the guard's own paths isn't one.
+ */
+export function nextOn(url: URL): string | undefined {
+  const next = url.searchParams.get("next");
+  if (next === null || !URL.canParse(next)) return undefined;
+  const target = new URL(next);
+  return target.origin === url.origin &&
+    !target.pathname.startsWith("/_robkit/")
+    ? target.href
+    : undefined;
+}
+
+/**
  * A page load can follow a redirect to the hub or core. A fetch from the
  * page, or a server calling the app, can't, so it gets 401 and the place to
  * send the browser. Without fetch metadata, only a request that accepts HTML
@@ -55,4 +69,21 @@ export function redirect(
       ...headers,
     ],
   });
+}
+
+/** A `Set-Cookie` value for a host-only cookie on the app's own subdomain. */
+export function hostOnlyCookie(
+  name: string,
+  value: string,
+  maxAge: number,
+  secure: boolean,
+): string {
+  return [
+    `${name}=${value}`,
+    "Path=/",
+    `Max-Age=${String(maxAge)}`,
+    "HttpOnly",
+    "SameSite=Lax",
+    ...(secure ? ["Secure"] : []),
+  ].join("; ");
 }

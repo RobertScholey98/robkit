@@ -1,31 +1,19 @@
-import { randomBytes, timingSafeEqual } from "node:crypto";
 import {
   guard,
   type AccessRule,
+  type Decision,
   type SessionState,
   type Viewer,
 } from "@robkit/guard";
-import { appRefreshPath, appSessionPath } from "./app-session.ts";
-import { coreAccess } from "./core-access.ts";
-import { coreKeys } from "./core-keys.ts";
 import type { CoreOrigin, Slug } from "@robkit/input";
 import { coreInstall, isLocal } from "./addresses.ts";
-import {
-  isBrowserNavigation,
-  isNavigation,
-  publicUrl,
-  redirect,
-  text,
-} from "./guard-http.ts";
-import { CoreUnreachableError } from "./loopback-fetch.ts";
-import { reportToConsole } from "./report.ts";
+import { appRefreshPath } from "./app-session.ts";
+import { coreAccess } from "./core-access.ts";
+import { isNavigation, publicUrl, redirect, text } from "./guard-http.ts";
 import { sessionLapsedResponse } from "./lapsed.ts";
-import {
-  cookieValues,
-  readAppToken,
-  sessionCookie,
-  sessionTokensIn,
-} from "./session-token.ts";
+import { CoreUnreachableError } from "./loopback-fetch.ts";
+import { refreshProtocol } from "./refresh-protocol.ts";
+import { reportToConsole } from "./report.ts";
 
 export interface GuardedOptions {
   /**
@@ -86,65 +74,11 @@ function reportFault({ app, failed, cause }: GuardFault): void {
 /** What the app does with a request: serve it to the viewer, or answer it. */
 export type RequestDecision = { viewer: Viewer } | { response: Response };
 
-/** The cookie holding the state the guard sent core, until core comes back. */
-const stateCookie = "robkit_state";
-
-/** How long a trip through core may take before its state is forgotten. */
-const stateMaxAgeSeconds = 10 * 60;
-
-/**
- * The app's cookie outlives its token, as long as core's session lasts, so
- * an expired token still says "refresh" rather than nothing.
- */
-const appCookieMaxAgeSeconds = 30 * 24 * 60 * 60;
-
-/** How long the app takes core's word that nobody is signed in. */
-const signedOutSeconds = 60;
-
-/** The app's cookie when core said nobody is signed in, then the time. */
-const signedOutPrefix = "signed-out.";
-
-const nowSeconds = () => Math.floor(Date.now() / 1000);
-
-/** When core said nobody is signed in, if the cookie holds that. */
-function signedOutAt(value: string): number | undefined {
-  if (!value.startsWith(signedOutPrefix)) return undefined;
-  const at = Number(value.slice(signedOutPrefix.length));
-  return Number.isSafeInteger(at) ? at : undefined;
-}
-
-/** The state this browser holds for a trip through core, if any. */
-function stateIn(request: Request): string | undefined {
-  return cookieValues(request.headers.get("cookie"), stateCookie).find(
-    (value) => /^[\w-]{43}$/.test(value),
-  );
-}
-
-function sameState(sent: string | null, held: string): boolean {
-  if (sent === null) return false;
-  const [a, b] = [Buffer.from(sent), Buffer.from(held)];
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-/**
- * The `next` a request names, if it is a page on the same app. A page under
- * the guard's own paths isn't one.
- */
-function nextOn(url: URL): string | undefined {
-  const next = url.searchParams.get("next");
-  if (next === null || !URL.canParse(next)) return undefined;
-  const target = new URL(next);
-  return target.origin === url.origin &&
-    !target.pathname.startsWith("/_robkit/")
-    ? target.href
-    : undefined;
-}
-
 const errors = {
   login: "Sign in to use this app.",
   refresh: "Your session needs refreshing.",
-  next: "next must be a page on this app.",
   keys: "Can't reach core to check your session.",
+  rule: "Can't reach core to check who may open this app.",
 } as const;
 
 /**
@@ -164,9 +98,7 @@ export function requestGuard(
   const install = coreInstall(options.core);
   const core = install.origin("core");
   const hub = install.origin("hub");
-  const verifyKey = coreKeys(core);
   const ruleOf = access ? () => Promise.resolve(access) : coreAccess(core, app);
-  const secure = !isLocal(install.domain);
 
   /** A 503 for a check that failed, after telling `onUnavailable` why. */
   const unavailable = (
@@ -181,150 +113,28 @@ export function requestGuard(
     });
     return text(body, 503);
   };
+  const keyUnavailable = (cause: unknown) =>
+    unavailable("core-key", cause, errors.keys);
 
-  /** A host-only cookie on the app's own subdomain. */
-  const cookie = (name: string, value: string, maxAge: number): string =>
-    [
-      `${name}=${value}`,
-      "Path=/",
-      `Max-Age=${String(maxAge)}`,
-      "HttpOnly",
-      "SameSite=Lax",
-      ...(secure ? ["Secure"] : []),
-    ].join("; ");
+  const protocol = refreshProtocol({
+    app,
+    core,
+    secure: !isLocal(install.domain),
+    keyUnavailable,
+  });
 
-  /**
-   * Sends the browser to core's `/refresh`, which comes back to the app's
-   * callback with a token for this app, or none, and the same state. Only
-   * this browser holds the state, so no one else's link can hand the app a
-   * token.
-   */
-  const toCore = (request: Request, next: string): Response => {
-    const state = stateIn(request) ?? randomBytes(32).toString("base64url");
-    const location = new URL("/refresh", core);
-    location.searchParams.set("next", next);
-    location.searchParams.set("state", state);
-    return redirect(location.href, [
-      ["set-cookie", cookie(stateCookie, state, stateMaxAgeSeconds)],
-    ]);
-  };
-
-  /**
-   * Core sent the browser back with the app's token, or none if nobody is
-   * signed in. The guard keeps whichever it got in the app's cookie and
-   * sends the browser on to `next`. Each refusal is a page rather than a
-   * redirect, so a browser that can't keep the cookie stops here instead of
-   * going round again.
-   */
-  const arrive = async (request: Request, url: URL): Promise<Response> => {
-    const next = nextOn(url);
-    if (!next) return text(errors.next, 400);
-    const held = stateIn(request);
-    if (!held) {
-      return text(
-        "This browser didn't keep the app's cookie, so it can't sign you in here. Allow cookies for this site and try again.",
-        400,
-      );
-    }
-    if (!sameState(url.searchParams.get("state"), held)) {
-      return text(
-        "This sign-in didn't start in this browser. Open the app again.",
-        400,
-      );
-    }
-    const token = url.searchParams.get("token");
-    let value = `${signedOutPrefix}${String(nowSeconds())}`;
-    if (token !== null) {
-      let read;
-      try {
-        read = await readAppToken(verifyKey, token, new Date(), app);
-      } catch (error) {
-        return unavailable("core-key", error, errors.keys);
-      }
-      if (!read) {
-        return text("Core's token for this app doesn't check out.", 400);
-      }
-      if (read.expired) {
-        return text(
-          "The token core just issued has already expired by this app's clock. Check that the app's clock agrees with core's.",
-          503,
-        );
-      }
-      value = token;
-    }
-    return redirect(next, [
-      ["set-cookie", cookie(sessionCookie, value, appCookieMaxAgeSeconds)],
-      ["referrer-policy", "no-referrer"],
-    ]);
-  };
-
-  /** What the app's own cookie says about who is asking. */
-  const sessionOf = async (request: Request): Promise<SessionState> => {
-    let saidSignedOut: number | undefined;
-    for (const value of sessionTokensIn(request.headers.get("cookie"))) {
-      const at = signedOutAt(value);
-      if (at !== undefined) {
-        saidSignedOut = Math.max(at, saidSignedOut ?? at);
-        continue;
-      }
-      const read = await readAppToken(verifyKey, value, new Date(), app);
-      if (!read) continue;
-      if (read.expired) return { state: "expired" };
-      const viewer =
-        read.kind === "owner"
-          ? { kind: read.kind, id: read.id }
-          : { kind: read.kind, id: read.id, roles: read.roles };
-      return { state: "signed-in", viewer };
-    }
-    const age = saidSignedOut === undefined ? -1 : nowSeconds() - saidSignedOut;
-    if (age >= 0 && age < signedOutSeconds) return { state: "signed-out" };
-    return isBrowserNavigation(request)
-      ? { state: "unknown" }
-      : { state: "signed-out" };
-  };
-
-  return async (request) => {
-    const url = publicUrl(request);
-    if (url.pathname === appSessionPath) {
-      return { response: await arrive(request, url) };
-    }
-    if (url.pathname === appRefreshPath) {
-      const next = nextOn(url);
-      return {
-        response: next ? toCore(request, next) : text(errors.next, 400),
-      };
-    }
-
-    let session: SessionState;
-    try {
-      session = await sessionOf(request);
-    } catch (error) {
-      // Not knowing who is asking isn't the same as nobody asking, so the
-      // browser isn't sent to log in.
-      return { response: unavailable("core-key", error, errors.keys) };
-    }
-    let rule: AccessRule;
-    try {
-      rule = await ruleOf();
-    } catch (error) {
-      return {
-        response: unavailable(
-          "access-rule",
-          error,
-          "Can't reach core to check who may open this app.",
-        ),
-      };
-    }
-    const decision = guard(rule, session);
+  /** The answer to a request the guard didn't let through. */
+  const respond = (
+    decision: Exclude<Decision, { outcome: "allow" }>,
+    request: Request,
+    url: URL,
+  ): Response => {
     switch (decision.outcome) {
-      case "allow":
-        return { viewer: decision.viewer };
       case "not-found":
-        return { response: text("Not found", 404) };
+        return text("Not found", 404);
       case "login": {
         // Core's word that nobody is signed in goes, so once the browser
         // signs in at the hub and comes back, the app asks core again.
-        const forget = cookie(sessionCookie, "", 0);
         const location = new URL("/", hub);
         if (!isNavigation(request)) {
           // A call doesn't know the page it came from. The page adds next.
@@ -333,23 +143,45 @@ export function requestGuard(
             error: errors.login,
             location: location.href,
           });
-          response.headers.append("set-cookie", forget);
-          return { response };
+          response.headers.append("set-cookie", protocol.forget);
+          return response;
         }
         location.searchParams.set("next", url.href);
-        return { response: redirect(location.href, [["set-cookie", forget]]) };
+        return redirect(location.href, [["set-cookie", protocol.forget]]);
       }
       case "refresh":
         if (!isNavigation(request)) {
-          return {
-            response: sessionLapsedResponse({
-              outcome: "refresh",
-              error: errors.refresh,
-              location: new URL(appRefreshPath, url).href,
-            }),
-          };
+          return sessionLapsedResponse({
+            outcome: "refresh",
+            error: errors.refresh,
+            location: new URL(appRefreshPath, url).href,
+          });
         }
-        return { response: toCore(request, url.href) };
+        return protocol.toCore(request, url.href);
     }
+  };
+
+  return async (request) => {
+    const url = publicUrl(request);
+    const own = await protocol.answer(request, url);
+    if (own) return { response: own };
+
+    let session: SessionState;
+    try {
+      session = await protocol.sessionOf(request);
+    } catch (error) {
+      // Not knowing who is asking isn't the same as nobody asking, so the
+      // browser isn't sent to log in.
+      return { response: keyUnavailable(error) };
+    }
+    let rule: AccessRule;
+    try {
+      rule = await ruleOf();
+    } catch (error) {
+      return { response: unavailable("access-rule", error, errors.rule) };
+    }
+    const decision = guard(rule, session);
+    if (decision.outcome === "allow") return { viewer: decision.viewer };
+    return { response: respond(decision, request, url) };
   };
 }
