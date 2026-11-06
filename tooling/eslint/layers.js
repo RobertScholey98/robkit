@@ -81,6 +81,11 @@ function workspaceFolders() {
   return folders;
 }
 
+const folders = workspaceFolders();
+
+/** Every workspace's folder, such as `packages/guard`. */
+const workspaces = new Set(folders.values());
+
 /** @type {LayerRow[]} */
 export const layers = [
   {
@@ -99,7 +104,7 @@ export const layers = [
     modules: builtinModules,
     globals: ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "process"],
   },
-  ...coreRows(packageGraph, workspaceFolders()),
+  ...coreRows(packageGraph, folders),
 ];
 
 /** The workspace a file belongs to, such as `packages/guard`. */
@@ -120,17 +125,28 @@ function packageName(specifier) {
 }
 
 /**
+ * Where a relative `specifier` imported from `filename` points, from the
+ * repo root, or undefined for a bare one.
+ * @param {string} filename
+ * @param {string} specifier
+ */
+function relativeTarget(filename, specifier) {
+  if (!/^\.\.?(\/|$)/.test(specifier)) return undefined;
+  return relative(repoRoot, resolve(dirname(filename), specifier)).replaceAll(
+    "\\",
+    "/",
+  );
+}
+
+/**
  * Whether `specifier`, imported from `filename`, is one `row` forbids.
  * @param {LayerRow} row
  * @param {string} filename
  * @param {string} specifier
  */
 function breaks(row, filename, specifier) {
-  if (/^\.\.?\//.test(specifier)) {
-    const target = relative(
-      repoRoot,
-      resolve(dirname(filename), specifier),
-    ).replaceAll("\\", "/");
+  const target = relativeTarget(filename, specifier);
+  if (target !== undefined) {
     return (row.folders ?? []).some(
       (folder) => target === folder || target.startsWith(`${folder}/`),
     );
@@ -157,7 +173,8 @@ export default {
   create(context) {
     const workspace = workspaceOf(context.filename);
     const rows = layers.filter((row) => row.applies(workspace));
-    if (rows.length === 0) return {};
+    const isWorkspace = workspaces.has(workspace);
+    if (rows.length === 0 && !isWorkspace) return {};
 
     /** @param {import("estree").Node | null | undefined} source */
     function check(source) {
@@ -165,10 +182,25 @@ export default {
         return;
       }
       const specifier = source.value;
-      for (const row of rows) {
-        if (breaks(row, context.filename, specifier)) {
-          context.report({ node: source, message: row.rule });
-        }
+      const broken = rows.filter((row) =>
+        breaks(row, context.filename, specifier),
+      );
+      for (const row of broken) {
+        context.report({ node: source, message: row.rule });
+      }
+      // A row names its rule more closely, so this reports what none caught.
+      const target = relativeTarget(context.filename, specifier);
+      if (
+        broken.length === 0 &&
+        isWorkspace &&
+        target !== undefined &&
+        target !== workspace &&
+        !target.startsWith(`${workspace}/`)
+      ) {
+        context.report({
+          node: source,
+          message: `Layer rule: this import ${reachesOutside(workspace, specifier)}`,
+        });
       }
     }
 
@@ -194,3 +226,13 @@ export default {
     };
   },
 };
+
+/**
+ * What a relative import that leaves its workspace breaks. `graph-check.ts`
+ * in repo-checks prints it too.
+ * @param {string} folder the workspace, such as `packages/guard`
+ * @param {string} specifier the import, as the file spells it
+ */
+export function reachesOutside(folder, specifier) {
+  return `reaches outside ${folder} with ${specifier}. Import the package by name.`;
+}
