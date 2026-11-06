@@ -10,7 +10,8 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   "AGENTS.md": "f3f6c0ed0eb59307",
   "CLAUDE.md": "336cc4fbf19beaad",
   "Dockerfile": "f6dc3d49d52ce05a",
-  "apps/admin/package.json": "9ef1015e32ff5951",
+  "apps/admin/package.json": "7d9eda38769c5647",
+  "apps/admin/src/client/Admin.test.tsx": "83c6cc67414cbdde",
   "apps/admin/src/client/Admin.tsx": "98b9bf597ad77a26",
   "apps/admin/src/client/access-api.test.ts": "b88f0a58f09baa68",
   "apps/admin/src/client/access-api.ts": "0513dd654de0d86a",
@@ -94,7 +95,7 @@ exports[`generateInstall > keeps every file of the Hono example pnpm install 1`]
   "packages/ui/src/lib/utils.ts": "55bbdc94cef3e0c8",
   "packages/ui/src/styles.css": "c92d750e2aeef080",
   "packages/ui/tsconfig.json": "c30d575a1e3f6273",
-  "pnpm-workspace.yaml": "773cc42d3bdf390c",
+  "pnpm-workspace.yaml": "7b5d593704f3ca46",
   "robkit.json": "145663a93b98fdc4",
   "tooling/eslint/no-bare-error.js": "c19c1a8379dc1180",
   "tooling/eslint/no-brand-cast.js": "3bf91b6a0d1444be",
@@ -120,7 +121,8 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "AGENTS.md": "f3f6c0ed0eb59307",
   "CLAUDE.md": "336cc4fbf19beaad",
   "Dockerfile": "f6dc3d49d52ce05a",
-  "apps/admin/package.json": "9ef1015e32ff5951",
+  "apps/admin/package.json": "7d9eda38769c5647",
+  "apps/admin/src/client/Admin.test.tsx": "83c6cc67414cbdde",
   "apps/admin/src/client/Admin.tsx": "98b9bf597ad77a26",
   "apps/admin/src/client/access-api.test.ts": "b88f0a58f09baa68",
   "apps/admin/src/client/access-api.ts": "0513dd654de0d86a",
@@ -209,7 +211,7 @@ exports[`generateInstall > keeps every file of the default pnpm install 1`] = `
   "packages/ui/src/lib/utils.ts": "55bbdc94cef3e0c8",
   "packages/ui/src/styles.css": "c92d750e2aeef080",
   "packages/ui/tsconfig.json": "c30d575a1e3f6273",
-  "pnpm-workspace.yaml": "773cc42d3bdf390c",
+  "pnpm-workspace.yaml": "7b5d593704f3ca46",
   "robkit.json": "45c88fe10fbdc144",
   "tooling/eslint/no-bare-error.js": "c19c1a8379dc1180",
   "tooling/eslint/no-brand-cast.js": "3bf91b6a0d1444be",
@@ -339,6 +341,9 @@ catalog:
   "@tailwindcss/vite": 4.3.3
   "@tanstack/react-router": 1.170.46
   "@tanstack/react-start": 1.169.4
+  "@testing-library/dom": 10.4.2
+  "@testing-library/react": 16.3.3
+  "@testing-library/user-event": 14.6.8
   "@types/node": 26.6.5
   "@types/react": 19.3.0
   "@types/react-dom": 19.3.0
@@ -350,6 +355,7 @@ catalog:
   drizzle-orm: 0.45.4
   eslint: 10.13.0
   globals: 17.13.0
+  happy-dom: 21.0.4
   hono: 4.13.14
   husky: 9.1.7
   lint-staged: 17.6.0
@@ -385,6 +391,7 @@ exports[`generateInstall > writes the default install 1`] = `
   "CLAUDE.md",
   "Dockerfile",
   "apps/admin/package.json",
+  "apps/admin/src/client/Admin.test.tsx",
   "apps/admin/src/client/Admin.tsx",
   "apps/admin/src/client/access-api.test.ts",
   "apps/admin/src/client/access-api.ts",
