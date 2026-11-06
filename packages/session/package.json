@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./app-env": "./src/app-env.ts",
     "./addresses": "./src/install-addresses.ts",
     "./input": "./src/input.ts",
     "./lapsed": "./src/session-lapsed.ts",
@@ -15,6 +16,10 @@
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./app-env": {
+        "types": "./dist/app-env.d.ts",
+        "default": "./dist/app-env.js"
       },
       "./addresses": {
         "types": "./dist/install-addresses.d.ts",

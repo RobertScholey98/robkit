@@ -27,7 +27,7 @@ interface InputProblem {
 
   `Slug` is in `@robkit/session/addresses`, and an install's `host` and `origin` take one. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
 
-The shared readers live in `@robkit/session/input` (environment variables and JSON, and `InputProblem`, `isProblem`, `isRecord` and `allProblems`), `@robkit/session/manifest` (an app's `robkit` field), `@robkit/session/addresses` (slugs) and `@robkit/guard` (role and code ids, and access rules). Every robkit package and every app can import them. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
+The shared readers live in `@robkit/session/input` (environment variables and JSON, and `InputProblem`, `isProblem`, `isRecord` and `allProblems`), `@robkit/session/app-env` (what an app's server reads from its environment), `@robkit/session/manifest` (an app's `robkit` field), `@robkit/session/addresses` (slugs) and `@robkit/guard` (role and code ids, and access rules). Every robkit package and every app can import them. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
 
 ## What lint enforces
 
@@ -41,7 +41,7 @@ The rules live in `tooling/eslint`, each with its tests. An install's `eslint.co
 
 ## Example
 
-`readServeEnv` reads where a server listens:
+`readServeEnv` in `@robkit/session/app-env` reads where a server listens:
 
 ```ts
 import {
@@ -69,7 +69,8 @@ An app's `serve.ts` calls it once, at start:
 
 ```ts
 import { serve } from "@hono/node-server";
-import { isProblem, readServeEnv } from "@robkit/session/input";
+import { isProblem } from "@robkit/session/input";
+import { readServeEnv } from "@robkit/session/app-env";
 import { Hono } from "hono";
 
 const app = new Hono(); // the app's routes go here

@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { isProblem, isRecord, readServeEnv } from "@robkit/session/input";
+import { isProblem, isRecord } from "@robkit/session/input";
+import { readServeEnv } from "@robkit/session/app-env";
 import { Hono } from "hono";
 
 interface ServerEntry {

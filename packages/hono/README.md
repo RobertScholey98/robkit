@@ -10,7 +10,8 @@ From the React with Hono template (`templates/stacks/react-hono/src/server.tsx`)
 
 ```ts
 import { guarded, type GuardedEnv } from "@robkit/hono";
-import { isProblem, readGuardEnv } from "@robkit/session/input";
+import { isProblem } from "@robkit/session/input";
+import { readGuardEnv } from "@robkit/session/app-env";
 import { Hono } from "hono";
 
 const app = new Hono<GuardedEnv>();

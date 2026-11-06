@@ -79,6 +79,29 @@ export type ViewerClaims =
     };
 ```
 
+## @robkit/session/app-env
+
+```ts
+export function readDevServerEnv(env: Env):
+  | {
+      port?: number;
+      domain?: string;
+    }
+  | InputProblem;
+export function readGuardEnv(env: Env):
+  | {
+      app: Slug;
+      core: string;
+    }
+  | InputProblem;
+export function readServeEnv(env: Env):
+  | {
+      host: string;
+      port: number;
+    }
+  | InputProblem;
+```
+
 ## @robkit/session/addresses
 
 ```ts
@@ -137,31 +160,13 @@ export function readDatabaseUrl(
   name?: string,
   unsetFix?: string,
 ): string | InputProblem;
-export function readDevServerEnv(env: Env):
-  | {
-      port?: number;
-      domain?: string;
-    }
-  | InputProblem;
 export function readDomain(env: Env, fallback?: string): string | InputProblem;
-export function readGuardEnv(env: Env):
-  | {
-      app: Slug;
-      core: string;
-    }
-  | InputProblem;
 export function readHost(env: Env): string | InputProblem;
 export function readPort(
   env: Env,
   name?: string,
   fallback?: number,
 ): number | InputProblem;
-export function readServeEnv(env: Env):
-  | {
-      host: string;
-      port: number;
-    }
-  | InputProblem;
 export function readSet(
   env: Env,
   name: string,

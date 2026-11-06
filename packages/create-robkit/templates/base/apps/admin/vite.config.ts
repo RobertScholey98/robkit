@@ -1,9 +1,6 @@
 import devServer from "@hono/vite-dev-server";
-import {
-  isProblem,
-  readCoreUrl,
-  readDevServerEnv,
-} from "@robkit/session/input";
+import { isProblem, readCoreUrl } from "@robkit/session/input";
+import { readDevServerEnv } from "@robkit/session/app-env";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
