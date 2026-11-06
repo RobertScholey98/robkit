@@ -73,17 +73,23 @@ function signal(pids: number[], name: NodeJS.Signals): void {
 
 /**
  * SIGTERM first, so a robkit-dev can stop the apps it started, then SIGKILL
- * whatever is left after 15 seconds.
+ * whatever is left after `graceMs`.
  */
-async function stopTagged(tag: string): Promise<void> {
+async function stopTagged(tag: string, graceMs: number): Promise<void> {
   signal(tagged(tag), "SIGTERM");
-  const deadline = Date.now() + 15_000;
+  const deadline = Date.now() + graceMs;
   while (tagged(tag).length > 0 && Date.now() < deadline) await sleep(250);
   signal(tagged(tag), "SIGKILL");
 }
 
-/** Removes one leftover. */
-export async function removeLeftover(leftover: Leftover): Promise<void> {
-  if ("tagged" in leftover) await stopTagged(leftover.tagged);
+/**
+ * Removes one leftover. A tagged process gets `graceMs` to stop after
+ * SIGTERM before it gets SIGKILL: 15 seconds unless a test says otherwise.
+ */
+export async function removeLeftover(
+  leftover: Leftover,
+  graceMs = 15_000,
+): Promise<void> {
+  if ("tagged" in leftover) await stopTagged(leftover.tagged, graceMs);
   else removeDocker(leftover.docker);
 }
