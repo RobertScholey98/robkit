@@ -16,14 +16,14 @@ Raises rubric categories 1 (module boundaries), 2 (public API), 3 (type safety) 
 
 **Blocked by:** 13
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The input readers live in their own package, and session holds sessions only
-- [ ] Every reader returns `InputProblem`, or the convention doc says which kind returns what
-- [ ] `CoreOrigin` and `Domain` are brands, with type tests, and `installOf`'s runtime check is gone
-- [ ] `readDomain` and `readHost` refuse bad lengths and punctuation
-- [ ] The templates use `orThrow`
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The input readers live in their own package, and session holds sessions only
+- [x] Every reader returns `InputProblem`, or the convention doc says which kind returns what
+- [x] `CoreOrigin` and `Domain` are brands, with type tests, and `installOf`'s runtime check is gone
+- [x] `readDomain` and `readHost` refuse bad lengths and punctuation
+- [x] The templates use `orThrow`
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -44,3 +44,28 @@ Raises rubric categories 1 (module boundaries), 2 (public API), 3 (type safety) 
 
 - `pnpm check` passes on Windows (format, knip, lint, typecheck, every unit test).
 - Each behaviour change went red first: guard's readers (`guard.test.ts`, `guard.test-d.ts`), `orThrow` (`problem.test.ts`, `problem.test-d.ts`), the brands (`env.test-d.ts`, `request-guard.test-d.ts`, the hono and start type tests, `core/src/env.test.ts`), `coreInstall`, and the stricter readers (`env.test.ts`). The layer rows for `@robkit/input` went red in `tooling/eslint/layers.test.js` first.
+- Core's and dev's suites, Docker included, pass in WSL: dev 75 tests, core 240.
+- CI's `gate` job passes: https://github.com/RobertScholey98/robkit/actions/runs/42164112581. The first run failed only on the coverage ratchet, which asked for session's lines threshold to go from 97 to 99. It now does.
+
+### What I couldn't check
+
+- The whole-stack test (`tooling/e2e`) didn't run locally, because other tickets were running alongside. CI's `check` job ran it as part of the full gate.
+
+### For ticket 17 (`GLOSSARY.md`)
+
+- Consider entries for **core's origin** (`CoreOrigin`, such as `https://core.robkit.dev`) and **the install's domain** (`Domain`). Both are now brands in `@robkit/input`.
+
+### For ticket 18 (docs it owns)
+
+- `README.md`: add `@robkit/input` to the package table: "readers for input from outside robkit: env, JSON, slugs, the manifest; `InputProblem` and `orThrow`".
+- `AGENTS.md`, the layer rule: "`@robkit/input`, `@robkit/session` and `@robkit/guard` import no framework, and the guard and input do no I/O." Under "Where things are", `packages/` now includes `@robkit/input`.
+- `docs/architecture.md`: line 167 names `packages/session/src/install-addresses.ts`, now `packages/session/src/addresses.ts`. Line 168 names `packages/session/src/manifest.ts` (`@robkit/session/manifest`), now `packages/input/src/manifest.ts` (`@robkit/input`). The package map should show `@robkit/input` under session and the guard.
+- `packages/session/README.md`: its first paragraph, the `./addresses` exports table (`readSlug`, `Slug`, `slugProblem`, `platformApps` and `isPlatformApp` moved to `@robkit/input`; `coreInstall` is new), the paragraphs on `./input`, `./app-env` and `./manifest`, and the matching "For contributors" bullets all describe entries that are gone. Its example's `if (isProblem(options)) throw ...` can be `orThrow(readGuardEnv(process.env))`.
+- `packages/hono/README.md` (lines 20 and 39) and `packages/start/README.md` (line 25): the read-and-throw pairs can use `orThrow`. `GuardedOptions.core` is now a `CoreOrigin`.
+- `packages/guard/README.md`: I changed its two examples and two export rows, because the readers now return `InputProblem` and the examples stopped compiling. Its "depends on nothing" wording, if any, should say it depends on `@robkit/input`.
+- `docs/adr/0011-pure-guard-thin-adapters.md` says the guard imports nothing; it now imports `@robkit/input`, which imports nothing.
+
+### For ticket 19
+
+- `@internal/test-session` depends on `@robkit/input`. `FakeCore.origin` is a `CoreOrigin`, made with `orThrow(readCoreUrl(...))`. The guard's readers return `InputProblem`, so a brand builder uses `orThrow(readRoleId(...))` rather than `known`. `known` is now used only by its own test.
+- Session has a test helper, `src/test/core-origin.ts`, that reads a URL as a `CoreOrigin`.
