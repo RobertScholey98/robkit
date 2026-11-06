@@ -160,23 +160,6 @@ export const exceptions: Exceptions = {
       text: "[What does a robkit user upgrade, and how?](",
       why: "A ticket's title.",
     },
-    // Slips in docs ticket 07 owns. Its Comments in ticket 12 list the fix;
-    // delete each exception with it.
-    {
-      word: "scaffold",
-      text: "`npm create robkit` scaffolds an install",
-      why: "Fix pending in ticket 07.",
-    },
-    {
-      word: "user",
-      text: "an eject command splits users into two kinds",
-      why: "Fix pending in ticket 07.",
-    },
-    {
-      word: "user",
-      text: "what the user reads",
-      why: "Fix pending in ticket 08, which owns docs/conventions/input.md.",
-    },
   ],
 };
 

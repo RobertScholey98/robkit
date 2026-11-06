@@ -1,6 +1,6 @@
 # robkit
 
-robkit is a self-hosting kit. `npm create robkit` scaffolds an install, and `robkit add` adds apps with auth, a database schema and a subdomain built in.
+robkit is a self-hosting kit. `npm create robkit` makes an install, and `robkit add` adds apps with auth, a database schema and a subdomain built in.
 
 - Domain terms are in `GLOSSARY.md`. Use them in code, tests, tickets and commits.
 - The plan is `.scratch/kit/map.md`. Build tickets are in `.scratch/v0.1-build/issues/`, numbered in build order.

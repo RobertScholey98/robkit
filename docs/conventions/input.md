@@ -76,4 +76,4 @@ PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, o
 
 ## Tests
 
-Test each reader through its return value. Cover a good value, then each bad shape that applies: malformed text, `null`, the wrong shape, a missing key, and a value out of range. Assert the whole message, so a change to what the user reads shows in the diff.
+Test each reader through its return value. Cover a good value, then each bad shape that applies: malformed text, `null`, the wrong shape, a missing key, and a value out of range. Assert the whole message, so a change to what the owner reads shows in the diff.
