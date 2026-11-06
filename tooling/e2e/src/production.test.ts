@@ -26,7 +26,7 @@ import {
   withVisitors,
 } from "./production-stack.ts";
 import { exampleSlug } from "./install.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-session";
 
 const run = promisify(execFile);
 

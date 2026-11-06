@@ -5,7 +5,7 @@ import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { coreKeys } from "./core-keys.ts";
 import { readAppToken } from "./index.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-session";
 
 const notes = slug("notes");
 

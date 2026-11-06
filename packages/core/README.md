@@ -82,5 +82,6 @@ Core's routes are in `src/routes/`, one Hono app each for status, the session, c
 ## For contributors
 
 - `createApp` takes `logError`, a `Report` from `@robkit/session` that defaults to `reportToConsole`. Every unexpected error (one handler, `app.onError`, answering a generic 500) and an unreachable database are reported there.
+- `session-claims.ts` holds the session logic that needs no database: when a session expires, the holder's claims and guard viewer, and when a live session's token renews. `session-store.ts` calls it, and its unit tests need no Postgres.
 - Each 500 carries a fresh request id, in the `X-Request-Id` header and the body's `requestId`. The log line names the same id, such as `GET /path failed (request <id>).`, so a 500 a person reports leads to its cause in core's log.
 - Core adds a new app with the rule it declares, or owner-only, and creates any role it names that the owner lacks. After that admin sets who may open it, and core keeps the owner's rule.

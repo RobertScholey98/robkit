@@ -1,16 +1,20 @@
 import { orThrow, readCoreUrl, type CoreOrigin } from "@robkit/input";
 import { once } from "node:events";
 import { createServer } from "node:http";
-import {
-  readCodeId,
-  type AccessRule,
-  type RoleId,
-  type Viewer,
-} from "@robkit/guard";
+import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
+import { aViewer } from "./brands.ts";
 import { listeningPort } from "./known.ts";
+
+export {
+  aCodeId,
+  aRoleId,
+  aViewer,
+  slug,
+  type ViewerOptions,
+} from "./brands.ts";
 
 // Written out rather than imported from @robkit/session, whose own tests use
 // this package. If session's cookie, lifetime, callback or word that nobody
@@ -231,12 +235,6 @@ export function callbackFor(
   return url.href;
 }
 
-/** `guest(roles)` as the guard hands them to an app's handlers. */
-function guestViewer(roles: RoleId[] = []): Viewer {
-  const id = orThrow(readCodeId(guest().id));
-  return { kind: "guest", id, roles };
-}
-
 /** What an adapter answers a conformance case's page load with. */
 export interface PageAnswer {
   status: number;
@@ -262,7 +260,7 @@ export function conformanceAnswer(
         "signed-out": { kind: "nobody" },
         expired: undefined,
         owner,
-        guest: guestViewer(guestRoles),
+        guest: aViewer({ kind: "guest", roles: guestRoles ?? [] }),
       };
       return { status: 200, location: null, viewer: viewers[session] };
     }

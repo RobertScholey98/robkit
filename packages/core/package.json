@@ -44,6 +44,7 @@
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/test-postgres": "workspace:*",
+    "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@robkit/dev": "workspace:*",
     "@types/node": "catalog:",
