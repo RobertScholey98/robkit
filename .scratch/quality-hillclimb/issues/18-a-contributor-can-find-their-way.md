@@ -24,11 +24,45 @@ You own `README.md`, `CONTRIBUTING.md`, `AGENTS.md`, `docs/` (except `docs/conve
 
 **Blocked by:** 13
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The tooling READMEs list every rule and check, and CONTRIBUTING links them
-- [ ] A PR may add its own `needs-triage` ticket, with tests
-- [ ] CONTRIBUTING has troubleshooting, a planning pointer and a refreshed timing table
-- [ ] create-robkit's README walks through a template change, and its examples compile
-- [ ] The worked example keeps the brands and compiles
+- [x] The tooling READMEs list every rule and check, and CONTRIBUTING links them
+- [x] A PR may add its own `needs-triage` ticket, with tests
+- [x] CONTRIBUTING has troubleshooting, a planning pointer and a refreshed timing table
+- [x] create-robkit's README walks through a template change, and its examples compile
+- [x] The worked example keeps the brands and compiles
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### What I chose
+
+- **The PR ticket check already accepted a ticket the PR adds.** CI runs `check-pr-ticket.ts` on a checkout of the PR's head, so a new ticket file exists there. A new child-process test pins that: a `needs-triage` ticket written only in the PR passes. I didn't make the check stricter, such as requiring a new ticket to be `needs-triage`. A round-merge PR adds its own tickets with other statuses, and that would fail it. What changed is the failure message: a Ticket section that names no file now says "No ticket yet? Add one with **Status:** needs-triage in this pull request", and points to CONTRIBUTING's "Without a ticket". The PR template's comment says the same. Those tests went red first.
+- **Planning stays in CONTRIBUTING.** Sonnet suggested a `docs/planning.md`. I kept one "Planning" section in CONTRIBUTING instead: `.scratch/`'s layout, the status table and "take the lowest-numbered `ready-for-agent` ticket whose blockers are `done`". It is one place, and a contributor already reads that file.
+- **The worked example is now two whole programs**: a Vitest test that imports `readAccessRule`, and the whole fixed function, importing `readRoleIds` and `AccessRule` from `@robkit/guard`. It checks `roleIds.length`, the branded `RoleId[]`, not the raw array. Changing it to return `roles as string[]` fails the doc-example check with "CONTRIBUTING.md:203: Type 'string[]' is not assignable to type 'RoleId[]'", so the check really covers it.
+- **The template walkthrough** is in create-robkit's "For contributors": a table of where the hub, admin, core-client, core's app and the example live; then make a linked install, change it there, check with `pnpm turbo run test --filter=@internal/hub-app --filter=@internal/admin-app --filter=@internal/core-client`, `pnpm lint` and `pnpm typecheck` (no Docker), copy the file back, update `generate.test.ts`'s digest snapshot with `-u`, and add a changeset. It has only `sh` fences, so the doc-example check has nothing to compile there. CONTRIBUTING points to it from a short "Change a template" section.
+- **Troubleshooting** covers the three named failures, plus Node 20 in WSL, a test that times out only under load, the coverage ratchet, the commit-msg hook and the PR ticket check.
+- **Timing.** `pnpm check --force` on this Windows 11 machine took 56, 56 and 91 seconds (the 91 while other tickets' builds ran), and warm runs 41 and 57. The table says "about a minute, cold or warm", and "about five and a half minutes" for `check:all` on CI, from run 42158416018 (5 min 25 s).
+- I also added knip to the table's "What it runs" (both gates run it), and a CONTRIBUTING link to README's "Learn more".
+
+### Proof
+
+- `check-pr-ticket.test.ts`: 9 tests pass. The two tests of the new message failed before the change to `pr-ticket.ts`; the new-ticket test passed on the old code, as a pin.
+- `doc-examples`, `glossary`, `check-pr-ticket` and `commit-subject` tests: 37 passed after the doc changes.
+- `pnpm check` on Windows: 44 of 44 tasks passed in all six runs, the last on the final docs.
+- The walkthrough, run for real: `pnpm create-install <scratch>/try-install --stack start` took 18 s. In it, the hub, admin and core-client tests passed (48, 32 and 11), `pnpm lint` and `pnpm typecheck` passed. A one-line edit to `templates/base/apps/hub/src/intro-link.ts` failed `generate.test.ts`'s two digest snapshots, as the README says.
+- Corepack fix: `corepack enable --install-directory <folder> pnpm` wrote `pnpm`, `pnpm.CMD` and `pnpm.ps1`, and with that folder first on `PATH`, `pnpm --version` printed 11.28.9.
+- Node 20 in WSL: pnpm 11.28.9 printed "This version of pnpm requires at least Node.js v22.13", then failed with "No such built-in module: node:sqlite".
+- CI: CI_RESULT
+
+### Not verified
+
+- The Docker credential helper row. A config with `"credsStore": "desktop.exe"` and `/mnt/c` off `PATH` still pulled `hello-world` in this WSL, so I couldn't reproduce the failure. The row repeats what CONTRIBUTING's WSL step 5 already said, and names the helper the usual error names.
+- The original pnpm shim failure on Windows. This machine's `pnpm` now works without the shim. The row describes the Corepack fix I did verify.
+
+### For the coordinator
+
+- **Ticket 14** may change what `readRoleIds` and `readAccessRule` return (`InputProblem` instead of `undefined`). If so, update CONTRIBUTING's worked example (steps 3 and 4) to match; the doc-example check will fail until it does. `tooling/eslint/README.md`'s `one-problem-type` row names `@robkit/session/input`, which moves too.
+- **Ticket 17** renames `bin.ts` and `robkit.ts`. create-robkit's README names `src/bin.ts` in its Example section; it needs the new name. The walkthrough names no entry files.
+- **Ticket 19** adds a no-Docker task for the template tests. Then create-robkit's "Change a template" step 2 can name it, and CONTRIBUTING's timing table needs a fresh measurement.
+- **repo-checks never caches.** `@internal/repo-checks#test:unit` misses turbo's cache on every run, even with nothing changed (two warm runs, both "cache miss"), so a warm `pnpm check` takes 41 to 57 seconds rather than a few. Its `inputs` include `$TURBO_ROOT$/tooling/**`; my guess, not checked, is that the coverage folders other tasks write in the same run change its hash. Worth a ticket: a fix would make the warm gate much faster.
