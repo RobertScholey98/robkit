@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Linter } from "eslint";
 import tseslint from "typescript-eslint";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import rule from "./no-brand-cast.js";
 
 const message =
@@ -24,7 +24,11 @@ const brands = [
 const folder = mkdtempSync(join(tmpdir(), "no-brand-cast-"));
 writeFileSync(
   join(folder, "tsconfig.json"),
-  JSON.stringify({ compilerOptions: { strict: true }, include: ["*.ts"] }),
+  // The smallest program that still knows arrays: no @types, one lib.
+  JSON.stringify({
+    compilerOptions: { strict: true, lib: ["es5"], types: [] },
+    include: ["*.ts"],
+  }),
 );
 writeFileSync(join(folder, "example.test.ts"), "");
 
@@ -53,6 +57,12 @@ function lint(code) {
 }
 
 describe("robkit/no-brand-cast", () => {
+  // The first lint builds the TypeScript program, which took over 30
+  // seconds on CI while turbo ran every package's tests.
+  beforeAll(() => {
+    lint("");
+  }, 120_000);
+
   it.each([
     'const id = "family" as RoleId;',
     "const id = <RoleId>text;",
