@@ -15,7 +15,7 @@ interface InputProblem {
 - `InputProblem` is the only type for a failed read, and `isProblem` the only check for one. Don't write a `{ error: string }` of your own, and don't test a result with `"error" in`.
 - The reader takes `unknown`, or `Env` for environment variables. It never casts. Parsed JSON is `unknown` until a reader checks it: give `JSON.parse` and `.json()` results the type `unknown`, then read them.
 - The problem's `error` names the file or variable, the key, and what to do about it. Write it for the person who has to fix the input.
-- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `CommandProblem` from `@robkit/dev/cli` (see `errors.md`), and an HTTP route answers 400. Where the caller can't go on without the value and has nothing better to say, such as a Vite config or a module that reads its environment as it loads, `orThrow(read)` returns the value or throws the problem as an `Error`.
+- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `CommandProblem` from `@robkit/dev/cli` (see `errors.md`), and an HTTP route answers 400. An app's server or script that reads its environment as it starts calls `orExit(read)`, which returns the value or prints the problem alone and exits 1. Where the caller can't go on without the value, has nothing better to say and prints what it throws, such as a Vite config, `orThrow(read)` returns the value or throws the problem as an `Error`.
 - When several values are read together, report every problem at once with `allProblems`, a line each, so one run shows everything to fix.
 - A value with a meaning beyond its type gets a brand that only its reader makes, so a function that takes one can't be handed a string nobody checked:
 
@@ -73,17 +73,12 @@ An app's `serve.ts` calls it once, at start:
 
 ```ts
 import { serve } from "@hono/node-server";
-import { isProblem, readServeEnv } from "@robkit/input";
+import { orExit, readServeEnv } from "@robkit/input";
 import { Hono } from "hono";
 
 const app = new Hono(); // the app's routes go here
 
-const listen = readServeEnv(process.env);
-if (isProblem(listen)) {
-  console.error(listen.error);
-  process.exit(1);
-}
-const { host: hostname, port } = listen;
+const { host: hostname, port } = orExit(readServeEnv(process.env));
 serve({ fetch: app.fetch, hostname, port });
 ```
 
