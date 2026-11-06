@@ -1,10 +1,12 @@
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import {
   avoidWords,
   exceptions,
+  type Exceptions,
   glossaryProblems,
   readScannedFiles,
   unusedExceptions,
@@ -140,6 +142,31 @@ describe("unusedExceptions", () => {
       'The exception for "cookie" everywhere names a word GLOSSARY.md doesn\'t avoid. Delete it from tooling/repo-checks/src/glossary.ts.',
       'The exception for "user" at "Moved away." matches no line. Delete it from tooling/repo-checks/src/glossary.ts.',
     ]);
+  });
+});
+
+const noExceptions: Exceptions = { everywhere: {}, at: [] };
+
+describe("readScannedFiles", () => {
+  it("reads the templates' source, so an Avoid word in an install's code fails", async () => {
+    const fixture = await mkdtemp(join(tmpdir(), "robkit-glossary-"));
+    onTestFinished(() => rm(fixture, { recursive: true, force: true }));
+    const hub = join(fixture, "packages/create-robkit/templates/base/apps/hub");
+    await mkdir(join(hub, "src"), { recursive: true });
+    await writeFile(
+      join(hub, "src/intro.ts"),
+      "// Signs a guest in with a magic link.\n",
+    );
+    await writeFile(join(hub, "index.html"), "<title>Magic link</title>\n");
+
+    const files = await readScannedFiles(fixture);
+
+    expect(glossaryProblems(files, avoidWords(glossary), noExceptions)).toEqual(
+      [
+        'packages/create-robkit/templates/base/apps/hub/index.html:1 says "Magic link", which GLOSSARY.md avoids. Say "Intro link" instead.',
+        'packages/create-robkit/templates/base/apps/hub/src/intro.ts:1 says "magic link", which GLOSSARY.md avoids. Say "Intro link" instead.',
+      ],
+    );
   });
 });
 
