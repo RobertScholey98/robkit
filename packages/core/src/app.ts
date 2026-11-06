@@ -9,7 +9,7 @@ import type { TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
 import type { RouteContext } from "./routes/context.ts";
 import { appRoutes } from "./routes/apps.ts";
-import { codeRoutes } from "./routes/codes.ts";
+import { accessCodeRoutes } from "./routes/access-codes.ts";
 import { roleRoutes } from "./routes/roles.ts";
 import { sessionRoutes } from "./routes/session.ts";
 import { statusRoutes } from "./routes/status.ts";
@@ -137,7 +137,7 @@ export function createApp({
   };
   app.route("/", statusRoutes(context));
   app.route("/", sessionRoutes(context));
-  app.route("/", codeRoutes(context));
+  app.route("/", accessCodeRoutes(context));
   app.route("/", appRoutes(context));
   app.route("/", roleRoutes(context));
   return app;
