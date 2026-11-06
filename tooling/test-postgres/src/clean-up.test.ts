@@ -78,8 +78,8 @@ describe("removeWhenGone", () => {
       ],
       { stdio: ["ignore", "pipe", "inherit"] },
     );
-    const [line] = (await once(owner.stdout, "data")) as [Buffer];
-    const app = Number(line.toString().trim());
+    const output: unknown[] = await once(owner.stdout, "data");
+    const app = Number(String(output[0]).trim());
 
     expect(await containerNames(prefix)).toEqual([`${prefix}-postgres-1`]);
     expect(await imageNames(prefix)).toEqual([`${prefix}/app`]);

@@ -10,7 +10,8 @@ export function alive(pid: number): boolean {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    return (error as NodeJS.ErrnoException).code === "EPERM";
+    // EPERM: it runs, as a user this process may not signal.
+    return error instanceof Error && "code" in error && error.code === "EPERM";
   }
 }
 
