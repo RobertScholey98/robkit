@@ -29,13 +29,15 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 ## Docs
 
 - `README.md`: what robkit is, and the quickstart.
-- `CONTRIBUTING.md`: setting up (WSL on Windows), the gates, a worked first change, tickets, branches and commits.
+- `CONTRIBUTING.md`: setting up (WSL on Windows), the gates, a worked first change, planning and proposing a change without a ticket, branches and commits, and troubleshooting.
+- `tooling/eslint/README.md`: each lint rule and what to do about it, and how to add a layer rule row or a package graph edge.
+- `tooling/repo-checks/README.md`: each repo check and CI script, what it fails on, how to fix it, and where its exceptions go.
 - `docs/architecture.md`: the request flow, the token flow, the package map, and where each concern lives.
 - `docs/testing.md`: tests that start Docker, the whole-stack test, the production test, and what each prints when it fails.
 - `docs/adr/`: one short record per settled decision, each linking the ticket that made it.
 - `docs/conventions/input.md`: how robkit reads a value from outside its own code.
 - `docs/conventions/errors.md`: expected failures, unexpected faults, and what a boundary does with each.
-- `packages/<name>/README.md`: each package's purpose, example, exports and layer rule, and for core, create-robkit, dev, guard and session, a "For contributors" section on its code.
+- `packages/<name>/README.md`: each package's purpose, example, exports and layer rule, and for core, create-robkit, dev, guard and session, a "For contributors" section on its code. create-robkit's says how to change a template.
 - `SECURITY.md`: reporting a vulnerability, and the trust model.
 
 ## The layer rule
@@ -63,7 +65,7 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 - A failed read is an `InputProblem`, checked with `isProblem`. `robkit/one-problem-type` refuses a `{ error: string }` of your own and `"error" in`.
 - An adapter-facing package (guard, session, hono, start, react) keeps a `*.test-d.ts` file saying what must and mustn't compile, and its `test` script runs `vitest run --typecheck`.
 - The pre-commit hook runs ESLint's fixes and Prettier on staged files. The commit-msg hook, and CI on each commit of a pull request, check the subject with `tooling/repo-checks/src/check-commit-subjects.ts`.
-- A change to a published package's `src`, or to create-robkit's `templates`, tests aside, needs a changeset (`pnpm changeset`). CI's `gate` job is the one required check, and a pull request fills in `.github/pull_request_template.md`. Its Ticket section must name the ticket's file under `.scratch/`; CI checks it.
+- A change to a published package's `src`, or to create-robkit's `templates`, tests aside, needs a changeset (`pnpm changeset`). CI's `gate` job is the one required check, and a pull request fills in `.github/pull_request_template.md`. Its Ticket section must name the ticket's file under `.scratch/`; CI checks it. A pull request may add its own `needs-triage` ticket and name that.
 - Every external version lives in the catalog in `pnpm-workspace.yaml`, and manifests say `catalog:`. A test in `tooling/repo-checks` fails on any version pinned elsewhere. Peer dependencies are exempt.
 - Renovate proposes version updates weekly once it is installed (`renovate.json`). Its TypeScript cap moves with the catalog's.
 - TypeScript stays on 6.0 until typescript-eslint supports 7.

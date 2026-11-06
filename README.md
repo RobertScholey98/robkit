@@ -65,6 +65,7 @@ Every install uses the same tools: pnpm, Drizzle, shadcn on Base UI, ESLint with
 
 ## Learn more
 
+- [CONTRIBUTING.md](CONTRIBUTING.md): setting up, the gates, and how to propose a change, with or without a ticket.
 - [docs/architecture.md](docs/architecture.md): how a request and a session token flow, and which package depends on which.
 - [docs/adr/](docs/adr/README.md): the settled decisions and why we made them.
 - [GLOSSARY.md](GLOSSARY.md): the words robkit uses, such as install, owner, guest, role and viewer.
