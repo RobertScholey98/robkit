@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type SpawnOptions } from "node:child_process";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
@@ -34,8 +34,27 @@ export function startProblem(
 }
 
 /**
+ * The command line Windows' shell runs for `command` and `args`, each part
+ * in double quotes so the shell reads none of it. A quote can't keep `"`,
+ * `%`, a line break or a trailing backslash from the shell, so a part with
+ * one is a fault in its caller.
+ */
+export function windowsCommandLine(command: string, args: string[]): string {
+  const parts = [command, ...args];
+  const unsafe = parts.find((part) => /["%\r\n]|\\$/.test(part));
+  if (unsafe !== undefined) {
+    throw new Error(
+      `exec can't pass ${JSON.stringify(unsafe)} through the Windows shell. Pass no ", %, line break or trailing backslash.`,
+    );
+  }
+  return parts.map((part) => `"${part}"`).join(" ");
+}
+
+/**
  * Runs a command to completion. With a slug, its output is prefixed with
- * the slug; without one, it shares this process's output.
+ * the slug; without one, it shares this process's output. On Windows the
+ * shell starts it, so a command that isn't installed exits 1 with the
+ * shell's message rather than failing to start.
  *
  * @throws a {@link CommandProblem} naming the command, its folder and its exit
  *   code if it fails, or saying why it couldn't start
@@ -45,11 +64,19 @@ export async function exec(
   args: string[],
   options: { cwd: string; env: NodeJS.ProcessEnv; slug?: string },
 ): Promise<void> {
-  const child = spawn(command, args, {
+  const spawnOptions = {
     cwd: options.cwd,
     env: options.env,
     stdio: options.slug ? ["ignore", "pipe", "pipe"] : "inherit",
-  });
+  } satisfies SpawnOptions;
+  // Windows starts pnpm and npm from .cmd files, which only its shell runs.
+  const child =
+    process.platform === "win32"
+      ? spawn(windowsCommandLine(command, args), {
+          ...spawnOptions,
+          shell: true,
+        })
+      : spawn(command, args, spawnOptions);
   if (options.slug) {
     prefixLines(options.slug, child.stdout, process.stdout);
     prefixLines(options.slug, child.stderr, process.stderr);
