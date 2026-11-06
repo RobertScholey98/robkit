@@ -1,6 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { setCookie } from "hono/cookie";
-import { sessionCookie, sessionTokensIn, type Report } from "@robkit/session";
+import type { Report } from "@robkit/input/report";
+import { sessionCookie, sessionTokensIn } from "@robkit/session";
 import { isLocal } from "@robkit/input/addresses";
 import { type InputProblem, isProblem, isRecord } from "@robkit/input";
 import type { TrustedProxy } from "../client.ts";

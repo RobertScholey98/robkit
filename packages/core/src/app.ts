@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
-import { reportToConsole, type Report } from "@robkit/session";
+import { reportToConsole, type Report } from "@robkit/input/report";
 import { platformApps } from "@robkit/input";
 import { install } from "@robkit/input/addresses";
 import type { TrustedProxy } from "./client.ts";

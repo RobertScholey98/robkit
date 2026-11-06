@@ -17,7 +17,7 @@ import { isNavigation, publicUrl, redirect, text } from "./guard-http.ts";
 import { sessionLapsedResponse } from "./lapsed.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
 import { refreshProtocol } from "./refresh-protocol.ts";
-import { reportToConsole } from "./report.ts";
+import { reportToConsole } from "@robkit/input/report";
 
 export interface GuardedOptions {
   /**

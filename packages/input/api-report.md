@@ -130,3 +130,10 @@ export interface InstallOptions {
 }
 export function isLocal(domain: string): boolean;
 ```
+
+## @robkit/input/report
+
+```ts
+export type Report = (message: string, cause?: unknown) => void;
+export const reportToConsole: Report;
+```
