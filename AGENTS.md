@@ -11,6 +11,7 @@ robkit is a self-hosting kit. `npm create robkit` scaffolds an install, and `rob
 - `README.md`: what robkit is, and the quickstart.
 - `CONTRIBUTING.md`: setting up (WSL on Windows), the gates, a worked first change, tickets, branches and commits.
 - `docs/architecture.md`: the request flow, the token flow, the package map, and where each concern lives.
+- `docs/testing.md`: tests that start Docker, the whole-stack test, the production test, and what each prints when it fails.
 - `docs/adr/`: one short record per settled decision, each linking the ticket that made it.
 - `docs/conventions/input.md`: how robkit reads a value from outside its own code.
 - `docs/conventions/errors.md`: expected failures, unexpected faults, and what a boundary does with each.
@@ -111,36 +112,9 @@ The package's second command, `robkit`, runs in an install, which takes create-r
 
 - the shared tsconfig and the shared ESLint config;
 - repo checks that run as tests;
-- a per-suite test Postgres whose data stays in memory (`in-memory.yaml`, added to `COMPOSE_FILE` by `testComposeFiles()`);
+- a per-suite test Postgres (see `docs/testing.md`);
 - `@internal/test-session`, which signs session tokens and runs a fake core for the guard's and adapters' tests;
 - the whole-stack test.
-
-## The whole-stack test
-
-- It generates two installs linked to this checkout, one with its example app on each stack, and in each adds an app on the other stack with `robkit add`.
-- It takes a browser through each install's example and added app in Chromium.
-- On the Start install it also runs the install's own CI workflow on a `PATH` that can't see any `node_modules/.bin`, checks that `pnpm lint` catches a cross-app import, and checks that the pre-commit hook refuses a commit that breaks the layer rule.
-- axe checks every install's hub, admin and apps. A theme journey changes the theme's variables on the hub and checks its controls follow them.
-- `E2E_SCREENSHOTS=<folder>` saves each page it checks.
-- A journey that fails prints what its browser saw (console errors, failed requests, 4xx and 5xx answers, and each open page's text) and what the dev runner said meanwhile.
-
-## The production test
-
-- `test:production` vendors the default install, builds each app's image from the install's Dockerfile, and runs the journey over https behind Caddy on `robkit.test`.
-- Caddy stands in for a Cloudflare tunnel into Traefik: it names each visitor in `CF-Connecting-IP` and hands every request through one hop, and two visitor containers check that core's sign-in limit counts them apart.
-- It runs `src/extraneous-packages.js` in every image it builds, and fails on any installed package the app doesn't reach through its production dependencies.
-- The images build with Husky's postinstall and no git.
-- It takes about nine minutes and runs on its own. `production.yml` runs it in CI on every push to `main`, from `nightly.yml`, and on a pull request labelled `production`.
-- With `ROBKIT_BUILD_CACHE` set to a BuildKit cache backend (`type=gha` in CI), each image builds with buildx and keeps its layers there, one scope per app, and every build prints how many of its steps were cached.
-- No container starts or stops while a journey's browser is open, and each launch first waits until the host's interfaces have stayed the same for 3 seconds, since a container that just started keeps changing them for a moment.
-- A failed production journey prints what the browser saw and each container's state and last logs, and the stack hands its prefix to `removeWhenGone`, which also removes the images it built.
-
-## Tests that start Docker
-
-- A test registers what it starts with `removeWhenGone`: a detached watcher removes its Compose project and stops every process carrying its `ROBKIT_TEST_TAG` once the test process exits, however it ends, so a failed or interrupted gate leaves nothing running.
-- A Postgres port comes from `freePostgresPort()`, which also skips the ports Docker already publishes, because Docker Desktop publishes them from its own VM where `freePort()` can't see them.
-- Where Docker runs natively on Linux, as on CI, set `COMPOSE_FILE` as `ci.yml` does, so every test Postgres runs on the host's network: each new compose network otherwise adds host interfaces, and Chromium fails its in-flight requests with `ERR_NETWORK_CHANGED`. Docker Desktop keeps its networks in its own VM, so the suite in WSL with Docker Desktop doesn't need it.
-- In WSL, if Docker can't pull images because of Docker Desktop's credential helper, point `DOCKER_CONFIG` at a folder with an empty `config.json`.
 
 ## The layer rule
 

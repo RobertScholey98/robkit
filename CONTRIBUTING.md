@@ -195,17 +195,9 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 ## When a test fails
 
-- **Rerun it alone** before you change code: `pnpm --filter <package> exec vitest run <file>`. Under load, a test can fail for reasons that aren't the code. In WSL, Node 24 occasionally crashes under a heavy gate; rerun before you blame the change.
-- **A whole-stack journey prints what its browser saw** when it fails: console errors, failed requests, every 4xx and 5xx answer, each open page's text, and what the dev runner said meanwhile. Start with that output.
-- **Screenshots.** Set `E2E_SCREENSHOTS=<folder>` and the whole-stack test saves each page it checks there:
+Rerun it alone before you change code: `pnpm --filter <package> exec vitest run <file>`. Under load, a test can fail for reasons that aren't the code.
 
-  ```sh
-  E2E_SCREENSHOTS=/tmp/shots pnpm --filter @internal/e2e test
-  ```
-
-- **A failed production journey** prints what the browser saw and each container's state and last logs.
-- **Leftover containers.** Every test registers what it starts, and a watcher removes it when the test process exits, however it ends. If a machine crashed mid-run, `docker ps` shows any `robkit-test-*` or `robkit-install-*` containers left; remove them before the next run.
-- **`ERR_NETWORK_CHANGED` in Chromium** where Docker runs natively on Linux: set `COMPOSE_FILE` as `.github/workflows/ci.yml` does, so every test Postgres uses the host's network. Docker Desktop doesn't need it.
+[docs/testing.md](docs/testing.md#when-a-test-fails) says what each suite prints when it fails, how to save the whole-stack test's screenshots, and how to clear containers a crashed run left behind.
 
 ## For coding agents
 
