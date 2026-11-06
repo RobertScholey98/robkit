@@ -34,11 +34,6 @@ export interface ProvisionConfig {
   secret: string;
   slugs: Slug[];
 }
-export function provisionDatabase(
-  adminUrl: string,
-  slug: Slug,
-  password?: string,
-): Promise<string>;
 export function provisionDatabases({
   adminUrl,
   secret,
