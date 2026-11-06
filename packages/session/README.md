@@ -71,3 +71,17 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 - Put a cookie on the parent domain. Each token sits in a host-only cookie on its own host.
 - Accept a token for another audience. An app's guard accepts only a token minted for its own slug.
 - Take core's address from the request. It comes from config, so a request can't choose whose keys the app trusts.
+
+## For contributors
+
+- A slug is lowercase letters and digits, starting with a letter. `readSlug` in `@robkit/session/addresses` holds the rule and is the only maker of the `Slug` brand, which every function that puts a slug into a token, SQL or an address takes.
+- No cookie goes on the parent domain.
+- Core's own token has the audience `core` and sits in a host-only cookie on core's host, and core reads no other.
+- Each app, admin included, holds its own app token, with its slug as the audience and no session id, in a host-only cookie on its own host. `requestGuard` takes the slug as `app` and accepts no other token.
+- A page load it holds nothing for goes to core's `/refresh` with a random state, and core sends the browser back to the app's `/_robkit/session` with a token for that app, or none if nobody is signed in.
+- The guard answers that callback, and `/_robkit/refresh`, where a call whose token lapsed sends the browser, itself, so the adapters and the app's code never see them.
+- It fetches core's public key once, so apps verify tokens locally, and keeps an app's access rule from core for a minute.
+- When it can't check a request it answers 503 and tells `onUnavailable` why: what failed (`core-key`, `access-rule` or `network`) and the cause. By default that logs the app, what failed and the cause.
+- `@robkit/session/lapsed` is the guard's 401 for a call whose session has lapsed, which `sessionFetch` reads. It imports nothing, so the browser can load it.
+- `@robkit/session/input` holds the readers for input from outside robkit's own code: environment variables, JSON and an app's `robkit` field. Each returns the value or an `InputProblem`.
+- `@robkit/session/addresses` turns an install's domain into its addresses: each app on `<slug>.<domain>`, the platform apps' names, the default domain and dev port, and whether a URL is on the install. Core, the guard, the hub, admin, the dev runner, init and the whole-stack test all take their addresses from it. It imports nothing either.

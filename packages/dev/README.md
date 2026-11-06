@@ -57,3 +57,8 @@ console.log(`provisioned ${config.slugs.join(", ")}`);
 - Import `@robkit/core`. It starts core as a process like any other app.
 - Run on Windows outside WSL. It stops each app's process group with POSIX signals, so it needs Linux or macOS.
 - Give an app's role access to another schema. Each role reaches its own schema and nothing else.
+
+## For contributors
+
+- An app with a `migrate` script gets its own schema and role from the provision step, `provisionApps`, which then runs that script. `pnpm dev` runs the step before it starts the apps. The runner and the step run each app's scripts with pnpm.
+- The runner tells each app its slug as `ROBKIT_APP`, and hands core the owner's apps as `ROBKIT_APPS`, a JSON list of each app's slug and what its manifest declares: the `robkit` field of its `package.json`, with who may open it (roles by name) and an emoji for the launcher.

@@ -53,3 +53,7 @@ The whole decision is one table in `src/guard.ts`. `docs/architecture.md` draws 
 
 - Import a framework, or do I/O: no Node built-in modules, no `fetch`, no `process`. `tooling/eslint` enforces both.
 - Decide differently from `conformance.json`. Change the table and the cases together.
+
+## For contributors
+
+- `conformance.json` holds the cases the guard and every adapter pass, tokens for another app, for core and with no audience among them.
