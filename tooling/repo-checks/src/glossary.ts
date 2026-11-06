@@ -69,9 +69,9 @@ export const exceptions: Exceptions = {
     },
     {
       word: "group",
-      file: "packages/dev/src/runner.ts",
+      file: "packages/dev/src/{process-group,failures}*.ts",
       text: "group",
-      why: "A Unix process group.",
+      why: "A Unix process group: stopGroup stops an app by its group.",
     },
     {
       word: "middleware",
