@@ -173,10 +173,11 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
    ```ts
    import { readAccessRule } from "@robkit/guard";
+   import { isProblem } from "@robkit/input";
    import { expect, it } from "vitest";
 
    it("refuses a roles rule that names no role", () => {
-     expect(readAccessRule({ kind: "roles", roles: [] })).toBeUndefined();
+     expect(isProblem(readAccessRule({ kind: "roles", roles: [] }))).toBe(true);
    });
    ```
 
@@ -187,21 +188,24 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
    # FAIL  src/guard.test.ts > readAccessRule > refuses a roles rule that names no role
    ```
 
-4. **Make it pass.** In `readAccessRule`, refuse an empty list. Check the length of what `readRoleIds` returns, not of the raw value: `readRoleIds` gives back `RoleId[]`, the branded type `AccessRule` needs, where the raw array is only `unknown`. Here is the whole function after the change. In `guard.ts`, `readRoleIds` and `AccessRule` are in the same file; the example imports them so it compiles on its own.
+4. **Make it pass.** In `readAccessRule`, refuse an empty list. Check the length of what `readRoleIds` returns, not of the raw value: once `isProblem` has ruled out an `InputProblem`, `readRoleIds` gives back `RoleId[]`, the branded type `AccessRule` needs, where the raw array is only `unknown`. Here is the whole function after the change, with its error message shortened. In `guard.ts`, `readRoleIds` and `AccessRule` are in the same file; the example imports them so it compiles on its own.
 
    ```ts
    import { readRoleIds, type AccessRule } from "@robkit/guard";
+   import { isProblem, isRecord, type InputProblem } from "@robkit/input";
 
-   /** Reads an access rule sent as JSON, or undefined if it isn't one. */
-   export function readAccessRule(value: unknown): AccessRule | undefined {
-     if (typeof value !== "object" || value === null) return undefined;
-     const kind = "kind" in value ? value.kind : undefined;
-     const roles = "roles" in value ? value.roles : undefined;
+   /** Reads an access rule sent as JSON, or says what is wrong with it. */
+   export function readAccessRule(value: unknown): AccessRule | InputProblem {
+     const problem = {
+       error: `${JSON.stringify(value)} isn't an access rule.`,
+     };
+     if (!isRecord(value)) return problem;
+     const { kind } = value;
      if (kind === "open" || kind === "owner") return { kind };
-     const roleIds = readRoleIds(roles);
-     return kind === "roles" && roleIds !== undefined && roleIds.length > 0
-       ? { kind, roles: roleIds }
-       : undefined;
+     const roles = readRoleIds(value.roles);
+     return kind === "roles" && !isProblem(roles) && roles.length > 0
+       ? { kind, roles }
+       : problem;
    }
    ```
 
