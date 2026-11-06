@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { CommandProblem } from "@robkit/dev/cli";
 import { slug } from "@internal/test-session";
 import { describe, expect, it } from "vitest";
-import { addCommandFor, askAdd } from "./add-wizard.ts";
+import { addCommandFor, appChoicesFromFlags, askAdd } from "./add-wizard.ts";
 import { answering, cancel, type Answer } from "./test/fake-prompts.ts";
 
 const questions = {
@@ -140,6 +140,58 @@ describe("askAdd", () => {
     await expect(askAdd(root, undefined, prompts)).rejects.toThrow(
       new CommandProblem("Cancelled. Nothing was written."),
     );
+  });
+});
+
+describe("appChoicesFromFlags", () => {
+  it("takes the first stack, owner only and the default icon for flags left out", () => {
+    expect(appChoicesFromFlags("recipes", {})).toEqual({
+      stack: "start",
+      slug: slug("recipes"),
+      access: { kind: "owner" },
+      icon: "📦",
+    });
+  });
+
+  it("reads each flag, trimming the roles and dropping empty ones", () => {
+    expect(
+      appChoicesFromFlags("recipes", {
+        stack: "react-hono",
+        access: "roles",
+        roles: " Family, Cooks ,",
+        icon: "🍲",
+      }),
+    ).toEqual({
+      stack: "react-hono",
+      slug: slug("recipes"),
+      access: { kind: "roles", roleNames: ["Family", "Cooks"] },
+      icon: "🍲",
+    });
+  });
+
+  it.each([
+    [{ access: "roles" }, "--access roles needs --roles, naming at least one."],
+    [
+      { access: "roles", roles: " , " },
+      "--access roles needs --roles, naming at least one.",
+    ],
+    [{ roles: "Family" }, "--roles only goes with --access roles."],
+    [
+      { access: "open", roles: "Family" },
+      "--roles only goes with --access roles.",
+    ],
+    [
+      { access: "anyone" },
+      "--access anyone isn't an option. Choose from: owner, open, roles.",
+    ],
+  ])("refuses %o", (flags, message) => {
+    expect(() => appChoicesFromFlags("recipes", flags)).toThrow(
+      new CommandProblem(message),
+    );
+  });
+
+  it("refuses a name that isn't a slug", () => {
+    expect(() => appChoicesFromFlags("Recipes!", {})).toThrow(CommandProblem);
   });
 });
 
