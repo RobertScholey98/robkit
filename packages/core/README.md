@@ -63,7 +63,7 @@ await migrate(databaseUrl);
 | Export                               | What it is                                                                                                                                                       |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `domain`, optional `trustedProxy`, `now` and `logError`, a `Report` where every unexpected error is logged                 |
-| `createDatabase(url)`, `Database`    | A Drizzle database on core's schema                                                                                                                              |
+| `createDatabase(url)`, `Database`    | Core's connection to its schema, to hand to `createApp`, `ensureSigningKey` and `registerApps`                                                                   |
 | `migrate(url)`                       | Applies core's migrations from `drizzle/`                                                                                                                        |
 | `ensureSigningKey(db)`, `SigningKey` | Core's Ed25519 key, made on first boot and kept in core's schema                                                                                                 |
 | `readCoreConfig(env)`, `CoreConfig`  | Reads core's environment once, at start: its database, domain, apps (`ROBKIT_APPS`), trusted proxy, host and port, or an `InputProblem` naming each bad variable |
