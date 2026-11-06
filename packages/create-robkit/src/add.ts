@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { CommandProblem } from "@robkit/dev/cli";
+import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import {
   isPlatformApp,
   platformApps,
@@ -16,7 +16,6 @@ import {
 } from "@robkit/session/input";
 import type { DeclaredAccess } from "@robkit/session/manifest";
 import { readChoices, type Choices, type Stack } from "./choices.ts";
-import { isMissing } from "./files.ts";
 import { appFiles, readFolder, stackTemplate, type Files } from "./generate.ts";
 import { writeInstall } from "./write.ts";
 

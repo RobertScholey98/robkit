@@ -1,8 +1,7 @@
 import { readdirSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { CommandProblem } from "@robkit/dev/cli";
-import { isMissing } from "./files.ts";
+import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import type { Files } from "./generate.ts";
 
 /** Why init can't write into `dir`, unless it's empty or doesn't exist yet. */
