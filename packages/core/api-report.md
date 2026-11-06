@@ -8,7 +8,7 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 export interface CoreConfig {
   databaseUrl: string;
   domain: Domain;
-  apps: DeclaredApp[];
+  apps: ListedApp[];
   trustedProxy?: TrustedProxy;
   host: string;
   port: number;
@@ -34,7 +34,7 @@ export function migrate(databaseUrl: string): Promise<void>;
 export function readCoreConfig(env: Env): CoreConfig | InputProblem;
 export function registerApps(
   db: Database,
-  declared: readonly DeclaredApp[],
+  declared: readonly ListedApp[],
 ): Promise<void>;
 export interface SigningKey {
   kid: string;

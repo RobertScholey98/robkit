@@ -41,15 +41,15 @@ console.log(`provisioned ${config.slugs.join(", ")}`);
 
 `@robkit/dev` holds what an install and create-robkit use beside the runner:
 
-| Export                                          | What it is                                                               |
-| ----------------------------------------------- | ------------------------------------------------------------------------ |
-| `robkit-dev` (bin)                              | The runner                                                               |
-| `appManifestIn(root, folder)`, `AppManifest`    | An app's `package.json`, read through session's readers                  |
-| `readProvisionConfig(env)`, `ProvisionConfig`   | The production provision step's environment                              |
-| `discoverApps(root)`, `App`                     | The apps under `apps/`, refusing a folder whose name isn't a slug        |
-| `catalogOf(apps)`                               | `ROBKIT_APPS`: each app's slug and manifest, as JSON                     |
-| `provisionDatabases(options)`                   | The provision step in production, with passwords from `ROBKIT_DB_SECRET` |
-| `databasePassword(secret, slug)`, `databaseUrl` | An app's role password (an HMAC of its slug) and its `DATABASE_URL`      |
+| Export                                               | What it is                                                               |
+| ---------------------------------------------------- | ------------------------------------------------------------------------ |
+| `robkit-dev` (bin)                                   | The runner                                                               |
+| `appManifestFileIn(root, folder)`, `AppManifestFile` | An app's `package.json`: its name, scripts and manifest                  |
+| `readProvisionConfig(env)`, `ProvisionConfig`        | The production provision step's environment                              |
+| `discoverApps(root)`, `App`                          | The apps under `apps/`, refusing a folder whose name isn't a slug        |
+| `catalogOf(apps)`                                    | `ROBKIT_APPS`: each app's slug and manifest, as JSON                     |
+| `provisionDatabases(options)`                        | The provision step in production, with passwords from `ROBKIT_DB_SECRET` |
+| `databasePassword(secret, slug)`, `databaseUrl`      | An app's role password (an HMAC of its slug) and its `DATABASE_URL`      |
 
 `@robkit/dev/cli` holds what robkit's command lines share. create-robkit's `create-robkit` and `robkit` bins and `robkit-dev` use it:
 

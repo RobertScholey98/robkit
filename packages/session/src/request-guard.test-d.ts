@@ -13,14 +13,14 @@ import {
   type InputProblem,
   type Slug,
 } from "@robkit/input";
-import { type DeclaredAccess } from "@robkit/input/manifest";
+import { type ManifestAccess } from "@robkit/input/manifest";
 import { readSessionLapsed, type SessionLapsed } from "./lapsed.ts";
 
 declare const notes: Slug;
 declare const family: RoleId;
 declare const core: CoreOrigin;
 const options = (value: GuardedOptions) => value;
-const declared = (value: DeclaredAccess) => value;
+const declared = (value: ManifestAccess) => value;
 const rule = (value: AccessRule) => value;
 const fault = (value: GuardFault) => value;
 

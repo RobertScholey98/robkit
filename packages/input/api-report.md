@@ -111,15 +111,18 @@ export const reportToConsole: Report;
 ## @robkit/input/manifest
 
 ```ts
-export interface AppDeclaration {
-  access?: DeclaredAccess;
+export interface AppManifest {
+  access?: ManifestAccess;
   icon?: string;
 }
-export function appDeclarationJson({
+export function appManifestJson({
   access,
   icon,
-}: AppDeclaration): Record<string, unknown>;
-export type DeclaredAccess =
+}: AppManifest): Record<string, unknown>;
+export interface ListedApp extends AppManifest {
+  slug: Slug;
+}
+export type ManifestAccess =
   | {
       kind: "open";
     }
@@ -130,15 +133,12 @@ export type DeclaredAccess =
       kind: "roles";
       roleNames: string[];
     };
-export interface DeclaredApp extends AppDeclaration {
-  slug: Slug;
-}
-export function readAppDeclaration(
+export function readAppManifest(
   value: unknown,
   field?: string,
-): AppDeclaration | InputProblem;
-export function readDeclaredApp(
+): AppManifest | InputProblem;
+export function readListedApp(
   value: unknown,
   field: string,
-): DeclaredApp | InputProblem;
+): ListedApp | InputProblem;
 ```

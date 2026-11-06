@@ -9,8 +9,8 @@ import {
   readHost,
   readPort,
 } from "@robkit/input";
-import { type DeclaredApp } from "@robkit/input/manifest";
-import { readDeclaredApps } from "./apps.ts";
+import { type ListedApp } from "@robkit/input/manifest";
+import { readListedApps } from "./apps.ts";
 import { readTrustedProxy, type TrustedProxy } from "./client.ts";
 
 /** What core starts with, read from its environment. */
@@ -20,7 +20,7 @@ export interface CoreConfig {
   /** `ROBKIT_DOMAIN`: the install's domain, such as `robkit.dev`. */
   domain: Domain;
   /** `ROBKIT_APPS`: the owner's apps, as each declares itself. */
-  apps: DeclaredApp[];
+  apps: ListedApp[];
   /** `ROBKIT_TRUSTED_PROXY`: a proxy further out that names each visitor. */
   trustedProxy?: TrustedProxy;
   /** `HOST`: loopback unless set, so only the proxy reaches core. */
@@ -36,7 +36,7 @@ export interface CoreConfig {
 export function readCoreConfig(env: Env): CoreConfig | InputProblem {
   const databaseUrl = readDatabaseUrl(env);
   const domain = readDomain(env);
-  const apps = readDeclaredApps(env);
+  const apps = readListedApps(env);
   const trustedProxy = readTrustedProxy(env);
   const host = readHost(env);
   const port = readPort(env);

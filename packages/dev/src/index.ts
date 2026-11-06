@@ -3,11 +3,11 @@
 // parts directly, and the command-line helpers are in ./cli.ts.
 
 export {
-  appManifestIn,
+  appManifestFileIn,
   catalogOf,
   discoverApps,
   type App,
-  type AppManifest,
+  type AppManifestFile,
 } from "./apps.ts";
 export { readProvisionConfig, type ProvisionConfig } from "./env.ts";
 export {

@@ -12,7 +12,7 @@ import {
   readSlug,
   type Slug,
 } from "@robkit/input";
-import { type DeclaredAccess } from "@robkit/input/manifest";
+import { type ManifestAccess } from "@robkit/input/manifest";
 import { readChoices, type Choices, type Stack } from "./choices.ts";
 import { appFiles, readFolder, stackTemplate, type Files } from "./generate.ts";
 import { writeInstall } from "./write.ts";
@@ -25,7 +25,7 @@ export interface AppChoices {
   stack: Stack;
   slug: Slug;
   /** Who may open the app once core adds it. A rule's roles are named. */
-  access: DeclaredAccess;
+  access: ManifestAccess;
   icon: string;
 }
 

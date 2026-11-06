@@ -1,26 +1,22 @@
 import { describe, expect, it } from "vitest";
-import {
-  appDeclarationJson,
-  readAppDeclaration,
-  readDeclaredApp,
-} from "./manifest.ts";
+import { appManifestJson, readAppManifest, readListedApp } from "./manifest.ts";
 
-describe("readAppDeclaration", () => {
+describe("readAppManifest", () => {
   it("reads what an app declares", () => {
     expect(
-      readAppDeclaration({
+      readAppManifest({
         access: { kind: "roles", roles: ["Family"] },
         icon: "📝",
       }),
     ).toEqual({ access: { kind: "roles", roleNames: ["Family"] }, icon: "📝" });
-    expect(readAppDeclaration({ access: { kind: "open" } })).toEqual({
+    expect(readAppManifest({ access: { kind: "open" } })).toEqual({
       access: { kind: "open" },
     });
-    expect(readAppDeclaration(undefined)).toEqual({});
+    expect(readAppManifest(undefined)).toEqual({});
   });
 
   it.each([null, [], "open", 1])("refuses %j as the field", (value) => {
-    expect(readAppDeclaration(value)).toEqual({
+    expect(readAppManifest(value)).toEqual({
       error: `robkit must be an object, such as {"access": {"kind": "open"}, "icon": "📝"}, or left out.`,
     });
   });
@@ -34,7 +30,7 @@ describe("readAppDeclaration", () => {
     { kind: "roles", roles: [""] },
     { kind: "roles", roles: [1] },
   ])("refuses the access %j", (access) => {
-    expect(readAppDeclaration({ access })).toEqual({
+    expect(readAppManifest({ access })).toEqual({
       error: `robkit.access must be {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": ["Family"]} naming at least one role.`,
     });
   });
@@ -51,7 +47,7 @@ describe("readAppDeclaration", () => {
     "1️⃣",
     "❤️",
   ])("reads the icon %s", (icon) => {
-    expect(readAppDeclaration({ icon })).toEqual({ icon });
+    expect(readAppManifest({ icon })).toEqual({ icon });
   });
 
   it.each([
@@ -70,34 +66,34 @@ describe("readAppDeclaration", () => {
     "‍",
     "️",
   ])("refuses the icon %j", (icon) => {
-    expect(readAppDeclaration({ icon })).toEqual({
+    expect(readAppManifest({ icon })).toEqual({
       error: `robkit.icon must be one emoji, such as "📝".`,
     });
   });
 
   it("names the field it was given", () => {
-    expect(readAppDeclaration({ icon: 1 }, "ROBKIT_APPS[0]")).toEqual({
+    expect(readAppManifest({ icon: 1 }, "ROBKIT_APPS[0]")).toEqual({
       error: `ROBKIT_APPS[0].icon must be one emoji, such as "📝".`,
     });
   });
 
   it("writes them back as a manifest holds them", () => {
     expect(
-      appDeclarationJson({
+      appManifestJson({
         access: { kind: "roles", roleNames: ["Family"] },
         icon: "📝",
       }),
     ).toEqual({ access: { kind: "roles", roles: ["Family"] }, icon: "📝" });
-    expect(appDeclarationJson({ access: { kind: "owner" } })).toEqual({
+    expect(appManifestJson({ access: { kind: "owner" } })).toEqual({
       access: { kind: "owner" },
     });
   });
 });
 
-describe("readDeclaredApp", () => {
+describe("readListedApp", () => {
   it("reads an app and what it declares", () => {
     expect(
-      readDeclaredApp(
+      readListedApp(
         { slug: "notes", access: { kind: "open" } },
         "ROBKIT_APPS[0]",
       ),
@@ -105,14 +101,14 @@ describe("readDeclaredApp", () => {
   });
 
   it.each([null, [], "notes"])("refuses %j", (value) => {
-    expect(readDeclaredApp(value, "ROBKIT_APPS[0]")).toEqual({
+    expect(readListedApp(value, "ROBKIT_APPS[0]")).toEqual({
       error: `ROBKIT_APPS[0] must be an object with the app's slug, such as {"slug": "notes"}.`,
     });
   });
 
   it("refuses an app without a slug", () => {
     expect(
-      readDeclaredApp({ access: { kind: "open" } }, "ROBKIT_APPS[2]"),
+      readListedApp({ access: { kind: "open" } }, "ROBKIT_APPS[2]"),
     ).toEqual({
       error: `ROBKIT_APPS[2].slug: Nothing can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
     });

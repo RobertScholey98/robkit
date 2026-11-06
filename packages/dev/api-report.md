@@ -10,17 +10,17 @@ export interface App {
   dir: string;
   port: number;
   migrates: boolean;
-  declares: AppDeclaration;
+  manifest: AppManifest;
 }
-export interface AppManifest {
+export interface AppManifestFile {
   name?: string;
   scripts: Record<string, string>;
-  declares: AppDeclaration;
+  manifest: AppManifest;
 }
-export function appManifestIn(
+export function appManifestFileIn(
   root: string,
   folder: string,
-): Promise<AppManifest | undefined>;
+): Promise<AppManifestFile | undefined>;
 export function catalogOf(apps: readonly App[]): string;
 export function databasePassword(secret: string, slug: Slug): string;
 export function databaseUrl(

@@ -12,9 +12,9 @@ import {
   parseJson,
 } from "@robkit/input";
 import {
-  type DeclaredAccess,
-  type DeclaredApp,
-  readDeclaredApp,
+  type ManifestAccess,
+  type ListedApp,
+  readListedApp,
 } from "@robkit/input/manifest";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
@@ -52,7 +52,7 @@ export function readAccess(
  * themselves, which the dev runner and robkit deploy write from each app's
  * manifest. Empty or unset means none.
  */
-export function readDeclaredApps(env: Env): DeclaredApp[] | InputProblem {
+export function readListedApps(env: Env): ListedApp[] | InputProblem {
   const text = env.ROBKIT_APPS;
   if (text === undefined || text.trim() === "") return [];
   const parsed = parseJson(text, "ROBKIT_APPS");
@@ -63,9 +63,9 @@ export function readDeclaredApps(env: Env): DeclaredApp[] | InputProblem {
       error: `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`,
     };
   }
-  const apps: DeclaredApp[] = [];
+  const apps: ListedApp[] = [];
   for (const [index, value] of json.entries()) {
-    const app = readDeclaredApp(value, `ROBKIT_APPS[${String(index)}]`);
+    const app = readListedApp(value, `ROBKIT_APPS[${String(index)}]`);
     if (isProblem(app)) return app;
     apps.push(app);
   }
@@ -78,11 +78,11 @@ export function readDeclaredApps(env: Env): DeclaredApp[] | InputProblem {
  * if the owner has none of that name. An app core knows keeps the rule the
  * owner gave it, and takes the icon it declares now.
  */
-const owner: DeclaredAccess = { kind: "owner" };
+const owner: ManifestAccess = { kind: "owner" };
 
 export async function registerApps(
   db: Database,
-  declared: readonly DeclaredApp[],
+  declared: readonly ListedApp[],
 ): Promise<void> {
   if (declared.length === 0) return;
   await db.transaction(async (tx) => {

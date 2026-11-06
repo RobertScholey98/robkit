@@ -44,11 +44,11 @@ PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, o
 
 The manifest format: what an app declares in its `package.json`'s `robkit` field, and each app as `ROBKIT_APPS` hands it to core.
 
-| Export                                                   | What it is                                                                               |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `readAppDeclaration`, `AppDeclaration`, `DeclaredAccess` | What an app's `robkit` field declares: its access rule, with roles by name, and its icon |
-| `appDeclarationJson`                                     | That declaration as the `robkit` field and `ROBKIT_APPS` write it                        |
-| `readDeclaredApp`, `DeclaredApp`                         | One app in `ROBKIT_APPS`: its slug and what it declares                                  |
+| Export                                             | What it is                                                                               |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `readAppManifest`, `AppManifest`, `ManifestAccess` | What an app's `robkit` field declares: its access rule, with roles by name, and its icon |
+| `appManifestJson`                                  | The manifest as the `robkit` field and `ROBKIT_APPS` write it                            |
+| `readListedApp`, `ListedApp`                       | One app in `ROBKIT_APPS`: its slug and what it declares                                  |
 
 ### `@robkit/input/addresses`
 

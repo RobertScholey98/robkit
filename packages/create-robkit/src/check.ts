@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
-import { appManifestIn } from "@robkit/dev";
+import { appManifestFileIn } from "@robkit/dev";
 import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import { sessionCookie } from "@robkit/session";
 import { isProblem, isRecord, parseJson } from "@robkit/input";
@@ -175,7 +175,7 @@ async function areasOf(root: string): Promise<Area[]> {
       const folder = `${parent}/${entry.name}`;
       const manifest =
         kind === "app"
-          ? await appManifestIn(root, entry.name)
+          ? await appManifestFileIn(root, entry.name)
           : await packageNameIn(root, folder);
       if (manifest === undefined) continue;
       found.push({ kind, slug: entry.name, folder, name: manifest.name });
