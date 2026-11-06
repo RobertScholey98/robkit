@@ -476,7 +476,7 @@ export function describeJourneys(
     // Last, since it stops the stack.
     it("stops every app and Postgres on Ctrl-C", async () => {
       const apps = await discoverApps(dir, devPort + 1);
-      if (!dev.pid) throw new Error("dev never started");
+      if (!dev.pid) throw new Error(`pnpm dev never started in ${dir}.`);
 
       process.kill(-dev.pid, "SIGINT");
       const [code] = (await once(dev, "exit")) as [number | null];
