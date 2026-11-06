@@ -102,11 +102,6 @@ export const exceptions: Exceptions = {
     { word: "backend", text: "Core, the backend", why: "Core's definition." },
     {
       word: "backend",
-      text: "`@robkit/core`, the backend",
-      why: "Core's definition.",
-    },
-    {
-      word: "backend",
       text: "@robkit/core<br/>the backend",
       why: "Core's definition.",
     },
