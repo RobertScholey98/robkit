@@ -26,7 +26,11 @@ export async function cleanPath(
       break;
     }
   }
-  if (pnpm === undefined) throw new Error("pnpm isn't on the PATH");
+  if (pnpm === undefined) {
+    throw new Error(
+      `pnpm isn't in any of the PATH's ${String(entries.length)} folders. Run corepack enable, then the tests again.`,
+    );
+  }
   const bin = await mkdtemp(join(tmpdir(), "robkit-bin-"));
   await writeFile(join(bin, "pnpm"), `#!/bin/sh\nexec '${pnpm}' "$@"\n`, {
     mode: 0o755,

@@ -6,13 +6,9 @@ import {
   readCoreConfig,
   registerApps,
 } from "@robkit/core";
-import { isProblem } from "@robkit/input";
+import { orExit } from "@robkit/input";
 
-const config = readCoreConfig(process.env);
-if (isProblem(config)) {
-  console.error(config.error);
-  process.exit(1);
-}
+const config = orExit(readCoreConfig(process.env));
 
 const db = createDatabase(config.databaseUrl);
 await ensureSigningKey(db);

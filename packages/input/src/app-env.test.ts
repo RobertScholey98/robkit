@@ -1,5 +1,10 @@
-import { describe, expect, it } from "vitest";
-import { readDevServerEnv, readGuardEnv, readServeEnv } from "./app-env.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  orExit,
+  readDevServerEnv,
+  readGuardEnv,
+  readServeEnv,
+} from "./app-env.ts";
 import { isProblem } from "./index.ts";
 
 describe("readServeEnv", () => {
@@ -56,5 +61,34 @@ describe("readDevServerEnv", () => {
         `ROBKIT_DOMAIN is "a b", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
       ].join("\n"),
     });
+  });
+});
+
+describe("orExit", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("gives back a value that isn't a problem", () => {
+    expect(orExit({ host: "127.0.0.1", port: 3000 })).toEqual({
+      host: "127.0.0.1",
+      port: 3000,
+    });
+  });
+
+  it("prints a problem alone and ends the process with 1", () => {
+    const printed = vi.spyOn(console, "error").mockReturnValue();
+    // eslint-disable-next-line robkit/layer -- stands in for the process orExit ends
+    const exit = vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit ${String(code)}`);
+    });
+
+    expect(() =>
+      orExit({ error: "Set ROBKIT_CORE_URL to core's address." }),
+    ).toThrow("exit 1");
+    expect(printed.mock.calls).toEqual([
+      ["Set ROBKIT_CORE_URL to core's address."],
+    ]);
+    expect(exit).toHaveBeenCalledOnce();
   });
 });

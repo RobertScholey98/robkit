@@ -56,3 +56,17 @@ export function readGuardEnv(
   }
   return { app, core };
 }
+
+/**
+ * `read`'s value, or its problem printed alone and the process ended with
+ * exit code 1. An app's server and scripts read their environment with it as
+ * they start, so a variable that won't do prints the line that says how to
+ * fix it, not a stack. A Vite config, which prints what it throws, uses
+ * `orThrow`.
+ */
+export function orExit<T>(read: T | InputProblem): T {
+  if (!isProblem(read)) return read;
+  console.error(read.error);
+  // eslint-disable-next-line robkit/layer -- the one exit, for a server's start; the browser never calls it
+  process.exit(1);
+}

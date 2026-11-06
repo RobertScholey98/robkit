@@ -39,7 +39,7 @@ describe("ensureSigningKey", () => {
     });
 
     await expect(ensureSigningKey(db)).rejects.toThrow(
-      "Core's stored signing key is a secret, not an EdDSA key.",
+      "Core's signing key secret in core.signing_keys is a shared secret, not an EdDSA key. Core only writes EdDSA keys, so check what else wrote to that table.",
     );
   });
 });

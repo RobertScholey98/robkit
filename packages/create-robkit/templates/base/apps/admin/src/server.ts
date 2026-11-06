@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { guarded } from "@robkit/hono";
-import { isRecord, readCoreUrl, orThrow } from "@robkit/input";
+import { isRecord, orExit, readCoreUrl } from "@robkit/input";
 import { Hono } from "hono";
 import { html } from "hono/html";
 
@@ -26,7 +26,7 @@ async function clientAssets(): Promise<{ script: string; styles: string[] }> {
   };
 }
 
-const core = orThrow(readCoreUrl(process.env));
+const core = orExit(readCoreUrl(process.env));
 const assets = await clientAssets();
 
 const app = new Hono();

@@ -6,7 +6,7 @@ import {
   type SessionTokenClaims,
 } from "@robkit/session";
 import { standingOf, type AccessCode } from "./access-codes.ts";
-import type { Database } from "./database.ts";
+import { storedRow, type Database } from "./database.ts";
 import { dummyPasswordHash, verifyPassword } from "./password.ts";
 import { accessCodes, owner, sessions } from "./schema.ts";
 import { mintSessionToken } from "./mint-token.ts";
@@ -83,7 +83,7 @@ export async function startSession(
 ): Promise<SignedIn> {
   const { profile } = holder;
   const now = ctx.now();
-  const [session] = await tx
+  const [inserted] = await tx
     .insert(sessions)
     .values({
       ...(profile.kind === "owner"
@@ -93,7 +93,11 @@ export async function startSession(
       expiresAt: sessionExpiry(now),
     })
     .returning({ id: sessions.id });
-  if (!session) throw new Error("Core couldn't store the session.");
+  const session = storedRow(
+    inserted,
+    `a session for ${profile.kind} ${profile.id}`,
+    "core.sessions",
+  );
   return {
     profile,
     sessionToken: await mintSessionToken(

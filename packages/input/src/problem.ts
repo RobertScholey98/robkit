@@ -27,10 +27,11 @@ export function allProblems(...reads: unknown[]): InputProblem {
 
 /**
  * `read`'s value, or its problem thrown as an `Error`. For a place that
- * can't go on without the value and has no better answer, such as a
- * config file or a server module that reads its environment as it loads.
+ * can't go on without the value, has no better answer and prints what it
+ * throws, such as a Vite config. An app's server uses `orExit`.
  */
 export function orThrow<T>(read: T | InputProblem): T {
+  // eslint-disable-next-line robkit/one-problem-type -- the one place a problem becomes an Error
   if (isProblem(read)) throw new Error(read.error);
   return read;
 }

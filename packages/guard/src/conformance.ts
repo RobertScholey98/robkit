@@ -95,7 +95,15 @@ function readCase(value: unknown, index: number): ConformanceCase {
 /** The cases in `value`, as conformance.json holds them. Throws on a bad one. */
 export function readConformanceCases(value: unknown): ConformanceCase[] {
   if (!Array.isArray(value)) {
-    throw new Error("conformance.json must be a list of cases.");
+    const holds =
+      value === null
+        ? "null"
+        : typeof value === "object"
+          ? "an object"
+          : `a ${typeof value}`;
+    throw new Error(
+      `conformance.json must be a list of cases, but it holds ${holds}.`,
+    );
   }
   return value.map(readCase);
 }
