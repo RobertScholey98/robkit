@@ -72,7 +72,7 @@ export async function claimInstall(
       return {
         outcome: "claimed",
         ...(await startSession(ctx, tx, {
-          viewer: { kind: "owner", ...created },
+          profile: { kind: "owner", ...created },
           roles: [],
         })),
       };
