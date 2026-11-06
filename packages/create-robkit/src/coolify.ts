@@ -9,9 +9,9 @@ import {
 } from "@robkit/session/input";
 import {
   containerPort,
-  type Deployment,
+  type AppDeployment,
   type TrustedProxy,
-  type Value,
+  type DeploymentValue,
 } from "./deployment.ts";
 
 // robkit deploy: R's Coolify method, adapted from robnet's deploy job. Each
@@ -248,11 +248,14 @@ interface Desired {
   }[];
 }
 
-function valueOf(value: Value): string {
+function valueOf(value: DeploymentValue): string {
   return "literal" in value ? value.literal : `{{environment.${value.shared}}}`;
 }
 
-function desiredApp({ slug, env }: Deployment, config: CoolifyConfig): Desired {
+function desiredApp(
+  { slug, env }: AppDeployment,
+  config: CoolifyConfig,
+): Desired {
   const port = String(containerPort);
   return {
     slug,
@@ -507,7 +510,7 @@ async function deployAndWait(
 export interface DeployOptions {
   coolify: Coolify;
   config: CoolifyConfig;
-  deployments: Deployment[];
+  deployments: AppDeployment[];
   /** The apps whose code changed, by slug, or every app. */
   affected: readonly Slug[] | "all";
   fetch?: typeof fetch;

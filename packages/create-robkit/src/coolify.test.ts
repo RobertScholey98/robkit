@@ -5,7 +5,7 @@ import {
   type CoolifyConfig,
   type DeployOptions,
 } from "./coolify.ts";
-import type { Deployment } from "./deployment.ts";
+import type { AppDeployment } from "./deployment.ts";
 import {
   fakeCoolify,
   fakeFetch,
@@ -25,7 +25,7 @@ const config: CoolifyConfig = {
 
 const coolify = { url: "https://coolify.example", token: "t" };
 
-const apps: Deployment[] = [
+const apps: AppDeployment[] = [
   {
     slug: "core",
     env: {

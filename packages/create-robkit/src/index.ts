@@ -8,8 +8,8 @@ export {
 } from "./choices.ts";
 export {
   deploymentOf,
-  type Deployment,
+  type AppDeployment,
   type DeploymentOptions,
-  type Value,
+  type DeploymentValue,
 } from "./deployment.ts";
 export { init, type InitOptions } from "./init.ts";
