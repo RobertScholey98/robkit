@@ -101,6 +101,20 @@ describe("check-pr-ticket.ts", () => {
     });
   });
 
+  it("passes a needs-triage ticket the pull request adds itself", async () => {
+    const proposal = ".scratch/ideas/issues/01-a-new-idea.md";
+    await mkdir(join(repo, ".scratch/ideas/issues"), { recursive: true });
+    await writeFile(
+      join(repo, proposal),
+      "# 01: A new idea\n\n**Status:** needs-triage\n",
+    );
+
+    expect(check(body(proposal))).toEqual({
+      status: 0,
+      output: `Ticket: ${proposal}\n`,
+    });
+  });
+
   it("fails one whose ticket doesn't, saying why", () => {
     expect(check(body(".scratch/hillclimb/issues/99-gone.md"))).toEqual({
       status: 1,
