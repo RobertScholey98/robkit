@@ -24,3 +24,13 @@ export function allProblems(...reads: unknown[]): InputProblem {
       .join("\n"),
   };
 }
+
+/**
+ * `read`'s value, or its problem thrown as an `Error`. For a place that
+ * can't go on without the value and has no better answer, such as a
+ * config file or a server module that reads its environment as it loads.
+ */
+export function orThrow<T>(read: T | InputProblem): T {
+  if (isProblem(read)) throw new Error(read.error);
+  return read;
+}

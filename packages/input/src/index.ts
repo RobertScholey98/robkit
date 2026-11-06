@@ -7,6 +7,7 @@ export {
   allProblems,
   isProblem,
   isRecord,
+  orThrow,
   type InputProblem,
 } from "./problem.ts";
 export { parseJson } from "./json.ts";
