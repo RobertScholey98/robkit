@@ -62,7 +62,9 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 | `defaultDomain`, `defaultDevPort`              | `robkit.localhost` and `3000`                                                                                                              |
 | `readSlug(value)`, `Slug`, `slugProblem(name)` | A slug: lowercase letters and digits, starting with a letter. `readSlug` returns a `Slug` or an `InputProblem`, and only it makes a `Slug` |
 
-`@robkit/session/input` holds the readers every package and app use for input from outside robkit's own code (see `docs/conventions/input.md`). Each returns the value or an `InputProblem` naming the variable or file, the key and the fix: `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl`, `readSet`, `readServeEnv`, `readDevServerEnv`, `readGuardEnv`, `parseJson`, `readAppDeclaration` and `readDeclaredApp`, with `isProblem`, `allProblems` and `isRecord`.
+`@robkit/session/input` holds the readers every package and app use for input from outside robkit's own code (see `docs/conventions/input.md`). Each returns the value or an `InputProblem` naming the variable or file, the key and the fix: `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl`, `readSet`, `readServeEnv`, `readDevServerEnv`, `readGuardEnv` and `parseJson`, with `isProblem`, `allProblems` and `isRecord`.
+
+`@robkit/session/manifest` holds the manifest format: what an app declares in its `package.json`'s `robkit` field (`AppDeclaration`, read by `readAppDeclaration` and written by `appDeclarationJson`), and each app as `ROBKIT_APPS` hands it to core (`DeclaredApp`, read by `readDeclaredApp`). A declared access rule names its roles (`DeclaredAccess`), where the guard's takes role ids.
 
 `@robkit/session/lapsed` imports nothing either. It holds the guard's 401 for a call whose token lapsed: `sessionLapsedResponse`, which the guard writes, and `readSessionLapsed`, which `sessionFetch` reads.
 
@@ -85,5 +87,6 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 - When it can't check a request it answers 503 and tells `onUnavailable` why: what failed (`core-key`, `access-rule` or `network`) and the cause. By default that reports the app, what failed and the cause through `reportToConsole`.
 - `Report` is the one shape for reporting a fault nobody calling can handle. Core's `logError`, the guard's default `onUnavailable` and dev's `runCommand` all report through it (see `docs/conventions/errors.md`).
 - `@robkit/session/lapsed` is the guard's 401 for a call whose session has lapsed, which `sessionFetch` reads. It imports nothing, so the browser can load it.
-- `@robkit/session/input` holds the readers for input from outside robkit's own code: environment variables, JSON and an app's `robkit` field. Each returns the value or an `InputProblem`.
+- `@robkit/session/input` holds the readers for input from outside robkit's own code: environment variables and JSON. Each returns the value or an `InputProblem`.
+- `@robkit/session/manifest` reads and writes what an app declares in its `robkit` field. The dev runner reads it from each app, core reads it from `ROBKIT_APPS`, and `robkit add` writes it.
 - `@robkit/session/addresses` turns an install's domain into its addresses: each app on `<slug>.<domain>`, the platform apps' names, the default domain and dev port, and whether a URL is on the install. Core, the guard, the hub, admin, the dev runner, init and the whole-stack test all take their addresses from it. It imports nothing either.

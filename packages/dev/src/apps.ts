@@ -7,14 +7,16 @@ import {
   type Slug,
 } from "@robkit/session/addresses";
 import {
-  appDeclarationJson,
   isProblem,
   isRecord,
   parseJson,
-  readAppDeclaration,
-  type AppDeclaration,
   type InputProblem,
 } from "@robkit/session/input";
+import {
+  appDeclarationJson,
+  readAppDeclaration,
+  type AppDeclaration,
+} from "@robkit/session/manifest";
 import { isMissing } from "./files.ts";
 import type { Route } from "./proxy.ts";
 import { Problem } from "./cli.ts";

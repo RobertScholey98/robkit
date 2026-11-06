@@ -115,28 +115,6 @@ export function slugProblem(name: string): string | undefined;
 
 ```ts
 export function allProblems(...reads: unknown[]): InputProblem;
-export interface AppDeclaration {
-  access?: DeclaredAccess;
-  icon?: string;
-}
-export function appDeclarationJson({
-  access,
-  icon,
-}: AppDeclaration): Record<string, unknown>;
-export type DeclaredAccess =
-  | {
-      kind: "open";
-    }
-  | {
-      kind: "owner";
-    }
-  | {
-      kind: "roles";
-      roleNames: string[];
-    };
-export interface DeclaredApp extends AppDeclaration {
-  slug: Slug;
-}
 export type Env = Readonly<Record<string, string | undefined>>;
 export interface InputProblem {
   readonly error: string;
@@ -152,10 +130,6 @@ export function parseJson(
       json: unknown;
     }
   | InputProblem;
-export function readAppDeclaration(
-  value: unknown,
-  field?: string,
-): AppDeclaration | InputProblem;
 export function readAppSlug(env: Env): Slug | InputProblem;
 export function readCoreUrl(env: Env): string | InputProblem;
 export function readDatabaseUrl(
@@ -163,10 +137,6 @@ export function readDatabaseUrl(
   name?: string,
   unsetFix?: string,
 ): string | InputProblem;
-export function readDeclaredApp(
-  value: unknown,
-  field: string,
-): DeclaredApp | InputProblem;
 export function readDevServerEnv(env: Env):
   | {
       port?: number;
@@ -216,4 +186,39 @@ export function sessionLapsedResponse({
   error,
   location,
 }: SessionLapsed): Response;
+```
+
+## @robkit/session/manifest
+
+```ts
+export interface AppDeclaration {
+  access?: DeclaredAccess;
+  icon?: string;
+}
+export function appDeclarationJson({
+  access,
+  icon,
+}: AppDeclaration): Record<string, unknown>;
+export type DeclaredAccess =
+  | {
+      kind: "open";
+    }
+  | {
+      kind: "owner";
+    }
+  | {
+      kind: "roles";
+      roleNames: string[];
+    };
+export interface DeclaredApp extends AppDeclaration {
+  slug: Slug;
+}
+export function readAppDeclaration(
+  value: unknown,
+  field?: string,
+): AppDeclaration | InputProblem;
+export function readDeclaredApp(
+  value: unknown,
+  field: string,
+): DeclaredApp | InputProblem;
 ```

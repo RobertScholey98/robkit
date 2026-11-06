@@ -1,7 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { appDeclarationJson, type AppDeclaration } from "@robkit/session/input";
+import {
+  appDeclarationJson,
+  type AppDeclaration,
+} from "@robkit/session/manifest";
 import { jsonObject, stringsIn } from "./json.ts";
 import { format } from "prettier";
 import { parseDocument } from "yaml";

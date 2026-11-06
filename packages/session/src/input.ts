@@ -1,11 +1,9 @@
 // robkit's readers for what comes from outside its own code: environment
-// variables, JSON files, and the `robkit` field of an app's manifest. Each
-// takes the raw input and returns the typed value or an InputProblem that names the
-// variable or key and says what to do. The caller decides what a problem
-// means: core and the dev runner refuse to start, a command prints it. See
-// docs/conventions/input.md.
+// variables and JSON. Each takes the raw input and returns the typed value
+// or an InputProblem that names the variable or key and says what to do.
+// The caller decides what a problem means: core and the dev runner refuse
+// to start, a command prints it. See docs/conventions/input.md.
 
-import { readAccessRule } from "@robkit/guard";
 import { installAt, readSlug, type Slug } from "./install-addresses.ts";
 import {
   allProblems,
@@ -197,113 +195,4 @@ export function parseJson(
     const reason = error instanceof Error ? error.message : String(error);
     return { error: `${source} isn't valid JSON (${reason}). Fix its syntax.` };
   }
-}
-
-/**
- * Who may open an app, as its manifest declares it. A rule's roles are
- * named, not ids, so this isn't the guard's `AccessRule`: core finds or
- * creates each role by name when it adds the app.
- */
-export type DeclaredAccess =
-  { kind: "open" } | { kind: "owner" } | { kind: "roles"; roleNames: string[] };
-
-/** What an app's manifest declares in its `robkit` field, for core's catalog. */
-export interface AppDeclaration {
-  /** Who may open the app once core adds it. Owner-only if left out. */
-  access?: DeclaredAccess;
-  /** An emoji the launcher shows. */
-  icon?: string;
-}
-
-/** An app as the install declares it to core, in `ROBKIT_APPS`. */
-export interface DeclaredApp extends AppDeclaration {
-  slug: Slug;
-}
-
-const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
-// A whole emoji: one code point, or a sequence such as a flag, a keycap or
-// a family joined with zero-width joiners, as Unicode lists them.
-const emoji = /^\p{RGI_Emoji}$/v;
-
-/** Whether `text` is one emoji: one grapheme, and that grapheme an emoji. */
-function isOneEmoji(text: string): boolean {
-  const [first, ...rest] = graphemes.segment(text);
-  return first !== undefined && rest.length === 0 && emoji.test(first.segment);
-}
-
-function readDeclaredAccess(value: unknown): DeclaredAccess | undefined {
-  const rule = readAccessRule(value);
-  if (rule?.kind !== "roles") return rule;
-  const roleNames = rule.roles;
-  return roleNames.length > 0 && roleNames.every((name) => name !== "")
-    ? { kind: "roles", roleNames }
-    : undefined;
-}
-
-/**
- * What an app declares, from its manifest's `robkit` field. `field` is
- * where the value sits, which each problem names.
- */
-export function readAppDeclaration(
-  value: unknown,
-  field = "robkit",
-): AppDeclaration | InputProblem {
-  if (value === undefined) return {};
-  if (!isRecord(value)) {
-    return {
-      error: `${field} must be an object, such as {"access": {"kind": "open"}, "icon": "📝"}, or left out.`,
-    };
-  }
-  const declares: AppDeclaration = {};
-  if (value.access !== undefined) {
-    const access = readDeclaredAccess(value.access);
-    if (!access) {
-      return {
-        error: `${field}.access must be {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": ["Family"]} naming at least one role.`,
-      };
-    }
-    declares.access = access;
-  }
-  if (value.icon !== undefined) {
-    const { icon } = value;
-    if (typeof icon !== "string" || !isOneEmoji(icon)) {
-      return { error: `${field}.icon must be one emoji, such as "📝".` };
-    }
-    declares.icon = icon;
-  }
-  return declares;
-}
-
-/** What an app declares, as its manifest and `ROBKIT_APPS` write it. */
-export function appDeclarationJson({
-  access,
-  icon,
-}: AppDeclaration): Record<string, unknown> {
-  return {
-    ...(access && {
-      access:
-        access.kind === "roles"
-          ? { kind: "roles", roles: access.roleNames }
-          : { kind: access.kind },
-    }),
-    ...(icon !== undefined && { icon }),
-  };
-}
-
-/** One app in `ROBKIT_APPS`, whose place `field` names. */
-export function readDeclaredApp(
-  value: unknown,
-  field: string,
-): DeclaredApp | InputProblem {
-  if (!isRecord(value)) {
-    return {
-      error: `${field} must be an object with the app's slug, such as {"slug": "notes"}.`,
-    };
-  }
-  const slug = readSlug(value.slug);
-  if (isProblem(slug)) {
-    return { error: `${field}.slug: ${slug.error}` };
-  }
-  const declares = readAppDeclaration(value, field);
-  return isProblem(declares) ? declares : { slug, ...declares };
 }

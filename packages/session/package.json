@@ -7,7 +7,8 @@
     ".": "./src/index.ts",
     "./addresses": "./src/install-addresses.ts",
     "./input": "./src/input.ts",
-    "./lapsed": "./src/session-lapsed.ts"
+    "./lapsed": "./src/session-lapsed.ts",
+    "./manifest": "./src/manifest.ts"
   },
   "publishConfig": {
     "exports": {
@@ -26,6 +27,10 @@
       "./lapsed": {
         "types": "./dist/session-lapsed.d.ts",
         "default": "./dist/session-lapsed.js"
+      },
+      "./manifest": {
+        "types": "./dist/manifest.d.ts",
+        "default": "./dist/manifest.js"
       }
     }
   },
