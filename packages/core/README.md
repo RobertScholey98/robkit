@@ -77,3 +77,8 @@ Core's routes are in `src/app.ts`. `docs/architecture.md` shows how they fit the
 - Be reached by anything but the proxy. It trusts `X-Forwarded-For`, or `CF-Connecting-IP` with `ROBKIT_TRUSTED_PROXY=cloudflare`, for its sign-in limit.
 - Read any cookie but its own. It renews only from core's token, never from an app token.
 - Be imported by an app. `robkit check` enforces that in an install.
+
+## For contributors
+
+- `createApp` takes `logError`, `console.error` by default, where every unexpected error (one handler, `app.onError`, answering a generic 500) and an unreachable database are logged.
+- Core adds a new app with the rule it declares, or owner-only, and creates any role it names that the owner lacks. After that admin sets who may open it, and core keeps the owner's rule.

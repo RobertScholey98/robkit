@@ -49,11 +49,46 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 | `stacks`, `readyStacks`, `stackFrom`, `Stack`                   | The stacks: `start` (TanStack Start) and `react-hono` (React with Hono)                        |
 | `deploymentOf(...)`, `Deployment`, `DeploymentOptions`, `Value` | Each app's Coolify variables, as `robkit deploy` sets them                                     |
 
-`src/choices.ts` lists the stacks. A new stack is one entry there plus its folder in `templates/stacks/<name>`. `templates/base` is the install itself.
-
 ## What it must never do
 
 - Ask for more than the folder and the example's stack. Every install has the same tooling ([ADR 0009](../../docs/adr/0009-one-opinionated-stack.md)).
 - Touch the network at init. The UI kit is committed shadcn output, which `pnpm --filter create-robkit shadcn-kit` regenerates.
 - Do more than write files in `robkit add`. The next `pnpm dev` provisions and starts the app.
 - Lint or typecheck the templates as robkit's own code. They are an install's files, and the whole-stack test checks them in a generated install.
+
+## For contributors
+
+### Init
+
+- Every install gets the same tooling: pnpm, Drizzle, shadcn on Base UI, ESLint with Prettier, Husky with lint-staged, and Vitest.
+- Init asks only for the folder and the example app's stack. It ends by printing the flags that make the same install: `--stack`, and `--install` and `--link` when it was given them.
+- `init` in `src/init.ts` is the one operation from choices to a finished install: generate, write, then with `install` initialise git and install dependencies, in that order, so Husky's postinstall finds the repository. The command line and the whole-stack test both call it.
+- The generator reads `base` in memory, mounts the example's stack at `apps/example`, writes the catalog from robkit's own, covering every stack, and records the example's stack in `robkit.json`.
+- Every install of one robkit version has the same `packages/ui`, `packages/theme`, `packages/core-client` and catalog.
+
+### The templates
+
+- `src/choices.ts` lists the stacks: the ready ones, then the ones coming later, which the wizard shows but can't pick. A new stack is one entry there plus its folder, `templates/stacks/<name>`. Every install offers every ready stack.
+- `templates/base` is the install itself: core, Compose, turbo, the hub and admin, `packages/core-client`, `packages/theme`, `packages/ui`, the ESLint, Prettier, lint-staged and Husky config, the Dockerfile, the CI workflow and the install's root `AGENTS.md`.
+- `templates/stacks/<name>` is one app, with its Drizzle schema, migrations and `migrate` script, and its own `AGENTS.md`.
+- The templates are an install's own files: the install lints and tests them, so robkit's ESLint and TypeScript skip them.
+- The Dockerfile builds an app in a turbo-pruned workspace, then deletes every `node_modules` and installs only that app's production dependencies, and runs it on the Node image without npm, Yarn or Corepack. So an app's `dependencies` are what its server imports, and what Vite bundles is a dev dependency: the hub's and admin's React, theme and UI kit.
+- The hub and admin call core only through `callCore` from the install's `packages/core-client`, whose `fakeCore` their tests answer from.
+
+### The robkit command
+
+The package's second command, `robkit`, runs in an install, which takes create-robkit as a dev dependency.
+
+- `robkit check` is the install's layer rule, and the install's `lint` script runs it.
+- `pnpm robkit add` adds an app. `addApp` in `src/add.ts` writes `apps/<slug>` on any ready stack, through the same `appFiles` the generator mounts the example with, or from the install's own `robkit/templates/<stack>` folder, which replaces robkit's template whole. It writes files only. The generator catalogs every stack's dependencies, so an added app needs no new versions.
+- `robkit vendor` packs the packages a linked install uses into its `vendor/robkit`, so it builds without the checkout until the packages are on npm.
+- `robkit database-urls` prints each app's production `DATABASE_URL`.
+- `robkit deploy` deploys the install to Coolify (`src/coolify.ts`, with `deploymentOf` in `src/deployment.ts` working out each app's variables).
+
+### The UI kit
+
+- The UI kit is shadcn on Base UI, in the install's `packages/ui`. It is shadcn's own output, committed rather than run at init, so init needs no network and its output is stable.
+- `pnpm --filter create-robkit shadcn-kit` regenerates it with the cataloged shadcn CLI and checks the dependencies shadcn adds are cataloged.
+- `packages/theme/theme.css` holds the install's tokens, shadcn's variables, and only it sets them. The hub and admin draw with Tailwind classes named after them.
+- The hub's and admin's screens draw every control through their app's `ui.tsx`, which draws with `packages/ui`.
+- Every app draws with the kit too, the example and each one `robkit add` makes.
