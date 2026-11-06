@@ -20,9 +20,15 @@ _Avoid_: user, member
 One robkit deployment: a domain, one Postgres, core, the hub, admin and the owner's apps.
 _Avoid_: instance, deployment
 
+**Domain**:
+The name an **Install** answers on, such as `robkit.dev`. Each app is on `<slug>.<domain>`. In code it is `Domain`, which only `readDomain` makes.
+
 **Core**:
 The Hono backend, sole owner of the core tables and the signing key.
 _Avoid_: backend, auth server
+
+**Core's origin**:
+Where core answers, such as `https://core.robkit.dev`: core's host on the install's **Domain**, with no path. In code it is `CoreOrigin`, which only `readCoreUrl` makes.
 
 **Hub**:
 The React frontend for login and the launcher.
