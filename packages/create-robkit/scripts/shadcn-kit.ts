@@ -6,7 +6,6 @@
 //
 // It also rewrites the install's theme tokens from the CLI's, which the hub,
 // admin and every app read.
-import { spawnSync } from "node:child_process";
 import {
   mkdir,
   mkdtemp,
@@ -18,7 +17,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { runCommand } from "@robkit/dev/cli";
+import { CommandProblem, exec, runCommand } from "@robkit/dev/cli";
 import { format } from "prettier";
 import { jsonObject, stringsIn } from "../src/json.ts";
 import { readRobkitRepo } from "../src/robkit-repo.ts";
@@ -44,20 +43,23 @@ const { catalog } = await readRobkitRepo();
 
 function version(name: string): string {
   const pinned = catalog.get(name);
-  if (pinned === undefined)
-    throw new Error(`${name} isn't in robkit's catalog`);
+  if (pinned === undefined) {
+    throw new CommandProblem(
+      `${name} isn't in the catalog in robkit's pnpm-workspace.yaml. Add it there, then run shadcn-kit again.`,
+    );
+  }
   return pinned;
 }
 
-function shadcn(cwd: string, args: string[]): void {
-  const command = ["npx", "--yes", `shadcn@${version("shadcn")}`, ...args];
-  // npx is a .cmd on Windows, which only a shell runs. The arguments are
-  // this script's own words, so joining them is safe.
-  const result =
-    process.platform === "win32"
-      ? spawnSync(command.join(" "), { cwd, stdio: "inherit", shell: true })
-      : spawnSync("npx", command.slice(1), { cwd, stdio: "inherit" });
-  if (result.status !== 0) throw new Error(`shadcn ${args.join(" ")} failed`);
+/**
+ * Runs shadcn's CLI in `cwd`. If it fails, the CommandProblem names the
+ * command, the folder and its exit code.
+ */
+async function shadcn(cwd: string, args: string[]): Promise<void> {
+  await exec("npx", ["--yes", `shadcn@${version("shadcn")}`, ...args], {
+    cwd,
+    env: process.env,
+  });
 }
 
 async function formatted(text: string, filepath: string): Promise<string> {
@@ -99,16 +101,24 @@ async function scratchProject(): Promise<string> {
 /** shadcn's @/ imports, as the install's packages/ui names itself. */
 function selfImports(text: string, file: string): string {
   const rewritten = text.replaceAll('"@/', '"@internal/ui/');
-  if (rewritten.includes("@/")) throw new Error(`${file} imports through @/`);
+  if (rewritten.includes("@/")) {
+    throw new CommandProblem(
+      `shadcn's ${file} imports through @/ in a way shadcn-kit can't rewrite. Extend selfImports in scripts/shadcn-kit.ts to cover it.`,
+    );
+  }
   return rewritten;
 }
 
 process.exitCode = await runCommand(async () => {
-  if (process.argv.length > 2) throw new Error("Usage: shadcn-kit");
+  if (process.argv.length > 2) {
+    throw new CommandProblem(
+      "shadcn-kit takes no arguments. Run it as: pnpm --filter create-robkit shadcn-kit",
+    );
+  }
 
   const dir = await scratchProject();
   try {
-    shadcn(dir, [
+    await shadcn(dir, [
       "init",
       "--base",
       "base",
@@ -117,7 +127,7 @@ process.exitCode = await runCommand(async () => {
       "--no-monorepo",
       "--no-rtl",
     ]);
-    shadcn(dir, ["add", "--yes", ...components]);
+    await shadcn(dir, ["add", "--yes", ...components]);
 
     // The components, as the install's packages/ui holds them.
     const generated = join(dir, "src", "components", "ui");
@@ -190,8 +200,8 @@ process.exitCode = await runCommand(async () => {
       (name) => !(name in kitDependencies) || !catalog.has(name),
     );
     if (missing.length > 0) {
-      throw new Error(
-        `Add these to packages/ui/package.json and robkit's catalog: ${missing.join(", ")}`,
+      throw new CommandProblem(
+        `shadcn added dependencies the kit doesn't list: ${missing.join(", ")}. Add each to packages/ui/package.json and to the catalog in robkit's pnpm-workspace.yaml, then run shadcn-kit again.`,
       );
     }
   } finally {
