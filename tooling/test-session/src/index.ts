@@ -8,7 +8,13 @@ import { expect, onTestFinished } from "vitest";
 import { aViewer } from "./brands.ts";
 import { listeningPort } from "./known.ts";
 
-export { aCodeId, aRoleId, aViewer, type ViewerOptions } from "./brands.ts";
+export {
+  aCodeId,
+  aRoleId,
+  aViewer,
+  slug,
+  type ViewerOptions,
+} from "./brands.ts";
 
 // Written out rather than imported from @robkit/session, whose own tests use
 // this package. If session's cookie, lifetime, callback or word that nobody

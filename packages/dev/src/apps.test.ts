@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { catalogOf, discoverApps, readAppManifest, routesFor } from "./apps.ts";
-import { slug } from "@internal/test-addresses";
+import { slug } from "@internal/test-session";
 
 async function installWith(
   apps: Record<string, Record<string, string> | null>,

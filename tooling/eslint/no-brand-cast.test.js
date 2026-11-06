@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import rule from "./no-brand-cast.js";
 
 const message =
-  "Only a reader makes a branded value. Call the reader, or in a test a builder from @internal/test-session or @internal/test-addresses, rather than casting.";
+  "Only a reader makes a branded value. Call the reader, or in a test a builder from @internal/test-session, rather than casting.";
 
 const brands = [
   "declare const roleIdBrand: unique symbol;",

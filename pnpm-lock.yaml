@@ -156,9 +156,6 @@ importers:
       '@internal/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint
-      '@internal/test-addresses':
-        specifier: workspace:*
-        version: link:../../tooling/test-addresses
       '@internal/test-postgres':
         specifier: workspace:*
         version: link:../../tooling/test-postgres
@@ -217,9 +214,9 @@ importers:
       '@internal/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint
-      '@internal/test-addresses':
+      '@internal/test-session':
         specifier: workspace:*
-        version: link:../../tooling/test-addresses
+        version: link:../../tooling/test-session
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
@@ -257,12 +254,12 @@ importers:
       '@internal/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint
-      '@internal/test-addresses':
-        specifier: workspace:*
-        version: link:../../tooling/test-addresses
       '@internal/test-postgres':
         specifier: workspace:*
         version: link:../../tooling/test-postgres
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../../tooling/test-session
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
@@ -328,9 +325,6 @@ importers:
       '@internal/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint
-      '@internal/test-addresses':
-        specifier: workspace:*
-        version: link:../../tooling/test-addresses
       '@internal/test-session':
         specifier: workspace:*
         version: link:../../tooling/test-session
@@ -469,9 +463,6 @@ importers:
       '@internal/eslint-config':
         specifier: workspace:*
         version: link:../../tooling/eslint
-      '@internal/test-addresses':
-        specifier: workspace:*
-        version: link:../../tooling/test-addresses
       '@internal/test-session':
         specifier: workspace:*
         version: link:../../tooling/test-session
@@ -517,12 +508,12 @@ importers:
       '@internal/eslint-config':
         specifier: workspace:*
         version: link:../eslint
-      '@internal/test-addresses':
-        specifier: workspace:*
-        version: link:../test-addresses
       '@internal/test-postgres':
         specifier: workspace:*
         version: link:../test-postgres
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../test-session
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../typescript
@@ -668,36 +659,6 @@ importers:
       yaml:
         specifier: 'catalog:'
         version: 2.9.1
-
-  tooling/test-addresses:
-    devDependencies:
-      '@internal/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint
-      '@internal/tsconfig':
-        specifier: workspace:*
-        version: link:../typescript
-      '@robkit/input':
-        specifier: workspace:*
-        version: link:../../packages/input
-      '@types/node':
-        specifier: 'catalog:'
-        version: 26.6.5
-      '@vitest/coverage-v8':
-        specifier: 'catalog:'
-        version: 5.0.5(vitest@5.0.5)
-      eslint:
-        specifier: 'catalog:'
-        version: 10.13.0(jiti@2.7.0)
-      typescript:
-        specifier: 'catalog:'
-        version: 6.0.3
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   tooling/test-postgres:
     devDependencies:

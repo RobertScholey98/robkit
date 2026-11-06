@@ -1,6 +1,20 @@
 import { readCodeId, readRoleId } from "@robkit/guard";
+import { readSlug } from "@robkit/input";
 import { describe, expect, it } from "vitest";
-import { aCodeId, aRoleId, aViewer } from "./brands.ts";
+import { aCodeId, aRoleId, aViewer, slug } from "./brands.ts";
+
+describe("slug", () => {
+  it("builds the slug the reader reads", () => {
+    expect(slug("notes")).toBe(readSlug("notes"));
+    expect(slug("hub")).toBe("hub");
+  });
+
+  it("throws for a name that isn't a slug", () => {
+    expect(() => slug("Notes")).toThrow(
+      `"Notes" can't be an app's slug, which is also its subdomain and database role.`,
+    );
+  });
+});
 
 describe("aCodeId", () => {
   it("builds the code id the guard reads", () => {

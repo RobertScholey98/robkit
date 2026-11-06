@@ -1,7 +1,7 @@
 import { generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { describe, expect, it } from "vitest";
 import { readAppToken, readSessionToken, sessionTokensIn } from "./index.ts";
-import { slug } from "./test/slug.ts";
+import { slug } from "@internal/test-session";
 
 const notes = slug("notes");
 

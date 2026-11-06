@@ -4,12 +4,12 @@ import {
   fakeCore,
   owner,
   stateIn,
+  slug,
 } from "@internal/test-session";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { guarded, type GuardedEnv } from "./index.ts";
-import { slug } from "@internal/test-addresses";
 
 const example = slug("example");
 

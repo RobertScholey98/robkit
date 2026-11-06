@@ -5,10 +5,15 @@ import {
   type RoleId,
   type Viewer,
 } from "@robkit/guard";
-import { orThrow } from "@robkit/input";
+import { orThrow, readSlug, type Slug } from "@robkit/input";
 
-// A test builds a branded value as the code does, with the guard's reader.
+// A test builds a branded value as the code does, with its reader.
 // robkit/no-brand-cast refuses a cast to one, tests included.
+
+/** `name` as an app's slug. Throws the reader's problem if it isn't one. */
+export function slug(name: string): Slug {
+  return orThrow(readSlug(name));
+}
 
 /** `id` as a code id. Throws the guard's problem if it isn't one. */
 export function aCodeId(id = "code-1"): CodeId {

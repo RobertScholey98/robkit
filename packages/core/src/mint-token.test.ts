@@ -1,5 +1,4 @@
-import { slug } from "@internal/test-addresses";
-import { aCodeId, aRoleId } from "@internal/test-session";
+import { aCodeId, aRoleId, slug } from "@internal/test-session";
 import type { SignedInViewer } from "@robkit/guard";
 import { readAppToken, readSessionToken } from "@robkit/session";
 import { exportJWK, generateKeyPair } from "jose";

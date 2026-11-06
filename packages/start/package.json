@@ -38,7 +38,6 @@
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
-    "@internal/test-addresses": "workspace:*",
     "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@robkit/input": "workspace:*",

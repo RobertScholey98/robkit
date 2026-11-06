@@ -37,19 +37,11 @@ export const packageGraph = {
   // Adapters take session and guard, never core.
   "@robkit/hono": {
     dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: [
-      "@internal/test-addresses",
-      "@internal/test-session",
-      "@robkit/input",
-    ],
+    devDependencies: ["@internal/test-session", "@robkit/input"],
   },
   "@robkit/start": {
     dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: [
-      "@internal/test-addresses",
-      "@internal/test-session",
-      "@robkit/input",
-    ],
+    devDependencies: ["@internal/test-session", "@robkit/input"],
   },
   "@robkit/react": {
     dependencies: ["@robkit/session"],
@@ -59,7 +51,6 @@ export const packageGraph = {
   "@robkit/core": {
     dependencies: ["@robkit/guard", "@robkit/input", "@robkit/session"],
     devDependencies: [
-      "@internal/test-addresses",
       "@internal/test-postgres",
       "@internal/test-session",
       "@robkit/dev",
@@ -67,11 +58,11 @@ export const packageGraph = {
   },
   "@robkit/dev": {
     dependencies: ["@robkit/input", "@robkit/session"],
-    devDependencies: ["@internal/test-addresses", "@internal/test-postgres"],
+    devDependencies: ["@internal/test-postgres", "@internal/test-session"],
   },
   "create-robkit": {
     dependencies: ["@robkit/dev", "@robkit/input", "@robkit/session"],
-    devDependencies: ["@internal/test-addresses"],
+    devDependencies: ["@internal/test-session"],
   },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
   "@internal/tsconfig": { dependencies: [], devDependencies: [] },
@@ -79,12 +70,6 @@ export const packageGraph = {
   "@internal/test-session": {
     dependencies: [],
     devDependencies: ["@robkit/guard", "@robkit/input"],
-  },
-  // Builds session's checked addresses for the tests above session. Not in
-  // test-session, which session's own tests use.
-  "@internal/test-addresses": {
-    dependencies: [],
-    devDependencies: ["@robkit/input"],
   },
   // Packs and checks every published package.
   "@internal/repo-checks": {
@@ -105,8 +90,8 @@ export const packageGraph = {
   "@internal/e2e": {
     dependencies: [],
     devDependencies: [
-      "@internal/test-addresses",
       "@internal/test-postgres",
+      "@internal/test-session",
       "@robkit/dev",
       "@robkit/input",
       "@robkit/session",

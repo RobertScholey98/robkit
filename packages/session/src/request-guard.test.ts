@@ -10,6 +10,7 @@ import {
   signingKey,
   stateIn,
   type FakeCore,
+  slug,
 } from "@internal/test-session";
 import type { AccessRule } from "@robkit/guard";
 import type { CoreOrigin } from "@robkit/input";
@@ -18,7 +19,6 @@ import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { requestGuard, type GuardedOptions, type GuardFault } from "./index.ts";
 import { readSessionLapsed } from "./lapsed.ts";
 import { coreOrigin } from "./test/core-origin.ts";
-import { slug } from "./test/slug.ts";
 
 const example = slug("example");
 

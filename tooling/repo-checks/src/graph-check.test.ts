@@ -314,7 +314,6 @@ describe("the robkit workspace", () => {
       "@robkit/start -> @robkit/core",
       "@internal/e2e -> @robkit/core",
       "@internal/eslint-config -> @robkit/core",
-      "@internal/test-addresses -> @robkit/core",
       "@internal/test-postgres -> @robkit/core",
       "@internal/test-session -> @robkit/core",
       "@internal/tsconfig -> @robkit/core",

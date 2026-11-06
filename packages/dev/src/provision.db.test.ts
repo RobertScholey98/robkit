@@ -11,7 +11,7 @@ import {
   provisionDatabase,
   provisionDatabases,
 } from "./provision.ts";
-import { slug } from "@internal/test-addresses";
+import { slug } from "@internal/test-session";
 
 const adminUrl = inject("adminUrl");
 const clients: postgres.Sql[] = [];
