@@ -166,7 +166,9 @@ export async function mintCode(
     const row = await insert(generateAccessCode());
     if (row) return { outcome: "minted", code: viewOf(row, now, domain) };
   }
-  throw new Error("Core couldn't find a free access code.");
+  throw new Error(
+    `Core couldn't find a free access code in ${String(generateAttempts)} attempts: each code it generated was already in core.access_codes.`,
+  );
 }
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

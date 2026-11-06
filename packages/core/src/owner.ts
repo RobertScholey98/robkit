@@ -68,7 +68,11 @@ export async function claimInstall(
         .insert(owner)
         .values({ username, passwordHash, createdAt: ctx.now() })
         .returning({ id: owner.id, username: owner.username });
-      if (!created) throw new Error("Core couldn't store the owner.");
+      if (!created) {
+        throw new Error(
+          `Core couldn't store the owner ${username}: the insert into core.owner returned no row.`,
+        );
+      }
       return {
         outcome: "claimed",
         ...(await startSession(ctx, tx, {

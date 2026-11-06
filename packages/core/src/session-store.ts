@@ -114,7 +114,11 @@ export async function startSession(
       expiresAt: new Date(now.getTime() + sessionLifetimeSeconds * 1000),
     })
     .returning({ id: sessions.id });
-  if (!session) throw new Error("Core couldn't store the session.");
+  if (!session) {
+    throw new Error(
+      `Core couldn't store a session for ${profile.kind} ${profile.id}: the insert into core.sessions returned no row.`,
+    );
+  }
   return {
     profile,
     sessionToken: await mintSessionToken(
