@@ -37,7 +37,7 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 - `docs/adr/`: one short record per settled decision, each linking the ticket that made it.
 - `docs/conventions/input.md`: how robkit reads a value from outside its own code.
 - `docs/conventions/errors.md`: expected failures, unexpected faults, and what a boundary does with each.
-- `packages/<name>/README.md`: each package's purpose, example, exports and layer rule, and for core, create-robkit, dev, guard and session, a "For contributors" section on its code.
+- `packages/<name>/README.md`: each package's purpose, example, exports and layer rule, and for core, create-robkit, dev, guard and session, a "For contributors" section on its code. create-robkit's says how to change a template.
 - `SECURITY.md`: reporting a vulnerability, and the trust model.
 
 ## The layer rule

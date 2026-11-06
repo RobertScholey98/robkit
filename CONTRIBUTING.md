@@ -98,6 +98,10 @@ When a check refuses your change, its message says what to do. For more:
 - [tooling/eslint/README.md](tooling/eslint/README.md): each lint rule, its message and what to do about it, and how to add a layer rule row or a package graph edge.
 - [tooling/repo-checks/README.md](tooling/repo-checks/README.md): each repo check and CI script, what it fails on, how to fix it, and where an exception goes.
 
+## Change a template
+
+The hub, admin, core-client and the example apps aren't packages in this repo. They are template files that create-robkit copies into each install, under `packages/create-robkit/templates/`. [create-robkit's README](packages/create-robkit/README.md#change-a-template) walks through changing one and checking it.
+
 ## How work is organised
 
 ### Planning
