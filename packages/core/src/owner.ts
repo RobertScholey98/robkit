@@ -1,5 +1,6 @@
 import { type InputProblem, isProblem } from "@robkit/input";
 import { hashPassword } from "./password.ts";
+import { storedRow } from "./database.ts";
 import { owner } from "./schema.ts";
 import {
   startSession,
@@ -64,15 +65,15 @@ export async function claimInstall(
   const passwordHash = await hashPassword(password);
   try {
     return await ctx.db.transaction(async (tx) => {
-      const [created] = await tx
+      const [inserted] = await tx
         .insert(owner)
         .values({ username, passwordHash, createdAt: ctx.now() })
         .returning({ id: owner.id, username: owner.username });
-      if (!created) {
-        throw new Error(
-          `Core couldn't store the owner ${username}: the insert into core.owner returned no row.`,
-        );
-      }
+      const created = storedRow(
+        inserted,
+        `the owner ${username}`,
+        "core.owner",
+      );
       return {
         outcome: "claimed",
         ...(await startSession(ctx, tx, {

@@ -7,7 +7,7 @@ import {
   type CryptoKey,
   type JWK,
 } from "jose";
-import type { Database } from "./database.ts";
+import { storedRow, type Database } from "./database.ts";
 import { signingKeys } from "./schema.ts";
 
 /** Stored EdDSA key `kid`, ready to sign or verify with. */
@@ -52,7 +52,7 @@ export async function ensureSigningKey(db: Database): Promise<SigningKey> {
     });
     const publicJwk = await exportJWK(pair.publicKey);
     const kid = await calculateJwkThumbprint(publicJwk);
-    const [created] = await tx
+    const [inserted] = await tx
       .insert(signingKeys)
       .values({
         kid,
@@ -60,12 +60,11 @@ export async function ensureSigningKey(db: Database): Promise<SigningKey> {
         publicJwk,
       })
       .returning();
-    if (!created) {
-      throw new Error(
-        `Core couldn't store its new signing key ${kid}: the insert into core.signing_keys returned no row.`,
-      );
-    }
-    return created;
+    return storedRow(
+      inserted,
+      `its new signing key ${kid}`,
+      "core.signing_keys",
+    );
   });
 
   return {
