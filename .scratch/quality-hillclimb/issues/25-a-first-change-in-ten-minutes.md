@@ -32,3 +32,10 @@ Raises rubric category 10 (nice to work in as a human). Evidence: `../research/c
 - [ ] A template preview loop exists and is documented
 - [ ] The other tickets' doc edits are applied, and the timing table is measured again
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From the round 4 integration
+
+- `docs/conventions/errors.md`: an install's core-client no longer has its own `Report`. It and the hub take `Report` and `reportToConsole` from `@robkit/input/report`. Line 81's "core-client's `reportToConsole`" and line 102's last sentence ("so it has its own `Report` and `reportToConsole` of the same shape") are out of date. This ticket's scope leaves out `docs/conventions/*`, but ticket 26's list of doc edits names that file too, so take it with them.
+- `packages/create-robkit/README.md`: `generate.test.ts` also checks that an install's `tooling/eslint` is robkit's `policy.js` and what it imports, copied whole.
