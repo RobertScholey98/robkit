@@ -1,6 +1,6 @@
 import { isProblem } from "@robkit/session/input";
 import { describe, expect, it } from "vitest";
-import { readDeclaredApps } from "./apps.ts";
+import { readAccess, readDeclaredApps } from "./apps.ts";
 
 describe("readDeclaredApps", () => {
   it("reads nothing from an unset or empty ROBKIT_APPS", () => {
@@ -63,5 +63,30 @@ describe("readDeclaredApps", () => {
   ])("refuses %s", (text, message) => {
     const read = readDeclaredApps({ ROBKIT_APPS: text });
     expect(isProblem(read) && read.error).toMatch(message);
+  });
+});
+
+describe("readAccess", () => {
+  it.each([
+    { kind: "open" },
+    { kind: "owner" },
+    { kind: "roles", roles: ["role-family", "role-friends"] },
+  ])("reads %j", (fields) => {
+    expect(readAccess(fields)).toEqual(fields);
+  });
+
+  it("refuses a roles rule that names no role", () => {
+    expect(readAccess({ kind: "roles", roles: [] })).toEqual({
+      error: "Pick at least one role.",
+    });
+  });
+
+  it.each([
+    [{}, "Pick open, roles or owner."],
+    [{ kind: "everyone" }, "Pick open, roles or owner."],
+    [{ kind: "roles" }, "Pick at least one role."],
+    [{ kind: "roles", roles: [""] }, "Pick at least one role."],
+  ])("refuses %j", (fields, error) => {
+    expect(readAccess(fields)).toEqual({ error });
   });
 });
