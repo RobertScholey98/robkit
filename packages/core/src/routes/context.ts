@@ -9,7 +9,7 @@ import {
   sessionLifetimeSeconds,
   type SessionContext,
   type SessionRead,
-} from "../sessions.ts";
+} from "../session-store.ts";
 
 /** What each routes module takes from `createApp`. */
 export interface RouteContext extends SessionContext {

@@ -13,7 +13,7 @@ import {
   signInWithCode,
   signOut,
   type SessionAnswer,
-} from "../sessions.ts";
+} from "../session-store.ts";
 import {
   fieldsOf,
   readBody,

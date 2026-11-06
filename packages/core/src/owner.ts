@@ -5,7 +5,7 @@ import {
   startSession,
   type SessionContext,
   type SignedIn,
-} from "./sessions.ts";
+} from "./session-store.ts";
 
 /** The username, trimmed, and password someone sent to sign in as the owner. */
 export interface Credentials {
