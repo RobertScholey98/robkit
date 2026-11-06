@@ -1,9 +1,54 @@
+declare const roleIdBrand: unique symbol;
+declare const codeIdBrand: unique symbol;
+
+/**
+ * A role's id, as core stores it. Only a reader makes one: `readRoleId`,
+ * `readAccessRule`, and core's, which check it more closely.
+ */
+export type RoleId = string & { readonly [roleIdBrand]: true };
+
+/**
+ * An access code's id, which names a guest. Apps see it, never the code
+ * itself. Only a reader makes one: `readCodeId`, and core's.
+ */
+export type CodeId = string & { readonly [codeIdBrand]: true };
+
+function isRoleId(value: unknown): value is RoleId {
+  return typeof value === "string" && value !== "";
+}
+
+function isCodeId(value: unknown): value is CodeId {
+  return typeof value === "string" && value !== "";
+}
+
+/** `value` as a role id, if it is a string that isn't empty. */
+export function readRoleId(value: unknown): RoleId | undefined {
+  return isRoleId(value) ? value : undefined;
+}
+
+/** `value` as a code id, if it is a string that isn't empty. */
+export function readCodeId(value: unknown): CodeId | undefined {
+  return isCodeId(value) ? value : undefined;
+}
+
+/** `value` as a list of role ids, or undefined if it isn't one. */
+export function readRoleIds(value: unknown): RoleId[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const roles: RoleId[] = [];
+  for (const item of value) {
+    const role = readRoleId(item);
+    if (role === undefined) return undefined;
+    roles.push(role);
+  }
+  return roles;
+}
+
 /**
  * Who may open an app: anyone, guests holding one of some roles (by id),
  * or only the owner. The owner may open every app.
  */
 export type AccessRule =
-  { kind: "open" } | { kind: "roles"; roles: string[] } | { kind: "owner" };
+  { kind: "open" } | { kind: "roles"; roles: RoleId[] } | { kind: "owner" };
 
 /** The owner, with a live session. */
 export interface OwnerViewer {
@@ -14,8 +59,8 @@ export interface OwnerViewer {
 /** A guest with a live session, by their code's id, and their roles' ids. */
 export interface GuestViewer {
   kind: "guest";
-  id: string;
-  roles: string[];
+  id: CodeId;
+  roles: RoleId[];
 }
 
 /** Someone with a live session. */
@@ -43,9 +88,9 @@ export type Decision =
 
 type Outcome = Decision["outcome"];
 
-/** Who is asking, as far as the rule cares. A member holds one of its roles. */
+/** Who is asking, as far as the rule cares. A guest in the rule holds one of its roles. */
 type Asking =
-  "unknown" | "signed-out" | "expired" | "owner" | "guest" | "member";
+  "unknown" | "signed-out" | "expired" | "owner" | "guest" | "guest-in-rule";
 
 const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
   open: {
@@ -54,7 +99,7 @@ const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
     expired: "refresh",
     owner: "allow",
     guest: "allow",
-    member: "allow",
+    "guest-in-rule": "allow",
   },
   roles: {
     unknown: "refresh",
@@ -62,7 +107,7 @@ const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
     expired: "refresh",
     owner: "allow",
     guest: "not-found",
-    member: "allow",
+    "guest-in-rule": "allow",
   },
   owner: {
     unknown: "refresh",
@@ -70,7 +115,7 @@ const outcomes: Record<AccessRule["kind"], Record<Asking, Outcome>> = {
     expired: "refresh",
     owner: "allow",
     guest: "not-found",
-    member: "not-found",
+    "guest-in-rule": "not-found",
   },
 };
 
@@ -78,10 +123,10 @@ function askingOf(rule: AccessRule, session: SessionState): Asking {
   if (session.state !== "signed-in") return session.state;
   const { viewer } = session;
   if (viewer.kind === "owner") return "owner";
-  const isMember =
+  const inRule =
     rule.kind === "roles" &&
     rule.roles.some((role) => viewer.roles.includes(role));
-  return isMember ? "member" : "guest";
+  return inRule ? "guest-in-rule" : "guest";
 }
 
 /** Decides what an app does with a request, from its rule and the session. */
@@ -100,7 +145,6 @@ export function readAccessRule(value: unknown): AccessRule | undefined {
   const kind = "kind" in value ? value.kind : undefined;
   const roles = "roles" in value ? value.roles : undefined;
   if (kind === "open" || kind === "owner") return { kind };
-  const isRoleList =
-    Array.isArray(roles) && roles.every((role) => typeof role === "string");
-  return kind === "roles" && isRoleList ? { kind, roles } : undefined;
+  const roleIds = readRoleIds(roles);
+  return kind === "roles" && roleIds ? { kind, roles: roleIds } : undefined;
 }

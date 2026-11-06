@@ -13,12 +13,12 @@ export interface Guest {
   name: string;
 }
 
-export type Viewer = Owner | Guest;
+export type Profile = Owner | Guest;
 
 export type Session =
   | { state: "unclaimed" }
   | { state: "signed-out" }
-  | { state: "signed-in"; viewer: Viewer };
+  | { state: "signed-in"; viewer: Profile };
 
 export interface Credentials {
   username: string;

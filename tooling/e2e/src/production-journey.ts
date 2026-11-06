@@ -3,7 +3,7 @@ import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
 import type { Browser, Page } from "playwright";
 import { launch as launchChromium } from "./browser.ts";
-import type { Install } from "@robkit/session/addresses";
+import type { Install, Slug } from "@robkit/session/addresses";
 
 const run = promisify(execFile);
 
@@ -70,7 +70,7 @@ export interface OwnerSetUp {
  */
 export async function ownerSetsUp(
   install: Install,
-  slug: string,
+  slug: Slug,
 ): Promise<OwnerSetUp> {
   const browser = await launch();
   try {
@@ -122,7 +122,7 @@ export interface GuestVisit {
 export async function guestOpens(
   install: Install,
   code: string,
-  slug: string,
+  slug: Slug,
 ): Promise<GuestVisit> {
   const browser = await launch();
   try {

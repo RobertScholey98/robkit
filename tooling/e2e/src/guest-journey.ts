@@ -1,3 +1,4 @@
+import type { Slug } from "@robkit/session/addresses";
 import type { Browser, Page } from "playwright";
 import { launch } from "./browser.ts";
 import {
@@ -6,6 +7,7 @@ import {
   sessionCookieFor,
   type JourneyOptions,
 } from "./owner-journey.ts";
+import { exampleSlug } from "./install.ts";
 
 /** How an app answered a page load. */
 export interface Answer {
@@ -62,7 +64,7 @@ export async function guestJourney({
   username,
   password,
 }: JourneyOptions): Promise<GuestJourney> {
-  const at = (slug: string, path = "/") => `${install.origin(slug)}${path}`;
+  const at = (slug: Slug, path = "/") => `${install.origin(slug)}${path}`;
   const browser = await launch();
   try {
     const owner = await freshPage(browser);
@@ -83,7 +85,7 @@ export async function guestJourney({
     const introGreeting = await signedInAs(guest);
     const introLandedAt = guest.url();
     const admin = await openAs(guest, at("admin"));
-    const example = await openAs(guest, at("example"));
+    const example = await openAs(guest, at(exampleSlug));
 
     const tester = await freshPage(browser);
     await tester.goto(at("hub"));
@@ -95,12 +97,12 @@ export async function guestJourney({
     const revokedStanding = await row.getByText("Revoked").textContent();
 
     const context = guest.context();
-    const cookie = await sessionCookieFor(context, at("example"));
+    const cookie = await sessionCookieFor(context, at(exampleSlug));
     await context.addCookies([
       { ...cookie, value: await expiredTwin(cookie.value, adminUrl) },
     ]);
     const bounce = mainFrameRequests(guest);
-    await guest.goto(at("example"));
+    await guest.goto(at(exampleSlug));
     await guest.getByLabel("Access code").waitFor();
 
     return {

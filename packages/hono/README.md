@@ -10,18 +10,18 @@ From the React with Hono template (`templates/stacks/react-hono/src/server.tsx`)
 
 ```ts
 import { guarded, type GuardedEnv } from "@robkit/hono";
+import { isProblem } from "@robkit/session/input";
+import { readGuardEnv } from "@robkit/session/app-env";
 import { Hono } from "hono";
-
-function env(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
 
 const app = new Hono<GuardedEnv>();
 
+// The app's slug and core's address, which pnpm dev and robkit deploy set.
+const guard = readGuardEnv(process.env);
+if (isProblem(guard)) throw new Error(guard.error);
+
 // The rule is the one the owner set for this app in admin.
-app.use(guarded({ app: env("ROBKIT_APP"), core: env("ROBKIT_CORE_URL") }));
+app.use(guarded(guard));
 
 app.get("/", (c) => {
   const { viewer } = c.var;
@@ -32,6 +32,16 @@ app.get("/", (c) => {
 Admin fixes its rule instead of asking core (`templates/base/apps/admin/src/server.ts`):
 
 ```ts
+import { guarded } from "@robkit/hono";
+import { isProblem, readCoreUrl } from "@robkit/session/input";
+import { Hono } from "hono";
+
+const core = readCoreUrl(process.env);
+if (isProblem(core)) throw new Error(core.error);
+
+const app = new Hono();
+
+// Only the owner may open admin, whatever core's catalog says.
 app.use(guarded({ app: "admin", access: { kind: "owner" }, core }));
 ```
 

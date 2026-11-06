@@ -3,8 +3,8 @@ import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { parseArgs, promisify } from "node:util";
-import { Problem, runCommand } from "@robkit/dev";
+import { promisify } from "node:util";
+import { CommandProblem, runCommand } from "@robkit/dev/cli";
 import {
   defaultDevPort,
   defaultDomain,
@@ -13,14 +13,15 @@ import {
 } from "@robkit/session/addresses";
 import { isProblem, parseJson, type InputProblem } from "@robkit/session/input";
 import { addApp, readInstallChoices } from "./add.ts";
+import { readArgs } from "./args.ts";
 import {
   addCommandFor,
   addUsage,
   appChoicesFromFlags,
   askAdd,
 } from "./add-wizard.ts";
-import { checkInstall, describeViolation } from "./check.ts";
-import { deploy, readCoolifyConfig } from "./coolify.ts";
+import { readCoolifyConfig } from "./coolify-config.ts";
+import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import {
   readAffectedApps,
@@ -73,19 +74,21 @@ process.exitCode = await runCommand(async () => {
 });
 
 async function check(): Promise<number> {
-  const { positionals } = parseArgs({ allowPositionals: true });
-  if (positionals.length > 1) throw new Problem(usage);
+  const { positionals } = readArgs({ allowPositionals: true }, usage);
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
+  // check.ts loads TypeScript, a third of a second, so only check loads it.
+  const { checkInstall, describeViolation } = await import("./check.ts");
   const violations = await checkInstall(root);
   for (const violation of violations) console.log(describeViolation(violation));
   return violations.length > 0 ? 1 : 0;
 }
 
 async function vendor(): Promise<undefined> {
-  const { positionals } = parseArgs({ allowPositionals: true });
-  if (positionals.length > 1) throw new Problem(usage);
+  const { positionals } = readArgs({ allowPositionals: true }, usage);
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
@@ -99,32 +102,35 @@ async function vendor(): Promise<undefined> {
 }
 
 async function printDatabaseUrls(): Promise<undefined> {
-  const { positionals } = parseArgs({ allowPositionals: true });
-  if (positionals.length > 1) throw new Problem(usage);
+  const { positionals } = readArgs({ allowPositionals: true }, usage);
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   await readInstallChoices(root);
   const config = readDatabaseUrlsConfig(process.env);
-  if (isProblem(config)) throw new Problem(config.error);
+  if (isProblem(config)) throw new CommandProblem(config.error);
   for (const [name, url] of await databaseUrls(root, config)) {
     console.log(`${name}=${url}`);
   }
 }
 
 async function deployInstall(): Promise<number | undefined> {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      all: { type: "boolean", default: false },
-      apps: { type: "string" },
-      "dry-run": { type: "boolean", default: false },
+  const { values, positionals } = readArgs(
+    {
+      allowPositionals: true,
+      options: {
+        all: { type: "boolean", default: false },
+        apps: { type: "string" },
+        "dry-run": { type: "boolean", default: false },
+      },
     },
-  });
-  if (positionals.length > 1) throw new Problem(usage);
+    usage,
+  );
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   await readInstallChoices(root);
   const dryRun = values["dry-run"];
   const coolify = dryRun ? undefined : readCoolify(process.env);
-  if (isProblem(coolify)) throw new Problem(coolify.error);
+  if (isProblem(coolify)) throw new CommandProblem(coolify.error);
   // An install's CI deploys from its first push, before Coolify is set up.
   if (!coolify && !dryRun) {
     console.log("COOLIFY_URL is not set, so nothing was deployed.");
@@ -132,13 +138,13 @@ async function deployInstall(): Promise<number | undefined> {
   }
   const configPath = join(root, "coolify.json");
   if (!existsSync(configPath)) {
-    throw new Problem(
+    throw new CommandProblem(
       "This install has no coolify.json. See docs/deploy.md to set one up.",
     );
   }
   const parsed = parseJson(await readFile(configPath, "utf8"), "coolify.json");
   const config = isProblem(parsed) ? parsed : readCoolifyConfig(parsed.json);
-  if (isProblem(config)) throw new Problem(config.error);
+  if (isProblem(config)) throw new CommandProblem(config.error);
   const deployments = await deploymentOf(root, {
     domain: config.domain,
     trustedProxy: config.trustedProxy,
@@ -160,7 +166,7 @@ async function deployInstall(): Promise<number | undefined> {
     : values.apps === undefined
       ? await affectedApps(root)
       : readAppList(values.apps);
-  if (isProblem(affected)) throw new Problem(affected.error);
+  if (isProblem(affected)) throw new CommandProblem(affected.error);
   const ok = await deploy({
     coolify,
     config,
@@ -181,17 +187,20 @@ async function affectedApps(root: string): Promise<Slug[] | InputProblem> {
 }
 
 async function add(): Promise<undefined> {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      stack: { type: "string" },
-      access: { type: "string" },
-      roles: { type: "string" },
-      icon: { type: "string" },
+  const { values, positionals } = readArgs(
+    {
+      allowPositionals: true,
+      options: {
+        stack: { type: "string" },
+        access: { type: "string" },
+        roles: { type: "string" },
+        icon: { type: "string" },
+      },
     },
-  });
+    usage,
+  );
   const [command, given, ...rest] = positionals;
-  if (command !== "add" || rest.length > 0) throw new Problem(usage);
+  if (command !== "add" || rest.length > 0) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
@@ -219,5 +228,5 @@ The same app without the questions:
 }
 
 function fail(message: string): never {
-  throw new Problem(message);
+  throw new CommandProblem(message);
 }

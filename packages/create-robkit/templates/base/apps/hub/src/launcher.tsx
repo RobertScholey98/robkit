@@ -1,6 +1,6 @@
 import type { Result } from "@internal/core-client";
 import { useEffect, useState } from "react";
-import { signOut, type Session, type Viewer } from "./core-api.ts";
+import { signOut, type Profile, type Session } from "./core-api.ts";
 import { appOrigin } from "./core-origin.ts";
 import { listLauncherApps, type LauncherApp } from "./launcher-api.ts";
 import { useSend } from "./forms.tsx";
@@ -15,7 +15,7 @@ export function Launcher({
   onSession,
 }: {
   core: string;
-  viewer: Viewer;
+  viewer: Profile;
   onSession: (session: Session) => void;
 }) {
   const { sending, send } = useSend(onSession);
@@ -81,7 +81,7 @@ function AppList({
   viewer,
   listing,
 }: {
-  viewer: Viewer;
+  viewer: Profile;
   listing: Result<LauncherApp[]> | undefined;
 }) {
   if (listing === undefined) {
@@ -109,7 +109,7 @@ function AppList({
   );
 }
 
-function NoApps({ viewer }: { viewer: Viewer }) {
+function NoApps({ viewer }: { viewer: Profile }) {
   return (
     <div className="rounded-xl border border-dashed bg-card px-6 py-16 text-center">
       <h2 className="text-lg font-semibold tracking-tight">No apps yet.</h2>

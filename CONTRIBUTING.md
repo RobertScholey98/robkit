@@ -6,7 +6,7 @@ Thanks for helping. This page gets you from a fresh machine to a merged change. 
 
 - **Node 24.** `.node-version` names it.
 - **pnpm 11, through Corepack.** Run `corepack enable` once. The root `package.json` pins the exact pnpm version, and Corepack uses it. A pnpm installed some other way may be the wrong version.
-- **Docker**, with Compose. The tests for core, the dev runner and the whole-stack test start their own Postgres containers.
+- **Docker**, with Compose. Core's and the dev runner's `*.db.test.ts` files, the test Postgres's tests and the whole-stack test start their own Postgres containers.
 - **Linux or macOS** for the full test suite and `pnpm dev`. The dev runner stops apps with POSIX process groups.
 
 ### On Windows, use WSL
@@ -57,10 +57,10 @@ The install uses your checkout's `@robkit/*` packages, so a change in `packages/
 
 There are two gates.
 
-| Command          | What it runs                                                                                              | Needs Docker | Time               |
-| ---------------- | --------------------------------------------------------------------------------------------------------- | ------------ | ------------------ |
-| `pnpm check`     | Prettier's check, lint, typecheck, and every test that needs no Docker                                    | No           | Under a minute     |
-| `pnpm check:all` | What CI runs: Prettier's check, lint, typecheck and every test, the whole-stack test in Chromium included | Yes          | About four minutes |
+| Command          | What it runs                                                                                              | Needs Docker | Time                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------ |
+| `pnpm check`     | Prettier's check, lint, typecheck, and every test that needs no Docker                                    | No           | 53 to 65 seconds cold (`--force`), 25 to 34 warm, on Windows |
+| `pnpm check:all` | What CI runs: Prettier's check, lint, typecheck and every test, the whole-stack test in Chromium included | Yes          | About four minutes                                           |
 
 Run `pnpm check` while you work and `pnpm check:all` before you open a pull request. The whole-stack test needs Chromium once: `pnpm --filter @internal/e2e exec playwright install --with-deps chromium`.
 
@@ -87,7 +87,7 @@ pnpm --filter @robkit/guard exec vitest run src/guard.test.ts     # one file
 pnpm --filter @robkit/hono test -- -t "conformance"               # tests whose name matches
 ```
 
-The tests in `@robkit/core`, `@robkit/dev`, `@internal/e2e` and `@internal/test-postgres` need Docker and Linux. The rest run anywhere, and `pnpm check` runs them.
+Every test in `@internal/e2e` and `@internal/test-postgres` needs Docker and Linux, and so do core's and dev's `*.db.test.ts` files. The rest run anywhere, core's and dev's other tests included, and `pnpm check` runs them.
 
 A package's `test` script measures coverage and fails below the thresholds in its `vitest.config`. When your change raises coverage, raise the thresholds with it. CI fails a pull request that lowers one.
 
@@ -114,7 +114,7 @@ Take the lowest-numbered ticket that is ready and whose `**Blocked by:**` ticket
 
 - One branch and one pull request per ticket. Name the branch after the ticket, such as `22-app-slugs-checked-at-start`.
 - Open the pull request against `main`, or against the branch it builds on if it stacks on another ticket's.
-- Fill in the template, `.github/pull_request_template.md`: the ticket, what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
+- Fill in the template, `.github/pull_request_template.md`: the ticket (CI checks that it names the ticket's file under `.scratch/`), what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
 - A change to a published package's `src` (tests aside) needs a changeset. Run `pnpm changeset`, pick the packages and `patch`, and commit the file it writes.
 - CI's `gate` job passes only when every other job does. It is the one check a pull request needs.
 - R reviews and merges. Don't merge your own.
@@ -125,12 +125,12 @@ R reviews commit by commit, so keep each one small and about one thing.
 
 - One logical change per commit. A test goes in the same commit as the behaviour it covers.
 - Refactors, renames and formatting get their own commits, apart from behaviour changes.
-- Write the subject in the imperative, under about 60 characters: "Add a README to each package", not "Added READMEs". Use the body to say why when the diff doesn't show it. The commit-msg hook, and CI on every commit of a pull request, refuse a subject over 72 characters, one ending in a period, one starting with a lowercase letter, or one whose first word ends in "ed" or "ing".
+- Write the subject in the imperative, in 72 characters at most: "Add a README to each package", not "Added READMEs". Use the body to say why when the diff doesn't show it. The commit-msg hook, and CI on every commit of a pull request, refuse a subject over 72 characters, one ending in a period, one starting with a lowercase letter, or one whose first word ends in "ed" or "ing".
 - If the subject needs an "and", split the commit.
 
 ### Writing
 
-Write docs, tickets, commit messages and pull requests in short, plain sentences, with the answer before the detail. Use the glossary's words: "core" and "hub", never "backend" and "frontend"; "role", never "grant".
+Write docs, tickets, commit messages and pull requests in short, plain sentences, with the answer before the detail. Use the glossary's words: "core" and "hub", never "backend" and "frontend"; "role", never "grant". A repo check (`tooling/repo-checks/src/glossary.ts`) fails on a word the glossary avoids, in the docs, the package READMEs and the packages' `src`. Where the word is right, such as another tool's name for something, add an exception there with the reason.
 
 ## A first change, from ticket to pull request
 
@@ -146,7 +146,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 3. **Write a failing test through the public interface.** Add the empty list to the values `readAccessRule` refuses, in `guard.test.ts`:
 
-   ```ts
+   ```ts nocheck
    { kind: "roles", roles: [] },
    ```
 
@@ -159,7 +159,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 4. **Make it pass.** In `readAccessRule`, require at least one role:
 
-   ```ts
+   ```ts nocheck
    const isRoleList =
      Array.isArray(roles) &&
      roles.length > 0 &&
@@ -180,7 +180,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
    git commit -m "Refuse a roles rule that names no role"
    ```
 
-6. **Add a changeset.** The change is in a published package's source, so run `pnpm changeset`, pick `@robkit/session` and `patch`, describe the change in a sentence, and commit the file it writes.
+6. **Add a changeset.** The change is in a published package's source, so run `pnpm changeset`, pick `@robkit/guard` and `patch`, describe the change in a sentence, and commit the file it writes.
 
 7. **Run the gates.** `pnpm check`, then `pnpm check:all`.
 
@@ -195,17 +195,9 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 ## When a test fails
 
-- **Rerun it alone** before you change code: `pnpm --filter <package> exec vitest run <file>`. Under load, a test can fail for reasons that aren't the code. In WSL, Node 24 occasionally crashes under a heavy gate; rerun before you blame the change.
-- **A whole-stack journey prints what its browser saw** when it fails: console errors, failed requests, every 4xx and 5xx answer, each open page's text, and what the dev runner said meanwhile. Start with that output.
-- **Screenshots.** Set `E2E_SCREENSHOTS=<folder>` and the whole-stack test saves each page it checks there:
+Rerun it alone before you change code: `pnpm --filter <package> exec vitest run <file>`. Under load, a test can fail for reasons that aren't the code.
 
-  ```sh
-  E2E_SCREENSHOTS=/tmp/shots pnpm --filter @internal/e2e test
-  ```
-
-- **A failed production journey** prints what the browser saw and each container's state and last logs.
-- **Leftover containers.** Every test registers what it starts, and a watcher removes it when the test process exits, however it ends. If a machine crashed mid-run, `docker ps` shows any `robkit-test-*` or `robkit-install-*` containers left; remove them before the next run.
-- **`ERR_NETWORK_CHANGED` in Chromium** where Docker runs natively on Linux: set `COMPOSE_FILE` as `.github/workflows/ci.yml` does, so every test Postgres uses the host's network. Docker Desktop doesn't need it.
+[docs/testing.md](docs/testing.md#when-a-test-fails) says what each suite prints when it fails, how to save the whole-stack test's screenshots, and how to clear containers a crashed run left behind.
 
 ## For coding agents
 

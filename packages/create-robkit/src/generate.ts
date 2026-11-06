@@ -1,7 +1,10 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { declaresJson, type Declares } from "@robkit/session/input";
+import {
+  appDeclarationJson,
+  type AppDeclaration,
+} from "@robkit/session/manifest";
 import { jsonObject, stringsIn } from "./json.ts";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
@@ -56,60 +59,7 @@ export async function readFolder(dir: string): Promise<Files> {
   return files;
 }
 
-function readLayer(layer: string): Promise<Files> {
-  return readFolder(join(templatesDir, layer));
-}
-
-function isJson(value: unknown): value is Json {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function deepMerge(base: Json, over: Json): Json {
-  const merged = { ...base };
-  for (const [key, value] of Object.entries(over)) {
-    const current = merged[key];
-    merged[key] =
-      isJson(current) && isJson(value) ? deepMerge(current, value) : value;
-  }
-  return merged;
-}
-
 const toJson = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
-
-/** Merges two manifests, keeping each dependency list in name order. */
-function mergeManifests(base: string, over: string): string {
-  const merged = deepMerge(
-    jsonObject(base, "package.json"),
-    jsonObject(over, "package.json"),
-  );
-  for (const field of ["dependencies", "devDependencies"]) {
-    const deps = merged[field];
-    if (isJson(deps)) {
-      merged[field] = Object.fromEntries(
-        Object.entries(deps).sort(([a], [b]) => (a < b ? -1 : 1)),
-      );
-    }
-  }
-  return toJson(merged);
-}
-
-/**
- * Lays `layer` over `files` under `prefix`. A later layer's file replaces an
- * earlier one, except a manifest, which merges into it so each layer can add
- * its own scripts and dependencies.
- */
-function overlay(files: Files, layer: Files, prefix = ""): void {
-  for (const [path, text] of layer) {
-    const target = prefix + path;
-    const existing = files.get(target);
-    files.set(
-      target,
-      existing !== undefined && basename(target) === "package.json"
-        ? mergeManifests(existing, text)
-        : text,
-    );
-  }
-}
 
 function editJson(files: Files, path: string, edit: (json: Json) => Json) {
   const text = files.get(path);
@@ -119,7 +69,7 @@ function editJson(files: Files, path: string, edit: (json: Json) => Json) {
 
 /** The template robkit ships for `stack`: an app's files, from its folder. */
 export function stackTemplate(stack: Stack): Promise<Files> {
-  return readLayer(`stacks/${stack}`);
+  return readFolder(join(templatesDir, "stacks", stack));
 }
 
 /** The icon an app gets when nobody picks one, the example app included. */
@@ -133,14 +83,14 @@ export const defaultIcon = "📦";
 export function appFiles(
   template: Files,
   slug: string,
-  declares: Declares = {},
+  declares: AppDeclaration = {},
 ): Files {
   const files: Files = new Map(template);
   editJson(files, "package.json", (json) => ({
     name: `@internal/${slug}-app`,
     ...json,
     ...(Object.keys(declares).length > 0 && {
-      robkit: declaresJson(declares),
+      robkit: appDeclarationJson(declares),
     }),
   }));
   return files;
@@ -211,15 +161,15 @@ export async function generateInstall(
   choices: Choices,
   options: GenerateOptions = {},
 ): Promise<Files> {
-  const files = await readLayer("base");
-
-  overlay(
-    files,
-    appFiles(await stackTemplate(choices.exampleStack), exampleSlug, {
-      icon: defaultIcon,
-    }),
-    `apps/${exampleSlug}/`,
+  const files = await readFolder(join(templatesDir, "base"));
+  const example = appFiles(
+    await stackTemplate(choices.exampleStack),
+    exampleSlug,
+    { icon: defaultIcon },
   );
+  for (const [path, text] of example) {
+    files.set(`apps/${exampleSlug}/${path}`, text);
+  }
 
   // The catalog covers every stack robkit add offers, so adding an app
   // needs no version the install lacks.

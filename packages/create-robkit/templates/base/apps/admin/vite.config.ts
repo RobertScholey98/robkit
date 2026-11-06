@@ -1,10 +1,11 @@
 import devServer from "@hono/vite-dev-server";
-import { readCoreUrl, readDevServerEnv } from "@robkit/session/input";
+import { isProblem, readCoreUrl } from "@robkit/session/input";
+import { readDevServerEnv } from "@robkit/session/app-env";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 const devServerEnv = readDevServerEnv(process.env);
-if ("error" in devServerEnv) throw new Error(devServerEnv.error);
+if (isProblem(devServerEnv)) throw new Error(devServerEnv.error);
 const { port, domain } = devServerEnv;
 
 // robkit-dev assigns PORT and serves admin on admin.<domain> through its
@@ -14,7 +15,7 @@ export default defineConfig(({ command }) => {
   // Vite loads the server on the first request, so check its config now.
   if (command === "serve") {
     const core = readCoreUrl(process.env);
-    if (typeof core !== "string") throw new Error(core.error);
+    if (isProblem(core)) throw new Error(core.error);
   }
   return {
     plugins: [devServer({ entry: "src/server.ts" }), tailwindcss()],

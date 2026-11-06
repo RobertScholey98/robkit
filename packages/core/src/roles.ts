@@ -1,3 +1,5 @@
+import { isProblem, type InputProblem } from "@robkit/session/input";
+import { readCodeId, type CodeId, type RoleId } from "@robkit/guard";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid, testCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -5,41 +7,43 @@ import { accessCodes, codeRoles, roles } from "./schema.ts";
 
 /** A role as admin shows it: its name and the codes that hold it. */
 export interface RoleView {
-  id: string;
+  id: RoleId;
   name: string;
-  codeIds: string[];
+  codeIds: CodeId[];
 }
 
 /** What the owner sends to create a role. */
 export interface NewRole {
   name: string;
-  codeIds: string[];
+  codeIds: CodeId[];
 }
 
 /** The codes the owner ticked for a role, or why they won't do. */
 export function readCodeIds(
   fields: Record<string, unknown>,
-): { codeIds: string[] } | { error: string } {
+): { codeIds: CodeId[] } | InputProblem {
+  const problem = { error: "Send codeIds, a list of code ids." };
   const { codeIds } = fields;
-  if (
-    !Array.isArray(codeIds) ||
-    !codeIds.every((id): id is string => typeof id === "string")
-  ) {
-    return { error: "Send codeIds, a list of code ids." };
+  if (!Array.isArray(codeIds)) return problem;
+  const read: CodeId[] = [];
+  for (const value of codeIds) {
+    const id = readCodeId(value);
+    if (id === undefined) return problem;
+    read.push(id);
   }
-  return { codeIds };
+  return { codeIds: read };
 }
 
 /** The role's name and the codes the owner ticked, or why they won't do. */
 export function readNewRole(
   fields: Record<string, unknown>,
-): NewRole | { error: string } {
+): NewRole | InputProblem {
   const name = typeof fields.name === "string" ? fields.name.trim() : "";
   if (name.length < 1 || name.length > 40) {
     return { error: "Give the role a name of 1 to 40 characters." };
   }
   const holders = readCodeIds(fields);
-  return "error" in holders ? holders : { name, ...holders };
+  return isProblem(holders) ? holders : { name, ...holders };
 }
 
 export type RoleCreation =
@@ -66,8 +70,8 @@ export async function listRoles(db: Database): Promise<RoleView[]> {
 /** Each code id once, if every one names a code that exists. */
 async function existingCodes(
   tx: Transaction,
-  codeIds: string[],
-): Promise<string[] | undefined> {
+  codeIds: CodeId[],
+): Promise<CodeId[] | undefined> {
   const unique = [...new Set(codeIds)];
   if (!unique.every(isUuid)) return undefined;
   if (unique.length === 0) return unique;
@@ -109,8 +113,8 @@ export type MembershipChange =
 /** Makes exactly these codes hold the role. */
 export async function setRoleCodes(
   db: Database,
-  roleId: string,
-  codeIds: string[],
+  roleId: RoleId,
+  codeIds: CodeId[],
 ): Promise<MembershipChange> {
   if (!isUuid(roleId)) return { outcome: "unknown-role" };
   return db.transaction(async (tx) => {
@@ -138,8 +142,8 @@ export async function setRoleCodes(
  */
 export async function rolesOf(
   db: Database | Transaction,
-  code: { id: string; code: string },
-): Promise<string[]> {
+  code: { id: CodeId; code: string },
+): Promise<RoleId[]> {
   const byName = asc(roles.name);
   const rows =
     code.code === testCode

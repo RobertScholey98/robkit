@@ -7,6 +7,8 @@ robkit sorts every failure into one of two kinds, and handles each kind one way.
 A failure the caller should handle, such as a wrong password, a taken slug or a guest without the role, is part of the function's return type. Return a discriminated union with a field that says which outcome it is, and let the caller switch on it. The guard does this:
 
 ```ts
+import type { Viewer } from "@robkit/guard";
+
 type Decision =
   | { outcome: "allow"; viewer: Viewer }
   | { outcome: "login" }
@@ -21,7 +23,13 @@ Core's `claimInstall` returns `{ outcome: "taken" }` rather than throwing, and t
 A failure nobody can handle where it happens, such as a database that won't answer or a file that should exist, throws. When you throw because of another error, pass it on:
 
 ```ts
-throw new Error("ROBKIT_APPS isn't JSON.", { cause: error });
+function parseApps(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    throw new Error("ROBKIT_APPS isn't JSON.", { cause: error });
+  }
+}
 ```
 
 The message says what robkit was doing. The cause keeps what went wrong underneath, so the log shows both.
@@ -32,15 +40,41 @@ When callers need to tell faults apart, give the error a class. `CoreUnreachable
 
 A boundary is where robkit meets a person or another program: an HTTP route, a command line, an adapter. It turns each failure into a response or an exit code, with a message that says what to do next.
 
-- **Core.** A route answers an expected failure with its status and `{ error }` sentence. One `app.onError` handler catches every unexpected fault, logs the route and the cause through `logError`, and answers 500 with a generic JSON error. The cause stays in core's log, not in the response.
-- **The guard.** It answers 503 when it can't check a request, rather than treating the viewer as signed out. It hands the cause to `onUnavailable` with the app's slug and what failed: `core-key`, `access-rule` or `network`. By default that logs them.
-- **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/dev`. Throw a `Problem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints with its stack and cause, then where to report it, and exits 1.
+- **Core.** A route answers an expected failure with its status and `{ error }` sentence. One `app.onError` handler catches every unexpected fault and gives it a fresh request id. It logs the route, the id and the cause through `logError`, and answers 500 with a generic JSON error that carries the id, as `requestId` and in an `X-Request-Id` header. The cause stays in core's log, not in the response; the id finds it there.
+- **The guard.** It answers 503 when it can't check a request, rather than treating the viewer as signed out. It hands the cause to `onUnavailable` with the app's slug and what failed: `core-key`, `access-rule` or `network`. By default that reports them.
+- **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/dev/cli`. Throw a `CommandProblem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints a line saying it's a bug and where to report it, then the fault with its stack and cause, and exits 1.
+
+## Whose fault is it
+
+A file or program the person owns, or can install, fails as a `CommandProblem` that names it:
+
+- A malformed file the person owns, such as `robkit.json` or an install's own `robkit/templates/<stack>` override, names the file and says how to fix it.
+- A command that fails names itself, the folder it ran in and its exit code, and says its output is above: "pnpm install --no-frozen-lockfile exited with 1 in /home/me/robkit. Its output is above: fix what it says, then try again."
+- A command that can't start, such as git or pnpm missing, says what to check and keeps the spawn error as `cause`.
+
+A malformed file robkit ships, such as one of its own templates, is a fault: the person can't fix it, so it prints as a bug.
+
+## One way to report
+
+`Report` in `@robkit/session` is the one shape for saying what went wrong when nobody calling can handle it:
+
+```ts
+type Report = (message: string, cause?: unknown) => void;
+```
+
+The message says what robkit was doing; the cause is the error underneath. Core's `logError`, the guard's default `onUnavailable` and `runCommand` all report through it, and `reportToConsole`, their default, prints the message and then the cause on its own. A new place that logs a fault takes a `Report`, defaulting to `reportToConsole`.
+
+## Cleaning up
+
+Code that starts several things, such as the dev runner with its apps, proxy and Postgres, stops every one of them even when stopping one fails. Run each step, collect what failed, then throw: one failure as it is, so a `CommandProblem` still prints alone, or several in an `AggregateError` that keeps each.
+
+Only the error that means "already gone" counts as gone. A signal to a process group that fails with `ESRCH` means the group has exited; any other code, such as `EPERM`, is rethrown with its cause.
 
 ## What a `catch` may do
 
 A `catch` does one of three things:
 
-1. Translate the error into a value or an answer, such as a 400 for a body that isn't JSON.
+1. Translate the error into a value or an answer, such as a 400 for a body that isn't JSON, or a `CommandProblem` for a command that couldn't start.
 2. Recover, with a comment or a log line saying why that's safe.
 3. Rethrow, with the caught error as `cause`.
 

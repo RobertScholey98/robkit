@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { isProblem } from "@robkit/session/input";
 import { describe, expect, it } from "vitest";
 import { readDeclaredApps, registerApps } from "./apps.ts";
 import {
@@ -163,7 +164,7 @@ describe("readDeclaredApps", () => {
     ],
   ])("refuses %s", (text, message) => {
     const read = readDeclaredApps({ ROBKIT_APPS: text });
-    expect("error" in read && read.error).toMatch(message);
+    expect(isProblem(read) && read.error).toMatch(message);
   });
 });
 
@@ -175,6 +176,31 @@ describe("GET /apps/:slug/access", () => {
       status: 404,
       body: { error: "Not found" },
     });
+  });
+
+  it("answers each app's own rule, whatever the others' are", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [
+      { slug: slug("notes"), access: { kind: "open" } },
+      { slug: slug("diary"), access: { kind: "owner" } },
+      {
+        slug: slug("recipes"),
+        access: { kind: "roles", roleNames: ["Family", "Cooks"] },
+      },
+    ]);
+    const { Cooks, Family } = await roleIdsByName(app, owner);
+
+    const answers = await Promise.all(
+      ["notes", "diary", "recipes", "nope"].map((slug) => accessOf(app, slug)),
+    );
+
+    expect(answers).toEqual([
+      { status: 200, body: { kind: "open" } },
+      { status: 200, body: { kind: "owner" } },
+      { status: 200, body: { kind: "roles", roles: [Cooks, Family] } },
+      { status: 404, body: { error: "Not found" } },
+    ]);
   });
 
   it("needs no cookie", async () => {

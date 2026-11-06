@@ -1,3 +1,4 @@
+import { isProblem } from "@robkit/session/input";
 import { describe, expect, it } from "vitest";
 import { readDevConfig, readProvisionConfig } from "./env.ts";
 
@@ -34,7 +35,7 @@ describe("readDevConfig", () => {
       ROBKIT_POSTGRES_PORT: "x",
       ROBKIT_DATABASE_URL: "mysql://db",
     });
-    expect("error" in read && read.error.split("\n")).toEqual([
+    expect(isProblem(read) && read.error.split("\n")).toEqual([
       "ROBKIT_DOMAIN is \"http://robkit.localhost\", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.",
       'ROBKIT_DEV_PORT is "0", which isn\'t a port. Set it to a whole number from 1 to 65535, or leave it unset for 3000.',
       "ROBKIT_DATABASE_URL isn't a postgres:// URL. Set it to one, such as postgres://user:password@host:5432/database.",
@@ -73,7 +74,7 @@ describe("readProvisionConfig", () => {
 
   it("names every variable that won't do", () => {
     const read = readProvisionConfig({ ROBKIT_DATABASES: "notes" });
-    expect("error" in read && read.error.split("\n")).toEqual([
+    expect(isProblem(read) && read.error.split("\n")).toEqual([
       "ROBKIT_ADMIN_DATABASE_URL is not set. robkit deploy sets it on core from the host's shared variable of that name.",
       "ROBKIT_DB_SECRET is not set. robkit deploy sets it on core from the host's shared variable of that name.",
     ]);

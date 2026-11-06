@@ -8,7 +8,7 @@ import {
   type Env,
   type InputProblem,
 } from "@robkit/session/input";
-import type { Coolify } from "./coolify.ts";
+import type { Coolify } from "./coolify-api.ts";
 
 const secretFix =
   "Set it to the install's database secret, at least 32 characters, such as the output of openssl rand -hex 32.";
@@ -76,7 +76,7 @@ export function readAppList(value: string): Slug[] | InputProblem {
   const slugs: Slug[] = [];
   for (const name of value.split(",")) {
     const slug = readSlug(name.trim());
-    if (typeof slug !== "string") return { error: `--apps: ${slug.error}` };
+    if (isProblem(slug)) return { error: `--apps: ${slug.error}` };
     slugs.push(slug);
   }
   return slugs;
@@ -100,7 +100,7 @@ export function readAffectedApps(json: unknown): Slug[] | InputProblem {
     if (typeof path !== "string") return problem;
     if (!path.startsWith("apps/")) continue;
     const slug = readSlug(path.slice("apps/".length));
-    if (typeof slug === "string") slugs.push(slug);
+    if (!isProblem(slug)) slugs.push(slug);
   }
   return slugs;
 }

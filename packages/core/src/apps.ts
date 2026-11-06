@@ -2,17 +2,20 @@ import {
   guard,
   readAccessRule,
   type AccessRule,
+  type RoleId,
   type SessionState,
 } from "@robkit/guard";
 import {
   isProblem,
   parseJson,
-  readDeclaredApp,
-  type DeclaredAccess,
-  type DeclaredApp,
   type Env,
   type InputProblem,
 } from "@robkit/session/input";
+import {
+  readDeclaredApp,
+  type DeclaredAccess,
+  type DeclaredApp,
+} from "@robkit/session/manifest";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -34,7 +37,7 @@ export type AccessChange =
 /** The rule the owner sent for an app, or why it won't do. */
 export function readAccess(
   fields: Record<string, unknown>,
-): AccessRule | { error: string } {
+): AccessRule | InputProblem {
   const rule = readAccessRule(fields);
   if (rule && !(rule.kind === "roles" && rule.roles.length === 0)) return rule;
   return fields.kind === "roles"
@@ -146,7 +149,7 @@ export async function listApps(db: Database): Promise<AppView[]> {
 
 function ruleOf(
   kind: (typeof apps.$inferSelect)["access"],
-  roleIds: string[],
+  roleIds: RoleId[],
 ): AccessRule {
   return kind === "roles" ? { kind, roles: roleIds } : { kind };
 }
@@ -156,7 +159,19 @@ export async function accessOf(
   db: Database,
   slug: string,
 ): Promise<AccessRule | undefined> {
-  return (await listApps(db)).find((app) => app.slug === slug)?.access;
+  const rows = await db
+    .select({ access: apps.access, roleId: appRoles.roleId })
+    .from(apps)
+    .leftJoin(appRoles, eq(appRoles.appSlug, apps.slug))
+    .leftJoin(roles, eq(appRoles.roleId, roles.id))
+    .where(eq(apps.slug, slug))
+    .orderBy(asc(roles.name));
+  const [app] = rows;
+  if (!app) return undefined;
+  return ruleOf(
+    app.access,
+    rows.flatMap(({ roleId }) => (roleId === null ? [] : [roleId])),
+  );
 }
 
 /** Sets who may open the app. A rule's roles must all exist. */

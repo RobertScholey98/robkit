@@ -4,6 +4,7 @@ import {
   type AccessRule,
   type App,
   type Role,
+  type RoleId,
 } from "./access-api.ts";
 import { Button, Check, Choices, FormError, Panel } from "./ui.tsx";
 
@@ -66,7 +67,7 @@ function AppRow({
   onChange: () => Promise<void>;
 }) {
   const [kind, setKind] = useState(app.access.kind);
-  const [picked, setPicked] = useState<Set<string>>(
+  const [picked, setPicked] = useState<Set<RoleId>>(
     new Set(app.access.kind === "roles" ? app.access.roles : []),
   );
   const [sending, setSending] = useState<Sending>({ state: "idle" });

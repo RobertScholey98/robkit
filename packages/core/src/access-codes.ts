@@ -1,6 +1,8 @@
 import { randomInt } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
+import type { CodeId } from "@robkit/guard";
 import { isLocal } from "@robkit/session/addresses";
+import type { InputProblem } from "@robkit/session/input";
 import type { Database } from "./database.ts";
 import { accessCodes } from "./schema.ts";
 
@@ -62,7 +64,7 @@ export function standingOf(
 
 /** An access code as admin shows it to the owner. */
 export interface CodeView {
-  id: string;
+  id: CodeId;
   code: string;
   /** The guest's name. */
   name: string;
@@ -98,7 +100,7 @@ export interface NewCode {
 export function readNewCode(
   fields: Record<string, unknown>,
   now: Date,
-): NewCode | { error: string } {
+): NewCode | InputProblem {
   const name = typeof fields.name === "string" ? fields.name.trim() : "";
   if (name.length < 1 || name.length > 80) {
     return { error: "Give the guest a name of 1 to 80 characters." };
@@ -180,7 +182,7 @@ export function isUuid(id: string): boolean {
  */
 export async function revokeCode(
   db: Database,
-  id: string,
+  id: CodeId,
   now: Date,
 ): Promise<boolean> {
   if (!isUuid(id)) return false;

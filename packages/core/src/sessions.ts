@@ -1,5 +1,10 @@
 import { and, eq, gt, isNull } from "drizzle-orm";
-import type { SessionState, SignedInViewer } from "@robkit/guard";
+import type {
+  CodeId,
+  RoleId,
+  SessionState,
+  SignedInViewer,
+} from "@robkit/guard";
 import {
   readSessionToken,
   type ReadSessionToken,
@@ -9,7 +14,7 @@ import { standingOf, type AccessCode } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { dummyPasswordHash, verifyPassword } from "./password.ts";
 import { accessCodes, owner, sessions } from "./schema.ts";
-import { mintSessionToken } from "./session-token.ts";
+import { mintSessionToken } from "./mint-token.ts";
 import { rolesOf } from "./roles.ts";
 import type { SigningKey } from "./signing-key.ts";
 
@@ -25,29 +30,29 @@ export interface SessionContext {
   signingKey: () => Promise<SigningKey>;
 }
 
-export interface OwnerViewer {
+export interface OwnerProfile {
   kind: "owner";
   id: string;
   username: string;
 }
 
 /** A guest, by their access code's id, and the name the owner gave them. */
-export interface GuestViewer {
+export interface GuestProfile {
   kind: "guest";
-  id: string;
+  id: CodeId;
   name: string;
 }
 
-export type Viewer = OwnerViewer | GuestViewer;
+export type Profile = OwnerProfile | GuestProfile;
 
 /** Who is asking, as `GET /session` answers it. */
 export type SessionAnswer =
   | { state: "unclaimed" }
   | { state: "signed-out" }
-  | { state: "signed-in"; viewer: Viewer };
+  | { state: "signed-in"; viewer: Profile };
 
 export interface SignedIn {
-  viewer: Viewer;
+  viewer: Profile;
   sessionToken: string;
 }
 
@@ -68,8 +73,8 @@ type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 /** Who holds a session: the viewer, and a guest's roles, by id. */
 interface Holder {
-  viewer: Viewer;
-  roles: string[];
+  viewer: Profile;
+  roles: RoleId[];
 }
 
 function guardViewerOf({ viewer, roles }: Holder): SignedInViewer {
@@ -78,7 +83,7 @@ function guardViewerOf({ viewer, roles }: Holder): SignedInViewer {
     : { kind: viewer.kind, id: viewer.id, roles };
 }
 
-function sameRoles(a: readonly string[], b: readonly string[]): boolean {
+function sameRoles(a: readonly RoleId[], b: readonly RoleId[]): boolean {
   return a.length === b.length && a.every((role, i) => role === b[i]);
 }
 

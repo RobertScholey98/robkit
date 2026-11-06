@@ -1,5 +1,5 @@
 import { CANCEL_SYMBOL, intro, isCancel, select, text } from "@clack/prompts";
-import { Problem } from "@robkit/dev";
+import { CommandProblem } from "@robkit/dev/cli";
 import { defaultChoices, stackFrom, stacks, type Stack } from "./choices.ts";
 import { folderInUse } from "./write.ts";
 
@@ -29,7 +29,8 @@ export function stackOptions() {
 }
 
 function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
-  if (isCancel(answer)) throw new Problem("Cancelled. Nothing was written.");
+  if (isCancel(answer))
+    throw new CommandProblem("Cancelled. Nothing was written.");
   return answer;
 }
 
@@ -56,7 +57,7 @@ const defaultFolder = "my-robkit";
 /** Asks init's questions, skipping the folder when it's already given. */
 export async function askInit(folder?: string): Promise<Answers> {
   const problem = folderProblem(folder);
-  if (problem) throw new Problem(problem);
+  if (problem) throw new CommandProblem(problem);
   intro("robkit");
   const where =
     folder ??

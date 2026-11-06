@@ -1,4 +1,5 @@
-const maxLength = 72;
+/** The longest commit subject the hook and CI accept. CLAUDE.md and CONTRIBUTING quote it. */
+export const maxSubjectLength = 72;
 
 /** Imperative verbs that happen to end in "ed" or "ing". */
 const imperativeExceptions = new Set([
@@ -33,9 +34,9 @@ export function subjectProblems(message: string): string[] {
   if (subject === undefined) return ["The message has no subject."];
 
   const problems: string[] = [];
-  if (subject.length > maxLength) {
+  if (subject.length > maxSubjectLength) {
     problems.push(
-      `The subject is ${String(subject.length)} characters; keep it to ${String(maxLength)}.`,
+      `The subject is ${String(subject.length)} characters; keep it to ${String(maxSubjectLength)}.`,
     );
   }
   if (subject.endsWith(".")) problems.push("The subject ends with a period.");

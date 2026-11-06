@@ -1,11 +1,16 @@
-import { readAccessRule, type AccessRule } from "@robkit/guard";
+import {
+  readAccessRule,
+  readRoleId,
+  type AccessRule,
+  type RoleId,
+} from "@robkit/guard";
 import { callCore, isRecord, listOf, type Result } from "@internal/core-client";
 
-export type { AccessRule };
+export type { AccessRule, RoleId };
 
 /** A role, and the codes that hold it, by id. */
 export interface Role {
-  id: string;
+  id: RoleId;
   name: string;
   codeIds: string[];
 }
@@ -57,11 +62,12 @@ export function setAccess(
 
 function readRole(body: unknown): Role | undefined {
   if (!isRecord(body)) return undefined;
-  const { id, name, codeIds } = body;
+  const { name, codeIds } = body;
+  const id = readRoleId(body.id);
   const ids = listOf(codeIds, (id) =>
     typeof id === "string" ? id : undefined,
   );
-  return typeof id === "string" && typeof name === "string" && ids
+  return id !== undefined && typeof name === "string" && ids
     ? { id, name, codeIds: ids }
     : undefined;
 }

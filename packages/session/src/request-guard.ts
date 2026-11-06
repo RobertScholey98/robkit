@@ -15,6 +15,7 @@ import {
   type Slug,
 } from "./install-addresses.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
+import { reportToConsole } from "./report.ts";
 import { sessionLapsedResponse } from "./session-lapsed.ts";
 import {
   cookieValues,
@@ -43,7 +44,8 @@ export interface GuardedOptions {
   core: string;
   /**
    * Hears why the guard answered 503 because it couldn't check a request.
-   * By default it logs the app's slug, what failed and the cause.
+   * By default it reports the app's slug, what failed and the cause through
+   * `reportToConsole`.
    */
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
@@ -54,7 +56,7 @@ export interface GuardedOptions {
  */
 export interface GuardFault {
   /** The app's slug. */
-  app: string;
+  app: Slug;
   /**
    * What failed: checking the session against core's key, loading the
    * app's access rule, or reaching core at all.
@@ -70,8 +72,9 @@ const whatFailed: Record<GuardFault["failed"], string> = {
   network: "couldn't reach core",
 };
 
-function logFault({ app, failed, cause }: GuardFault): void {
-  console.error(
+/** The default `onUnavailable`: reports the app, what failed and the cause. */
+function reportFault({ app, failed, cause }: GuardFault): void {
+  reportToConsole(
     `robkit guard for ${app} answered 503: ${whatFailed[failed]}.`,
     cause,
   );
@@ -221,7 +224,7 @@ const errors = {
 export function requestGuard(
   options: GuardedOptions,
 ): (request: Request) => Promise<RequestDecision> {
-  const { app, access, onUnavailable = logFault } = options;
+  const { app, access, onUnavailable = reportFault } = options;
   const install = installOf(options.core);
   const core = install.origin("core");
   const hub = install.origin("hub");

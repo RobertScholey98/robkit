@@ -2,9 +2,10 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { reportFaultsAt } from "@robkit/dev";
+import { reportFaultsAt, runCommand } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { defaultChoices, type Choices } from "./choices.ts";
+import { appFiles } from "./generate.ts";
 import { init } from "./init.ts";
 import { drive, keys, questionsAsked } from "./test/drive.ts";
 
@@ -17,6 +18,17 @@ async function freshInstall(choices: Choices = defaultChoices) {
   return dir;
 }
 
+let readOnly: Promise<string> | undefined;
+
+/**
+ * One install, made on first use, for the tests that only read it. A test
+ * that adds an app or writes a file makes its own with freshInstall.
+ */
+function readOnlyInstall(): Promise<string> {
+  readOnly ??= freshInstall();
+  return readOnly;
+}
+
 async function declared(dir: string, slug: string): Promise<unknown> {
   const manifest = JSON.parse(
     await readFile(join(dir, "apps", slug, "package.json"), "utf8"),
@@ -24,7 +36,7 @@ async function declared(dir: string, slug: string): Promise<unknown> {
   return manifest.robkit;
 }
 
-describe("robkit add with flags", { timeout: 30_000 }, () => {
+describe("robkit add with flags", () => {
   it("adds the app without asking anything", async () => {
     const dir = await freshInstall();
 
@@ -92,7 +104,7 @@ Then open http://notes.robkit.localhost:3000.
     ],
     [["remove", "notes"], "Usage: robkit add [name]"],
   ])("refuses %j", async (args, message) => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, args);
 
@@ -117,7 +129,21 @@ Then open http://notes.robkit.localhost:3000.
   });
 });
 
-describe("robkit's failures", { timeout: 30_000 }, () => {
+describe("robkit's failures", () => {
+  it.each([["check"], ["add"]])(
+    "refuses an option %s doesn't take, printing why and the usage, not a bug",
+    async (command) => {
+      const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+
+      const { code, output } = await drive(bin, dir, [command, "--nope"]);
+
+      expect(code).toBe(1);
+      expect(output).toMatch(/^--nope isn't an option\.\n\nUsage: robkit add/);
+      expect(output).toContain("Usage: robkit check");
+      expect(output).not.toContain(reportFaultsAt);
+    },
+  );
+
   it("prints a fault it didn't expect whole, with where to report it", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-"));
     await mkdir(join(dir, "robkit.json"));
@@ -129,9 +155,88 @@ describe("robkit's failures", { timeout: 30_000 }, () => {
     expect(output).toMatch(/^ {4}at /m);
     expect(output).toContain(reportFaultsAt);
   });
+
+  it.each([
+    [
+      "isn't JSON",
+      "{ nope",
+      /^robkit\/templates\/start\/package\.json isn't valid JSON \(.+\)\. Fix its syntax\.\n$/,
+    ],
+    [
+      "isn't an object",
+      "[]",
+      /^robkit\/templates\/start\/package\.json must be a JSON object\. Fix it, or delete robkit\/templates\/start to use robkit's template\.\n$/,
+    ],
+  ])(
+    "prints a template override whose package.json %s as a problem, naming it",
+    async (_, manifest, message) => {
+      const dir = await freshInstall();
+      await mkdir(join(dir, "robkit/templates/start"), { recursive: true });
+      await writeFile(
+        join(dir, "robkit/templates/start/package.json"),
+        manifest,
+      );
+
+      const { code, output } = await drive(bin, dir, [
+        "add",
+        "notes",
+        "--stack",
+        "start",
+      ]);
+
+      expect(code).toBe(1);
+      expect(output).toMatch(message);
+    },
+  );
+
+  it("prints a template override with no package.json as a problem", async () => {
+    const dir = await freshInstall();
+    await mkdir(join(dir, "robkit/templates/start/src"), { recursive: true });
+    await writeFile(join(dir, "robkit/templates/start/src/main.ts"), "");
+
+    const { code, output } = await drive(bin, dir, [
+      "add",
+      "notes",
+      "--stack",
+      "start",
+    ]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output:
+        "robkit/templates/start has no package.json. Add one, or delete the folder to use robkit's template.\n",
+    });
+  });
+
+  it("prints a robkit.json that isn't JSON as a problem, naming it", async () => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "robkit.json"), "{ nope");
+
+    const { code, output } = await drive(bin, dir, ["add", "notes"]);
+
+    expect(code).toBe(1);
+    expect(output).toMatch(
+      /^robkit\.json isn't valid JSON \(.+\)\. Fix its syntax\.\n$/,
+    );
+  });
+
+  it("prints a malformed file robkit ships as a fault", async () => {
+    const printed: unknown[][] = [];
+
+    const code = await runCommand(
+      () => {
+        appFiles(new Map([["package.json", "{ nope"]]), "notes");
+        return Promise.resolve(0);
+      },
+      (...line) => printed.push(line),
+    );
+
+    expect(code).toBe(1);
+    expect(printed.flat().join("\n")).toContain(reportFaultsAt);
+  });
 });
 
-describe("robkit add with no flags", { timeout: 30_000 }, () => {
+describe("robkit add with no flags", () => {
   it("asks for the stack, name, access, roles and icon, then prints the command that skips them", async () => {
     const dir = await freshInstall();
 
@@ -166,7 +271,7 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
   });
 
   it("refuses a name that's taken before asking anything", async () => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, ["add", "example"]);
 
@@ -177,9 +282,9 @@ describe("robkit add with no flags", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit database-urls", { timeout: 30_000 }, () => {
+describe("robkit database-urls", () => {
   it("prints each database app's URL for the host, from the admin URL and secret", async () => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, ["database-urls"], [], {
       ROBKIT_ADMIN_DATABASE_URL: "postgres://postgres:pw@db:5432/robkit",
@@ -195,7 +300,7 @@ describe("robkit database-urls", { timeout: 30_000 }, () => {
   });
 
   it("says what to set when the admin URL or secret is missing", async () => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, ["database-urls"], [], {
       ROBKIT_ADMIN_DATABASE_URL: "",
@@ -210,7 +315,7 @@ describe("robkit database-urls", { timeout: 30_000 }, () => {
   });
 });
 
-describe("robkit deploy", { timeout: 30_000 }, () => {
+describe("robkit deploy", () => {
   const coolifyJson = JSON.stringify({
     project: "robkit",
     environment: "production",
@@ -222,7 +327,7 @@ describe("robkit deploy", { timeout: 30_000 }, () => {
   });
 
   it("says how to set up an install with no coolify.json", async () => {
-    const dir = await freshInstall();
+    const dir = await readOnlyInstall();
 
     const { code, output } = await drive(bin, dir, ["deploy"], [], {
       COOLIFY_URL: "https://coolify.example",

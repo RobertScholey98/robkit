@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { readServeEnv } from "@robkit/session/input";
+import { isProblem } from "@robkit/session/input";
+import { readServeEnv } from "@robkit/session/app-env";
 import { Hono } from "hono";
 import admin from "./server.ts";
 
@@ -11,7 +12,7 @@ app.route("/", admin);
 
 // A container sets HOST to listen beyond loopback.
 const listen = readServeEnv(process.env);
-if ("error" in listen) {
+if (isProblem(listen)) {
   console.error(listen.error);
   process.exit(1);
 }

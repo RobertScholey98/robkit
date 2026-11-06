@@ -5,6 +5,12 @@ import {
   type JWTPayload,
   type JWTVerifyGetKey,
 } from "jose";
+import {
+  readCodeId,
+  readRoleIds,
+  type CodeId,
+  type RoleId,
+} from "@robkit/guard";
 import type { Slug } from "./install-addresses.ts";
 
 /**
@@ -26,7 +32,7 @@ export const coreAudience = "core";
  */
 export type ViewerClaims =
   | { kind: "owner"; id: string }
-  | { kind: "guest"; id: string; roles: string[] };
+  | { kind: "guest"; id: CodeId; roles: RoleId[] };
 
 /** Whose session a token is for, and which session. */
 export type SessionTokenClaims = ViewerClaims & { sessionId: string };
@@ -58,18 +64,14 @@ const badToken = new Set([
   "ERR_JOSE_NOT_SUPPORTED",
 ]);
 
-function isRoleList(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((role) => typeof role === "string")
-  );
-}
-
 function viewerIn(payload: JWTPayload): ViewerClaims | undefined {
   const { sub, kind, roles } = payload;
   if (typeof sub !== "string") return undefined;
   if (kind === "owner") return { kind, id: sub };
-  if (kind === "guest" && isRoleList(roles)) return { kind, id: sub, roles };
-  return undefined;
+  if (kind !== "guest") return undefined;
+  const id = readCodeId(sub);
+  const roleIds = readRoleIds(roles);
+  return id && roleIds ? { kind, id, roles: roleIds } : undefined;
 }
 
 function claimsIn(payload: JWTPayload): SessionTokenClaims | undefined {

@@ -16,7 +16,7 @@ import {
   testTag,
 } from "@internal/test-postgres";
 import { afterEach, describe, expect, it } from "vitest";
-import { reportFaultsAt } from "./cli.ts";
+import { reportFaultsAt } from "./run-command.ts";
 
 const run = promisify(execFile);
 const bin = fileURLToPath(new URL("bin.ts", import.meta.url));
@@ -241,6 +241,19 @@ describe("robkit-dev", () => {
     expect(dev.output()).toMatch(/^ {4}at /m);
     expect(dev.output()).toContain(reportFaultsAt);
     expect(await createdContainers(dev.root)).toBe("");
+  });
+
+  it("stops everything and says why when an app can't start", async () => {
+    const dev = await startDev({ FIXTURE_REMOVE_APP: "beta" });
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toContain("beta couldn't start, stopping\n");
+    expect(dev.output()).toMatch(
+      /^pnpm run dev couldn't start in \S+\/apps\/beta \(spawn pnpm ENOENT\)\. Check that pnpm is installed and on your PATH, and that the folder exists\.$/m,
+    );
+    expect(dev.output()).not.toContain(reportFaultsAt);
+    expect(await isListening(dev.port + 1)).toBe(false);
+    expect(await runningContainers(dev.root)).toBe("");
   });
 
   it("stops everything and fails when an app exits", async () => {

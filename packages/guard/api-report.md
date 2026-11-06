@@ -11,11 +11,14 @@ export type AccessRule =
     }
   | {
       kind: "roles";
-      roles: string[];
+      roles: RoleId[];
     }
   | {
       kind: "owner";
     };
+export type CodeId = string & {
+  readonly [codeIdBrand]: true;
+};
 export type Decision =
   | {
       outcome: "allow";
@@ -32,6 +35,12 @@ export type Decision =
     };
 export function guard(rule: AccessRule, session: SessionState): Decision;
 export function readAccessRule(value: unknown): AccessRule | undefined;
+export function readCodeId(value: unknown): CodeId | undefined;
+export function readRoleId(value: unknown): RoleId | undefined;
+export function readRoleIds(value: unknown): RoleId[] | undefined;
+export type RoleId = string & {
+  readonly [roleIdBrand]: true;
+};
 export type SessionState =
   | {
       state: "unknown";
@@ -61,7 +70,7 @@ export interface ConformanceCase {
   name: string;
   rule: AccessRule;
   session: (typeof sessions)[number];
-  guestRoles?: string[];
+  guestRoles?: RoleId[];
   otherToken?: (typeof otherTokens)[number];
   outcome: Decision["outcome"];
 }

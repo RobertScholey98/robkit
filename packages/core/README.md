@@ -17,9 +17,10 @@ import {
   readCoreConfig,
   registerApps,
 } from "@robkit/core";
+import { isProblem } from "@robkit/session/input";
 
 const config = readCoreConfig(process.env);
-if ("error" in config) {
+if (isProblem(config)) {
   console.error(config.error);
   process.exit(1);
 }
@@ -61,15 +62,15 @@ await migrate(databaseUrl);
 
 | Export                               | What it is                                                                                                                                                       |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `domain`, optional `trustedProxy`, `now` and `logError`, where every unexpected error is logged                            |
-| `createDatabase(url)`, `Database`    | A Drizzle database on core's schema                                                                                                                              |
+| `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `domain`, optional `trustedProxy`, `now` and `logError`, a `Report` where every unexpected error is logged                 |
+| `createDatabase(url)`, `Database`    | Core's connection to its schema, to hand to `createApp`, `ensureSigningKey` and `registerApps`                                                                   |
 | `migrate(url)`                       | Applies core's migrations from `drizzle/`                                                                                                                        |
 | `ensureSigningKey(db)`, `SigningKey` | Core's Ed25519 key, made on first boot and kept in core's schema                                                                                                 |
 | `readCoreConfig(env)`, `CoreConfig`  | Reads core's environment once, at start: its database, domain, apps (`ROBKIT_APPS`), trusted proxy, host and port, or an `InputProblem` naming each bad variable |
 | `registerApps(db, apps)`             | Adds apps core hasn't seen, with their declared rule or owner-only. Keeps the owner's edits                                                                      |
 | `TrustedProxy`                       | `cloudflare`, or nothing                                                                                                                                         |
 
-Core's routes are in `src/app.ts`. `docs/architecture.md` shows how they fit the request and token flows.
+Core's routes are in `src/routes/`, one Hono app each for status, the session, codes, apps and roles. `createApp` in `src/app.ts` mounts them behind CORS and the rules every POST meets, and its one error handler answers what a route didn't expect. `docs/architecture.md` shows how they fit the request and token flows.
 
 ## What it must never do
 
@@ -77,3 +78,9 @@ Core's routes are in `src/app.ts`. `docs/architecture.md` shows how they fit the
 - Be reached by anything but the proxy. It trusts `X-Forwarded-For`, or `CF-Connecting-IP` with `ROBKIT_TRUSTED_PROXY=cloudflare`, for its sign-in limit.
 - Read any cookie but its own. It renews only from core's token, never from an app token.
 - Be imported by an app. `robkit check` enforces that in an install.
+
+## For contributors
+
+- `createApp` takes `logError`, a `Report` from `@robkit/session` that defaults to `reportToConsole`. Every unexpected error (one handler, `app.onError`, answering a generic 500) and an unreachable database are reported there.
+- Each 500 carries a fresh request id, in the `X-Request-Id` header and the body's `requestId`. The log line names the same id, such as `GET /path failed (request <id>).`, so a 500 a person reports leads to its cause in core's log.
+- Core adds a new app with the rule it declares, or owner-only, and creates any role it names that the owner lacks. After that admin sets who may open it, and core keeps the owner's rule.

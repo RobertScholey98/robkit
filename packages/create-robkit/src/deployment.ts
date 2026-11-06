@@ -10,12 +10,12 @@ import { install, type Slug } from "@robkit/session/addresses";
  * A variable's value on the host: written as is, or taken from one of the
  * host's shared variables, which the owner sets and which hold the secrets.
  */
-export type Value = { literal: string } | { shared: string };
+export type DeploymentValue = { literal: string } | { shared: string };
 
 /** One app's container in production, and its environment. */
-export interface Deployment {
+export interface AppDeployment {
   slug: Slug;
-  env: Record<string, Value>;
+  env: Record<string, DeploymentValue>;
 }
 
 /**
@@ -52,12 +52,12 @@ export function databaseUrlVariable(slug: string): string {
 export async function deploymentOf(
   root: string,
   { domain, port, trustedProxy }: DeploymentOptions,
-): Promise<Deployment[]> {
+): Promise<AppDeployment[]> {
   const apps = await discoverApps(root);
   const addresses = install({ domain, protocol: "https", port });
   const databases = apps.filter((app) => app.migrates).map((app) => app.slug);
   return apps.map(({ slug, migrates }) => {
-    const env: Record<string, Value> = {
+    const env: Record<string, DeploymentValue> = {
       ROBKIT_APP: { literal: slug },
       ROBKIT_DOMAIN: { literal: domain },
       ROBKIT_CORE_URL: { literal: addresses.origin("core") },

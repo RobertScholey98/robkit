@@ -1,41 +1,14 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { install } from "@robkit/session/addresses";
+import { isProblem } from "@robkit/session/input";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { readDevConfig } from "./env.ts";
-import { exec, prefixLines } from "./exec.ts";
+import { exec, prefixLines, startProblem } from "./exec.ts";
+import { failuresOf, throwFailures } from "./failures.ts";
 import { createProxy } from "./proxy.ts";
+import { stopGroup } from "./process-group.ts";
 import { provisionApps } from "./provision.ts";
-
-/** How long an app gets to exit after SIGTERM before it is killed. */
-const stopTimeoutMs = 5000;
-
-function groupAlive(pid: number): boolean {
-  try {
-    process.kill(-pid, 0);
-    return true;
-  } catch {
-    // Signal 0 throws only when the group is gone.
-    return false;
-  }
-}
-
-/** Stops an app's whole process group: its package manager, watcher and server. */
-async function stopGroup(child: ChildProcess): Promise<void> {
-  const pid = child.pid;
-  if (pid === undefined) return;
-  try {
-    process.kill(-pid, "SIGTERM");
-  } catch {
-    // The group has already exited.
-    return;
-  }
-  const deadline = Date.now() + stopTimeoutMs;
-  while (groupAlive(pid) && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  if (groupAlive(pid)) process.kill(-pid, "SIGKILL");
-}
 
 /**
  * `robkit-dev`: runs the install in `root` for local development. Finds the
@@ -44,14 +17,15 @@ async function stopGroup(child: ChildProcess): Promise<void> {
  * front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
  *
  * @returns the exit code: 0 after a signal, 1 if an app exited
- * @throws what failed while starting or stopping, once everything stopped
+ * @throws what failed while starting or stopping, once everything stopped:
+ *   one failure as it is, or several in an AggregateError
  */
 export async function runDev(
   root: string,
   env: NodeJS.ProcessEnv,
 ): Promise<number> {
   const config = readDevConfig(env);
-  if ("error" in config) {
+  if (isProblem(config)) {
     console.error(config.error);
     return 1;
   }
@@ -69,8 +43,8 @@ export async function runDev(
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;
-  // The first error, thrown once everything has stopped.
-  let failure: { error: unknown } | undefined;
+  // What failed, thrown once everything has stopped.
+  const failures: unknown[] = [];
   const { promise: stopRequested, resolve: wake } =
     Promise.withResolvers<undefined>();
   const stopController = new AbortController();
@@ -86,7 +60,7 @@ export async function runDev(
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
 
-  const running: ChildProcess[] = [];
+  const running: { slug: string; child: ChildProcess }[] = [];
   const proxy = createProxy(routesFor(apps, domain));
 
   const start = (app: App, databaseUrl: string | undefined) => {
@@ -109,7 +83,14 @@ export async function runDev(
       console.error(`${app.slug} exited (${String(signal ?? code)}), stopping`);
       stop("failed");
     });
-    running.push(child);
+    // Emitted instead of exit when the app can't start, such as pnpm
+    // missing or its folder gone.
+    child.on("error", (error) => {
+      if (!stopping()) console.error(`${app.slug} couldn't start, stopping`);
+      failures.push(startProblem("pnpm", ["run", "dev"], app.dir, error));
+      stop("failed");
+    });
+    running.push({ slug: app.slug, child });
   };
 
   try {
@@ -132,21 +113,29 @@ export async function runDev(
       console.log();
     }
   } catch (error) {
-    failure ??= { error };
+    failures.push(error);
     stop("failed");
   }
 
   await stopRequested;
-  await Promise.all(running.map(stopGroup));
-  proxy.closeAllConnections();
-  proxy.close();
-  try {
-    await exec("docker", ["compose", "stop"], { cwd: root, env });
-  } catch (error) {
-    failure ??= { error };
+  const stopApps = running.map(
+    ({ slug, child }) =>
+      () =>
+        stopGroup(slug, child.pid),
+  );
+  const closeProxy = () => {
+    proxy.closeAllConnections();
+    proxy.close();
+  };
+  const stopPostgres = () =>
+    exec("docker", ["compose", "stop"], { cwd: root, env });
+  // The apps stop together, then the proxy, then Postgres. Each stage runs
+  // even when one before it failed, so nothing is left running.
+  for (const stage of [stopApps, [closeProxy], [stopPostgres]]) {
+    failures.push(...(await failuresOf(stage)));
   }
   process.off("SIGINT", onSignal);
   process.off("SIGTERM", onSignal);
-  if (failure) throw failure.error;
+  throwFailures(failures);
   return outcome === "failed" ? 1 : 0;
 }

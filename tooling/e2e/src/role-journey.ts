@@ -1,7 +1,9 @@
+import type { Slug } from "@robkit/session/addresses";
 import type { Browser, Locator, Page } from "playwright";
 import { launch } from "./browser.ts";
 import type { Answer } from "./guest-journey.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
+import { exampleSlug } from "./install.ts";
 
 /** What a guest holding Family saw as the owner gated the example app. */
 export interface RoleJourney {
@@ -94,7 +96,7 @@ export async function roleJourney({
   username,
   password,
 }: JourneyOptions): Promise<RoleJourney> {
-  const at = (slug: string, path = "/") => `${install.origin(slug)}${path}`;
+  const at = (slug: Slug, path = "/") => `${install.origin(slug)}${path}`;
   const browser = await launch();
   try {
     const owner = await freshPage(browser);
@@ -138,10 +140,10 @@ export async function roleJourney({
     await guest.getByRole("button", { name: "Sign in" }).click();
     await guest.getByText("Signed in as Sam").waitFor();
     const launcherGatedToFamily = await launcherApps(guest, at("hub"));
-    await openUntil(guest, at("example"), 200);
+    await openUntil(guest, at(exampleSlug), 200);
     await guest.goto(at("hub"));
     await guest.getByRole("link", { name: "example" }).click();
-    await guest.waitForURL(at("example"));
+    await guest.waitForURL(at(exampleSlug));
     const heading = await guest.getByRole("heading").textContent();
     const openedAt = guest.url();
 
@@ -157,7 +159,7 @@ export async function roleJourney({
       .getByRole("main")
       .getByTestId("app-name")
       .allTextContents();
-    const example = await openUntil(guest, at("example"), 404);
+    const example = await openUntil(guest, at(exampleSlug), 404);
 
     return {
       createdWith,

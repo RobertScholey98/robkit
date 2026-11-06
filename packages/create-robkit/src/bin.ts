@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
-import { parseArgs } from "node:util";
-import { Problem, runCommand } from "@robkit/dev";
+import { CommandProblem, runCommand } from "@robkit/dev/cli";
 import {
   defaultDevPort,
   defaultDomain,
   install as addresses,
 } from "@robkit/session/addresses";
+import { readArgs } from "./args.ts";
 import { stackFrom } from "./choices.ts";
 import { init } from "./init.ts";
 import { usage } from "./usage.ts";
@@ -19,19 +19,22 @@ const hubOrigin = addresses({
 }).origin("hub");
 
 function fail(message: string): never {
-  throw new Problem(message);
+  throw new CommandProblem(message);
 }
 
 process.exitCode = await runCommand(async () => {
-  const { values, positionals } = parseArgs({
-    allowPositionals: true,
-    options: {
-      stack: { type: "string" },
-      install: { type: "boolean", default: false },
-      link: { type: "boolean", default: false },
+  const { values, positionals } = readArgs(
+    {
+      allowPositionals: true,
+      options: {
+        stack: { type: "string" },
+        install: { type: "boolean", default: false },
+        link: { type: "boolean", default: false },
+      },
     },
-  });
-  if (positionals.length > 1) throw new Problem(usage);
+    usage,
+  );
+  if (positionals.length > 1) throw new CommandProblem(usage);
   const { install, link } = values;
   const [given] = positionals;
   // --stack answers init's questions, so it needs the folder too.

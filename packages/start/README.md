@@ -9,6 +9,8 @@ Apps on the TanStack Start stack use it.
 From the Start template (`templates/stacks/start/src/server.ts`):
 
 ```ts
+import { isProblem } from "@robkit/session/input";
+import { readGuardEnv } from "@robkit/session/app-env";
 import { guarded, type GuardedContext } from "@robkit/start";
 import entry from "@tanstack/react-start/server-entry";
 
@@ -19,17 +21,12 @@ declare module "@tanstack/react-start" {
   }
 }
 
-function env(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
+// The app's slug and core's address, which pnpm dev and robkit deploy set.
+const guard = readGuardEnv(process.env);
+if (isProblem(guard)) throw new Error(guard.error);
 
 // The rule is the one the owner set for this app in admin.
-export default guarded(entry, {
-  app: env("ROBKIT_APP"),
-  core: env("ROBKIT_CORE_URL"),
-});
+export default guarded(entry, guard);
 ```
 
 Pair it with `sessionFetch` from `@robkit/react` in `src/start.ts`, so a server function called after the app's token lapsed sends the browser for a new one instead of failing.

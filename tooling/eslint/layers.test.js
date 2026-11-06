@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { Linter } from "eslint";
 import globals from "globals";
 import { describe, expect, it } from "vitest";
-import layer, { repoRoot } from "./layers.js";
+import layer, { coreRows, repoRoot } from "./layers.js";
 
 /**
  * Lints `code` as `src/index.ts` in `workspace`.
@@ -28,19 +28,69 @@ function lint(workspace, code) {
     .map((m) => m.message);
 }
 
-const adapters =
-  "Layer rule: adapters never import @robkit/core. Code reaches core over HTTP only.";
+/** @param {string} name */
+const offCore = (name) =>
+  `Layer rule: ${name} never imports @robkit/core. Code reaches core over HTTP only.`;
+const adapters = offCore("@robkit/hono");
 const noIo = "Layer rule: @robkit/guard does no I/O.";
 
+describe("coreRows", () => {
+  it("keeps every package the graph doesn't let take core off it", () => {
+    const rows = coreRows(
+      {
+        "@robkit/core": { dependencies: [], devDependencies: [] },
+        "@robkit/hono": { dependencies: [], devDependencies: [] },
+        "@internal/checks": {
+          dependencies: [],
+          devDependencies: ["@robkit/core"],
+        },
+      },
+      new Map([
+        ["@robkit/core", "packages/core"],
+        ["@robkit/hono", "packages/hono"],
+        ["@internal/checks", "tooling/checks"],
+      ]),
+    );
+
+    expect(
+      rows.map(({ applies, ...row }) => ({
+        ...row,
+        hono: applies("packages/hono"),
+        checks: applies("tooling/checks"),
+        core: applies("packages/core"),
+      })),
+    ).toEqual([
+      {
+        rule: offCore("@robkit/hono"),
+        modules: ["@robkit/core"],
+        folders: ["packages/core"],
+        hono: true,
+        checks: false,
+        core: false,
+      },
+    ]);
+  });
+});
+
 describe("the layer rule", () => {
-  it.each(["packages/hono", "packages/start", "packages/react"])(
-    "keeps the %s adapter off @robkit/core",
-    (adapter) => {
-      expect(lint(adapter, 'import { app } from "@robkit/core";')).toEqual([
-        adapters,
-      ]);
-    },
-  );
+  it.each([
+    ["packages/hono", "@robkit/hono"],
+    ["packages/start", "@robkit/start"],
+    ["packages/react", "@robkit/react"],
+    ["packages/session", "@robkit/session"],
+    ["packages/dev", "@robkit/dev"],
+    ["tooling/e2e", "@internal/e2e"],
+  ])("keeps %s off @robkit/core, as the package graph does", (folder, name) => {
+    expect(lint(folder, 'import { app } from "@robkit/core";')).toEqual([
+      offCore(name),
+    ]);
+  });
+
+  it("lets the repo checks, which the graph lets take core, import it", () => {
+    expect(
+      lint("tooling/repo-checks", 'import { app } from "@robkit/core";'),
+    ).toEqual([]);
+  });
 
   it("catches a dynamic import and a re-export of @robkit/core", () => {
     expect(

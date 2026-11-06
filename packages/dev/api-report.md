@@ -10,19 +10,18 @@ export interface App {
   dir: string;
   port: number;
   migrates: boolean;
-  declares: Declares;
+  declares: AppDeclaration;
 }
 export interface AppManifest {
   name?: string;
   scripts: Record<string, string>;
-  declares: Declares;
+  declares: AppDeclaration;
 }
 export function appManifestIn(
   root: string,
   folder: string,
 ): Promise<AppManifest | undefined>;
 export function catalogOf(apps: readonly App[]): string;
-export function createProxy(routes: readonly Route[]): Server;
 export function databasePassword(secret: string, slug: Slug): string;
 export function databaseUrl(
   adminUrl: string,
@@ -30,23 +29,11 @@ export function databaseUrl(
   password: string,
 ): string;
 export function discoverApps(root: string, firstPort?: number): Promise<App[]>;
-export class Problem extends Error {
-  name: string;
-}
-export function provisionApps(
-  root: string,
-  { adminUrl, env, signal }: ProvisionOptions,
-): Promise<Map<Slug, string>>;
 export interface ProvisionConfig {
   adminUrl: string;
   secret: string;
   slugs: Slug[];
 }
-export function provisionDatabase(
-  adminUrl: string,
-  slug: Slug,
-  password?: string,
-): Promise<string>;
 export function provisionDatabases({
   adminUrl,
   secret,
@@ -57,26 +44,28 @@ export interface ProvisionDatabasesOptions {
   secret: string;
   slugs: readonly Slug[];
 }
-export interface ProvisionOptions {
-  adminUrl: string;
-  env?: NodeJS.ProcessEnv;
-  signal?: AbortSignal;
-}
-export function readAppManifest(
-  value: unknown,
-  file: string,
-): AppManifest | InputProblem;
 export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem;
-export const reportFaultsAt: "https://github.com/RobertScholey98/robkit/issues";
-export interface Route {
-  host: string;
-  app: string;
-  port: number;
+```
+
+## @robkit/dev/cli
+
+```ts
+export class CommandProblem extends Error {
+  name: string;
 }
-export function routesFor(apps: readonly App[], domain: string): Route[];
+export function exec(
+  command: string,
+  args: string[],
+  options: {
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    slug?: string;
+  },
+): Promise<void>;
+export function isMissing(error: unknown): boolean;
+export const reportFaultsAt: "https://github.com/RobertScholey98/robkit/issues";
 export function runCommand(
   main: () => Promise<number | undefined>,
-  print?: (...line: unknown[]) => void,
+  report?: Report,
 ): Promise<number>;
-export function runDev(root: string, env: NodeJS.ProcessEnv): Promise<number>;
 ```

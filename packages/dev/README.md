@@ -20,47 +20,52 @@ An install's root `package.json`:
 An install's `apps/core/src/provision.ts`, which runs in production:
 
 ```ts
-import { provisionDatabases } from "@robkit/dev";
+import { provisionDatabases, readProvisionConfig } from "@robkit/dev";
+import { isProblem } from "@robkit/session/input";
 
-function env(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
+// ROBKIT_ADMIN_DATABASE_URL, ROBKIT_DB_SECRET, and ROBKIT_DATABASES, which
+// lists the apps with a database, such as "example,notes".
+const config = readProvisionConfig(process.env);
+if (isProblem(config)) {
+  console.error(config.error);
+  process.exit(1);
 }
 
-// ROBKIT_DATABASES lists the apps with a database, such as "example,notes".
-const slugs = env("ROBKIT_DATABASES")
-  .split(",")
-  .map((slug) => slug.trim())
-  .filter((slug) => slug !== "");
-
-await provisionDatabases({
-  adminUrl: env("ROBKIT_ADMIN_DATABASE_URL"),
-  secret: env("ROBKIT_DB_SECRET"),
-  slugs,
-});
+await provisionDatabases(config);
+console.log(`provisioned ${config.slugs.join(", ")}`);
 ```
 
 `robkit-dev` reads `ROBKIT_DOMAIN` (default `robkit.localhost`) and `ROBKIT_DEV_PORT` (default `3000`). It tells each app its slug as `ROBKIT_APP` and core's address as `ROBKIT_CORE_URL`, and hands core every app's manifest as `ROBKIT_APPS`.
 
 ## Exports
 
-| Export                                                    | What it is                                                                                                                    |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `robkit-dev` (bin)                                        | The runner                                                                                                                    |
-| `runDev(root, env)`                                       | The runner as a function. Returns the exit code                                                                               |
-| `runCommand(main)`, `Problem`, `reportFaultsAt`           | Runs a command line: a thrown `Problem` prints its message and exits 1; anything else prints its stack and where to report it |
-| `readAppManifest`, `appManifestIn`, `AppManifest`         | An app's `package.json`, read through session's readers                                                                       |
-| `readProvisionConfig(env)`, `ProvisionConfig`             | The production provision step's environment                                                                                   |
-| `discoverApps(root)`, `App`                               | The apps under `apps/`, refusing a folder whose name isn't a slug                                                             |
-| `catalogOf(apps)`                                         | `ROBKIT_APPS`: each app's slug and manifest, as JSON                                                                          |
-| `routesFor(apps, domain)`, `createProxy(routes)`, `Route` | The proxy and its host-to-port routes                                                                                         |
-| `provisionApps(options)`                                  | The provision step in dev: schema and role for each app, then its `migrate` script                                            |
-| `provisionDatabases(options)`, `provisionDatabase`        | The provision step in production, with passwords from `ROBKIT_DB_SECRET`                                                      |
-| `databasePassword(secret, slug)`, `databaseUrl`           | An app's role password (an HMAC of its slug) and its `DATABASE_URL`                                                           |
+`@robkit/dev` holds what an install and create-robkit use beside the runner:
+
+| Export                                          | What it is                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------ |
+| `robkit-dev` (bin)                              | The runner                                                               |
+| `appManifestIn(root, folder)`, `AppManifest`    | An app's `package.json`, read through session's readers                  |
+| `readProvisionConfig(env)`, `ProvisionConfig`   | The production provision step's environment                              |
+| `discoverApps(root)`, `App`                     | The apps under `apps/`, refusing a folder whose name isn't a slug        |
+| `catalogOf(apps)`                               | `ROBKIT_APPS`: each app's slug and manifest, as JSON                     |
+| `provisionDatabases(options)`                   | The provision step in production, with passwords from `ROBKIT_DB_SECRET` |
+| `databasePassword(secret, slug)`, `databaseUrl` | An app's role password (an HMAC of its slug) and its `DATABASE_URL`      |
+
+`@robkit/dev/cli` holds what robkit's command lines share. create-robkit's `create-robkit` and `robkit` bins and `robkit-dev` use it:
+
+| Export                                                          | What it is                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runCommand(main, report?)`, `CommandProblem`, `reportFaultsAt` | Runs a command line: a thrown `CommandProblem` prints its message and exits 1; anything else prints a line saying it's a bug and where to report it, then the error with its stack. `report` is a `Report` from `@robkit/session`, `reportToConsole` by default |
+| `exec(command, args, { cwd, env, slug? })`                      | Runs a command to completion. A failure is a `CommandProblem` naming the command, its folder and its exit code                                                                                                                                                  |
+| `isMissing(error)`                                              | Whether an error says a file or folder isn't there                                                                                                                                                                                                              |
 
 ## What it must never do
 
 - Import `@robkit/core`. It starts core as a process like any other app.
 - Run on Windows outside WSL. It stops each app's process group with POSIX signals, so it needs Linux or macOS.
 - Give an app's role access to another schema. Each role reaches its own schema and nothing else.
+
+## For contributors
+
+- An app with a `migrate` script gets its own schema and role from the provision step, `provisionApps`, which then runs that script. `pnpm dev` runs the step before it starts the apps. The runner and the step run each app's scripts with pnpm.
+- The runner tells each app its slug as `ROBKIT_APP`, and hands core the owner's apps as `ROBKIT_APPS`, a JSON list of each app's slug and what its manifest declares: the `robkit` field of its `package.json`, with who may open it (roles by name) and an emoji for the launcher.

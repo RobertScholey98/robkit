@@ -9,7 +9,15 @@ You won't usually call it yourself. `requestGuard` in `@robkit/session` runs it 
 How `requestGuard` calls it, once it has read the app's cookie and fetched the rule:
 
 ```ts
-import { guard } from "@robkit/guard";
+import { guard, readCodeId, readRoleId } from "@robkit/guard";
+
+// Ids from core: a role's, and the access code the guest signed in with.
+// The guard takes them branded, so a string goes through its reader first.
+const familyRoleId = readRoleId("4b0e1f9c-7d2a-4c63-9a51-2f8e6d3b7a10");
+const codeId = readCodeId("9d3c2a71-5e84-4f0b-8c16-a7b2e4f9d058");
+if (familyRoleId === undefined || codeId === undefined) {
+  throw new Error("Core sent an empty id.");
+}
 
 const decision = guard(
   { kind: "roles", roles: [familyRoleId] },
@@ -26,20 +34,24 @@ How admin reads a rule core sent as JSON (`templates/base/apps/admin/src/client/
 ```ts
 import { readAccessRule, type AccessRule } from "@robkit/guard";
 
-const access: AccessRule | undefined = readAccessRule(body.access);
+function accessOf(body: { access?: unknown }): AccessRule | undefined {
+  return readAccessRule(body.access);
+}
 ```
 
 ## Exports
 
-| Export                      | What it is                                                                                             |
-| --------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `guard(rule, session)`      | The decision: `{ outcome: "allow", viewer }`, `{ outcome: "login" }`, `"refresh"` or `"not-found"`     |
-| `readAccessRule(value)`     | Reads an access rule from `unknown`, or `undefined` if it isn't one                                    |
-| `AccessRule`                | `{ kind: "open" }`, `{ kind: "roles", roles }` (role ids) or `{ kind: "owner" }`                       |
-| `SessionState`              | What the app knows: `unknown`, `signed-out`, `expired`, or `signed-in` with a viewer                   |
-| `Viewer`, `SignedInViewer`  | Who is asking: the owner, a guest with role ids, or `{ kind: "nobody" }`                               |
-| `Decision`                  | `guard`'s answer                                                                                       |
-| `@robkit/guard/conformance` | `conformanceCases`: the cases in `conformance.json`, typed, that the guard and every adapter must pass |
+| Export                                                         | What it is                                                                                             |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `guard(rule, session)`                                         | The decision: `{ outcome: "allow", viewer }`, `{ outcome: "login" }`, `"refresh"` or `"not-found"`     |
+| `readAccessRule(value)`                                        | Reads an access rule from `unknown`, or `undefined` if it isn't one                                    |
+| `RoleId`, `CodeId`                                             | Brands for a role's id and an access code's id. Only their readers make them                           |
+| `readRoleId(value)`, `readCodeId(value)`, `readRoleIds(value)` | Read an id, or a list of role ids, from `unknown`: any string that isn't empty, or `undefined`         |
+| `AccessRule`                                                   | `{ kind: "open" }`, `{ kind: "roles", roles }` (role ids) or `{ kind: "owner" }`                       |
+| `SessionState`                                                 | What the app knows: `unknown`, `signed-out`, `expired`, or `signed-in` with a viewer                   |
+| `Viewer`, `SignedInViewer`                                     | Who is asking: the owner, a guest with role ids, or `{ kind: "nobody" }`                               |
+| `Decision`                                                     | `guard`'s answer                                                                                       |
+| `@robkit/guard/conformance`                                    | `conformanceCases`: the cases in `conformance.json`, typed, that the guard and every adapter must pass |
 
 The whole decision is one table in `src/guard.ts`. `docs/architecture.md` draws it.
 
@@ -47,3 +59,8 @@ The whole decision is one table in `src/guard.ts`. `docs/architecture.md` draws 
 
 - Import a framework, or do I/O: no Node built-in modules, no `fetch`, no `process`. `tooling/eslint` enforces both.
 - Decide differently from `conformance.json`. Change the table and the cases together.
+
+## For contributors
+
+- `RoleId` and `CodeId` are brands. The guard doesn't know core's id scheme, so its readers take any string that isn't empty. `readAccessRule`, session's token reader and core's readers make them too, and core's schema types its id columns with them.
+- `conformance.json` holds the cases the guard and every adapter pass, tokens for another app, for core and with no audience among them.

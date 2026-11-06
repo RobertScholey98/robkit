@@ -1,4 +1,4 @@
-import { installAt, type Install } from "@robkit/session/addresses";
+import { installAt, type Install, type Slug } from "@robkit/session/addresses";
 
 /**
  * The install the hub's page is on. The hub answers on `hub.<domain>`, so it
@@ -29,6 +29,6 @@ export function returnTo(page: string | URL): string | undefined {
 }
 
 /** An app's origin: `<slug>.<domain>`, beside the hub. */
-export function appOrigin(page: string | URL, slug: string): string {
+export function appOrigin(page: string | URL, slug: Slug): string {
   return installOf(page).origin(slug);
 }

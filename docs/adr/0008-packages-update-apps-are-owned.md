@@ -4,7 +4,7 @@
 
 ## Context
 
-A kit that writes files into your repo has to say what happens when the kit improves. Codemods and three-way merges of generated files are fragile, and an eject command splits users into two kinds.
+A kit that writes files into your repo has to say what happens when the kit improves. Codemods and three-way merges of generated files are fragile, and an eject command splits installs into two kinds.
 
 ## Decision
 

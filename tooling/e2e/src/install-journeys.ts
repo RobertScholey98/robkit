@@ -15,6 +15,7 @@ import {
   defaultDomain,
   install,
   type Install,
+  type Slug,
 } from "@robkit/session/addresses";
 import type { Choices } from "create-robkit";
 import {
@@ -35,6 +36,7 @@ import {
   addedSlug,
   installChoices,
   type InstallName,
+  exampleSlug,
 } from "./install.ts";
 import { ownerJourney } from "./owner-journey.ts";
 import { roleJourney } from "./role-journey.ts";
@@ -44,12 +46,12 @@ import { themeJourney } from "./theme-journey.ts";
 const run = promisify(execFile);
 
 /** The Host header that reaches `slug` through the dev proxy. */
-function hostOf(slug: string): string {
+function hostOf(slug: Slug): string {
   return new URL(addresses.origin(slug)).host;
 }
 
 /** A URL on `slug`, as the browser sees it. */
-function at(slug: string, path = "/"): string {
+function at(slug: Slug, path = "/"): string {
   return `${addresses.origin(slug)}${path}`;
 }
 
@@ -266,21 +268,20 @@ export function describeJourneys(
       expect(cookie).toMatch(/^robkit_session=[\w-]+\.[\w-]+\.[\w-]+;/);
       expect(cookie).not.toContain("Domain=");
       expect(cookie).not.toContain("Secure");
-      expect(JSON.parse(after.body)).toEqual({
+      const signedIn: unknown = JSON.parse(setup.body);
+      expect(signedIn).toMatchObject({
         state: "signed-in",
-        viewer: {
-          kind: "owner",
-          id: (JSON.parse(setup.body) as { viewer: { id: string } }).viewer.id,
-          username: "rob",
-        },
+        viewer: { kind: "owner", username: "rob" },
       });
+      // The session core reads back is the one setup started.
+      expect(JSON.parse(after.body)).toEqual(signedIn);
     });
 
     it("guards the example app with its own token: login, return and refresh bounce", async () => {
-      const example = at("example");
+      const example = at(exampleSlug);
       // pnpm dev waits for no app. Until the guard answers a signed-out
       // fetch with 401, the proxy may still be answering 502.
-      await eventually(() => get(hostOf("example")), 401);
+      await eventually(() => get(hostOf(exampleSlug)), 401);
 
       const journey = await ownerJourney({
         install: addresses,
@@ -305,7 +306,10 @@ export function describeJourneys(
         viewerId: journey.ownerId,
         ownerId: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
         appToken: journey.appToken,
-        sessionCookieHosts: [addresses.host("core"), addresses.host("example")],
+        sessionCookieHosts: [
+          addresses.host("core"),
+          addresses.host(exampleSlug),
+        ],
         bounce: [
           example,
           refreshing(example),
@@ -326,7 +330,7 @@ export function describeJourneys(
     it.runIf(stack === "start")(
       "sends a server function call with an expired session through core's refresh",
       async () => {
-        const example = at("example");
+        const example = at(exampleSlug);
 
         const journey = await serverFunctionJourney({
           install: addresses,
@@ -340,7 +344,7 @@ export function describeJourneys(
           visits: [first, first + 1],
           bounce: [
             at(
-              "example",
+              exampleSlug,
               `/_robkit/refresh?next=${encodeURIComponent(example)}`,
             ),
             refreshing(example),
@@ -355,7 +359,7 @@ export function describeJourneys(
     );
 
     it("signs guests in with codes, keeps them out of owner-only apps, and ends a revoked code's session", async () => {
-      const example = at("example");
+      const example = at(exampleSlug);
       const notFound = { status: 404, body: "Not found" };
 
       const journey = await guestJourney({
@@ -461,7 +465,7 @@ export function describeJourneys(
           createdWith: "Alex, Sam",
           editedTo: "Sam",
           launcherGatedToFamily: [addedSlug, "example"],
-          openedAt: at("example"),
+          openedAt: at(exampleSlug),
           heading: "Signed in as a guest",
           launcherGatedToFriends: [addedSlug],
           example: { status: 404, body: "Not found" },

@@ -74,7 +74,7 @@ export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem {
   for (const name of (env.ROBKIT_DATABASES ?? "").split(",")) {
     if (name.trim() === "") continue;
     const slug = readSlug(name.trim());
-    if (typeof slug !== "string") {
+    if (isProblem(slug)) {
       return { error: `ROBKIT_DATABASES: ${slug.error}` };
     }
     slugs.push(slug);
