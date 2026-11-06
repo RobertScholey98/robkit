@@ -3,7 +3,7 @@
 // `ROBKIT_APPS`. See docs/conventions/input.md.
 
 import { readAccessRule } from "@robkit/guard";
-import { readSlug, type Slug } from "./install-addresses.ts";
+import { readSlug, type Slug } from "./addresses.ts";
 import { isProblem, isRecord, type InputProblem } from "./problem.ts";
 
 /**

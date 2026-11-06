@@ -4,7 +4,7 @@
 // The caller decides what a problem means: core and the dev runner refuse
 // to start, a command prints it. See docs/conventions/input.md.
 
-import { installAt, readSlug, type Slug } from "./install-addresses.ts";
+import { installAt, readSlug, type Slug } from "./addresses.ts";
 import {
   allProblems,
   isProblem,

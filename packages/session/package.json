@@ -6,9 +6,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./app-env": "./src/app-env.ts",
-    "./addresses": "./src/install-addresses.ts",
+    "./addresses": "./src/addresses.ts",
     "./input": "./src/input.ts",
-    "./lapsed": "./src/session-lapsed.ts",
+    "./lapsed": "./src/lapsed.ts",
     "./manifest": "./src/manifest.ts"
   },
   "publishConfig": {
@@ -22,16 +22,16 @@
         "default": "./dist/app-env.js"
       },
       "./addresses": {
-        "types": "./dist/install-addresses.d.ts",
-        "default": "./dist/install-addresses.js"
+        "types": "./dist/addresses.d.ts",
+        "default": "./dist/addresses.js"
       },
       "./input": {
         "types": "./dist/input.d.ts",
         "default": "./dist/input.js"
       },
       "./lapsed": {
-        "types": "./dist/session-lapsed.d.ts",
-        "default": "./dist/session-lapsed.js"
+        "types": "./dist/lapsed.d.ts",
+        "default": "./dist/lapsed.js"
       },
       "./manifest": {
         "types": "./dist/manifest.d.ts",

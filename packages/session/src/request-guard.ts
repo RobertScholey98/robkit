@@ -8,15 +8,10 @@ import {
 import { appRefreshPath, appSessionPath } from "./app-session.ts";
 import { coreAccess } from "./core-access.ts";
 import { coreKeys } from "./core-keys.ts";
-import {
-  installAt,
-  isLocal,
-  type Install,
-  type Slug,
-} from "./install-addresses.ts";
+import { installAt, isLocal, type Install, type Slug } from "./addresses.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
 import { reportToConsole } from "./report.ts";
-import { sessionLapsedResponse } from "./session-lapsed.ts";
+import { sessionLapsedResponse } from "./lapsed.ts";
 import {
   cookieValues,
   readAppToken,

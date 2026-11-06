@@ -7,8 +7,8 @@ import {
 } from "./index.ts";
 import type { InputProblem } from "./input.ts";
 import type { DeclaredAccess } from "./manifest.ts";
-import { readSlug, type Slug } from "./install-addresses.ts";
-import { readSessionLapsed, type SessionLapsed } from "./session-lapsed.ts";
+import { readSlug, type Slug } from "./addresses.ts";
+import { readSessionLapsed, type SessionLapsed } from "./lapsed.ts";
 
 declare const notes: Slug;
 declare const family: RoleId;

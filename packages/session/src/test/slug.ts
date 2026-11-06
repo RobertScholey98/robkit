@@ -1,4 +1,4 @@
-import { readSlug, type Slug } from "../install-addresses.ts";
+import { readSlug, type Slug } from "../addresses.ts";
 import { isProblem } from "../problem.ts";
 
 /** `name` as a slug, for a test that names its apps. */

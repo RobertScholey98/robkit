@@ -14,7 +14,7 @@ import type { AccessRule, RoleId } from "@robkit/guard";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { requestGuard, type GuardedOptions, type GuardFault } from "./index.ts";
-import { readSessionLapsed } from "./session-lapsed.ts";
+import { readSessionLapsed } from "./lapsed.ts";
 import { slug } from "./test/slug.ts";
 
 const example = slug("example");

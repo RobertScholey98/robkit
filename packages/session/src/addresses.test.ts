@@ -9,7 +9,7 @@ import {
   platformApps,
   readSlug,
   slugProblem,
-} from "./install-addresses.ts";
+} from "./addresses.ts";
 import { slug } from "./test/slug.ts";
 
 describe("an install's addresses", () => {

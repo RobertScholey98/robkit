@@ -3,7 +3,7 @@
 // needs. pnpm dev and robkit deploy set these variables. See
 // docs/conventions/input.md.
 
-import type { Slug } from "./install-addresses.ts";
+import type { Slug } from "./addresses.ts";
 import {
   allProblems,
   isProblem,
