@@ -33,11 +33,11 @@ Admin fixes its rule instead of asking core (`templates/base/apps/admin/src/serv
 
 ```ts
 import { guarded } from "@robkit/hono";
-import { readCoreUrl } from "@robkit/session/input";
+import { isProblem, readCoreUrl } from "@robkit/session/input";
 import { Hono } from "hono";
 
 const core = readCoreUrl(process.env);
-if (typeof core !== "string") throw new Error(core.error);
+if (isProblem(core)) throw new Error(core.error);
 
 const app = new Hono();
 

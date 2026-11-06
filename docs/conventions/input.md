@@ -39,6 +39,8 @@ The shared readers live in `@robkit/session/input` (environment variables and JS
 
 The rules live in `tooling/eslint`, each with its tests. An install's `eslint.config.js` refuses the same three with `no-restricted-syntax` selectors, so the templates and every app `robkit add` writes keep to them too.
 
+Lint can't tell `typeof core !== "string"` on a reader's result from any other `typeof`, and it happens to work for a reader that returns a string. A repo check, `tooling/repo-checks/src/problem-checks.ts`, finds it by name in robkit's source, the templates and the docs, and fails.
+
 ## Example
 
 `readServeEnv` in `@robkit/session/app-env` reads where a server listens:
