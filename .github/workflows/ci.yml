@@ -80,6 +80,13 @@ jobs:
       - run: node tooling/repo-checks/src/check-coverage-thresholds.ts "$BASE"
       # Fails when a published package's source changed without a changeset.
       - run: pnpm changeset status --since="$BASE"
+      # Fails when main's ruleset stops requiring a pull request and gate, or
+      # stops blocking force pushes and deletion. `shell: bash` sets
+      # pipefail, so the step fails if gh does.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" | node tooling/repo-checks/src/check-branch-rules.ts
       # The Ticket section must name a ticket file that exists. It reads the
       # body now, not from the event, so a re-run sees an edited body. A
       # bot's pull request, such as Renovate's, works no ticket.
