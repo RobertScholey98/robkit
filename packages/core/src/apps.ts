@@ -6,16 +6,14 @@ import {
   type SessionState,
 } from "@robkit/guard";
 import {
-  isProblem,
-  parseJson,
-  type Env,
-  type InputProblem,
-} from "@robkit/session/input";
-import {
-  readDeclaredApp,
   type DeclaredAccess,
   type DeclaredApp,
-} from "@robkit/session/manifest";
+  type Env,
+  type InputProblem,
+  isProblem,
+  parseJson,
+  readDeclaredApp,
+} from "@robkit/input";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -39,7 +37,9 @@ export function readAccess(
   fields: Record<string, unknown>,
 ): AccessRule | InputProblem {
   const rule = readAccessRule(fields);
-  if (rule && !(rule.kind === "roles" && rule.roles.length === 0)) return rule;
+  if (!isProblem(rule) && !(rule.kind === "roles" && rule.roles.length === 0)) {
+    return rule;
+  }
   return fields.kind === "roles"
     ? { error: "Pick at least one role." }
     : { error: "Pick open, roles or owner." };

@@ -1,15 +1,13 @@
 import { describe, expect, it } from "vitest";
+import { orThrow, readCoreUrl } from "@robkit/input";
 import {
+  coreInstall,
   defaultDevPort,
   defaultDomain,
   install,
   installAt,
   isLocal,
-  isPlatformApp,
-  platformApps,
-  readSlug,
-  slugProblem,
-} from "./install-addresses.ts";
+} from "./addresses.ts";
 import { slug } from "./test/slug.ts";
 
 describe("an install's addresses", () => {
@@ -49,12 +47,23 @@ describe("an install's addresses", () => {
       ),
     ).toEqual([true, true, false, false]);
   });
+});
 
-  it("names the platform apps", () => {
-    expect(platformApps).toEqual(["core", "hub", "admin"]);
-    expect(
-      ["core", "hub", "admin", "notes", "hubs"].map(isPlatformApp),
-    ).toEqual([true, true, true, false, false]);
+describe("the install core is on", () => {
+  it("works out the install from core's origin", () => {
+    const local = coreInstall(
+      orThrow(
+        readCoreUrl({ ROBKIT_CORE_URL: "http://core.robkit.localhost:3000" }),
+      ),
+    );
+    expect(local.domain).toBe("robkit.localhost");
+    expect(local.origin("hub")).toBe("http://hub.robkit.localhost:3000");
+
+    const hosted = coreInstall(
+      orThrow(readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev" })),
+    );
+    expect(hosted.domain).toBe("robkit.dev");
+    expect(hosted.origin("hub")).toBe("https://hub.robkit.dev");
   });
 });
 
@@ -146,56 +155,5 @@ describe("the app a URL is on", () => {
     "/relative",
   ])("finds no app for %s", (url) => {
     expect(hosted.appOf(url)).toBeUndefined();
-  });
-});
-
-describe("readSlug", () => {
-  it.each(["notes", "start", "blog2", "a1", "x".repeat(63), "admin"])(
-    "reads %j",
-    (name) => {
-      expect(readSlug(name)).toBe(name);
-    },
-  );
-
-  it.each([
-    "My-App",
-    "my-app",
-    "my_app",
-    "1notes",
-    "_notes",
-    "drop table x;--",
-    "public",
-    "postgres",
-    "pg_admin",
-    "x".repeat(64),
-    "",
-  ])("refuses %j", (name) => {
-    expect(readSlug(name)).toEqual({
-      error: `"${name}" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
-    });
-  });
-
-  it.each([
-    [null, "null"],
-    [42, "42"],
-    [undefined, "Nothing"],
-    [["notes"], '["notes"]'],
-  ])("refuses %j, which isn't text", (value, shown) => {
-    expect(readSlug(value)).toEqual({
-      error: `${shown} can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
-    });
-  });
-});
-
-describe("slugProblem", () => {
-  it("says why a name can't be a slug, for a prompt's validate", () => {
-    expect(slugProblem("notes")).toBeUndefined();
-    expect(slugProblem("My-App")).toMatch(/^"My-App" can't be an app's slug/);
-  });
-});
-
-describe("the platform apps", () => {
-  it.each(platformApps)("%s is a slug", (name) => {
-    expect(readSlug(name)).toBe(name);
   });
 });

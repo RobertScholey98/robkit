@@ -9,7 +9,9 @@ describe("aCodeId", () => {
   });
 
   it("throws for a value the guard refuses", () => {
-    expect(() => aCodeId("")).toThrow('A code id from "" is missing.');
+    expect(() => aCodeId("")).toThrow(
+      `"" isn't an access code's id, which is text that isn't empty.`,
+    );
   });
 });
 
@@ -19,7 +21,9 @@ describe("aRoleId", () => {
   });
 
   it("throws for a value the guard refuses", () => {
-    expect(() => aRoleId("")).toThrow('A role id from "" is missing.');
+    expect(() => aRoleId("")).toThrow(
+      `"" isn't a role's id, which is text that isn't empty.`,
+    );
   });
 });
 
@@ -42,7 +46,7 @@ describe("aViewer", () => {
 
   it("throws for a guest with a role the guard refuses", () => {
     expect(() => aViewer({ kind: "guest", roles: [""] })).toThrow(
-      'A role id from "" is missing.',
+      `"" isn't a role's id, which is text that isn't empty.`,
     );
   });
 });

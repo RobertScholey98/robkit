@@ -1,4 +1,4 @@
-import { isProblem } from "@robkit/session/input";
+import { isProblem } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { readAccess, readDeclaredApps } from "./apps.ts";
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readDevServerEnv, readGuardEnv, readServeEnv } from "./app-env.ts";
-import { isProblem } from "./input.ts";
+import { isProblem } from "./index.ts";
 
 describe("readServeEnv", () => {
   it("reads where an app listens", () => {

@@ -1,5 +1,5 @@
 import { migrate } from "@robkit/core";
-import { isProblem, readDatabaseUrl } from "@robkit/session/input";
+import { isProblem, readDatabaseUrl } from "@robkit/input";
 
 const databaseUrl = readDatabaseUrl(process.env);
 if (isProblem(databaseUrl)) {

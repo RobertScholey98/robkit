@@ -32,7 +32,7 @@ export function ticketProblems(
   const paths = pathsIn(section);
   if (paths.length === 0) {
     return [
-      "The pull request's Ticket section names no file under .scratch/. Name the ticket's file, such as .scratch/<feature>/issues/<ticket>.md.",
+      "The pull request's Ticket section names no file under .scratch/. Name the ticket's file, such as .scratch/<feature>/issues/<ticket>.md. No ticket yet? Add one with **Status:** needs-triage in this pull request, as CONTRIBUTING.md's \"Without a ticket\" says.",
     ];
   }
   return paths.flatMap((path) => {

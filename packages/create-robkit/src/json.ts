@@ -1,4 +1,4 @@
-import { isProblem, isRecord, parseJson } from "@robkit/session/input";
+import { isProblem, isRecord, parseJson } from "@robkit/input";
 
 /** `text` as a JSON object. Throws, naming `source`, if it isn't one. */
 export function jsonObject(

@@ -1,18 +1,10 @@
-// robkit's readers for what comes from outside its own code: environment
-// variables and JSON. Each takes the raw input and returns the typed value
-// or an InputProblem that names the variable or key and says what to do.
-// The caller decides what a problem means: core and the dev runner refuse
-// to start, a command prints it. See docs/conventions/input.md.
+// Readers for environment variables. Each takes the environment and returns
+// the typed value or an InputProblem that names the variable and says what
+// to do. The caller decides what a problem means: core and the dev runner
+// refuse to start, a command prints it. See docs/conventions/input.md.
 
-import { installAt, readSlug, type Slug } from "./install-addresses.ts";
-import {
-  allProblems,
-  isProblem,
-  isRecord,
-  type InputProblem,
-} from "./problem.ts";
-
-export { allProblems, isProblem, isRecord, type InputProblem };
+import { isProblem, type InputProblem } from "./problem.ts";
+import { readSlug, type Slug } from "./slug.ts";
 
 /** A process's environment, such as `process.env`. */
 export type Env = Readonly<Record<string, string | undefined>>;
@@ -61,44 +53,111 @@ export function readPort(
   };
 }
 
-/** The address to listen on: `HOST`, or loopback. */
+const octet = String.raw`(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)`;
+const ipv4Pattern = new RegExp(String.raw`^${octet}(?:\.${octet}){3}$`);
+
+/** Whether `value` is an IPv4 address in dotted decimal, such as 0.0.0.0. */
+function isIPv4(value: string): boolean {
+  return ipv4Pattern.test(value);
+}
+
+/**
+ * Whether `value` is an IPv6 address as Node listens on one: without
+ * brackets or a zone, such as `::` or `2001:db8::1`. The URL parser checks
+ * the rest.
+ */
+function isIPv6(value: string): boolean {
+  return (
+    value.includes(":") &&
+    /^[\da-f:.]+$/i.test(value) &&
+    URL.canParse(`http://[${value}]`)
+  );
+}
+
+/**
+ * The address to listen on: `HOST`, or loopback. It may be an IPv4 or IPv6
+ * address, or a host name.
+ */
 export function readHost(env: Env): string | InputProblem {
   const value = valueOf(env, "HOST");
   if (value === undefined) return "127.0.0.1";
-  if (/^[\w.:-]+$/.test(value) && !value.includes("//")) return value;
+  if (isIPv4(value) || isIPv6(value) || isDomainName(value)) return value;
   return {
     error: `HOST is "${value}", which isn't an address to listen on. Set it to an IP address or host name, such as 0.0.0.0, or leave it unset for 127.0.0.1.`,
   };
 }
 
-const label = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
-const domainPattern = new RegExp(`^${label}(\\.${label})*$`, "i");
+// A label is 1 to 63 letters, digits and hyphens, with no hyphen at either
+// end. A name is labels joined by single dots, 253 characters at most.
+const label = "[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?";
+const domainPattern = new RegExp(String.raw`^${label}(?:\.${label})*$`, "i");
+
+declare const domainBrand: unique symbol;
+
+/**
+ * A domain alone, with no scheme, port or path, such as `robkit.dev`. Only
+ * `readDomain` makes one.
+ */
+export type Domain = string & { readonly [domainBrand]: true };
+
+/**
+ * Whether `value` is a host name. Its last label isn't all digits, so an IP
+ * address, or something like one, isn't a name.
+ */
+function isDomainName(value: string): value is Domain {
+  const last = value.slice(value.lastIndexOf(".") + 1);
+  return (
+    value.length <= 253 && domainPattern.test(value) && !/^\d+$/.test(last)
+  );
+}
 
 /** Whether `value` is a domain alone, with no scheme, port or path. */
 export function isDomain(value: string): boolean {
-  return domainPattern.test(value);
+  return isDomainName(value);
 }
 
-/** The install's domain: `ROBKIT_DOMAIN`, or `fallback`. */
-export function readDomain(env: Env, fallback?: string): string | InputProblem {
-  const value = valueOf(env, "ROBKIT_DOMAIN");
+/**
+ * The install's domain: `ROBKIT_DOMAIN`, or `fallback`, checked the same
+ * way.
+ */
+export function readDomain(env: Env, fallback?: string): Domain | InputProblem {
+  const value = valueOf(env, "ROBKIT_DOMAIN") ?? fallback;
   if (value === undefined) {
-    return (
-      fallback ??
-      notSet(
-        "ROBKIT_DOMAIN",
-        "Set it to the install's domain, such as robkit.dev.",
-      )
+    return notSet(
+      "ROBKIT_DOMAIN",
+      "Set it to the install's domain, such as robkit.dev.",
     );
   }
-  if (isDomain(value)) return value;
+  if (isDomainName(value)) return value;
   return {
     error: `ROBKIT_DOMAIN is "${value}", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
   };
 }
 
-/** Core's public origin, `ROBKIT_CORE_URL`, which an app's guard asks. */
-export function readCoreUrl(env: Env): string | InputProblem {
+declare const coreOriginBrand: unique symbol;
+
+/**
+ * Core's public origin, an http(s) origin on `core.<domain>`, such as
+ * `https://core.robkit.dev`. Only `readCoreUrl` makes one.
+ */
+export type CoreOrigin = string & { readonly [coreOriginBrand]: true };
+
+function isCoreOrigin(value: string): value is CoreOrigin {
+  if (!URL.canParse(value)) return false;
+  const { protocol, hostname, origin } = new URL(value);
+  return (
+    (protocol === "https:" || protocol === "http:") &&
+    origin === value &&
+    hostname.startsWith("core.") &&
+    isDomainName(hostname.slice("core.".length))
+  );
+}
+
+/**
+ * Core's public origin, `ROBKIT_CORE_URL`, which an app's guard asks. A
+ * path after the origin is dropped.
+ */
+export function readCoreUrl(env: Env): CoreOrigin | InputProblem {
   const value = valueOf(env, "ROBKIT_CORE_URL");
   if (value === undefined) {
     return notSet(
@@ -106,7 +165,8 @@ export function readCoreUrl(env: Env): string | InputProblem {
       "Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.",
     );
   }
-  if (installAt(value, "core")) return value;
+  const origin = URL.canParse(value) ? new URL(value).origin : value;
+  if (isCoreOrigin(origin)) return origin;
   return {
     error: `ROBKIT_CORE_URL is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
   };
@@ -141,17 +201,4 @@ export function readDatabaseUrl(
   return {
     error: `${name} isn't a postgres:// URL. Set it to one, such as postgres://user:password@host:5432/database.`,
   };
-}
-
-/** `text` parsed as JSON, or a problem naming `source`. */
-export function parseJson(
-  text: string,
-  source: string,
-): { json: unknown } | InputProblem {
-  try {
-    return { json: JSON.parse(text) };
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    return { error: `${source} isn't valid JSON (${reason}). Fix its syntax.` };
-  }
 }

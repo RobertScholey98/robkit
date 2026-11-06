@@ -1,4 +1,4 @@
-import { isRecord } from "@robkit/session/input";
+import { isRecord } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { isRecord as coreClientIsRecord } from "../templates/base/packages/core-client/src/call-core.ts";
 

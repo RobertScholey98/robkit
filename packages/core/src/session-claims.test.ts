@@ -8,11 +8,11 @@ import {
   type Holder,
 } from "./session-claims.ts";
 
-const owner: Holder = { viewer: { kind: "owner", id: "owner-1" }, roles: [] };
+const owner: Holder = { profile: { kind: "owner", id: "owner-1" }, roles: [] };
 const family = aRoleId("role-family");
 const friends = aRoleId("role-friends");
 const guest = (roles = [family]): Holder => ({
-  viewer: { kind: "guest", id: aCodeId("code-1") },
+  profile: { kind: "guest", id: aCodeId("code-1") },
   roles,
 });
 

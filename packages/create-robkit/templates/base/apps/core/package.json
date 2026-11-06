@@ -12,7 +12,7 @@
     "@hono/node-server": "catalog:",
     "@robkit/core": "catalog:",
     "@robkit/dev": "catalog:",
-    "@robkit/session": "catalog:"
+    "@robkit/input": "catalog:"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",

@@ -4,12 +4,9 @@
 // Not in @internal/test-session, which session's own tests use: it can't
 // depend on session without a cycle. Session's tests read their own.
 
-import { readSlug, type Slug } from "@robkit/session/addresses";
-import { isProblem } from "@robkit/session/input";
+import { orThrow, readSlug, type Slug } from "@robkit/input";
 
 /** `name` as a slug. Throws session's problem if it isn't one. */
 export function slug(name: string): Slug {
-  const read = readSlug(name);
-  if (isProblem(read)) throw new Error(read.error);
-  return read;
+  return orThrow(readSlug(name));
 }

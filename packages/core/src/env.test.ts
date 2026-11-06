@@ -1,6 +1,6 @@
-import { isProblem } from "@robkit/session/input";
-import { describe, expect, it } from "vitest";
-import { readCoreConfig } from "./env.ts";
+import { isProblem, type Domain } from "@robkit/input";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import { readCoreConfig, type CoreConfig } from "./env.ts";
 
 const env = {
   DATABASE_URL: "postgres://core:secret@127.0.0.1:5432/robkit",
@@ -50,5 +50,9 @@ describe("readCoreConfig", () => {
       expect.stringMatching(/^ROBKIT_TRUSTED_PROXY is "traefik"\./),
       expect.stringMatching(/^PORT is "99999", which isn't a port\./),
     ]);
+  });
+
+  it("holds the domain as readDomain checked it", () => {
+    expectTypeOf<CoreConfig["domain"]>().toEqualTypeOf<Domain>();
   });
 });

@@ -5,19 +5,19 @@ import {
   type RoleId,
   type Viewer,
 } from "@robkit/guard";
-import { known } from "./known.ts";
+import { orThrow } from "@robkit/input";
 
 // A test builds a branded value as the code does, with the guard's reader.
 // robkit/no-brand-cast refuses a cast to one, tests included.
 
-/** `id` as a code id. Throws if the guard wouldn't read it as one. */
+/** `id` as a code id. Throws the guard's problem if it isn't one. */
 export function aCodeId(id = "code-1"): CodeId {
-  return known(readCodeId(id), `A code id from "${id}"`);
+  return orThrow(readCodeId(id));
 }
 
-/** `id` as a role id. Throws if the guard wouldn't read it as one. */
+/** `id` as a role id. Throws the guard's problem if it isn't one. */
 export function aRoleId(id: string): RoleId {
-  return known(readRoleId(id), `A role id from "${id}"`);
+  return orThrow(readRoleId(id));
 }
 
 /** Who `aViewer` builds: a guest's code id is `code-1` unless it says. */

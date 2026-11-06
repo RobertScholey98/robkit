@@ -57,10 +57,12 @@ The install uses your checkout's `@robkit/*` packages, so a change in `packages/
 
 There are two gates.
 
-| Command          | What it runs                                                                                              | Needs Docker | Time                                                         |
-| ---------------- | --------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------ |
-| `pnpm check`     | Prettier's check, lint, typecheck, and every test that needs no Docker                                    | No           | 53 to 65 seconds cold (`--force`), 25 to 34 warm, on Windows |
-| `pnpm check:all` | What CI runs: Prettier's check, lint, typecheck and every test, the whole-stack test in Chromium included | Yes          | About four minutes                                           |
+| Command          | What it runs                                                                                                    | Needs Docker | Time                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------- |
+| `pnpm check`     | Prettier's check, knip, lint, typecheck, and every test that needs no Docker                                    | No           | About a minute, cold (`--force`) or warm |
+| `pnpm check:all` | What CI runs: Prettier's check, knip, lint, typecheck and every test, the whole-stack test in Chromium included | Yes          | About five and a half minutes on CI      |
+
+Measured on 2026-11-06. On Windows 11 with Node 24, three cold runs of `pnpm check --force` took 56, 56 and 91 seconds (the slow one while other builds ran), and two warm runs 41 and 57 seconds. A warm run saves little, because repo-checks' tests miss turbo's cache every time. `pnpm check:all` took 5 minutes 25 seconds in [CI run 42158416018](https://github.com/RobertScholey98/robkit/actions/runs/42158416018).
 
 Run `pnpm check` while you work and `pnpm check:all` before you open a pull request. The whole-stack test needs Chromium once: `pnpm --filter @internal/e2e exec playwright install --with-deps chromium`.
 
@@ -91,11 +93,25 @@ Every test in `@internal/e2e` and `@internal/test-postgres` needs Docker and Lin
 
 A package's `test` script measures coverage and fails below the thresholds in its `vitest.config`. When your change raises coverage, raise the thresholds with it, to what CI measures. CI fails a pull request that lowers one, and fails a threshold more than 2 points under what CI measured, naming the number to set. The `check` job's `coverage` artifact has CI's reports.
 
+### What each check does
+
+When a check refuses your change, its message says what to do. For more:
+
+- [tooling/eslint/README.md](tooling/eslint/README.md): each lint rule, its message and what to do about it, and how to add a layer rule row or a package graph edge.
+- [tooling/repo-checks/README.md](tooling/repo-checks/README.md): each repo check and CI script, what it fails on, how to fix it, and where an exception goes.
+
+## Change a template
+
+The hub, admin, core-client and the example apps aren't packages in this repo. They are template files that create-robkit copies into each install, under `packages/create-robkit/templates/`. [create-robkit's README](packages/create-robkit/README.md#change-a-template) walks through changing one and checking it.
+
 ## How work is organised
 
-### Tickets
+### Planning
 
-Work is planned as markdown tickets under `.scratch/<feature>/issues/`, numbered in the order they should be built. `.scratch/kit/map.md` is the plan: every decision and the ticket that made it. [docs/adr/](docs/adr/README.md) holds a short record of each settled one.
+All planning lives in `.scratch/`, as markdown:
+
+- `.scratch/<feature>/PRD.md` says what a feature is for, and `.scratch/<feature>/issues/` holds its tickets, numbered in the order they should be built.
+- `.scratch/kit/map.md` is the plan for v0.1: every decision and the ticket that made it. [docs/adr/](docs/adr/README.md) holds a short record of each settled one.
 
 Each ticket has a `**Status:**` line:
 
@@ -108,7 +124,16 @@ Each ticket has a `**Status:**` line:
 | `wontfix`         | Won't be done                                           |
 | `done`            | Finished                                                |
 
-Take the lowest-numbered ticket that is ready and whose `**Blocked by:**` tickets are all `done`. If the ticket leaves a decision open, or the code contradicts it, ask R in the ticket or the pull request rather than guessing, and record the answer in the ticket and the map.
+To find work, take the lowest-numbered `ready-for-agent` ticket whose `**Blocked by:**` tickets are all `done`. If the ticket leaves a decision open, or the code contradicts it, ask R in the ticket or the pull request rather than guessing, and record the answer in the ticket and the map.
+
+### Without a ticket
+
+You don't need a ticket to propose a change. Either:
+
+- **Open an issue** on GitHub that says what you want changed and why. R turns it into a ticket.
+- **Add a ticket in your pull request.** Write `.scratch/<feature>/issues/<NN>-<what-it-does>.md` with `**Status:** needs-triage`, a sentence on what to build, and acceptance criteria as a checklist. Copy the shape of a ticket nearby. Name it in the pull request's Ticket section. CI accepts a ticket the pull request adds, and R triages it in review.
+
+For a typo or a broken link, a ticket can be a few lines.
 
 ### Branches and pull requests
 
@@ -144,26 +169,44 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
    git switch -c 43-roles-rule-names-a-role main
    ```
 
-3. **Write a failing test through the public interface.** Add the empty list to the values `readAccessRule` refuses, in `guard.test.ts`:
+3. **Write a failing test through the public interface.** In `guard.test.ts`, inside `describe("readAccessRule")`:
 
-   ```ts nocheck
-   { kind: "roles", roles: [] },
+   ```ts
+   import { readAccessRule } from "@robkit/guard";
+   import { isProblem } from "@robkit/input";
+   import { expect, it } from "vitest";
+
+   it("refuses a roles rule that names no role", () => {
+     expect(isProblem(readAccessRule({ kind: "roles", roles: [] }))).toBe(true);
+   });
    ```
 
    Run the guard's tests and watch it fail:
 
    ```sh
    pnpm --filter @robkit/guard test
-   # FAIL  src/guard.test.ts > readAccessRule > refuses {"kind":"roles","roles":[]}
+   # FAIL  src/guard.test.ts > readAccessRule > refuses a roles rule that names no role
    ```
 
-4. **Make it pass.** In `readAccessRule`, require at least one role:
+4. **Make it pass.** In `readAccessRule`, refuse an empty list. Check the length of what `readRoleIds` returns, not of the raw value: once `isProblem` has ruled out an `InputProblem`, `readRoleIds` gives back `RoleId[]`, the branded type `AccessRule` needs, where the raw array is only `unknown`. Here is the whole function after the change, with its error message shortened. In `guard.ts`, `readRoleIds` and `AccessRule` are in the same file; the example imports them so it compiles on its own.
 
-   ```ts nocheck
-   const isRoleList =
-     Array.isArray(roles) &&
-     roles.length > 0 &&
-     roles.every((role) => typeof role === "string");
+   ```ts
+   import { readRoleIds, type AccessRule } from "@robkit/guard";
+   import { isProblem, isRecord, type InputProblem } from "@robkit/input";
+
+   /** Reads an access rule sent as JSON, or says what is wrong with it. */
+   export function readAccessRule(value: unknown): AccessRule | InputProblem {
+     const problem = {
+       error: `${JSON.stringify(value)} isn't an access rule.`,
+     };
+     if (!isRecord(value)) return problem;
+     const { kind } = value;
+     if (kind === "open" || kind === "owner") return { kind };
+     const roles = readRoleIds(value.roles);
+     return kind === "roles" && !isProblem(roles) && roles.length > 0
+       ? { kind, roles }
+       : problem;
+   }
    ```
 
    Run the tests again, and the packages that use it:
@@ -198,6 +241,20 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 Rerun it alone before you change code: `pnpm --filter <package> exec vitest run <file>`. Under load, a test can fail for reasons that aren't the code.
 
 [docs/testing.md](docs/testing.md#when-a-test-fails) says what each suite prints when it fails, how to save the whole-stack test's screenshots, and how to clear containers a crashed run left behind.
+
+## Troubleshooting
+
+| What you see                                                                                                                        | Why                                                                                           | What to do                                                                                                                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| On Windows, `pnpm` isn't found, `pnpm --version` doesn't print the version `packageManager` names, or `corepack enable` can't write | Another pnpm comes first on `PATH`, or Corepack can't write its shims to Node's folder        | Let Corepack write them to a folder you own, and put that folder first on `PATH`: `corepack enable --install-directory <folder> pnpm`. Then `pnpm --version` prints the pinned version. |
+| "This version of pnpm requires at least Node.js v22.13", then "No such built-in module: node:sqlite"                                | The shell runs an older Node, often nvm's default in a new WSL shell                          | `nvm use 24` and `nvm alias default 24`. `node --version` should print v24.                                                                                                             |
+| In WSL, Docker can't pull an image, naming `docker-credential-desktop.exe`                                                          | Docker Desktop's credential helper doesn't run inside WSL                                     | Point Docker at an empty config, as step 5 of [On Windows, use WSL](#on-windows-use-wsl) shows.                                                                                         |
+| The whole-stack test's pages fail with `ERR_NETWORK_CHANGED`                                                                        | Docker runs natively on Linux, and each test Postgres's network adds host interfaces mid-test | Set `COMPOSE_FILE` as `.github/workflows/ci.yml` does. [docs/testing.md](docs/testing.md#tests-that-start-docker) says why. Docker Desktop doesn't need it.                             |
+| A test times out in `pnpm check` but passes alone                                                                                   | The machine was busy                                                                          | Rerun it alone. If it fails alone too, it's real.                                                                                                                                       |
+| CI's ratchet says to raise a coverage threshold you just set                                                                        | Your machine measures coverage a little differently from CI                                   | Set it to the number CI names. The `check` job's `coverage` artifact has CI's reports.                                                                                                  |
+| The commit-msg hook refuses your commit                                                                                             | The subject breaks a rule in [Commits](#commits)                                              | Reword it. The message names the rule.                                                                                                                                                  |
+| CI's pull-request job says the Ticket section names no file                                                                         | The pull request body doesn't name a ticket under `.scratch/`                                 | Name the ticket's file, or add a `needs-triage` ticket as [Without a ticket](#without-a-ticket) says. Edit the body. The job reads it again each time it runs.                          |
+| A lint rule or repo check refuses your change, and its message isn't enough                                                         | Each rule and check has a longer note                                                         | Look it up in [tooling/eslint/README.md](tooling/eslint/README.md) or [tooling/repo-checks/README.md](tooling/repo-checks/README.md).                                                   |
 
 ## For coding agents
 

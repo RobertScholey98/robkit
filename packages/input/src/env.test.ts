@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isDomain,
   parseJson,
   readAppSlug,
   readCoreUrl,
@@ -8,7 +9,7 @@ import {
   readHost,
   readPort,
   readSet,
-} from "./input.ts";
+} from "./index.ts";
 
 describe("readPort", () => {
   it("reads a port", () => {
@@ -45,14 +46,47 @@ describe("readHost", () => {
     expect(readHost({ HOST: "::" })).toBe("::");
   });
 
-  it.each(["http://0.0.0.0", "0.0.0.0:3000/", "a host"])(
-    "refuses %j",
-    (value) => {
-      expect(readHost({ HOST: value })).toEqual({
-        error: `HOST is "${value}", which isn't an address to listen on. Set it to an IP address or host name, such as 0.0.0.0, or leave it unset for 127.0.0.1.`,
-      });
-    },
-  );
+  it.each([
+    "127.0.0.1",
+    "192.168.1.20",
+    "255.255.255.255",
+    "::1",
+    "2001:db8::1",
+    "fe80::1:2:3:4",
+    "::ffff:127.0.0.1",
+    "2001:0db8:0000:0000:0000:0000:0000:0001",
+    "localhost",
+    "app-1.internal",
+    `${"a".repeat(63)}.internal`,
+  ])("listens on %j", (value) => {
+    expect(readHost({ HOST: value })).toBe(value);
+  });
+
+  it.each([
+    "http://0.0.0.0",
+    "0.0.0.0:3000/",
+    "a host",
+    "256.0.0.1",
+    "1.2.3",
+    "01.2.3.4",
+    "1.2.3.4.5",
+    "[::1]",
+    "fe80::1%eth0",
+    ":::",
+    "1::2::3",
+    "2001:db8:0:0:0:0:0:0:1",
+    "-host",
+    "host-",
+    "host.",
+    ".host",
+    "a..b",
+    "under_score",
+    `${"a".repeat(64)}.internal`,
+  ])("refuses %j", (value) => {
+    expect(readHost({ HOST: value })).toEqual({
+      error: `HOST is "${value}", which isn't an address to listen on. Set it to an IP address or host name, such as 0.0.0.0, or leave it unset for 127.0.0.1.`,
+    });
+  });
 });
 
 describe("readDomain", () => {
@@ -69,15 +103,45 @@ describe("readDomain", () => {
   });
 
   it.each([
+    `${"a".repeat(63)}.dev`,
+    `${`${"a".repeat(63)}.`.repeat(3)}${"a".repeat(61)}`,
+    "xn--bcher-kva.example",
+    "robkit.localhost",
+  ])("reads %j", (value) => {
+    expect(readDomain({ ROBKIT_DOMAIN: value })).toBe(value);
+  });
+
+  it.each([
     "https://robkit.dev",
     "robkit.dev:443",
     "robkit.dev/",
     "-x.dev",
+    "x-.dev",
     "a..b",
+    ".robkit.dev",
+    "robkit.dev.",
+    "robkit_dev.dev",
+    "robkit dev",
+    "127.0.0.1",
+    "robkit.123",
+    "[::1]",
+    "::1",
+    `${"a".repeat(64)}.dev`,
+    `${`${"a".repeat(63)}.`.repeat(3)}${"a".repeat(62)}`,
   ])("refuses %j", (value) => {
     expect(readDomain({ ROBKIT_DOMAIN: value })).toEqual({
       error: `ROBKIT_DOMAIN is "${value}", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
     });
+  });
+});
+
+describe("isDomain", () => {
+  it("says whether a string is a domain alone", () => {
+    expect(
+      ["robkit.dev", "localhost", "https://robkit.dev", "robkit.dev/"].map(
+        isDomain,
+      ),
+    ).toEqual([true, true, false, false]);
   });
 });
 
@@ -86,6 +150,15 @@ describe("readCoreUrl", () => {
     expect(
       readCoreUrl({ ROBKIT_CORE_URL: "http://core.robkit.localhost:3000" }),
     ).toBe("http://core.robkit.localhost:3000");
+  });
+
+  it("keeps the origin alone", () => {
+    expect(readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev/" })).toBe(
+      "https://core.robkit.dev",
+    );
+    expect(
+      readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev:443/x?y" }),
+    ).toBe("https://core.robkit.dev");
   });
 
   it("says pnpm dev sets it", () => {
@@ -99,6 +172,9 @@ describe("readCoreUrl", () => {
     "core.robkit.dev",
     "https://hub.robkit.dev",
     "ftp://core.robkit.dev",
+    "https://core.",
+    "https://core.-robkit.dev",
+    "https://core.127.0.0.1",
   ])("refuses %j", (value) => {
     expect(readCoreUrl({ ROBKIT_CORE_URL: value })).toEqual({
       error: `ROBKIT_CORE_URL is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,

@@ -57,7 +57,7 @@ describe("exampleProblems", () => {
         line: 12,
         lang: "ts",
         code: [
-          'import { readSlug, type Slug } from "@robkit/session/addresses";',
+          'import { readSlug, type Slug } from "@robkit/input";',
           "",
           'const good = readSlug("notes");',
           'const bad: Slug = "notes";',
@@ -79,7 +79,7 @@ describe("exampleProblems", () => {
           file: "README.md",
           line: 1,
           lang: "ts",
-          code: 'import { readSlug } from "@robkit/session/addresses";\nreadSlug("notes");\n',
+          code: 'import { readSlug } from "@robkit/input";\nreadSlug("notes");\n',
         },
       ]),
     ).toEqual([]);

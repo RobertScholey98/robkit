@@ -2,14 +2,14 @@ import type { Context, MiddlewareHandler } from "hono";
 import { setCookie } from "hono/cookie";
 import { sessionCookie, sessionTokensIn, type Report } from "@robkit/session";
 import { isLocal } from "@robkit/session/addresses";
-import { isRecord, type InputProblem } from "@robkit/session/input";
+import { type InputProblem, isRecord } from "@robkit/input";
 import type { TrustedProxy } from "../client.ts";
 import { sessionLifetimeSeconds } from "../session-claims.ts";
 import {
   readSession,
   type SessionContext,
   type SessionRead,
-} from "../sessions.ts";
+} from "../session-store.ts";
 
 /** What each routes module takes from `createApp`. */
 export interface RouteContext extends SessionContext {
@@ -81,7 +81,7 @@ export function viewer(
     const session = await readSession(context, sessionTokens, { renew });
     const { answer, freshSessionToken } = session;
     const isOwner =
-      answer.state === "signed-in" && answer.viewer.kind === "owner";
+      answer.state === "signed-in" && answer.profile.kind === "owner";
     if (ownerOnly && !isOwner) return c.json({ error: "Not found" }, 404);
     if (freshSessionToken) {
       setSessionCookie(c, context.domain, freshSessionToken);

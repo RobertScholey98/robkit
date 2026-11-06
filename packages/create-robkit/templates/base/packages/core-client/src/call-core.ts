@@ -77,7 +77,7 @@ export async function callCore<T>(
 
 /**
  * Whether `value` is a plain object: not `null`, and not an array. It means
- * what `isRecord` from `@robkit/session/input` does, and a robkit test
+ * what `isRecord` from `@robkit/input` does, and a robkit test
  * checks the two agree.
  */
 export function isRecord(value: unknown): value is Record<string, unknown> {

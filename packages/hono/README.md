@@ -10,8 +10,7 @@ From the React with Hono template (`templates/stacks/react-hono/src/server.tsx`)
 
 ```ts
 import { guarded, type GuardedEnv } from "@robkit/hono";
-import { isProblem } from "@robkit/session/input";
-import { readGuardEnv } from "@robkit/session/app-env";
+import { isProblem, readGuardEnv } from "@robkit/input";
 import { Hono } from "hono";
 
 const app = new Hono<GuardedEnv>();
@@ -33,7 +32,7 @@ Admin fixes its rule instead of asking core (`templates/base/apps/admin/src/serv
 
 ```ts
 import { guarded } from "@robkit/hono";
-import { isProblem, readCoreUrl } from "@robkit/session/input";
+import { isProblem, readCoreUrl } from "@robkit/input";
 import { Hono } from "hono";
 
 const core = readCoreUrl(process.env);

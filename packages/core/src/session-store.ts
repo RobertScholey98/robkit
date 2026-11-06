@@ -47,10 +47,10 @@ export type Profile = OwnerProfile | GuestProfile;
 export type SessionAnswer =
   | { state: "unclaimed" }
   | { state: "signed-out" }
-  | { state: "signed-in"; viewer: Profile };
+  | { state: "signed-in"; profile: Profile };
 
 export interface SignedIn {
-  viewer: Profile;
+  profile: Profile;
   sessionToken: string;
 }
 
@@ -69,9 +69,9 @@ export interface SessionRead {
 
 type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
-/** Who holds a session: the viewer, and a guest's roles, by id. */
+/** Who holds a session: their profile, and a guest's roles, by id. */
 interface Holder {
-  viewer: Profile;
+  profile: Profile;
   roles: RoleId[];
 }
 
@@ -81,21 +81,21 @@ export async function startSession(
   tx: Transaction,
   holder: Holder,
 ): Promise<SignedIn> {
-  const { viewer } = holder;
+  const { profile } = holder;
   const now = ctx.now();
   const [session] = await tx
     .insert(sessions)
     .values({
-      ...(viewer.kind === "owner"
-        ? { ownerId: viewer.id }
-        : { codeId: viewer.id }),
+      ...(profile.kind === "owner"
+        ? { ownerId: profile.id }
+        : { codeId: profile.id }),
       createdAt: now,
       expiresAt: sessionExpiry(now),
     })
     .returning({ id: sessions.id });
   if (!session) throw new Error("Core couldn't store the session.");
   return {
-    viewer,
+    profile,
     sessionToken: await mintSessionToken(
       await ctx.signingKey(),
       claimsFor(holder, session.id),
@@ -123,7 +123,7 @@ export async function signIn(
     outcome: "signed-in",
     ...(await ctx.db.transaction((tx) =>
       startSession(ctx, tx, {
-        viewer: { kind: "owner", id: found.id, username: found.username },
+        profile: { kind: "owner", id: found.id, username: found.username },
         roles: [],
       }),
     )),
@@ -153,7 +153,7 @@ export async function signInWithCode(
     outcome: "signed-in",
     ...(await ctx.db.transaction(async (tx) =>
       startSession(ctx, tx, {
-        viewer: { kind: "guest", id: found.id, name: found.name },
+        profile: { kind: "guest", id: found.id, name: found.name },
         roles: await rolesOf(tx, found),
       }),
     )),
@@ -184,7 +184,7 @@ async function holderOf(
         .where(and(live, eq(sessions.ownerId, theOwner.id)));
       return (
         session && {
-          viewer: {
+          profile: {
             kind: "owner",
             id: theOwner.id,
             username: theOwner.username,
@@ -203,7 +203,7 @@ async function holderOf(
         return undefined;
       }
       return {
-        viewer: { kind: "guest", id: found.code.id, name: found.code.name },
+        profile: { kind: "guest", id: found.code.id, name: found.code.name },
         roles: await rolesOf(ctx.db, found.code),
       };
     }
@@ -257,7 +257,10 @@ export async function readSession(
   const holder = await holderOf(ctx, claims, found, now);
   if (!holder) return signedOut;
 
-  const answer: SessionAnswer = { state: "signed-in", viewer: holder.viewer };
+  const answer: SessionAnswer = {
+    state: "signed-in",
+    profile: holder.profile,
+  };
   const forGuard: SessionState = {
     state: "signed-in",
     viewer: guardViewerOf(holder),

@@ -29,9 +29,9 @@ export default {
         "Type a failed read as InputProblem and check it with isProblem",
     },
     messages: {
-      type: "A failed read is an InputProblem from @robkit/session/input, not a { error: string } of its own. See docs/conventions/input.md.",
+      type: "A failed read is an InputProblem from @robkit/input, not a { error: string } of its own. See docs/conventions/input.md.",
       check:
-        'Check a read with isProblem from @robkit/session/input, not "error" in. See docs/conventions/input.md.',
+        'Check a read with isProblem from @robkit/input, not "error" in. See docs/conventions/input.md.',
     },
     schema: [],
   },

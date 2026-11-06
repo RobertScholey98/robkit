@@ -1,4 +1,4 @@
-import { readSlug } from "@robkit/session/addresses";
+import { readSlug } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { slug } from "./index.ts";
 

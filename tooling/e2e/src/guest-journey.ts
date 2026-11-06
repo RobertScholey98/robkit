@@ -1,4 +1,4 @@
-import type { Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
 import type { Browser, Page } from "playwright";
 import { launch } from "./browser.ts";
 import {

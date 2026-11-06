@@ -11,7 +11,7 @@ import {
   type CodeId,
   type RoleId,
 } from "@robkit/guard";
-import type { Slug } from "./install-addresses.ts";
+import { isProblem, type Slug } from "@robkit/input";
 
 /**
  * The cookie that carries a session token: core's own on core's host, and
@@ -71,7 +71,9 @@ function viewerIn(payload: JWTPayload): ViewerClaims | undefined {
   if (kind !== "guest") return undefined;
   const id = readCodeId(sub);
   const roleIds = readRoleIds(roles);
-  return id && roleIds ? { kind, id, roles: roleIds } : undefined;
+  return isProblem(id) || isProblem(roleIds)
+    ? undefined
+    : { kind, id, roles: roleIds };
 }
 
 function claimsIn(payload: JWTPayload): SessionTokenClaims | undefined {

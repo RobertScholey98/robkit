@@ -1,13 +1,14 @@
-import { readSlug, type Slug } from "@robkit/session/addresses";
 import {
   allProblems,
+  type Env,
+  type InputProblem,
   isProblem,
   isRecord,
   readDatabaseUrl,
   readSet,
-  type Env,
-  type InputProblem,
-} from "@robkit/session/input";
+  readSlug,
+  type Slug,
+} from "@robkit/input";
 import type { Coolify } from "./coolify-api.ts";
 
 const secretFix =

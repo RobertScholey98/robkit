@@ -12,27 +12,27 @@ export function sessionExpiry(now: Date): Date {
   return new Date(now.getTime() + sessionLifetimeSeconds * 1000);
 }
 
-/** Who holds a session, as its tokens name them: a guest's roles, by id. */
+/** Who holds a session, as its tokens name them: their profile, and a guest's roles, by id. */
 export interface Holder {
-  viewer: { kind: "owner"; id: string } | { kind: "guest"; id: CodeId };
+  profile: { kind: "owner"; id: string } | { kind: "guest"; id: CodeId };
   roles: RoleId[];
 }
 
 /** The holder as an app's guard sees them. */
-export function guardViewerOf({ viewer, roles }: Holder): SignedInViewer {
-  return viewer.kind === "owner"
-    ? { kind: viewer.kind, id: viewer.id }
-    : { kind: viewer.kind, id: viewer.id, roles };
+export function guardViewerOf({ profile, roles }: Holder): SignedInViewer {
+  return profile.kind === "owner"
+    ? { kind: profile.kind, id: profile.id }
+    : { kind: profile.kind, id: profile.id, roles };
 }
 
 /** What core's own token for the holder's session `sessionId` says. */
 export function claimsFor(
-  { viewer, roles }: Holder,
+  { profile, roles }: Holder,
   sessionId: string,
 ): SessionTokenClaims {
-  return viewer.kind === "owner"
-    ? { kind: viewer.kind, id: viewer.id, sessionId }
-    : { kind: viewer.kind, id: viewer.id, sessionId, roles };
+  return profile.kind === "owner"
+    ? { kind: profile.kind, id: profile.id, sessionId }
+    : { kind: profile.kind, id: profile.id, sessionId, roles };
 }
 
 function sameRoles(a: readonly RoleId[], b: readonly RoleId[]): boolean {

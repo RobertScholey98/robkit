@@ -18,7 +18,7 @@ export type Profile = Owner | Guest;
 export type Session =
   | { state: "unclaimed" }
   | { state: "signed-out" }
-  | { state: "signed-in"; viewer: Profile };
+  | { state: "signed-in"; profile: Profile };
 
 export interface Credentials {
   username: string;
@@ -66,16 +66,16 @@ export async function signOut(core: string): Promise<Result<Session>> {
 
 function readSession(body: unknown): Session | undefined {
   if (!isRecord(body)) return undefined;
-  const { state, viewer } = body;
+  const { state, profile } = body;
   if (state === "unclaimed" || state === "signed-out") return { state };
-  if (state !== "signed-in" || !isRecord(viewer)) return undefined;
-  const { kind, id, username, name } = viewer;
+  if (state !== "signed-in" || !isRecord(profile)) return undefined;
+  const { kind, id, username, name } = profile;
   if (typeof id !== "string") return undefined;
   if (kind === "owner" && typeof username === "string") {
-    return { state, viewer: { kind, id, username } };
+    return { state, profile: { kind, id, username } };
   }
   if (kind === "guest" && typeof name === "string") {
-    return { state, viewer: { kind, id, name } };
+    return { state, profile: { kind, id, name } };
   }
   return undefined;
 }

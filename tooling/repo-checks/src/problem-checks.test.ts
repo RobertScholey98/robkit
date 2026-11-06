@@ -29,7 +29,7 @@ describe("typeofReadChecks", () => {
     [
       "a reader imported under another name",
       lines(
-        'import { readCoreUrl as coreUrl } from "@robkit/session/input";',
+        'import { readCoreUrl as coreUrl } from "@robkit/input";',
         "const core = coreUrl(env);",
         'if (typeof core !== "string") throw new Error(core.error);',
       ),
@@ -37,7 +37,7 @@ describe("typeofReadChecks", () => {
     [
       "a reader called through its module",
       lines(
-        'import * as input from "@robkit/session/input";',
+        'import * as input from "@robkit/input";',
         "const core = input.readCoreUrl(env);",
         'if (typeof core !== "string") throw new Error(core.error);',
       ),

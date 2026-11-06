@@ -1,7 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { isRecord } from "@robkit/session/input";
+import { isRecord } from "@robkit/input";
 import { parse } from "yaml";
 import { jsonObject, stringsIn } from "./json.ts";
 

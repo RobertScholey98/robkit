@@ -5,7 +5,7 @@ import {
   sessionTokenLifetimeSeconds,
   type SessionTokenClaims,
 } from "@robkit/session";
-import type { Slug } from "@robkit/session/addresses";
+import type { Slug } from "@robkit/input";
 import type { SigningKey } from "./signing-key.ts";
 
 function mint(

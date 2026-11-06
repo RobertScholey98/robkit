@@ -21,6 +21,7 @@
     "@internal/tsconfig": "workspace:*",
     "@internal/ui": "workspace:*",
     "@robkit/guard": "catalog:",
+    "@robkit/input": "catalog:",
     "@robkit/session": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",

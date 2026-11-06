@@ -3,11 +3,11 @@
 
 import { readFile } from "node:fs/promises";
 import {
+  type InputProblem,
   isProblem,
   isRecord,
   parseJson,
-  type InputProblem,
-} from "@robkit/session/input";
+} from "@robkit/input";
 
 /**
  * The JSON file at `path`, read by `read`. A repo check can't go on without

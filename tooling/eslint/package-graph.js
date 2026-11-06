@@ -26,20 +26,30 @@ export const toolchain = ["@internal/eslint-config", "@internal/tsconfig"];
 
 /** @type {PackageGraph} */
 export const packageGraph = {
-  // The pure guard: depends on nothing.
-  "@robkit/guard": { dependencies: [], devDependencies: [] },
+  // The readers for input from outside robkit: depend on nothing.
+  "@robkit/input": { dependencies: [], devDependencies: [] },
+  // The pure guard: depends only on the readers.
+  "@robkit/guard": { dependencies: ["@robkit/input"], devDependencies: [] },
   "@robkit/session": {
-    dependencies: ["@robkit/guard"],
+    dependencies: ["@robkit/guard", "@robkit/input"],
     devDependencies: ["@internal/test-session"],
   },
   // Adapters take session and guard, never core.
   "@robkit/hono": {
     dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: ["@internal/test-addresses", "@internal/test-session"],
+    devDependencies: [
+      "@internal/test-addresses",
+      "@internal/test-session",
+      "@robkit/input",
+    ],
   },
   "@robkit/start": {
     dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: ["@internal/test-addresses", "@internal/test-session"],
+    devDependencies: [
+      "@internal/test-addresses",
+      "@internal/test-session",
+      "@robkit/input",
+    ],
   },
   "@robkit/react": {
     dependencies: ["@robkit/session"],
@@ -47,7 +57,7 @@ export const packageGraph = {
   },
   // Core's tests provision their database with the dev runner's step.
   "@robkit/core": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
+    dependencies: ["@robkit/guard", "@robkit/input", "@robkit/session"],
     devDependencies: [
       "@internal/test-addresses",
       "@internal/test-postgres",
@@ -56,11 +66,11 @@ export const packageGraph = {
     ],
   },
   "@robkit/dev": {
-    dependencies: ["@robkit/session"],
+    dependencies: ["@robkit/input", "@robkit/session"],
     devDependencies: ["@internal/test-addresses", "@internal/test-postgres"],
   },
   "create-robkit": {
-    dependencies: ["@robkit/dev", "@robkit/session"],
+    dependencies: ["@robkit/dev", "@robkit/input", "@robkit/session"],
     devDependencies: ["@internal/test-addresses"],
   },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
@@ -68,13 +78,13 @@ export const packageGraph = {
   "@internal/test-postgres": { dependencies: [], devDependencies: [] },
   "@internal/test-session": {
     dependencies: [],
-    devDependencies: ["@robkit/guard"],
+    devDependencies: ["@robkit/guard", "@robkit/input"],
   },
   // Builds session's checked addresses for the tests above session. Not in
   // test-session, which session's own tests use.
   "@internal/test-addresses": {
     dependencies: [],
-    devDependencies: ["@robkit/session"],
+    devDependencies: ["@robkit/input"],
   },
   // Packs and checks every published package.
   "@internal/repo-checks": {
@@ -84,6 +94,7 @@ export const packageGraph = {
       "@robkit/dev",
       "@robkit/guard",
       "@robkit/hono",
+      "@robkit/input",
       "@robkit/react",
       "@robkit/session",
       "@robkit/start",
@@ -97,6 +108,7 @@ export const packageGraph = {
       "@internal/test-addresses",
       "@internal/test-postgres",
       "@robkit/dev",
+      "@robkit/input",
       "@robkit/session",
       "create-robkit",
     ],
