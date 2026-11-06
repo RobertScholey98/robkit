@@ -120,6 +120,15 @@ Each ticket has a `**Status:**` line:
 
 To find work, take the lowest-numbered `ready-for-agent` ticket whose `**Blocked by:**` tickets are all `done`. If the ticket leaves a decision open, or the code contradicts it, ask R in the ticket or the pull request rather than guessing, and record the answer in the ticket and the map.
 
+### Without a ticket
+
+You don't need a ticket to propose a change. Either:
+
+- **Open an issue** on GitHub that says what you want changed and why. R turns it into a ticket.
+- **Add a ticket in your pull request.** Write `.scratch/<feature>/issues/<NN>-<what-it-does>.md` with `**Status:** needs-triage`, a sentence on what to build, and acceptance criteria as a checklist. Copy the shape of a ticket nearby. Name it in the pull request's Ticket section. CI accepts a ticket the pull request adds, and R triages it in review.
+
+For a typo or a broken link, a ticket can be a few lines.
+
 ### Branches and pull requests
 
 - One branch and one pull request per ticket. Name the branch after the ticket, such as `22-app-slugs-checked-at-start`.
