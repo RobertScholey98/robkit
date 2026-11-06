@@ -9,11 +9,15 @@ You won't usually call it yourself. `requestGuard` in `@robkit/session` runs it 
 How `requestGuard` calls it, once it has read the app's cookie and fetched the rule:
 
 ```ts
-import { guard } from "@robkit/guard";
+import { guard, readCodeId, readRoleId } from "@robkit/guard";
 
 // Ids from core: a role's, and the access code the guest signed in with.
-const familyRoleId = "4b0e1f9c-7d2a-4c63-9a51-2f8e6d3b7a10";
-const codeId = "9d3c2a71-5e84-4f0b-8c16-a7b2e4f9d058";
+// The guard takes them branded, so a string goes through its reader first.
+const familyRoleId = readRoleId("4b0e1f9c-7d2a-4c63-9a51-2f8e6d3b7a10");
+const codeId = readCodeId("9d3c2a71-5e84-4f0b-8c16-a7b2e4f9d058");
+if (familyRoleId === undefined || codeId === undefined) {
+  throw new Error("Core sent an empty id.");
+}
 
 const decision = guard(
   { kind: "roles", roles: [familyRoleId] },
