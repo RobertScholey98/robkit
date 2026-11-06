@@ -6,13 +6,16 @@ Every value that comes from outside robkit's own code goes through a reader once
 
 A reader takes the raw value and returns the typed value or an `InputProblem`:
 
-```ts
+```ts nocheck
 interface InputProblem {
   readonly error: string;
+  readonly [problemMark]: true; // a symbol only problem() sets
 }
 ```
 
-- `InputProblem` is the only type for a failed read, and `isProblem` the only check for one. Don't write a `{ error: string }` of your own, and don't test a result with `"error" in`.
+`problem(message)` is the only way to make one. The mark doesn't enumerate, so a problem prints, compares in `toEqual` and serialises as `{ error }`, but a `{ error }` literal doesn't type-check as one, and a parsed JSON body with an `error` field doesn't pass `isProblem`.
+
+- `InputProblem` is the only type for a failed read, `problem()` its only maker, and `isProblem` the only check for one. Don't write a `{ error: string }` of your own, and don't test a result with `"error" in`.
 - The reader takes `unknown`, or `Env` for environment variables. It never casts. Parsed JSON is `unknown` until a reader checks it: give `JSON.parse` and `.json()` results the type `unknown`, then read them.
 - The problem's `error` names the file or variable, the key, and what to do about it. Write it for the person who has to fix the input.
 - The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `CommandProblem` from `@robkit/dev/cli` (see `errors.md`), and an HTTP route answers 400. An app's server or script that reads its environment as it starts calls `orExit(read)`, which returns the value or prints the problem alone and exits 1. Where the caller can't go on without the value, has nothing better to say and prints what it throws, such as a Vite config, `orThrow(read)` returns the value or throws the problem as an `Error`.
@@ -22,14 +25,14 @@ interface InputProblem {
   | Brand        | What it is                                              | Made by                                                              |
   | ------------ | ------------------------------------------------------- | -------------------------------------------------------------------- |
   | `Slug`       | An app's slug                                           | `readSlug`                                                           |
-  | `Domain`     | An install's domain, such as `robkit.dev`               | `readDomain`                                                         |
+  | `Domain`     | An install's domain, such as `robkit.dev`               | `readDomain` and `isDomain`                                          |
   | `CoreOrigin` | Core's public origin, such as `https://core.robkit.dev` | `readCoreUrl`                                                        |
   | `RoleId`     | A role's id                                             | `readRoleId`, `readRoleIds` and `readAccessRule`, and core's readers |
   | `CodeId`     | An access code's id, a guest's                          | `readCodeId`, and core's readers                                     |
 
-  `Slug`, `Domain` and `CoreOrigin` are in `@robkit/input`. An install's `host` and `origin` take a `Slug`, `requestGuard` takes core's origin as a `CoreOrigin`, and core's config holds its domain as a `Domain`. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
+  `Slug`, `Domain` and `CoreOrigin` are in `@robkit/input`. An install's `host` and `origin` take a `Slug`, `requestGuard` takes core's origin as a `CoreOrigin`, and core's `createApp` and an install's `install` take a `Domain`. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
 
-The shared readers live in `@robkit/input`: environment variables and JSON, `InputProblem`, `isProblem`, `isRecord` and `allProblems`, slugs, what an app's server reads from its environment, and an app's `robkit` field. Role and code ids, and access rules, are read in `@robkit/guard`, which takes `InputProblem` from `@robkit/input`, so its readers return one like every other. `@robkit/input` imports nothing, so the guard stays pure and the browser can load it. Every robkit package and every app can import them. An install's `packages/core-client` reads core's answers with them, and its readers return an `InputProblem` like every other. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
+The shared readers live in `@robkit/input`: environment variables and JSON, `InputProblem`, `problem`, `isProblem`, `isRecord` and `allProblems`, slugs, and what an app's server reads from its environment. Three subpaths hold the rest: `@robkit/input/manifest` reads an app's `robkit` field, `@robkit/input/addresses` gives an install's addresses, and `@robkit/input/report` holds `Report` and `reportToConsole`. Role and code ids, and access rules, are read in `@robkit/guard`, which takes `InputProblem` from `@robkit/input`, so its readers return one like every other. `@robkit/input` imports nothing, so the guard stays pure and the browser can load it. Every robkit package and every app can import them. An install's `packages/core-client` reads core's answers with them, and its readers return an `InputProblem` like every other. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
 
 ## What lint enforces
 
