@@ -21,7 +21,7 @@ Raises rubric categories 8 (testing) and 5 (simplicity). Evidence: `../research/
 - [x] Admin's forms and the hub's launcher have component tests in the fast gate
 - [x] Any one journey runs alone
 - [x] No e2e source file is over about 250 lines
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -41,11 +41,21 @@ Raises rubric categories 8 (testing) and 5 (simplicity). Evidence: `../research/
 - Two journeys alone, in WSL: `vitest run src/start.test.ts -t "signs guests in with codes"` passed (1 passed, 10 skipped), and `vitest run src/react-hono.test.ts -t "draws the hub from the theme"` passed (1 passed, 10 skipped).
 - Red on the base: the theme journey alone fails there with `page.goto: net::ERR_CONNECTION_REFUSED`, because nothing waited for the stack.
 - `pnpm check` on Windows: 48 of 48 tasks pass, including `install-checks.test.ts`, which runs the new admin and hub tests in a fresh install.
-- CI: see the PR.
+- CI on PR #68: `gate`, `check` and `pull-request` passed on a17ec8b, https://github.com/RobertScholey98/robkit/actions/runs/42197912709.
+
+### The production test fails on CI, and not because of this ticket
+
+The PR's `production` label ran it on a17ec8b (https://github.com/RobertScholey98/robkit/actions/runs/42197913312). It stopped before any journey: the hub's container answered 502 with `ERR_MODULE_NOT_FOUND: Cannot find package '@robkit/input' imported from /install/apps/hub/serve.ts`.
+
+- On the base, `apps/hub/serve.ts` and `apps/admin/src/serve.ts` both import `orExit` and `readServeEnv` from `@robkit/input`. Both apps list `@robkit/input` only under `devDependencies`, and the production image installs production dependencies alone. Admin would fail the same way once the hub stops failing first.
+- The import came in with dafd8a1 ("End an install's servers on a config problem with orExit", round 3, ticket 16). The production test hasn't run since: pull requests skip it unless labelled, and `main`'s last run (2026-11-04) passed, before round 3 merged.
+- This branch's only change to either manifest adds the four Testing Library and happy-dom devDependencies.
+- I couldn't run it on `65-round-4` itself. The workflow runs only on `main`, nightly, or a labelled pull request, and labelling the round's own pull request isn't mine to do.
+- The fix, for whichever ticket R gives it: move `@robkit/input` from `devDependencies` to `dependencies` in the template's `apps/hub/package.json` and `apps/admin/package.json`, then run the production test with the label.
 
 ### Not verified
 
-- **The production test didn't run locally.** Docker Desktop restarted at 09:28 today with its WSL integration off (`wslIntegration.distros: []`), so WSL had no Docker socket or CLI. I bridged both by hand for this session, without changing Docker's settings: a bind mount of Docker's socket into `/mnt/wsl`, a Python relay to `/var/run/docker.sock`, and a loop mount of Docker's CLI ISO. That ran the whole-stack test, but not the production test: Docker's integration also makes WSL paths bind-mountable, and Caddy's Caddyfile mount failed without it. The PR carries the `production` label so CI runs it. R may want to turn WSL integration back on in Docker Desktop's settings.
+- **The production test didn't run locally.** Docker Desktop restarted at 09:28 today with its WSL integration off (`wslIntegration.distros: []`), so WSL had no Docker socket or CLI. I bridged both by hand for this session, without changing Docker's settings: a bind mount of Docker's socket into `/mnt/wsl`, a Python relay to `/var/run/docker.sock`, and a loop mount of Docker's CLI ISO. That ran the whole-stack test, but not the production test: Docker's integration also makes WSL paths bind-mountable, and Caddy's Caddyfile mount failed without it. CI ran it through the PR's `production` label, and it fails on the base's problem above before reaching the split code. R may want to turn WSL integration back on in Docker Desktop's settings.
 - No component test covers the hub's sign-in and setup forms, or `App`'s "Can't reach core" screen off `hub.<domain>`. The whole-stack test covers the forms.
 
 ### For other tickets
