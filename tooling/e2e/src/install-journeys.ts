@@ -266,14 +266,13 @@ export function describeJourneys(
       expect(cookie).toMatch(/^robkit_session=[\w-]+\.[\w-]+\.[\w-]+;/);
       expect(cookie).not.toContain("Domain=");
       expect(cookie).not.toContain("Secure");
-      expect(JSON.parse(after.body)).toEqual({
+      const signedIn: unknown = JSON.parse(setup.body);
+      expect(signedIn).toMatchObject({
         state: "signed-in",
-        viewer: {
-          kind: "owner",
-          id: (JSON.parse(setup.body) as { viewer: { id: string } }).viewer.id,
-          username: "rob",
-        },
+        viewer: { kind: "owner", username: "rob" },
       });
+      // The session core reads back is the one setup started.
+      expect(JSON.parse(after.body)).toEqual(signedIn);
     });
 
     it("guards the example app with its own token: login, return and refresh bounce", async () => {

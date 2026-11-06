@@ -514,7 +514,18 @@ console.log(JSON.stringify(statuses));
       "-e",
       script,
     );
-    return JSON.parse(output.trim().split("\n").at(-1) ?? "[]") as number[];
+    const statuses: unknown = JSON.parse(
+      output.trim().split("\n").at(-1) ?? "[]",
+    );
+    if (
+      !Array.isArray(statuses) ||
+      !statuses.every((status): status is number => typeof status === "number")
+    ) {
+      throw new Error(
+        `The visitor container printed ${output}, not a list of statuses.`,
+      );
+    }
+    return statuses;
   };
   try {
     return await use(
