@@ -1,15 +1,7 @@
-import { readFile } from "node:fs/promises";
 import { join, posix } from "node:path";
 import { format, resolveConfig } from "prettier";
 import ts from "typescript";
-
-type ExportTarget = string | { types?: string; default?: string };
-
-interface Manifest {
-  name: string;
-  exports?: Record<string, ExportTarget>;
-  publishConfig?: { exports?: Record<string, ExportTarget> };
-}
+import { readJsonFile, readNamedManifest, type Manifest } from "./manifest.ts";
 
 /** Each entry point the packed package declares types for, by its subpath. */
 function typedEntries(manifest: Manifest): [string, string][] {
@@ -77,9 +69,10 @@ function entryApi(checker: ts.TypeChecker, file: ts.SourceFile): string[] {
  * the file `pnpm format` would leave.
  */
 export async function apiReport(dir: string): Promise<string> {
-  const manifest = JSON.parse(
-    await readFile(join(dir, "package.json"), "utf8"),
-  ) as Manifest;
+  const manifest = await readJsonFile(
+    join(dir, "package.json"),
+    readNamedManifest,
+  );
   const entries = typedEntries(manifest);
   const program = ts.createProgram(
     entries.map(([, types]) => join(dir, types)),

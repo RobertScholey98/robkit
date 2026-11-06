@@ -56,7 +56,7 @@ export interface GuardedOptions {
  */
 export interface GuardFault {
   /** The app's slug. */
-  app: string;
+  app: Slug;
   /**
    * What failed: checking the session against core's key, loading the
    * app's access rule, or reaching core at all.

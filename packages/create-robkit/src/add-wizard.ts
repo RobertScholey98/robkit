@@ -7,6 +7,7 @@ import {
 } from "@clack/prompts";
 import { Problem } from "@robkit/dev";
 import { readSlug } from "@robkit/session/addresses";
+import { isProblem } from "@robkit/session/input";
 import { newSlugProblem, readNewSlug, type AppChoices } from "./add.ts";
 import {
   defaultChoices,
@@ -65,7 +66,7 @@ function accessFrom(
 /** The app robkit add's flags describe, with a default for each left out. */
 export function appChoicesFromFlags(name: string, flags: AddFlags): AppChoices {
   const slug = readSlug(name);
-  if (typeof slug !== "string") throw new Problem(slug.error);
+  if (isProblem(slug)) throw new Problem(slug.error);
   return {
     stack: stackFrom(flags.stack ?? defaultChoices.exampleStack),
     slug,
@@ -125,7 +126,7 @@ export async function askAdd(
         }),
       ),
   );
-  if (typeof slug !== "string") throw new Problem(slug.error);
+  if (isProblem(slug)) throw new Problem(slug.error);
   const access = answered(
     await select<Access>({
       message: "Who can open it?",

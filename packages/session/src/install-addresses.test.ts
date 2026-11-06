@@ -10,16 +10,19 @@ import {
   readSlug,
   slugProblem,
 } from "./install-addresses.ts";
+import { slug } from "./test/slug.ts";
 
 describe("an install's addresses", () => {
   it("puts each app on its own subdomain of a local install", () => {
     const local = install({ domain: defaultDomain, port: defaultDevPort });
 
     expect(local.domain).toBe("robkit.localhost");
-    expect(local.host("notes")).toBe("notes.robkit.localhost");
+    expect(local.host(slug("notes"))).toBe("notes.robkit.localhost");
     expect(local.origin("core")).toBe("http://core.robkit.localhost:3000");
     expect(local.origin("hub")).toBe("http://hub.robkit.localhost:3000");
-    expect(local.origin("notes")).toBe("http://notes.robkit.localhost:3000");
+    expect(local.origin(slug("notes"))).toBe(
+      "http://notes.robkit.localhost:3000",
+    );
   });
 
   it("serves a hosted install over https on the default port", () => {
@@ -80,7 +83,7 @@ describe("the install an address is on", () => {
     );
     expect(
       installAt(new URL("http://core.robkit.localhost:3000"), "core")?.origin(
-        "notes",
+        slug("notes"),
       ),
     ).toBe("http://notes.robkit.localhost:3000");
   });

@@ -1,1 +1,3 @@
-pnpm exec lint-staged
+# The root config alone, so lint-staged doesn't pick up the install's own
+# config in create-robkit's templates, which runs robkit check.
+pnpm exec lint-staged --config lint-staged.config.js

@@ -1,15 +1,16 @@
-import type { AccessRule, Viewer } from "@robkit/guard";
+import type { AccessRule, RoleId, Viewer } from "@robkit/guard";
 import { describe, expectTypeOf, it } from "vitest";
 import {
   requestGuard,
   type GuardedOptions,
   type RequestDecision,
 } from "./index.ts";
-import type { DeclaredAccess } from "./input.ts";
+import type { DeclaredAccess, InputProblem } from "./input.ts";
 import { readSlug, type Slug } from "./install-addresses.ts";
 import { readSessionLapsed, type SessionLapsed } from "./session-lapsed.ts";
 
 declare const notes: Slug;
+declare const family: RoleId;
 const core = "http://core.robkit.localhost:3000";
 const options = (value: GuardedOptions) => value;
 const declared = (value: DeclaredAccess) => value;
@@ -27,7 +28,7 @@ describe("session's types", () => {
 
   it("takes the app as a Slug, which only readSlug makes", () => {
     expectTypeOf(readSlug).parameter(0).toBeUnknown();
-    expectTypeOf(readSlug).returns.toEqualTypeOf<Slug | { error: string }>();
+    expectTypeOf(readSlug).returns.toEqualTypeOf<Slug | InputProblem>();
     // The platform's own apps need no reading.
     options({ app: "admin", core, access: { kind: "owner" } });
     // @ts-expect-error A plain string hasn't been read as a slug.
@@ -40,7 +41,7 @@ describe("session's types", () => {
 
   it("keeps role names apart from the guard's role ids", () => {
     declared({ kind: "roles", roleNames: ["Family"] });
-    rule({ kind: "roles", roles: ["r1"] });
+    rule({ kind: "roles", roles: [family] });
     // @ts-expect-error A manifest's rule names roles; it doesn't hold ids.
     declared({ kind: "roles", roles: ["Family"] });
     // @ts-expect-error The guard's rule holds role ids, not names.

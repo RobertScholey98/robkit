@@ -1,4 +1,5 @@
 import type { Hono } from "hono";
+import { isProblem } from "@robkit/session/input";
 import { describe, expect, it } from "vitest";
 import { readDeclaredApps, registerApps } from "./apps.ts";
 import {
@@ -163,7 +164,7 @@ describe("readDeclaredApps", () => {
     ],
   ])("refuses %s", (text, message) => {
     const read = readDeclaredApps({ ROBKIT_APPS: text });
-    expect("error" in read && read.error).toMatch(message);
+    expect(isProblem(read) && read.error).toMatch(message);
   });
 });
 

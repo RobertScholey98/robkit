@@ -3,6 +3,10 @@ import { conformanceCases, type ConformanceCase } from "./conformance.ts";
 import {
   guard,
   readAccessRule,
+  readCodeId,
+  readRoleId,
+  readRoleIds,
+  type CodeId,
   type SessionState,
   type Viewer,
 } from "./index.ts";
@@ -20,7 +24,7 @@ function viewerOf({
     case "owner":
       return { kind: "owner", id: "owner-1" };
     case "guest":
-      return { kind: "guest", id: "code-1", roles: guestRoles };
+      return { kind: "guest", id: "code-1" as CodeId, roles: guestRoles };
   }
 }
 
@@ -82,7 +86,29 @@ describe("readAccessRule", () => {
     { kind: "roles" },
     { kind: "roles", roles: "role-1" },
     { kind: "roles", roles: ["role-1", 2] },
+    { kind: "roles", roles: ["role-1", ""] },
   ])("refuses %j", (value) => {
     expect(readAccessRule(value)).toBeUndefined();
   });
+});
+
+describe("the id readers", () => {
+  it("read a string that isn't empty as an id", () => {
+    expect(readRoleId("role-1")).toBe("role-1");
+    expect(readCodeId("code-1")).toBe("code-1");
+    expect(readRoleIds(["role-1", "role-2"])).toEqual(["role-1", "role-2"]);
+    expect(readRoleIds([])).toEqual([]);
+  });
+
+  it.each([undefined, null, "", 1, ["role-1"], {}])("refuse %j", (value) => {
+    expect(readRoleId(value)).toBeUndefined();
+    expect(readCodeId(value)).toBeUndefined();
+  });
+
+  it.each([undefined, "role-1", ["role-1", 2], [""]])(
+    "refuse %j as a list of role ids",
+    (value) => {
+      expect(readRoleIds(value)).toBeUndefined();
+    },
+  );
 });

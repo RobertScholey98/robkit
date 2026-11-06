@@ -1,5 +1,11 @@
 import cases from "../conformance.json" with { type: "json" };
-import { readAccessRule, type AccessRule, type Decision } from "./guard.ts";
+import {
+  readAccessRule,
+  readRoleIds,
+  type AccessRule,
+  type Decision,
+  type RoleId,
+} from "./guard.ts";
 
 const sessions = [
   "unknown",
@@ -22,7 +28,7 @@ export interface ConformanceCase {
   rule: AccessRule;
   session: (typeof sessions)[number];
   /** The roles a guest holds, by id. None if absent. */
-  guestRoles?: string[];
+  guestRoles?: RoleId[];
   /**
    * With `unknown`, the owner's live token the visitor sends that isn't for
    * this app: another app's, core's own, or one with no audience. The app
@@ -37,12 +43,6 @@ function oneOf<T extends string>(
   value: unknown,
 ): T | undefined {
   return options.find((option) => option === value);
-}
-
-function isRoleIds(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((role) => typeof role === "string")
-  );
 }
 
 function readCase(value: unknown, index: number): ConformanceCase {
@@ -68,8 +68,9 @@ function readCase(value: unknown, index: number): ConformanceCase {
   if (!outcome) {
     throw refuse(`outcome must be one of ${outcomes.join(", ")}.`);
   }
-  const guestRoles = field("guestRoles");
-  if (guestRoles !== undefined && !isRoleIds(guestRoles)) {
+  const guestRolesField = field("guestRoles");
+  const guestRoles = readRoleIds(guestRolesField);
+  if (guestRolesField !== undefined && !guestRoles) {
     throw refuse("guestRoles must be a list of role ids, or left out.");
   }
   const otherToken = field("otherToken");

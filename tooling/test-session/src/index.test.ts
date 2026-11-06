@@ -1,5 +1,6 @@
 import { once } from "node:events";
 import { request, type IncomingMessage } from "node:http";
+import type { RoleId } from "@robkit/guard";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { createLocalJWKSet, decodeJwt, jwtVerify } from "jose";
 import { describe, expect, it } from "vitest";
@@ -167,7 +168,7 @@ describe("fakeCore", () => {
 
   it("serves each app's rule from its catalog, and 404 for an app it lacks", async () => {
     const core = await fakeCore();
-    core.rules.example = { kind: "roles", roles: ["family"] };
+    core.rules.example = { kind: "roles", roles: ["family" as RoleId] };
 
     const known = await get(core.origin, "/apps/example/access");
     const unknown = await get(core.origin, "/apps/notes/access");

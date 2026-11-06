@@ -20,6 +20,40 @@ export type Leftover =
    */
   | { docker: string };
 
+function readLeftover(value: unknown): Leftover | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const tagged: unknown = Reflect.get(value, "tagged");
+  if (typeof tagged === "string") return { tagged };
+  const docker: unknown = Reflect.get(value, "docker");
+  return typeof docker === "string" ? { docker } : undefined;
+}
+
+/**
+ * The leftovers `removeWhenGone` hands its watcher as JSON. Anything else is
+ * a fault in this package, so it throws.
+ */
+export function readLeftovers(text: string): Leftover[] {
+  const refuse = (cause?: unknown) =>
+    new Error(
+      `The clean-up watcher was handed ${text}, not a JSON list of leftovers.`,
+      { cause },
+    );
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch (error) {
+    throw refuse(error);
+  }
+  if (!Array.isArray(json)) throw refuse();
+  const leftovers: Leftover[] = [];
+  for (const value of json) {
+    const leftover = readLeftover(value);
+    if (!leftover) throw refuse();
+    leftovers.push(leftover);
+  }
+  return leftovers;
+}
+
 /** A new value for `ROBKIT_TEST_TAG`, to give a process a test starts. */
 export function testTag(): string {
   return `${String(process.pid)}-${randomBytes(4).toString("hex")}`;

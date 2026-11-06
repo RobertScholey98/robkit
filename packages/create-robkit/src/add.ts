@@ -13,6 +13,7 @@ import {
   isRecord,
   parseJson,
   type DeclaredAccess,
+  type InputProblem,
 } from "@robkit/session/input";
 import { readChoices, type Choices, type Stack } from "./choices.ts";
 import { isMissing } from "./files.ts";
@@ -68,12 +69,9 @@ async function exists(path: string): Promise<boolean> {
 }
 
 /** `name` as the slug of a new app in the install at `root`, or why it can't be. */
-export function readNewSlug(
-  root: string,
-  name: string,
-): Slug | { error: string } {
+export function readNewSlug(root: string, name: string): Slug | InputProblem {
   const slug = readSlug(name);
-  if (typeof slug !== "string") return slug;
+  if (isProblem(slug)) return slug;
   if (isPlatformApp(slug)) {
     return {
       error: `${slug} is one of the platform apps: ${andList(platformApps)}.`,
@@ -91,7 +89,7 @@ export function readNewSlug(
  */
 export function newSlugProblem(root: string, name: string): string | undefined {
   const slug = readNewSlug(root, name);
-  return typeof slug === "string" ? undefined : slug.error;
+  return isProblem(slug) ? slug.error : undefined;
 }
 
 /**

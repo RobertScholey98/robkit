@@ -5,11 +5,15 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { defaultChoices, init, readyStacks, type Choices } from "create-robkit";
 import type { TestProject } from "vitest/node";
+import { slug } from "./test/slug.ts";
 
 const run = promisify(execFile);
 
+/** The example app every install starts with. */
+export const exampleSlug = slug("example");
+
 /** The slug of the app each install adds with robkit add, on its other stack. */
-export const addedSlug = "added";
+export const addedSlug = slug("added");
 
 /** The emoji robkit add gives that app. */
 export const addedIcon = "🧪";

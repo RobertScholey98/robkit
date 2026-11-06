@@ -125,8 +125,7 @@ export async function discoverApps(
     const manifest = await appManifestIn(root, name);
     if (!manifest) continue;
     const slug = readSlug(name);
-    if (typeof slug !== "string")
-      throw new Problem(`apps/${name}: ${slug.error}`);
+    if (isProblem(slug)) throw new Problem(`apps/${name}: ${slug.error}`);
     apps.push({
       slug,
       dir,

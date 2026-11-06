@@ -6,6 +6,7 @@ import {
   sessionCookieFor,
   type JourneyOptions,
 } from "./owner-journey.ts";
+import { exampleSlug } from "./install.ts";
 
 /** What the owner saw calling the Start example's server function. */
 export interface ServerFunctionJourney {
@@ -34,7 +35,7 @@ export async function serverFunctionJourney({
   username,
   password,
 }: JourneyOptions): Promise<ServerFunctionJourney> {
-  const app = `${install.origin("example")}/`;
+  const app = `${install.origin(exampleSlug)}/`;
   const browser = await launch();
   try {
     const context = await browser.newContext();

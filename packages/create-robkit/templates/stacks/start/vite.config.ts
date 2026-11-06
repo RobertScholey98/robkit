@@ -1,11 +1,15 @@
-import { readCoreUrl, readDevServerEnv } from "@robkit/session/input";
+import {
+  isProblem,
+  readCoreUrl,
+  readDevServerEnv,
+} from "@robkit/session/input";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 const devServerEnv = readDevServerEnv(process.env);
-if ("error" in devServerEnv) throw new Error(devServerEnv.error);
+if (isProblem(devServerEnv)) throw new Error(devServerEnv.error);
 const { port, domain } = devServerEnv;
 
 // robkit-dev assigns PORT and serves the app on <slug>.<domain> through its

@@ -1,3 +1,4 @@
+import { isProblem } from "@robkit/session/input";
 import { describe, expect, it } from "vitest";
 import { readCoreConfig } from "./env.ts";
 
@@ -42,7 +43,7 @@ describe("readCoreConfig", () => {
       ROBKIT_APPS: "{}",
       ROBKIT_TRUSTED_PROXY: "traefik",
     });
-    expect("error" in read && read.error.split("\n")).toEqual([
+    expect(isProblem(read) && read.error.split("\n")).toEqual([
       expect.stringMatching(/^DATABASE_URL is not set\./),
       expect.stringMatching(/^ROBKIT_DOMAIN is not set\./),
       expect.stringMatching(/^ROBKIT_APPS must be a JSON list/),

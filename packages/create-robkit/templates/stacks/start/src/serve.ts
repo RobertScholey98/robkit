@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { isRecord, readServeEnv } from "@robkit/session/input";
+import { isProblem, isRecord, readServeEnv } from "@robkit/session/input";
 import { Hono } from "hono";
 
 interface ServerEntry {
@@ -26,7 +26,7 @@ app.all("*", (c) => entry.fetch(c.req.raw));
 
 // A container sets HOST to listen beyond loopback.
 const listen = readServeEnv(process.env);
-if ("error" in listen) {
+if (isProblem(listen)) {
   console.error(listen.error);
   process.exit(1);
 }

@@ -6,6 +6,7 @@ import { setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { validator } from "hono/validator";
+import { readCodeId, readRoleId } from "@robkit/guard";
 import {
   appSessionUrl,
   reportToConsole,
@@ -14,7 +15,7 @@ import {
   type Report,
 } from "@robkit/session";
 import { install, isLocal, platformApps } from "@robkit/session/addresses";
-import { isRecord } from "@robkit/session/input";
+import { isProblem, isRecord, type InputProblem } from "@robkit/session/input";
 import {
   listCodes,
   mintCode,
@@ -110,8 +111,8 @@ async function fieldsOf(c: Context): Promise<Fields | undefined> {
 /** A POST's JSON fields read by one of core's input rules, or why they won't do. */
 async function readBody<T>(
   c: Context,
-  read: (fields: Fields) => T | { error: string },
-): Promise<T | { error: string }> {
+  read: (fields: Fields) => T | InputProblem,
+): Promise<T | InputProblem> {
   const fields = await fieldsOf(c);
   return fields ? read(fields) : { error: "Send a valid JSON body." };
 }
@@ -321,7 +322,7 @@ export function createApp({
 
   app.post("/setup", async (c) => {
     const credentials = await readBody(c, readNewOwner);
-    if ("error" in credentials) return c.json(credentials, 400);
+    if (isProblem(credentials)) return c.json(credentials, 400);
 
     const claim = await claimInstall(
       ctx,
@@ -340,7 +341,7 @@ export function createApp({
 
   app.post("/login", async (c) => {
     const credentials = await readBody(c, readCredentials);
-    if ("error" in credentials) return c.json(credentials, 400);
+    if (isProblem(credentials)) return c.json(credentials, 400);
 
     const client = clientOf(c, trustedProxy);
     const retryAfter = loginLimiter.retryAfter(client);
@@ -407,7 +408,7 @@ export function createApp({
   app.post("/codes", owner, async (c) => {
     const at = now();
     const request = await readBody(c, (fields) => readNewCode(fields, at));
-    if ("error" in request) return c.json(request, 400);
+    if (isProblem(request)) return c.json(request, 400);
     const mint = await mintCode(db, request, at, domain);
     if (mint.outcome === "taken") {
       return c.json({ error: "That code is taken." }, 409);
@@ -416,7 +417,8 @@ export function createApp({
   });
 
   app.post("/codes/:id/revoke", owner, async (c) => {
-    if (!(await revokeCode(db, c.req.param("id"), now()))) {
+    const id = readCodeId(c.req.param("id"));
+    if (!id || !(await revokeCode(db, id, now()))) {
       return c.json({ error: "Not found" }, 404);
     }
     return c.body(null, 204);
@@ -437,7 +439,7 @@ export function createApp({
 
   app.post("/apps/:slug/access", owner, async (c) => {
     const rule = await readBody(c, readAccess);
-    if ("error" in rule) return c.json(rule, 400);
+    if (isProblem(rule)) return c.json(rule, 400);
     const change = await setAccess(db, c.req.param("slug"), rule);
     switch (change.outcome) {
       case "unknown-app":
@@ -453,7 +455,7 @@ export function createApp({
 
   app.post("/roles", owner, async (c) => {
     const request = await readBody(c, readNewRole);
-    if ("error" in request) return c.json(request, 400);
+    if (isProblem(request)) return c.json(request, 400);
     const creation = await createRole(db, request, now());
     switch (creation.outcome) {
       case "unknown-code":
@@ -467,8 +469,11 @@ export function createApp({
 
   app.post("/roles/:id/codes", owner, async (c) => {
     const request = await readBody(c, readCodeIds);
-    if ("error" in request) return c.json(request, 400);
-    const change = await setRoleCodes(db, c.req.param("id"), request.codeIds);
+    if (isProblem(request)) return c.json(request, 400);
+    const roleId = readRoleId(c.req.param("id"));
+    const change = roleId
+      ? await setRoleCodes(db, roleId, request.codeIds)
+      : { outcome: "unknown-role" as const };
     switch (change.outcome) {
       case "unknown-role":
         return c.json({ error: "Not found" }, 404);

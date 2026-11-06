@@ -12,13 +12,32 @@ interface InputProblem {
 }
 ```
 
-- The reader takes `unknown`, or `Env` for environment variables. It never casts. ESLint's `no-unsafe-type-assertion` refuses a cast in any file that isn't a test.
+- `InputProblem` is the only type for a failed read, and `isProblem` the only check for one. Don't write a `{ error: string }` of your own, and don't test a result with `"error" in`.
+- The reader takes `unknown`, or `Env` for environment variables. It never casts. Parsed JSON is `unknown` until a reader checks it: give `JSON.parse` and `.json()` results the type `unknown`, then read them.
 - The problem's `error` names the file or variable, the key, and what to do about it. Write it for the person who has to fix the input.
 - The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `Problem` from `@robkit/dev` (see `errors.md`), and an HTTP route answers 400.
 - When several values are read together, report every problem at once with `allProblems`, a line each, so one run shows everything to fix.
-- A value with a meaning beyond its type gets a brand that only its reader makes. A `Slug` comes only from `readSlug`, so a function that takes one can't be handed a string nobody checked.
+- A value with a meaning beyond its type gets a brand that only its reader makes, so a function that takes one can't be handed a string nobody checked:
 
-The shared readers live in `@robkit/session/input` (environment variables, JSON, an app's `robkit` field) and `@robkit/session/addresses` (slugs). Every robkit package and every app can import them.
+  | Brand    | What it is                     | Made by                                                              |
+  | -------- | ------------------------------ | -------------------------------------------------------------------- |
+  | `Slug`   | An app's slug                  | `readSlug`                                                           |
+  | `RoleId` | A role's id                    | `readRoleId`, `readRoleIds` and `readAccessRule`, and core's readers |
+  | `CodeId` | An access code's id, a guest's | `readCodeId`, and core's readers                                     |
+
+  `Slug` is in `@robkit/session/addresses`, and an install's `host` and `origin` take one. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
+
+The shared readers live in `@robkit/session/input` (environment variables, JSON, an app's `robkit` field, and `InputProblem`, `isProblem`, `isRecord` and `allProblems`), `@robkit/session/addresses` (slugs) and `@robkit/guard` (role and code ids, and access rules). Every robkit package and every app can import them. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
+
+## What lint enforces
+
+| Rule                                          | Fails on                                                                                           | Where                |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------- |
+| `@typescript-eslint/no-unsafe-type-assertion` | A cast that narrows a type                                                                         | Every file but tests |
+| `robkit/no-json-cast`                         | A cast of `JSON.parse(...)` or a `.json()` result, which are `any` and so slip past the rule above | Every file but tests |
+| `robkit/one-problem-type`                     | A type literal whose one member is a required `error: string`, and `"error" in`                    | Every file           |
+
+The rules live in `tooling/eslint`, each with its tests. An install's `eslint.config.js` refuses the same three with `no-restricted-syntax` selectors, so the templates and every app `robkit add` writes keep to them too.
 
 ## Example
 
@@ -41,7 +60,7 @@ An app's `serve.ts` calls it once, at start:
 
 ```ts
 const listen = readServeEnv(process.env);
-if ("error" in listen) {
+if (isProblem(listen)) {
   console.error(listen.error);
   process.exit(1);
 }
