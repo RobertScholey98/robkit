@@ -7,7 +7,9 @@ import {
   PHASE_PRODUCTION_BUILD,
 } from "next/constants";
 
-// Next's telemetry stays off. It reads this after loading this file.
+// Next's telemetry stays off. next build and the server read this after
+// loading this file. next dev's own process never loads it, so the dev
+// script sets it too.
 process.env.NEXT_TELEMETRY_DISABLED = "1";
 
 /**
