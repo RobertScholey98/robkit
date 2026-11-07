@@ -40,14 +40,14 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 
 ## Exports
 
-| Export                                                                       | What it is                                                                                                                |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `create-robkit` (bin)                                                        | Init. Flags: `--stack <name>`, `--install`, `--link`                                                                      |
-| `robkit` (bin)                                                               | `add`, `check`, `vendor`, `database-urls` and `deploy`, run inside an install                                             |
-| `init(choices, dir, options)`                                                | Generates and writes an install, then with `install` initialises git and installs dependencies                            |
-| `Choices`, `defaultChoices`                                                  | What init asks: `{ exampleStack }`. The default is `start`                                                                |
-| `stacks`, `readyStacks`, `stackFrom`, `Stack`                                | The stacks: `start` (TanStack Start), `react-hono` (React with Hono), `express` (React with Express) and `next` (Next.js) |
-| `deploymentOf(...)`, `AppDeployment`, `DeploymentOptions`, `DeploymentValue` | Each app's Coolify variables, as `robkit deploy` sets them                                                                |
+| Export                                                                       | What it is                                                                                                                                               |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create-robkit` (bin)                                                        | Init. Flags: `--stack <name>`, `--install`, `--link`                                                                                                     |
+| `robkit` (bin)                                                               | `add`, `check`, `vendor`, `database-urls` and `deploy`, run inside an install                                                                            |
+| `init(choices, dir, options)`                                                | Generates and writes an install, then with `install` initialises git and installs dependencies                                                           |
+| `Choices`, `defaultChoices`                                                  | What init asks: `{ exampleStack }`. The default is `start`                                                                                               |
+| `stacks`, `readyStacks`, `stackFrom`, `Stack`                                | The stacks: `start` (TanStack Start), `react-hono` (React with Hono), `express` (React with Express), `next` (Next.js) and `go` (React with a Go server) |
+| `deploymentOf(...)`, `AppDeployment`, `DeploymentOptions`, `DeploymentValue` | Each app's Coolify variables, as `robkit deploy` sets them                                                                                               |
 
 ## What it must never do
 
@@ -157,13 +157,15 @@ React + Express went in this way (stacks ticket 01). What a stack knows lives in
 6. **Check it.** Make a linked install with `pnpm create-install ../try --stack <name>`, and in it run `pnpm lint`, `pnpm format:check`, `pnpm typecheck` and `pnpm build`. Then run `pnpm check`, and in Linux the whole-stack test (`pnpm --filter @internal/e2e test`) and the production test.
 7. **Docs.** Name the stack in this README's exports, the root `README.md`'s packages, `docs/architecture.md`'s package map and `docs/testing.md`, and add a line to `.scratch/kit/map.md`.
 
+React + Go (stacks ticket 03) is the stack whose server isn't Node, and it differs in three places. Its guard is a Go module in `go/`, a port tested against the same cases ([ADR 0013](../../docs/adr/0013-go-guard-is-a-port.md)), rather than an adapter package. Its entry in `stacks` says `ownsDatabase`, so `generate.test.ts`'s Drizzle expectations skip it, and `toolchain: "go"`, so init and `robkit add` check for Go. And its template's `go.mod` reaches the module with a `replace` that `src/go-module.ts` points at the checkout under `--link`, and `robkit vendor` at its copy in `vendor/robkit/go`.
+
 ### The robkit command
 
 The package's second command, `robkit`, runs in an install, which takes create-robkit as a dev dependency.
 
 - `robkit check` is the install's layer rule, and the install's `lint` script runs it.
 - `pnpm robkit add` adds an app. `addApp` in `src/add.ts` writes `apps/<slug>` on any ready stack, through the same `appFiles` the generator mounts the example with, or from the install's own `robkit/templates/<stack>` folder, which replaces robkit's template whole. It writes files only. The generator catalogs every stack's dependencies, so an added app needs no new versions.
-- `robkit vendor` packs the packages a linked install uses into its `vendor/robkit`, so it builds without the checkout until the packages are on npm.
+- `robkit vendor` packs the packages a linked install uses into its `vendor/robkit`, and copies robkit's Go module to `vendor/robkit/go`, so it builds without the checkout until the packages are on npm.
 - `robkit database-urls` prints each app's production `DATABASE_URL`.
 - `robkit deploy` deploys the install to Coolify. `src/coolify-config.ts` reads `coolify.json`, `src/coolify-api.ts` makes each request to Coolify, `src/coolify-deploy.ts` syncs the apps and deploys them in order, and `deploymentOf` in `src/deployment.ts` works out each app's variables.
 

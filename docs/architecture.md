@@ -115,7 +115,7 @@ When an app token expires, a page load goes back through core's `/refresh` as ab
 
 ## The package map
 
-Arrows point from a package to what it imports. Adapters never import core: code reaches core over HTTP only. `tooling/eslint` enforces each arrow that is a rule (see [`AGENTS.md`](../AGENTS.md#the-layer-rule)). Every package here except `@robkit/react` also imports `@robkit/input`, which imports nothing; the map draws only the guard's and session's arrows to it.
+Arrows point from a package to what it imports. Adapters never import core: code reaches core over HTTP only. `tooling/eslint` enforces each arrow that is a rule (see [`AGENTS.md`](../AGENTS.md#the-layer-rule)). Every package here except `@robkit/react` and the Go module, which imports only Go's standard library, also imports `@robkit/input`, which imports nothing; the map draws only the guard's and session's arrows to it.
 
 ```mermaid
 flowchart TD
@@ -127,6 +127,7 @@ flowchart TD
   next["@robkit/next<br/>adapter"]
   start["@robkit/start<br/>adapter"]
   react["@robkit/react<br/>sessionFetch"]
+  gomodule["go/ (Go module)<br/>guard and request guard, ported"]
   core["@robkit/core<br/>the backend"]
   dev["@robkit/dev<br/>robkit-dev, provision step"]
   create["create-robkit<br/>init and the robkit command"]
@@ -143,6 +144,7 @@ flowchart TD
   start --> session
   start --> guard
   react --> session
+  gomodule -. same conformance cases .-> guard
   core --> session
   core --> guard
   dev --> session
@@ -157,7 +159,7 @@ flowchart TD
   app["apps/&lt;slug&gt;"]
   coreApp["apps/core"]
   shared["packages/* (core-client, theme, ui)"]
-  adapters["@robkit/hono, @robkit/express, @robkit/next, @robkit/start, @robkit/react"]
+  adapters["@robkit/hono, @robkit/express, @robkit/next, @robkit/start, @robkit/react, robkit's Go module"]
   robkitCore["@robkit/core"]
 
   app --> shared
@@ -172,6 +174,7 @@ flowchart TD
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Who may open an app                             | `packages/guard/src/guard.ts`, and the cases in `packages/guard/conformance.json`          |
 | Reading cookies, verifying tokens, `/_robkit/*` | `packages/session/src/request-guard.ts`                                                    |
+| The same, for a Go app                          | `go/session/guarded.go` and `go/guard/guard.go` (see `go/README.md`)                       |
 | Token claims and cookies                        | `packages/session/src/session-token.ts`                                                    |
 | Reading env, JSON, slugs and the manifest       | `packages/input/src/` (`@robkit/input`), and `docs/conventions/input.md`                   |
 | An install's addresses                          | `packages/session/src/addresses.ts` (`@robkit/session/addresses`)                          |
