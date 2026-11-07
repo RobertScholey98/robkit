@@ -35,6 +35,11 @@ export interface JourneyOptions {
    * every install shares.
    */
   roles?: boolean;
+  /**
+   * Whether the example calls a server function from its page, as Start's
+   * does, so the server function journey runs. A stack's own test file says.
+   */
+  serverFunction?: boolean;
 }
 
 /**
@@ -48,7 +53,7 @@ export interface JourneyOptions {
  */
 export function describeJourneys(
   name: InstallName,
-  { roles = true }: JourneyOptions = {},
+  { roles = true, serverFunction = false }: JourneyOptions = {},
 ): void {
   const stack = installChoices[name].exampleStack;
   const dev = useDevStack(name);
@@ -105,7 +110,7 @@ export function describeJourneys(
     });
 
     testOwnerJourney(dev);
-    testServerFunctionJourney(dev, stack === "start");
+    testServerFunctionJourney(dev, serverFunction);
     testGuestJourney(dev);
     testAddedAppJourney(dev);
     testThemeJourney(dev);

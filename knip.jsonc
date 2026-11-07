@@ -30,7 +30,6 @@
       // doc-examples.test.ts compiles from here.
       "ignoreDependencies": [
         "@robkit/*",
-        "create-robkit",
         "@hono/node-server",
         "@tanstack/react-start",
         "@types/express",
