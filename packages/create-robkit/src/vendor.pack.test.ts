@@ -39,5 +39,7 @@ describe("vendorPackages", () => {
       expect(spec).toBe(`file:${tarball}`);
       await access(join(dir, tarball));
     }
+    // And robkit's Go module, from the checkout's go folder.
+    await access(join(dir, "vendor/robkit/go/session/guarded.go"));
   });
 });

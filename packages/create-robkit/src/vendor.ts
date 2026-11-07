@@ -1,13 +1,15 @@
 import { exec as execCallback } from "node:child_process";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
-import { CommandProblem, exec } from "@robkit/dev/cli";
+import { CommandProblem, exec, isMissing } from "@robkit/dev/cli";
 import { format } from "prettier";
 import { isProblem, isRecord, parseJson } from "@robkit/input";
 import { parseDocument } from "yaml";
 import { readInstallChoices } from "./add.ts";
 import { pnpmSettings } from "./generate.ts";
+import { vendoredGoModule, withGoModule } from "./go-module.ts";
 import { stringsIn } from "./json.ts";
 
 const shell = promisify(execCallback);
@@ -64,12 +66,16 @@ function tarballsIn(stdout: string, cwd: string): Map<string, string> {
 /** Where `vendorPackages` puts the tarballs, from the install's root. */
 export const vendorDir = "vendor/robkit";
 
+/** Where `vendorPackages` copies robkit's Go module, from the install's root. */
+const vendoredGoDir = `${vendorDir}/go`;
+
 /**
  * Packs each robkit package an install links to into its `vendor/robkit`
  * folder, as `pnpm publish` would pack it, and points the install's
- * overrides at those tarballs. The install then builds without the
- * checkout, as a Docker build on a host must, before the packages are on
- * npm. Run `pnpm install` afterwards to take them in.
+ * overrides at those tarballs. It copies robkit's Go module too. The
+ * install then builds without the checkout, as a Docker build on a host
+ * must, before the packages are on npm. Run `pnpm install` afterwards to
+ * take them in.
  */
 export async function vendorPackages(root: string): Promise<void> {
   // Refuses a folder that isn't an install.
@@ -133,4 +139,33 @@ export async function vendorPackages(root: string): Promise<void> {
     path,
     await format(workspace.toString(), { filepath: pnpmSettings }),
   );
+  await vendorGoModule(root, join(cwd, "..", "..", "go"));
+}
+
+/**
+ * Copies robkit's Go module from `goDir`, in the checkout, to the install's
+ * `vendor/robkit/go`, leaving out its tests and its manifest, and points
+ * each Go app's go.mod at the copy. It copies the module whether or not an
+ * app needs it yet, so `robkit add --stack go` works after vendoring.
+ */
+async function vendorGoModule(root: string, goDir: string): Promise<void> {
+  await cp(goDir, join(root, vendoredGoDir), {
+    recursive: true,
+    filter: (source) =>
+      !source.endsWith("_test.go") &&
+      !["package.json", "node_modules", ".turbo"].includes(basename(source)),
+  }).catch((error: unknown) => {
+    if (!isMissing(error)) throw error;
+    throw new CommandProblem(
+      `${goDir} doesn't exist, so robkit vendor can't copy robkit's Go module from the checkout. Check that the install's overrides link to a robkit checkout, then try again.`,
+      { cause: error },
+    );
+  });
+  const apps = join(root, "apps");
+  for (const entry of await readdir(apps, { withFileTypes: true })) {
+    const goMod = join(apps, entry.name, "go.mod");
+    if (!entry.isDirectory() || !existsSync(goMod)) continue;
+    const text = await readFile(goMod, "utf8");
+    await writeFile(goMod, withGoModule(text, vendoredGoModule));
+  }
 }
