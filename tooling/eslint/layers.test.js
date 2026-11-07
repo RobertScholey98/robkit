@@ -76,6 +76,7 @@ describe("coreRows", () => {
 describe("the layer rule", () => {
   it.each([
     ["packages/hono", "@robkit/hono"],
+    ["packages/express", "@robkit/express"],
     ["packages/start", "@robkit/start"],
     ["packages/react", "@robkit/react"],
     ["packages/session", "@robkit/session"],

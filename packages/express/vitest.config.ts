@@ -2,9 +2,6 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    // It starts with no tests. Thresholds of 100 make its first code
-    // bring tests with it.
-    passWithNoTests: true,
     coverage: {
       include: ["src/**"],
       // Type tests run in the typechecker, and src/test holds test helpers.

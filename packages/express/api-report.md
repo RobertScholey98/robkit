@@ -5,5 +5,26 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/express
 
 ```ts
-// Exports nothing.
+export function guarded(
+  options: GuardedOptions,
+): (
+  req: ExpressRequest,
+  res: GuardedResponse,
+  next: NextFunction,
+) => Promise<void>;
+export interface GuardedLocals {
+  viewer: Viewer;
+}
+export interface GuardedOptions {
+  app: Slug;
+  access?: AccessRule | undefined;
+  core: CoreOrigin;
+  onUnavailable?: ((fault: GuardFault) => void) | undefined;
+}
+export type GuardedResponse = ExpressResponse<unknown, GuardedLocals>;
+export type Viewer =
+  | SignedInViewer
+  | {
+      kind: "nobody";
+    };
 ```
