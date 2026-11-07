@@ -29,6 +29,15 @@ describe("askInit", () => {
     expect(asked).toEqual([folderQuestion, stackQuestion]);
   });
 
+  it("offers React + Express for the example", async () => {
+    const { prompts } = answering(["family-apps", "express"]);
+
+    expect(await askInit(undefined, prompts)).toEqual({
+      folder: "family-apps",
+      stack: "express",
+    });
+  });
+
   it("takes my-robkit for a folder when none is typed", async () => {
     const { prompts } = answering(["", "start"]);
 
@@ -125,15 +134,10 @@ describe("stackOptions", () => {
     expect(stackOptions()).toEqual([
       { value: "start", label: "TanStack Start", hint: "recommended" },
       { value: "react-hono", label: "React + Hono" },
+      { value: "express", label: "React + Express" },
       {
         value: "next",
         label: "Next.js",
-        hint: "coming later",
-        disabled: true,
-      },
-      {
-        value: "express",
-        label: "React + Express",
         hint: "coming later",
         disabled: true,
       },

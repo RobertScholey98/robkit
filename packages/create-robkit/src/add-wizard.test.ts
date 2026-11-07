@@ -46,6 +46,16 @@ describe("askAdd", () => {
     ]);
   });
 
+  it.each(["start", "react-hono", "express"])(
+    "offers %s, a stack robkit can make",
+    async (stack) => {
+      const root = await installWithNotes();
+      const { prompts } = answering([stack, "recipes", "open", "🍲"]);
+
+      expect(await askAdd(root, undefined, prompts)).toMatchObject({ stack });
+    },
+  );
+
   it("asks which roles may open an app for guests with certain roles", async () => {
     const root = await installWithNotes();
     const { prompts, asked, refused } = answering([

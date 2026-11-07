@@ -50,13 +50,12 @@ export const stacks: readonly [
     readonly label: "React + Hono";
   },
   {
-    readonly value: "next";
-    readonly label: "Next.js";
-    readonly comingLater: true;
-  },
-  {
     readonly value: "express";
     readonly label: "React + Express";
+  },
+  {
+    readonly value: "next";
+    readonly label: "Next.js";
     readonly comingLater: true;
   },
   {

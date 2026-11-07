@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { addApp, readNewSlug, type AppChoices } from "./add.ts";
-import { defaultChoices, type Choices } from "./choices.ts";
+import { defaultChoices, readyStacks, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
 import { slug } from "@internal/test-session";
 
@@ -100,15 +100,27 @@ describe("addApp", () => {
     });
   });
 
-  it("adds an app on any stack, whatever the example's", async () => {
-    const dir = await freshInstall({ exampleStack: "react-hono" });
+  it.each(readyStacks)(
+    "adds an app on %s, whatever the example's",
+    async (stack) => {
+      const dir = await freshInstall();
+      const template: unknown = JSON.parse(
+        await readFile(
+          new URL(`../templates/stacks/${stack}/package.json`, import.meta.url),
+          "utf8",
+        ),
+      );
+      const app = slug(`on${stack.replaceAll("-", "")}`);
 
-    await addApp(dir, { ...notes, stack: "start" });
+      await addApp(dir, { ...notes, slug: app, stack });
 
-    expect(await manifest(dir, "notes")).toMatchObject({
-      dependencies: { "@robkit/start": "catalog:" },
-    });
-  });
+      expect(await manifest(dir, app)).toEqual({
+        name: `@internal/${app}-app`,
+        ...(template as object),
+        robkit: { access: { kind: "open" }, icon: "📝" },
+      });
+    },
+  );
 
   it.each([
     [

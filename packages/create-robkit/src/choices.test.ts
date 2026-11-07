@@ -2,20 +2,23 @@ import { describe, expect, it } from "vitest";
 import { readChoices, readyStacks, stackFrom } from "./choices.ts";
 
 describe("stackFrom", () => {
-  it("reads a stack robkit can make", () => {
-    expect(stackFrom("react-hono")).toBe("react-hono");
-  });
+  it.each(["start", "react-hono", "express"])(
+    "reads %s, a stack robkit can make",
+    (value) => {
+      expect(stackFrom(value)).toBe(value);
+    },
+  );
 
   it.each(["next", "", "start,react-hono"])("refuses %j", (value) => {
     expect(() => stackFrom(value)).toThrow(
-      `--stack ${value} isn't an option. Choose from: start, react-hono.`,
+      `--stack ${value} isn't an option. Choose from: start, react-hono, express.`,
     );
   });
 });
 
 describe("readyStacks", () => {
   it("leaves out the stacks coming later", () => {
-    expect(readyStacks).toEqual(["start", "react-hono"]);
+    expect(readyStacks).toEqual(["start", "react-hono", "express"]);
   });
 });
 
@@ -36,13 +39,13 @@ describe("readChoices", () => {
   it("says which key is missing", () => {
     expect(readChoices({})).toEqual({
       error:
-        "robkit.json: exampleStack is missing. Set it to the example app's stack: start or react-hono.",
+        "robkit.json: exampleStack is missing. Set it to the example app's stack: start, react-hono or express.",
     });
   });
 
   it.each([["next"], [1]])("refuses the stack %j", (exampleStack) => {
     expect(readChoices({ exampleStack })).toEqual({
-      error: `robkit.json: exampleStack is ${JSON.stringify(exampleStack)}, which robkit can't make. Set it to start or react-hono.`,
+      error: `robkit.json: exampleStack is ${JSON.stringify(exampleStack)}, which robkit can't make. Set it to start, react-hono or express.`,
     });
   });
 });

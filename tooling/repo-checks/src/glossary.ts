@@ -99,9 +99,9 @@ export const exceptions: Exceptions = {
     },
     {
       word: "middleware",
-      file: "packages/{hono,express,start,create-robkit/templates/stacks/react-hono}/**",
+      file: "packages/{hono,express,start,create-robkit/templates/stacks/{react-hono,express}}/**",
       text: "middleware",
-      why: "Hono's, Express's and TanStack Start's word for what an adapter hands them.",
+      why: "Hono's, Express's, Vite's and TanStack Start's word for what an adapter hands them.",
     },
     {
       word: "backend",

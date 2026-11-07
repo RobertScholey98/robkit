@@ -19,8 +19,8 @@ interface StackOption {
 export const stacks = [
   { value: "start", label: "TanStack Start" },
   { value: "react-hono", label: "React + Hono" },
+  { value: "express", label: "React + Express" },
   { value: "next", label: "Next.js", comingLater: true },
-  { value: "express", label: "React + Express", comingLater: true },
   { value: "go", label: "React + Go", comingLater: true },
 ] as const satisfies readonly StackOption[];
 
@@ -65,7 +65,9 @@ export function readChoices(value: unknown): Choices | InputProblem {
       'robkit.json must be a JSON object, such as {"exampleStack": "start"}. Init wrote it; restore it from git if it has changed.',
     );
   }
-  const options = readyStacks.join(" or ");
+  const options = new Intl.ListFormat("en-GB", { type: "disjunction" }).format(
+    readyStacks,
+  );
   const { exampleStack } = value;
   if (exampleStack === undefined) {
     return problem(

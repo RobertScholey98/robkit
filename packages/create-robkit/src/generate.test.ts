@@ -2,7 +2,12 @@ import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { defaultChoices, readyStacks, type Choices } from "./choices.ts";
+import {
+  defaultChoices,
+  readyStacks,
+  type Choices,
+  type Stack,
+} from "./choices.ts";
 import { layerRule } from "./check.ts";
 import {
   generateInstall,
@@ -356,8 +361,11 @@ describe("generateInstall", () => {
     const { catalog } = workspace(await generateInstall(honoExample));
 
     expect(catalog).toMatchObject({
+      "@robkit/express": "0.0.0",
       "@robkit/start": "0.0.0",
       "@tanstack/react-start": "1.169.4",
+      "@types/express": "5.0.6",
+      express: "5.3.0",
     });
   });
 
@@ -372,6 +380,7 @@ describe("generateInstall", () => {
     expect(overrides).toEqual({
       "@robkit/core": at("core"),
       "@robkit/dev": at("dev"),
+      "@robkit/express": at("express"),
       "@robkit/guard": at("guard"),
       "@robkit/hono": at("hono"),
       "@robkit/input": at("input"),
@@ -396,10 +405,14 @@ describe("generateInstall", () => {
     }
   });
 
-  it.each([
-    ["start", "context.viewer"],
-    ["react-hono", "c.var.viewer"],
-  ] as const)(
+  /** How each stack's handlers read who is asking. */
+  const viewerOn = {
+    start: "context.viewer",
+    "react-hono": "c.var.viewer",
+    express: "res.locals.viewer",
+  } satisfies Record<Stack, string>;
+
+  it.each(readyStacks.map((stack) => [stack, viewerOn[stack]] as const))(
     "gives a %s app an AGENTS.md for its stack and Drizzle, which CLAUDE.md points at",
     async (stack, viewer) => {
       const files = await stackTemplate(stack);
@@ -416,7 +429,7 @@ describe("generateInstall", () => {
     },
   );
 
-  it.each(["start", "react-hono"] as const)(
+  it.each(readyStacks)(
     "lays Drizzle's app files over a %s app",
     async (stack) => {
       const files = await stackTemplate(stack);
