@@ -139,18 +139,13 @@ describe("commandFor", () => {
 });
 
 describe("stackOptions", () => {
-  it("offers the ready stacks, then the ones coming later", () => {
+  it("offers every stack, all of them ready", () => {
     expect(stackOptions()).toEqual([
       { value: "start", label: "TanStack Start", hint: "recommended" },
       { value: "react-hono", label: "React + Hono" },
       { value: "express", label: "React + Express" },
       { value: "next", label: "Next.js" },
-      {
-        value: "go",
-        label: "React + Go",
-        hint: "coming later",
-        disabled: true,
-      },
+      { value: "go", label: "React + Go" },
     ]);
   });
 });

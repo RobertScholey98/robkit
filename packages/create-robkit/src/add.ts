@@ -15,7 +15,15 @@ import {
 } from "@robkit/input";
 import { type ManifestAccess } from "@robkit/input/manifest";
 import { readChoices, type Choices, type Stack } from "./choices.ts";
-import { appFiles, readFolder, stackTemplate, type Files } from "./generate.ts";
+import {
+  appFiles,
+  overridesIn,
+  pnpmSettings,
+  readFolder,
+  stackTemplate,
+  type Files,
+} from "./generate.ts";
+import { goModuleFor, withGoModule } from "./go-module.ts";
 import { writeInstall } from "./write.ts";
 
 /**
@@ -132,11 +140,17 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   const problem = newSlugProblem(root, choices.slug);
   if (problem) throw new CommandProblem(problem);
   const template = await templateFor(root, choices.stack);
-  await writeInstall(
-    join(root, "apps", choices.slug),
-    appFiles(template, choices.slug, {
-      access: choices.access,
-      icon: choices.icon,
-    }),
-  );
+  const files = appFiles(template, choices.slug, {
+    access: choices.access,
+    icon: choices.icon,
+  });
+  const goMod = files.get("go.mod");
+  if (goMod !== undefined) {
+    const settings = await readFile(join(root, pnpmSettings), "utf8");
+    files.set(
+      "go.mod",
+      withGoModule(goMod, goModuleFor(overridesIn(settings))),
+    );
+  }
+  await writeInstall(join(root, "apps", choices.slug), files);
 }
