@@ -278,11 +278,14 @@ describe("generateInstall", () => {
     );
   });
 
-  it("lints with robkit check, then ESLint", async () => {
+  it("lints with robkit check, then ESLint, then each app's own lint, such as gofmt", async () => {
     const files = await generateInstall(defaultChoices);
 
     expect(json(files, "package.json")).toMatchObject({
-      scripts: { lint: "robkit check && eslint ." },
+      scripts: { lint: "robkit check && eslint . && turbo run lint" },
+    });
+    expect(json(files, "turbo.json")).toMatchObject({
+      tasks: { lint: {} },
     });
   });
 
@@ -366,6 +369,7 @@ describe("generateInstall", () => {
       expect(config).toContain('() => "robkit check"');
       expect(config).toContain("eslint --fix");
       expect(config).toContain("prettier --write");
+      expect(config).toContain('"*.go": "gofmt -w"');
     });
   });
 
