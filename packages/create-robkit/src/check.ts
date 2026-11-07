@@ -5,6 +5,7 @@ import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import { sessionCookie } from "@robkit/session";
 import { isProblem, isRecord, parseJson } from "@robkit/input";
 import ts from "typescript";
+import { goStringsIn } from "./go-strings.ts";
 
 /**
  * Code the layer rule binds: an app, `apps/<slug>`, or a shared package,
@@ -185,7 +186,7 @@ async function areasOf(root: string): Promise<Area[]> {
   return areas;
 }
 
-/** Every script file under `dir`, by its path from `root`. */
+/** Every script or Go file under `dir`, by its path from `root`. */
 async function scriptsIn(root: string, dir: string): Promise<string[]> {
   const files: string[] = [];
   const entries = await readdir(join(root, dir), { withFileTypes: true });
@@ -196,7 +197,10 @@ async function scriptsIn(root: string, dir: string): Promise<string[]> {
       if (!skipped.has(entry.name) && !entry.name.startsWith(".")) {
         files.push(...(await scriptsIn(root, path)));
       }
-    } else if (extname(entry.name) in scriptKinds) {
+    } else if (
+      extname(entry.name) in scriptKinds ||
+      entry.name.endsWith(".go")
+    ) {
       files.push(path);
     }
   }
@@ -210,8 +214,19 @@ interface Placed {
   column: number;
 }
 
-/** The imports and strings in a file, each with where it starts. */
+/**
+ * The imports and strings in a file, each with where it starts. A Go file's
+ * are its strings: the Go apps' imports are Go modules, which the layer
+ * rule doesn't name.
+ */
 function usesIn(file: string, text: string): Placed[] {
+  if (file.endsWith(".go")) {
+    return goStringsIn(text).map(({ value, line, column }) => ({
+      use: { kind: "string", value },
+      line,
+      column,
+    }));
+  }
   const source = ts.createSourceFile(
     file,
     text,
