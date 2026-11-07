@@ -87,14 +87,20 @@ export function scriptProblems(
   return problems;
 }
 
-/** Each workspace package with a test script, and its scripts. */
+/**
+ * Each workspace package with a test script, and its scripts: those under
+ * packages/ and tooling/, and the Go module in go/.
+ */
 export async function readWorkspaceScripts(
   root: string,
 ): Promise<PackageScripts[]> {
   const packages: PackageScripts[] = [];
-  for await (const path of glob("{packages,tooling}/*/package.json", {
-    cwd: root,
-  })) {
+  for await (const path of glob(
+    ["{packages,tooling}/*/package.json", "go/package.json"],
+    {
+      cwd: root,
+    },
+  )) {
     const json = await readJsonFile(join(root, path), readNamedManifest);
     const defined = json.scripts ?? {};
     if (defined.test === undefined) continue;

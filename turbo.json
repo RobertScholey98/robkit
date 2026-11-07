@@ -38,6 +38,24 @@
         "$TURBO_ROOT$/pnpm-workspace.yaml"
       ]
     },
+    "@internal/go#lint": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/tooling/repo-checks/src/check-gofmt.ts"
+      ]
+    },
+    "@internal/go#test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/guard/conformance.json"
+      ]
+    },
+    "@internal/go#test:unit": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/guard/conformance.json"
+      ]
+    },
     "@internal/e2e#test": {
       "dependsOn": ["^build", "create-robkit#test"],
       "cache": false
@@ -48,6 +66,7 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/**",
         "$TURBO_ROOT$/tooling/**",
+        "$TURBO_ROOT$/go/**",
         "!$TURBO_ROOT$/**/.turbo/**",
         "!$TURBO_ROOT$/**/dist/**",
         "!$TURBO_ROOT$/**/coverage/**",
@@ -68,6 +87,7 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/packages/**",
         "$TURBO_ROOT$/tooling/**",
+        "$TURBO_ROOT$/go/**",
         "!$TURBO_ROOT$/**/.turbo/**",
         "!$TURBO_ROOT$/**/dist/**",
         "!$TURBO_ROOT$/**/coverage/**",

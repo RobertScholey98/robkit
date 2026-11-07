@@ -138,6 +138,8 @@ importers:
         specifier: 'catalog:'
         version: 6.0.3
 
+  go: {}
+
   packages/core:
     dependencies:
       '@robkit/guard':

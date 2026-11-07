@@ -110,6 +110,18 @@ export const exceptions: Exceptions = {
       why: "Hono's, Express's, Vite's and TanStack Start's word for what an adapter hands them.",
     },
     {
+      word: "middleware",
+      file: "go/session/guarded.go",
+      text: "middleware",
+      why: "Go's word for a func(http.Handler) http.Handler, which Guarded is.",
+    },
+    {
+      word: "user",
+      file: "go/session/*.go",
+      text: ".User",
+      why: "Go's url.URL keeps a URL's user info in its User field.",
+    },
+    {
       word: "backend",
       text: "BuildKit cache backend",
       why: "BuildKit's word.",
@@ -342,7 +354,8 @@ export function unusedExceptions(
 
 /**
  * The files the check reads: each published package's source and README,
- * create-robkit's templates, `docs/`, `README.md` and `AGENTS.md`.
+ * the Go module's source and README, create-robkit's templates, `docs/`,
+ * `README.md` and `AGENTS.md`.
  * Snapshots and drizzle-kit's migrations are generated, so it skips them.
  */
 export async function readScannedFiles(root: string): Promise<ScannedFile[]> {
@@ -351,6 +364,8 @@ export async function readScannedFiles(root: string): Promise<ScannedFile[]> {
     [
       "packages/*/src/**/*",
       "packages/*/README.md",
+      "go/**/*.go",
+      "go/README.md",
       // An install's own code, docs and pages.
       "packages/create-robkit/templates/**/*",
       "docs/**/*.md",

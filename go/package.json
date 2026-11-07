@@ -1,0 +1,12 @@
+{
+  "name": "@internal/go",
+  "version": "0.0.0",
+  "private": true,
+  "description": "robkit's guard for Go apps: the Go module github.com/RobertScholey98/robkit/go. Its scripts run Go's own tools, so the gates check it.",
+  "scripts": {
+    "lint": "node ../tooling/repo-checks/src/check-gofmt.ts",
+    "typecheck": "go vet ./...",
+    "test": "go test ./...",
+    "test:unit": "go test ./..."
+  }
+}

@@ -7,6 +7,9 @@
     // Installs that the dev runner's tests start by path.
     "packages/dev/src/test/*-install/**",
   ],
+  // Go's own tools, which the Go module's scripts run. CONTRIBUTING.md says
+  // to install Go.
+  "ignoreBinaries": ["go", "gofmt"],
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
     // Many entries are versions only the templates take. A repo check
