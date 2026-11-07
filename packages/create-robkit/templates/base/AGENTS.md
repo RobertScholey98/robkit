@@ -7,7 +7,7 @@ This is a robkit install: a monorepo of small apps behind one sign-in. Core hold
 ```sh
 pnpm dev                     # Postgres, core, the hub, admin and every app, on *.robkit.localhost:3000
 pnpm robkit add              # add an app; asks for its stack, name, who can open it and an icon
-pnpm lint                    # robkit check, then ESLint
+pnpm lint                    # robkit check, ESLint, then each app's own lint
 pnpm typecheck
 pnpm test
 pnpm build
@@ -38,10 +38,11 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 
 ## Production
 
-Each app has a `start` script, which migrates its database if it has one and then serves, and a `build` script where it needs one. The `Dockerfile` builds any app's image, named by the `ROBKIT_APP` build argument. The image holds only the app's production dependencies, so an app's `dependencies` are what its server and `start` script import, and what only its build uses, everything Vite bundles included, goes in `devDependencies`. The hub and admin serve what Vite built, so React, the theme and the UI kit are dev dependencies there. In production, core's container gives every app its database before core starts, with a password derived from the install's secret, so each app's `DATABASE_URL` is set once on the host. `docs/deploy.md` describes the deploy and its one-time setup.
+Each app has a `start` script, which migrates its database if it has one and then serves, and a `build` script where it needs one. The `Dockerfile` builds any app's image, named by the `ROBKIT_APP` build argument. The image holds only the app's production dependencies, so an app's `dependencies` are what its server and `start` script import, and what only its build uses, everything Vite bundles included, goes in `devDependencies`. The hub and admin serve what Vite built, so React, the theme and the UI kit are dev dependencies there. In production, core's container gives every app its database before core starts, with a password derived from the install's secret, so each app's `DATABASE_URL` is set once on the host. An app with a `go.mod` is a Go server: its image's build fetches Go, and the image runs the binary Go built. `docs/deploy.md` describes the deploy and its one-time setup.
 
 ## Dev tools
 
 - **ESLint and Prettier.** `pnpm lint` runs ESLint after `robkit check`. `eslint.config.js` lints with robkit's own policy, which create-robkit copied into `tooling/eslint`: a `catch` uses its error or says why not, a thrown `Error` names what failed or keeps its `cause`, parsed JSON goes through a reader rather than a cast, and an `eslint-disable` says why after `--`. Each message says what to do. `pnpm format` formats the install with Prettier, and CI fails on a file Prettier would change.
 - **Vitest.** Each test sits beside the code it covers, as `<name>.test.ts`, and `pnpm test` runs every package's tests. In a test, `fakeCore` from `@internal/core-client/fake-core` answers for core.
-- **Husky and lint-staged.** Before each commit, a hook in `.husky/pre-commit` runs lint-staged, which runs what `lint-staged.config.js` names on the staged files and refuses the commit if any of it fails. `pnpm install` sets the hook up.
+- **Go.** A React + Go app's server is Go, so building, running and checking it needs Go 1.26 or later on your `PATH`. `pnpm dev`, init and `robkit add` say how to install it when it's missing. `pnpm lint` runs the app's `gofmt`, `pnpm typecheck` its `go vet` and `pnpm test` its `go test`, and CI sets Go up when an app has a `go.mod`.
+- **Husky and lint-staged.** Before each commit, a hook in `.husky/pre-commit` runs lint-staged, which runs what `lint-staged.config.js` names on the staged files and refuses the commit if any of it fails. It formats staged Go files with `gofmt`. `pnpm install` sets the hook up.
