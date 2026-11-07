@@ -7,7 +7,8 @@ describe("usage", () => {
 
 With no --stack, init asks for the folder and the example app's stack.
 
-  --stack <name>          the example app's stack: start, react-hono, express
+  --stack <name>          the example app's stack: start, react-hono, express,
+                          next
   --install               install dependencies and initialise git
   --link                  link the @robkit packages to the robkit checkout
                           this runs from, instead of installing them from npm`);

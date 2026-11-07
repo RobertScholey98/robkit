@@ -20,7 +20,7 @@ export const stacks = [
   { value: "start", label: "TanStack Start" },
   { value: "react-hono", label: "React + Hono" },
   { value: "express", label: "React + Express" },
-  { value: "next", label: "Next.js", comingLater: true },
+  { value: "next", label: "Next.js" },
   { value: "go", label: "React + Go", comingLater: true },
 ] as const satisfies readonly StackOption[];
 

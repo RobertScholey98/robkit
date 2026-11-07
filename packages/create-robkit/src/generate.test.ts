@@ -362,10 +362,13 @@ describe("generateInstall", () => {
 
     expect(catalog).toMatchObject({
       "@robkit/express": "0.0.0",
+      "@robkit/next": "0.0.0",
       "@robkit/start": "0.0.0",
+      "@tailwindcss/postcss": "4.3.3",
       "@tanstack/react-start": "1.169.4",
       "@types/express": "5.0.6",
       express: "5.3.0",
+      next: "16.4.5",
     });
   });
 
@@ -384,6 +387,7 @@ describe("generateInstall", () => {
       "@robkit/guard": at("guard"),
       "@robkit/hono": at("hono"),
       "@robkit/input": at("input"),
+      "@robkit/next": at("next"),
       "@robkit/react": at("react"),
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),
@@ -410,6 +414,7 @@ describe("generateInstall", () => {
     start: "context.viewer",
     "react-hono": "c.var.viewer",
     express: "res.locals.viewer",
+    next: "await viewer()",
   } satisfies Record<Stack, string>;
 
   it.each(readyStacks.map((stack) => [stack, viewerOn[stack]] as const))(

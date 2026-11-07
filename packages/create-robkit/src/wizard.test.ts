@@ -38,6 +38,15 @@ describe("askInit", () => {
     });
   });
 
+  it("offers Next.js for the example", async () => {
+    const { prompts } = answering(["family-apps", "next"]);
+
+    expect(await askInit(undefined, prompts)).toEqual({
+      folder: "family-apps",
+      stack: "next",
+    });
+  });
+
   it("takes my-robkit for a folder when none is typed", async () => {
     const { prompts } = answering(["", "start"]);
 
@@ -135,12 +144,7 @@ describe("stackOptions", () => {
       { value: "start", label: "TanStack Start", hint: "recommended" },
       { value: "react-hono", label: "React + Hono" },
       { value: "express", label: "React + Express" },
-      {
-        value: "next",
-        label: "Next.js",
-        hint: "coming later",
-        disabled: true,
-      },
+      { value: "next", label: "Next.js" },
       {
         value: "go",
         label: "React + Go",

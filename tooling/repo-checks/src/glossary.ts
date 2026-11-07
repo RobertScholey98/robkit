@@ -75,6 +75,12 @@ export const exceptions: Exceptions = {
       why: "Vite's word for what extends it.",
     },
     {
+      word: "plugin",
+      file: "packages/create-robkit/templates/stacks/next/{postcss.config.js,tsconfig.json}",
+      text: "plugin",
+      why: "PostCSS's and TypeScript's word for what extends them.",
+    },
+    {
       word: "group",
       file: "packages/create-robkit/templates/base/packages/ui/src/components/ui/*.tsx",
       text: "group",

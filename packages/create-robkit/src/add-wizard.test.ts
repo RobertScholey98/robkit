@@ -46,7 +46,7 @@ describe("askAdd", () => {
     ]);
   });
 
-  it.each(["start", "react-hono", "express"])(
+  it.each(["start", "react-hono", "express", "next"])(
     "offers %s, a stack robkit can make",
     async (stack) => {
       const root = await installWithNotes();

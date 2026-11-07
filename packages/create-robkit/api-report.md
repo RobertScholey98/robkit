@@ -56,7 +56,6 @@ export const stacks: readonly [
   {
     readonly value: "next";
     readonly label: "Next.js";
-    readonly comingLater: true;
   },
   {
     readonly value: "go";
