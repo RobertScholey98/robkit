@@ -8,6 +8,10 @@ import { testAddedAppJourney } from "./added-app-journey.ts";
 import { interrupt, owner, useDevStack } from "./dev-stack.ts";
 import { testGuestJourney } from "./guest-journey.ts";
 import { installChoices, type InstallName } from "./install.ts";
+import {
+  testClientNavigationJourney,
+  testServerActionJourney,
+} from "./lapsed-call-journeys.ts";
 import { testOwnerJourney } from "./owner-journey.ts";
 import { testRoleJourney } from "./role-journey.ts";
 import { testServerFunctionJourney } from "./server-function-journey.ts";
@@ -40,6 +44,11 @@ export interface JourneyOptions {
    * does, so the server function journey runs. A stack's own test file says.
    */
   serverFunction?: boolean;
+  /**
+   * Whether a lapsed session on a client navigation and on a server action
+   * gets journeys of its own, as Next's example has both.
+   */
+  lapsedCalls?: boolean;
 }
 
 /**
@@ -53,7 +62,11 @@ export interface JourneyOptions {
  */
 export function describeJourneys(
   name: InstallName,
-  { roles = true, serverFunction = false }: JourneyOptions = {},
+  {
+    roles = true,
+    serverFunction = false,
+    lapsedCalls = false,
+  }: JourneyOptions = {},
 ): void {
   const stack = installChoices[name].exampleStack;
   const dev = useDevStack(name);
@@ -111,6 +124,8 @@ export function describeJourneys(
 
     testOwnerJourney(dev);
     testServerFunctionJourney(dev, serverFunction);
+    testClientNavigationJourney(dev, lapsedCalls);
+    testServerActionJourney(dev, lapsedCalls);
     testGuestJourney(dev);
     testAddedAppJourney(dev);
     testThemeJourney(dev);
