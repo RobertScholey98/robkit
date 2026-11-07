@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { addApp, readNewSlug, type AppChoices } from "./add.ts";
 import { defaultChoices, readyStacks, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
@@ -34,6 +34,10 @@ const notes: AppChoices = {
   access: { kind: "open" },
   icon: "📝",
 };
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("addApp", () => {
   it("writes apps/<slug> from the stack's template, declaring its rule and icon", async () => {
@@ -85,6 +89,16 @@ describe("addApp", () => {
     expect(await replaceIn(plain)).toEqual([
       "replace github.com/RobertScholey98/robkit/go => ../../vendor/robkit/go",
     ]);
+  });
+
+  it("says how to install Go, writing nothing, for a React + Go app when go isn't on the PATH", async () => {
+    const dir = await freshInstall();
+    vi.stubEnv("PATH", await mkdtemp(join(tmpdir(), "no-go-")));
+
+    await expect(addApp(dir, { ...notes, stack: "go" })).rejects.toThrow(
+      "Go isn't installed, or isn't on your PATH",
+    );
+    expect(await readdir(join(dir, "apps"))).not.toContain("notes");
   });
 
   it("names a rule's roles, as core finds them", async () => {
