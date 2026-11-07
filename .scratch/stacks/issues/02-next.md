@@ -51,6 +51,8 @@ Chosen in the build, awaiting R's review.
 - WSL, `pnpm --filter @internal/e2e test:production`: 12 passed, including the added Next app over https and its image's extra-packages check.
 - WSL, by hand: Next's HMR websocket (`/_next/hmr`) connected through the dev proxy, and an edit to `page.tsx` reached the open page with no reload. `next dev` exited without the telemetry notice.
 - `pnpm check` on Windows: everything passes except 3 `vendor.test.ts` cases that fail on this machine on the base commit too (the global pnpm in the temp folder exits 1, not 3).
+- WSL, `pnpm check:all`: 58 of 58 tasks in 4 minutes 11 seconds.
+- CI on 192694b ([PR 72](https://github.com/RobertScholey98/robkit/pull/72)): `check` passed in 10 minutes 15 seconds, with coverage at the 100% thresholds; `production` passed in 7 minutes 21 seconds; `pull-request` and `gate` passed. [Run 42392567128](https://github.com/RobertScholey98/robkit/actions/runs/42392567128).
 
 ### Not verified
 
