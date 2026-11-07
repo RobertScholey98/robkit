@@ -6,3 +6,4 @@
 export { exec } from "./exec.ts";
 export { isMissing } from "./files.ts";
 export { CommandProblem, reportFaultsAt, runCommand } from "./run-command.ts";
+export { requireGo } from "./toolchain.ts";

@@ -64,6 +64,7 @@ export function exec(
 ): Promise<void>;
 export function isMissing(error: unknown): boolean;
 export const reportFaultsAt: "https://github.com/RobertScholey98/robkit/issues";
+export function requireGo(env?: NodeJS.ProcessEnv): Promise<void>;
 export function runCommand(
   main: () => Promise<number | undefined>,
   report?: Report,
