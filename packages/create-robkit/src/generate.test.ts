@@ -137,12 +137,14 @@ describe("generateInstall", () => {
       "packages",
       "catalogMode",
       "allowBuilds",
+      "overrides",
       "catalog",
     ]);
     expect(settings).toMatchObject({
       packages: ["apps/*", "packages/*", "tooling/*"],
       catalogMode: "strict",
       allowBuilds: { esbuild: false },
+      overrides: { "styled-jsx>@babel/core": "-" },
     });
   });
 
@@ -354,7 +356,8 @@ describe("generateInstall", () => {
     // Only what the install uses: robkit's own tooling stays out.
     expect(catalog).not.toHaveProperty("@clack/prompts");
     expect(catalog).not.toHaveProperty("playwright");
-    expect(overrides).toBeUndefined();
+    // Only the one that keeps Babel out of a Next.js app's image.
+    expect(overrides).toEqual({ "styled-jsx>@babel/core": "-" });
   });
 
   it("catalogs every stack robkit add offers, not only the example's", async () => {
@@ -392,6 +395,7 @@ describe("generateInstall", () => {
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),
       "create-robkit": at("create-robkit"),
+      "styled-jsx>@babel/core": "-",
     });
   });
 
