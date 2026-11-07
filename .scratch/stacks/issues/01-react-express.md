@@ -11,7 +11,7 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `@robkit/express` passes the guard's conformance cases and has the published-package shape
 - [x] init `--stack express` and `robkit add --stack express` make a working app, and both wizards offer it
@@ -19,7 +19,7 @@
 - [x] The whole-stack journeys pass for an Express install in the pull-request gate
 - [x] The production test serves an Express app over https
 - [x] create-robkit's README lists what adding a stack takes
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -42,6 +42,8 @@ Chosen in the build, awaiting R's review.
 - A linked install made with `--stack express` on Windows passed `pnpm lint` (`robkit check` and ESLint), `pnpm typecheck` and `pnpm format:check`, and its built `dist/serve.js` served the stylesheet and ran the guard.
 - WSL, `pnpm --filter @internal/e2e test`: 6 files, 48 passed, 2 skipped (the server-function journey on react-hono and express). The Express install ran every journey and its own CI; the react-hono install's added app is on Express.
 - WSL, `pnpm --filter @internal/e2e test:production`: 11 passed, including "serves an app on each other stack, added with robkit add, after its next deploy" and the Express image's extra-packages check.
+- WSL, `pnpm check:all`: 54 of 54 tasks in 3 minutes 39 seconds.
+- CI on c33f206 ([PR 70](https://github.com/RobertScholey98/robkit/pull/70)): `check` passed in 7 minutes 13 seconds, with the coverage ratchet, `production` in 6 minutes 21 seconds, and `pull-request` and `gate` passed. [Run 42383859608](https://github.com/RobertScholey98/robkit/actions/runs/42383859608).
 
 ### Not verified
 
