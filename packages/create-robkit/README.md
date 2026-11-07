@@ -40,14 +40,14 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 
 ## Exports
 
-| Export                                                                       | What it is                                                                                     |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `create-robkit` (bin)                                                        | Init. Flags: `--stack <name>`, `--install`, `--link`                                           |
-| `robkit` (bin)                                                               | `add`, `check`, `vendor`, `database-urls` and `deploy`, run inside an install                  |
-| `init(choices, dir, options)`                                                | Generates and writes an install, then with `install` initialises git and installs dependencies |
-| `Choices`, `defaultChoices`                                                  | What init asks: `{ exampleStack }`. The default is `start`                                     |
-| `stacks`, `readyStacks`, `stackFrom`, `Stack`                                | The stacks: `start` (TanStack Start) and `react-hono` (React with Hono)                        |
-| `deploymentOf(...)`, `AppDeployment`, `DeploymentOptions`, `DeploymentValue` | Each app's Coolify variables, as `robkit deploy` sets them                                     |
+| Export                                                                       | What it is                                                                                              |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `create-robkit` (bin)                                                        | Init. Flags: `--stack <name>`, `--install`, `--link`                                                    |
+| `robkit` (bin)                                                               | `add`, `check`, `vendor`, `database-urls` and `deploy`, run inside an install                           |
+| `init(choices, dir, options)`                                                | Generates and writes an install, then with `install` initialises git and installs dependencies          |
+| `Choices`, `defaultChoices`                                                  | What init asks: `{ exampleStack }`. The default is `start`                                              |
+| `stacks`, `readyStacks`, `stackFrom`, `Stack`                                | The stacks: `start` (TanStack Start), `react-hono` (React with Hono) and `express` (React with Express) |
+| `deploymentOf(...)`, `AppDeployment`, `DeploymentOptions`, `DeploymentValue` | Each app's Coolify variables, as `robkit deploy` sets them                                              |
 
 ## What it must never do
 
@@ -68,7 +68,7 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 
 ### The templates
 
-- `src/choices.ts` lists the stacks: the ready ones, then the ones coming later, which the wizard shows but can't pick. A new stack is one entry there plus its folder, `templates/stacks/<name>`. Every install offers every ready stack.
+- `src/choices.ts` lists the stacks: the ready ones, then the ones coming later, which the wizard shows but can't pick. A new stack is one entry there plus its folder, `templates/stacks/<name>`, and its adapter and tests: [Add a stack](#add-a-stack) lists them. Every install offers every ready stack.
 - `templates/base` is the install itself: core, Compose, turbo, the hub and admin, `packages/core-client`, `packages/theme`, `packages/ui`, the ESLint, Prettier, lint-staged and Husky config, the Dockerfile, the CI workflow and the install's root `AGENTS.md`.
 - `templates/stacks/<name>` is one app, with its Drizzle schema, migrations and `migrate` script, and its own `AGENTS.md`.
 - The templates are an install's own files: the install lints and tests them, so robkit's ESLint and TypeScript skip them.
@@ -129,7 +129,33 @@ To change one:
 
 5. **Add a changeset** for create-robkit: a template change needs one, as a change to `src` does.
 
-CI's whole-stack test then makes fresh installs from the templates and drives their hub, admin and apps in Chromium. On the Start install it also runs the install's own CI workflow: lint, typecheck and tests.
+CI's whole-stack test then makes fresh installs from the templates and drives their hub, admin and apps in Chromium. On every install it also runs the install's own CI workflow: lint, the format check, typecheck, tests and the build.
+
+### Add a stack
+
+React + Express went in this way (stacks ticket 01). What a stack knows lives in its own files: the adapter, the template folder and the stack's whole-stack test file. Nothing else branches on its name, and the lists that do name every stack are typed by `Stack`, so the next one fails to compile or a test fails until it is added.
+
+1. **The adapter**, unless the stack's server can use one that exists. `pnpm new:package <name>` makes `packages/<name>` with its entry in `tooling/eslint/package-graph.js` and an edge from `tooling/repo-checks`. Model it on `packages/hono` or `packages/express`:
+   - `guarded(options)` runs `requestGuard` from `@robkit/session` on a web-standard `Request`, and either sends its answer as it is or hands the app's handlers the viewer the way its server library does, typed.
+   - `src/guarded.test.ts` runs `conformanceCases` from `@robkit/guard/conformance` against `fakeCore()` from `@internal/test-session`, checks the guard's 401 for a call, and takes a token through the guard's callback.
+   - `src/guarded.test-d.ts` says what must and mustn't compile, and `test` and `test:unit` run `vitest run --typecheck --coverage`. Coverage thresholds start at 100.
+   - In `package-graph.js`, `dependencies` are `@robkit/guard` and `@robkit/session`, and `devDependencies` are `@internal/test-session` and `@robkit/input`. Add the package to `tooling/eslint/layers.test.js`'s layer rule cases and to the adapters in `AGENTS.md`'s layer rule.
+   - The server library, such as `express`, goes in the catalog in `pnpm-workspace.yaml`, in the adapter's `devDependencies`, and as a peer dependency. The README's example compiles from `tooling/repo-checks`, so add it there too, and to `ignoreDependencies` for `tooling/repo-checks` in `knip.jsonc`.
+   - Write the README, run `pnpm --filter @internal/repo-checks api:update`, and add a changeset. Where the server library's own words are ones `GLOSSARY.md` avoids, add an exception scoped to the adapter and the template in `tooling/repo-checks/src/glossary.ts`.
+2. **The template**, `templates/stacks/<name>`. Copy the closest stack's folder and keep its shape:
+   - `package.json` scripts: `dev` serves on `PORT` and answers on `<slug>.<domain>` behind the dev proxy, `build` writes `dist`, `start` is `node --run migrate && <serve the build>`, plus `migrate`, `typecheck` and `db:generate`. `dependencies` are exactly what the server imports when it runs; the production image installs nothing else.
+   - A page that says who is asking, records a visit through `src/visits.ts`, and links `src/styles.css`, which imports `@internal/ui/styles.css`. The whole-stack test reads its heading ("Signed in as a guest"), `data-testid="viewer-id"` and `data-testid="visits"`.
+   - The Drizzle files, `AGENTS.md` for the stack (how a handler reads the viewer, serving, calling core, the database) and `CLAUDE.md`.
+3. **The choice.** Add the stack to `stacks` in `src/choices.ts`, or drop its `comingLater`. Then:
+   - Update the tests that list the stacks: `choices`, `usage`, `wizard`, `add-wizard` and `create-robkit-command`.
+   - Add its row to `viewerOn` in `generate.test.ts`, which TypeScript asks for.
+   - Name the new adapter and server library in `generate.test.ts`'s link and catalog expectations.
+   - Run `pnpm --filter @internal/repo-checks api:update`: create-robkit's API report lists the stacks.
+   - Add a changeset for create-robkit.
+4. **The whole-stack test.** Add `tooling/e2e/src/<name>.test.ts` calling `describeJourneys("<name>")`, passing as options any journey only its example has, as Start passes `{ serverFunction: true }`. `stack-journeys.test.ts` in `tooling/repo-checks` fails until the file is there. The rest follows `readyStacks`: the suite makes an install with its example on each stack, each install adds an app on the next stack with `robkit add`, and each install runs its own CI workflow. CI runs it all on every pull request.
+5. **Production.** `tooling/e2e/src/production.test.ts` adds an app on every stack but the default example's after the first deploy, builds its image, opens it over https and checks the image for packages production doesn't need. A pull request runs it once labelled `production`.
+6. **Check it.** Make a linked install with `pnpm create-install ../try --stack <name>`, and in it run `pnpm lint`, `pnpm format:check`, `pnpm typecheck` and `pnpm build`. Then run `pnpm check`, and in Linux the whole-stack test (`pnpm --filter @internal/e2e test`) and the production test.
+7. **Docs.** Name the stack in this README's exports, the root `README.md`'s packages, `docs/architecture.md`'s package map and `docs/testing.md`, and add a line to `.scratch/kit/map.md`.
 
 ### The robkit command
 
