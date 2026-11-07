@@ -286,6 +286,42 @@ describe("generateInstall", () => {
     });
   });
 
+  /** The Go release a step or stage of the install sets up. */
+  const goVersionIn = (text: string, pattern: RegExp) =>
+    pattern.exec(text)?.[1];
+
+  it("sets up Go in its CI's checks only when an app has a go.mod, at the release its images build with", async () => {
+    const files = await generateInstall(defaultChoices);
+    const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+      jobs: Record<
+        string,
+        {
+          steps: {
+            if?: string;
+            uses?: string;
+            with?: Record<string, string>;
+          }[];
+        }
+      >;
+    };
+
+    const setUpGo = workflow.jobs.check?.steps.find((step) =>
+      step.uses?.startsWith("actions/setup-go@"),
+    );
+
+    expect(setUpGo).toEqual({
+      if: "hashFiles('apps/*/go.mod') != ''",
+      uses: "actions/setup-go@v7",
+      with: {
+        "go-version": goVersionIn(
+          files.get("Dockerfile") ?? "",
+          /go\.dev\/dl\/go([\d.]+)\.linux/,
+        ),
+        "cache-dependency-path": "apps/*/go.sum",
+      },
+    });
+  });
+
   it("builds a Go app's server in its image, fetching Go only for an app with a go.mod", async () => {
     const files = await generateInstall(defaultChoices);
     const dockerfile = files.get("Dockerfile") ?? "";
