@@ -81,6 +81,7 @@ Every install uses the same tools: pnpm, Drizzle, shadcn on Base UI, ESLint with
 | [`@robkit/guard`](packages/guard)         | The pure decision of who may open an app                                                                      |
 | [`@robkit/hono`](packages/hono)           | The Hono adapter                                                                                              |
 | [`@robkit/express`](packages/express)     | The Express adapter                                                                                           |
+| [`@robkit/next`](packages/next)           | The Next.js adapter                                                                                           |
 | [`@robkit/start`](packages/start)         | The TanStack Start adapter                                                                                    |
 | [`@robkit/react`](packages/react)         | `sessionFetch`, for calls from the page when a session lapses                                                 |
 | [`@robkit/dev`](packages/dev)             | `robkit-dev`, the runner and proxy behind `pnpm dev`                                                          |

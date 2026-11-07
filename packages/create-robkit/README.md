@@ -40,14 +40,14 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 
 ## Exports
 
-| Export                                                                       | What it is                                                                                              |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `create-robkit` (bin)                                                        | Init. Flags: `--stack <name>`, `--install`, `--link`                                                    |
-| `robkit` (bin)                                                               | `add`, `check`, `vendor`, `database-urls` and `deploy`, run inside an install                           |
-| `init(choices, dir, options)`                                                | Generates and writes an install, then with `install` initialises git and installs dependencies          |
-| `Choices`, `defaultChoices`                                                  | What init asks: `{ exampleStack }`. The default is `start`                                              |
-| `stacks`, `readyStacks`, `stackFrom`, `Stack`                                | The stacks: `start` (TanStack Start), `react-hono` (React with Hono) and `express` (React with Express) |
-| `deploymentOf(...)`, `AppDeployment`, `DeploymentOptions`, `DeploymentValue` | Each app's Coolify variables, as `robkit deploy` sets them                                              |
+| Export                                                                       | What it is                                                                                                                |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `create-robkit` (bin)                                                        | Init. Flags: `--stack <name>`, `--install`, `--link`                                                                      |
+| `robkit` (bin)                                                               | `add`, `check`, `vendor`, `database-urls` and `deploy`, run inside an install                                             |
+| `init(choices, dir, options)`                                                | Generates and writes an install, then with `install` initialises git and installs dependencies                            |
+| `Choices`, `defaultChoices`                                                  | What init asks: `{ exampleStack }`. The default is `start`                                                                |
+| `stacks`, `readyStacks`, `stackFrom`, `Stack`                                | The stacks: `start` (TanStack Start), `react-hono` (React with Hono), `express` (React with Express) and `next` (Next.js) |
+| `deploymentOf(...)`, `AppDeployment`, `DeploymentOptions`, `DeploymentValue` | Each app's Coolify variables, as `robkit deploy` sets them                                                                |
 
 ## What it must never do
 

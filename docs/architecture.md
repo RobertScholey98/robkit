@@ -38,7 +38,7 @@ Every request to an app passes through its adapter, which runs `requestGuard` fr
 sequenceDiagram
   participant B as Browser
   participant P as Proxy
-  participant A as Adapter (@robkit/hono, @robkit/express or @robkit/start)
+  participant A as Adapter (@robkit/hono, @robkit/express, @robkit/next or @robkit/start)
   participant R as requestGuard (@robkit/session)
   participant G as guard (@robkit/guard)
   participant C as Core
@@ -124,6 +124,7 @@ flowchart TD
   session["@robkit/session<br/>tokens, requestGuard, addresses"]
   hono["@robkit/hono<br/>adapter"]
   express["@robkit/express<br/>adapter"]
+  next["@robkit/next<br/>adapter"]
   start["@robkit/start<br/>adapter"]
   react["@robkit/react<br/>sessionFetch"]
   core["@robkit/core<br/>the backend"]
@@ -137,6 +138,8 @@ flowchart TD
   hono --> guard
   express --> session
   express --> guard
+  next --> session
+  next --> guard
   start --> session
   start --> guard
   react --> session
@@ -154,7 +157,7 @@ flowchart TD
   app["apps/&lt;slug&gt;"]
   coreApp["apps/core"]
   shared["packages/* (core-client, theme, ui)"]
-  adapters["@robkit/hono, @robkit/express, @robkit/start, @robkit/react"]
+  adapters["@robkit/hono, @robkit/express, @robkit/next, @robkit/start, @robkit/react"]
   robkitCore["@robkit/core"]
 
   app --> shared
