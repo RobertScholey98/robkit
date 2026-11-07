@@ -8,7 +8,7 @@
 
 ## Decision
 
-`github.com/RobertScholey98/robkit/go`, in this repo's `go/` folder, ports the guard and the request guard to Go: `guard.Decide` is `@robkit/guard`'s decision table, and `session.Guarded` is `requestGuard` as `http.Handler` middleware, with the viewer read by `session.ViewerFrom`. It verifies tokens as `jose` does for the TypeScript guard, and imports nothing outside Go's standard library.
+`github.com/RobertScholey98/robkit/go`, in this repo's `go/` folder, ports the guard and the request guard to Go: `guard.Decide` is `@robkit/guard`'s decision table, and `session.Guarded` is `requestGuard` for Go's `net/http`: it wraps the app's `http.Handler`, whose handlers read the viewer with `session.ViewerFrom`. It verifies tokens as `jose` does for the TypeScript guard, and imports nothing outside Go's standard library.
 
 The two stay one guard by their tests. `go test` runs `packages/guard/conformance.json`, which the TypeScript guard and every adapter run, and the request guard's cases against a port of `@internal/test-session`'s fake core: the same cookies, redirects, 401 bodies and 503s.
 
