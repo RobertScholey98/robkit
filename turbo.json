@@ -38,12 +38,6 @@
         "$TURBO_ROOT$/pnpm-workspace.yaml"
       ]
     },
-    "@internal/go#lint": {
-      "inputs": [
-        "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/tooling/repo-checks/src/check-gofmt.ts"
-      ]
-    },
     "@internal/go#test": {
       "inputs": [
         "$TURBO_DEFAULT$",
