@@ -2,7 +2,7 @@
 
 The pure decision of who may open an app. Given an app's access rule and what the app knows about who is asking, `guard` answers allow, login, refresh or not found.
 
-You won't usually call it yourself. `requestGuard` in `@robkit/session` runs it on every request, and the adapters (`@robkit/hono`, `@robkit/start`) run `requestGuard`. Admin uses its `AccessRule` type and `readAccessRule` to show and edit each app's rule. A new adapter uses `conformance.json` to prove it decides the same way.
+You won't usually call it yourself. `requestGuard` in `@robkit/session` runs it on every request, and the adapters (`@robkit/hono`, `@robkit/express`, `@robkit/start`) run `requestGuard`. Admin uses its `AccessRule` type and `readAccessRule` to show and edit each app's rule. A new adapter uses `conformance.json` to prove it decides the same way.
 
 ## Example
 
