@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { readyStacks } from "create-robkit";
 import { describe, expect, inject, it } from "vitest";
 import { cleanPath } from "./clean-path.ts";
 import { ownCiSteps, runOwnCi } from "./own-ci.ts";
@@ -20,9 +21,11 @@ describe("the default install", () => {
   });
 });
 
-describe("the start install", () => {
+// Every install, so each stack's apps pass lint, robkit check, the format
+// check, typecheck, tests and the build, as an example and as an added app.
+describe.each(readyStacks)("the %s install", (name) => {
   it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
-    const dir = inject("installs").start;
+    const dir = inject("installs")[name];
     const steps = await ownCiSteps(dir);
 
     const runs = steps.flatMap((step) => step.run ?? []);
