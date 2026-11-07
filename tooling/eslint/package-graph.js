@@ -43,6 +43,10 @@ export const packageGraph = {
     dependencies: ["@robkit/guard", "@robkit/session"],
     devDependencies: ["@internal/test-session", "@robkit/input"],
   },
+  "@robkit/next": {
+    dependencies: ["@robkit/guard", "@robkit/input", "@robkit/session"],
+    devDependencies: ["@internal/test-session"],
+  },
   "@robkit/start": {
     dependencies: ["@robkit/guard", "@robkit/session"],
     devDependencies: ["@internal/test-session", "@robkit/input"],
@@ -70,7 +74,6 @@ export const packageGraph = {
     dependencies: ["@robkit/dev", "@robkit/input", "@robkit/session"],
     devDependencies: ["@internal/test-session"],
   },
-  "@robkit/next": { dependencies: [], devDependencies: [] },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
   "@internal/tsconfig": { dependencies: [], devDependencies: [] },
   "@internal/test-postgres": { dependencies: [], devDependencies: [] },
