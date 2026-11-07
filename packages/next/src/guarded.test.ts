@@ -159,6 +159,31 @@ describe("guarded", () => {
     );
   });
 
+  it("sends a server action back to the page over https when the proxy in front says so", async () => {
+    const core = await fakeCore();
+    const proxy = guarded({
+      app: example,
+      access: { kind: "owner" },
+      core: core.origin,
+    });
+    const expired = await core.key.token({ ageSeconds: 20 * 60 });
+
+    const res = await ask(proxy, page, {
+      method: "POST",
+      headers: {
+        "sec-fetch-mode": "cors",
+        "next-action": "7f00aa",
+        "x-forwarded-proto": "https",
+        cookie: `robkit_session=${expired}`,
+      },
+    });
+
+    const secure = page.replace("http:", "https:");
+    expect(res.headers.get("x-action-redirect")).toBe(
+      `https://example.robkit.localhost:3000/_robkit/refresh?next=${encodeURIComponent(secure)};push`,
+    );
+  });
+
   it("answers a server action from a guest without the role with the guard's 404 alone", async () => {
     const core = await fakeCore();
     const proxy = guarded({

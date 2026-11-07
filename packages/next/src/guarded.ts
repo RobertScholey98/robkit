@@ -8,11 +8,16 @@ export type { GuardedOptions };
 /**
  * The request as the guard reads it: the URL the browser asked for, by the
  * Host header the dev proxy or Traefik sent, and the headers. Next hands the
- * proxy a URL on its own host and port instead.
+ * proxy a URL on its own host and port instead. The protocol is the one the
+ * proxy in front forwarded, as the guard reads it, so a server action comes
+ * back to the page it was called from.
  */
 function publicRequest(request: Request, host: string): Request {
   const { pathname, search } = new URL(request.url);
-  return new Request(new URL(`${pathname}${search}`, `http://${host}`), {
+  const forwarded = request.headers.get("x-forwarded-proto");
+  const protocol =
+    forwarded?.split(",")[0]?.trim() === "https" ? "https" : "http";
+  return new Request(new URL(`${pathname}${search}`, `${protocol}://${host}`), {
     method: request.method,
     headers: request.headers,
   });
