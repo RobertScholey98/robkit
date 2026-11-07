@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CommandProblem } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
+import { parse, parseDocument } from "yaml";
 import { defaultChoices } from "./choices.ts";
 import { init } from "./init.ts";
 import { vendorPackages } from "./vendor.ts";
@@ -15,6 +15,18 @@ async function overridesOf(dir: string): Promise<Record<string, string>> {
   return workspace.overrides ?? {};
 }
 
+/** Adds an override to the install in `dir`, beside the template's own. */
+async function override(
+  dir: string,
+  name: string,
+  spec: string,
+): Promise<void> {
+  const path = join(dir, "pnpm-workspace.yaml");
+  const workspace = parseDocument(await readFile(path, "utf8"));
+  workspace.setIn(["overrides", name], spec);
+  await writeFile(path, workspace.toString());
+}
+
 /** `text` as a pattern that matches it literally. */
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -22,11 +34,7 @@ describe("vendorPackages", () => {
   it("refuses a linked override that isn't a package name, running nothing", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
     await init(defaultChoices, dir);
-    const path = join(dir, "pnpm-workspace.yaml");
-    await writeFile(
-      path,
-      `${await readFile(path, "utf8")}overrides:\n  "x; echo hi": "link:../x"\n`,
-    );
+    await override(dir, "x; echo hi", "link:../x");
 
     await expect(vendorPackages(dir)).rejects.toThrow(
       `"x; echo hi" in pnpm-workspace.yaml's overrides isn't a package name. Fix it, or make the install again with --link.`,
@@ -48,11 +56,7 @@ describe("vendorPackages", () => {
           JSON.stringify({ name: "@robkit/broken", version: "0.0.0", scripts }),
         );
       }
-      const path = join(dir, "pnpm-workspace.yaml");
-      await writeFile(
-        path,
-        `${await readFile(path, "utf8")}overrides:\n  "@robkit/broken": ${JSON.stringify(`link:${checkout}`)}\n`,
-      );
+      await override(dir, "@robkit/broken", `link:${checkout}`);
       return { dir, checkout };
     }
 
@@ -101,6 +105,7 @@ describe("vendorPackages", () => {
 
       expect(await overridesOf(dir)).toEqual({
         "@robkit/broken": "file:vendor/robkit/robkit-broken-0.0.0.tgz",
+        "styled-jsx>@babel/core": "-",
       });
     });
   });
