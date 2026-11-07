@@ -56,7 +56,7 @@ A route handler the page calls with `fetch` gets the 401 as it is. Call it with 
 
 The proxy passes the viewer on in the `robkit-viewer` request header. It replaces any the request came with, so on a path the matcher covers, nobody can send their own. On a path the matcher leaves out, the proxy doesn't run, so it can't replace one. The proxy puts a key beside each viewer, random for each server process, and `viewer()` refuses a header without it. So a request the proxy didn't guard makes `viewer()` throw, whatever headers it came with.
 
-The proxy and the app's code are bundled apart but run in one Node process under `next dev` and `next start`, so the key is kept on `globalThis`.
+The proxy and the app's code are bundled apart but run in one Node process, under `next dev` and in production, so the key is kept on `globalThis`.
 
 ## What it must never do
 
