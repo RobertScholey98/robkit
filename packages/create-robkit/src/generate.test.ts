@@ -286,6 +286,18 @@ describe("generateInstall", () => {
     });
   });
 
+  it("builds a Go app's server in its image, fetching Go only for an app with a go.mod", async () => {
+    const files = await generateInstall(defaultChoices);
+    const dockerfile = files.get("Dockerfile") ?? "";
+
+    expect(dockerfile).toContain("FROM node:24-alpine AS go");
+    expect(dockerfile).toMatch(/if \[ -f [^\]]*go\.mod \]; then/);
+    expect(dockerfile).toContain("sha256sum -c -");
+    expect(dockerfile).toContain("COPY --from=go /usr/local/go /usr/local/go");
+    // The runtime is the same for every app: Node runs the start script.
+    expect(dockerfile).toMatch(/\nCMD \["node", "--run", "start"\]\n$/);
+  });
+
   it("tells the root AGENTS.md about each dev tool", async () => {
     const files = await generateInstall(defaultChoices);
     const agents = files.get("AGENTS.md") ?? "";
