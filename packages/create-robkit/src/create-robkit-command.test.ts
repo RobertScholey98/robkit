@@ -214,8 +214,8 @@ describe("init with --stack", () => {
   it.each([
     [["--stack", "start"], "Usage: npm create robkit [folder]"],
     [
-      ["my-app", "--stack", "next"],
-      "--stack next isn't an option. Choose from: start, react-hono, express.",
+      ["my-app", "--stack", "rails"],
+      "--stack rails isn't an option. Choose from: start, react-hono, express, next, go.",
     ],
   ])("refuses %j", async (args, message) => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));

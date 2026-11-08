@@ -1,0 +1,53 @@
+{
+  "name": "@robkit/next",
+  "version": "0.0.0",
+  "description": "robkit's Next.js adapter: runs the guard in proxy.ts and hands the app the viewer.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run --typecheck --coverage",
+    "test:unit": "vitest run --typecheck --coverage"
+  },
+  "devDependencies": {
+    "@internal/eslint-config": "workspace:*",
+    "@internal/test-session": "workspace:*",
+    "@internal/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "next": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@robkit/guard": "workspace:*",
+    "@robkit/input": "workspace:*",
+    "@robkit/session": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0"
+  }
+}

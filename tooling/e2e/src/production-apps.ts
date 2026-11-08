@@ -142,6 +142,9 @@ export async function startApp(
     `${join(stack.caDir, "root.crt")}:/ca.crt:ro`,
     "-e",
     "NODE_EXTRA_CA_CERTS=/ca.crt",
+    // A Go server trusts only the certificates SSL_CERT_FILE names.
+    "-e",
+    "SSL_CERT_FILE=/ca.crt",
     ...Object.entries(env).flatMap(([key, value]) => ["-e", `${key}=${value}`]),
     `${stack.name}/${slug}`,
   );

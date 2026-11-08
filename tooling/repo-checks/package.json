@@ -21,6 +21,7 @@
     "@robkit/guard": "workspace:*",
     "@robkit/hono": "workspace:*",
     "@robkit/input": "workspace:*",
+    "@robkit/next": "workspace:*",
     "@robkit/react": "workspace:*",
     "@robkit/session": "workspace:*",
     "@robkit/start": "workspace:*",

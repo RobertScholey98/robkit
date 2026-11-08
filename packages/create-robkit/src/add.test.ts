@@ -1,7 +1,8 @@
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { fileURLToPath } from "node:url";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { addApp, readNewSlug, type AppChoices } from "./add.ts";
 import { defaultChoices, readyStacks, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
@@ -34,6 +35,10 @@ const notes: AppChoices = {
   icon: "📝",
 };
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("addApp", () => {
   it("writes apps/<slug> from the stack's template, declaring its rule and icon", async () => {
     const dir = await freshInstall();
@@ -61,6 +66,39 @@ describe("addApp", () => {
     expect(await readFile(join(dir, "apps/notes/CLAUDE.md"), "utf8")).toBe(
       "@AGENTS.md\n",
     );
+  });
+
+  it("points a Go app at the checkout's Go module in a linked install, and at vendor/robkit/go in any other", async () => {
+    const linked = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
+    await init(defaultChoices, linked, { link: true });
+    const plain = await freshInstall();
+    const checkout = fileURLToPath(
+      new URL("../../../", import.meta.url),
+    ).replaceAll("\\", "/");
+    const replaceIn = async (dir: string) =>
+      (await readFile(join(dir, "apps/notes/go.mod"), "utf8"))
+        .split("\n")
+        .filter((line) => line.startsWith("replace "));
+
+    await addApp(linked, { ...notes, stack: "go" });
+    await addApp(plain, { ...notes, stack: "go" });
+
+    expect(await replaceIn(linked)).toEqual([
+      `replace github.com/RobertScholey98/robkit/go => ${checkout}go`,
+    ]);
+    expect(await replaceIn(plain)).toEqual([
+      "replace github.com/RobertScholey98/robkit/go => ../../vendor/robkit/go",
+    ]);
+  });
+
+  it("says how to install Go, writing nothing, for a React + Go app when go isn't on the PATH", async () => {
+    const dir = await freshInstall();
+    vi.stubEnv("PATH", await mkdtemp(join(tmpdir(), "no-go-")));
+
+    await expect(addApp(dir, { ...notes, stack: "go" })).rejects.toThrow(
+      "Go isn't installed, or isn't on your PATH",
+    );
+    expect(await readdir(join(dir, "apps"))).not.toContain("notes");
   });
 
   it("names a rule's roles, as core finds them", async () => {

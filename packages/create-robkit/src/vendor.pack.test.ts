@@ -22,16 +22,24 @@ describe("vendorPackages", () => {
   it("packs each linked package into vendor/robkit and points the install at the tarballs", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
     await init(defaultChoices, dir, { link: true });
-    const linked = Object.keys(await overridesOf(dir));
+    const before = await overridesOf(dir);
+    const linked = Object.keys(before).filter((name) =>
+      before[name]?.startsWith("link:"),
+    );
 
     await vendorPackages(dir);
 
     const overrides = await overridesOf(dir);
-    expect(Object.keys(overrides)).toEqual(linked);
-    for (const [name, spec] of Object.entries(overrides)) {
+    expect(Object.keys(overrides)).toEqual(Object.keys(before));
+    // The override that isn't a link stays as it was.
+    expect(overrides["styled-jsx>@babel/core"]).toBe("-");
+    for (const name of linked) {
+      const spec = overrides[name];
       const tarball = `vendor/robkit/${name.replace("@", "").replace("/", "-")}-0.0.0.tgz`;
       expect(spec).toBe(`file:${tarball}`);
       await access(join(dir, tarball));
     }
+    // And robkit's Go module, from the checkout's go folder.
+    await access(join(dir, "vendor/robkit/go/session/guarded.go"));
   });
 });

@@ -1,24 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { readChoices, readyStacks, stackFrom } from "./choices.ts";
+import { readChoices, readyStacks, stackFrom, toolchainOf } from "./choices.ts";
 
 describe("stackFrom", () => {
-  it.each(["start", "react-hono", "express"])(
+  it.each(["start", "react-hono", "express", "next", "go"])(
     "reads %s, a stack robkit can make",
     (value) => {
       expect(stackFrom(value)).toBe(value);
     },
   );
 
-  it.each(["next", "", "start,react-hono"])("refuses %j", (value) => {
+  it.each(["rails", "", "start,react-hono"])("refuses %j", (value) => {
     expect(() => stackFrom(value)).toThrow(
-      `--stack ${value} isn't an option. Choose from: start, react-hono, express.`,
+      `--stack ${value} isn't an option. Choose from: start, react-hono, express, next, go.`,
     );
   });
 });
 
 describe("readyStacks", () => {
-  it("leaves out the stacks coming later", () => {
-    expect(readyStacks).toEqual(["start", "react-hono", "express"]);
+  it("lists every stack robkit can make", () => {
+    expect(readyStacks).toEqual([
+      "start",
+      "react-hono",
+      "express",
+      "next",
+      "go",
+    ]);
+  });
+});
+
+describe("toolchainOf", () => {
+  it("names Go for the stack whose server is Go, and nothing for the rest", () => {
+    expect(readyStacks.map((stack) => [stack, toolchainOf(stack)])).toEqual([
+      ["start", undefined],
+      ["react-hono", undefined],
+      ["express", undefined],
+      ["next", undefined],
+      ["go", "go"],
+    ]);
   });
 });
 
@@ -39,13 +57,13 @@ describe("readChoices", () => {
   it("says which key is missing", () => {
     expect(readChoices({})).toEqual({
       error:
-        "robkit.json: exampleStack is missing. Set it to the example app's stack: start, react-hono or express.",
+        "robkit.json: exampleStack is missing. Set it to the example app's stack: start, react-hono, express, next or go.",
     });
   });
 
-  it.each([["next"], [1]])("refuses the stack %j", (exampleStack) => {
+  it.each([["rails"], [1]])("refuses the stack %j", (exampleStack) => {
     expect(readChoices({ exampleStack })).toEqual({
-      error: `robkit.json: exampleStack is ${JSON.stringify(exampleStack)}, which robkit can't make. Set it to start, react-hono or express.`,
+      error: `robkit.json: exampleStack is ${JSON.stringify(exampleStack)}, which robkit can't make. Set it to start, react-hono, express, next or go.`,
     });
   });
 });

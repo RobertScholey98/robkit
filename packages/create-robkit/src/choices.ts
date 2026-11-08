@@ -9,6 +9,16 @@ interface StackOption {
   readonly label: string;
   /** Shown by init's wizard but not selectable, until a later release builds it. */
   readonly comingLater?: true;
+  /**
+   * The app owns its database: its own driver and SQL migrations, so the
+   * Drizzle files the Node stacks share don't apply.
+   */
+  readonly ownsDatabase?: true;
+  /**
+   * The toolchain beyond Node that making, building and running the app
+   * needs, which init, robkit add and pnpm dev check for.
+   */
+  readonly toolchain?: "go";
 }
 
 /**
@@ -20,8 +30,8 @@ export const stacks = [
   { value: "start", label: "TanStack Start" },
   { value: "react-hono", label: "React + Hono" },
   { value: "express", label: "React + Express" },
-  { value: "next", label: "Next.js", comingLater: true },
-  { value: "go", label: "React + Go", comingLater: true },
+  { value: "next", label: "Next.js" },
+  { value: "go", label: "React + Go", ownsDatabase: true, toolchain: "go" },
 ] as const satisfies readonly StackOption[];
 
 type Ready = Exclude<(typeof stacks)[number], { comingLater: true }>;
@@ -38,6 +48,14 @@ export const readyStackOptions: Ready[] = stacks.filter(
 export const readyStacks: Stack[] = readyStackOptions.map(
   (stack) => stack.value,
 );
+
+/** The toolchain beyond Node that an app on `stack` needs, if any. */
+export function toolchainOf(stack: Stack): "go" | undefined {
+  const option = readyStackOptions.find((ready) => ready.value === stack);
+  return option !== undefined && "toolchain" in option
+    ? option.toolchain
+    : undefined;
+}
 
 /** Everything init asks, as `robkit.json` records it. */
 export interface Choices {

@@ -1,0 +1,15 @@
+{
+  "extends": "@internal/tsconfig/base.json",
+  "compilerOptions": {
+    // Next bundles the app, so imports resolve as a bundler's do.
+    "module": "preserve",
+    "jsx": "react-jsx",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "types": ["node", "next"],
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["src", "*.js", "*.ts"],
+  // next dev and next build write it, naming types under dist that may be
+  // gone. The next types above hold what it declares.
+  "exclude": ["next-env.d.ts"]
+}

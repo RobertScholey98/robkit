@@ -3,7 +3,8 @@ import { defineConfig } from "eslint/config";
 import { policy } from "./tooling/eslint/policy.js";
 
 export default defineConfig(
-  // TanStack Router writes routeTree.gen.ts from the files in src/routes.
-  { ignores: ["**/dist/", "**/routeTree.gen.ts"] },
+  // TanStack Router writes routeTree.gen.ts from the files in src/routes,
+  // and Next.js writes next-env.d.ts, which no tsconfig includes.
+  { ignores: ["**/dist/", "**/routeTree.gen.ts", "**/next-env.d.ts"] },
   policy(import.meta.dirname),
 );

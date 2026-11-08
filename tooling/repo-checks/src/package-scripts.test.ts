@@ -96,7 +96,9 @@ describe("the robkit workspace", () => {
       join(import.meta.dirname, "../../.."),
     );
 
-    expect(packages.map((p) => p.name)).toContain("@robkit/core");
+    expect(packages.map((p) => p.name)).toEqual(
+      expect.arrayContaining(["@robkit/core", "@internal/go"]),
+    );
     expect(scriptProblems(packages)).toEqual([]);
   });
 });
