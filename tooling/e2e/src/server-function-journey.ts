@@ -11,7 +11,10 @@ import {
 } from "./owner-journey.ts";
 import { exampleSlug } from "./install.ts";
 
-/** What the owner saw calling the Start example's server function. */
+/**
+ * What the owner saw calling the example's server from its page: Start's
+ * server function, or the Go example's API.
+ */
 export interface ServerFunctionJourney {
   /** The visit count on the page, then after one call with a live session. */
   visits: [number, number];
@@ -28,9 +31,10 @@ async function visitsOn(page: Page): Promise<number> {
 }
 
 /**
- * The owner signs in and calls the Start example's server function from the
- * page. Then their token expires without a page load, and the next call
- * sends the browser through core's refresh and back to the page.
+ * The owner signs in and calls the example's server from the page, with
+ * its "Visit again" button. Then their token expires without a page load,
+ * and the next call sends the browser through core's refresh and back to
+ * the page.
  */
 export async function serverFunctionJourney({
   install,
@@ -81,8 +85,8 @@ export async function serverFunctionJourney({
 }
 
 /**
- * The server function journey, as a test of `dev`. Only a Start app has
- * server functions, so it runs only when `runs` says the example is one.
+ * The server function journey, as a test of `dev`. It runs only when `runs`
+ * says the example calls its server from its page, as Start's and Go's do.
  */
 export function testServerFunctionJourney(dev: DevStack, runs: boolean): void {
   it.runIf(runs)(

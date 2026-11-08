@@ -1,4 +1,5 @@
-import type { Choices } from "./choices.ts";
+import { requireGo } from "@robkit/dev/cli";
+import { toolchainOf, type Choices } from "./choices.ts";
 import { generateInstall, type GenerateOptions } from "./generate.ts";
 import { initGit, installDependencies } from "./set-up.ts";
 import { writeInstall } from "./write.ts";
@@ -17,13 +18,15 @@ export interface InitOptions extends GenerateOptions {
  * initialises git and installs its dependencies, in that order, so an
  * install script that sets up git hooks, as Husky's does, finds the
  * repository. The command line and the whole-stack test both make their
- * installs with it.
+ * installs with it. An example on React + Go needs Go, so it checks for Go
+ * before it writes anything.
  */
 export async function init(
   choices: Choices,
   dir: string,
   { install = false, ...options }: InitOptions = {},
 ): Promise<void> {
+  if (toolchainOf(choices.exampleStack) === "go") await requireGo();
   await writeInstall(dir, await generateInstall(choices, options));
   if (!install) return;
   await initGit(dir);

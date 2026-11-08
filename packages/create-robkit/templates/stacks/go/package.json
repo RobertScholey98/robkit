@@ -1,0 +1,29 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "go run . dev",
+    "typecheck": "go vet ./... && tsc",
+    "lint": "gofmt -d .",
+    "test": "go test ./...",
+    "build": "vite build && go build -o dist/server .",
+    "start": "./dist/server migrate && ./dist/server",
+    "migrate": "go run . migrate"
+  },
+  "devDependencies": {
+    "@internal/tsconfig": "workspace:*",
+    "@internal/ui": "workspace:*",
+    "@robkit/input": "catalog:",
+    "@robkit/react": "catalog:",
+    "@tailwindcss/vite": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:"
+  }
+}

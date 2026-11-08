@@ -17,7 +17,8 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 `@internal/e2e`'s `test`, in `tooling/e2e/src/`.
 
 - It generates an install linked to this checkout for each stack create-robkit can make (`readyStacks`), with its example app on that stack, and in each adds an app on the next stack with `robkit add`. So every stack runs as an example and as an added app.
-- Each stack's journeys run from its own file, `src/<stack>.test.ts`, which calls `describeJourneys("<stack>")` with any journey only its example has, such as Start's server function, or Next's client navigation and server action with a lapsed session. A repo check fails on a ready stack without one.
+- Each stack's journeys run from its own file, `src/<stack>.test.ts`, which calls `describeJourneys("<stack>")` with any journey only its example has: the call from the page that Start's server function and the Go example's API make, and Next's client navigation and server action with a lapsed session. A repo check fails on a ready stack without one.
+- The React + Go install needs Go on the `PATH`, as `pnpm check` does for the Go module's own tests.
 - It takes a browser through each install's example and added app in Chromium. It needs Chromium once: `pnpm --filter @internal/e2e exec playwright install --with-deps chromium`.
 - On every install it runs the install's own CI workflow on a `PATH` that can't see any `node_modules/.bin`: lint, the format check, typecheck, tests and the build. On the Start install it also checks that `pnpm lint` catches a cross-app import, and that the pre-commit hook refuses a commit that breaks the layer rule.
 - It isn't the only place an install's own unit tests run. create-robkit's `src/install-checks.test.ts` runs the hub's, admin's and core-client's tests and the install's lint in a fresh install, with no Docker, so `pnpm check` covers them.

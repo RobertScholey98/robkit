@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import {
   defaultChoices,
+  readyStackOptions,
   readyStacks,
   type Choices,
   type Stack,
@@ -277,12 +278,63 @@ describe("generateInstall", () => {
     );
   });
 
-  it("lints with robkit check, then ESLint", async () => {
+  it("lints with robkit check, then ESLint, then each app's own lint, such as gofmt", async () => {
     const files = await generateInstall(defaultChoices);
 
     expect(json(files, "package.json")).toMatchObject({
-      scripts: { lint: "robkit check && eslint ." },
+      scripts: { lint: "robkit check && eslint . && turbo run lint" },
     });
+    expect(json(files, "turbo.json")).toMatchObject({
+      tasks: { lint: {} },
+    });
+  });
+
+  /** The Go release a step or stage of the install sets up. */
+  const goVersionIn = (text: string, pattern: RegExp) =>
+    pattern.exec(text)?.[1];
+
+  it("sets up Go in its CI's checks only when an app has a go.mod, at the release its images build with", async () => {
+    const files = await generateInstall(defaultChoices);
+    const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+      jobs: Record<
+        string,
+        {
+          steps: {
+            if?: string;
+            uses?: string;
+            with?: Record<string, string>;
+          }[];
+        }
+      >;
+    };
+
+    const setUpGo = workflow.jobs.check?.steps.find((step) =>
+      step.uses?.startsWith("actions/setup-go@"),
+    );
+
+    expect(setUpGo).toEqual({
+      if: "hashFiles('apps/*/go.mod') != ''",
+      uses: "actions/setup-go@v7",
+      with: {
+        "go-version": goVersionIn(
+          files.get("Dockerfile") ?? "",
+          /go\.dev\/dl\/go([\d.]+)\.linux/,
+        ),
+        "cache-dependency-path": "apps/*/go.sum",
+      },
+    });
+  });
+
+  it("builds a Go app's server in its image, fetching Go only for an app with a go.mod", async () => {
+    const files = await generateInstall(defaultChoices);
+    const dockerfile = files.get("Dockerfile") ?? "";
+
+    expect(dockerfile).toContain("FROM node:24-alpine AS go");
+    expect(dockerfile).toMatch(/if \[ -f [^\]]*go\.mod \]; then/);
+    expect(dockerfile).toContain("sha256sum -c -");
+    expect(dockerfile).toContain("COPY --from=go /usr/local/go /usr/local/go");
+    // The runtime is the same for every app: Node runs the start script.
+    expect(dockerfile).toMatch(/\nCMD \["node", "--run", "start"\]\n$/);
   });
 
   it("tells the root AGENTS.md about each dev tool", async () => {
@@ -317,6 +369,7 @@ describe("generateInstall", () => {
       expect(config).toContain('() => "robkit check"');
       expect(config).toContain("eslint --fix");
       expect(config).toContain("prettier --write");
+      expect(config).toContain('"*.go": "gofmt -w"');
     });
   });
 
@@ -399,6 +452,23 @@ describe("generateInstall", () => {
     });
   });
 
+  it("points a Go app's go.mod at robkit's Go module: the checkout's under --link, vendor/robkit/go otherwise", async () => {
+    const goExample: Choices = { exampleStack: "go" };
+    const checkout = fileURLToPath(
+      new URL("../../../", import.meta.url),
+    ).replaceAll("\\", "/");
+
+    const linked = await generateInstall(goExample, { link: true });
+    const plain = await generateInstall(goExample);
+
+    expect(linked.get("apps/example/go.mod")).toContain(
+      `\nreplace github.com/RobertScholey98/robkit/go => ${checkout}go\n`,
+    );
+    expect(plain.get("apps/example/go.mod")).toContain(
+      "\nreplace github.com/RobertScholey98/robkit/go => ../../vendor/robkit/go\n",
+    );
+  });
+
   it("restores the dotfiles npm would drop", async () => {
     const files = await generateInstall(defaultChoices);
 
@@ -413,32 +483,44 @@ describe("generateInstall", () => {
     }
   });
 
-  /** How each stack's handlers read who is asking. */
-  const viewerOn = {
-    start: "context.viewer",
-    "react-hono": "c.var.viewer",
-    express: "res.locals.viewer",
-    next: "await viewer()",
-  } satisfies Record<Stack, string>;
+  /** How each stack's handlers read who is asking, and core's address. */
+  const serverOn = {
+    start: { viewer: "context.viewer", core: "process.env.ROBKIT_CORE_URL" },
+    "react-hono": {
+      viewer: "c.var.viewer",
+      core: "process.env.ROBKIT_CORE_URL",
+    },
+    express: {
+      viewer: "res.locals.viewer",
+      core: "process.env.ROBKIT_CORE_URL",
+    },
+    next: { viewer: "await viewer()", core: "process.env.ROBKIT_CORE_URL" },
+    go: {
+      viewer: "session.ViewerFrom(r.Context())",
+      core: 'os.Getenv("ROBKIT_CORE_URL")',
+    },
+  } satisfies Record<Stack, { viewer: string; core: string }>;
 
-  it.each(readyStacks.map((stack) => [stack, viewerOn[stack]] as const))(
-    "gives a %s app an AGENTS.md for its stack and Drizzle, which CLAUDE.md points at",
-    async (stack, viewer) => {
+  /** The stacks whose apps take robkit's Drizzle files for their database. */
+  const drizzleStacks = readyStackOptions
+    .filter((stack) => !("ownsDatabase" in stack))
+    .map((stack) => stack.value);
+
+  it.each(readyStacks.map((stack) => [stack, serverOn[stack]] as const))(
+    "gives a %s app an AGENTS.md for its stack and database, which CLAUDE.md points at",
+    async (stack, { viewer, core }) => {
       const files = await stackTemplate(stack);
       const agents = files.get("AGENTS.md") ?? "";
 
       // How to read the viewer, call core and add a migration.
       expect(agents).toContain(`read who is asking as \`${viewer}\``);
-      expect(agents).toContain(
-        "over HTTP from the server at `process.env.ROBKIT_CORE_URL`",
-      );
-      expect(agents).toContain("`src/migrate.ts` applies the migrations");
+      expect(agents).toContain(`over HTTP from the server at \`${core}\``);
       expect(agents).toContain("## The database");
       expect(files.get("CLAUDE.md")).toBe("@AGENTS.md\n");
     },
   );
 
-  it.each(readyStacks)(
+  it.each(drizzleStacks)(
     "lays Drizzle's app files over a %s app",
     async (stack) => {
       const files = await stackTemplate(stack);
@@ -453,8 +535,49 @@ describe("generateInstall", () => {
       expect(manifest.scripts.migrate).toBe("node src/migrate.ts");
       expect(manifest.dependencies["drizzle-orm"]).toBe("catalog:");
       expect(manifest.scripts.start).toMatch(/^node --run migrate && /);
+      expect(files.get("AGENTS.md")).toContain(
+        "`src/migrate.ts` applies the migrations",
+      );
     },
   );
+
+  it("keeps Drizzle out of the Go app, which owns its migrations", async () => {
+    const files = await stackTemplate("go");
+    const manifest = JSON.parse(files.get("package.json") ?? "{}") as {
+      devDependencies: Record<string, string>;
+    };
+
+    expect(drizzleStacks).not.toContain("go");
+    expect([...files.keys()].filter((path) => /drizzle/i.test(path))).toEqual(
+      [],
+    );
+    expect(manifest.devDependencies).not.toHaveProperty("drizzle-orm");
+    expect(files.get("migrations/0001_init.sql")).toContain(
+      "create table visit",
+    );
+    expect(files.get("migrate.go")).toContain("//go:embed migrations/*.sql");
+    expect(files.get("go.mod")).toContain("github.com/jackc/pgx/v5");
+  });
+
+  it("maps a Go app's scripts to Go's tools, and runs nothing from node_modules in production", async () => {
+    const files = await stackTemplate("go");
+    const manifest = JSON.parse(files.get("package.json") ?? "{}") as {
+      scripts: Record<string, string>;
+      dependencies?: Record<string, string>;
+    };
+
+    expect(manifest.scripts).toEqual({
+      dev: "go run . dev",
+      typecheck: "go vet ./... && tsc",
+      lint: "gofmt -d .",
+      test: "go test ./...",
+      build: "vite build && go build -o dist/server .",
+      start: "./dist/server migrate && ./dist/server",
+      migrate: "go run . migrate",
+    });
+    // The image installs only dependencies, and the binary needs none.
+    expect(manifest.dependencies).toBeUndefined();
+  });
 
   it("gives every install packages/ui, and draws the hub and admin with it", async () => {
     const kit = await generateInstall(defaultChoices);

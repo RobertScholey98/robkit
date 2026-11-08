@@ -60,7 +60,8 @@ export const stacks: readonly [
   {
     readonly value: "go";
     readonly label: "React + Go";
-    readonly comingLater: true;
+    readonly ownsDatabase: true;
+    readonly toolchain: "go";
   },
 ];
 ```

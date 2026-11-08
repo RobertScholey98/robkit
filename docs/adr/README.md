@@ -18,3 +18,4 @@ To change one of these, open a ticket that argues against it. If R accepts it, w
 | [0010](0010-local-dev-on-subdomains.md)        | Local dev runs every app on its own subdomain behind one proxy                     |
 | [0011](0011-pure-guard-thin-adapters.md)       | The guard is a pure function, and adapters are thin                                |
 | [0012](0012-only-the-proxy-reaches-core.md)    | Only the proxy may reach core                                                      |
+| [0013](0013-go-guard-is-a-port.md)             | The Go guard is a port, tested against the same cases                              |

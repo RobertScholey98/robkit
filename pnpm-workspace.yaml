@@ -1,6 +1,8 @@
 packages:
   - packages/*
   - tooling/*
+  # The Go module, so the gates run Go's own tools on it.
+  - go
 
 # Every external version lives here. Package manifests use `catalog:`.
 catalogMode: strict

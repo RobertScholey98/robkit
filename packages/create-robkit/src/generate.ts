@@ -1,11 +1,13 @@
 import { readdir, readFile } from "node:fs/promises";
 import { basename, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isRecord } from "@robkit/input";
 import { type AppManifest, appManifestJson } from "@robkit/input/manifest";
 import { jsonObject, stringsIn } from "./json.ts";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readyStacks, type Choices, type Stack } from "./choices.ts";
+import { goModuleFor, withGoModule } from "./go-module.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
@@ -119,6 +121,12 @@ function versionOf(repo: RobkitRepo, name: string): string {
 /** Where pnpm keeps an install's settings. */
 export const pnpmSettings = "pnpm-workspace.yaml";
 
+/** The overrides in `text`, pnpm's settings, by package name. */
+export function overridesIn(text: string): Record<string, string> {
+  const settings: unknown = parseDocument(text).toJS();
+  return isRecord(settings) ? stringsIn(settings.overrides) : {};
+}
+
 /**
  * Writes pnpm's settings: the catalog, and the links to robkit's packages
  * when asked. Then names pnpm's version in
@@ -180,6 +188,12 @@ export async function generateInstall(
   ]);
   const repo = await readRobkitRepo();
   await renderSettings(files, names, repo, options);
+  const goModule = goModuleFor(overridesIn(files.get(pnpmSettings) ?? ""));
+  for (const [path, text] of files) {
+    if (/^apps\/[^/]+\/go\.mod$/.test(path)) {
+      files.set(path, withGoModule(text, goModule));
+    }
+  }
   // The install lints with the policy robkit lints itself with.
   for (const [name, text] of repo.lintPolicy) {
     files.set(`${lintPolicyDir}/${name}`, text);

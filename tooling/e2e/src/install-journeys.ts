@@ -40,8 +40,9 @@ export interface JourneyOptions {
    */
   roles?: boolean;
   /**
-   * Whether the example calls a server function from its page, as Start's
-   * does, so the server function journey runs. A stack's own test file says.
+   * Whether the example calls its server from its page with sessionFetch, as
+   * Start's server function and the Go example's API do, so the server
+   * function journey runs. A stack's own test file says.
    */
   serverFunction?: boolean;
   /**
