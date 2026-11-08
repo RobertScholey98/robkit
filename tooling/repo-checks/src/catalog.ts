@@ -1,5 +1,8 @@
 import { glob, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { parse } from "yaml";
+import { isRecord } from "@robkit/input";
+import { isStrings, readJsonFile, readManifest } from "./manifest.ts";
 
 const checkedFields = [
   "dependencies",
@@ -54,10 +57,46 @@ export async function readWorkspaceManifests(
     exclude: ["**/node_modules/**", ".scratch/**", ".skills/**"],
   });
   for await (const path of paths) {
-    const json = JSON.parse(
-      await readFile(join(root, path), "utf8"),
-    ) as PackageJson;
+    const json = await readJsonFile(join(root, path), readManifest);
     manifests.push({ path: path.replaceAll("\\", "/"), json });
   }
   return manifests.sort((a, b) => a.path.localeCompare(b.path));
+}
+
+/**
+ * Lists every catalog entry that no manifest takes with `catalog:`. A peer
+ * range doesn't count: it isn't a version anything installs.
+ */
+export function findUnusedCatalogEntries(
+  catalog: Record<string, string>,
+  manifests: Manifest[],
+): string[] {
+  const used = new Set(
+    manifests.flatMap(({ json }) =>
+      checkedFields.flatMap((field) =>
+        Object.entries(json[field] ?? {})
+          .filter(([, spec]) => spec.startsWith("catalog:"))
+          .map(([name]) => name),
+      ),
+    ),
+  );
+  return Object.keys(catalog)
+    .filter((name) => !used.has(name))
+    .sort();
+}
+
+/** The default catalog in the workspace's `pnpm-workspace.yaml`. */
+export async function readCatalog(
+  root: string,
+): Promise<Readonly<Record<string, string>>> {
+  const path = join(root, "pnpm-workspace.yaml");
+  const workspace: unknown = parse(await readFile(path, "utf8"));
+  const catalog = isRecord(workspace) ? workspace.catalog : undefined;
+  if (catalog === undefined) return {};
+  if (!isStrings(catalog)) {
+    throw new Error(
+      `${path}'s catalog must map each package to a version, such as typescript: 6.0.3.`,
+    );
+  }
+  return catalog;
 }

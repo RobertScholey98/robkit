@@ -6,15 +6,30 @@
   "engines": {
     "node": ">=24"
   },
+  "//": [
+    "check: the fast gate. Formatting, knip, lint, types and the tests that need no Docker (each package's test:unit). Runs on Windows.",
+    "check:all: what CI runs. The same, with every test (each package's test), including the ones that start Postgres and the whole-stack test. Needs Docker and Linux."
+  ],
   "scripts": {
-    "create-install": "node packages/create-robkit/src/bin.ts --link",
+    "create-install": "node packages/create-robkit/src/create-robkit-command.ts --link --install",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "check": "pnpm format:check && pnpm knip && turbo run lint typecheck test:unit",
+    "check:all": "pnpm format:check && pnpm knip && turbo run lint typecheck test",
+    "knip": "knip",
+    "postinstall": "husky || true",
+    "changeset": "changeset",
+    "new:package": "node tooling/repo-checks/src/new-package.ts"
   },
   "devDependencies": {
+    "@changesets/cli": "catalog:",
+    "eslint": "catalog:",
+    "husky": "catalog:",
+    "knip": "catalog:",
+    "lint-staged": "catalog:",
     "prettier": "catalog:",
     "turbo": "catalog:",
     "typescript": "catalog:"

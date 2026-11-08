@@ -1,25 +1,18 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
-import { pack, packProblems } from "./published.ts";
+import { beforeAll, describe, expect, it } from "vitest";
+import { readJsonFile, readNamedManifest } from "./manifest.ts";
+import {
+  attwProblems,
+  pack,
+  packProblems,
+  publishedPackages,
+  publintProblems,
+  type Packed,
+} from "./published.ts";
 
-const packagesDir = fileURLToPath(
-  new URL("../../../packages", import.meta.url),
-);
-
-async function publishedPackages(): Promise<string[]> {
-  const dirs: string[] = [];
-  for (const entry of await readdir(packagesDir, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const dir = join(packagesDir, entry.name);
-    const json = JSON.parse(
-      await readFile(join(dir, "package.json"), "utf8"),
-    ) as { private?: boolean };
-    if (!json.private) dirs.push(dir);
-  }
-  return dirs;
-}
+const root = fileURLToPath(new URL("../../../", import.meta.url));
 
 describe("packProblems", () => {
   it("names a target that is TypeScript source, or missing", () => {
@@ -36,27 +29,40 @@ describe("packProblems", () => {
   });
 });
 
-describe("every published package, packed", () => {
+describe("every published package, packed", { timeout: 60_000 }, () => {
+  // Packing takes about a second alone, and far longer beside the e2e suite.
+  let packed: Packed[];
+  beforeAll(async () => {
+    packed = await Promise.all((await publishedPackages()).map(pack));
+  }, 60_000);
+
   // Node won't strip types under node_modules, so an install that takes the
   // packages from npm or a tarball needs them as JS.
-  // Packing takes about a second alone, and far longer beside the e2e suite.
-  it(
-    "points every export and bin at JS in the tarball",
-    { timeout: 60_000 },
-    async () => {
-      const packed = await Promise.all((await publishedPackages()).map(pack));
+  it("points every export and bin at JS in the tarball", async () => {
+    // Every package under packages/ is published, and packs.
+    const folders = await readdir(join(root, "packages"));
+    const names = await Promise.all(
+      folders.map(
+        async (folder) =>
+          (
+            await readJsonFile(
+              join(root, "packages", folder, "package.json"),
+              readNamedManifest,
+            )
+          ).name,
+      ),
+    );
 
-      expect(packed.map(({ name }) => name).sort()).toEqual([
-        "@robkit/core",
-        "@robkit/dev",
-        "@robkit/guard",
-        "@robkit/hono",
-        "@robkit/react",
-        "@robkit/session",
-        "@robkit/start",
-        "create-robkit",
-      ]);
-      expect(packed.flatMap(packProblems)).toEqual([]);
-    },
-  );
+    expect(names).toContain("@robkit/guard");
+    expect(packed.map(({ name }) => name).sort()).toEqual(names.sort());
+    expect(packed.flatMap(packProblems)).toEqual([]);
+  });
+
+  it("passes publint", async () => {
+    expect((await Promise.all(packed.map(publintProblems))).flat()).toEqual([]);
+  });
+
+  it("passes Are the Types Wrong for ESM under Node and bundlers", async () => {
+    expect((await Promise.all(packed.map(attwProblems))).flat()).toEqual([]);
+  });
 });

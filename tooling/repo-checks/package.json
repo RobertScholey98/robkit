@@ -6,23 +6,38 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run --coverage",
+    "api:update": "turbo run build --filter=@internal/repo-checks^... && vitest run src/api-report.test.ts --update"
   },
   "devDependencies": {
+    "@arethetypeswrong/core": "catalog:",
+    "@hono/node-server": "catalog:",
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@robkit/core": "workspace:*",
     "@robkit/dev": "workspace:*",
+    "@robkit/express": "workspace:*",
     "@robkit/guard": "workspace:*",
     "@robkit/hono": "workspace:*",
+    "@robkit/input": "workspace:*",
+    "@robkit/next": "workspace:*",
     "@robkit/react": "workspace:*",
     "@robkit/session": "workspace:*",
     "@robkit/start": "workspace:*",
+    "@tanstack/react-start": "catalog:",
+    "@types/express": "catalog:",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "create-robkit": "workspace:*",
     "eslint": "catalog:",
+    "express": "catalog:",
+    "hono": "catalog:",
+    "prettier": "catalog:",
+    "publint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   }
 }

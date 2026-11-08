@@ -10,8 +10,12 @@
     "typecheck": "tsc",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@robkit/input": "catalog:"
+  },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

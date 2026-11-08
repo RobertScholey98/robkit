@@ -4,22 +4,35 @@ import { conformanceCases } from "@robkit/guard/conformance";
 import { createLocalJWKSet, decodeJwt, jwtVerify } from "jose";
 import { describe, expect, it } from "vitest";
 import {
+  aRoleId,
+  callbackFor,
   conformanceAnswer,
   fakeCore,
   guest,
   owner,
+  refreshLocation,
+  signedOutCookie,
   signingKey,
+  stateIn,
 } from "./index.ts";
 
 /** A token's holder and age, as a verifier with core's public key reads it. */
 async function read(publicKey: CryptoKey, token: string) {
+  // A token that doesn't verify reads as no token.
   const { payload } = await jwtVerify(token, publicKey, {
     currentDate: new Date(0),
   }).catch(() => ({ payload: undefined }));
   if (!payload) return undefined;
-  const { sub, kind, roles, sid } = payload;
+  const { sub, kind, roles, sid, aud } = payload;
   const expired = (payload.exp ?? 0) * 1000 < Date.now();
-  return { kind, id: sub, ...(roles ? { roles } : {}), sid, expired };
+  return {
+    kind,
+    id: sub,
+    ...(roles ? { roles } : {}),
+    ...(sid ? { sid } : {}),
+    aud,
+    expired,
+  };
 }
 
 /** Fetches `path` from a fake core on its loopback port, as `origin`'s host. */
@@ -35,28 +48,44 @@ async function get(origin: string, path: string) {
 }
 
 describe("signingKey", () => {
-  it("signs an owner's token, as core would", async () => {
+  it("signs the owner's token for the app under test, as core would", async () => {
     const key = await signingKey();
 
     const seen = await read(key.publicKey, await key.token());
 
-    expect(seen).toEqual({
-      ...owner,
-      sid: "session-1",
-      expired: false,
-    });
+    expect(seen).toEqual({ ...owner, aud: "example", expired: false });
   });
 
   it("signs a guest's token carrying their roles", async () => {
     const key = await signingKey();
 
-    const token = await key.token(0, guest(["family"]));
+    const token = await key.token({ holder: guest(["family"]) });
 
     expect(await read(key.publicKey, token)).toEqual({
       kind: "guest",
       id: "code-1",
       roles: ["family"],
+      aud: "example",
+      expired: false,
+    });
+  });
+
+  it("signs core's own token, and one with no audience, with the session's id", async () => {
+    const key = await signingKey();
+
+    const coreToken = await key.token({ audience: "core" });
+    const none = await key.token({ audience: null });
+
+    expect(await read(key.publicKey, coreToken)).toEqual({
+      ...owner,
       sid: "session-1",
+      aud: "core",
+      expired: false,
+    });
+    expect(await read(key.publicKey, none)).toEqual({
+      ...owner,
+      sid: "session-1",
+      aud: undefined,
       expired: false,
     });
   });
@@ -64,7 +93,10 @@ describe("signingKey", () => {
   it("signs a token issued long enough ago to have expired", async () => {
     const key = await signingKey();
 
-    const seen = await read(key.publicKey, await key.token(20 * 60));
+    const seen = await read(
+      key.publicKey,
+      await key.token({ ageSeconds: 20 * 60 }),
+    );
 
     expect(seen?.expired).toBe(true);
   });
@@ -79,25 +111,42 @@ describe("signingKey", () => {
     const key = await signingKey();
 
     const sent = await Promise.all(
-      conformanceCases.map(async (asking) => {
-        const { cookie } = await key.cookieFor(asking);
-        const token = cookie?.replace(/^robkit_session=/, "");
-        const claims = token === undefined ? undefined : decodeJwt(token);
-        const seen = claims && {
-          kind: claims.kind,
-          expired: (claims.exp ?? 0) * 1000 < Date.now(),
-        };
-        return [asking.session, seen] as const;
+      conformanceCases.map(async (asking): Promise<[string, unknown]> => {
+        const { cookie } = await key.cookieFor(asking, "notes");
+        const value = cookie?.replace(/^robkit_session=/, "");
+        const name = [asking.session, asking.otherToken].filter(Boolean);
+        if (value === undefined || value.startsWith("signed-out.")) {
+          return [name.join(" "), value?.replace(/\d+$/, "<now>")];
+        }
+        const { kind, aud, exp = 0 } = decodeJwt(value);
+        const seen = { kind, aud, expired: exp * 1000 < Date.now() };
+        return [name.join(" "), seen];
       }),
     );
 
     expect(new Map(sent)).toEqual(
-      new Map([
-        ["signed-out", undefined],
-        ["expired", { kind: "owner", expired: true }],
-        ["owner", { kind: "owner", expired: false }],
-        ["guest", { kind: "guest", expired: false }],
+      new Map<string, unknown>([
+        ["signed-out", "signed-out.<now>"],
+        ["expired", { kind: "owner", aud: "notes", expired: true }],
+        ["owner", { kind: "owner", aud: "notes", expired: false }],
+        ["guest", { kind: "guest", aud: "notes", expired: false }],
+        ["unknown", undefined],
+        [
+          "unknown another-app",
+          { kind: "owner", aud: "notnotes", expired: false },
+        ],
+        ["unknown core", { kind: "owner", aud: "core", expired: false }],
+        [
+          "unknown no-audience",
+          { kind: "owner", aud: undefined, expired: false },
+        ],
       ]),
+    );
+  });
+
+  it("writes core's word that nobody is signed in, as of now", () => {
+    expect(signedOutCookie()).toBe(
+      `robkit_session=signed-out.${String(Math.floor(Date.now() / 1000))}`,
     );
   });
 });
@@ -119,7 +168,7 @@ describe("fakeCore", () => {
 
   it("serves each app's rule from its catalog, and 404 for an app it lacks", async () => {
     const core = await fakeCore();
-    core.rules.example = { kind: "roles", roles: ["family"] };
+    core.rules.example = { kind: "roles", roles: [aRoleId("family")] };
 
     const known = await get(core.origin, "/apps/example/access");
     const unknown = await get(core.origin, "/apps/notes/access");
@@ -177,10 +226,42 @@ describe("conformanceAnswer", () => {
       },
       refresh: {
         status: 302,
-        location: `http://core.robkit.localhost:3000/refresh?next=${next}`,
+        location: refreshLocation(page, core),
         viewer: undefined,
       },
       notFound: { status: 404, location: null, viewer: undefined },
     });
+  });
+});
+
+describe("refreshLocation", () => {
+  const page = "http://example.robkit.localhost:3000/notes?x=1";
+  const core = { origin: "http://core.robkit.localhost:3000" };
+  const refresh = `http://core.robkit.localhost:3000/refresh?next=${encodeURIComponent(page)}`;
+  const state = "a".repeat(43);
+
+  it("matches core's refresh back to the page, with a state", () => {
+    expect(`${refresh}&state=${state}`).toEqual(refreshLocation(page, core));
+    expect(stateIn(`${refresh}&state=${state}`)).toBe(state);
+  });
+
+  it.each([refresh, `${refresh}&state=short`, `${refresh}x&state=${state}`])(
+    "doesn't match %s",
+    (location) => {
+      expect(location).not.toEqual(refreshLocation(page, core));
+    },
+  );
+});
+
+describe("callbackFor", () => {
+  it("sends the browser to the app's callback with core's token, as core does", () => {
+    expect(
+      callbackFor("http://example.robkit.localhost:3000/notes?x=1", {
+        state: "s",
+        token: "t",
+      }),
+    ).toBe(
+      "http://example.robkit.localhost:3000/_robkit/session?next=http%3A%2F%2Fexample.robkit.localhost%3A3000%2Fnotes%3Fx%3D1&state=s&token=t",
+    );
   });
 });

@@ -1,74 +1,43 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import {
-  defaultDevPort,
-  defaultDomain,
-  install,
-} from "@robkit/session/addresses";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { install } from "@robkit/input/addresses";
+import { isProblem } from "@robkit/input";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
-import { exec, prefixLines } from "./exec.ts";
-import { packageManagerOf } from "./package-manager.ts";
+import { readDevConfig } from "./env.ts";
+import { exec, prefixLines, startProblem } from "./exec.ts";
+import { failuresOf, throwFailures } from "./failures.ts";
 import { createProxy } from "./proxy.ts";
+import { stopGroup } from "./process-group.ts";
 import { provisionApps } from "./provision.ts";
-
-/** How long an app gets to exit after SIGTERM before it is killed. */
-const stopTimeoutMs = 5000;
-
-function groupAlive(pid: number): boolean {
-  try {
-    process.kill(-pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** Stops an app's whole process group: its package manager, watcher and server. */
-async function stopGroup(child: ChildProcess): Promise<void> {
-  const pid = child.pid;
-  if (pid === undefined) return;
-  try {
-    process.kill(-pid, "SIGTERM");
-  } catch {
-    return;
-  }
-  const deadline = Date.now() + stopTimeoutMs;
-  while (groupAlive(pid) && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  if (groupAlive(pid)) process.kill(-pid, "SIGKILL");
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+import { requireGo } from "./toolchain.ts";
 
 /**
  * `robkit-dev`: runs the install in `root` for local development. Finds the
- * apps, refusing any folder that isn't a slug before it starts anything. Starts
- * Postgres, runs the provision step, starts every app and puts the proxy in
- * front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
+ * apps, refusing any folder that isn't a slug, or a Go app without Go, before
+ * it starts anything. Starts Postgres, runs the provision step, starts every
+ * app and puts the proxy in front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
  *
- * @returns the exit code: 0 after a signal, 1 if anything failed
+ * @returns the exit code: 0 after a signal, 1 if an app exited
+ * @throws what failed while starting or stopping, once everything stopped:
+ *   one failure as it is, or several in an AggregateError
  */
 export async function runDev(
   root: string,
   env: NodeJS.ProcessEnv,
 ): Promise<number> {
-  const domain = env.ROBKIT_DOMAIN ?? defaultDomain;
-  const devPort = Number(env.ROBKIT_DEV_PORT ?? defaultDevPort);
-  const addresses = install({ domain, port: devPort });
-  const adminUrl =
-    env.ROBKIT_DATABASE_URL ??
-    `postgres://postgres:postgres@127.0.0.1:${env.ROBKIT_POSTGRES_PORT ?? "54320"}/robkit`;
-  let apps: App[];
-  let pm: string;
-  try {
-    apps = await discoverApps(root, devPort + 1);
-    pm = await packageManagerOf(root);
-  } catch (error) {
-    console.error(errorMessage(error));
+  const config = readDevConfig(env);
+  if (isProblem(config)) {
+    console.error(config.error);
     return 1;
+  }
+  const { domain, devPort, adminUrl } = config;
+  const addresses = install({ domain, port: devPort });
+  const apps = await discoverApps(root, devPort + 1);
+  // An app with a go.mod runs on Go. Say so before anything starts.
+  if (apps.some((app) => existsSync(join(app.dir, "go.mod")))) {
+    await requireGo(env);
   }
   const appEnv: NodeJS.ProcessEnv = {
     ...env,
@@ -81,6 +50,8 @@ export async function runDev(
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;
+  // What failed, thrown once everything has stopped.
+  const failures: unknown[] = [];
   const { promise: stopRequested, resolve: wake } =
     Promise.withResolvers<undefined>();
   const stopController = new AbortController();
@@ -96,11 +67,11 @@ export async function runDev(
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
 
-  const running: ChildProcess[] = [];
+  const running: { slug: string; child: ChildProcess }[] = [];
   const proxy = createProxy(routesFor(apps, domain));
 
   const start = (app: App, databaseUrl: string | undefined) => {
-    const child = spawn(pm, ["run", "dev"], {
+    const child = spawn("pnpm", ["run", "dev"], {
       cwd: app.dir,
       env: {
         ...appEnv,
@@ -119,7 +90,14 @@ export async function runDev(
       console.error(`${app.slug} exited (${String(signal ?? code)}), stopping`);
       stop("failed");
     });
-    running.push(child);
+    // Emitted instead of exit when the app can't start, such as pnpm
+    // missing or its folder gone.
+    child.on("error", (error) => {
+      if (!stopping()) console.error(`${app.slug} couldn't start, stopping`);
+      failures.push(startProblem("pnpm", ["run", "dev"], app.dir, error));
+      stop("failed");
+    });
+    running.push({ slug: app.slug, child });
   };
 
   try {
@@ -142,21 +120,29 @@ export async function runDev(
       console.log();
     }
   } catch (error) {
-    console.error(errorMessage(error));
+    failures.push(error);
     stop("failed");
   }
 
   await stopRequested;
-  await Promise.all(running.map(stopGroup));
-  proxy.closeAllConnections();
-  proxy.close();
-  try {
-    await exec("docker", ["compose", "stop"], { cwd: root, env });
-  } catch (error) {
-    console.error(errorMessage(error));
-    stop("failed");
+  const stopApps = running.map(
+    ({ slug, child }) =>
+      () =>
+        stopGroup(slug, child.pid),
+  );
+  const closeProxy = () => {
+    proxy.closeAllConnections();
+    proxy.close();
+  };
+  const stopPostgres = () =>
+    exec("docker", ["compose", "stop"], { cwd: root, env });
+  // The apps stop together, then the proxy, then Postgres. Each stage runs
+  // even when one before it failed, so nothing is left running.
+  for (const stage of [stopApps, [closeProxy], [stopPostgres]]) {
+    failures.push(...(await failuresOf(stage)));
   }
   process.off("SIGINT", onSignal);
   process.off("SIGTERM", onSignal);
+  throwFailures(failures);
   return outcome === "failed" ? 1 : 0;
 }

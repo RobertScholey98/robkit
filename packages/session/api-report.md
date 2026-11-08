@@ -1,0 +1,108 @@
+# @robkit/session API
+
+Generated from the built declarations by `tooling/repo-checks`. A change to the package's public API changes this file, so it shows up in review. `pnpm --filter @internal/repo-checks api:update` rewrites it.
+
+## @robkit/session
+
+```ts
+export type AccessRuleFailure =
+  "unknown-app" | "bad-answer" | "invalid-json" | "interrupted-body";
+export const appRefreshPath: "/_robkit/refresh";
+export const appSessionPath: "/_robkit/session";
+export function appSessionUrl(
+  next: string,
+  {
+    token,
+    state,
+  }: {
+    token?: string | undefined;
+    state?: string | undefined;
+  },
+): string;
+export const coreAudience: "core";
+export interface GuardedOptions {
+  app: Slug;
+  access?: AccessRule | undefined;
+  core: CoreOrigin;
+  onUnavailable?: ((fault: GuardFault) => void) | undefined;
+}
+export type GuardFault = {
+  app: Slug;
+  cause: unknown;
+} & (
+  | {
+      failed: "core-key" | "network";
+    }
+  | {
+      failed: "access-rule";
+      reason: AccessRuleFailure;
+    }
+);
+export function readAppToken(
+  key: VerifyKey,
+  token: string,
+  now: Date,
+  app: Slug,
+): Promise<ReadAppToken | undefined>;
+export type ReadAppToken = ViewerClaims & {
+  expired: boolean;
+};
+export function readSessionToken(
+  key: VerifyKey,
+  token: string,
+  now: Date,
+): Promise<ReadSessionToken | undefined>;
+export type ReadSessionToken = SessionTokenClaims & {
+  expired: boolean;
+};
+export type RequestDecision =
+  | {
+      outcome: "serve";
+      viewer: Viewer;
+    }
+  | {
+      outcome: "answer";
+      response: Response;
+    };
+export function requestGuard(
+  options: GuardedOptions,
+): (request: Request) => Promise<RequestDecision>;
+export const sessionCookie: "robkit_session";
+export type SessionTokenClaims = ViewerClaims & {
+  sessionId: string;
+};
+export const sessionTokenLifetimeSeconds: number;
+export function sessionTokensIn(
+  cookieHeader: string | null | undefined,
+): string[];
+export type VerifyKey = CryptoKey | JWTVerifyGetKey;
+export type ViewerClaims =
+  | {
+      kind: "owner";
+      id: string;
+    }
+  | {
+      kind: "guest";
+      id: CodeId;
+      roles: RoleId[];
+    };
+```
+
+## @robkit/session/lapsed
+
+```ts
+export function readSessionLapsed(
+  response: Response,
+): Promise<SessionLapsed | undefined>;
+export interface SessionLapsed {
+  outcome: "login" | "refresh";
+  error: string;
+  location: string;
+}
+export const sessionLapsedHeader: "robkit-session";
+export function sessionLapsedResponse({
+  outcome,
+  error,
+  location,
+}: SessionLapsed): Response;
+```

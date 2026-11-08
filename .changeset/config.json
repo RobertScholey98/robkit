@@ -1,0 +1,18 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@4.0.1/schema.json",
+  "baseBranch": "main",
+  "access": "public",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "updateInternalDependencies": "patch",
+  "changedFilePatterns": [
+    "src/**",
+    "!src/**/*.test.ts",
+    "!src/test/**",
+    "!src/**/__snapshots__/**",
+    "templates/**",
+    "!templates/**/*.test.ts",
+    "!templates/**/*.test.tsx"
+  ],
+  "ignore": []
+}

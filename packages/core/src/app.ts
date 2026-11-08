@@ -1,53 +1,25 @@
-import { sql } from "drizzle-orm";
-import { Hono, type Context, type MiddlewareHandler } from "hono";
+import { randomUUID } from "node:crypto";
+import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { getCookie, setCookie } from "hono/cookie";
 import { cors } from "hono/cors";
-import { validator } from "hono/validator";
-import { sessionCookie } from "@robkit/session";
-import { install, platformApps } from "@robkit/session/addresses";
-import {
-  listCodes,
-  mintCode,
-  revokeCode,
-  parseAccessCode,
-  readNewCode,
-} from "./access-codes.ts";
-import { clientOf, type TrustedProxy } from "./client.ts";
+import { HTTPException } from "hono/http-exception";
+import { reportToConsole, type Report } from "@robkit/input/report";
+import { platformApps, type Domain } from "@robkit/input";
+import { install } from "@robkit/input/addresses";
+import type { TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
-import { isLocal } from "./domain.ts";
-import {
-  accessOf,
-  launcherApps,
-  listApps,
-  readAccess,
-  setAccess,
-} from "./apps.ts";
-import { claimInstall, readCredentials, readNewOwner } from "./owner.ts";
-import { createRateLimiter } from "./rate-limit.ts";
-import {
-  createRole,
-  listRoles,
-  readCodeIds,
-  readNewRole,
-  setRoleCodes,
-} from "./roles.ts";
-import {
-  readSession,
-  signOut,
-  sessionLifetimeSeconds,
-  type SessionAnswer,
-  type SessionContext,
-  type SessionRead,
-  signIn,
-  signInWithCode,
-} from "./sessions.ts";
+import type { RouteContext } from "./routes/context.ts";
+import { appRoutes } from "./routes/apps.ts";
+import { accessCodeRoutes } from "./routes/access-codes.ts";
+import { roleRoutes } from "./routes/roles.ts";
+import { sessionRoutes } from "./routes/session.ts";
+import { statusRoutes } from "./routes/status.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 
 export interface CoreOptions {
   db: Database;
   /** The install's domain, such as `robkit.localhost` in development. */
-  domain: string;
+  domain: Domain;
   /** Core's clock, for token times, session expiry and rate limits. */
   now?: () => Date;
   /**
@@ -55,11 +27,12 @@ export interface CoreOptions {
    * of a tunnel. Set only when nothing else can reach the host.
    */
   trustedProxy?: TrustedProxy | undefined;
-}
-
-/** What a route that needs the viewer finds in `c.var`. */
-interface CoreEnv {
-  Variables: { session: SessionRead };
+  /**
+   * Where core reports what it can't answer usefully: an unexpected error in
+   * a route, or the database being unreachable. Defaults to
+   * `reportToConsole`.
+   */
+  logError?: Report;
 }
 
 /** The platform apps that call core from the browser with the session cookie. */
@@ -69,6 +42,7 @@ function hostnameOf(origin: string): string | undefined {
   try {
     return new URL(origin).hostname;
   } catch {
+    // An Origin that isn't a URL names no host, so CORS refuses it.
     return undefined;
   }
 }
@@ -76,36 +50,6 @@ function hostnameOf(origin: string): string | undefined {
 function isJson(contentType: string | undefined): boolean {
   const mediaType = contentType?.split(";")[0]?.trim().toLowerCase();
   return mediaType === "application/json";
-}
-
-type Fields = Record<string, unknown>;
-
-/** The fields of the JSON object a POST sent, or undefined if it isn't JSON. */
-async function fieldsOf(c: Context): Promise<Fields | undefined> {
-  try {
-    const body: unknown = await c.req.json();
-    return typeof body === "object" && body !== null ? (body as Fields) : {};
-  } catch {
-    return undefined;
-  }
-}
-
-/** A POST's JSON fields read by one of core's input rules, or why they won't do. */
-async function readBody<T>(
-  c: Context,
-  read: (fields: Fields) => T | { error: string },
-): Promise<T | { error: string }> {
-  const fields = await fieldsOf(c);
-  return fields ? read(fields) : { error: "Send a valid JSON body." };
-}
-
-const unknownCode = "One of those codes doesn't exist.";
-
-function tooManyAttempts(c: Context, retryAfter: number): Response {
-  const minutes = Math.ceil(retryAfter / 60);
-  const wait = minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;
-  c.header("Retry-After", String(retryAfter));
-  return c.json({ error: `Too many attempts. Try again in ${wait}.` }, 429);
 }
 
 /** Caches a load once it succeeds; a failed load is tried again next call. */
@@ -118,81 +62,40 @@ function memoize<T>(load: () => Promise<T>): () => Promise<T> {
     }));
 }
 
+/**
+ * Core's HTTP app: CORS and the rules every POST meets, then each module of
+ * routes, with one handler for what a route didn't expect.
+ */
 export function createApp({
   db,
   domain,
   now = () => new Date(),
   trustedProxy,
+  logError = reportToConsole,
 }: CoreOptions): Hono {
   const app = new Hono();
+  // Hono's own answer to a route that throws. The cause stays in core's log
+  // and the caller gets a generic error, with a request id that finds the
+  // log line.
+  app.onError((error, c) => {
+    if (error instanceof HTTPException) return error.getResponse();
+    const requestId = randomUUID();
+    logError(
+      `${c.req.method} ${c.req.path} failed (request ${requestId}).`,
+      error,
+    );
+    return c.json(
+      {
+        error: `Core hit an unexpected error. Look for request ${requestId} in core's log to see what went wrong.`,
+        requestId,
+      },
+      500,
+      { "X-Request-Id": requestId },
+    );
+  });
+
   const addresses = install({ domain });
-  const signingKey: () => Promise<SigningKey> = memoize(() =>
-    ensureSigningKey(db),
-  );
-  const ctx: SessionContext = { db, domain, now, signingKey };
-  const loginLimiter = createRateLimiter({
-    limit: 5,
-    windowMs: 15 * 60 * 1000,
-    now,
-  });
-  // Apart from the owner's limit, so a guest guessing codes can't lock the
-  // owner out. A guest's sign-in never clears it, or one live code would buy
-  // endless guesses at the others.
-  const codeLimiter = createRateLimiter({
-    limit: 10,
-    windowMs: 15 * 60 * 1000,
-    now,
-  });
-
-  const setSessionCookie = (
-    c: Context,
-    sessionToken: string,
-    maxAge = sessionLifetimeSeconds,
-  ) => {
-    setCookie(c, sessionCookie, sessionToken, {
-      httpOnly: true,
-      path: "/",
-      domain,
-      sameSite: "Lax",
-      maxAge,
-      // Browsers treat *.localhost as a secure context, but WebKit drops
-      // Secure cookies over plain http, so local domains go without.
-      secure: !isLocal(domain),
-    });
-  };
-
-  /**
-   * Reads who is asking from the session cookie into `c.var.session`, for
-   * every route that needs the viewer, and puts a live session's fresh token
-   * on the answer's cookie. With `renew`, as `/refresh` asks, a live
-   * session's token is reissued even if it hasn't expired, and the cookie of
-   * a session that ended is cleared. With `ownerOnly`, anyone but the owner
-   * is told there is nothing here, with no fresh cookie, as a route that
-   * doesn't exist would answer.
-   */
-  const viewer = ({
-    renew = false,
-    ownerOnly = false,
-  } = {}): MiddlewareHandler<CoreEnv> =>
-    async function readViewer(c, next) {
-      const sessionToken = getCookie(c, sessionCookie);
-      const session = await readSession(ctx, sessionToken, { renew });
-      const { answer, freshSessionToken } = session;
-      const isOwner =
-        answer.state === "signed-in" && answer.viewer.kind === "owner";
-      if (ownerOnly && !isOwner) return c.json({ error: "Not found" }, 404);
-      if (freshSessionToken) setSessionCookie(c, freshSessionToken);
-      else if (renew && sessionToken && answer.state !== "signed-in") {
-        setSessionCookie(c, "", 0);
-      }
-      c.set("session", session);
-      await next();
-    };
-  // Admin manages the install over CORS with the owner's cookie.
-  const owner = viewer({ ownerOnly: true });
-
   const trustedHosts = new Set(trustedApps.map((slug) => addresses.host(slug)));
-
   app.use(
     cors({
       origin: (origin) => {
@@ -222,206 +125,21 @@ export function createApp({
     }),
   );
 
-  app.get("/status", async (c) => {
-    try {
-      await db.execute(sql`select 1`);
-    } catch {
-      return c.json({ status: "unavailable" }, 503);
-    }
-    return c.json({ status: "ok" });
-  });
-
-  app.get("/.well-known/jwks.json", async (c) => {
-    const { kid, publicJwk } = await signingKey();
-    return c.json({ keys: [{ ...publicJwk, kid, alg: "EdDSA", use: "sig" }] });
-  });
-
-  app.get("/session", viewer(), (c) =>
-    c.json<SessionAnswer>(c.var.session.answer),
+  const signingKey: () => Promise<SigningKey> = memoize(() =>
+    ensureSigningKey(db),
   );
-
-  // An app's guard sends an expired token here, and it comes straight back
-  // to `next` with a fresh cookie, or none if its session ended. The app's
-  // guard then decides whether to send the browser to log in. The token is
-  // reissued even if core thinks it live, since the app's clock may run
-  // ahead of core's, and a bounce without a new token would loop.
-  app.get(
-    "/refresh",
-    validator("query", (_, c) => {
-      const next = addresses.onInstall(c.req.query("next"));
-      return next
-        ? { next }
-        : c.json(
-            { error: "Send next, a URL on one of this install's apps." },
-            400,
-          );
-    }),
-    viewer({ renew: true }),
-    (c) => {
-      c.header("Cache-Control", "no-store");
-      return c.redirect(c.req.valid("query").next, 302);
-    },
-  );
-
-  app.post("/setup", async (c) => {
-    const credentials = await readBody(c, readNewOwner);
-    if ("error" in credentials) return c.json(credentials, 400);
-
-    const claim = await claimInstall(
-      ctx,
-      credentials.username,
-      credentials.password,
-    );
-    if (claim.outcome === "taken") {
-      return c.json({ error: "This install already has an owner." }, 409);
-    }
-    setSessionCookie(c, claim.sessionToken);
-    return c.json<SessionAnswer>(
-      { state: "signed-in", viewer: claim.viewer },
-      201,
-    );
-  });
-
-  app.post("/login", async (c) => {
-    const credentials = await readBody(c, readCredentials);
-    if ("error" in credentials) return c.json(credentials, 400);
-
-    const client = clientOf(c, trustedProxy);
-    const retryAfter = loginLimiter.retryAfter(client);
-    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
-
-    const result = await signIn(
-      ctx,
-      credentials.username,
-      credentials.password,
-    );
-    if (result.outcome === "unclaimed") {
-      return c.json(
-        { error: "This install has no owner yet. Set it up first." },
-        409,
-      );
-    }
-    if (result.outcome === "wrong") {
-      loginLimiter.fail(client);
-      return c.json({ error: "Wrong username or password." }, 401);
-    }
-    loginLimiter.clear(client);
-    setSessionCookie(c, result.sessionToken);
-    return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
-  });
-
-  app.post("/login/code", async (c) => {
-    const fields = await fieldsOf(c);
-    if (typeof fields?.code !== "string") {
-      return c.json({ error: "Send a code." }, 400);
-    }
-    const client = clientOf(c, trustedProxy);
-    const retryAfter = codeLimiter.retryAfter(client);
-    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
-
-    const code = parseAccessCode(fields.code);
-    const result = code
-      ? await signInWithCode(ctx, code)
-      : { outcome: "refused" as const };
-    if (result.outcome === "unclaimed") {
-      return c.json(
-        { error: "This install has no owner yet. Set it up first." },
-        409,
-      );
-    }
-    if (result.outcome === "refused") {
-      codeLimiter.fail(client);
-      return c.json({ error: "That code doesn't work." }, 401);
-    }
-    setSessionCookie(c, result.sessionToken);
-    return c.json<SessionAnswer>({ state: "signed-in", viewer: result.viewer });
-  });
-
-  // The hub sends no body here, so none is read.
-  app.post("/logout", async (c) => {
-    await signOut(ctx, getCookie(c, sessionCookie));
-    setSessionCookie(c, "", 0);
-    return c.body(null, 204);
-  });
-
-  app.get("/codes", owner, async (c) =>
-    c.json({ codes: await listCodes(db, now(), domain) }),
-  );
-
-  app.post("/codes", owner, async (c) => {
-    const at = now();
-    const request = await readBody(c, (fields) => readNewCode(fields, at));
-    if ("error" in request) return c.json(request, 400);
-    const mint = await mintCode(db, request, at, domain);
-    if (mint.outcome === "taken") {
-      return c.json({ error: "That code is taken." }, 409);
-    }
-    return c.json(mint.code, 201);
-  });
-
-  app.post("/codes/:id/revoke", owner, async (c) => {
-    if (!(await revokeCode(db, c.req.param("id"), now()))) {
-      return c.json({ error: "Not found" }, 404);
-    }
-    return c.body(null, 204);
-  });
-
-  app.get("/launcher", viewer(), async (c) =>
-    c.json({ apps: await launcherApps(db, c.var.session.forGuard) }),
-  );
-
-  // Each app's adapter reads its own rule here, with no cookie, so it's open
-  // to anyone.
-  app.get("/apps/:slug/access", async (c) => {
-    const access = await accessOf(db, c.req.param("slug"));
-    return access ? c.json(access) : c.json({ error: "Not found" }, 404);
-  });
-
-  app.get("/apps", owner, async (c) => c.json({ apps: await listApps(db) }));
-
-  app.post("/apps/:slug/access", owner, async (c) => {
-    const rule = await readBody(c, readAccess);
-    if ("error" in rule) return c.json(rule, 400);
-    const change = await setAccess(db, c.req.param("slug"), rule);
-    switch (change.outcome) {
-      case "unknown-app":
-        return c.json({ error: "Not found" }, 404);
-      case "unknown-role":
-        return c.json({ error: "One of those roles doesn't exist." }, 400);
-      case "changed":
-        return c.json(change.access);
-    }
-  });
-
-  app.get("/roles", owner, async (c) => c.json({ roles: await listRoles(db) }));
-
-  app.post("/roles", owner, async (c) => {
-    const request = await readBody(c, readNewRole);
-    if ("error" in request) return c.json(request, 400);
-    const creation = await createRole(db, request, now());
-    switch (creation.outcome) {
-      case "unknown-code":
-        return c.json({ error: unknownCode }, 400);
-      case "taken":
-        return c.json({ error: "There's a role with that name." }, 409);
-      case "created":
-        return c.json(creation.role, 201);
-    }
-  });
-
-  app.post("/roles/:id/codes", owner, async (c) => {
-    const request = await readBody(c, readCodeIds);
-    if ("error" in request) return c.json(request, 400);
-    const change = await setRoleCodes(db, c.req.param("id"), request.codeIds);
-    switch (change.outcome) {
-      case "unknown-role":
-        return c.json({ error: "Not found" }, 404);
-      case "unknown-code":
-        return c.json({ error: unknownCode }, 400);
-      case "changed":
-        return c.json(change.role);
-    }
-  });
-
+  const context: RouteContext = {
+    db,
+    domain,
+    now,
+    signingKey,
+    trustedProxy,
+    logError,
+  };
+  app.route("/", statusRoutes(context));
+  app.route("/", sessionRoutes(context));
+  app.route("/", accessCodeRoutes(context));
+  app.route("/", appRoutes(context));
+  app.route("/", roleRoutes(context));
   return app;
 }

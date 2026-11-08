@@ -1,0 +1,29 @@
+import { readFile } from "node:fs/promises";
+import { describe, expect, it } from "vitest";
+
+/** The package a CSS `@import` names: `shadcn` for `shadcn/tailwind.css`. */
+function packageOf(specifier: string): string {
+  const parts = specifier.split("/");
+  return specifier.startsWith("@")
+    ? parts.slice(0, 2).join("/")
+    : (parts[0] ?? "");
+}
+
+describe("the install's packages/ui", () => {
+  it("declares every package its stylesheet imports", async () => {
+    const at = (path: string) =>
+      new URL(`../templates/base/packages/ui/${path}`, import.meta.url);
+    const styles = await readFile(at("src/styles.css"), "utf8");
+    const { dependencies } = JSON.parse(
+      await readFile(at("package.json"), "utf8"),
+    ) as { dependencies: Record<string, string> };
+
+    const imported = [...styles.matchAll(/^@import "([^."][^"]*)";/gm)].map(
+      ([, specifier]) => packageOf(specifier ?? ""),
+    );
+
+    expect(imported).toContain("tailwindcss");
+    // A package finds only what it declares.
+    expect(imported.filter((name) => !(name in dependencies))).toEqual([]);
+  });
+});

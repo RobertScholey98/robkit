@@ -1,62 +1,69 @@
 import { describe, expect, it } from "vitest";
-import { choicesFromFlags } from "./choices.ts";
+import { readChoices, readyStacks, stackFrom, toolchainOf } from "./choices.ts";
 
-describe("choicesFromFlags", () => {
-  it("takes the default for every flag left out", () => {
-    expect(choicesFromFlags({})).toEqual({
-      packageManager: "pnpm",
-      orm: "drizzle",
-      uiKit: null,
-      tools: ["eslint-prettier", "vitest"],
-      generators: ["start", "react-hono"],
+describe("stackFrom", () => {
+  it.each(["start", "react-hono", "express", "next", "go"])(
+    "reads %s, a stack robkit can make",
+    (value) => {
+      expect(stackFrom(value)).toBe(value);
+    },
+  );
+
+  it.each(["rails", "", "start,react-hono"])("refuses %j", (value) => {
+    expect(() => stackFrom(value)).toThrow(
+      `--stack ${value} isn't an option. Choose from: start, react-hono, express, next, go.`,
+    );
+  });
+});
+
+describe("readyStacks", () => {
+  it("lists every stack robkit can make", () => {
+    expect(readyStacks).toEqual([
+      "start",
+      "react-hono",
+      "express",
+      "next",
+      "go",
+    ]);
+  });
+});
+
+describe("toolchainOf", () => {
+  it("names Go for the stack whose server is Go, and nothing for the rest", () => {
+    expect(readyStacks.map((stack) => [stack, toolchainOf(stack)])).toEqual([
+      ["start", undefined],
+      ["react-hono", undefined],
+      ["express", undefined],
+      ["next", undefined],
+      ["go", "go"],
+    ]);
+  });
+});
+
+describe("readChoices", () => {
+  it("reads the choices robkit.json records", () => {
+    expect(readChoices({ exampleStack: "react-hono" })).toEqual({
+      exampleStack: "react-hono",
     });
   });
 
-  it("keeps the generators in the order given", () => {
-    expect(
-      choicesFromFlags({ generators: "react-hono,start" }).generators,
-    ).toEqual(["react-hono", "start"]);
-    expect(choicesFromFlags({ generators: "react-hono" }).generators).toEqual([
-      "react-hono",
-    ]);
+  it.each([null, [], "start"])("refuses %j", (value) => {
+    expect(readChoices(value)).toEqual({
+      error:
+        'robkit.json must be a JSON object, such as {"exampleStack": "start"}. Init wrote it; restore it from git if it has changed.',
+    });
   });
 
-  it("names the options when a flag's value isn't one", () => {
-    expect(() => choicesFromFlags({ pm: "npm" })).toThrow(
-      "--pm npm isn't an option. Choose from: pnpm, bun, yarn.",
-    );
-    expect(() => choicesFromFlags({ generators: "start,next" })).toThrow(
-      "--generators next isn't an option. Choose from: start, react-hono.",
-    );
-    expect(() => choicesFromFlags({ generators: "" })).toThrow(
-      "--generators  isn't an option. Choose from: start, react-hono.",
-    );
+  it("says which key is missing", () => {
+    expect(readChoices({})).toEqual({
+      error:
+        "robkit.json: exampleStack is missing. Set it to the example app's stack: start, react-hono, express, next or go.",
+    });
   });
 
-  it("refuses an option that's coming later", () => {
-    expect(() => choicesFromFlags({ generators: "next" })).toThrow(
-      "--generators next isn't an option. Choose from: start, react-hono.",
-    );
-  });
-
-  it("reads --ui-kit as the kit, and none as no UI kit", () => {
-    expect(choicesFromFlags({ "ui-kit": "shadcn-base-ui" }).uiKit).toBe(
-      "shadcn-base-ui",
-    );
-    expect(choicesFromFlags({ "ui-kit": "none" }).uiKit).toBeNull();
-    expect(choicesFromFlags({}).uiKit).toBeNull();
-    expect(() => choicesFromFlags({ "ui-kit": "mui" })).toThrow(
-      "--ui-kit mui isn't an option. Choose from: none, shadcn-base-ui, shadcn-radix, chakra.",
-    );
-  });
-
-  it("reads --tools none as no dev tools", () => {
-    expect(choicesFromFlags({ tools: "none" }).tools).toEqual([]);
-  });
-
-  it("refuses an option named twice", () => {
-    expect(() => choicesFromFlags({ generators: "start,start" })).toThrow(
-      "--generators start,start names an option twice.",
-    );
+  it.each([["rails"], [1]])("refuses the stack %j", (exampleStack) => {
+    expect(readChoices({ exampleStack })).toEqual({
+      error: `robkit.json: exampleStack is ${JSON.stringify(exampleStack)}, which robkit can't make. Set it to start, react-hono, express, next or go.`,
+    });
   });
 });

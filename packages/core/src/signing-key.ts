@@ -7,8 +7,19 @@ import {
   type CryptoKey,
   type JWK,
 } from "jose";
-import type { Database } from "./database.ts";
+import { storedRow, type Database } from "./database.ts";
 import { signingKeys } from "./schema.ts";
+
+/** Stored EdDSA key `kid`, ready to sign or verify with. */
+async function importKey(kid: string, jwk: JWK): Promise<CryptoKey> {
+  const key = await importJWK(jwk, "EdDSA");
+  if (key instanceof Uint8Array) {
+    throw new Error(
+      `Core's signing key ${kid} in core.signing_keys is a shared secret, not an EdDSA key. Core only writes EdDSA keys, so check what else wrote to that table.`,
+    );
+  }
+  return key;
+}
 
 /** Core's Ed25519 key, which signs every session token. */
 export interface SigningKey {
@@ -40,22 +51,26 @@ export async function ensureSigningKey(db: Database): Promise<SigningKey> {
       extractable: true,
     });
     const publicJwk = await exportJWK(pair.publicKey);
-    const [created] = await tx
+    const kid = await calculateJwkThumbprint(publicJwk);
+    const [inserted] = await tx
       .insert(signingKeys)
       .values({
-        kid: await calculateJwkThumbprint(publicJwk),
+        kid,
         privateJwk: await exportJWK(pair.privateKey),
         publicJwk,
       })
       .returning();
-    if (!created) throw new Error("Core couldn't store its signing key.");
-    return created;
+    return storedRow(
+      inserted,
+      `its new signing key ${kid}`,
+      "core.signing_keys",
+    );
   });
 
   return {
     kid: row.kid,
-    privateKey: (await importJWK(row.privateJwk, "EdDSA")) as CryptoKey,
-    publicKey: (await importJWK(row.publicJwk, "EdDSA")) as CryptoKey,
+    privateKey: await importKey(row.kid, row.privateJwk),
+    publicKey: await importKey(row.kid, row.publicJwk),
     publicJwk: row.publicJwk,
   };
 }

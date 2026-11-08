@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { readLeftovers } from "./clean-up.ts";
 
 const run = promisify(execFile);
 const cleanUp = fileURLToPath(new URL("./clean-up.ts", import.meta.url));
@@ -32,6 +33,7 @@ function alive(pid: number): boolean {
     process.kill(pid, 0);
     return true;
   } catch {
+    // Signal 0 throws only when the process is gone.
     return false;
   }
 }
@@ -76,8 +78,8 @@ describe("removeWhenGone", () => {
       ],
       { stdio: ["ignore", "pipe", "inherit"] },
     );
-    const [line] = (await once(owner.stdout, "data")) as [Buffer];
-    const app = Number(line.toString().trim());
+    const output: unknown[] = await once(owner.stdout, "data");
+    const app = Number(String(output[0]).trim());
 
     expect(await containerNames(prefix)).toEqual([`${prefix}-postgres-1`]);
     expect(await imageNames(prefix)).toEqual([`${prefix}/app`]);
@@ -89,4 +91,22 @@ describe("removeWhenGone", () => {
     await eventually(async () => (await imageNames(prefix)).length === 0);
     await eventually(() => !alive(app));
   });
+});
+
+describe("readLeftovers", () => {
+  it("reads the leftovers removeWhenGone hands its watcher", () => {
+    expect(
+      readLeftovers('[{"tagged": "12-ab"}, {"docker": "robkit-test-1"}]'),
+    ).toEqual([{ tagged: "12-ab" }, { docker: "robkit-test-1" }]);
+    expect(readLeftovers("[]")).toEqual([]);
+  });
+
+  it.each(["{", "{}", "[1]", '[{"tagged": 1}]', '[{"other": "x"}]'])(
+    "throws on %s",
+    (text) => {
+      expect(() => readLeftovers(text)).toThrow(
+        `The clean-up watcher was handed ${text}, not a JSON list of leftovers.`,
+      );
+    },
+  );
 });

@@ -3,8 +3,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { defaultChoices, init, type Choices } from "create-robkit";
+import { defaultChoices, init, readyStacks } from "create-robkit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { Slug } from "@robkit/input";
 import { takeBrowserLog } from "./browser.ts";
 import {
   guestOpens,
@@ -12,26 +13,29 @@ import {
   testCodeAnswer,
   type OwnerSetUp,
 } from "./production-journey.ts";
+import { buildApp, hostEnv, startApp } from "./production-apps.ts";
 import {
   answers,
-  buildApp,
   extraneousPackages,
-  hostEnv,
   stackReport,
-  startApp,
-  startStack,
-  stopStack,
-  type Stack,
   withVisitors,
-} from "./production-stack.ts";
+} from "./production-checks.ts";
+import { startStack, stopStack, type Stack } from "./production-stack.ts";
+import { exampleSlug } from "./install.ts";
+import { slug } from "@internal/test-session";
 
 const run = promisify(execFile);
 
-/** The app the owner adds with robkit add after the first deploy. */
-const later = "later";
+/**
+ * The apps the owner adds with robkit add after the first deploy: one on
+ * each stack but the example's, named after its stack.
+ */
+const later = readyStacks
+  .filter((stack) => stack !== defaultChoices.exampleStack)
+  .map((stack) => ({ stack, slug: slug(stack.replaceAll("-", "")) }));
 
 /** Builds each app's image and starts its container with its env. */
-async function deployApps(stack: Stack, slugs: string[]): Promise<void> {
+async function deployApps(stack: Stack, slugs: Slug[]): Promise<void> {
   await Promise.all(slugs.map((slug) => buildApp(stack, slug)));
   const env = await hostEnv(stack);
   for (const slug of slugs) {
@@ -44,57 +48,7 @@ async function whatWentWrong(stack: Stack): Promise<string> {
   return `What the browser saw:\n${takeBrowserLog()}\n\nThe stack's containers:\n${await stackReport(stack)}`;
 }
 
-/** Every dev tool, so their builds run Husky's postinstall with no git. */
-const allTools: Choices["tools"] = [
-  "eslint-prettier",
-  "vitest",
-  "playwright",
-  "husky",
-];
-
-/** Each install by the key `E2E_PRODUCTION_INSTALL` picks it by. */
-const installs: [string, Choices][] = [
-  ["default", defaultChoices],
-  // Each ORM migrates as its app's container starts, and each UI kit's apps
-  // serve its stylesheet. The two shadcn kits share their apps' layer, so
-  // Base UI stands for both, and Chakra's server-rendered styles get a run.
-  [
-    "prisma",
-    { ...defaultChoices, orm: "prisma", uiKit: "chakra", tools: allTools },
-  ],
-  // bun installs the Kysely install, so its Dockerfile gets a run too.
-  // yarn's can't yet: turbo can't prune a yarn lockfile that takes
-  // robkit's packages from vendored tarballs, so a yarn install deploys
-  // once they're on npm. yarn-prune.test.ts checks its prune instead.
-  [
-    "kysely-on-bun",
-    {
-      ...defaultChoices,
-      packageManager: "bun",
-      orm: "kysely",
-      uiKit: "shadcn-base-ui",
-      tools: allTools,
-    },
-  ],
-];
-
-/**
- * The installs this run deploys: every one, or the one
- * `E2E_PRODUCTION_INSTALL` names, as each CI job runs one.
- */
-function chosen(): [string, Choices][] {
-  const key = process.env.E2E_PRODUCTION_INSTALL;
-  if (!key) return installs;
-  const picked = installs.filter(([name]) => name === key);
-  if (picked.length === 0) {
-    throw new Error(
-      `E2E_PRODUCTION_INSTALL is ${key}, not one of ${installs.map(([name]) => name).join(", ")}`,
-    );
-  }
-  return picked;
-}
-
-// Each install, deployed as on Coolify: an image per app from its
+// The default install, deployed as on Coolify: an image per app from its
 // Dockerfile, core first, every app behind TLS on its own subdomain of a
 // domain that isn't localhost. Opt in with pnpm test:production.
 //
@@ -104,37 +58,39 @@ function chosen(): [string, Choices][] {
 // ERR_NETWORK_CHANGED. So every deploy below finishes before the journey
 // after it launches a browser, each launch waits for the host's interfaces
 // to settle, and each journey closes its browser.
-describe.each(chosen())("the %s install in production", (key, choices) => {
+describe("the default install in production", () => {
   let dir: string;
   let stack: Stack;
   let setUp: OwnerSetUp;
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
-    await init(choices, dir, { link: true, install: true });
+    await init(defaultChoices, dir, { link: true, install: true });
     // A host can't reach this checkout, so the install takes tarballs.
-    await run(choices.packageManager, ["run", "robkit", "vendor"], {
+    await run("pnpm", ["run", "robkit", "vendor"], {
       cwd: dir,
     });
-    stack = await startStack(
-      dir,
-      ["core", "hub", "admin", "example", later],
-      key,
-    );
+    stack = await startStack(dir, [
+      "core",
+      "hub",
+      "admin",
+      "example",
+      ...later.map((app) => app.slug),
+    ]);
     await deployApps(stack, ["core"]);
     await answers(stack, "core", 200, "/status");
     await deployApps(stack, ["hub", "admin"]);
     await answers(stack, "hub", 200);
     // The owner opens the example to anyone before it starts, so its guard
     // never keeps the owner-only rule it would start with.
-    setUp = await ownerSetsUp(stack.addresses, "example").catch(
+    setUp = await ownerSetsUp(stack.addresses, exampleSlug).catch(
       async (error: unknown) => {
         console.error(await whatWentWrong(stack));
         throw error;
       },
     );
-    await deployApps(stack, ["example"]);
-    await answers(stack, "example", 200);
+    await deployApps(stack, [exampleSlug]);
+    await answers(stack, exampleSlug, 200);
   });
 
   // A journey that times out says only what it waited for.
@@ -162,21 +118,21 @@ describe.each(chosen())("the %s install in production", (key, choices) => {
     const visit = await guestOpens(
       stack.addresses,
       setUp.code ?? "",
-      "example",
+      exampleSlug,
     );
 
     expect(visit).toEqual({
       greeting: "Signed in as Grandma",
-      openedAt: `${stack.addresses.origin("example")}/`,
+      openedAt: `${stack.addresses.origin(exampleSlug)}/`,
       heading: "Signed in as a guest",
-      stylesheets: choices.uiKit ? [200] : [],
+      stylesheets: [200],
     });
   });
 
   it.each(["core", "hub", "admin", "example"])(
     "builds %s's image with no package production doesn't need",
-    async (slug) => {
-      expect(await extraneousPackages(stack, slug)).toEqual([]);
+    async (name) => {
+      expect(await extraneousPackages(stack, slug(name))).toEqual([]);
     },
   );
 
@@ -212,35 +168,60 @@ describe.each(chosen())("the %s install in production", (key, choices) => {
     });
   });
 
-  it("serves an app added with robkit add after its next deploy", async () => {
-    await run(
-      choices.packageManager,
-      [
-        "run",
-        "robkit",
-        "add",
-        later,
-        "--stack",
-        "react-hono",
-        "--access",
-        "open",
-      ],
-      { cwd: dir },
-    );
-    // The next deploy: core picks up the new app and provisions its
-    // database, then the app's own container starts.
+  it("serves an app on each other stack, added with robkit add, after its next deploy", async () => {
+    for (const app of later) {
+      await run(
+        "pnpm",
+        [
+          "run",
+          "robkit",
+          "add",
+          app.slug,
+          "--stack",
+          app.stack,
+          "--access",
+          "open",
+        ],
+        { cwd: dir },
+      );
+    }
+    // The next deploy: core picks up the new apps and provisions their
+    // databases, then each app's own container starts.
     await deployApps(stack, ["core"]);
     await answers(stack, "core", 200, "/status");
-    await deployApps(stack, [later]);
-    await answers(stack, later, 200);
+    await deployApps(
+      stack,
+      later.map((app) => app.slug),
+    );
+    const visits: Record<string, unknown> = {};
+    for (const app of later) {
+      await answers(stack, app.slug, 200);
+      visits[app.stack] = await guestOpens(
+        stack.addresses,
+        setUp.code ?? "",
+        app.slug,
+      );
+    }
 
-    const visit = await guestOpens(stack.addresses, setUp.code ?? "", later);
-
-    expect(visit).toEqual({
-      greeting: "Signed in as Grandma",
-      openedAt: `${stack.addresses.origin(later)}/`,
-      heading: "Signed in as a guest",
-      stylesheets: choices.uiKit ? [200] : [],
-    });
+    expect(visits).toEqual(
+      Object.fromEntries(
+        later.map((app) => [
+          app.stack,
+          {
+            greeting: "Signed in as Grandma",
+            openedAt: `${stack.addresses.origin(app.slug)}/`,
+            heading: "Signed in as a guest",
+            stylesheets: [200],
+          },
+        ]),
+      ),
+    );
   });
+
+  it.each(later)(
+    "builds the $stack app's image with no package production doesn't need",
+    async (app) => {
+      expect(await extraneousPackages(stack, app.slug)).toEqual([]);
+    },
+  );
 });

@@ -3,57 +3,42 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { defaultChoices, init, type Choices } from "create-robkit";
+import { init, readyStacks, type Choices, type Stack } from "create-robkit";
 import type { TestProject } from "vitest/node";
+import { slug } from "@internal/test-session";
 
 const run = promisify(execFile);
 
-/** The slug of the app each install adds with robkit add, on its other stack. */
-export const addedSlug = "added";
+/** The example app every install starts with. */
+export const exampleSlug = slug("example");
+
+/** The slug of the app each install adds with robkit add, on the next stack. */
+export const addedSlug = slug("added");
 
 /** The emoji robkit add gives that app. */
 export const addedIcon = "🧪";
 
 /**
- * The installs the suites run, by name. Each one's example app is on its
- * first generator, and robkit add gives it an app on its second. In the
- * installs with a UI kit, the example app uses it.
+ * The installs the suites run, by name: one for each stack robkit can make,
+ * with its example app on that stack. `start` is the default install.
  */
-export const installChoices = {
-  // The default install.
-  start: defaultChoices,
-  "react-hono": {
-    ...defaultChoices,
-    generators: ["react-hono", "start"],
-    uiKit: "chakra",
-  },
-  // On yarn, which runs its scripts and installs its dependencies. It has
-  // every dev tool, and the Kysely install none, so each tool's CI steps
-  // run with the tool on and off.
-  prisma: {
-    ...defaultChoices,
-    packageManager: "yarn",
-    orm: "prisma",
-    uiKit: "shadcn-radix",
-    tools: ["eslint-prettier", "vitest", "playwright", "husky"],
-  },
-  // On bun, which runs its scripts and installs its dependencies.
-  kysely: {
-    ...defaultChoices,
-    packageManager: "bun",
-    orm: "kysely",
-    uiKit: "shadcn-base-ui",
-    tools: [],
-  },
-} satisfies Record<string, Choices>;
+export const installChoices = Object.fromEntries(
+  readyStacks.map((stack) => [stack, { exampleStack: stack }]),
+) as Record<Stack, Choices>;
 
-export type InstallName = keyof typeof installChoices;
+/** An install is named after its example's stack. */
+export type InstallName = Stack;
 
 /**
- * The installs whose added app opts in to their UI kit. In the other
- * installs with a kit, it opts out with --no-ui-kit.
+ * The stack robkit add gives the install whose example is on `stack`: the
+ * next one in robkit's list, wrapping round. So each stack is an example
+ * once and an added app once.
  */
-const addedUsesKit: ReadonlySet<string> = new Set(["react-hono"]);
+export function addedStackFor(stack: Stack): Stack {
+  const next =
+    readyStacks[(readyStacks.indexOf(stack) + 1) % readyStacks.length];
+  return next ?? stack;
+}
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -66,18 +51,14 @@ declare module "vitest" {
  * Makes an install for `choices` in a temp folder, as init with
  * `--install --link` does: linked to this checkout's `@robkit/*` packages,
  * with its dependencies installed and git initialised. Then adds an app on
- * its second generator, as the owner would with robkit add's flags, using
- * the install's UI kit if `kit` is set.
+ * the next stack, as the owner would with robkit add's flags.
  */
-export async function createInstall(
-  choices: Choices,
-  kit: boolean,
-): Promise<string> {
+export async function createInstall(choices: Choices): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
   await init(choices, dir, { link: true, install: true });
-  const [stack, other = stack] = choices.generators;
+  const other = addedStackFor(choices.exampleStack);
   await run(
-    choices.packageManager,
+    "pnpm",
     [
       "run",
       "robkit",
@@ -89,7 +70,6 @@ export async function createInstall(
       "open",
       "--icon",
       addedIcon,
-      ...(choices.uiKit ? [kit ? "--ui-kit" : "--no-ui-kit"] : []),
     ],
     { cwd: dir },
   );
@@ -97,7 +77,7 @@ export async function createInstall(
 }
 
 /**
- * Makes every install before any suite starts. pnpm and bun hard-link
+ * Makes every install before any suite starts. pnpm hard-links
  * packages from one shared store, so an install beside a running dev stack
  * touches the files under its core, and `node --watch` restarts core
  * mid-journey.
@@ -107,7 +87,7 @@ export default async function setup(project: TestProject) {
     await Promise.all(
       Object.entries(installChoices).map(
         async ([name, choices]) =>
-          [name, await createInstall(choices, addedUsesKit.has(name))] as const,
+          [name, await createInstall(choices)] as const,
       ),
     ),
   ) as Record<InstallName, string>;

@@ -1,8 +1,25 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { install, isPlatformApp } from "@robkit/session/addresses";
+import {
+  type InputProblem,
+  isPlatformApp,
+  isProblem,
+  isRecord,
+  parseJson,
+  readSlug,
+  type Slug,
+  problem,
+  type Domain,
+} from "@robkit/input";
+import {
+  type AppManifest,
+  appManifestJson,
+  readAppManifest,
+} from "@robkit/input/manifest";
+import { install } from "@robkit/input/addresses";
+import { isMissing } from "./files.ts";
 import type { Route } from "./proxy.ts";
-import { slugProblem } from "./slug.ts";
+import { CommandProblem } from "./run-command.ts";
 
 /**
  * One folder under `apps/`. Its folder name is its slug, which is also its
@@ -10,36 +27,77 @@ import { slugProblem } from "./slug.ts";
  * role named after its slug.
  */
 export interface App {
-  slug: string;
+  slug: Slug;
   dir: string;
   port: number;
   migrates: boolean;
   /**
    * What the manifest's `robkit` field declares for core's catalog: who may
-   * open the app once core adds it, and its icon. Core checks both.
+   * open the app once core adds it, and its icon.
    */
-  declares: Declares;
+  manifest: AppManifest;
 }
 
-export interface Declares {
-  access?: unknown;
-  icon?: unknown;
+/** What robkit reads from an app's `package.json`: its name, scripts and manifest. */
+export interface AppManifestFile {
+  name?: string;
+  scripts: Record<string, string>;
+  manifest: AppManifest;
 }
 
-interface PackageJson {
-  scripts?: Record<string, string>;
-  robkit?: Declares;
+function isScripts(value: unknown): value is Record<string, string> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((command) => typeof command === "string")
+  );
 }
 
-async function readManifest(dir: string): Promise<PackageJson | undefined> {
+/** An app's `package.json`, read from `value`, whose path `file` names. */
+export function readAppManifestFile(
+  value: unknown,
+  file: string,
+): AppManifestFile | InputProblem {
+  if (!isRecord(value)) {
+    return problem(`${file} must be a JSON object, as npm expects.`);
+  }
+  const { name, scripts = {}, robkit } = value;
+  if (name !== undefined && typeof name !== "string") {
+    return problem(
+      `${file}: name must be a string, such as "@internal/notes-app".`,
+    );
+  }
+  if (!isScripts(scripts)) {
+    return problem(
+      `${file}: scripts must be an object of script names to commands.`,
+    );
+  }
+  const manifest = readAppManifest(robkit);
+  if (isProblem(manifest)) return problem(`${file}: ${manifest.error}`);
+  return { ...(name !== undefined && { name }), scripts, manifest };
+}
+
+/**
+ * The `package.json` of the app in `apps/<folder>` under `root`, or undefined if
+ * the folder has none. Throws, naming the file, if it won't do.
+ */
+export async function appManifestFileIn(
+  root: string,
+  folder: string,
+): Promise<AppManifestFile | undefined> {
+  const file = `apps/${folder}/package.json`;
+  let text: string;
   try {
-    return JSON.parse(
-      await readFile(join(dir, "package.json"), "utf8"),
-    ) as PackageJson;
+    text = await readFile(join(root, file), "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    if (isMissing(error)) return undefined;
     throw error;
   }
+  const parsed = parseJson(text, file);
+  const read = isProblem(parsed)
+    ? parsed
+    : readAppManifestFile(parsed.json, file);
+  if (isProblem(read)) throw new CommandProblem(read.error);
+  return read;
 }
 
 /**
@@ -54,7 +112,7 @@ export async function discoverApps(
   const appsDir = join(root, "apps");
   const entries = await readdir(appsDir, { withFileTypes: true }).catch(
     (error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      if (isMissing(error)) return [];
       throw error;
     },
   );
@@ -64,27 +122,25 @@ export async function discoverApps(
     .sort();
 
   const apps: App[] = [];
-  for (const slug of slugs) {
-    const dir = join(appsDir, slug);
-    const manifest = await readManifest(dir);
-    if (!manifest) continue;
-    const problem = slugProblem(slug);
-    if (problem) throw new Error(`apps/${slug}: ${problem}`);
+  for (const name of slugs) {
+    const dir = join(appsDir, name);
+    const file = await appManifestFileIn(root, name);
+    if (!file) continue;
+    const slug = readSlug(name);
+    if (isProblem(slug))
+      throw new CommandProblem(`apps/${name}: ${slug.error}`);
     apps.push({
       slug,
       dir,
       port: firstPort + apps.length,
-      migrates: manifest.scripts?.migrate !== undefined,
-      declares: {
-        access: manifest.robkit?.access,
-        icon: manifest.robkit?.icon,
-      },
+      migrates: file.scripts.migrate !== undefined,
+      manifest: file.manifest,
     });
   }
   return apps;
 }
 
-export function routesFor(apps: readonly App[], domain: string): Route[] {
+export function routesFor(apps: readonly App[], domain: Domain): Route[] {
   return apps.map(({ slug, port }) => ({
     host: install({ domain }).host(slug),
     app: slug,
@@ -101,6 +157,6 @@ export function catalogOf(apps: readonly App[]): string {
   return JSON.stringify(
     apps
       .filter((app) => !isPlatformApp(app.slug))
-      .map(({ slug, declares }) => ({ slug, ...declares })),
+      .map(({ slug, manifest }) => ({ slug, ...appManifestJson(manifest) })),
   );
 }

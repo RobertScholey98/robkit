@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+# drizzle-kit writes these.
+**/drizzle/meta/
+# TanStack Router writes these.
+**/routeTree.gen.ts
+# Next.js writes these.
+**/next-env.d.ts

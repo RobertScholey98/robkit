@@ -1,12 +1,20 @@
+import { expect, it } from "vitest";
+import { handedBack, refreshing } from "./bounces.ts";
+import type { DevStack } from "./dev-stack.ts";
 import type { Page } from "playwright";
 import { launch } from "./browser.ts";
 import {
   expiredTwin,
   mainFrameRequests,
+  sessionCookieFor,
   type JourneyOptions,
 } from "./owner-journey.ts";
+import { exampleSlug } from "./install.ts";
 
-/** What the owner saw calling the Start example's server function. */
+/**
+ * What the owner saw calling the example's server from its page: Start's
+ * server function, or the Go example's API.
+ */
 export interface ServerFunctionJourney {
   /** The visit count on the page, then after one call with a live session. */
   visits: [number, number];
@@ -23,9 +31,10 @@ async function visitsOn(page: Page): Promise<number> {
 }
 
 /**
- * The owner signs in and calls the Start example's server function from the
- * page. Then their token expires without a page load, and the next call
- * sends the browser through core's refresh and back to the page.
+ * The owner signs in and calls the example's server from the page, with
+ * its "Visit again" button. Then their token expires without a page load,
+ * and the next call sends the browser through core's refresh and back to
+ * the page.
  */
 export async function serverFunctionJourney({
   install,
@@ -33,7 +42,7 @@ export async function serverFunctionJourney({
   username,
   password,
 }: JourneyOptions): Promise<ServerFunctionJourney> {
-  const app = `${install.origin("example")}/`;
+  const app = `${install.origin(exampleSlug)}/`;
   const browser = await launch();
   try {
     const context = await browser.newContext();
@@ -52,10 +61,7 @@ export async function serverFunctionJourney({
     await page.getByText(`Visits: ${String(first + 1)}`).waitFor();
     const second = await visitsOn(page);
 
-    const cookie = (await context.cookies()).find(
-      (c) => c.name === "robkit_session",
-    );
-    if (!cookie) throw new Error("signing in set no session cookie");
+    const cookie = await sessionCookieFor(context, app);
     await context.addCookies([
       { ...cookie, value: await expiredTwin(cookie.value, adminUrl) },
     ]);
@@ -76,4 +82,37 @@ export async function serverFunctionJourney({
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * The server function journey, as a test of `dev`. It runs only when `runs`
+ * says the example calls its server from its page, as Start's and Go's do.
+ */
+export function testServerFunctionJourney(dev: DevStack, runs: boolean): void {
+  it.runIf(runs)(
+    "sends a server function call with an expired session through core's refresh",
+    async () => {
+      await dev.claimed();
+      const example = dev.at(exampleSlug);
+
+      const journey = await serverFunctionJourney(dev.journey());
+
+      const [first] = journey.visits;
+      expect(journey).toEqual({
+        visits: [first, first + 1],
+        bounce: [
+          dev.at(
+            exampleSlug,
+            `/_robkit/refresh?next=${encodeURIComponent(example)}`,
+          ),
+          refreshing(dev, example),
+          handedBack(example, { token: true }),
+          example,
+        ],
+        bouncedTo: example,
+        // The expired call recorded nothing. The page load after it did.
+        visitsAfterBounce: first + 2,
+      });
+    },
+  );
 }

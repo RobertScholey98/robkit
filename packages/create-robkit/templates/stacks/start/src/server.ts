@@ -1,3 +1,4 @@
+import { orExit, readGuardEnv } from "@robkit/input";
 import { guarded, type GuardedContext } from "@robkit/start";
 import entry from "@tanstack/react-start/server-entry";
 
@@ -8,14 +9,8 @@ declare module "@tanstack/react-start" {
   }
 }
 
-function env(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`${name} is not set`);
-  return value;
-}
+// The app's slug and core's address, which pnpm dev and robkit deploy set.
+const guard = orExit(readGuardEnv(process.env));
 
 // The rule is the one the owner set for this app in admin.
-export default guarded(entry, {
-  app: env("ROBKIT_APP"),
-  core: env("ROBKIT_CORE_URL"),
-});
+export default guarded(entry, guard);

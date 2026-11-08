@@ -28,14 +28,91 @@ jobs:
         with:
           node-version-file: .node-version
           cache: pnpm
+      # The Go module's checks, and the React + Go install the whole-stack
+      # test makes, run Go's own tools.
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.27.3"
+          cache-dependency-path: |
+            go/go.mod
+            packages/create-robkit/templates/stacks/go/go.sum
       - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check
       # The end-to-end journey drives the stack in Chromium.
       - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
-      - run: pnpm turbo run lint typecheck test
+      - run: pnpm check:all
+        env:
+          # Turbo writes each task's times to .turbo/runs/, for the summary.
+          TURBO_RUN_SUMMARY: "true"
+      # The job summary lists each test task's time, the whole-stack test's
+      # among them.
+      # It prints them in the log too. `shell: bash` sets pipefail, so the
+      # step still fails if the script does.
+      - if: ${{ !cancelled() }}
+        shell: bash
+        run: node tooling/repo-checks/src/print-test-times.ts | tee -a "$GITHUB_STEP_SUMMARY"
+      # Fails on a coverage threshold more than 2 points under what this run
+      # just measured, and says what to raise it to.
+      - run: node tooling/repo-checks/src/check-coverage-ratchet.ts
+      # Each package's coverage report, to see what its tests miss.
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: coverage
+          path: |
+            packages/*/coverage/
+            tooling/*/coverage/
 
-  # A pairwise set of generated installs, each passing its own CI.
-  kit-matrix:
-    uses: ./.github/workflows/kit-matrix.yml
-    with:
-      set: pull-request
+  # What a pull request's own changes must keep to, checked against its base.
+  pull-request:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Reads the pull request's body for its ticket.
+      pull-requests: read
+    env:
+      BASE: ${{ github.event.pull_request.base.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The same check the commit-msg hook runs, on every commit but merges.
+      - run: node tooling/repo-checks/src/check-commit-subjects.ts --range "$BASE..HEAD"
+      - run: node tooling/repo-checks/src/check-coverage-thresholds.ts "$BASE"
+      # Fails when a published package's source changed without a changeset.
+      - run: pnpm changeset status --since="$BASE"
+      # Fails when main's ruleset stops requiring a pull request and gate, or
+      # stops blocking force pushes and deletion. `shell: bash` sets
+      # pipefail, so the step fails if gh does.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: gh api "repos/$GITHUB_REPOSITORY/rules/branches/main" | node tooling/repo-checks/src/check-branch-rules.ts
+      # The Ticket section must name a ticket file that exists. It reads the
+      # body now, not from the event, so a re-run sees an edited body. A
+      # bot's pull request, such as Renovate's, works no ticket.
+      - if: github.event.pull_request.user.type != 'Bot'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: PR_BODY="$(gh pr view "$PR" --json body --jq .body)" node tooling/repo-checks/src/check-pr-ticket.ts
+
+  # The one check branch protection requires. It passes only if every job
+  # above passed, or was skipped because it runs only on pull requests.
+  gate:
+    if: ${{ always() }}
+    needs: [check, pull-request]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: echo "$RESULTS"
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || (github.event_name == 'pull_request' && contains(needs.*.result, 'skipped')) }}
+        run: exit 1

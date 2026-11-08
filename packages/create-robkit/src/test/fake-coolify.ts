@@ -14,6 +14,13 @@ export interface FakeCoolify {
   outcomes: Record<string, string>;
   /** Every request, in order. */
   requests: { method: string; path: string; body: unknown }[];
+  /**
+   * Answers a route, such as `GET /servers`, in place of the fake's own
+   * answer, or never answers it. Undefined leaves it to the fake.
+   */
+  answer?: (
+    route: string,
+  ) => { status: number; body: unknown } | "hang" | undefined;
 }
 
 export function fakeCoolify(overrides: Partial<FakeCoolify> = {}): FakeCoolify {
@@ -37,7 +44,7 @@ function handle(
   method: string,
   url: string,
   body: unknown,
-): { status: number; body: unknown } {
+): { status: number; body: unknown } | "hang" {
   const { pathname, searchParams } = new URL(url);
   const path = pathname.replace(/^\/api\/v1/, "");
   state.requests.push({
@@ -48,6 +55,8 @@ function handle(
   const id = /^\/(?:applications|deployments)\/([^/]+)/.exec(path)?.[1] ?? "";
   const app = state.applications.find((candidate) => candidate.uuid === id);
   const route = `${method} ${path}`;
+  const answered = state.answer?.(route);
+  if (answered) return answered;
   const missing = { status: 404, body: { message: "Application not found." } };
 
   if (route === "GET /projects") return { status: 200, body: state.projects };
@@ -103,7 +112,10 @@ function handle(
   return { status: 404, body: { message: `no route ${route}` } };
 }
 
-/** A `fetch` that answers from `state`. */
+/**
+ * A `fetch` that answers from `state`. A route it hangs on waits until the
+ * request's signal aborts.
+ */
 export function fakeFetch(state: FakeCoolify): typeof fetch {
   return async (input, init) => {
     const request = new Request(input, init);
@@ -114,6 +126,16 @@ export function fakeFetch(state: FakeCoolify): typeof fetch {
       request.url,
       raw ? (JSON.parse(raw) as unknown) : undefined,
     );
+    if (result === "hang") {
+      // The caller's signal, not the Request's: that only follows it weakly,
+      // so once garbage collection takes the Request, it never aborts.
+      const signal = init?.signal ?? request.signal;
+      return new Promise((_, reject) => {
+        signal.addEventListener("abort", () => {
+          reject(signal.reason as Error);
+        });
+      });
+    }
     return new Response(JSON.stringify(result.body), { status: result.status });
   };
 }

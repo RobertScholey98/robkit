@@ -1,56 +1,55 @@
 packages:
   - packages/*
   - tooling/*
+  # The Go module, so the gates run Go's own tools on it.
+  - go
 
 # Every external version lives here. Package manifests use `catalog:`.
 catalogMode: strict
 
 catalog:
+  "@arethetypeswrong/core": 0.18.5
   "@axe-core/playwright": 4.14.0
   "@base-ui/react": 1.9.0
-  "@chakra-ui/react": 3.37.0
+  "@changesets/cli": 3.0.3
   "@clack/prompts": 1.8.1
-  "@emotion/react": 11.14.0
+  "@eslint-community/eslint-plugin-eslint-comments": 4.8.1
   "@eslint/js": 10.0.1
   "@fontsource-variable/geist": 5.3.0
   "@hono/node-server": 2.1.5
   "@hono/vite-dev-server": 0.26.1
-  # An install with Playwright runs it. Keep it at playwright's version, so
-  # both use the browsers the whole-stack test installs.
-  "@playwright/test": 1.64.1
-  "@prisma/adapter-pg": 7.10.1
-  "@prisma/client": 7.10.1
+  "@tailwindcss/postcss": 4.3.3
   "@tailwindcss/vite": 4.3.3
   "@tanstack/react-router": 1.170.46
   "@tanstack/react-start": 1.169.4
+  "@testing-library/dom": 10.4.2
+  "@testing-library/react": 16.3.3
+  "@testing-library/user-event": 14.6.8
+  "@types/express": 5.0.6
   "@types/node": 26.6.5
-  "@types/pg": 8.23.1
   "@types/react": 19.3.0
   "@types/react-dom": 19.3.0
   "@vitejs/plugin-react": 6.1.2
-  # yarn 4 itself, without Corepack. Only the whole-stack test runs it, for
-  # the yarn installs it makes.
-  "@yarnpkg/cli-dist": 4.18.1
-  # Only the whole-stack test runs it, for the bun installs it makes.
-  bun: 1.4.4
+  "@vitest/coverage-v8": 5.0.5
   class-variance-authority: 0.7.1
   cn: 0.5.2
   drizzle-kit: 0.31.11
   drizzle-orm: 0.45.4
   eslint: 10.13.0
+  express: 5.3.0
   globals: 17.13.0
+  happy-dom: 21.0.4
   hono: 4.13.14
   husky: 9.1.7
   jose: 6.2.13
-  kysely: 0.29.8
+  knip: 6.44.1
   lint-staged: 17.6.0
   lucide-react: 1.66.0
-  pg: 8.23.1
+  next: 16.4.5
   playwright: 1.64.1
   postgres: 3.4.9
   prettier: 3.9.10
-  prisma: 7.10.1
-  radix-ui: 1.8.1
+  publint: 0.3.25
   react: 19.3.1
   react-dom: 19.3.1
   shadcn: 4.23.0
@@ -67,6 +66,4 @@ catalog:
 # esbuild ships its binary as an optional dependency, so its install script
 # has nothing to do.
 allowBuilds:
-  # Its install script puts the platform binary in place.
-  bun: true
   esbuild: false

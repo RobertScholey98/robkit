@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, customFetch, type JWTVerifyGetKey } from "jose";
-import { loopbackFetch } from "./loopback-fetch.ts";
+import { coreFetch } from "./loopback-fetch.ts";
 
 /**
  * Core's public keys, fetched from its JWKS endpoint on first use and cached
@@ -11,6 +11,6 @@ import { loopbackFetch } from "./loopback-fetch.ts";
 export function coreKeys(coreOrigin: string): JWTVerifyGetKey {
   return createRemoteJWKSet(new URL("/.well-known/jwks.json", coreOrigin), {
     cacheMaxAge: Infinity,
-    [customFetch]: loopbackFetch,
+    [customFetch]: coreFetch,
   });
 }

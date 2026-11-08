@@ -1,10 +1,12 @@
+import { type InputProblem, isProblem, problem } from "@robkit/input";
 import { hashPassword } from "./password.ts";
+import { storedRow } from "./database.ts";
 import { owner } from "./schema.ts";
 import {
   startSession,
   type SessionContext,
   type SignedIn,
-} from "./sessions.ts";
+} from "./session-store.ts";
 
 /** The username, trimmed, and password someone sent to sign in as the owner. */
 export interface Credentials {
@@ -15,10 +17,10 @@ export interface Credentials {
 /** The username and password a request sent, or why they won't do. */
 export function readCredentials(
   fields: Record<string, unknown>,
-): Credentials | { error: string } {
+): Credentials | InputProblem {
   const { username, password } = fields;
   if (typeof username !== "string" || typeof password !== "string") {
-    return { error: "Send a username and a password." };
+    return problem("Send a username and a password.");
   }
   return { username: username.trim(), password };
 }
@@ -26,15 +28,15 @@ export function readCredentials(
 /** The new owner's username and password, or why they won't do. */
 export function readNewOwner(
   fields: Record<string, unknown>,
-): Credentials | { error: string } {
+): Credentials | InputProblem {
   const credentials = readCredentials(fields);
-  if ("error" in credentials) return credentials;
+  if (isProblem(credentials)) return credentials;
   const { username, password } = credentials;
   if (username.length < 1 || username.length > 64) {
-    return { error: "Pick a username of 1 to 64 characters." };
+    return problem("Pick a username of 1 to 64 characters.");
   }
   if (password.length < 12) {
-    return { error: "Pick a password of at least 12 characters." };
+    return problem("Pick a password of at least 12 characters.");
   }
   return credentials;
 }
@@ -63,15 +65,19 @@ export async function claimInstall(
   const passwordHash = await hashPassword(password);
   try {
     return await ctx.db.transaction(async (tx) => {
-      const [created] = await tx
+      const [inserted] = await tx
         .insert(owner)
         .values({ username, passwordHash, createdAt: ctx.now() })
         .returning({ id: owner.id, username: owner.username });
-      if (!created) throw new Error("Core couldn't store the owner.");
+      const created = storedRow(
+        inserted,
+        `the owner ${username}`,
+        "core.owner",
+      );
       return {
         outcome: "claimed",
         ...(await startSession(ctx, tx, {
-          viewer: { kind: "owner", ...created },
+          profile: { kind: "owner", ...created },
           roles: [],
         })),
       };

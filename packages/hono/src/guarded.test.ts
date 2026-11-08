@@ -1,26 +1,33 @@
-import { conformanceAnswer, fakeCore } from "@internal/test-session";
+import {
+  callbackFor,
+  conformanceAnswer,
+  fakeCore,
+  owner,
+  stateIn,
+  slug,
+} from "@internal/test-session";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { guarded, type GuardedEnv } from "./index.ts";
 
+const example = slug("example");
+
 // requestGuard's own tests cover the guard. These cover the Hono glue: the
 // guard's answer goes out as is, and handlers behind it read c.var.viewer.
 
 const page = "http://example.robkit.localhost:3000/notes?x=1";
+const navigate = { "sec-fetch-mode": "navigate" };
 
 describe("guarded", () => {
   it.each(conformanceCases)("$name", async (asking) => {
     const core = await fakeCore();
     const app = new Hono<GuardedEnv>()
-      .use(guarded({ access: asking.rule, core: core.origin }))
+      .use(guarded({ app: example, access: asking.rule, core: core.origin }))
       .get("*", (c) => c.json(c.var.viewer));
 
     const res = await app.request(page, {
-      headers: {
-        "sec-fetch-mode": "navigate",
-        ...(await core.key.cookieFor(asking)),
-      },
+      headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
     });
 
     expect({
@@ -33,7 +40,13 @@ describe("guarded", () => {
   it("answers a call from the page with the guard's 401", async () => {
     const core = await fakeCore();
     const app = new Hono<GuardedEnv>()
-      .use(guarded({ access: { kind: "owner" }, core: core.origin }))
+      .use(
+        guarded({
+          app: example,
+          access: { kind: "owner" },
+          core: core.origin,
+        }),
+      )
       .post("*", (c) => c.json(c.var.viewer));
 
     const res = await app.request(page, {
@@ -45,5 +58,35 @@ describe("guarded", () => {
       401,
       "login",
     ]);
+  });
+
+  it("takes the app's token from core at the guard's callback, whatever routes the app has", async () => {
+    const core = await fakeCore();
+    const app = new Hono<GuardedEnv>()
+      .use(
+        guarded({
+          app: example,
+          access: { kind: "owner" },
+          core: core.origin,
+        }),
+      )
+      .get("/notes", (c) => c.json(c.var.viewer));
+    const away = await app.request(page, { headers: navigate });
+    const [state] = away.headers.getSetCookie();
+
+    const back = await app.request(
+      callbackFor(page, {
+        state: stateIn(away.headers.get("location")),
+        token: await core.key.token(),
+      }),
+      { headers: { ...navigate, cookie: state?.split(";")[0] ?? "" } },
+    );
+    const [session] = back.headers.getSetCookie();
+    const res = await app.request(page, {
+      headers: { ...navigate, cookie: session?.split(";")[0] ?? "" },
+    });
+
+    expect([back.status, back.headers.get("location")]).toEqual([302, page]);
+    expect(await res.json()).toEqual(owner);
   });
 });

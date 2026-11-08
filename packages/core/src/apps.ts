@@ -2,8 +2,22 @@ import {
   guard,
   readAccessRule,
   type AccessRule,
+  type RoleId,
   type SessionState,
 } from "@robkit/guard";
+import {
+  type Env,
+  type InputProblem,
+  isProblem,
+  parseJson,
+  problem,
+  type Slug,
+} from "@robkit/input";
+import {
+  type ManifestAccess,
+  type ListedApp,
+  readListedApp,
+} from "@robkit/input/manifest";
 import { asc, eq, inArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
@@ -25,70 +39,39 @@ export type AccessChange =
 /** The rule the owner sent for an app, or why it won't do. */
 export function readAccess(
   fields: Record<string, unknown>,
-): AccessRule | { error: string } {
+): AccessRule | InputProblem {
   const rule = readAccessRule(fields);
-  if (rule && !(rule.kind === "roles" && rule.roles.length === 0)) return rule;
+  if (!isProblem(rule) && !(rule.kind === "roles" && rule.roles.length === 0)) {
+    return rule;
+  }
   return fields.kind === "roles"
-    ? { error: "Pick at least one role." }
-    : { error: "Pick open, roles or owner." };
-}
-
-/**
- * An app as the install declares it in its manifest, which the dev runner
- * hands core as `ROBKIT_APPS`. A rule's roles are named, not ids.
- */
-export interface DeclaredApp {
-  slug: string;
-  /** Who may open the app once core adds it. Owner-only if left out. */
-  access?: AccessRule;
-  /** An emoji the launcher shows. */
-  icon?: string;
-}
-
-function readDeclaredApp(value: unknown): DeclaredApp | string {
-  if (typeof value !== "object" || value === null) return "isn't an object";
-  const { slug, access, icon } = value as Record<string, unknown>;
-  if (typeof slug !== "string" || slug === "") return "has no slug";
-  const app: DeclaredApp = { slug };
-  if (access !== undefined) {
-    const rule = readAccess(isRecord(access) ? access : {});
-    if ("error" in rule) return `${slug}'s access: ${rule.error}`;
-    app.access = rule;
-  }
-  if (icon !== undefined) {
-    if (typeof icon !== "string" || icon === "" || icon.length > 16) {
-      return `${slug}'s icon should be an emoji`;
-    }
-    app.icon = icon;
-  }
-  return app;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+    ? problem("Pick at least one role.")
+    : problem("Pick open, roles or owner.");
 }
 
 /**
  * Reads `ROBKIT_APPS`: a JSON list of the install's apps as they declare
- * themselves. Empty or unset means none. Throws, saying what's wrong, rather
- * than letting core start with a catalog it misread.
+ * themselves, which the dev runner and robkit deploy write from each app's
+ * manifest. Empty or unset means none.
  */
-export function readDeclaredApps(text: string | undefined): DeclaredApp[] {
+export function readListedApps(env: Env): ListedApp[] | InputProblem {
+  const text = env.ROBKIT_APPS;
   if (text === undefined || text.trim() === "") return [];
-  let list: unknown;
-  try {
-    list = JSON.parse(text);
-  } catch {
-    throw new Error("ROBKIT_APPS isn't JSON.");
+  const parsed = parseJson(text, "ROBKIT_APPS");
+  if (isProblem(parsed)) return parsed;
+  const { json } = parsed;
+  if (!Array.isArray(json)) {
+    return problem(
+      `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`,
+    );
   }
-  if (!Array.isArray(list)) throw new Error("ROBKIT_APPS isn't a list.");
-  return list.map((value, index) => {
-    const app = readDeclaredApp(value);
-    if (typeof app === "string") {
-      throw new Error(`ROBKIT_APPS: app ${String(index + 1)} ${app}.`);
-    }
-    return app;
-  });
+  const apps: ListedApp[] = [];
+  for (const [index, value] of json.entries()) {
+    const app = readListedApp(value, `ROBKIT_APPS[${String(index)}]`);
+    if (isProblem(app)) return app;
+    apps.push(app);
+  }
+  return apps;
 }
 
 /**
@@ -97,11 +80,11 @@ export function readDeclaredApps(text: string | undefined): DeclaredApp[] {
  * if the owner has none of that name. An app core knows keeps the rule the
  * owner gave it, and takes the icon it declares now.
  */
-const owner: AccessRule = { kind: "owner" };
+const owner: ManifestAccess = { kind: "owner" };
 
 export async function registerApps(
   db: Database,
-  declared: readonly DeclaredApp[],
+  declared: readonly ListedApp[],
 ): Promise<void> {
   if (declared.length === 0) return;
   await db.transaction(async (tx) => {
@@ -130,7 +113,7 @@ export async function registerApps(
         .insert(apps)
         .values({ slug, name: slug, access: access.kind, icon: icon ?? null });
       if (access.kind !== "roles") continue;
-      for (const name of new Set(access.roles)) {
+      for (const name of new Set(access.roleNames)) {
         await tx
           .insert(roles)
           .values({ name })
@@ -170,7 +153,7 @@ export async function listApps(db: Database): Promise<AppView[]> {
 
 function ruleOf(
   kind: (typeof apps.$inferSelect)["access"],
-  roleIds: string[],
+  roleIds: RoleId[],
 ): AccessRule {
   return kind === "roles" ? { kind, roles: roleIds } : { kind };
 }
@@ -178,15 +161,27 @@ function ruleOf(
 /** Who may open the app, or undefined if core doesn't know it. */
 export async function accessOf(
   db: Database,
-  slug: string,
+  slug: Slug,
 ): Promise<AccessRule | undefined> {
-  return (await listApps(db)).find((app) => app.slug === slug)?.access;
+  const rows = await db
+    .select({ access: apps.access, roleId: appRoles.roleId })
+    .from(apps)
+    .leftJoin(appRoles, eq(appRoles.appSlug, apps.slug))
+    .leftJoin(roles, eq(appRoles.roleId, roles.id))
+    .where(eq(apps.slug, slug))
+    .orderBy(asc(roles.name));
+  const [app] = rows;
+  if (!app) return undefined;
+  return ruleOf(
+    app.access,
+    rows.flatMap(({ roleId }) => (roleId === null ? [] : [roleId])),
+  );
 }
 
 /** Sets who may open the app. A rule's roles must all exist. */
 export async function setAccess(
   db: Database,
-  slug: string,
+  slug: Slug,
   rule: AccessRule,
 ): Promise<AccessChange> {
   return db.transaction(async (tx) => {

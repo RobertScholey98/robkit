@@ -1,3 +1,0 @@
-[install]
-# Refuse any version published less than a day ago, in seconds.
-minimumReleaseAge = 86400

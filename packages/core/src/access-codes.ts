@@ -1,7 +1,9 @@
 import { randomInt } from "node:crypto";
 import { desc, eq, sql } from "drizzle-orm";
+import type { CodeId } from "@robkit/guard";
+import { isLocal } from "@robkit/input/addresses";
+import { type InputProblem, problem, type Domain } from "@robkit/input";
 import type { Database } from "./database.ts";
-import { isLocal } from "./domain.ts";
 import { accessCodes } from "./schema.ts";
 
 declare const accessCodeBrand: unique symbol;
@@ -9,10 +11,14 @@ declare const accessCodeBrand: unique symbol;
 /** An access code as core stores it: 3 to 32 upper-case letters or digits. */
 export type AccessCode = string & { readonly [accessCodeBrand]: true };
 
+function isAccessCode(code: string): code is AccessCode {
+  return /^[A-Z0-9]{3,32}$/.test(code);
+}
+
 /** Reads what someone typed as an access code, ignoring case and spaces around it. */
 export function parseAccessCode(input: string): AccessCode | undefined {
   const code = input.trim().toUpperCase();
-  return /^[A-Z0-9]{3,32}$/.test(code) ? (code as AccessCode) : undefined;
+  return isAccessCode(code) ? code : undefined;
 }
 
 // No look-alikes such as 0 and O or 1 and I, so a code survives being read
@@ -21,11 +27,19 @@ const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const generatedLength = 5;
 const generateAttempts = 5;
 
-function generateAccessCode(): AccessCode {
+/**
+ * A new code of 5 characters from `alphabet`. `pick` chooses each one's
+ * index below its argument; it is random unless a test passes its own.
+ */
+export function generateAccessCode(
+  pick: (below: number) => number = randomInt,
+): AccessCode {
   const characters = Array.from({ length: generatedLength }, () =>
-    alphabet.charAt(randomInt(alphabet.length)),
+    alphabet.charAt(pick(alphabet.length)),
   );
-  return characters.join("") as AccessCode;
+  const code = characters.join("");
+  if (!isAccessCode(code)) throw new Error(`${code} isn't an access code.`);
+  return code;
 }
 
 /** The code every install is seeded with, for trying robkit out locally. */
@@ -46,7 +60,7 @@ export function standingOf(
     revokedAt,
   }: { code: string; expiresAt: Date | null; revokedAt: Date | null },
   now: Date,
-  domain: string,
+  domain: Domain,
 ): Standing {
   if (revokedAt) return "revoked";
   if (expiresAt && expiresAt <= now) return "expired";
@@ -56,7 +70,7 @@ export function standingOf(
 
 /** An access code as admin shows it to the owner. */
 export interface CodeView {
-  id: string;
+  id: CodeId;
   code: string;
   /** The guest's name. */
   name: string;
@@ -68,7 +82,7 @@ export interface CodeView {
 
 type CodeRow = typeof accessCodes.$inferSelect;
 
-function viewOf(row: CodeRow, now: Date, domain: string): CodeView {
+function viewOf(row: CodeRow, now: Date, domain: Domain): CodeView {
   return {
     id: row.id,
     code: row.code,
@@ -92,10 +106,10 @@ export interface NewCode {
 export function readNewCode(
   fields: Record<string, unknown>,
   now: Date,
-): NewCode | { error: string } {
+): NewCode | InputProblem {
   const name = typeof fields.name === "string" ? fields.name.trim() : "";
   if (name.length < 1 || name.length > 80) {
-    return { error: "Give the guest a name of 1 to 80 characters." };
+    return problem("Give the guest a name of 1 to 80 characters.");
   }
   let code: AccessCode | undefined;
   if (fields.code !== undefined && fields.code !== null) {
@@ -103,14 +117,14 @@ export function readNewCode(
       typeof fields.code === "string"
         ? parseAccessCode(fields.code)
         : undefined;
-    if (!code) return { error: "Use 3 to 32 letters or digits for the code." };
+    if (!code) return problem("Use 3 to 32 letters or digits for the code.");
   }
   let expiresAt: Date | null = null;
   if (fields.expiresAt !== undefined && fields.expiresAt !== null) {
     expiresAt =
       typeof fields.expiresAt === "string" ? new Date(fields.expiresAt) : null;
     if (!expiresAt || !(expiresAt > now)) {
-      return { error: "Pick an expiry in the future." };
+      return problem("Pick an expiry in the future.");
     }
   }
   return code ? { name, code, expiresAt } : { name, expiresAt };
@@ -121,7 +135,7 @@ export type Mint = { outcome: "minted"; code: CodeView } | { outcome: "taken" };
 export async function listCodes(
   db: Database,
   now: Date,
-  domain: string,
+  domain: Domain,
 ): Promise<CodeView[]> {
   const rows = await db
     .select()
@@ -138,7 +152,7 @@ export async function mintCode(
   db: Database,
   { name, code, expiresAt }: NewCode,
   now: Date,
-  domain: string,
+  domain: Domain,
 ): Promise<Mint> {
   const insert = async (value: AccessCode) => {
     const [row] = await db
@@ -158,7 +172,9 @@ export async function mintCode(
     const row = await insert(generateAccessCode());
     if (row) return { outcome: "minted", code: viewOf(row, now, domain) };
   }
-  throw new Error("Core couldn't find a free access code.");
+  throw new Error(
+    `Core couldn't find a free access code in ${String(generateAttempts)} attempts: each code it generated was already in core.access_codes.`,
+  );
 }
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -174,7 +190,7 @@ export function isUuid(id: string): boolean {
  */
 export async function revokeCode(
   db: Database,
-  id: string,
+  id: CodeId,
   now: Date,
 ): Promise<boolean> {
   if (!isUuid(id)) return false;

@@ -1,14 +1,18 @@
-export { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
-export { packageManagerOf } from "./package-manager.ts";
-export { createProxy, type Route } from "./proxy.ts";
+// What an install and create-robkit use beside the runner: the apps under
+// apps/ and the provision step. The robkit-dev bin imports the runner's
+// parts directly, and the command-line helpers are in ./cli.ts.
+
+export {
+  appManifestFileIn,
+  catalogOf,
+  discoverApps,
+  type App,
+  type AppManifestFile,
+} from "./apps.ts";
+export { readProvisionConfig, type ProvisionConfig } from "./env.ts";
 export {
   databasePassword,
   databaseUrl,
-  provisionApps,
-  provisionDatabase,
   provisionDatabases,
   type ProvisionDatabasesOptions,
-  type ProvisionOptions,
 } from "./provision.ts";
-export { runDev } from "./runner.ts";
-export { slugProblem } from "./slug.ts";

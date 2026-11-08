@@ -1,10 +1,16 @@
+import { expect, it } from "vitest";
+import { handedBack, refreshing } from "./bounces.ts";
+import type { DevStack } from "./dev-stack.ts";
+import type { Slug } from "@robkit/input";
 import type { Browser, Page } from "playwright";
 import { launch } from "./browser.ts";
 import {
   expiredTwin,
   mainFrameRequests,
+  sessionCookieFor,
   type JourneyOptions,
 } from "./owner-journey.ts";
+import { exampleSlug } from "./install.ts";
 
 /** How an app answered a page load. */
 export interface Answer {
@@ -27,7 +33,10 @@ export interface GuestJourney {
   testCodeGreeting: string | null;
   /** The code's standing in admin once the owner revoked it. */
   revokedStanding: string | null;
-  /** Each page the guest's browser requested next, with an expired token. */
+  /**
+   * Each page the guest's browser requested next, with the example's token
+   * expired.
+   */
   bounce: string[];
   /** Where that ended. */
   afterRevokeAt: string;
@@ -58,7 +67,7 @@ export async function guestJourney({
   username,
   password,
 }: JourneyOptions): Promise<GuestJourney> {
-  const at = (slug: string, path = "/") => `${install.origin(slug)}${path}`;
+  const at = (slug: Slug, path = "/") => `${install.origin(slug)}${path}`;
   const browser = await launch();
   try {
     const owner = await freshPage(browser);
@@ -79,7 +88,7 @@ export async function guestJourney({
     const introGreeting = await signedInAs(guest);
     const introLandedAt = guest.url();
     const admin = await openAs(guest, at("admin"));
-    const example = await openAs(guest, at("example"));
+    const example = await openAs(guest, at(exampleSlug));
 
     const tester = await freshPage(browser);
     await tester.goto(at("hub"));
@@ -91,15 +100,12 @@ export async function guestJourney({
     const revokedStanding = await row.getByText("Revoked").textContent();
 
     const context = guest.context();
-    const cookie = (await context.cookies()).find(
-      (c) => c.name === "robkit_session",
-    );
-    if (!cookie) throw new Error("the intro link set no session cookie");
+    const cookie = await sessionCookieFor(context, at(exampleSlug));
     await context.addCookies([
       { ...cookie, value: await expiredTwin(cookie.value, adminUrl) },
     ]);
     const bounce = mainFrameRequests(guest);
-    await guest.goto(at("example"));
+    await guest.goto(at(exampleSlug));
     await guest.getByLabel("Access code").waitFor();
 
     return {
@@ -117,4 +123,36 @@ export async function guestJourney({
   } finally {
     await browser.close();
   }
+}
+
+/** The guests' journey, as a test of `dev`. */
+export function testGuestJourney(dev: DevStack): void {
+  it("signs guests in with codes, keeps them out of owner-only apps, and ends a revoked code's session", async () => {
+    await dev.claimed();
+    const example = dev.at(exampleSlug);
+    const notFound = { status: 404, body: "Not found" };
+
+    const journey = await guestJourney(dev.journey());
+
+    expect(journey).toEqual({
+      code: expect.stringMatching(
+        /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{5}$/,
+      ) as string,
+      introLink: dev.at("hub", `/i/${journey.code ?? ""}`),
+      introLandedAt: dev.at("hub"),
+      introGreeting: "Signed in as Grandma",
+      admin: notFound,
+      example: notFound,
+      testCodeGreeting: "Signed in as Test",
+      revokedStanding: "Revoked",
+      bounce: [
+        example,
+        refreshing(dev, example),
+        handedBack(example, { token: false }),
+        example,
+        dev.at("hub", `/?next=${encodeURIComponent(example)}`),
+      ],
+      afterRevokeAt: dev.at("hub", `/?next=${encodeURIComponent(example)}`),
+    });
+  });
 }

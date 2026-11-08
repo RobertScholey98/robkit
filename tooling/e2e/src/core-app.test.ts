@@ -6,7 +6,11 @@ import {
   startPostgres,
   type TestPostgres,
 } from "@internal/test-postgres";
-import { provisionDatabase } from "@robkit/dev";
+import {
+  databasePassword,
+  databaseUrl as appDatabaseUrl,
+  provisionDatabases,
+} from "@robkit/dev";
 import postgres from "postgres";
 import {
   afterAll,
@@ -26,7 +30,17 @@ const children: ChildProcess[] = [];
 beforeAll(async () => {
   database = await startPostgres();
   admin = postgres(database.adminUrl, { max: 1 });
-  databaseUrl = await provisionDatabase(database.adminUrl, "core");
+  const secret = "core's test database secret, not a real one";
+  await provisionDatabases({
+    adminUrl: database.adminUrl,
+    secret,
+    slugs: ["core"],
+  });
+  databaseUrl = appDatabaseUrl(
+    database.adminUrl,
+    "core",
+    databasePassword(secret, "core"),
+  );
 });
 
 afterEach(() => {

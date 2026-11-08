@@ -11,7 +11,8 @@
   "dependencies": {
     "@hono/node-server": "catalog:",
     "@robkit/core": "catalog:",
-    "@robkit/dev": "catalog:"
+    "@robkit/dev": "catalog:",
+    "@robkit/input": "catalog:"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",

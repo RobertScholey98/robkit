@@ -1,170 +1,204 @@
 import {
   guard,
   type AccessRule,
+  type Decision,
   type SessionState,
   type Viewer,
 } from "@robkit/guard";
-import { coreAccess } from "./core-access.ts";
-import { coreKeys } from "./core-keys.ts";
-import { installAt } from "./install-addresses.ts";
-import { sessionLapsedResponse } from "./session-lapsed.ts";
-import { readSessionToken, sessionCookie } from "./session-token.ts";
+import type { CoreOrigin, Slug } from "@robkit/input";
+import { coreInstall, isLocal } from "@robkit/input/addresses";
+import { appRefreshPath } from "./app-session.ts";
+import {
+  AccessRuleError,
+  coreAccess,
+  type AccessRuleFailure,
+} from "./core-access.ts";
+import { isNavigation, publicUrl, redirect, text } from "./guard-http.ts";
+import { sessionLapsedResponse } from "./lapsed.ts";
+import { CoreUnreachableError } from "./loopback-fetch.ts";
+import { refreshProtocol } from "./refresh-protocol.ts";
+import { reportToConsole } from "@robkit/input/report";
 
-/** Who may open the app: a rule of its own, or the one the owner set in admin. */
-export type GuardedRule =
-  | {
-      /** A fixed rule, for an app core's catalog doesn't hold, such as admin. */
-      access: AccessRule;
-    }
-  | {
-      /**
-       * The app's slug. Its rule comes from core's catalog and is kept for
-       * a minute, so a change in admin reaches the app within one.
-       */
-      app: string;
-    };
-
-export type GuardedOptions = GuardedRule & {
+export interface GuardedOptions {
   /**
-   * Core's public origin, such as `http://core.robkit.localhost:3000`. The
-   * hub is beside it on `hub.`. Config, never the request's Host, so a
-   * request can't choose whose keys the app trusts.
+   * The app's slug, which is also its subdomain. The guard accepts only a
+   * token core minted for this slug.
    */
-  core: string;
-};
-
-/** What the app does with a request: serve it to the viewer, or answer it. */
-export type RequestDecision = { viewer: Viewer } | { response: Response };
-
-/** The URL the browser asked for, as it saw it in front of the proxy. */
-function publicUrl(request: Request): URL {
-  const url = new URL(request.url);
-  const proto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  if (proto === "https" || proto === "http") url.protocol = `${proto}:`;
-  return url;
-}
-
-/** Core's origin and the hub's beside it, from core's public origin. */
-function platformOrigins(core: string): { core: string; hub: string } {
-  const install = installAt(core, "core");
-  if (!install) {
-    throw new Error(
-      `core must be core's public origin, such as http://core.robkit.localhost:3000, not ${core}`,
-    );
-  }
-  return { core: install.origin("core"), hub: install.origin("hub") };
+  app: Slug;
+  /**
+   * A fixed rule, for an app core's catalog doesn't hold, such as admin.
+   * Without one, the rule comes from core's catalog and is kept for a
+   * minute, so a change in admin reaches the app within one.
+   */
+  access?: AccessRule | undefined;
+  /**
+   * Core's public origin, such as `http://core.robkit.localhost:3000`, as
+   * `readCoreUrl` read it. The hub is beside it on `hub.`. Config, never
+   * the request's Host, so a request can't choose whose keys the app trusts.
+   */
+  core: CoreOrigin;
+  /**
+   * Hears why the guard answered 503 because it couldn't check a request.
+   * By default it reports the app's slug, what failed and the cause through
+   * `reportToConsole`.
+   */
+  onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 
 /**
- * A page load can follow a redirect to the hub or core. A fetch from the
- * page, or a server calling the app, can't, so it gets 401 and the place to
- * send the browser. Without fetch metadata, only a request that accepts HTML
- * counts as a page load.
+ * Why the guard couldn't check a request, so answered 503 rather than
+ * treating the viewer as signed out. `failed` says what failed: checking
+ * the session against core's key, loading the app's access rule, or
+ * reaching core at all. When core answered but not with the rule, `reason`
+ * says how.
  */
-function isNavigation(request: Request): boolean {
-  if (request.method !== "GET" && request.method !== "HEAD") return false;
-  const mode = request.headers.get("sec-fetch-mode");
-  if (mode !== null) return mode === "navigate";
-  return request.headers.get("accept")?.includes("text/html") ?? false;
+export type GuardFault = {
+  /** The app's slug. */
+  app: Slug;
+  /** The error behind it. */
+  cause: unknown;
+} & (
+  | { failed: "core-key" | "network" }
+  | { failed: "access-rule"; reason: AccessRuleFailure }
+);
+
+const whatFailed: Record<GuardFault["failed"], string> = {
+  "core-key": "couldn't check the session against core's key",
+  "access-rule": "couldn't load the app's access rule from core",
+  network: "couldn't reach core",
+};
+
+/** The default `onUnavailable`: reports the app, what failed and the cause. */
+function reportFault({ app, failed, cause }: GuardFault): void {
+  reportToConsole(
+    `robkit guard for ${app} answered 503: ${whatFailed[failed]}.`,
+    cause,
+  );
 }
 
-function sessionTokenIn(request: Request): string | undefined {
-  for (const pair of request.headers.get("cookie")?.split(";") ?? []) {
-    const [name, ...value] = pair.split("=");
-    if (name?.trim() === sessionCookie) return value.join("=").trim();
-  }
-  return undefined;
-}
+/** What the app does with a request: serve it to the viewer, or answer it. */
+export type RequestDecision =
+  | { outcome: "serve"; viewer: Viewer }
+  | { outcome: "answer"; response: Response };
 
-const elsewhere = {
-  login: { app: "hub", path: "/", error: "Sign in to use this app." },
-  refresh: {
-    app: "core",
-    path: "/refresh",
-    error: "Your session needs refreshing.",
-  },
+const errors = {
+  login: "Sign in to use this app.",
+  refresh: "Your session needs refreshing.",
+  keys: "Can't reach core to check your session.",
+  rule: "Can't reach core to check who may open this app.",
 } as const;
-
-const text = (body: string, status: number) =>
-  new Response(body, {
-    status,
-    headers: { "content-type": "text/plain; charset=UTF-8" },
-  });
 
 /**
  * robkit's guard on web-standard requests, for adapters to run on every
- * request. It checks the session cookie against core's public key, then
- * lets the request through to the viewer, sends the browser to log in or
- * refresh, or answers 404.
+ * request. It checks the app's own session cookie against core's public key
+ * and the app's slug, then lets the request through to the viewer, sends
+ * the browser to core for a token or to the hub to log in, or answers 404.
+ *
+ * It answers two paths itself: `/_robkit/session`, where core hands the app
+ * its token, and `/_robkit/refresh`, where a call from the page sends the
+ * browser for a new one.
  */
 export function requestGuard(
   options: GuardedOptions,
 ): (request: Request) => Promise<RequestDecision> {
-  const origins = platformOrigins(options.core);
-  const verifyKey = coreKeys(origins.core);
-  const ruleOf =
-    "access" in options
-      ? () => Promise.resolve(options.access)
-      : coreAccess(origins.core, options.app);
+  const { app, access, onUnavailable = reportFault } = options;
+  const install = coreInstall(options.core);
+  const core = install.origin("core");
+  const hub = install.origin("hub");
+  const ruleOf = access ? () => Promise.resolve(access) : coreAccess(core, app);
 
-  const sessionOf = async (request: Request): Promise<SessionState> => {
-    const token = sessionTokenIn(request);
-    if (!token) return { state: "signed-out" };
-    const read = await readSessionToken(verifyKey, token, new Date());
-    if (!read) return { state: "signed-out" };
-    if (read.expired) return { state: "expired" };
-    const viewer =
-      read.kind === "owner"
-        ? { kind: read.kind, id: read.id }
-        : { kind: read.kind, id: read.id, roles: read.roles };
-    return { state: "signed-in", viewer };
+  /** A 503 for a check that failed, after telling `onUnavailable` why. */
+  const unavailable = (fault: GuardFault, body: string): Response => {
+    onUnavailable(fault);
+    return text(body, 503);
+  };
+  const keyUnavailable = (cause: unknown) =>
+    unavailable(
+      {
+        app,
+        failed: cause instanceof CoreUnreachableError ? "network" : "core-key",
+        cause,
+      },
+      errors.keys,
+    );
+  // coreAccess throws an AccessRuleError when core answered, and a
+  // CoreUnreachableError when it didn't.
+  const ruleUnavailable = (cause: unknown) =>
+    unavailable(
+      cause instanceof AccessRuleError
+        ? { app, failed: "access-rule", reason: cause.failure, cause }
+        : { app, failed: "network", cause },
+      errors.rule,
+    );
+
+  const protocol = refreshProtocol({
+    app,
+    core,
+    secure: !isLocal(install.domain),
+    keyUnavailable,
+  });
+
+  /** The answer to a request the guard didn't let through. */
+  const respond = (
+    decision: Exclude<Decision, { outcome: "allow" }>,
+    request: Request,
+    url: URL,
+  ): Response => {
+    switch (decision.outcome) {
+      case "not-found":
+        return text("Not found", 404);
+      case "login": {
+        // Core's word that nobody is signed in goes, so once the browser
+        // signs in at the hub and comes back, the app asks core again.
+        const location = new URL("/", hub);
+        if (!isNavigation(request)) {
+          // A call doesn't know the page it came from. The page adds next.
+          const response = sessionLapsedResponse({
+            outcome: "login",
+            error: errors.login,
+            location: location.href,
+          });
+          response.headers.append("set-cookie", protocol.forget);
+          return response;
+        }
+        location.searchParams.set("next", url.href);
+        return redirect(location.href, [["set-cookie", protocol.forget]]);
+      }
+      case "refresh":
+        if (!isNavigation(request)) {
+          return sessionLapsedResponse({
+            outcome: "refresh",
+            error: errors.refresh,
+            location: new URL(appRefreshPath, url).href,
+          });
+        }
+        return protocol.toCore(request, url.href);
+    }
   };
 
   return async (request) => {
+    const url = publicUrl(request);
+    const own = await protocol.answer(request, url);
+    if (own) return { outcome: "answer", response: own };
+
     let session: SessionState;
     try {
-      session = await sessionOf(request);
-    } catch {
+      session = await protocol.sessionOf(request);
+    } catch (error) {
       // Not knowing who is asking isn't the same as nobody asking, so the
       // browser isn't sent to log in.
-      return { response: text("Can't reach core to check your session.", 503) };
+      return { outcome: "answer", response: keyUnavailable(error) };
     }
     let rule: AccessRule;
     try {
       rule = await ruleOf();
-    } catch {
-      return {
-        response: text("Can't reach core to check who may open this app.", 503),
-      };
+    } catch (error) {
+      return { outcome: "answer", response: ruleUnavailable(error) };
     }
     const decision = guard(rule, session);
-    switch (decision.outcome) {
-      case "allow":
-        return { viewer: decision.viewer };
-      case "not-found":
-        return { response: text("Not found", 404) };
-      case "login":
-      case "refresh": {
-        const { app, path, error } = elsewhere[decision.outcome];
-        const location = new URL(path, origins[app]);
-        if (!isNavigation(request)) {
-          // A call doesn't know the page it came from. The page adds next.
-          return {
-            response: sessionLapsedResponse({
-              outcome: decision.outcome,
-              error,
-              location: location.href,
-            }),
-          };
-        }
-        location.searchParams.set("next", publicUrl(request).href);
-        return {
-          response: new Response(null, {
-            status: 302,
-            headers: { "cache-control": "no-store", location: location.href },
-          }),
-        };
-      }
+    if (decision.outcome === "allow") {
+      return { outcome: "serve", viewer: decision.viewer };
     }
+    return { outcome: "answer", response: respond(decision, request, url) };
   };
 }

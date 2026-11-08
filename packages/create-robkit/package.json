@@ -4,8 +4,8 @@
   "description": "Writes a robkit install: core, the hub, admin, one Postgres and an example app.",
   "type": "module",
   "bin": {
-    "create-robkit": "./src/bin.ts",
-    "robkit": "./src/robkit.ts"
+    "create-robkit": "./src/create-robkit-command.ts",
+    "robkit": "./src/robkit-command.ts"
   },
   "exports": {
     ".": "./src/index.ts"
@@ -18,8 +18,8 @@
       }
     },
     "bin": {
-      "create-robkit": "./dist/bin.js",
-      "robkit": "./dist/robkit.js"
+      "create-robkit": "./dist/create-robkit-command.js",
+      "robkit": "./dist/robkit-command.js"
     }
   },
   "files": [
@@ -37,12 +37,14 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run --project unit",
     "shadcn-kit": "node scripts/shadcn-kit.ts"
   },
   "dependencies": {
     "@clack/prompts": "catalog:",
     "@robkit/dev": "workspace:*",
+    "@robkit/input": "workspace:*",
     "@robkit/session": "workspace:*",
     "prettier": "catalog:",
     "yaml": "catalog:"
@@ -57,8 +59,10 @@
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
+    "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

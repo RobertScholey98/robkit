@@ -4,20 +4,25 @@
   "description": "robkit's local dev runner and proxy.",
   "type": "module",
   "bin": {
-    "robkit-dev": "./src/bin.ts"
+    "robkit-dev": "./src/robkit-dev-command.ts"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./cli": "./src/cli.ts"
   },
   "publishConfig": {
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./cli": {
+        "types": "./dist/cli.d.ts",
+        "default": "./dist/cli.js"
       }
     },
     "bin": {
-      "robkit-dev": "./dist/bin.js"
+      "robkit-dev": "./dist/robkit-dev-command.js"
     }
   },
   "files": [
@@ -33,17 +38,20 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run --project unit"
   },
   "dependencies": {
-    "@robkit/session": "workspace:*",
+    "@robkit/input": "workspace:*",
     "postgres": "catalog:"
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/test-postgres": "workspace:*",
+    "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

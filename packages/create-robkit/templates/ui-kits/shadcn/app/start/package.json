@@ -1,9 +1,0 @@
-{
-  "dependencies": {
-    "@internal/ui": "workspace:*"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "catalog:",
-    "tailwindcss": "catalog:"
-  }
-}

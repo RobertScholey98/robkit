@@ -13,16 +13,88 @@
       "dependsOn": ["^build"]
     },
     "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "test:unit": {
       "dependsOn": ["^build"]
     },
-    "@internal/e2e#test": {
+    "create-robkit#test": {
       "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/*/src/**",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/pnpm-workspace.yaml"
+      ]
+    },
+    "create-robkit#test:unit": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/*/src/**",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/pnpm-workspace.yaml"
+      ]
+    },
+    "@internal/go#test": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/guard/conformance.json"
+      ]
+    },
+    "@internal/go#test:unit": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/guard/conformance.json"
+      ]
+    },
+    "@internal/e2e#test": {
+      "dependsOn": ["^build", "create-robkit#test"],
       "cache": false
     },
-    "@internal/e2e#test:combination": {
+    "@internal/repo-checks#test": {
       "dependsOn": ["^build"],
-      "cache": false,
-      "passThroughEnv": ["E2E_COMBINATION"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/**",
+        "$TURBO_ROOT$/tooling/**",
+        "$TURBO_ROOT$/go/**",
+        "!$TURBO_ROOT$/**/.turbo/**",
+        "!$TURBO_ROOT$/**/dist/**",
+        "!$TURBO_ROOT$/**/coverage/**",
+        "!$TURBO_ROOT$/**/node_modules/**",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/GLOSSARY.md",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/AGENTS.md",
+        "$TURBO_ROOT$/docs/**",
+        "$TURBO_ROOT$/renovate.json",
+        "$TURBO_ROOT$/.changeset/config.json"
+      ]
+    },
+    "@internal/repo-checks#test:unit": {
+      "dependsOn": ["^build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/**",
+        "$TURBO_ROOT$/tooling/**",
+        "$TURBO_ROOT$/go/**",
+        "!$TURBO_ROOT$/**/.turbo/**",
+        "!$TURBO_ROOT$/**/dist/**",
+        "!$TURBO_ROOT$/**/coverage/**",
+        "!$TURBO_ROOT$/**/node_modules/**",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/GLOSSARY.md",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/AGENTS.md",
+        "$TURBO_ROOT$/docs/**",
+        "$TURBO_ROOT$/renovate.json",
+        "$TURBO_ROOT$/.changeset/config.json"
+      ]
     }
   }
 }

@@ -1,0 +1,19 @@
+packages:
+  - apps/*
+  - packages/*
+  - tooling/*
+
+# Manifests say `catalog:`, so every external version lives in the catalog.
+catalogMode: strict
+
+# esbuild ships its binary as an optional dependency, so its install script
+# has nothing to do.
+allowBuilds:
+  esbuild: false
+
+# Next.js's styled-jsx takes Babel as an optional peer, and pnpm links it
+# whenever the install has Babel anyway, as the hub and admin do for Vite.
+# Nothing runs it in production, so a Next.js app's image would carry Babel
+# for nothing.
+overrides:
+  styled-jsx>@babel/core: "-"

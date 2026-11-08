@@ -1,8 +1,13 @@
+import { expect, it } from "vitest";
+import type { DevStack } from "./dev-stack.ts";
+import { addedSlug } from "./install.ts";
+import type { Slug } from "@robkit/input";
 import { join } from "node:path";
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "playwright";
 import { launch } from "./browser.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
+import { exampleSlug } from "./install.ts";
 
 /** The axe rules each page broke, by page. */
 export type A11yJourney = Record<string, string[]>;
@@ -20,10 +25,10 @@ export async function a11yJourney({
   slug,
   screenshots,
 }: Omit<JourneyOptions, "adminUrl"> & {
-  slug: string;
+  slug: Slug;
   screenshots?: { dir: string; prefix: string } | undefined;
 }): Promise<A11yJourney> {
-  const at = (app: string) => `${install.origin(app)}/`;
+  const at = (app: Slug) => `${install.origin(app)}/`;
   const broken: A11yJourney = {};
   const check = async (page: Page, name: string) => {
     const { violations } = await new AxeBuilder({ page }).analyze();
@@ -56,7 +61,7 @@ export async function a11yJourney({
     await page.getByRole("heading", { name: "Roles" }).waitFor();
     await check(page, "admin");
 
-    await page.goto(at("example"));
+    await page.goto(at(exampleSlug));
     await page.getByTestId("viewer-id").waitFor();
     await check(page, "example");
 
@@ -67,4 +72,29 @@ export async function a11yJourney({
   } finally {
     await browser.close();
   }
+}
+
+/**
+ * The accessibility journey, as a test of `dev`. `E2E_SCREENSHOTS` names a
+ * folder to save each page in, to look at, each named after `prefix`.
+ */
+export function testA11yJourney(dev: DevStack, prefix: string): void {
+  it("draws every page with no accessibility violations axe finds", async () => {
+    await dev.claimed();
+    const dir = process.env.E2E_SCREENSHOTS;
+
+    const journey = await a11yJourney({
+      ...dev.journey(),
+      slug: addedSlug,
+      screenshots: dir ? { dir, prefix } : undefined,
+    });
+
+    expect(journey).toEqual({
+      "hub-sign-in": [],
+      launcher: [],
+      admin: [],
+      example: [],
+      added: [],
+    });
+  });
 }

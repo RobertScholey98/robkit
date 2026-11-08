@@ -1,31 +1,46 @@
 import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { slugProblem } from "@robkit/dev";
-import { isPlatformApp, platformApps } from "@robkit/session/addresses";
-import type { Choices, Generator, UiKit } from "./choices.ts";
+import { CommandProblem, isMissing, requireGo } from "@robkit/dev/cli";
+import {
+  type InputProblem,
+  isPlatformApp,
+  isProblem,
+  isRecord,
+  parseJson,
+  platformApps,
+  readSlug,
+  type Slug,
+  problem,
+} from "@robkit/input";
+import { type ManifestAccess } from "@robkit/input/manifest";
+import {
+  readChoices,
+  toolchainOf,
+  type Choices,
+  type Stack,
+} from "./choices.ts";
 import {
   appFiles,
-  leaveOutTools,
+  overridesIn,
+  pnpmSettings,
   readFolder,
-  spellFor,
   stackTemplate,
-  type Declares,
+  type Files,
 } from "./generate.ts";
+import { goModuleFor, withGoModule } from "./go-module.ts";
 import { writeInstall } from "./write.ts";
 
 /**
- * What robkit add asks: the stack, the app's slug, who may open it, its icon
- * and, in an install with a UI kit, whether the app uses it.
+ * What robkit add asks: the stack, the app's slug, who may open it and its
+ * icon.
  */
 export interface AppChoices {
-  stack: Generator;
-  slug: string;
+  stack: Stack;
+  slug: Slug;
   /** Who may open the app once core adds it. A rule's roles are named. */
-  access: NonNullable<Declares["access"]>;
+  access: ManifestAccess;
   icon: string;
-  /** Whether the app uses the install's UI kit. */
-  uiKit?: boolean;
 }
 
 /** The choices init recorded in the install at `root`. */
@@ -34,13 +49,16 @@ export async function readInstallChoices(root: string): Promise<Choices> {
   try {
     text = await readFile(join(root, "robkit.json"), "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    throw new Error(
+    if (!isMissing(error)) throw error;
+    throw new CommandProblem(
       `${root} has no robkit.json. Run robkit add in an install's folder.`,
       { cause: error },
     );
   }
-  return JSON.parse(text) as Choices;
+  const parsed = parseJson(text, "robkit.json");
+  const choices = isProblem(parsed) ? parsed : readChoices(parsed.json);
+  if (isProblem(choices)) throw new CommandProblem(choices.error);
+  return choices;
 }
 
 /** "a, b and c". */
@@ -55,77 +73,91 @@ async function exists(path: string): Promise<boolean> {
   return stat(path).then(
     () => true,
     (error: unknown) => {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      if (isMissing(error)) return false;
       throw error;
     },
   );
 }
 
-/**
- * Why `slug` can't name a new app in the install at `root`, or `undefined`.
- * Its shape fits a prompt's `validate`.
- */
-export function newSlugProblem(root: string, slug: string): string | undefined {
-  const problem = slugProblem(slug);
-  if (problem) return problem;
+/** `name` as the slug of a new app in the install at `root`, or why it can't be. */
+export function readNewSlug(root: string, name: string): Slug | InputProblem {
+  const slug = readSlug(name);
+  if (isProblem(slug)) return slug;
   if (isPlatformApp(slug)) {
-    return `${slug} is one of the platform apps: ${andList(platformApps)}.`;
+    return problem(
+      `${slug} is one of the platform apps: ${andList(platformApps)}.`,
+    );
   }
   if (existsSync(join(root, "apps", slug))) {
-    return `apps/${slug} already exists. Choose another name.`;
+    return problem(`apps/${slug} already exists. Choose another name.`);
   }
-  return undefined;
+  return slug;
+}
+
+/**
+ * Why `name` can't name a new app in the install at `root`, or `undefined`.
+ * Its shape fits a prompt's `validate`.
+ */
+export function newSlugProblem(root: string, name: string): string | undefined {
+  const slug = readNewSlug(root, name);
+  return isProblem(slug) ? slug.error : undefined;
 }
 
 /**
  * The template robkit add uses for `stack` in the install at `root`: the
  * install's own `robkit/templates/<stack>` folder if it has one, which
- * replaces robkit's template whole, UI kit included, or else robkit's.
+ * replaces robkit's template whole, or else robkit's.
+ *
+ * @throws a {@link CommandProblem} naming the file if the install's own template
+ *   has no `package.json` or one that isn't a JSON object, since the person
+ *   owns it and can fix it
  */
-async function templateFor(
-  root: string,
-  stack: Generator,
-  { orm, packageManager, tools }: Choices,
-  uiKit: UiKit | null,
-) {
-  const own = join(root, "robkit", "templates", stack);
-  if (await exists(own)) return readFolder(own);
-  const template = await stackTemplate(stack, orm, uiKit);
-  leaveOutTools(template, tools);
-  await spellFor(template, packageManager);
-  return template;
+async function templateFor(root: string, stack: Stack): Promise<Files> {
+  const folder = `robkit/templates/${stack}`;
+  const own = join(root, folder);
+  if (!(await exists(own))) return stackTemplate(stack);
+  const files = await readFolder(own);
+  const text = files.get("package.json");
+  if (text === undefined) {
+    throw new CommandProblem(
+      `${folder} has no package.json. Add one, or delete the folder to use robkit's template.`,
+    );
+  }
+  const parsed = parseJson(text, `${folder}/package.json`);
+  if (isProblem(parsed)) throw new CommandProblem(parsed.error);
+  if (!isRecord(parsed.json)) {
+    throw new CommandProblem(
+      `${folder}/package.json must be a JSON object. Fix it, or delete ${folder} to use robkit's template.`,
+    );
+  }
+  return files;
 }
 
 /**
- * Writes a new app at `apps/<slug>` in the install at `root`, from one of the
- * stacks its robkit.json enables. It writes files only: `pnpm dev`, or the
+ * Writes a new app at `apps/<slug>` in the install at `root`, on one of
+ * robkit's stacks. It writes files only: `pnpm dev`, or the
  * provision step before a deploy, gives the app its database, and core adds
- * it to its catalog with the rule it declares.
+ * it to its catalog with the rule it declares. An app on React + Go needs
+ * Go, so it checks for Go before it writes anything.
  */
 export async function addApp(root: string, choices: AppChoices): Promise<void> {
-  const installed = await readInstallChoices(root);
-  const { generators, uiKit } = installed;
-  if (choices.uiKit === true && uiKit === null) {
-    throw new Error("This install has no UI kit. Leave out --ui-kit.");
-  }
-  if (!generators.includes(choices.stack)) {
-    throw new Error(
-      `This install's robkit add offers ${andList(generators)}, not ${choices.stack}.`,
+  // Refuses a folder that isn't an install.
+  await readInstallChoices(root);
+  const problem = newSlugProblem(root, choices.slug);
+  if (problem) throw new CommandProblem(problem);
+  if (toolchainOf(choices.stack) === "go") await requireGo();
+  const template = await templateFor(root, choices.stack);
+  const files = appFiles(template, choices.slug, {
+    access: choices.access,
+    icon: choices.icon,
+  });
+  const goMod = files.get("go.mod");
+  if (goMod !== undefined) {
+    const settings = await readFile(join(root, pnpmSettings), "utf8");
+    files.set(
+      "go.mod",
+      withGoModule(goMod, goModuleFor(overridesIn(settings))),
     );
   }
-  const problem = newSlugProblem(root, choices.slug);
-  if (problem) throw new Error(problem);
-  const template = await templateFor(
-    root,
-    choices.stack,
-    installed,
-    choices.uiKit === true ? uiKit : null,
-  );
-  await writeInstall(
-    join(root, "apps", choices.slug),
-    appFiles(template, choices.slug, {
-      access: choices.access,
-      icon: choices.icon,
-    }),
-  );
+  await writeInstall(join(root, "apps", choices.slug), files);
 }

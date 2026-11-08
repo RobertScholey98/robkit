@@ -5,8 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./addresses": "./src/install-addresses.ts",
-    "./lapsed": "./src/session-lapsed.ts"
+    "./lapsed": "./src/lapsed.ts"
   },
   "publishConfig": {
     "exports": {
@@ -14,13 +13,9 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       },
-      "./addresses": {
-        "types": "./dist/install-addresses.d.ts",
-        "default": "./dist/install-addresses.js"
-      },
       "./lapsed": {
-        "types": "./dist/session-lapsed.d.ts",
-        "default": "./dist/session-lapsed.js"
+        "types": "./dist/lapsed.d.ts",
+        "default": "./dist/lapsed.js"
       }
     }
   },
@@ -36,10 +31,12 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run"
+    "test": "vitest run --typecheck --coverage",
+    "test:unit": "vitest run --typecheck --coverage"
   },
   "dependencies": {
     "@robkit/guard": "workspace:*",
+    "@robkit/input": "workspace:*",
     "jose": "catalog:"
   },
   "devDependencies": {
@@ -47,6 +44,7 @@
     "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

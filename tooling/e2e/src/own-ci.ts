@@ -1,87 +1,53 @@
 import { execFile } from "node:child_process";
-import { access, readFile } from "node:fs/promises";
-import { basename, join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { promisify } from "node:util";
-import {
-  freePortBlock,
-  freePostgresPort,
-  removeWhenGone,
-  testComposeFiles,
-} from "@internal/test-postgres";
-import { discoverApps } from "@robkit/dev";
+import { isRecord } from "@robkit/input";
 import { parse } from "yaml";
 
 const run = promisify(execFile);
 
 /** A step of an install's own CI workflow. */
 export interface Step {
-  if?: string;
-  "working-directory"?: string;
   run?: string;
 }
 
-/**
- * Whether a step's `if` holds in `dir`. The workflows' only condition is
- * that a file exists, as `hashFiles(<path>) != ''`.
- */
-async function holds(condition: string | undefined, dir: string) {
-  if (condition === undefined) return true;
-  const path = /^hashFiles\('([^']+)'\) != ''$/.exec(condition)?.[1];
-  if (path === undefined)
-    throw new Error(`can't read the step's if: ${condition}`);
-  return access(join(dir, path)).then(
-    () => true,
-    () => false,
-  );
-}
-
-/** The `run` steps of the install's own CI workflow that hold in it, in order. */
+/** The `run` steps of the install's own CI workflow, in order. */
 export async function ownCiSteps(dir: string): Promise<Step[]> {
-  const workflow = parse(
-    await readFile(join(dir, ".github/workflows/ci.yml"), "utf8"),
-  ) as { jobs: Record<string, { steps: Step[] }> };
-  const steps: Step[] = [];
-  for (const step of Object.values(workflow.jobs).flatMap((job) => job.steps)) {
-    if (step.run !== undefined && (await holds(step.if, dir))) steps.push(step);
+  const path = join(dir, ".github/workflows/ci.yml");
+  const workflow: unknown = parse(await readFile(path, "utf8"));
+  const jobs = isRecord(workflow) ? workflow.jobs : undefined;
+  if (!isRecord(jobs)) {
+    throw new Error(`${path} has no jobs.`);
   }
-  return steps;
+  return Object.entries(jobs).flatMap(([name, job]) => {
+    const steps = isRecord(job) ? job.steps : undefined;
+    if (!Array.isArray(steps)) {
+      throw new Error(`${path}'s job ${name} has no steps.`);
+    }
+    return steps.flatMap((step): Step[] => {
+      const run = isRecord(step) ? step.run : undefined;
+      return typeof run === "string" ? [{ run }] : [];
+    });
+  });
 }
 
 /**
  * Runs the install's own CI steps, rejecting with the output of the first
  * that fails. It skips the install steps: init already installed the
  * dependencies, and installing again beside a running journey would touch
- * the files under its core and restart it. The browsers are this
- * checkout's own Playwright's, and installing their system packages needs
- * root.
+ * the files under its core and restart it.
  */
 export async function runOwnCi(
   dir: string,
   steps: readonly Step[],
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<void> {
-  // The browser tests run the install's own dev stack, so they get free
-  // ports.
-  const withPorts = {
-    ...env,
-    ROBKIT_E2E_PORT: String(
-      await freePortBlock(1 + (await discoverApps(dir)).length),
-    ),
-    ROBKIT_E2E_POSTGRES_PORT: String(await freePostgresPort()),
-    COMPOSE_FILE: testComposeFiles(env),
-  };
-  // The install's browser tests name their Compose project after its folder,
-  // as its tooling/e2e/src/stack.ts does.
-  removeWhenGone({
-    docker: `${basename(dir)
-      .toLowerCase()
-      .replace(/[^a-z0-9_-]/g, "")}-e2e`,
-  });
   for (const step of steps) {
-    if (/^\w+ install\b|playwright install\b/.test(step.run ?? "")) continue;
+    if (/^\w+ install\b/.test(step.run ?? "")) continue;
     await run("sh", ["-c", step.run ?? ""], {
-      cwd: join(dir, step["working-directory"] ?? ""),
-      env: withPorts,
+      cwd: dir,
+      env,
       maxBuffer: 64 * 1024 * 1024,
     }).catch((error: unknown) => {
       // Lint and typecheck print their problems on stdout, which the

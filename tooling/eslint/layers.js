@@ -1,7 +1,9 @@
+import { globSync, readFileSync } from "node:fs";
 import { builtinModules } from "node:module";
-import { dirname, relative, resolve } from "node:path";
-import { matchesGlob } from "node:path/posix";
+import { dirname, join, relative, resolve } from "node:path";
+import { matchesGlob, dirname as posixDirname } from "node:path/posix";
 import { fileURLToPath } from "node:url";
+import { packageGraph } from "./package-graph.js";
 
 export const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -33,6 +35,57 @@ const frameworks = [
   "express",
 ];
 
+/**
+ * Code reaches core over HTTP only, so no package imports `@robkit/core`
+ * unless the package graph lets it: one row for each package it doesn't.
+ * @param {import("./package-graph.js").PackageGraph} graph
+ * @param {ReadonlyMap<string, string>} folders each package's folder, by name
+ * @returns {LayerRow[]}
+ */
+export function coreRows(graph, folders) {
+  return Object.entries(graph)
+    .filter(
+      ([name, { dependencies, devDependencies }]) =>
+        name !== "@robkit/core" &&
+        ![...dependencies, ...devDependencies].includes("@robkit/core"),
+    )
+    .flatMap(([name]) => {
+      const folder = folders.get(name);
+      return folder === undefined
+        ? []
+        : [
+            {
+              applies: (/** @type {string} */ workspace) =>
+                workspace === folder,
+              rule: `Layer rule: ${name} never imports @robkit/core. Code reaches core over HTTP only.`,
+              modules: ["@robkit/core"],
+              folders: ["packages/core"],
+            },
+          ];
+    });
+}
+
+/** Each workspace package's folder from the repo root, by name. */
+function workspaceFolders() {
+  /** @type {Map<string, string>} */
+  const folders = new Map();
+  for (const path of globSync(
+    ["packages/*/package.json", "tooling/*/package.json"],
+    { cwd: repoRoot },
+  )) {
+    const manifest = JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
+    if (typeof manifest?.name === "string") {
+      folders.set(manifest.name, posixDirname(path.replaceAll("\\", "/")));
+    }
+  }
+  return folders;
+}
+
+const folders = workspaceFolders();
+
+/** Every workspace's folder, such as `packages/guard`. */
+const workspaces = new Set(folders.values());
+
 /** @type {LayerRow[]} */
 export const layers = [
   {
@@ -52,11 +105,17 @@ export const layers = [
     globals: ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "process"],
   },
   {
-    applies: inside("packages/hono", "packages/start", "packages/react"),
-    rule: "Layer rule: adapters never import @robkit/core. Code reaches core over HTTP only.",
-    modules: ["@robkit/core"],
-    folders: ["packages/core"],
+    applies: inside("packages/input"),
+    rule: "Layer rule: @robkit/input imports no framework.",
+    modules: frameworks,
   },
+  {
+    applies: inside("packages/input"),
+    rule: "Layer rule: @robkit/input does no I/O.",
+    modules: builtinModules,
+    globals: ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "process"],
+  },
+  ...coreRows(packageGraph, folders),
 ];
 
 /** The workspace a file belongs to, such as `packages/guard`. */
@@ -77,17 +136,28 @@ function packageName(specifier) {
 }
 
 /**
+ * Where a relative `specifier` imported from `filename` points, from the
+ * repo root, or undefined for a bare one.
+ * @param {string} filename
+ * @param {string} specifier
+ */
+function relativeTarget(filename, specifier) {
+  if (!/^\.\.?(\/|$)/.test(specifier)) return undefined;
+  return relative(repoRoot, resolve(dirname(filename), specifier)).replaceAll(
+    "\\",
+    "/",
+  );
+}
+
+/**
  * Whether `specifier`, imported from `filename`, is one `row` forbids.
  * @param {LayerRow} row
  * @param {string} filename
  * @param {string} specifier
  */
 function breaks(row, filename, specifier) {
-  if (/^\.\.?\//.test(specifier)) {
-    const target = relative(
-      repoRoot,
-      resolve(dirname(filename), specifier),
-    ).replaceAll("\\", "/");
+  const target = relativeTarget(filename, specifier);
+  if (target !== undefined) {
     return (row.folders ?? []).some(
       (folder) => target === folder || target.startsWith(`${folder}/`),
     );
@@ -114,7 +184,8 @@ export default {
   create(context) {
     const workspace = workspaceOf(context.filename);
     const rows = layers.filter((row) => row.applies(workspace));
-    if (rows.length === 0) return {};
+    const isWorkspace = workspaces.has(workspace);
+    if (rows.length === 0 && !isWorkspace) return {};
 
     /** @param {import("estree").Node | null | undefined} source */
     function check(source) {
@@ -122,10 +193,25 @@ export default {
         return;
       }
       const specifier = source.value;
-      for (const row of rows) {
-        if (breaks(row, context.filename, specifier)) {
-          context.report({ node: source, message: row.rule });
-        }
+      const broken = rows.filter((row) =>
+        breaks(row, context.filename, specifier),
+      );
+      for (const row of broken) {
+        context.report({ node: source, message: row.rule });
+      }
+      // A row names its rule more closely, so this reports what none caught.
+      const target = relativeTarget(context.filename, specifier);
+      if (
+        broken.length === 0 &&
+        isWorkspace &&
+        target !== undefined &&
+        target !== workspace &&
+        !target.startsWith(`${workspace}/`)
+      ) {
+        context.report({
+          node: source,
+          message: `Layer rule: this import ${reachesOutside(workspace, specifier)}`,
+        });
       }
     }
 
@@ -151,3 +237,13 @@ export default {
     };
   },
 };
+
+/**
+ * What a relative import that leaves its workspace breaks. `graph-check.ts`
+ * in repo-checks prints it too.
+ * @param {string} folder the workspace, such as `packages/guard`
+ * @param {string} specifier the import, as the file spells it
+ */
+export function reachesOutside(folder, specifier) {
+  return `reaches outside ${folder} with ${specifier}. Import the package by name.`;
+}

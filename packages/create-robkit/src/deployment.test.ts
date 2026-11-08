@@ -6,13 +6,14 @@ import { addApp } from "./add.ts";
 import { defaultChoices } from "./choices.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { init } from "./init.ts";
+import { slug, aDomain } from "@internal/test-session";
 
 /** The default install, plus `brochure` on react-hono, open to anyone. */
-async function install(): Promise<string> {
+async function makeInstall(): Promise<string> {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
   await init(defaultChoices, dir);
   await addApp(dir, {
-    slug: "brochure",
+    slug: slug("brochure"),
     stack: "react-hono",
     access: { kind: "open" },
     icon: "📰",
@@ -20,9 +21,19 @@ async function install(): Promise<string> {
   return dir;
 }
 
+let made: Promise<string> | undefined;
+
+/** The install, made on first use and shared, since every test only reads it. */
+function install(): Promise<string> {
+  made ??= makeInstall();
+  return made;
+}
+
 describe("deploymentOf", () => {
   it("gives every app its address and slug, and each database app its URL from the host", async () => {
-    const apps = await deploymentOf(await install(), { domain: "robkit.dev" });
+    const apps = await deploymentOf(await install(), {
+      domain: aDomain("robkit.dev"),
+    });
 
     const common = {
       ROBKIT_DOMAIN: { literal: "robkit.dev" },
@@ -76,7 +87,7 @@ describe("deploymentOf", () => {
 
   it("tells only core to trust Cloudflare when the install sits behind it", async () => {
     const apps = await deploymentOf(await install(), {
-      domain: "robkit.dev",
+      domain: aDomain("robkit.dev"),
       trustedProxy: "cloudflare",
     });
 
@@ -93,7 +104,7 @@ describe("deploymentOf", () => {
 
   it("puts a public port in core's URL when the install has one", async () => {
     const [admin] = await deploymentOf(await install(), {
-      domain: "robkit.test",
+      domain: aDomain("robkit.test"),
       port: 8443,
     });
 

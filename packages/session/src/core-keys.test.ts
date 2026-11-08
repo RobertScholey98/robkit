@@ -4,7 +4,10 @@ import type { AddressInfo } from "node:net";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { coreKeys } from "./core-keys.ts";
-import { readSessionToken } from "./index.ts";
+import { readAppToken } from "./index.ts";
+import { slug } from "@internal/test-session";
+
+const notes = slug("notes");
 
 const now = new Date("2026-11-01T12:00:00Z");
 const servers: Server[] = [];
@@ -37,7 +40,7 @@ async function fakeCore() {
   const { port } = server.address() as AddressInfo;
   const iat = Math.floor(now.getTime() / 1000);
   const sign = (kid: string) =>
-    new SignJWT({ sid: "session-1", kind: "owner" })
+    new SignJWT({ aud: "notes", kind: "owner" })
       .setProtectedHeader({ alg: "EdDSA", kid })
       .setSubject("owner-1")
       .setIssuedAt(iat)
@@ -51,12 +54,11 @@ describe("coreKeys", () => {
     const { port, hosts, token } = await fakeCore();
     const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
 
-    const read = await readSessionToken(keys, token, now);
+    const read = await readAppToken(keys, token, now, notes);
 
     expect(read).toEqual({
       kind: "owner",
       id: "owner-1",
-      sessionId: "session-1",
       expired: false,
     });
     expect(hosts).toEqual([
@@ -70,7 +72,7 @@ describe("coreKeys", () => {
 
     const reads = [];
     for (let i = 0; i < 3; i++) {
-      reads.push((await readSessionToken(keys, token, now))?.id);
+      reads.push((await readAppToken(keys, token, now, notes))?.id);
     }
 
     expect(reads).toEqual(["owner-1", "owner-1", "owner-1"]);
@@ -82,7 +84,7 @@ describe("coreKeys", () => {
     answer.status = 503;
     const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
 
-    await expect(readSessionToken(keys, token, now)).rejects.toThrow(
+    await expect(readAppToken(keys, token, now, notes)).rejects.toThrow(
       "Expected 200 OK from the JSON Web Key Set HTTP response",
     );
   });
@@ -91,8 +93,8 @@ describe("coreKeys", () => {
     const { port, token, sign } = await fakeCore();
     const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
 
-    const known = await readSessionToken(keys, token, now);
-    const unknown = await readSessionToken(keys, await sign("key-2"), now);
+    const known = await readAppToken(keys, token, now, notes);
+    const unknown = await readAppToken(keys, await sign("key-2"), now, notes);
 
     expect(known?.id).toBe("owner-1");
     expect(unknown).toBeUndefined();
@@ -101,12 +103,12 @@ describe("coreKeys", () => {
   it("keeps using a cached key while core can't answer", async () => {
     const { port, answer, token } = await fakeCore();
     const keys = coreKeys(`http://core.robkit.localhost:${String(port)}`);
-    await readSessionToken(keys, token, now);
+    await readAppToken(keys, token, now, notes);
     answer.status = 503;
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(Date.now() + 60 * 60_000);
     try {
-      expect((await readSessionToken(keys, token, now))?.id).toBe("owner-1");
+      expect((await readAppToken(keys, token, now, notes))?.id).toBe("owner-1");
     } finally {
       vi.useRealTimers();
     }
@@ -116,9 +118,12 @@ describe("coreKeys", () => {
     const { port, hosts, token } = await fakeCore();
     const keys = coreKeys(`https://core.robkit.localhost:${String(port)}`);
 
-    const read = readSessionToken(keys, token, now);
+    const read = readAppToken(keys, token, now, notes);
 
-    await expect(read).rejects.toMatchObject({ code: "EPROTO" });
+    await expect(read).rejects.toMatchObject({
+      name: "CoreUnreachableError",
+      cause: { code: "EPROTO" },
+    });
     expect(hosts).toEqual([]);
   });
 });

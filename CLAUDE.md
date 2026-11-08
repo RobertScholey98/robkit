@@ -29,7 +29,7 @@ R reviews commit by commit, so keep each commit small and about one thing.
 
 - One logical change per commit. A test goes in the same commit as the behaviour it covers.
 - Refactors, renames and formatting get their own commits, separate from behaviour changes.
-- Write the subject in the imperative, under about 60 characters. Use the body to say why when the diff doesn't show it.
+- Write the subject in the imperative, in 72 characters at most. Use the body to say why when the diff doesn't show it.
 - If the subject needs an "and", split the commit.
 
 ## Talking to R

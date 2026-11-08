@@ -2,7 +2,13 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { catalogOf, discoverApps, routesFor } from "./apps.ts";
+import {
+  catalogOf,
+  discoverApps,
+  readAppManifestFile,
+  routesFor,
+} from "./apps.ts";
+import { slug, aDomain } from "@internal/test-session";
 
 async function installWith(
   apps: Record<string, Record<string, string> | null>,
@@ -35,21 +41,21 @@ describe("discoverApps", () => {
         dir: join(root, "apps", "core"),
         port: 3001,
         migrates: true,
-        declares: {},
+        manifest: {},
       },
       {
         slug: "hub",
         dir: join(root, "apps", "hub"),
         port: 3002,
         migrates: false,
-        declares: {},
+        manifest: {},
       },
       {
         slug: "notes",
         dir: join(root, "apps", "notes"),
         port: 3003,
         migrates: false,
-        declares: {},
+        manifest: {},
       },
     ]);
   });
@@ -73,6 +79,27 @@ describe("discoverApps", () => {
     );
   });
 
+  it("refuses an app whose package.json isn't JSON, naming it", async () => {
+    const root = await installWith({ hub: { dev: "vite" } });
+    await writeFile(join(root, "apps", "hub", "package.json"), "{ nope");
+
+    await expect(discoverApps(root)).rejects.toThrow(
+      /^apps\/hub\/package\.json isn't valid JSON \(.+\)\. Fix its syntax\.$/,
+    );
+  });
+
+  it("refuses an app whose manifest declares a rule core can't read", async () => {
+    const root = await installWith({ hub: { dev: "vite" } });
+    await writeFile(
+      join(root, "apps", "hub", "package.json"),
+      JSON.stringify({ robkit: { access: "everyone" } }),
+    );
+
+    await expect(discoverApps(root)).rejects.toThrow(
+      /^apps\/hub\/package\.json: robkit\.access must be/,
+    );
+  });
+
   it("ignores a folder without a package.json, whatever its name", async () => {
     const root = await installWith({ hub: { dev: "vite" }, ".cache": null });
 
@@ -86,6 +113,65 @@ describe("discoverApps", () => {
   });
 });
 
+describe("readAppManifestFile", () => {
+  const file = "apps/notes/package.json";
+
+  it("reads the scripts and what the app declares", () => {
+    expect(
+      readAppManifestFile(
+        {
+          name: "@internal/notes-app",
+          scripts: { dev: "vite", migrate: "drizzle-kit migrate" },
+          robkit: { access: { kind: "roles", roles: ["Family"] }, icon: "📝" },
+        },
+        file,
+      ),
+    ).toEqual({
+      name: "@internal/notes-app",
+      scripts: { dev: "vite", migrate: "drizzle-kit migrate" },
+      manifest: {
+        access: { kind: "roles", roleNames: ["Family"] },
+        icon: "📝",
+      },
+    });
+    expect(readAppManifestFile({}, file)).toEqual({
+      scripts: {},
+      manifest: {},
+    });
+  });
+
+  it.each([null, [], "notes"])("refuses %j", (value) => {
+    expect(readAppManifestFile(value, file)).toEqual({
+      error: "apps/notes/package.json must be a JSON object, as npm expects.",
+    });
+  });
+
+  it.each([
+    [
+      { name: 1 },
+      `apps/notes/package.json: name must be a string, such as "@internal/notes-app".`,
+    ],
+    [
+      { scripts: null },
+      "apps/notes/package.json: scripts must be an object of script names to commands.",
+    ],
+    [
+      { scripts: { migrate: true } },
+      "apps/notes/package.json: scripts must be an object of script names to commands.",
+    ],
+    [
+      { robkit: { access: { kind: "everyone" } } },
+      `apps/notes/package.json: robkit.access must be {"kind": "open"}, {"kind": "owner"}, or {"kind": "roles", "roles": ["Family"]} naming at least one role.`,
+    ],
+    [
+      { robkit: { icon: 7 } },
+      `apps/notes/package.json: robkit.icon must be one emoji, such as "📝".`,
+    ],
+  ])("refuses %j", (value, error) => {
+    expect(readAppManifestFile(value, file)).toEqual({ error });
+  });
+});
+
 describe("routesFor", () => {
   it("routes <slug>.<domain> to each app's port", () => {
     const routes = routesFor(
@@ -95,17 +181,17 @@ describe("routesFor", () => {
           dir: "/x/apps/core",
           port: 3001,
           migrates: true,
-          declares: {},
+          manifest: {},
         },
         {
           slug: "hub",
           dir: "/x/apps/hub",
           port: 3002,
           migrates: false,
-          declares: {},
+          manifest: {},
         },
       ],
-      "robkit.test",
+      aDomain("robkit.test"),
     );
 
     expect(routes).toEqual([
@@ -116,12 +202,12 @@ describe("routesFor", () => {
 });
 
 describe("catalogOf", () => {
-  const app = (slug: string, declares = {}) => ({
-    slug,
-    dir: `/x/apps/${slug}`,
+  const app = (name: string, manifest = {}) => ({
+    slug: slug(name),
+    dir: `/x/apps/${name}`,
     port: 3001,
     migrates: false,
-    declares,
+    manifest,
   });
 
   it("lists the owner's apps for core's catalog, leaving out the platform apps", () => {
@@ -137,9 +223,20 @@ describe("catalogOf", () => {
   it("passes on what each app's manifest declares", () => {
     expect(
       JSON.parse(
-        catalogOf([app("notes", { access: { kind: "open" }, icon: "📝" })]),
+        catalogOf([
+          app("notes", {
+            access: { kind: "roles", roleNames: ["Family"] },
+            icon: "📝",
+          }),
+        ]),
       ),
-    ).toEqual([{ slug: "notes", access: { kind: "open" }, icon: "📝" }]);
+    ).toEqual([
+      {
+        slug: "notes",
+        access: { kind: "roles", roles: ["Family"] },
+        icon: "📝",
+      },
+    ]);
   });
 });
 
@@ -157,8 +254,8 @@ describe("discoverApps reading a manifest's robkit field", () => {
 
     const [notes] = await discoverApps(root);
 
-    expect(notes?.declares).toEqual({
-      access: { kind: "roles", roles: ["Family"] },
+    expect(notes?.manifest).toEqual({
+      access: { kind: "roles", roleNames: ["Family"] },
       icon: "📝",
     });
   });

@@ -28,11 +28,13 @@
     "build": "tsc -p tsconfig.build.json",
     "lint": "eslint .",
     "typecheck": "tsc",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run --project unit",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@robkit/guard": "workspace:*",
+    "@robkit/input": "workspace:*",
     "@robkit/session": "workspace:*",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",
@@ -42,9 +44,11 @@
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/test-postgres": "workspace:*",
+    "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@robkit/dev": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "drizzle-kit": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",

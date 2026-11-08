@@ -1,4 +1,4 @@
-import { choiceTable, readyOptions } from "./choices.ts";
+import { readyStacks } from "./choices.ts";
 
 const flagWidth = 24;
 const lineWidth = 78;
@@ -20,20 +20,16 @@ function flagLine(flag: string, description: string): string {
   return lines.join("\n");
 }
 
-/** init's usage text, with each choice's ready options from the table. */
+/** init's usage text, naming the stacks robkit can make today. */
 export const usage = [
   `Usage: npm create robkit [folder] -- [options]
 
-With no options, init asks for each one.
+With no --stack, init asks for the folder and the example app's stack.
 `,
-  ...Object.values(choiceTable).map((choice) => {
-    const options = readyOptions(choice).map((option) => option.value);
-    const list = choice.takes === "list";
-    return flagLine(
-      `--${choice.flag} <${list ? "list" : "name"}>`,
-      `${choice.about}: ${options.join(", ")}${"orNone" in choice ? ", or none" : ""}`,
-    );
-  }),
+  flagLine(
+    "--stack <name>",
+    `the example app's stack: ${readyStacks.join(", ")}`,
+  ),
   flagLine("--install", "install dependencies and initialise git"),
   flagLine(
     "--link",

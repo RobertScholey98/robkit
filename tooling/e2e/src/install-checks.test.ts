@@ -2,8 +2,9 @@ import { execFile } from "node:child_process";
 import { realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { readyStacks } from "create-robkit";
 import { describe, expect, inject, it } from "vitest";
-import { installChoices, type InstallName } from "./install.ts";
+import { cleanPath } from "./clean-path.ts";
 import { ownCiSteps, runOwnCi } from "./own-ci.ts";
 
 const run = promisify(execFile);
@@ -20,40 +21,30 @@ describe("the default install", () => {
   });
 });
 
-/**
- * The installs whose own CI steps run: the default and one per other ORM.
- * The Prisma install runs yarn's workflow with every dev tool, and the
- * Kysely install bun's with none.
- */
-const ciInstalls = ["start", "prisma", "kysely"] as const;
-
-describe.each(ciInstalls)("the %s install", (name) => {
+// Every install, so each stack's apps pass lint, robkit check, the format
+// check, typecheck, tests and the build, as an example and as an added app.
+describe.each(readyStacks)("the %s install", (name) => {
   it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
     const dir = inject("installs")[name];
     const steps = await ownCiSteps(dir);
 
     const runs = steps.flatMap((step) => step.run ?? []);
-    expect(runs).toContainEqual(
-      expect.stringMatching(/^(pnpm|(bun|yarn) run) build$/),
-    );
-    const tools: readonly string[] = installChoices[name].tools;
-    expect(runs.some((step) => step.endsWith(" test:e2e"))).toBe(
-      tools.includes("playwright"),
-    );
-    // A failing step rejects with its output.
-    await runOwnCi(dir, steps);
+    expect(runs).toContainEqual(expect.stringMatching(/^pnpm build$/));
+    // A failing step rejects with its output. Its scripts find only the
+    // bins the install's own manifests give it, as on the owner's machine.
+    await runOwnCi(dir, steps, {
+      ...process.env,
+      PATH: await cleanPath(),
+    });
   });
 });
 
-/** The installs whose lint must catch a cross-app import: with ESLint, and without. */
-const lintInstalls: InstallName[] = ["start", "kysely"];
-
-describe.each(lintInstalls)("the %s install's lint", (name) => {
+describe("the start install's lint", () => {
   it.each([
     [
       "an app other than core imports @robkit/core",
       'export * from "@robkit/core";\n',
-      "apps/hub/src/reach.ts:1:15  Layer rule: an app reaches core over HTTP only, never through @robkit/core.",
+      "apps/hub/src/reach.ts:1:15  Layer rule: an app or shared package reaches core over HTTP only, never through @robkit/core.",
     ],
     [
       "an app imports another app",
@@ -61,11 +52,11 @@ describe.each(lintInstalls)("the %s install's lint", (name) => {
       "apps/hub/src/reach.ts:1:15  Layer rule: an app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.",
     ],
   ])("fails lint when %s", async (_, text, problem) => {
-    const dir = inject("installs")[name];
+    const dir = inject("installs").start;
     const file = join(dir, "apps/hub/src/reach.ts");
     await writeFile(file, text);
     try {
-      const lint = run(installChoices[name].packageManager, ["run", "lint"], {
+      const lint = run("pnpm", ["run", "lint"], {
         cwd: dir,
       });
 
@@ -78,7 +69,7 @@ describe.each(lintInstalls)("the %s install's lint", (name) => {
   });
 });
 
-describe("the prisma install's pre-commit hook", () => {
+describe("the start install's pre-commit hook", () => {
   const commit = (dir: string, ...args: string[]) =>
     run(
       "git",
@@ -93,7 +84,7 @@ describe("the prisma install's pre-commit hook", () => {
     );
 
   it("is set up by init's install", async () => {
-    const dir = inject("installs").prisma;
+    const dir = inject("installs").start;
 
     const { stdout } = await run("git", ["config", "core.hooksPath"], {
       cwd: dir,
@@ -103,7 +94,7 @@ describe("the prisma install's pre-commit hook", () => {
   });
 
   it("refuses a commit that breaks the layer rule", async () => {
-    const dir = inject("installs").prisma;
+    const dir = inject("installs").start;
     const path = "apps/hub/src/reach.ts";
     await writeFile(join(dir, path), 'export * from "@robkit/core";\n');
     try {
@@ -114,7 +105,7 @@ describe("the prisma install's pre-commit hook", () => {
       // lint-staged shows the failing task's output on stderr.
       await expect(committing).rejects.toMatchObject({
         stderr: expect.stringContaining(
-          "apps/hub/src/reach.ts:1:15  Layer rule: an app reaches core over HTTP only, never through @robkit/core.",
+          "apps/hub/src/reach.ts:1:15  Layer rule: an app or shared package reaches core over HTTP only, never through @robkit/core.",
         ) as string,
       });
     } finally {
@@ -124,7 +115,7 @@ describe("the prisma install's pre-commit hook", () => {
   });
 
   it("takes a commit that keeps it, formatting what it stages", async () => {
-    const dir = inject("installs").prisma;
+    const dir = inject("installs").start;
     await writeFile(join(dir, "notes.md"), "# Notes\n*   one\n");
     await commit(dir, "add", "notes.md");
 

@@ -1,123 +1,23 @@
-import { execFile, spawn, type ChildProcess } from "node:child_process";
-import { once } from "node:events";
-import { request, type IncomingHttpHeaders } from "node:http";
+import { execFile } from "node:child_process";
 import { connect } from "node:net";
 import { promisify } from "node:util";
-import {
-  freePortBlock,
-  freePostgresPort,
-  removeWhenGone,
-  testComposeFiles,
-  testTag,
-} from "@internal/test-postgres";
 import { discoverApps } from "@robkit/dev";
+import { describe, expect, it } from "vitest";
+import { testA11yJourney } from "./a11y-journey.ts";
+import { testAddedAppJourney } from "./added-app-journey.ts";
+import { interrupt, owner, useDevStack } from "./dev-stack.ts";
+import { testGuestJourney } from "./guest-journey.ts";
+import { installChoices, type InstallName } from "./install.ts";
 import {
-  defaultDomain,
-  install,
-  type Install,
-} from "@robkit/session/addresses";
-import type { Choices } from "create-robkit";
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  inject,
-  it,
-} from "vitest";
-import { a11yJourney } from "./a11y-journey.ts";
-import { addedAppJourney } from "./added-app-journey.ts";
-import { takeBrowserLog } from "./browser.ts";
-import { guestJourney } from "./guest-journey.ts";
-import {
-  addedIcon,
-  addedSlug,
-  installChoices,
-  type InstallName,
-} from "./install.ts";
-import { ownerJourney } from "./owner-journey.ts";
-import { roleJourney } from "./role-journey.ts";
-import { serverFunctionJourney } from "./server-function-journey.ts";
-import { themeJourney } from "./theme-journey.ts";
+  testClientNavigationJourney,
+  testServerActionJourney,
+} from "./lapsed-call-journeys.ts";
+import { testOwnerJourney } from "./owner-journey.ts";
+import { testRoleJourney } from "./role-journey.ts";
+import { testServerFunctionJourney } from "./server-function-journey.ts";
+import { testThemeJourney } from "./theme-journey.ts";
 
 const run = promisify(execFile);
-
-/** The Host header that reaches `slug` through the dev proxy. */
-function hostOf(slug: string): string {
-  return new URL(addresses.origin(slug)).host;
-}
-
-/** A URL on `slug`, as the browser sees it. */
-function at(slug: string, path = "/"): string {
-  return `${addresses.origin(slug)}${path}`;
-}
-
-interface Reply {
-  status: number;
-  headers: IncomingHttpHeaders;
-  body: string;
-}
-
-let dev: ChildProcess;
-let devPort: number;
-let addresses: Install;
-let postgresPort: number;
-let output = "";
-
-function send(
-  host: string,
-  path: string,
-  {
-    method = "GET",
-    headers = {},
-    body,
-  }: { method?: string; headers?: Record<string, string>; body?: string } = {},
-): Promise<Reply> {
-  return new Promise((resolve, reject) => {
-    request(
-      {
-        host: "127.0.0.1",
-        port: devPort,
-        method,
-        path,
-        headers: { host, ...headers },
-      },
-      (res) => {
-        let body = "";
-        res.on("data", (chunk: Buffer) => (body += chunk.toString()));
-        res.on("end", () => {
-          resolve({ status: res.statusCode ?? 0, headers: res.headers, body });
-        });
-      },
-    )
-      .on("error", reject)
-      .end(body);
-  });
-}
-
-function get(
-  host: string,
-  path = "/",
-  headers: Record<string, string> = {},
-): Promise<Reply> {
-  return send(host, path, { headers });
-}
-
-async function eventually(
-  attempt: () => Promise<Reply>,
-  status = 200,
-): Promise<Reply> {
-  const deadline = Date.now() + 120_000;
-  for (;;) {
-    const reply = await attempt().catch(() => undefined);
-    if (reply?.status === status) return reply;
-    if (Date.now() > deadline) {
-      throw new Error(`the stack never came up:\n${output}`);
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-}
 
 function isListening(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -139,79 +39,53 @@ export interface JourneyOptions {
    * every install shares.
    */
   roles?: boolean;
+  /**
+   * Whether the example calls its server from its page with sessionFetch, as
+   * Start's server function and the Go example's API do, so the server
+   * function journey runs. A stack's own test file says.
+   */
+  serverFunction?: boolean;
+  /**
+   * Whether a lapsed session on a client navigation and on a server action
+   * gets journeys of its own, as Next's example has both.
+   */
+  lapsedCalls?: boolean;
 }
 
 /**
  * Runs `pnpm dev` in the install `name`, and takes the owner and guests
  * through it in a browser.
+ *
+ * Each journey waits for the stack and claims the install if nothing has,
+ * so `vitest -t "<journey>"` runs any one alone. The claim test needs the
+ * install unclaimed, so it comes before every journey, and Ctrl-C's comes
+ * last, since it stops the stack.
  */
 export function describeJourneys(
   name: InstallName,
-  { roles = true }: JourneyOptions = {},
+  {
+    roles = true,
+    serverFunction = false,
+    lapsedCalls = false,
+  }: JourneyOptions = {},
 ): void {
-  const dir = inject("installs")[name];
-  const choices: Choices = installChoices[name];
-  const [stack] = choices.generators;
-  const project = `robkit-e2e-${name}-${String(process.pid)}`;
+  const stack = installChoices[name].exampleStack;
+  const dev = useDevStack(name);
 
-  beforeAll(async () => {
-    devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
-    addresses = install({ domain: defaultDomain, port: devPort });
-    postgresPort = await freePostgresPort();
-    const tag = testTag();
-    removeWhenGone({ tagged: tag }, { docker: project });
-    dev = spawn(choices.packageManager, ["run", "dev"], {
-      cwd: dir,
-      env: {
-        ...process.env,
-        ROBKIT_DEV_PORT: String(devPort),
-        ROBKIT_POSTGRES_PORT: String(postgresPort),
-        COMPOSE_FILE: testComposeFiles(),
-        ROBKIT_TEST_TAG: tag,
-        COMPOSE_PROJECT_NAME: project,
-      },
-      // Its own process group, like a terminal's foreground job, so SIGINT
-      // below reaches it the way Ctrl-C would.
-      detached: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    dev.stdout?.on("data", (chunk: Buffer) => (output += chunk.toString()));
-    dev.stderr?.on("data", (chunk: Buffer) => (output += chunk.toString()));
-  });
-
-  // A journey that times out says only what it waited for. Print what the
-  // browser saw and what the dev runner said meanwhile.
-  beforeEach(({ onTestFailed }) => {
-    takeBrowserLog();
-    const outputFrom = output.length;
-    onTestFailed(() => {
-      console.error(
-        `What the browser saw:\n${takeBrowserLog()}\n\nWhat ${choices.packageManager} run dev said meanwhile:\n${output.slice(outputFrom).slice(-8000)}`,
-      );
-    });
-  });
-
-  afterAll(async () => {
-    if (dev.exitCode === null && dev.pid) process.kill(-dev.pid, "SIGKILL");
-    await run("docker", ["compose", "-p", project, "down", "-v"], {
-      cwd: dir,
-    });
-  });
-
-  describe(`${choices.packageManager} run dev in an install with the ${stack} example on ${choices.orm}`, () => {
+  describe(`pnpm dev in an install with the ${stack} example`, () => {
     it("serves the hub on hub.robkit.localhost", async () => {
-      const hub = await eventually(() => get(hostOf("hub")));
+      const hub = await dev.eventually(() => dev.send(dev.hostOf("hub"), "/"));
 
       expect(hub.headers["content-type"]).toMatch(/text\/html/);
       expect(hub.body).toContain('<div id="root">');
     });
 
     it("serves core on core.robkit.localhost, open to the hub", async () => {
-      const hubOrigin = addresses.origin("hub");
+      const hubOrigin = dev.addresses().origin("hub");
 
-      const status = await eventually(() =>
-        get(hostOf("core"), "/status", {
-          origin: hubOrigin,
+      const status = await dev.eventually(() =>
+        dev.send(dev.hostOf("core"), "/status", {
+          headers: { origin: hubOrigin },
         }),
       );
 
@@ -220,227 +94,59 @@ export function describeJourneys(
     });
 
     it("lets the owner claim the install and stay signed in", async () => {
-      const core = hostOf("core");
-      const origin = addresses.origin("hub");
+      await dev.up();
+      const core = dev.hostOf("core");
+      const origin = dev.addresses().origin("hub");
 
-      const before = await get(core, "/session", { origin });
-      const setup = await send(core, "/setup", {
+      const before = await dev.send(core, "/session", { headers: { origin } });
+      const setup = await dev.send(core, "/setup", {
         method: "POST",
         headers: { origin, "content-type": "application/json" },
-        body: JSON.stringify({
-          username: "rob",
-          password: "correct horse battery",
-        }),
+        body: JSON.stringify(owner),
       });
       const [cookie = ""] = setup.headers["set-cookie"] ?? [];
-      const after = await get(core, "/session", {
-        origin,
-        cookie: cookie.split(";")[0] ?? "",
+      const after = await dev.send(core, "/session", {
+        headers: { origin, cookie: cookie.split(";")[0] ?? "" },
       });
 
       expect(JSON.parse(before.body)).toEqual({ state: "unclaimed" });
       expect(setup.status).toBe(201);
       expect(cookie).toMatch(/^robkit_session=[\w-]+\.[\w-]+\.[\w-]+;/);
-      expect(cookie).toContain(`; Domain=${addresses.domain};`);
+      expect(cookie).not.toContain("Domain=");
       expect(cookie).not.toContain("Secure");
-      expect(JSON.parse(after.body)).toEqual({
+      const signedIn: unknown = JSON.parse(setup.body);
+      expect(signedIn).toMatchObject({
         state: "signed-in",
-        viewer: {
-          kind: "owner",
-          id: (JSON.parse(setup.body) as { viewer: { id: string } }).viewer.id,
-          username: "rob",
-        },
+        profile: { kind: "owner", username: owner.username },
       });
+      // The session core reads back is the one setup started.
+      expect(JSON.parse(after.body)).toEqual(signedIn);
     });
 
-    it("guards the example app: login, return and refresh bounce", async () => {
-      const example = at("example");
-      // pnpm dev waits for no app. Until the guard answers a signed-out
-      // fetch with 401, the proxy may still be answering 502.
-      await eventually(() => get(hostOf("example")), 401);
+    testOwnerJourney(dev);
+    testServerFunctionJourney(dev, serverFunction);
+    testClientNavigationJourney(dev, lapsedCalls);
+    testServerActionJourney(dev, lapsedCalls);
+    testGuestJourney(dev);
+    testAddedAppJourney(dev);
+    testThemeJourney(dev);
+    testA11yJourney(dev, name);
+    testRoleJourney(dev, roles);
 
-      const journey = await ownerJourney({
-        install: addresses,
-        adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
-        username: "rob",
-        password: "correct horse battery",
-      });
-
-      expect(journey).toEqual({
-        signedOutAt: at("hub", `/?next=${encodeURIComponent(example)}`),
-        signedInAt: example,
-        heading: "Signed in as the owner",
-        viewerId: journey.ownerId,
-        ownerId: expect.stringMatching(/^[0-9a-f-]{36}$/) as string,
-        bounce: [
-          example,
-          at("core", `/refresh?next=${encodeURIComponent(example)}`),
-          example,
-        ],
-        bouncedTo: example,
-        bouncedViewerId: journey.ownerId,
-      });
-    });
-
-    // Only a Start app has server functions.
-    it.runIf(stack === "start")(
-      "sends a server function call with an expired session through core's refresh",
-      async () => {
-        const example = at("example");
-
-        const journey = await serverFunctionJourney({
-          install: addresses,
-          adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
-          username: "rob",
-          password: "correct horse battery",
-        });
-
-        const [first] = journey.visits;
-        expect(journey).toEqual({
-          visits: [first, first + 1],
-          bounce: [
-            at("core", `/refresh?next=${encodeURIComponent(example)}`),
-            example,
-          ],
-          bouncedTo: example,
-          // The expired call recorded nothing. The page load after it did.
-          visitsAfterBounce: first + 2,
-        });
-      },
-    );
-
-    it("signs guests in with codes, keeps them out of owner-only apps, and ends a revoked code's session", async () => {
-      const example = at("example");
-      const notFound = { status: 404, body: "Not found" };
-
-      const journey = await guestJourney({
-        install: addresses,
-        adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
-        username: "rob",
-        password: "correct horse battery",
-      });
-
-      expect(journey).toEqual({
-        code: expect.stringMatching(
-          /^[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{5}$/,
-        ) as string,
-        introLink: at("hub", `/i/${journey.code ?? ""}`),
-        introLandedAt: at("hub"),
-        introGreeting: "Signed in as Grandma",
-        admin: notFound,
-        example: notFound,
-        testCodeGreeting: "Signed in as Test",
-        revokedStanding: "Revoked",
-        bounce: [
-          example,
-          at("core", `/refresh?next=${encodeURIComponent(example)}`),
-          example,
-          at("hub", `/?next=${encodeURIComponent(example)}`),
-        ],
-        afterRevokeAt: at("hub", `/?next=${encodeURIComponent(example)}`),
-      });
-    });
-
-    it("lets a guest open the app robkit add made, open to anyone", async () => {
-      // Open lets a signed-out visitor in too.
-      await eventually(() => get(hostOf(addedSlug)));
-
-      const journey = await addedAppJourney({
-        install: addresses,
-        slug: addedSlug,
-      });
-
-      expect(journey).toEqual({
-        icon: addedIcon,
-        openedAt: at(addedSlug),
-        heading: "Signed in as a guest",
-      });
-    });
-
-    // Every kit, and no kit, draws from the same theme variables, so the
-    // same change restyles each install the same way.
-    it("draws the hub from the theme's variables", async () => {
-      const journey = await themeJourney({ install: addresses });
-
-      expect(journey).toEqual({
-        before: {
-          buttonBackground: "oklch(0.205 0 0)",
-          buttonText: "oklch(0.985 0 0)",
-          cardRadius: "14px",
-        },
-        after: {
-          buttonBackground: "rgb(200, 30, 60)",
-          buttonText: "rgb(250, 240, 200)",
-          cardRadius: "28px",
-        },
-      });
-    });
-
-    // E2E_SCREENSHOTS names a folder to save each page in, to look at.
-    it("draws every page with no accessibility violations axe finds", async () => {
-      const dir = process.env.E2E_SCREENSHOTS;
-      const journey = await a11yJourney({
-        install: addresses,
-        username: "rob",
-        password: "correct horse battery",
-        slug: addedSlug,
-        screenshots: dir ? { dir, prefix: name } : undefined,
-      });
-
-      expect(journey).toEqual({
-        "hub-sign-in": [],
-        launcher: [],
-        admin: [],
-        example: [],
-        added: [],
-      });
-    });
-
-    // The example app keeps its rule for a minute, and this journey waits it
-    // out twice.
-    it.runIf(roles)(
-      "lets a guest open an app through a role, and not once it's gated to another",
-      {
-        timeout: 300_000,
-      },
-      async () => {
-        const journey = await roleJourney({
-          install: addresses,
-          adminUrl: `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
-          username: "rob",
-          password: "correct horse battery",
-        });
-
-        expect(journey).toEqual({
-          createdWith: "Alex, Sam",
-          editedTo: "Sam",
-          launcherGatedToFamily: [addedSlug, "example"],
-          openedAt: at("example"),
-          heading: "Signed in as a guest",
-          launcherGatedToFriends: [addedSlug],
-          example: { status: 404, body: "Not found" },
-        });
-      },
-    );
-
-    // Last, since it stops the stack.
     it("stops every app and Postgres on Ctrl-C", async () => {
-      const apps = await discoverApps(dir, devPort + 1);
-      if (!dev.pid) throw new Error("dev never started");
+      await dev.up();
+      const apps = await discoverApps(dev.dir, dev.port() + 1);
 
-      process.kill(-dev.pid, "SIGINT");
-      const [code] = (await once(dev, "exit")) as [number | null];
+      const code = await interrupt(dev);
 
       expect(code).toBe(0);
-      for (const port of [devPort, ...apps.map((app) => app.port)]) {
+      for (const port of [dev.port(), ...apps.map((app) => app.port)]) {
         expect(await isListening(port)).toBe(false);
       }
       const running = await run(
         "docker",
-        ["compose", "-p", project, "ps", "-q"],
-        {
-          cwd: dir,
-        },
+        ["compose", "-p", dev.project, "ps", "-q"],
+        { cwd: dev.dir },
       );
       expect(running.stdout.trim()).toBe("");
     });

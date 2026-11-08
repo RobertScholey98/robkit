@@ -1,9 +1,9 @@
 import { createHmac, randomBytes } from "node:crypto";
 import postgres from "postgres";
 import { discoverApps } from "./apps.ts";
+import { CommandProblem } from "./run-command.ts";
+import { isProblem, readSlug, type Slug } from "@robkit/input";
 import { exec } from "./exec.ts";
-import { packageManagerOf } from "./package-manager.ts";
-import { slugProblem } from "./slug.ts";
 
 export interface ProvisionOptions {
   /** A superuser URL for the install's database. */
@@ -25,14 +25,13 @@ export interface ProvisionOptions {
 export async function provisionApps(
   root: string,
   { adminUrl, env = process.env, signal }: ProvisionOptions,
-): Promise<Map<string, string>> {
-  const databaseUrls = new Map<string, string>();
-  const pm = await packageManagerOf(root);
+): Promise<Map<Slug, string>> {
+  const databaseUrls = new Map<Slug, string>();
   for (const app of await discoverApps(root)) {
     if (signal?.aborted) break;
     if (!app.migrates) continue;
     const databaseUrl = await provisionDatabase(adminUrl, app.slug);
-    await exec(pm, ["run", "migrate"], {
+    await exec("pnpm", ["run", "migrate"], {
       cwd: app.dir,
       env: { ...env, DATABASE_URL: databaseUrl },
       slug: app.slug,
@@ -48,7 +47,7 @@ export interface ProvisionDatabasesOptions {
   /** The install's database secret, which every role's password comes from. */
   secret: string;
   /** The apps that have a database. */
-  slugs: readonly string[];
+  slugs: readonly Slug[];
 }
 
 /**
@@ -63,8 +62,8 @@ export async function provisionDatabases({
   adminUrl,
   secret,
   slugs,
-}: ProvisionDatabasesOptions): Promise<Map<string, string>> {
-  const databaseUrls = new Map<string, string>();
+}: ProvisionDatabasesOptions): Promise<Map<Slug, string>> {
+  const databaseUrls = new Map<Slug, string>();
   for (const slug of slugs) {
     const password = databasePassword(secret, slug);
     databaseUrls.set(slug, await provisionDatabase(adminUrl, slug, password));
@@ -77,9 +76,11 @@ export async function provisionDatabases({
  * the install's database secret. Anyone with the secret can work out every
  * app's password, so only the provision step holds it.
  */
-export function databasePassword(secret: string, slug: string): string {
+export function databasePassword(secret: string, slug: Slug): string {
   if (secret.length < 32) {
-    throw new Error("The database secret must be at least 32 characters.");
+    throw new CommandProblem(
+      "The database secret must be at least 32 characters.",
+    );
   }
   return createHmac("sha256", secret).update(slug).digest("hex");
 }
@@ -87,7 +88,7 @@ export function databasePassword(secret: string, slug: string): string {
 /** An app's `DATABASE_URL`: the admin URL's database, as the app's role. */
 export function databaseUrl(
   adminUrl: string,
-  slug: string,
+  slug: Slug,
   password: string,
 ): string {
   const url = new URL(adminUrl);
@@ -107,11 +108,12 @@ export function databaseUrl(
  */
 export async function provisionDatabase(
   adminUrl: string,
-  slug: string,
+  slug: Slug,
   password = randomBytes(24).toString("hex"),
 ): Promise<string> {
-  const problem = slugProblem(slug);
-  if (problem) throw new Error(problem);
+  // The slug goes into DDL, so a caller in plain JavaScript is checked too.
+  const read = readSlug(slug);
+  if (isProblem(read)) throw new CommandProblem(read.error);
   const role = `"${slug}"`;
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
   try {

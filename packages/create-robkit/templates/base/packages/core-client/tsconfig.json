@@ -1,7 +1,10 @@
 {
   "extends": "@internal/tsconfig/base.json",
   "compilerOptions": {
-    "lib": ["es2024", "dom", "dom.iterable"]
+    "lib": ["es2024", "dom", "dom.iterable"],
+    // @robkit/input's orExit names process, which an install linked to a
+    // robkit checkout type-checks from source.
+    "types": ["node"]
   },
   "include": ["src"]
 }

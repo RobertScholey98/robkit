@@ -1,9 +1,12 @@
+import { aDomain } from "@internal/test-session";
 import type { Hono } from "hono";
+import { decodeJwt, SignJWT, type JWTPayload } from "jose";
 import { onTestFinished } from "vitest";
 import { createApp } from "../app.ts";
 import type { TrustedProxy } from "../client.ts";
 import { createDatabase, type Database } from "../database.ts";
 import { migrate } from "../migrate.ts";
+import { ensureSigningKey } from "../signing-key.ts";
 import { freshDatabase } from "./fresh-database.ts";
 
 /** Where every fresh core's clock starts: 2026-11-01T12:00:00Z. */
@@ -37,7 +40,7 @@ export async function freshCore({
   let now = clockStart.getTime();
   const clock = () => new Date(now);
   return {
-    app: createApp({ db, domain, now: clock, trustedProxy }),
+    app: createApp({ db, domain: aDomain(domain), now: clock, trustedProxy }),
     db,
     now: clock,
     advance: (ms) => {
@@ -114,4 +117,21 @@ export async function claim(app: Hono): Promise<string> {
     throw new Error(`setup answered ${String(res.status)}`);
   }
   return cookie.value;
+}
+
+/**
+ * `sessionToken`'s claims re-signed with core's own key, with `claims` in
+ * place of its own, such as a token for an app. A claim set to undefined
+ * is left out.
+ */
+export async function resigned(
+  db: Database,
+  sessionToken: string,
+  claims: Record<string, unknown>,
+): Promise<string> {
+  const key = await ensureSigningKey(db);
+  const payload: JWTPayload = decodeJwt(sessionToken);
+  return new SignJWT({ ...payload, ...claims })
+    .setProtectedHeader({ alg: "EdDSA", kid: key.kid })
+    .sign(key.privateKey);
 }

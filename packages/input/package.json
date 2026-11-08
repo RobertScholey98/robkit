@@ -1,0 +1,57 @@
+{
+  "name": "@robkit/input",
+  "version": "0.0.0",
+  "description": "robkit's readers for input from outside its own code: environment variables, JSON, slugs and an app's manifest.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./addresses": "./src/addresses.ts",
+    "./report": "./src/report.ts",
+    "./manifest": "./src/manifest.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./addresses": {
+        "types": "./dist/addresses.d.ts",
+        "default": "./dist/addresses.js"
+      },
+      "./report": {
+        "types": "./dist/report.d.ts",
+        "default": "./dist/report.js"
+      },
+      "./manifest": {
+        "types": "./dist/manifest.d.ts",
+        "default": "./dist/manifest.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run --typecheck --coverage",
+    "test:unit": "vitest run --typecheck --coverage"
+  },
+  "devDependencies": {
+    "@internal/eslint-config": "workspace:*",
+    "@internal/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -13,7 +13,7 @@ const visit = createServerFn({ method: "POST" }).handler(({ context }) => {
 });
 ```
 
-A viewer is `{ kind: "owner", id }`, `{ kind: "guest", id, roles }`, or `{ kind: "nobody" }` in an app open to anyone. Key a viewer's data by `viewer.id`. Never read the session cookie or verify the token yourself.
+A viewer is `{ kind: "owner", id }`, `{ kind: "guest", id, roles }`, or `{ kind: "nobody" }` in an app open to anyone. Key a viewer's data by `viewer.id`. Never read the session cookie or verify the token yourself. The token is the app's own: core mints it for this app's slug, and no other app or core accepts it. Paths under `/_robkit/` are the guard's, so give no route one.
 
 `src/start.ts` hands server functions `sessionFetch` from `@robkit/react`. A call made after the session lapses goes through core's refresh and comes back to the page, rather than failing.
 
@@ -28,3 +28,13 @@ The guard already asks core for what it needs: core's public key and this app's 
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
 The example's queries are in `src/visits.ts`, and `src/routes/index.tsx` calls them from a server function.
+
+## The database
+
+The app talks to Postgres with Drizzle over `DATABASE_URL`, as its own role. The role has the app's own schema first on its search path, so a table named without a schema lands there. The role can't reach core's schema or another app's.
+
+- `src/schema.ts` declares the tables. Use `pgTable`, never `pgSchema`: the app's schema is the role's, and naming another one fails.
+- `src/database.ts` gives queries the database, connected on first use. `src/visits.ts` shows a query.
+- `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run.
+
+`src/migrate.ts` applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It follows Drizzle's migrator but skips its `CREATE SCHEMA`, which the app's role may not run, and keeps its journal table in the app's schema.

@@ -6,16 +6,27 @@
   },
   "scripts": {
     "dev": "robkit-dev",
-    "lint": "robkit check",
+    "lint": "robkit check && eslint . && turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "build": "turbo run build",
-    "robkit": "robkit"
+    "robkit": "robkit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "postinstall": "husky || true"
   },
   "devDependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "catalog:",
+    "@eslint/js": "catalog:",
     "@robkit/dev": "catalog:",
     "create-robkit": "catalog:",
+    "eslint": "catalog:",
+    "globals": "catalog:",
+    "husky": "catalog:",
+    "lint-staged": "catalog:",
+    "prettier": "catalog:",
     "turbo": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
   }
 }
