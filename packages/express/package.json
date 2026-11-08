@@ -1,0 +1,59 @@
+{
+  "name": "@robkit/express",
+  "version": "0.0.0",
+  "description": "robkit's Express adapter: runs the guard and hands handlers the viewer.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run --typecheck --coverage",
+    "test:unit": "vitest run --typecheck --coverage"
+  },
+  "dependencies": {
+    "@robkit/guard": "workspace:*",
+    "@robkit/session": "workspace:*"
+  },
+  "peerDependencies": {
+    "@types/express": "^5.0.0",
+    "express": "^5.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@types/express": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@internal/eslint-config": "workspace:*",
+    "@internal/test-session": "workspace:*",
+    "@internal/tsconfig": "workspace:*",
+    "@robkit/input": "workspace:*",
+    "@types/express": "catalog:",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "express": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

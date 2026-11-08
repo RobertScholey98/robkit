@@ -16,9 +16,11 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 
 `@internal/e2e`'s `test`, in `tooling/e2e/src/`.
 
-- It generates two installs linked to this checkout, one with its example app on each stack, and in each adds an app on the other stack with `robkit add`.
+- It generates an install linked to this checkout for each stack create-robkit can make (`readyStacks`), with its example app on that stack, and in each adds an app on the next stack with `robkit add`. So every stack runs as an example and as an added app.
+- Each stack's journeys run from its own file, `src/<stack>.test.ts`, which calls `describeJourneys("<stack>")` with any journey only its example has: the call from the page that Start's server function and the Go example's API make, and Next's client navigation and server action with a lapsed session. A repo check fails on a ready stack without one.
+- The React + Go install needs Go on the `PATH`, as `pnpm check` does for the Go module's own tests.
 - It takes a browser through each install's example and added app in Chromium. It needs Chromium once: `pnpm --filter @internal/e2e exec playwright install --with-deps chromium`.
-- On the Start install it also runs the install's own CI workflow on a `PATH` that can't see any `node_modules/.bin`, checks that `pnpm lint` catches a cross-app import, and checks that the pre-commit hook refuses a commit that breaks the layer rule.
+- On every install it runs the install's own CI workflow on a `PATH` that can't see any `node_modules/.bin`: lint, the format check, typecheck, tests and the build. On the Start install it also checks that `pnpm lint` catches a cross-app import, and that the pre-commit hook refuses a commit that breaks the layer rule.
 - It isn't the only place an install's own unit tests run. create-robkit's `src/install-checks.test.ts` runs the hub's, admin's and core-client's tests and the install's lint in a fresh install, with no Docker, so `pnpm check` covers them.
 - axe checks every install's hub, admin and apps. A theme journey changes the theme's variables on the hub and checks its controls follow them.
 - CI's job summary lists how long it took, beside each package's tests.
@@ -27,7 +29,7 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 
 `pnpm --filter @internal/e2e test:production`.
 
-- It vendors the default install, builds each app's image from the install's Dockerfile, and runs the journey over https behind Caddy on `robkit.test`.
+- It vendors the default install, builds each app's image from the install's Dockerfile, and runs the journey over https behind Caddy on `robkit.test`. After the first deploy the owner adds an app on every other stack with `robkit add`, and a guest opens each over https.
 - Caddy stands in for a Cloudflare tunnel into Traefik: it names each visitor in `CF-Connecting-IP` and hands every request through one hop, and two visitor containers check that core's sign-in limit counts them apart.
 - It runs `src/extraneous-packages.js` in every image it builds, and fails on any installed package the app doesn't reach through its production dependencies.
 - The images build with Husky's postinstall and no git.

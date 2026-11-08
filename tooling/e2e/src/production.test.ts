@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { defaultChoices, init } from "create-robkit";
+import { defaultChoices, init, readyStacks } from "create-robkit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { Slug } from "@robkit/input";
 import { takeBrowserLog } from "./browser.ts";
@@ -26,8 +26,13 @@ import { slug } from "@internal/test-session";
 
 const run = promisify(execFile);
 
-/** The app the owner adds with robkit add after the first deploy. */
-const later = slug("later");
+/**
+ * The apps the owner adds with robkit add after the first deploy: one on
+ * each stack but the example's, named after its stack.
+ */
+const later = readyStacks
+  .filter((stack) => stack !== defaultChoices.exampleStack)
+  .map((stack) => ({ stack, slug: slug(stack.replaceAll("-", "")) }));
 
 /** Builds each app's image and starts its container with its env. */
 async function deployApps(stack: Stack, slugs: Slug[]): Promise<void> {
@@ -65,7 +70,13 @@ describe("the default install in production", () => {
     await run("pnpm", ["run", "robkit", "vendor"], {
       cwd: dir,
     });
-    stack = await startStack(dir, ["core", "hub", "admin", "example", later]);
+    stack = await startStack(dir, [
+      "core",
+      "hub",
+      "admin",
+      "example",
+      ...later.map((app) => app.slug),
+    ]);
     await deployApps(stack, ["core"]);
     await answers(stack, "core", 200, "/status");
     await deployApps(stack, ["hub", "admin"]);
@@ -157,35 +168,60 @@ describe("the default install in production", () => {
     });
   });
 
-  it("serves an app added with robkit add after its next deploy", async () => {
-    await run(
-      "pnpm",
-      [
-        "run",
-        "robkit",
-        "add",
-        later,
-        "--stack",
-        "react-hono",
-        "--access",
-        "open",
-      ],
-      { cwd: dir },
-    );
-    // The next deploy: core picks up the new app and provisions its
-    // database, then the app's own container starts.
+  it("serves an app on each other stack, added with robkit add, after its next deploy", async () => {
+    for (const app of later) {
+      await run(
+        "pnpm",
+        [
+          "run",
+          "robkit",
+          "add",
+          app.slug,
+          "--stack",
+          app.stack,
+          "--access",
+          "open",
+        ],
+        { cwd: dir },
+      );
+    }
+    // The next deploy: core picks up the new apps and provisions their
+    // databases, then each app's own container starts.
     await deployApps(stack, ["core"]);
     await answers(stack, "core", 200, "/status");
-    await deployApps(stack, [later]);
-    await answers(stack, later, 200);
+    await deployApps(
+      stack,
+      later.map((app) => app.slug),
+    );
+    const visits: Record<string, unknown> = {};
+    for (const app of later) {
+      await answers(stack, app.slug, 200);
+      visits[app.stack] = await guestOpens(
+        stack.addresses,
+        setUp.code ?? "",
+        app.slug,
+      );
+    }
 
-    const visit = await guestOpens(stack.addresses, setUp.code ?? "", later);
-
-    expect(visit).toEqual({
-      greeting: "Signed in as Grandma",
-      openedAt: `${stack.addresses.origin(later)}/`,
-      heading: "Signed in as a guest",
-      stylesheets: [200],
-    });
+    expect(visits).toEqual(
+      Object.fromEntries(
+        later.map((app) => [
+          app.stack,
+          {
+            greeting: "Signed in as Grandma",
+            openedAt: `${stack.addresses.origin(app.slug)}/`,
+            heading: "Signed in as a guest",
+            stylesheets: [200],
+          },
+        ]),
+      ),
+    );
   });
+
+  it.each(later)(
+    "builds the $stack app's image with no package production doesn't need",
+    async (app) => {
+      expect(await extraneousPackages(stack, app.slug)).toEqual([]);
+    },
+  );
 });

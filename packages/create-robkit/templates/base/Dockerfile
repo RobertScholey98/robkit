@@ -17,17 +17,47 @@ RUN npm install --global --no-fund --no-audit \
 FROM tools AS prune
 ARG ROBKIT_APP
 COPY . .
-RUN turbo prune "@internal/${ROBKIT_APP}-app" --docker
+RUN turbo prune "@internal/${ROBKIT_APP}-app" --docker \
+ && mkdir out/go \
+ && if [ -f "out/full/apps/${ROBKIT_APP}/go.mod" ]; then \
+      cp "out/full/apps/${ROBKIT_APP}/go.mod" out/go/; \
+    fi
+
+# Go's toolchain, for an app whose server is Go: one with a go.mod. The
+# stage sees only that file, so it fetches Go again only when it changes,
+# and for any other app it leaves /usr/local/go empty and fetches nothing.
+FROM node:24-alpine AS go
+ARG TARGETARCH
+COPY --from=prune /install/out/go/ /app/
+RUN mkdir -p /usr/local/go \
+ && if [ -f /app/go.mod ]; then \
+      case "${TARGETARCH}" in \
+        amd64) sum=65efbc80fdc1fa2cd2631cad5b481777a68e8725f34e89f50fc6ac714e379b40 ;; \
+        arm64) sum=a06e99309dbcbdca1a8ccd2282c3ee146e55930886e26b4f1193269587165f49 ;; \
+        *) echo "This Dockerfile fetches Go for amd64 and arm64, not ${TARGETARCH}." >&2; exit 1 ;; \
+      esac \
+      && wget -qO /tmp/go.tar.gz "https://go.dev/dl/go1.27.3.linux-${TARGETARCH}.tar.gz" \
+      && echo "${sum}  /tmp/go.tar.gz" | sha256sum -c - \
+      && tar -C /usr/local -xzf /tmp/go.tar.gz \
+      && rm /tmp/go.tar.gz; \
+    fi
 
 FROM tools AS build
 ARG ROBKIT_APP
+COPY --from=go /usr/local/go /usr/local/go
+ENV PATH=/usr/local/go/bin:$PATH
 COPY --from=prune /install/out/json/ ./
-# robkit vendor's tarballs, when the install takes robkit's packages from them.
+# robkit vendor's tarballs, when the install takes robkit's packages from
+# them, and its copy of robkit's Go module.
 COPY vendo[r] ./vendor/
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 COPY --from=prune /install/out/full/ ./
-RUN turbo run build --filter="@internal/${ROBKIT_APP}-app"
+# A Go app's build fetches its modules and compiles into caches that stay
+# out of the image.
+RUN --mount=type=cache,id=go-modules,target=/root/go/pkg/mod \
+    --mount=type=cache,id=go-build,target=/root/.cache/go-build \
+    turbo run build --filter="@internal/${ROBKIT_APP}-app"
 
 # The built workspace with only what the app runs on: every node_modules
 # goes, then the install puts back the app's production dependencies alone.

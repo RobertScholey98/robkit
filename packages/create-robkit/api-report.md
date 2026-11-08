@@ -50,19 +50,18 @@ export const stacks: readonly [
     readonly label: "React + Hono";
   },
   {
-    readonly value: "next";
-    readonly label: "Next.js";
-    readonly comingLater: true;
-  },
-  {
     readonly value: "express";
     readonly label: "React + Express";
-    readonly comingLater: true;
+  },
+  {
+    readonly value: "next";
+    readonly label: "Next.js";
   },
   {
     readonly value: "go";
     readonly label: "React + Go";
-    readonly comingLater: true;
+    readonly ownsDatabase: true;
+    readonly toolchain: "go";
   },
 ];
 ```

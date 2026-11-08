@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { defaultChoices, init, readyStacks, type Choices } from "create-robkit";
+import { init, readyStacks, type Choices, type Stack } from "create-robkit";
 import type { TestProject } from "vitest/node";
 import { slug } from "@internal/test-session";
 
@@ -12,23 +12,33 @@ const run = promisify(execFile);
 /** The example app every install starts with. */
 export const exampleSlug = slug("example");
 
-/** The slug of the app each install adds with robkit add, on its other stack. */
+/** The slug of the app each install adds with robkit add, on the next stack. */
 export const addedSlug = slug("added");
 
 /** The emoji robkit add gives that app. */
 export const addedIcon = "🧪";
 
 /**
- * The installs the suites run, by name: one with its example app on each
- * stack. robkit add gives each an app on the other stack.
+ * The installs the suites run, by name: one for each stack robkit can make,
+ * with its example app on that stack. `start` is the default install.
  */
-export const installChoices = {
-  // The default install.
-  start: defaultChoices,
-  "react-hono": { exampleStack: "react-hono" },
-} satisfies Record<string, Choices>;
+export const installChoices = Object.fromEntries(
+  readyStacks.map((stack) => [stack, { exampleStack: stack }]),
+) as Record<Stack, Choices>;
 
-export type InstallName = keyof typeof installChoices;
+/** An install is named after its example's stack. */
+export type InstallName = Stack;
+
+/**
+ * The stack robkit add gives the install whose example is on `stack`: the
+ * next one in robkit's list, wrapping round. So each stack is an example
+ * once and an added app once.
+ */
+export function addedStackFor(stack: Stack): Stack {
+  const next =
+    readyStacks[(readyStacks.indexOf(stack) + 1) % readyStacks.length];
+  return next ?? stack;
+}
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -41,15 +51,12 @@ declare module "vitest" {
  * Makes an install for `choices` in a temp folder, as init with
  * `--install --link` does: linked to this checkout's `@robkit/*` packages,
  * with its dependencies installed and git initialised. Then adds an app on
- * another stack than the example's, as the owner would with robkit add's
- * flags.
+ * the next stack, as the owner would with robkit add's flags.
  */
 export async function createInstall(choices: Choices): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
   await init(choices, dir, { link: true, install: true });
-  const other =
-    readyStacks.find((stack) => stack !== choices.exampleStack) ??
-    choices.exampleStack;
+  const other = addedStackFor(choices.exampleStack);
   await run(
     "pnpm",
     [

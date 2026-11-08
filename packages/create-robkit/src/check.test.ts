@@ -46,6 +46,13 @@ describe("checkInstall", () => {
     expect(await checkInstall(await readOnlyInstall())).toEqual([]);
   });
 
+  it("finds nothing in a fresh install whose example is on React + Go", async () => {
+    const dir = join(await mkdtemp(join(tmpdir(), "robkit-check-")), "go");
+    await init({ exampleStack: "go" }, dir);
+
+    expect(await checkInstall(dir)).toEqual([]);
+  });
+
   it.each([
     [
       "an app importing another app's files",
@@ -160,6 +167,56 @@ describe("checkInstall", () => {
     await expect(checkInstall(dir)).rejects.toThrow(
       'apps/hub/package.json: name must be a string, such as "@internal/notes-app".',
     );
+  });
+
+  it.each([
+    ["a string", 'package main\n\nconst cookie = "robkit_session"\n', 16],
+    ["a raw string", "package main\n\nvar cookie = `robkit_session`\n", 14],
+    [
+      "an escaped string",
+      'package main\n\nconst c = "robkit\\x5fsession"\n',
+      11,
+    ],
+  ])(
+    "refuses a Go app reading the session cookie from %s, naming where it starts",
+    async (_, text, column) => {
+      const dir = await installWith("apps/example/cookie.go", text);
+
+      expect(await checkInstall(dir)).toEqual([
+        {
+          file: "apps/example/cookie.go",
+          line: 3,
+          column,
+          rule: viewerFromAdapter,
+        },
+      ]);
+    },
+  );
+
+  it("reads a Go file's comments, runes and strings as Go does", async () => {
+    const dir = await installWith(
+      "apps/example/cookie.go",
+      [
+        "package main",
+        '// "robkit_session" in a comment',
+        "/* `robkit_session`",
+        "   across lines */",
+        "var quote, backslash = '\"', '\\\\'",
+        'var path = "C:\\\\" + `',
+        '"`',
+        'var cookie = "robkit_session"',
+        "",
+      ].join("\n"),
+    );
+
+    expect(await checkInstall(dir)).toEqual([
+      {
+        file: "apps/example/cookie.go",
+        line: 8,
+        column: 14,
+        rule: viewerFromAdapter,
+      },
+    ]);
   });
 
   it("checks .tsx and .js files, and skips node_modules", async () => {

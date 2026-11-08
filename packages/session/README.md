@@ -2,7 +2,7 @@
 
 Session tokens and the request guard. It reads and verifies the tokens core signs, and runs the guard on a web-standard `Request`.
 
-The adapters (`@robkit/hono`, `@robkit/start`) wrap `requestGuard`. Core uses the token readers, and `@robkit/react` uses `@robkit/session/lapsed`. An app's own code doesn't import it: it takes the viewer from its adapter.
+The adapters (`@robkit/hono`, `@robkit/express`, `@robkit/next`, `@robkit/start`) wrap `requestGuard`. Core uses the token readers, and `@robkit/react` uses `@robkit/session/lapsed`. An app's own code doesn't import it: it takes the viewer from its adapter.
 
 ## Example
 

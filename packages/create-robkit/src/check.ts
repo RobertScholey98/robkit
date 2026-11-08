@@ -5,6 +5,7 @@ import { CommandProblem, isMissing } from "@robkit/dev/cli";
 import { sessionCookie } from "@robkit/session";
 import { isProblem, isRecord, parseJson } from "@robkit/input";
 import ts from "typescript";
+import { goStringsIn } from "./go-strings.ts";
 
 /**
  * Code the layer rule binds: an app, `apps/<slug>`, or a shared package,
@@ -185,7 +186,7 @@ async function areasOf(root: string): Promise<Area[]> {
   return areas;
 }
 
-/** Every script file under `dir`, by its path from `root`. */
+/** Every script or Go file under `dir`, by its path from `root`. */
 async function scriptsIn(root: string, dir: string): Promise<string[]> {
   const files: string[] = [];
   const entries = await readdir(join(root, dir), { withFileTypes: true });
@@ -196,18 +197,36 @@ async function scriptsIn(root: string, dir: string): Promise<string[]> {
       if (!skipped.has(entry.name) && !entry.name.startsWith(".")) {
         files.push(...(await scriptsIn(root, path)));
       }
-    } else if (extname(entry.name) in scriptKinds) {
+    } else if (
+      extname(entry.name) in scriptKinds ||
+      entry.name.endsWith(".go")
+    ) {
       files.push(path);
     }
   }
   return files;
 }
 
-/** The imports and strings in a file, each with where it starts. */
-function usesIn(
-  file: string,
-  text: string,
-): { use: Use; node: ts.Node; source: ts.SourceFile }[] {
+/** A use in a file, and the line and column, from 1, where it starts. */
+interface Placed {
+  use: Use;
+  line: number;
+  column: number;
+}
+
+/**
+ * The imports and strings in a file, each with where it starts. A Go file's
+ * are its strings: the Go apps' imports are Go modules, which the layer
+ * rule doesn't name.
+ */
+function usesIn(file: string, text: string): Placed[] {
+  if (file.endsWith(".go")) {
+    return goStringsIn(text).map(({ value, line, column }) => ({
+      use: { kind: "string", value },
+      line,
+      column,
+    }));
+  }
   const source = ts.createSourceFile(
     file,
     text,
@@ -215,14 +234,20 @@ function usesIn(
     true,
     scriptKinds[extname(file)],
   );
-  const found: { use: Use; node: ts.Node; source: ts.SourceFile }[] = [];
+  const found: Placed[] = [];
+  const add = (use: Use, node: ts.Node) => {
+    const { line, character } = source.getLineAndCharacterOfPosition(
+      node.getStart(source),
+    );
+    found.push({ use, line: line + 1, column: character + 1 });
+  };
   const imported = (node: ts.Node | undefined) => {
     if (node === undefined || !ts.isStringLiteralLike(node)) return;
     const specifier = node.text;
     const target = /^\.\.?(\/|$)/.test(specifier)
       ? posix.join(posix.dirname(file), specifier)
       : undefined;
-    found.push({ use: { kind: "import", specifier, target }, node, source });
+    add({ kind: "import", specifier, target }, node);
   };
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
@@ -246,7 +271,7 @@ function usesIn(
       imported(node.argument.literal);
     }
     if (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)) {
-      found.push({ use: { kind: "string", value: node.text }, node, source });
+      add({ kind: "string", value: node.text }, node);
     }
     ts.forEachChild(node, visit);
   };
@@ -265,18 +290,11 @@ export async function checkInstall(root: string): Promise<Violation[]> {
     const rows = layerRule.filter((row) => row.applies(area));
     for (const file of await scriptsIn(root, area.folder)) {
       const text = await readFile(join(root, file), "utf8");
-      for (const { use, node, source } of usesIn(file, text)) {
+      for (const { use, line, column } of usesIn(file, text)) {
         for (const row of rows) {
-          if (!row.breaks(use, area, areas)) continue;
-          const { line, character } = source.getLineAndCharacterOfPosition(
-            node.getStart(source),
-          );
-          violations.push({
-            file,
-            line: line + 1,
-            column: character + 1,
-            rule: row.rule,
-          });
+          if (row.breaks(use, area, areas)) {
+            violations.push({ file, line, column, rule: row.rule });
+          }
         }
       }
     }

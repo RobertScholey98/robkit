@@ -75,6 +75,12 @@ export const exceptions: Exceptions = {
       why: "Vite's word for what extends it.",
     },
     {
+      word: "plugin",
+      file: "packages/create-robkit/templates/stacks/next/{postcss.config.js,tsconfig.json}",
+      text: "plugin",
+      why: "PostCSS's and TypeScript's word for what extends them.",
+    },
+    {
       word: "group",
       file: "packages/create-robkit/templates/base/packages/ui/src/components/ui/*.tsx",
       text: "group",
@@ -99,9 +105,21 @@ export const exceptions: Exceptions = {
     },
     {
       word: "middleware",
-      file: "packages/{hono,start,create-robkit/templates/stacks/react-hono}/**",
+      file: "packages/{hono,express,start,create-robkit/templates/stacks/{react-hono,express}}/**",
       text: "middleware",
-      why: "Hono's and TanStack Start's word for what an adapter hands them.",
+      why: "Hono's, Express's, Vite's and TanStack Start's word for what an adapter hands them.",
+    },
+    {
+      word: "middleware",
+      file: "go/session/guarded.go",
+      text: "middleware",
+      why: "Go's word for a func(http.Handler) http.Handler, which Guarded is.",
+    },
+    {
+      word: "user",
+      file: "go/session/*.go",
+      text: ".User",
+      why: "Go's url.URL keeps a URL's user info in its User field.",
     },
     {
       word: "backend",
@@ -336,7 +354,8 @@ export function unusedExceptions(
 
 /**
  * The files the check reads: each published package's source and README,
- * create-robkit's templates, `docs/`, `README.md` and `AGENTS.md`.
+ * the Go module's source and README, create-robkit's templates, `docs/`,
+ * `README.md` and `AGENTS.md`.
  * Snapshots and drizzle-kit's migrations are generated, so it skips them.
  */
 export async function readScannedFiles(root: string): Promise<ScannedFile[]> {
@@ -345,6 +364,8 @@ export async function readScannedFiles(root: string): Promise<ScannedFile[]> {
     [
       "packages/*/src/**/*",
       "packages/*/README.md",
+      "go/**/*.go",
+      "go/README.md",
       // An install's own code, docs and pages.
       "packages/create-robkit/templates/**/*",
       "docs/**/*.md",

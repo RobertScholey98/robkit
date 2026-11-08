@@ -45,7 +45,7 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 `tooling/eslint` enforces each rule here, and its error names the rule. A new rule goes in with its lint rule, in the same commit.
 
 - `@robkit/input`, `@robkit/session` and `@robkit/guard` import no framework, and the guard and input do no I/O.
-- Adapters (`@robkit/hono`, `@robkit/start`, `@robkit/react`) import session and guard, never core. Code reaches core over HTTP only. The lint rule builds this row for every package the package graph keeps off core, not just the adapters.
+- Adapters (`@robkit/hono`, `@robkit/express`, `@robkit/next`, `@robkit/start`, `@robkit/react`) import session and guard, never core. Code reaches core over HTTP only. The lint rule builds this row for every package the package graph keeps off core, not just the adapters.
 - Core's tables live in the `core` schema, declared with `core.table()` in `packages/core/src/schema.ts`.
 - An install has its own layer rule, for its apps and shared packages. `robkit check` (`src/check.ts` in create-robkit, one row per rule) is its only implementation. The install's `lint` script runs it, then ESLint.
 - Only the proxy may reach core, because core trusts `X-Forwarded-For` for its sign-in limit, or `CF-Connecting-IP` when `ROBKIT_TRUSTED_PROXY=cloudflare` says only a Cloudflare tunnel reaches the host. Core listens on 127.0.0.1 unless `HOST` is set.

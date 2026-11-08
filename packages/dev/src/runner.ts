@@ -1,5 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { install } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
@@ -9,12 +11,13 @@ import { failuresOf, throwFailures } from "./failures.ts";
 import { createProxy } from "./proxy.ts";
 import { stopGroup } from "./process-group.ts";
 import { provisionApps } from "./provision.ts";
+import { requireGo } from "./toolchain.ts";
 
 /**
  * `robkit-dev`: runs the install in `root` for local development. Finds the
- * apps, refusing any folder that isn't a slug before it starts anything. Starts
- * Postgres, runs the provision step, starts every app and puts the proxy in
- * front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
+ * apps, refusing any folder that isn't a slug, or a Go app without Go, before
+ * it starts anything. Starts Postgres, runs the provision step, starts every
+ * app and puts the proxy in front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
  *
  * @returns the exit code: 0 after a signal, 1 if an app exited
  * @throws what failed while starting or stopping, once everything stopped:
@@ -32,6 +35,10 @@ export async function runDev(
   const { domain, devPort, adminUrl } = config;
   const addresses = install({ domain, port: devPort });
   const apps = await discoverApps(root, devPort + 1);
+  // An app with a go.mod runs on Go. Say so before anything starts.
+  if (apps.some((app) => existsSync(join(app.dir, "go.mod")))) {
+    await requireGo(env);
+  }
   const appEnv: NodeJS.ProcessEnv = {
     ...env,
     ROBKIT_DOMAIN: domain,
