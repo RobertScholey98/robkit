@@ -1,8 +1,13 @@
 import { isRecord } from "@robkit/input";
-import cases from "../address-cases.json" with { type: "json" };
+import cases from "../request-cases.json" with { type: "json" };
+
+// request-cases.json holds the cases every port of the request guard must
+// pass, one list per kind, under its own key: "address" for where the
+// guard sends the browser. A ticket that adds a kind adds a key, a row
+// type and a reader here, and a reader in go/internal/conformance.
 
 /**
- * One row of `address-cases.json`: a page load on the app the tests guard,
+ * One row of request-cases.json's `address` list: a page load on the app the tests guard,
  * `example`, owner-only, with the headers a proxy or an attacker might
  * send. The guard in each port, and each adapter that builds the request's
  * URL itself, must send the browser to the same place for every row. Go's
@@ -27,7 +32,7 @@ export interface AddressCase {
 }
 
 function readCase(value: unknown, index: number): AddressCase {
-  const at = `address-cases.json[${String(index)}]`;
+  const at = `request-cases.json address[${String(index)}]`;
   if (!isRecord(value)) throw new Error(`${at} must be an object.`);
   const { name, core, target, headers, signedOut = false, next } = value;
   const strings = [name, core, target, next];
@@ -53,15 +58,20 @@ function readCase(value: unknown, index: number): AddressCase {
   };
 }
 
-/** The cases in `value`, as address-cases.json holds them. Throws on a bad one. */
-export function readAddressCases(value: unknown): AddressCase[] {
-  if (!Array.isArray(value)) {
-    throw new Error(
-      `address-cases.json must be a list of cases, but it holds ${JSON.stringify(value)}.`,
-    );
-  }
-  return value.map(readCase);
+/** The cases request-cases.json holds, by kind. */
+export interface RequestCases {
+  address: AddressCase[];
 }
 
-/** The cases every port of the guard must pass. */
-export const addressCases = readAddressCases(cases);
+/** The cases in `value`, as request-cases.json holds them. Throws on a bad one. */
+export function readRequestCases(value: unknown): RequestCases {
+  if (!isRecord(value) || !Array.isArray(value.address)) {
+    throw new Error(
+      `request-cases.json must be an object with an "address" list of cases, but it holds ${JSON.stringify(value)}.`,
+    );
+  }
+  return { address: value.address.map(readCase) };
+}
+
+/** The address cases every port of the guard must pass. */
+export const addressCases = readRequestCases(cases).address;

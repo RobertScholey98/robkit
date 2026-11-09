@@ -5,15 +5,16 @@ import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
-import type { AddressCase } from "./address-cases.ts";
+import type { AddressCase } from "./request-cases.ts";
 import { aViewer } from "./brands.ts";
 import { listeningPort } from "./known.ts";
 
 export {
   addressCases,
-  readAddressCases,
+  readRequestCases,
   type AddressCase,
-} from "./address-cases.ts";
+  type RequestCases,
+} from "./request-cases.ts";
 export {
   aCodeId,
   aDomain,

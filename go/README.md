@@ -63,5 +63,5 @@ return http.ListenAndServe("127.0.0.1:3000", guarded(mux))
 ## For contributors
 
 - `pnpm --filter @internal/go test` runs `go test ./...`; `lint` checks gofmt, and `typecheck` runs `go vet`. Both gates run them, so `pnpm check` needs Go on your `PATH`.
-- The tests run the guard's conformance cases and the request guard's cases against `internal/fakecore`, which ports `@internal/test-session`'s fake core. `internal/conformance` reads `packages/guard/conformance.json`, and the address cases in `tooling/test-session/address-cases.json`, from the checkout.
+- The tests run the guard's conformance cases and the request guard's cases against `internal/fakecore`, which ports `@internal/test-session`'s fake core. `internal/conformance` reads `packages/guard/conformance.json`, and the request guard's cases in `tooling/test-session/request-cases.json`, from the checkout.
 - It verifies tokens as `jose` does for the TypeScript guard: EdDSA only, the key picked from core's JWKS by `kid`, fetched once and kept, and fetched again for a `kid` it lacks at most every 30 seconds. `docs/adr/` records why it ports rather than wraps.
