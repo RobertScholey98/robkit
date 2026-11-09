@@ -202,6 +202,9 @@ type Core struct {
 	Origin string
 	// Hub is the hub's origin beside it.
 	Hub string
+	// Page is a page on App, beside core on its port, as the dev proxy puts
+	// every app: http://example.robkit.localhost:<port>/notes?x=1.
+	Page string
 	// Key is the key core signs sessions with.
 	Key *Key
 
@@ -224,6 +227,7 @@ func Start(t testing.TB) *Core {
 	port := server.URL[strings.LastIndex(server.URL, ":")+1:]
 	core.Origin = "http://core.robkit.localhost:" + port
 	core.Hub = "http://hub.robkit.localhost:" + port
+	core.Page = "http://" + App + ".robkit.localhost:" + port + "/notes?x=1"
 	return core
 }
 
