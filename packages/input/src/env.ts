@@ -113,7 +113,8 @@ export function isDomain(value: string): value is Domain {
 
 /**
  * The install's domain: `ROBKIT_DOMAIN`, or `fallback`, checked the same
- * way.
+ * way. It is lower-cased, as a browser and the URL parser write a host, so
+ * `Robkit.dev` compares equal to every host name read from a URL.
  */
 export function readDomain(env: Env, fallback?: string): Domain | InputProblem {
   const value = valueOf(env, "ROBKIT_DOMAIN") ?? fallback;
@@ -123,7 +124,8 @@ export function readDomain(env: Env, fallback?: string): Domain | InputProblem {
       "Set it to the install's domain, such as robkit.dev.",
     );
   }
-  if (isDomain(value)) return value;
+  const domain = value.toLowerCase();
+  if (isDomain(domain)) return domain;
   return problem(
     `ROBKIT_DOMAIN is "${value}", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
   );

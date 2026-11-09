@@ -95,6 +95,11 @@ describe("readDomain", () => {
     expect(readDomain({}, "robkit.localhost")).toBe("robkit.localhost");
   });
 
+  it("reads a mixed-case domain as its lower-case form", () => {
+    expect(readDomain({ ROBKIT_DOMAIN: "Robkit.DEV" })).toBe("robkit.dev");
+    expect(readDomain({}, "Robkit.Localhost")).toBe("robkit.localhost");
+  });
+
   it("says to set it when there's no fallback", () => {
     expect(readDomain({})).toEqual({
       error:
@@ -159,6 +164,12 @@ describe("readCoreUrl", () => {
     expect(
       readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev:443/x?y" }),
     ).toBe("https://core.robkit.dev");
+  });
+
+  it("reads a mixed-case host as its lower-case form", () => {
+    expect(readCoreUrl({ ROBKIT_CORE_URL: "https://Core.Robkit.DEV" })).toBe(
+      "https://core.robkit.dev",
+    );
   });
 
   it("says pnpm dev sets it", () => {
