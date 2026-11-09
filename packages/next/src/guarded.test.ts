@@ -31,7 +31,6 @@ const example = slug("example");
 // guard's answer goes out as is, and pages, route handlers and server
 // actions behind it read the viewer with viewer().
 
-const page = "http://example.robkit.localhost:3000/notes?x=1";
 const navigate = { "sec-fetch-mode": "navigate" };
 
 /** A page that shows who is asking. */
@@ -76,7 +75,7 @@ describe("guarded", () => {
       core: core.origin,
     });
 
-    const res = await ask(proxy, page, {
+    const res = await ask(proxy, core.page, {
       headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
     });
 
@@ -84,7 +83,7 @@ describe("guarded", () => {
       status: res.status,
       location: res.headers.get("location"),
       viewer: res.status === 200 ? await res.json() : undefined,
-    }).toEqual(conformanceAnswer(asking, page, core));
+    }).toEqual(conformanceAnswer(asking, core.page, core));
   });
 
   it("answers a call from the page with the guard's 401, body and all", async () => {
@@ -95,7 +94,7 @@ describe("guarded", () => {
       core: core.origin,
     });
 
-    const res = await ask(proxy, page, {
+    const res = await ask(proxy, core.page, {
       method: "POST",
       headers: { "sec-fetch-mode": "cors" },
     });
@@ -116,13 +115,13 @@ describe("guarded", () => {
       core: core.origin,
     });
 
-    const res = await ask(proxy, page, {
+    const res = await ask(proxy, core.page, {
       method: "POST",
       headers: { "sec-fetch-mode": "cors", "next-action": "7f00aa" },
     });
 
     const hub = new URL("/", core.hub);
-    hub.searchParams.set("next", page);
+    hub.searchParams.set("next", core.page);
     expect({
       lapsed: await readSessionLapsed(res),
       redirect: res.headers.get("x-action-redirect"),
@@ -145,7 +144,7 @@ describe("guarded", () => {
     });
     const expired = await core.key.token({ ageSeconds: 20 * 60 });
 
-    const res = await ask(proxy, page, {
+    const res = await ask(proxy, core.page, {
       method: "POST",
       headers: {
         "sec-fetch-mode": "cors",
@@ -155,7 +154,7 @@ describe("guarded", () => {
     });
 
     expect(res.headers.get("x-action-redirect")).toBe(
-      `http://example.robkit.localhost:3000/_robkit/refresh?next=${encodeURIComponent(page)};push`,
+      `${new URL("/_robkit/refresh", core.page).href}?next=${encodeURIComponent(core.page)};push`,
     );
   });
 
@@ -168,7 +167,7 @@ describe("guarded", () => {
     });
     const expired = await core.key.token({ ageSeconds: 20 * 60 });
 
-    const res = await ask(proxy, page, {
+    const res = await ask(proxy, core.page, {
       method: "POST",
       headers: {
         "sec-fetch-mode": "cors",
@@ -178,9 +177,9 @@ describe("guarded", () => {
       },
     });
 
-    const secure = page.replace("http:", "https:");
+    const secure = core.page.replace("http:", "https:");
     expect(res.headers.get("x-action-redirect")).toBe(
-      `https://example.robkit.localhost:3000/_robkit/refresh?next=${encodeURIComponent(secure)};push`,
+      `${new URL("/_robkit/refresh", secure).href}?next=${encodeURIComponent(secure)};push`,
     );
   });
 
@@ -193,7 +192,7 @@ describe("guarded", () => {
     });
     const token = await core.key.token({ holder: guest(["friends"]) });
 
-    const res = await ask(proxy, page, {
+    const res = await ask(proxy, core.page, {
       method: "POST",
       headers: {
         "sec-fetch-mode": "cors",
@@ -215,21 +214,24 @@ describe("guarded", () => {
       access: { kind: "owner" },
       core: core.origin,
     });
-    const away = await ask(proxy, page, { headers: navigate });
+    const away = await ask(proxy, core.page, { headers: navigate });
 
     const back = await ask(
       proxy,
-      callbackFor(page, {
+      callbackFor(core.page, {
         state: stateIn(away.headers.get("location")),
         token: await core.key.token(),
       }),
       { headers: { ...navigate, cookie: cookieFrom(away) } },
     );
-    const res = await ask(proxy, page, {
+    const res = await ask(proxy, core.page, {
       headers: { ...navigate, cookie: cookieFrom(back) },
     });
 
-    expect([back.status, back.headers.get("location")]).toEqual([302, page]);
+    expect([back.status, back.headers.get("location")]).toEqual([
+      302,
+      core.page,
+    ]);
     expect(await res.json()).toEqual(owner);
   });
 
@@ -257,7 +259,7 @@ describe("guarded", () => {
     // Even the owner's viewer, as the guard passed it on, is replaced.
     const passedOn = await ask(
       proxy,
-      page,
+      core.page,
       {
         headers: {
           ...navigate,
@@ -267,7 +269,7 @@ describe("guarded", () => {
       async () => new Response((await requestHeaders()).get("robkit-viewer")),
     );
 
-    const res = await ask(proxy, page, {
+    const res = await ask(proxy, core.page, {
       headers: {
         ...navigate,
         cookie: signedOutCookie(),

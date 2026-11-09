@@ -21,7 +21,6 @@ const example = slug("example");
 // the guard's answer goes out as is, and handlers behind it read
 // res.locals.viewer.
 
-const page = "http://example.robkit.localhost:3000/notes?x=1";
 const navigate = { "sec-fetch-mode": "navigate" };
 
 /**
@@ -89,7 +88,7 @@ describe("guarded", () => {
         res.json(res.locals.viewer);
       });
 
-    const res = await ask(app, page, {
+    const res = await ask(app, core.page, {
       headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
     });
 
@@ -97,7 +96,7 @@ describe("guarded", () => {
       status: res.status,
       location: res.headers.get("location"),
       viewer: res.status === 200 ? await res.json() : undefined,
-    }).toEqual(conformanceAnswer(asking, page, core));
+    }).toEqual(conformanceAnswer(asking, core.page, core));
   });
 
   it("answers a call from the page with the guard's 401, body and all", async () => {
@@ -114,7 +113,7 @@ describe("guarded", () => {
         res.json(res.locals.viewer);
       });
 
-    const res = await ask(app, page, {
+    const res = await ask(app, core.page, {
       method: "POST",
       headers: { "sec-fetch-mode": "cors" },
     });
@@ -139,21 +138,24 @@ describe("guarded", () => {
       .get("/notes", (_req, res: GuardedResponse) => {
         res.json(res.locals.viewer);
       });
-    const away = await ask(app, page, { headers: navigate });
+    const away = await ask(app, core.page, { headers: navigate });
 
     const back = await ask(
       app,
-      callbackFor(page, {
+      callbackFor(core.page, {
         state: stateIn(away.headers.get("location")),
         token: await core.key.token(),
       }),
       { headers: { ...navigate, cookie: cookieFrom(away) } },
     );
-    const res = await ask(app, page, {
+    const res = await ask(app, core.page, {
       headers: { ...navigate, cookie: cookieFrom(back) },
     });
 
-    expect([back.status, back.headers.get("location")]).toEqual([302, page]);
+    expect([back.status, back.headers.get("location")]).toEqual([
+      302,
+      core.page,
+    ]);
     expect(await res.json()).toEqual(owner);
   });
 
@@ -194,7 +196,7 @@ describe("guarded", () => {
         res.json({ body: req.body as unknown, viewer: res.locals.viewer });
       });
 
-    const res = await ask(app, page.replace("?x=1", ""), {
+    const res = await ask(app, core.page.replace("?x=1", ""), {
       method: "POST",
       headers: {
         "content-type": "application/json",

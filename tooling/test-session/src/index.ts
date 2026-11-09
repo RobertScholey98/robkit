@@ -137,6 +137,11 @@ export interface FakeCore {
   origin: CoreOrigin;
   /** The hub's origin beside it, `http://hub.robkit.localhost:<port>`. */
   hub: string;
+  /**
+   * A page on the app the tests guard, beside core on its port, as the dev
+   * proxy puts every app: `http://example.robkit.localhost:<port>/notes?x=1`.
+   */
+  page: string;
   /** The key core signs sessions with. */
   key: SigningKey;
   /** Each app's rule in core's catalog, by slug. */
@@ -187,6 +192,7 @@ export async function fakeCore(): Promise<FakeCore> {
       }),
     ),
     hub: `http://hub.robkit.localhost:${String(port)}`,
+    page: `http://${app}.robkit.localhost:${String(port)}/notes?x=1`,
     key,
     rules: {},
     status: 200,

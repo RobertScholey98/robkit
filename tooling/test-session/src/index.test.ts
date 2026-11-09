@@ -180,6 +180,16 @@ describe("fakeCore", () => {
     expect(unknown).toEqual({ status: 404, body: { error: "Not found" } });
   });
 
+  it("names a page on the app under test, beside core on its port", async () => {
+    const core = await fakeCore();
+    const { port } = new URL(core.origin);
+
+    expect([core.hub, core.page]).toEqual([
+      `http://hub.robkit.localhost:${port}`,
+      `http://example.robkit.localhost:${port}/notes?x=1`,
+    ]);
+  });
+
   it("answers every request with the status it's set to fail with", async () => {
     const core = await fakeCore();
     core.rules.example = { kind: "open" };
