@@ -60,18 +60,18 @@ Chosen in the build.
 - **The cookie byte cases probe with core's word that nobody is signed in**, not a token. Each row's cookie is a fixed `signed-out.1798761600` under some name, and each runner sets its clock to the row's `now` plus a second. An open app lets the browser in as nobody when the guard reads the cookie, and sends it to core when it doesn't. So neither port fetches keys from an https core it can't reach. Hex may have spaces between bytes, for reading.
 - **Core's tests that only need a local domain run on `https://core.robkit.localhost:3443`**, where they don't test http. The test code works on a local domain whatever the protocol. Tests about http itself pass the origin to `claim`, `withSession`, `sessionCookieOf` and `refresh`.
 - **A superseded callback goes through `toNext`**, the one place the guard sends the browser on to `next` with `Referrer-Policy: no-referrer`, in each port. The callback's success uses it too.
-- **The production test reads every `robkit_` cookie the guest's browser holds** after opening the example, with its host and attributes: core's session cookie, and the example's session and state cookies.
+- **The production test reads every `robkit_` cookie the guest's browser holds** after opening an app, with its host and attributes: core's session cookie, and the app's session and state cookies. It checks them for the example and for the app on each other stack that `robkit add` deploys, the Go one included.
 
 ### Proof
 
 - Red first, through public interfaces. The https guard tests got `robkit_state=` and `robkit_session=` where they expected `__Host-`, in both ports. Of the byte cases, the TS guard read the lone `A0` row as the session cookie, and the Go guard read the `C2 A0` and `E2 80 80` rows, as the ticket said. Go took all four http origins off a local domain from both `ReadGuardEnv` and `Guarded`, and read a token with no `exp` as the owner. Both ports answered a superseded callback with a 400, so one of two tabs ended on an error page in either order. Core's tests failed until core set `__Host-robkit_session`, and its new test found a plain-named cookie read on an https core.
 - `robkit check` needed no change: both its tests passed first, as the ticket expected.
-- In WSL, `pnpm check:all`: 61 of 61 tasks in 8 minutes. `@internal/e2e` 74 passed and 11 skipped of 85.
+- In WSL, `pnpm check:all`: 61 of 61 tasks in 8 minutes. `@internal/e2e` 74 passed and 11 skipped of 85. After merging the milestone branch with ticket 26's fix, 61 of 61 again, with `@internal/e2e` 81 passed and 11 skipped of 92.
 - On Windows, `pnpm check` with Go on `PATH`: 58 of 59 tasks. `create-robkit`'s `vendor.test.ts` failed 3 tests that pack a fake checkout, alone too. This branch doesn't touch `vendor.ts`, and the same tests passed in WSL's gate.
 
 ### Not verified
 
-- The production test locally. In WSL it stopped before any journey: Docker couldn't pull Caddy's image, since its credential helper is Docker Desktop's Windows one (`exec format error`). The PR carries the `production` label, so CI runs it.
+- The production test locally. Its first try in WSL stopped before any journey: Docker couldn't pull Caddy's image, since WSL had lost its interop registration and Docker Desktop's credential helper wouldn't run. After the lead restored it, the pull worked, but admin's image failed to build twice: rolldown's musl binding gave `Exec format error`. The second try reused the first's cached `pnpm install` layer. The milestone branch, on fresh layers, passed all 13 tests on the same machine, and this branch changes no package, lockfile or Dockerfile. CI's first run on this branch passed the example's journey with the `__Host-` names. The PR carries the `production` label, so CI runs it.
 - A real browser refusing a nameless cookie whose value starts with `__Host-`. `SECURITY.md` names that as the condition the guarantee rests on.
 
 ### For other tickets
