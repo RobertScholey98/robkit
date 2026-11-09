@@ -9,14 +9,14 @@
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Two suites that ask for a port block at the same time never get overlapping ones, with a test that asks from two processes
-- [ ] A lease left by a killed run is cleared, and doesn't stop the next run
-- [ ] `install-checks.test.ts` changes no file in an install another test file is using
-- [ ] After a killed e2e run, the watcher has removed the run's temp folders as well as its containers
-- [ ] The cause of the Next server-action journey's timeout is found and recorded in the comments, a regression test covers that cause, and a bounded stress run passed afterwards (the comments say what ran and how many times). No retry, and no longer timeout
-- [ ] `docs/testing.md` describes the lease and the watcher as they now are
+- [x] Two suites that ask for a port block at the same time never get overlapping ones, with a test that asks from two processes
+- [x] A lease left by a killed run is cleared, and doesn't stop the next run
+- [x] `install-checks.test.ts` changes no file in an install another test file is using
+- [x] After a killed e2e run, the watcher has removed the run's temp folders as well as its containers
+- [x] The cause of the Next server-action journey's timeout is found and recorded in the comments, a regression test covers that cause, and a bounded stress run passed afterwards (the comments say what ran and how many times). No retry, and no longer timeout
+- [x] `docs/testing.md` describes the lease and the watcher as they now are
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -67,7 +67,8 @@ Chosen in the build, awaiting R's review.
   - The `networkIdle` tests failed before `networkIdle` existed. The Playwright pin passed on the same page.
 - `browser.test.ts` on Windows: 5 of 5, four runs in a row.
 - `pnpm check` on Windows: 59 of 59 tasks.
-- GATE_TBD
+- WSL, `pnpm check:all` on the branch merged with `m1-the-subdomain-boundary` (8aad9b2): 61 of 61 tasks in 6 minutes 57 seconds. No `sleep` processes were left afterwards.
+- GitHub's `gate` on the pushed head is the judge. The PR says how it went.
 
 ### Not verified
 
@@ -89,3 +90,4 @@ Chosen in the build, awaiting R's review.
   - `robkit-share*`, `robkit-fake-commands*`, `robkit-pm*`, `robkit-t*`, `robkit-phase*` and `robkit-wsl*`: nothing in today's code makes them.
   A shared helper that makes a temp folder and hands it to `removeWhenGone` would fix them in one place.
 - **A teardown race in WSL.** Once, removing an install hit `ENOTEMPTY` on `apps/example/dist/dev/types` while Next dev was still writing there, and vitest exited 1. I only saw it in WSL.
+- **`doc-examples.test.ts` timed out once in CI.** In repo-checks, "compile against the built packages" ran past its 30 s timeout in run 42711930226, attempt 1. It passed on the rerun and in the WSL gate. It compiles every docs example in one test, so it slows down as the docs grow.
