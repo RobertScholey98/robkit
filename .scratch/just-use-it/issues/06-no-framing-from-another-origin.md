@@ -7,11 +7,13 @@
 - **An app changes who may frame it in its own policy, and only there.** To allow a framer, an app sets `Content-Security-Policy: frame-ancestors 'self' https://hub.<domain>` on its answers, and the browser follows that. To refuse every framer, its own origin included, it sends `frame-ancestors 'none'`. So `guarded()` needs no option for it.
 - **Setting `X-Frame-Options` in the app isn't supported.** On Next the guard's value always wins: Next copies the proxy's headers onto the answer first, and then drops a route's header of the same name (`send-response.js`). On the other stacks the app's value may win. Don't make the stacks agree. Tell the app's author to use `frame-ancestors`, which works the same on every stack.
 - **Each stack's way.** Express and Go set the headers before the handler runs, so nothing wraps the response. Hono and Start add them to the answer on its way out, where the app set none; an answer whose headers can't be changed, such as `Response.redirect()` or one passed through from `fetch`, is copied first. Next's guard answers before the page exists, so it sets them on the answer it passes on. Prove each with a route that sends its own policy: both headers arrive, and the app's policy is unchanged.
-- **Once each, and not on an upgrade.** No answer carries either header twice. Express's adapter appends the headers of the guard's own answers, so a header set before the handler must not be appended again. An answer with status 101 is left as it is: a `Response` can't be copied with that status.
-- **Core.** Core sends `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'` and `nosniff` on every answer, errors included.
+- **Once each.** No answer carries either header twice. Express's adapter appends the headers of the guard's own answers, so a header set before the handler must not be appended again. In dev the Go stack passes Vite's answers through `httputil.ReverseProxy`, which adds the upstream's headers to the ones already set, and Vite's error pages send `nosniff` themselves. The Go template's proxy drops the upstream's copy of both headers.
+- **Go's upgrade carries them, and that's fine.** Go sets the headers before the handler, so the 101 that answers Vite's hot-update socket carries them too. They do no harm there. Don't wrap the `ResponseWriter` to take them off: a wrapper loses `http.Hijacker`, and the socket with it.
+- **Next's pages.** A Next page can't set its own headers, and `proxy.ts` is all `guarded()`. So a page allows a framer through `headers()` in `next.config.ts`, and a route handler through its own answer. Prove both: the policy arrives beside the guard's header.
+- **Core.** Core sends `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'` and `nosniff` on every answer, errors and CORS preflights included. Register them before `cors()`, or a preflight's answer misses them.
 - **HSTS where the install is https.** Core and the guard send `Strict-Transport-Security` when the install's origin is https. Pick the max-age and say why in the comments. No `includeSubDomains`: the domain may hold hosts robkit doesn't run.
 - **What isn't covered.** Files a stack serves without the guard, such as an app's built scripts and styles, don't carry the headers, and aren't pages. The hub isn't guarded: tickets 10 and 11 give it the same headers, from `robkit()` in dev and `servePage()` in production. Say both in the comments. And a frame isn't the only way to steal a click: a sibling app can still open admin in a window of its own and time a double-click onto one of its buttons. These headers don't stop that.
-- **Docs.** `SECURITY.md` says no guarded app can be framed from another origin by default, and what isn't covered, the opened window included, so nobody reads it as "admin's clicks are safe". Each stack's `AGENTS.md` says how to allow a framer, and Next's says its own `X-Frame-Options` won't arrive.
+- **Docs.** `SECURITY.md` says no guarded app can be framed from another origin by default, and what isn't covered: the opened window, so nobody reads it as "admin's clicks are safe", and the hub, which can be framed until tickets 10 and 11. Each stack's `AGENTS.md` says how to allow a framer. Next's says where a page and a route handler each set the policy, and that its own `X-Frame-Options` won't arrive.
 
 Add this ticket's cases to `tooling/test-session/request-cases.json`, the shared file ticket 01 made, as a new kind, so both ports run them.
 
@@ -21,11 +23,13 @@ Add this ticket's cases to `tooling/test-session/request-cases.json`, the shared
 
 - [ ] Every answer that passes through the guard, on every stack and from admin, carries both headers: pages, API answers, the guard's redirects and its own pages
 - [ ] On every stack, an app that sends its own `Content-Security-Policy` with no `frame-ancestors` gets the guard's `X-Frame-Options` beside it, and its policy arrives unchanged
-- [ ] An app that sends `frame-ancestors` naming the hub can be framed by the hub, shown in a browser test on one stack
-- [ ] A Next route that sets its own `X-Frame-Options` arrives with one such header, the guard's, and a Next route that sends `frame-ancestors` arrives with its policy unchanged
-- [ ] No answer on any stack carries `X-Frame-Options` or `nosniff` twice, the guard's own redirects on Express included
-- [ ] An answer with unchangeable headers, a redirect made with `Response.redirect()`, still gets both headers and doesn't throw, and an answer with status 101 passes through untouched
-- [ ] Core sends its three headers on every answer
+- [ ] An app that sends `frame-ancestors` naming the hub can be framed by the hub, shown in a browser test on one stack, and a lapsed token renews inside that frame
+- [ ] A Next route handler that sets its own `X-Frame-Options` arrives with one such header, the guard's, and one that sends `frame-ancestors` arrives with its policy unchanged
+- [ ] A Next page whose `next.config.ts` sends `frame-ancestors` through `headers()` arrives with that policy beside the guard's header
+- [ ] No answer on any stack carries `X-Frame-Options` or `nosniff` twice: the guard's own redirects on Express, and a Vite error page through the Go stack's dev server, included
+- [ ] The Go stack's page still reloads on an edit under `pnpm dev`
+- [ ] An answer with unchangeable headers, a redirect made with `Response.redirect()`, still gets both headers and doesn't throw
+- [ ] Core sends its three headers on every answer, a CORS preflight's included
 - [ ] An https install sends HSTS from core and from guarded apps, and an http one doesn't
 - [ ] The whole-stack test loads admin and an app in a frame from a sibling app's page, and the browser refuses both
 - [ ] The production test passes over https and asserts HSTS; the PR carries the `production` label
