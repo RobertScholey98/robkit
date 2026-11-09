@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -448,22 +449,95 @@ func TestGuardReusesTheStateItHolds(t *testing.T) {
 	}
 }
 
-func TestGuardRefusesATokenSentToItsCallbackByALinkTheBrowserDidntStart(t *testing.T) {
-	for name, held := range map[string]string{
-		"no state cookie": "",
-		"another state":   "robkit_state=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+func TestGuardRefusesATokenSentToItsCallbackByABrowserThatHoldsNoState(t *testing.T) {
+	core := fakecore.Start(t)
+	attacker := core.Key.Token(fakecore.TokenOptions{Holder: fakecore.Guest("family")})
+
+	res := ownerOnly(t, core).get(callbackFor(core.Page, "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", &attacker), navigate)
+
+	want := "This browser didn't keep the app's cookie, so it can't sign you in here. Allow cookies for this site and try again."
+	if res.status != 400 || res.body != want || len(res.cookies) != 0 {
+		t.Errorf("got %d %q %q", res.status, res.body, res.cookies)
+	}
+}
+
+func TestGuardStoresNothingFromASupersededCallbackAndSendsTheBrowserOnToNext(t *testing.T) {
+	core := fakecore.Start(t)
+	attacker := core.Key.Token(fakecore.TokenOptions{Holder: fakecore.Guest("family")})
+
+	res := ownerOnly(t, core).get(
+		callbackFor(core.Page, "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", &attacker),
+		navigate, map[string]string{"cookie": "robkit_state=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+	)
+
+	if res.status != 302 || res.location() != core.Page || len(res.cookies) != 0 {
+		t.Errorf("got %d %q %q", res.status, res.location(), res.cookies)
+	}
+	if res.header.Get("cache-control") != "no-store" || res.header.Get("referrer-policy") != "no-referrer" {
+		t.Errorf("headers: %v", res.header)
+	}
+}
+
+func TestGuardTakesTwoPageLoadsStartedTogetherToTheirPages(t *testing.T) {
+	for name, order := range map[string][]int{
+		"the first tab's callback first":  {0, 1},
+		"the second tab's callback first": {1, 0},
 	} {
 		t.Run(name, func(t *testing.T) {
 			core := fakecore.Start(t)
-			attacker := core.Key.Token(fakecore.TokenOptions{Holder: fakecore.Guest("family")})
+			open := ownerOnly(t, core)
+			token := core.Key.Token(fakecore.TokenOptions{})
+			jar := map[string]string{}
+			keep := func(a answer) {
+				for _, set := range a.cookies {
+					pair, _, _ := strings.Cut(set, ";")
+					name, value, _ := strings.Cut(pair, "=")
+					if strings.Contains(set, "Max-Age=0") {
+						delete(jar, name)
+					} else {
+						jar[name] = value
+					}
+				}
+			}
+			send := func(target string) answer {
+				var pairs []string
+				for name, value := range jar {
+					pairs = append(pairs, name+"="+value)
+				}
+				a := open.get(target, navigate, map[string]string{"cookie": strings.Join(pairs, "; ")})
+				keep(a)
+				return a
+			}
+			// browse follows redirects from target, through core as core
+			// would, to a page.
+			browse := func(target string) string {
+				for {
+					a := send(target)
+					if a.status != 302 {
+						return strconv.Itoa(a.status) + " " + target
+					}
+					to, _ := url.Parse(a.location())
+					target = a.location()
+					if strings.HasPrefix(target, core.Origin+"/") {
+						target = callbackFor(to.Query().Get("next"), to.Query().Get("state"), &token)
+					}
+				}
+			}
+			pages := []string{core.Page, strings.Replace(core.Page, "/notes?x=1", "/other", 1)}
+			// Both loads leave before either answer arrives, so neither
+			// carries a state, and the browser keeps the state of the
+			// answer that lands last.
+			away := []answer{open.get(pages[0], navigate), open.get(pages[1], navigate)}
+			keep(away[0])
+			keep(away[1])
 
-			res := ownerOnly(t, core).get(
-				callbackFor(core.Page, "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", &attacker),
-				navigate, map[string]string{"cookie": held},
-			)
+			ends := make([]string, 2)
+			for _, tab := range order {
+				ends[tab] = browse(callbackFor(pages[tab], stateIn(away[tab].location()), &token))
+			}
 
-			if res.status != 400 || len(res.cookies) != 0 {
-				t.Errorf("got %d %q", res.status, res.cookies)
+			if want := []string{"200 " + pages[0], "200 " + pages[1]}; !slices.Equal(ends, want) {
+				t.Errorf("ended on %q, want %q", ends, want)
 			}
 		})
 	}

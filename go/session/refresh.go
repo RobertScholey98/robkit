@@ -90,11 +90,23 @@ func (p *refreshProtocol) toCore(r *http.Request, next string) response {
 		"set-cookie", p.cookie(p.cookies.State, state, stateMaxAge))
 }
 
+// toNext sends the browser on to next, a page on the app, with any extra
+// headers, each a name and a value. The URL it leaves carries a token or a
+// state, so no page it goes to learns that URL as the referrer.
+func toNext(next string, extra ...string) response {
+	return redirect(next, append(extra, "referrer-policy", "no-referrer")...)
+}
+
 // arrive answers core sending the browser back with the app's token, or
 // none if nobody is signed in. The guard keeps whichever it got in the
 // app's cookie and sends the browser on to next. Each refusal is a page
 // rather than a redirect, so a browser that can't keep the cookie stops
 // here instead of going round again.
+//
+// A state that isn't the one the browser holds is a trip another page
+// load superseded: two tabs that start together each get a state, and the
+// browser keeps the last. The guard stores nothing from it and sends the
+// browser on to next, which goes round again with the state it holds.
 func (p *refreshProtocol) arrive(r *http.Request, u *url.URL) response {
 	next, ok := nextOn(u)
 	if !ok {
@@ -107,7 +119,7 @@ func (p *refreshProtocol) arrive(r *http.Request, u *url.URL) response {
 	query := u.Query()
 	sent, hasState := query["state"]
 	if !hasState || subtle.ConstantTimeCompare([]byte(sent[0]), []byte(held)) != 1 {
-		return text("This sign-in didn't start in this browser. Open the app again.", http.StatusBadRequest)
+		return toNext(next)
 	}
 	value := signedOutPrefix + strconv.FormatInt(p.now().Unix(), 10)
 	if tokens, hasToken := query["token"]; hasToken {
@@ -123,9 +135,7 @@ func (p *refreshProtocol) arrive(r *http.Request, u *url.URL) response {
 		}
 		value = tokens[0]
 	}
-	return redirect(next,
-		"set-cookie", p.cookie(p.cookies.Session, value, appCookieMaxAge),
-		"referrer-policy", "no-referrer")
+	return toNext(next, "set-cookie", p.cookie(p.cookies.Session, value, appCookieMaxAge))
 }
 
 // answer is the guard's answer to a request for one of its own paths: the
