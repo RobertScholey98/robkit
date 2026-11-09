@@ -1,7 +1,7 @@
 import { aDomain } from "@internal/test-session";
 import { describe, expect, it, vi } from "vitest";
 import { mintCode, parseAccessCode } from "./access-codes.ts";
-import { claim, freshCore, postJson } from "./test/fresh-app.ts";
+import { claim, freshCore, postJson, withSession } from "./test/fresh-app.ts";
 
 /** The picks `randomInt` makes next; once empty it is random again. */
 const picks = vi.hoisted((): number[] => []);
@@ -18,7 +18,7 @@ describe("a generated code", () => {
   it("is generated again when the first one is taken", async () => {
     const { app } = await freshCore();
     const owner = await claim(app);
-    const cookie = { cookie: `robkit_session=${owner}` };
+    const cookie = withSession(owner);
     await postJson(app, "/codes", { name: "Gran", code: "AAAAA" }, cookie);
     picks.push(0, 0, 0, 0, 0, 1, 1, 1, 1, 1);
 

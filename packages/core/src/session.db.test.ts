@@ -8,6 +8,7 @@ import {
   postJson,
   resigned,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
@@ -16,7 +17,7 @@ const day = 24 * 60 * minute;
 function getSession(app: Hono, sessionToken?: string) {
   return Promise.resolve(
     app.request("/session", {
-      headers: sessionToken ? { cookie: `robkit_session=${sessionToken}` } : {},
+      headers: sessionToken ? withSession(sessionToken) : {},
     }),
   );
 }
@@ -105,7 +106,7 @@ describe("GET /session", () => {
 
     const res = await app.request("/session", {
       headers: {
-        cookie: `robkit_session=${older}; robkit_session=${sessionToken}`,
+        cookie: `${withSession(older).cookie}; ${withSession(sessionToken).cookie}`,
       },
     });
 

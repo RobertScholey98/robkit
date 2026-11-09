@@ -8,6 +8,7 @@ import {
   freshCore,
   postJson,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
@@ -19,7 +20,7 @@ async function guestSignsIn(app: Hono, request: Record<string, unknown> = {}) {
     app,
     "/codes",
     { name: "Grandma", ...request },
-    { cookie: `robkit_session=${owner}` },
+    withSession(owner),
   );
   const { id, code } = (await minted.json()) as { id: string; code: string };
   const signIn = await postJson(app, "/login/code", { code });
@@ -28,7 +29,7 @@ async function guestSignsIn(app: Hono, request: Record<string, unknown> = {}) {
 
 async function stateOf(app: Hono, sessionToken: string) {
   const res = await app.request("/session", {
-    headers: { cookie: `robkit_session=${sessionToken}` },
+    headers: withSession(sessionToken),
   });
   return ((await res.json()) as { state: string }).state;
 }
@@ -39,7 +40,7 @@ async function stateOf(app: Hono, sessionToken: string) {
  */
 async function refresh(app: Hono, sessionToken: string) {
   const res = await app.request(`/refresh?next=${encodeURIComponent(back)}`, {
-    headers: { cookie: `robkit_session=${sessionToken}` },
+    headers: withSession(sessionToken),
   });
   const cookie = sessionCookieOf(res);
   return {
@@ -68,12 +69,7 @@ describe("a guest's session", () => {
     const { app } = await freshCore({ apps: ["notes"] });
     const { owner, id, guest } = await guestSignsIn(app);
 
-    await postJson(
-      app,
-      `/codes/${id}/revoke`,
-      {},
-      { cookie: `robkit_session=${owner}` },
-    );
+    await postJson(app, `/codes/${id}/revoke`, {}, withSession(owner));
 
     expect(await stateOf(app, guest)).toBe("signed-out");
     expect(await refresh(app, guest)).toEqual({

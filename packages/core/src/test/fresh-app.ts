@@ -64,7 +64,7 @@ export async function freshCore({
 }
 
 /** Headers that send `sessionToken` as the session cookie. */
-export function withSession(sessionToken: string): Record<string, string> {
+export function withSession(sessionToken: string): { cookie: string } {
   return { cookie: `robkit_session=${sessionToken}` };
 }
 

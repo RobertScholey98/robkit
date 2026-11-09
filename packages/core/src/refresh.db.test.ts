@@ -13,6 +13,7 @@ import {
   freshCore,
   resigned,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
@@ -29,14 +30,14 @@ function refresh(
     next === undefined ? "" : `next=${encodeURIComponent(next)}`;
   return Promise.resolve(
     app.request(`/refresh?${nextQuery}${query}`, {
-      headers: sessionToken ? { cookie: `robkit_session=${sessionToken}` } : {},
+      headers: sessionToken ? withSession(sessionToken) : {},
     }),
   );
 }
 
 async function stateOf(app: Hono, sessionToken: string) {
   const res = await app.request("/session", {
-    headers: { cookie: `robkit_session=${sessionToken}` },
+    headers: withSession(sessionToken),
   });
   return ((await res.json()) as { state: string }).state;
 }
