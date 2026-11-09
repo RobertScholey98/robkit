@@ -1,9 +1,9 @@
 import { Hono, type Context } from "hono";
 import { validator } from "hono/validator";
 import { appSessionUrl, sessionTokensIn } from "@robkit/session";
-import { install, isLocal } from "@robkit/input/addresses";
-import { isProblem } from "@robkit/input";
+import { isPlatformApp, isProblem, type Slug } from "@robkit/input";
 import { parseAccessCode } from "../access-codes.ts";
+import { accessOf } from "../apps.ts";
 import { clientOf } from "../client.ts";
 import { claimInstall, readCredentials, readNewOwner } from "../owner.ts";
 import { createRateLimiter } from "../rate-limit.ts";
@@ -35,9 +35,9 @@ function tooManyAttempts(c: Context, retryAfter: number): Response {
  * app with the keys that check them.
  */
 export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
-  const { domain, now, signingKey, trustedProxy } = context;
+  const { db, install, now, signingKey, trustedProxy } = context;
+  const { domain } = install;
   const routes = new Hono<CoreEnv>();
-  const addresses = install({ domain });
   const loginLimiter = createRateLimiter({
     limit: 5,
     windowMs: 15 * 60 * 1000,
@@ -51,6 +51,15 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     windowMs: 15 * 60 * 1000,
     now,
   });
+
+  /**
+   * Whether core mints `slug` a token: admin, or an app in core's catalog.
+   * Never the hub or core, which take none.
+   */
+  async function mintsFor(slug: Slug): Promise<boolean> {
+    if (isPlatformApp(slug)) return slug === "admin";
+    return (await accessOf(db, slug)) !== undefined;
+  }
 
   routes.get("/.well-known/jwks.json", async (c) => {
     const { kid, publicJwk } = await signingKey();
@@ -67,20 +76,22 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   // minted for that app alone, or none if nobody is signed in. The app's
   // guard then decides whether to send the browser to log in. Core's own
   // token is reissued too, even if core thinks it live.
+  //
+  // `next` must be on the exact origin of an app core mints for, protocol
+  // and port included. Core's origin is https unless the install is local,
+  // so a token in a URL goes only over https, but on a local install.
   routes.get(
     "/refresh",
-    validator("query", (_, c) => {
-      const next = addresses.onInstall(c.req.query("next"));
-      const slug = next && addresses.appOf(next);
-      // A token in a URL goes only over https, but on a local install.
-      const safe = isLocal(domain) || next?.startsWith("https:");
-      if (!next || !slug || !safe || slug === "core" || slug === "hub") {
+    validator("query", async (_, c) => {
+      const next = c.req.query("next");
+      const slug = next === undefined ? undefined : install.appAt(next);
+      if (!next || !slug || !(await mintsFor(slug))) {
         return c.json(
           { error: "Send next, a URL on one of this install's apps." },
           400,
         );
       }
-      return { next, slug, state: c.req.query("state") };
+      return { next: new URL(next).href, slug, state: c.req.query("state") };
     }),
     viewer(context, { renew: true }),
     async (c) => {

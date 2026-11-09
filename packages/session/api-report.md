@@ -7,6 +7,10 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ```ts
 export type AccessRuleFailure =
   "unknown-app" | "bad-answer" | "invalid-json" | "interrupted-body";
+export function appOrigin({
+  app,
+  core,
+}: Pick<GuardedOptions, "app" | "core">): string;
 export const appRefreshPath: "/_robkit/refresh";
 export const appSessionPath: "/_robkit/session";
 export function appSessionUrl(

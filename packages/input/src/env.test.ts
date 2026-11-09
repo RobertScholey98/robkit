@@ -95,6 +95,11 @@ describe("readDomain", () => {
     expect(readDomain({}, "robkit.localhost")).toBe("robkit.localhost");
   });
 
+  it("reads a mixed-case domain as its lower-case form", () => {
+    expect(readDomain({ ROBKIT_DOMAIN: "Robkit.DEV" })).toBe("robkit.dev");
+    expect(readDomain({}, "Robkit.Localhost")).toBe("robkit.localhost");
+  });
+
   it("says to set it when there's no fallback", () => {
     expect(readDomain({})).toEqual({
       error:
@@ -159,6 +164,30 @@ describe("readCoreUrl", () => {
     expect(
       readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev:443/x?y" }),
     ).toBe("https://core.robkit.dev");
+  });
+
+  it.each([
+    "http://core.robkit.localhost:3000",
+    "http://core.localhost",
+    "https://core.robkit.localhost",
+  ])("takes %s, which is local", (value) => {
+    expect(readCoreUrl({ ROBKIT_CORE_URL: value })).toBe(value);
+  });
+
+  it.each([
+    ["http://core.example.com", "https://core.example.com"],
+    ["http://core.robkit.dev:8080/x", "https://core.robkit.dev:8080"],
+    ["http://core.notlocalhost", "https://core.notlocalhost"],
+  ])("refuses %s, since http is only ever local", (value, https) => {
+    expect(readCoreUrl({ ROBKIT_CORE_URL: value })).toEqual({
+      error: `ROBKIT_CORE_URL is "${value}", which is http on a domain that isn't local. Serve the install over https and set it to ${https}.`,
+    });
+  });
+
+  it("reads a mixed-case host as its lower-case form", () => {
+    expect(readCoreUrl({ ROBKIT_CORE_URL: "https://Core.Robkit.DEV" })).toBe(
+      "https://core.robkit.dev",
+    );
   });
 
   it("says pnpm dev sets it", () => {

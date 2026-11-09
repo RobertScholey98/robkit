@@ -61,6 +61,8 @@ sequenceDiagram
   end
 ```
 
+The guard knows the app's own address from its settings, not from the request. The app's origin is core's origin, from `ROBKIT_CORE_URL`, with the app's slug in place of `core`: the same protocol and port, on `<slug>.<domain>`. `appOrigin` in `@robkit/session` works it out, and Go's `Guarded` the same way. Every URL the guard sends the browser to, the `next` it gives core and the hub, its callback and its refresh path, is that origin plus the request's path and query. Neither port reads `Host`, `X-Forwarded-Host` or `X-Forwarded-Proto` for it, so a proxy hop that rewrites one changes nothing, and a request with no `Host` is guarded like any other.
+
 The guard's four outcomes come from one table in `packages/guard/src/guard.ts`:
 
 | Who is asking          | Open    | Gated to roles | Owner only |
@@ -106,6 +108,8 @@ sequenceDiagram
   B->>A: GET /_robkit/session
   A-->>B: checks the state, sets the app token cookie, 302 to next
 ```
+
+Core mints a token at `/refresh` only when `next` is on the exact origin of admin or an app in its catalog: protocol, host and port, which core works out from its own origin, `ROBKIT_CORE_URL`. The hub sends the browser back after sign-in only to an app's exact origin too.
 
 If the app is open to anyone and nobody is signed in, the guard keeps core's word that nobody is signed in for a minute and lets the visitor in as nobody.
 

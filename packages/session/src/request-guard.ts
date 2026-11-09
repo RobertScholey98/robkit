@@ -46,6 +46,18 @@ export interface GuardedOptions {
 }
 
 /**
+ * The app's public origin, such as `https://notes.robkit.dev`: core's
+ * protocol and port, on `<app>.<domain>`. It comes from the app's
+ * settings, never from a request's Host or X-Forwarded-Proto.
+ */
+export function appOrigin({
+  app,
+  core,
+}: Pick<GuardedOptions, "app" | "core">): string {
+  return coreInstall(core).origin(app);
+}
+
+/**
  * Why the guard couldn't check a request, so answered 503 rather than
  * treating the viewer as signed out. `failed` says what failed: checking
  * the session against core's key, loading the app's access rule, or
@@ -103,6 +115,7 @@ export function requestGuard(
 ): (request: Request) => Promise<RequestDecision> {
   const { app, access, onUnavailable = reportFault } = options;
   const install = coreInstall(options.core);
+  const origin = appOrigin(options);
   const core = install.origin("core");
   const hub = install.origin("hub");
   const ruleOf = access ? () => Promise.resolve(access) : coreAccess(core, app);
@@ -177,7 +190,7 @@ export function requestGuard(
   };
 
   return async (request) => {
-    const url = publicUrl(request);
+    const url = publicUrl(request, origin);
     const own = await protocol.answer(request, url);
     if (own) return { outcome: "answer", response: own };
 

@@ -2,22 +2,37 @@
 
 **What to build:** A sibling subdomain can set `robkit_session=…; Domain=<domain>`, and the browser sends it to core and to every app beside the real cookie. Core and the guard both take the first token that verifies, so the planted one can win ([review](../research/review-2026-11-09.md), "A sibling app can shadow the session cookie"). A browser refuses a cookie whose name starts with `__Host-` unless it is `Secure`, has `Path=/` and names no `Domain`, so a sibling can't set one for another host, and only one can arrive.
 
-- **The names.** Where the install's origin is https, core's cookie and each app's cookie are `__Host-robkit_session`, and the guard's state cookie is `__Host-robkit_state`. Where it is http, which is only ever a local install, they stay `robkit_session` and `robkit_state`, because the prefix needs `Secure`.
-- **The protocol decides, not the domain.** `Secure` and the names follow the protocol of the install's origin, which the guard knows after ticket 01 and core after ticket 02. `isLocal(domain)` stops deciding either.
+- **The names.** Where the install's origin is https, core's cookie and each app's cookie are `__Host-robkit_session`, and the guard's state cookie is `__Host-robkit_state`. Where it is http they stay `robkit_session` and `robkit_state`, because the prefix needs `Secure`. Ticket 02 makes an http install a local one, so this isn't a hole.
+- **The protocol decides, not the domain.** `Secure` and the names follow the protocol of the install's origin, which the guard knows after ticket 01 and core after ticket 02. `isLocal(domain)` stops deciding either, in both ports.
 - **One place gives the names.** A function in `@robkit/session` takes the origin and gives the names and attributes. Core, the guard and the Go port use it or its port.
 - **No fallback.** An https install doesn't read the plain names. A browser signed in before this change signs in once more. Say so in the changeset.
-- **The callback clears the state cookie.** A browser that has finished a trip no longer holds its state, so a callback link built from a logged state finds no cookie to match.
+- **A name matches exactly.** Both ports find a cookie by trimming only spaces and tabs around its name and comparing the rest exactly, so a name in another case, such as `__HOST-robkit_session`, doesn't match either. Today both trim more. A sibling can set a cookie whose name is a no-break space followed by `__Host-robkit_session`: a browser sees no prefix there and accepts its `Domain`. A browser sends that name as UTF-8, the bytes `C2 A0` and then the name. Go's `strings.TrimSpace` reads UTF-8 and strips them, so the Go guard takes the cookie as the real one. Node reads header bytes as Latin-1, so JavaScript's `trim()` leaves `C2` in place and misses, but it would strip a lone `A0` byte.
+- **The cases are bytes.** A JSON string can't carry these cases to both ports: `new Headers()` throws on U+2000. The shared file gives each `Cookie` header as bytes, in hex, and each runner hands them to its guard as its server would: Go as they are, TypeScript as the Latin-1 string Node makes of them. The cases put `A0`, `C2 A0` and `E2 80 80` before the name.
+- **Go refuses plain http off localhost, however it gets the address.** `go/session` accepts `http://core.example.com` today. Put the rule in `isCoreOrigin`, which both `ReadGuardEnv` and `Guarded(Options{…})` call, so an address written in code is refused as one read from settings is. An http origin passes only when the domain is local, as ticket 02 made `readCoreUrl` do. Both readers run one table of addresses: a new kind in `tooling/test-session/request-cases.json`. Go's tests read it as they read the other kinds. On the TypeScript side `@internal/test-session`'s own tests run it against `readCoreUrl`, because that package already depends on `@robkit/input` and input's tests can't reach the file without a cycle.
+- **The fakes take the name from the origin too.** The fake cores write the plain name today (`tooling/test-session/src/index.ts`, `go/internal/fakecore/fakecore.go`, `packages/core/src/test/fresh-app.ts`). Most shared cases use an https core, so each fake gets its names from the same function or its port.
+- **`robkit check` follows the names.** Its rule against reading the session cookie takes the name from `@robkit/session` (`packages/create-robkit/src/check.ts`). It matches the plain name and the prefixed one today, because one contains the other. Pin that with a test for each.
+- **A superseded state restarts the trip.** Two page loads that start together, such as two restored tabs, each get a state of their own, and the browser keeps only the last. Today the other tab's callback gets an error page. When a callback's state doesn't match the state cookie the browser holds, the guard stores nothing from it and sends the browser to `next`, which is already checked to be a page on the app, so it makes a clean trip with the state it holds. That redirect leaves a URL that carries a token, so it sends `Referrer-Policy: no-referrer`, as the matching path does. A callback from a browser that holds no state cookie still gets today's page that says it kept none. A token is never stored without a matching state.
+- **The state keeps its ten minutes.** The review suggested clearing the state cookie once a trip ends. That breaks tabs that share a state, so it isn't done. Record in `SECURITY.md`'s known gaps that a state read from a log is good for ten minutes, in the one browser that holds its cookie.
 - **A token must expire.** Both ports refuse a token with no `exp`.
-- **Go does the same**, with the same names.
+- **What the prefix rests on.** A cookie with no name and the value `__Host-robkit_session=x` goes out in the `Cookie` header looking like the real one. The cookie standard's current draft (RFC 6265bis) has a browser refuse a nameless cookie whose value starts with `__Host-`. Say in `SECURITY.md` that the guarantee holds in a browser that follows that rule, as the rule for writes holds in a browser that sends fetch metadata.
+- **One gap stays until ticket 27.** The hub signs a browser in with whatever access code an intro link carries, without asking, even when someone is already signed in. So a sibling app can send a viewer to an intro link of its own and swap their session for a guest's. [Ticket 27](27-templates-finished.md) makes the hub ask first. Until then `SECURITY.md` lists it as a known gap, so nothing there reads as "a sibling can't touch the session".
+
+Add this ticket's cases to `tooling/test-session/request-cases.json`, the shared file ticket 01 made, as a new kind, so both ports run them.
 
 **Blocked by:** 01, 02
 
 **Status:** ready-for-agent
 
-- [ ] With an https origin, core and the guard set and read only the `__Host-` names, with `Secure`, `Path=/` and no `Domain`
+- [ ] With an https origin, core and the guard set and read only the `__Host-` names, with `Secure`, `Path=/` and no `Domain`, in both ports
 - [ ] With an http origin the names and attributes are what they are today
 - [ ] A request to an https install that carries only the plain-named cookie is treated as carrying none
-- [ ] The callback's answer clears the state cookie, and a callback that arrives without it is refused
+- [ ] A `Cookie` header with the bytes `A0`, `C2 A0` or `E2 80 80` before the name `__Host-robkit_session` is treated as carrying no session by both ports, from byte cases in the shared file
+- [ ] A cookie named `__HOST-robkit_session` is ignored by both ports
+- [ ] Go refuses `http://core.example.com` and accepts `http://core.robkit.localhost:3000`, from `ReadGuardEnv` and from `Guarded(Options{…})` alike, and `readCoreUrl` gives the same answers from the same table
+- [ ] Two page loads started together with no state cookie both end on their page, whichever callback lands first, in both ports
+- [ ] A callback whose state doesn't match stores no token and redirects with `Referrer-Policy: no-referrer`, and one with no state cookie gets the page that says the browser kept none
 - [ ] A core-signed token with no `exp` is refused by both ports
-- [ ] `SECURITY.md` says why the cookies carry the prefix, and the map's known gap about the old parent-domain cookie is removed
+- [ ] `robkit check` refuses an app that reads the session cookie by its plain name, and one that reads it by its prefixed name
+- [ ] The production test passes over https and asserts the `__Host-` names on core's and an app's cookies; the PR carries the `production` label
+- [ ] `SECURITY.md` says why the cookies carry the prefix, that the guarantee is for an https install in a browser that refuses a nameless cookie posing as a prefixed one, the state's ten minutes, and the intro-link gap that ticket 27 closes; the map's known gap about the old parent-domain cookie is removed
 - [ ] The PR's CI `gate` job passes on GitHub

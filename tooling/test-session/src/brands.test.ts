@@ -1,7 +1,14 @@
 import { readCodeId, readRoleId } from "@robkit/guard";
-import { readDomain, readSlug } from "@robkit/input";
+import { readCoreUrl, readDomain, readSlug } from "@robkit/input";
 import { describe, expect, it } from "vitest";
-import { aCodeId, aDomain, aRoleId, aViewer, slug } from "./brands.ts";
+import {
+  aCodeId,
+  aCoreOrigin,
+  aDomain,
+  aRoleId,
+  aViewer,
+  slug,
+} from "./brands.ts";
 
 describe("slug", () => {
   it("builds the slug the reader reads", () => {
@@ -27,6 +34,21 @@ describe("aDomain", () => {
   it("throws for a value that isn't a domain alone", () => {
     expect(() => aDomain("https://robkit.dev")).toThrow(
       `ROBKIT_DOMAIN is "https://robkit.dev", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
+    );
+  });
+});
+
+describe("aCoreOrigin", () => {
+  it("builds the origin the reader reads", () => {
+    expect(aCoreOrigin("https://core.robkit.dev")).toBe(
+      readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev" }),
+    );
+    expect(aCoreOrigin()).toBe("http://core.robkit.localhost:3000");
+  });
+
+  it("throws for a value that isn't core's origin", () => {
+    expect(() => aCoreOrigin("https://hub.robkit.dev")).toThrow(
+      `ROBKIT_CORE_URL is "https://hub.robkit.dev", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
     );
   });
 });

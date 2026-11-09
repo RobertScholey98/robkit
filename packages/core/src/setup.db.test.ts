@@ -29,7 +29,7 @@ describe("POST /setup", () => {
   });
 
   it("sets an HttpOnly session cookie on core's host alone, with no Domain", async () => {
-    const { app } = await freshCore({ domain: "robkit.test" });
+    const { app } = await freshCore({ origin: "https://core.robkit.test" });
 
     const res = await postJson(app, "/setup", rob);
 
@@ -43,12 +43,12 @@ describe("POST /setup", () => {
   });
 
   it.each([
-    ["robkit.localhost", undefined],
-    ["localhost", undefined],
-    ["robkit.test", true],
-    ["notlocalhost.example", true],
-  ])("on %s, marks the cookie Secure: %s", async (domain, secure) => {
-    const { app } = await freshCore({ domain });
+    ["http://core.robkit.localhost:3000", undefined],
+    ["http://core.localhost:3000", undefined],
+    ["https://core.robkit.test", true],
+    ["https://core.notlocalhost.example", true],
+  ])("on %s, marks the cookie Secure: %s", async (origin, secure) => {
+    const { app } = await freshCore({ origin });
 
     const res = await postJson(app, "/setup", rob);
 

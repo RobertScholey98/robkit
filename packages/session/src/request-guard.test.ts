@@ -1,4 +1,7 @@
 import {
+  addressAnswer,
+  addressCases,
+  addressCookie,
   aRoleId,
   callbackFor,
   conformanceAnswer,
@@ -16,13 +19,17 @@ import type { AccessRule } from "@robkit/guard";
 import type { CoreOrigin } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
-import { requestGuard, type GuardedOptions, type GuardFault } from "./index.ts";
+import {
+  appOrigin,
+  requestGuard,
+  type GuardedOptions,
+  type GuardFault,
+} from "./index.ts";
 import { readSessionLapsed } from "./lapsed.ts";
 import { coreOrigin } from "./test/core-origin.ts";
 
 const example = slug("example");
 
-const page = "http://example.robkit.localhost:3000/notes?x=1";
 const navigate = { "sec-fetch-mode": "navigate" };
 const minute = 60;
 
@@ -69,12 +76,29 @@ function cookiesFrom(...responses: Response[]): string {
     .join("; ");
 }
 
+describe("appOrigin", () => {
+  it("puts the app on core's protocol and port", () => {
+    const notes = slug("notes");
+
+    expect([
+      appOrigin({ app: notes, core: coreOrigin("https://core.robkit.dev") }),
+      appOrigin({
+        app: notes,
+        core: coreOrigin("http://core.robkit.localhost:3000"),
+      }),
+    ]).toEqual([
+      "https://notes.robkit.dev",
+      "http://notes.robkit.localhost:3000",
+    ]);
+  });
+});
+
 describe("requestGuard, on a page load", () => {
   it.each(conformanceCases)("$name", async (asking) => {
     const core = await fakeCore();
     const open = guardedBy(core, { app: example, access: asking.rule });
 
-    const res = await open(page, {
+    const res = await open(core.page, {
       headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
     });
 
@@ -82,20 +106,20 @@ describe("requestGuard, on a page load", () => {
       status: res.status,
       location: res.headers.get("location"),
       viewer: res.status === 200 ? await res.json() : undefined,
-    }).toEqual(conformanceAnswer(asking, page, core));
+    }).toEqual(conformanceAnswer(asking, core.page, core));
   });
 
   it("treats a token core didn't sign as no token", async () => {
     const core = await fakeCore();
     const forger = await signingKey();
 
-    const res = await guardedBy(core)(page, {
+    const res = await guardedBy(core)(core.page, {
       headers: { ...navigate, ...cookie(await forger.token()) },
     });
 
     expect([res.status, res.headers.get("location")]).toEqual([
       302,
-      refreshLocation(page, core),
+      refreshLocation(core.page, core),
     ]);
   });
 
@@ -108,15 +132,15 @@ describe("requestGuard, on a page load", () => {
     });
     const signedIn = { ...navigate, ...cookie(await core.key.token()) };
 
-    expect(await check(new Request(page, { headers: signedIn }))).toEqual({
+    expect(await check(new Request(core.page, { headers: signedIn }))).toEqual({
       outcome: "serve",
       viewer: owner,
     });
-    const away = await check(new Request(page, { headers: navigate }));
+    const away = await check(new Request(core.page, { headers: navigate }));
     expect(away.outcome === "answer" && away.response.status).toBe(302);
   });
 
-  it("keeps the public scheme the proxy saw, and sets Secure cookies off localhost", async () => {
+  it("keeps an https install's pages on https, and sets Secure cookies off localhost", async () => {
     const check = requestGuard({
       app: slug("notes"),
       access: { kind: "owner" },
@@ -124,9 +148,7 @@ describe("requestGuard, on a page load", () => {
     });
 
     const decision = await check(
-      new Request("http://notes.example.com/", {
-        headers: { ...navigate, "x-forwarded-proto": "https" },
-      }),
+      new Request("http://notes.example.com/", { headers: navigate }),
     );
 
     const res = decision.outcome === "answer" ? decision.response : undefined;
@@ -145,14 +167,40 @@ describe("requestGuard, on a page load", () => {
   it("sends a page load from a browser that sends no fetch metadata to log in, not round core", async () => {
     const core = await fakeCore();
 
-    const res = await guardedBy(core)(page, {
+    const res = await guardedBy(core)(core.page, {
       headers: { accept: "text/html,application/xhtml+xml,*/*;q=0.8" },
     });
 
     expect([res.status, res.headers.get("location")]).toEqual([
       302,
-      `${core.hub}/?next=${encodeURIComponent(page)}`,
+      `${core.hub}/?next=${encodeURIComponent(core.page)}`,
     ]);
+  });
+});
+
+describe("requestGuard, on the app's own address", () => {
+  it.each(addressCases)("$name", async (asking) => {
+    const check = requestGuard({
+      app: example,
+      access: { kind: "owner" },
+      core: coreOrigin(asking.core),
+    });
+    // A server builds the request's URL from its Host, as Hono's and
+    // Start's do, or from its own name when there is none.
+    const { host = "" } = asking.headers;
+    const server = host === "" ? "localhost" : host;
+
+    const decision = await check(
+      new Request(`http://${server}${asking.target}`, {
+        headers: { ...navigate, ...asking.headers, ...addressCookie(asking) },
+      }),
+    );
+
+    const res = decision.outcome === "answer" ? decision.response : undefined;
+    expect({
+      status: res?.status,
+      location: res?.headers.get("location"),
+    }).toEqual(addressAnswer(asking));
   });
 });
 
@@ -160,7 +208,7 @@ describe("requestGuard, getting the app's token from core", () => {
   it("sends a page load it holds nothing for to core, keeping a state in a host-only cookie", async () => {
     const core = await fakeCore();
 
-    const res = await guardedBy(core)(page, { headers: navigate });
+    const res = await guardedBy(core)(core.page, { headers: navigate });
 
     const state = stateIn(res.headers.get("location"));
     expect(res.status).toBe(302);
@@ -173,22 +221,22 @@ describe("requestGuard, getting the app's token from core", () => {
   it("keeps the token core hands back in a host-only cookie, goes on to next, then lets the viewer in", async () => {
     const core = await fakeCore();
     const open = guardedBy(core);
-    const away = await open(page, { headers: navigate });
+    const away = await open(core.page, { headers: navigate });
     const token = await core.key.token();
 
     const back = await open(
-      callbackFor(page, {
+      callbackFor(core.page, {
         state: stateIn(away.headers.get("location")),
         token,
       }),
       { headers: { ...navigate, cookie: cookiesFrom(away) } },
     );
-    const later = await open(page, {
+    const later = await open(core.page, {
       headers: { ...navigate, cookie: cookiesFrom(away, back) },
     });
 
     expect(back.status).toBe(302);
-    expect(back.headers.get("location")).toBe(page);
+    expect(back.headers.get("location")).toBe(core.page);
     expect(back.headers.get("cache-control")).toBe("no-store");
     expect(back.headers.get("referrer-policy")).toBe("no-referrer");
     expect(setCookies(back)).toEqual({
@@ -201,14 +249,16 @@ describe("requestGuard, getting the app's token from core", () => {
     const core = await fakeCore();
     const asked = async (access: AccessRule) => {
       const open = guardedBy(core, { app: example, access });
-      const away = await open(page, { headers: navigate });
+      const away = await open(core.page, { headers: navigate });
       const back = await open(
-        callbackFor(page, { state: stateIn(away.headers.get("location")) }),
+        callbackFor(core.page, {
+          state: stateIn(away.headers.get("location")),
+        }),
         { headers: { ...navigate, cookie: cookiesFrom(away) } },
       );
       return {
         back,
-        then: await open(page, {
+        then: await open(core.page, {
           headers: { ...navigate, cookie: cookiesFrom(away, back) },
         }),
       };
@@ -228,7 +278,7 @@ describe("requestGuard, getting the app's token from core", () => {
     ]);
     expect([gated.then.status, gated.then.headers.get("location")]).toEqual([
       302,
-      `${core.hub}/?next=${encodeURIComponent(page)}`,
+      `${core.hub}/?next=${encodeURIComponent(core.page)}`,
     ]);
     expect(gated.then.headers.getSetCookie()).toEqual([
       "robkit_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
@@ -242,15 +292,17 @@ describe("requestGuard, getting the app's token from core", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(Date.now() + 61_000);
 
-    const pageLoad = await open(page, { headers: { ...navigate, ...word } });
-    const call = await open(page, {
+    const pageLoad = await open(core.page, {
+      headers: { ...navigate, ...word },
+    });
+    const call = await open(core.page, {
       method: "POST",
       headers: { "sec-fetch-mode": "cors", ...word },
     });
 
     expect([pageLoad.status, pageLoad.headers.get("location")]).toEqual([
       302,
-      refreshLocation(page, core),
+      refreshLocation(core.page, core),
     ]);
     expect([call.status, await call.json()]).toEqual([200, { kind: "nobody" }]);
   });
@@ -258,10 +310,10 @@ describe("requestGuard, getting the app's token from core", () => {
   it("reuses the state it holds, so two tabs on their way back both arrive", async () => {
     const core = await fakeCore();
     const open = guardedBy(core);
-    const first = await open(page, { headers: navigate });
+    const first = await open(core.page, { headers: navigate });
     const state = stateIn(first.headers.get("location"));
 
-    const second = await open(page, {
+    const second = await open(core.page, {
       headers: { ...navigate, cookie: cookiesFrom(first) },
     });
 
@@ -282,7 +334,7 @@ describe("requestGuard, getting the app's token from core", () => {
       const attacker = await core.key.token({ holder: guest(["family"]) });
 
       const res = await guardedBy(core)(
-        callbackFor(page, {
+        callbackFor(core.page, {
           state: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
           token: attacker,
         }),
@@ -302,10 +354,10 @@ describe("requestGuard, getting the app's token from core", () => {
     async (_, audience) => {
       const core = await fakeCore();
       const open = guardedBy(core);
-      const away = await open(page, { headers: navigate });
+      const away = await open(core.page, { headers: navigate });
 
       const res = await open(
-        callbackFor(page, {
+        callbackFor(core.page, {
           state: stateIn(away.headers.get("location")),
           token: await core.key.token({ audience }),
         }),
@@ -321,16 +373,21 @@ describe("requestGuard, getting the app's token from core", () => {
   );
 
   it.each([
-    "http://diary.robkit.localhost:3000/",
-    "https://evil.com/",
-    "http://example.robkit.localhost:3000/_robkit/session",
-  ])("goes on only to a page on the same app, refusing %s", async (next) => {
+    ["another app", (port: string) => `http://diary.robkit.localhost:${port}/`],
+    ["another site", () => "https://evil.com/"],
+    [
+      "the guard's own callback",
+      (port: string) =>
+        `http://example.robkit.localhost:${port}/_robkit/session`,
+    ],
+  ])("goes on only to a page on the same app, refusing %s", async (_, at) => {
     const core = await fakeCore();
+    const next = at(new URL(core.origin).port);
     const open = guardedBy(core);
-    const away = await open(page, { headers: navigate });
+    const away = await open(core.page, { headers: navigate });
 
     const callback = new URL(
-      callbackFor(page, {
+      callbackFor(core.page, {
         state: stateIn(away.headers.get("location")),
         token: await core.key.token(),
       }),
@@ -341,7 +398,8 @@ describe("requestGuard, getting the app's token from core", () => {
       headers: { ...navigate, cookie: cookiesFrom(away) },
     });
     const refresh = await open(
-      `http://example.robkit.localhost:3000/_robkit/refresh?next=${encodeURIComponent(next)}`,
+      new URL(`/_robkit/refresh?next=${encodeURIComponent(next)}`, core.page)
+        .href,
       { headers: navigate },
     );
 
@@ -352,10 +410,10 @@ describe("requestGuard, getting the app's token from core", () => {
   it("stops at its callback, instead of going round again, when its clock runs ahead of core's", async () => {
     const core = await fakeCore();
     const open = guardedBy(core);
-    const away = await open(page, { headers: navigate });
+    const away = await open(core.page, { headers: navigate });
 
     const res = await open(
-      callbackFor(page, {
+      callbackFor(core.page, {
         state: stateIn(away.headers.get("location")),
         token: await core.key.token({ ageSeconds: 20 * minute }),
       }),
@@ -372,10 +430,10 @@ describe("requestGuard, on a call from the page or a server", () => {
     const core = await fakeCore();
     const open = guardedBy(core);
 
-    const loggedOut = await open(page, {
+    const loggedOut = await open(core.page, {
       headers: { "sec-fetch-mode": "cors" },
     });
-    const expired = await open(page, {
+    const expired = await open(core.page, {
       method: "POST",
       headers: cookie(await core.key.token({ ageSeconds: 20 * minute })),
     });
@@ -388,24 +446,24 @@ describe("requestGuard, on a call from the page or a server", () => {
     expect(await readSessionLapsed(expired)).toEqual({
       outcome: "refresh",
       error: "Your session needs refreshing.",
-      location: "http://example.robkit.localhost:3000/_robkit/refresh",
+      location: new URL("/_robkit/refresh", core.page).href,
     });
   });
 
   it("sends the browser the page sends to its refresh path through core and back to the page", async () => {
     const core = await fakeCore();
     const open = guardedBy(core);
-    const expired = await open(page, {
+    const expired = await open(core.page, {
       method: "POST",
       headers: cookie(await core.key.token({ ageSeconds: 20 * minute })),
     });
     const lapsed = await readSessionLapsed(expired);
     const leaveFor = new URL(lapsed?.location ?? "");
-    leaveFor.searchParams.set("next", page);
+    leaveFor.searchParams.set("next", core.page);
 
     const away = await open(leaveFor.href, { headers: navigate });
     const back = await open(
-      callbackFor(page, {
+      callbackFor(core.page, {
         state: stateIn(away.headers.get("location")),
         token: await core.key.token(),
       }),
@@ -414,15 +472,18 @@ describe("requestGuard, on a call from the page or a server", () => {
 
     expect([away.status, away.headers.get("location")]).toEqual([
       302,
-      refreshLocation(page, core),
+      refreshLocation(core.page, core),
     ]);
-    expect([back.status, back.headers.get("location")]).toEqual([302, page]);
+    expect([back.status, back.headers.get("location")]).toEqual([
+      302,
+      core.page,
+    ]);
   });
 
   it("answers a server's JSON request with the guard's 401", async () => {
     const core = await fakeCore();
 
-    const res = await guardedBy(core)(page, {
+    const res = await guardedBy(core)(core.page, {
       headers: { accept: "application/json" },
     });
 
@@ -435,7 +496,7 @@ describe("requestGuard, on a call from the page or a server", () => {
     const res = await guardedBy(core, {
       app: example,
       access: { kind: "open" },
-    })(page, { headers: { accept: "application/json" } });
+    })(core.page, { headers: { accept: "application/json" } });
 
     expect([res.status, await res.json()]).toEqual([200, { kind: "nobody" }]);
   });
@@ -448,7 +509,7 @@ describe("requestGuard, with core's keys", () => {
 
     const viewers = [];
     for (let i = 0; i < 3; i++) {
-      const res = await open(page, {
+      const res = await open(core.page, {
         headers: { ...navigate, ...cookie(await core.key.token()) },
       });
       viewers.push(await res.json());
@@ -470,7 +531,7 @@ describe("requestGuard, with core's keys", () => {
 
     expect([res.status, res.headers.get("location")]).toEqual([
       302,
-      refreshLocation(attacked, core),
+      refreshLocation(new URL("/", core.page).href, core),
     ]);
     expect(attacker.fetched).toEqual([]);
     expect(core.fetched).toHaveLength(1);
@@ -480,7 +541,7 @@ describe("requestGuard, with core's keys", () => {
     const core = await fakeCore();
     core.status = 503;
 
-    const res = await guardedBy(core)(page, {
+    const res = await guardedBy(core)(core.page, {
       headers: { ...navigate, ...cookie(await core.key.token()) },
     });
 
@@ -492,7 +553,7 @@ describe("requestGuard, with core's keys", () => {
     const core = await fakeCore();
     const open = guardedBy(core);
     const asOwner = async () =>
-      open(page, {
+      open(core.page, {
         headers: { ...navigate, ...cookie(await core.key.token()) },
       });
     const first = await asOwner();
@@ -516,7 +577,7 @@ describe("requestGuard, with its rule in core", () => {
     core.rules.example = family;
     const open = guardedBy(core, { app: example });
     const asGuest = async (roles: string[]) =>
-      open(page, {
+      open(core.page, {
         headers: {
           ...navigate,
           ...cookie(await core.key.token({ holder: guest(roles) })),
@@ -537,7 +598,7 @@ describe("requestGuard, with its rule in core", () => {
     const core = await fakeCore();
     const open = guardedBy(core, { app: example });
 
-    const res = await open(page, {
+    const res = await open(core.page, {
       headers: {
         ...navigate,
         ...cookie(await core.key.token({ holder: guest(["family"]) })),
@@ -562,12 +623,15 @@ describe("requestGuard, when it can't check a request", () => {
     });
     const key = "key" in core ? core.key : (await fakeCore()).key;
     const decision = await check(
-      new Request(page, {
-        headers: {
-          ...navigate,
-          ...cookie(await key.token({ holder: guest(["family"]) })),
+      new Request(
+        `http://example.robkit.localhost:${new URL(core.origin).port}/`,
+        {
+          headers: {
+            ...navigate,
+            ...cookie(await key.token({ holder: guest(["family"]) })),
+          },
         },
-      }),
+      ),
     );
     const status =
       decision.outcome === "answer" ? decision.response.status : 200;
@@ -647,7 +711,9 @@ describe("requestGuard, when it can't check a request", () => {
     });
 
     // With no cookie, there is no token to check against core's key.
-    const decision = await check(new Request(page, { headers: navigate }));
+    const decision = await check(
+      new Request("http://example.robkit.localhost:1/", { headers: navigate }),
+    );
 
     expect(decision.outcome === "answer" && decision.response.status).toBe(503);
     expect(faults.map((fault) => fault.failed)).toEqual(["network"]);
@@ -672,7 +738,7 @@ describe("requestGuard, when it can't check a request", () => {
     const check = requestGuard({ app: example, core: core.origin });
 
     await check(
-      new Request(page, {
+      new Request(core.page, {
         headers: {
           ...navigate,
           ...cookie(await core.key.token({ holder: guest(["family"]) })),

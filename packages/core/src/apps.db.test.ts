@@ -148,7 +148,9 @@ describe("GET /apps/:slug/access", () => {
   });
 
   it("answers a guest and the owner as it answers anyone", async () => {
-    const { app, db } = await freshCore({ domain: "robkit.localhost" });
+    const { app, db } = await freshCore({
+      origin: "http://core.robkit.localhost:3000",
+    });
     const owner = await claim(app);
     await registerApps(db, [{ slug: slug("example") }]);
     const signIn = await postJson(app, "/login/code", { code: "test" });
@@ -239,7 +241,9 @@ describe("POST /apps/:slug/access", () => {
   });
 
   it("answers anyone but the owner with 404", async () => {
-    const { app, db } = await freshCore({ domain: "robkit.localhost" });
+    const { app, db } = await freshCore({
+      origin: "http://core.robkit.localhost:3000",
+    });
     await claim(app);
     await registerApps(db, [{ slug: slug("example") }]);
     const signIn = await postJson(app, "/login/code", { code: "test" });
@@ -257,7 +261,7 @@ describe("POST /apps/:slug/access", () => {
 
   it("renews no cookie for a guest it refuses", async () => {
     const { app, db, advance } = await freshCore({
-      domain: "robkit.localhost",
+      origin: "http://core.robkit.localhost:3000",
     });
     await claim(app);
     await registerApps(db, [{ slug: slug("example") }]);

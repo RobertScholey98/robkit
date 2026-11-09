@@ -1,4 +1,4 @@
-import { aDomain } from "@internal/test-session";
+import { aCoreOrigin } from "@internal/test-session";
 import { freePort } from "@internal/test-postgres";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { createApp } from "../app.ts";
@@ -11,7 +11,7 @@ async function coreWithoutDatabase() {
   );
   onTestFinished(() => db.$client.end());
   const logError = vi.fn();
-  return { app: createApp({ db, domain: aDomain(), logError }), logError };
+  return { app: createApp({ db, origin: aCoreOrigin(), logError }), logError };
 }
 
 describe("GET /apps/:slug/access", () => {

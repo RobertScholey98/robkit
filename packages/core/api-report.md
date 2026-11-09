@@ -7,7 +7,7 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ```ts
 export interface CoreConfig {
   databaseUrl: string;
-  domain: Domain;
+  origin: CoreOrigin;
   apps: ListedApp[];
   trustedProxy?: TrustedProxy;
   host: string;
@@ -15,14 +15,14 @@ export interface CoreConfig {
 }
 export interface CoreOptions {
   db: Database;
-  domain: Domain;
+  origin: CoreOrigin;
   now?: () => Date;
   trustedProxy?: TrustedProxy | undefined;
   logError?: Report;
 }
 export function createApp({
   db,
-  domain,
+  origin,
   now,
   trustedProxy,
   logError,

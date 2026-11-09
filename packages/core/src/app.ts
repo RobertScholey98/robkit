@@ -4,8 +4,8 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { reportToConsole, type Report } from "@robkit/input/report";
-import { platformApps, type Domain } from "@robkit/input";
-import { install } from "@robkit/input/addresses";
+import type { CoreOrigin } from "@robkit/input";
+import { coreInstall } from "@robkit/input/addresses";
 import type { TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
 import type { RouteContext } from "./routes/context.ts";
@@ -18,8 +18,12 @@ import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 
 export interface CoreOptions {
   db: Database;
-  /** The install's domain, such as `robkit.localhost` in development. */
-  domain: Domain;
+  /**
+   * Core's public origin, as `readCoreUrl` read it, such as
+   * `http://core.robkit.localhost:3000` in development. Every other address
+   * of the install comes from it.
+   */
+  origin: CoreOrigin;
   /** Core's clock, for token times, session expiry and rate limits. */
   now?: () => Date;
   /**
@@ -33,18 +37,6 @@ export interface CoreOptions {
    * `reportToConsole`.
    */
   logError?: Report;
-}
-
-/** The platform apps that call core from the browser with the session cookie. */
-const trustedApps = platformApps.filter((slug) => slug !== "core");
-
-function hostnameOf(origin: string): string | undefined {
-  try {
-    return new URL(origin).hostname;
-  } catch {
-    // An Origin that isn't a URL names no host, so CORS refuses it.
-    return undefined;
-  }
 }
 
 function isJson(contentType: string | undefined): boolean {
@@ -68,7 +60,7 @@ function memoize<T>(load: () => Promise<T>): () => Promise<T> {
  */
 export function createApp({
   db,
-  domain,
+  origin,
   now = () => new Date(),
   trustedProxy,
   logError = reportToConsole,
@@ -94,16 +86,17 @@ export function createApp({
     );
   });
 
-  const addresses = install({ domain });
-  const trustedHosts = new Set(trustedApps.map((slug) => addresses.host(slug)));
+  const install = coreInstall(origin);
+  // The hub and admin call core from the browser with the session cookie.
+  // A browser's Origin header is serialized as URL.origin is, so each must
+  // match one exactly: protocol, host and port.
+  const trustedOrigins = new Set([
+    install.origin("hub"),
+    install.origin("admin"),
+  ]);
   app.use(
     cors({
-      origin: (origin) => {
-        const hostname = hostnameOf(origin);
-        return hostname !== undefined && trustedHosts.has(hostname)
-          ? origin
-          : null;
-      },
+      origin: (origin) => (trustedOrigins.has(origin) ? origin : null),
       credentials: true,
     }),
   );
@@ -130,7 +123,7 @@ export function createApp({
   );
   const context: RouteContext = {
     db,
-    domain,
+    install,
     now,
     signingKey,
     trustedProxy,

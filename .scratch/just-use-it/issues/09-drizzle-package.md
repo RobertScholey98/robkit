@@ -2,7 +2,7 @@
 
 **What to build:** Each of the four Node stacks carries the same 45-line `migrate.ts`, a copy of Drizzle's migrator changed to work inside the app's own schema, and a `database.ts` that reads `DATABASE_URL` through `@robkit/input`. That is platform logic in the owner's files, in four copies that can drift, and none of them takes a lock ([review](../research/review-2026-11-09.md), "Go and Node differ by accident"). It becomes a package.
 
-- **The package.** `@robkit/drizzle`, a new published package, named for what it adapts as the stack adapters are. `drizzle-orm` and `postgres` are peer dependencies, so the app's own copies are the ones in use. It has the published-package shape: README, `api-report.md`, an entry in `tooling/eslint/package-graph.js`, a changeset, coverage thresholds, and the pack check. `pnpm new:package` starts one.
+- **The package.** `@robkit/drizzle`, a new published package, named for what it adapts as the stack adapters are. `drizzle-orm` and `postgres` are peer dependencies, so the app's own copies are the ones in use. In a linked install the package loads from the checkout, which has its own copy of `drizzle-orm`; confirm early that an app's schema still works with it, and say what you found. It has the published-package shape: README, `api-report.md`, an entry in `tooling/eslint/package-graph.js`, a changeset, coverage thresholds, and the pack check. `pnpm new:package` starts one.
 - **The database.** `appDatabase(schema)` returns a function that gives the app's Drizzle database, as the app's own role, connected on first call from `DATABASE_URL`. An app writes:
 
   ```ts nocheck
