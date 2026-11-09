@@ -17,6 +17,7 @@ export {
 } from "./request-cases.ts";
 export {
   aCodeId,
+  aCoreOrigin,
   aDomain,
   aRoleId,
   aViewer,

@@ -1,8 +1,9 @@
-import { aDomain } from "@internal/test-session";
+import { aCoreOrigin, slug } from "@internal/test-session";
 import type { Hono } from "hono";
 import { decodeJwt, SignJWT, type JWTPayload } from "jose";
 import { onTestFinished } from "vitest";
 import { createApp } from "../app.ts";
+import { registerApps } from "../apps.ts";
 import type { TrustedProxy } from "../client.ts";
 import { createDatabase, type Database } from "../database.ts";
 import { migrate } from "../migrate.ts";
@@ -22,25 +23,38 @@ export interface FreshCore {
 }
 
 /**
- * Core on its own migrated database, with a clock the test moves. Closes its
- * connections when the test finishes.
+ * Core on its own migrated database, knowing `apps`, with a clock the test
+ * moves. Closes its connections when the test finishes.
  */
 export async function freshCore({
-  domain = "robkit.test",
+  origin = "https://core.robkit.test",
+  apps = [],
   trustedProxy,
 }: {
-  domain?: string;
+  /** Core's public origin: a hosted install's unless it says. */
+  origin?: string;
+  /** The slugs of the apps core starts knowing, as ROBKIT_APPS lists them. */
+  apps?: readonly string[];
   trustedProxy?: TrustedProxy | undefined;
 } = {}): Promise<FreshCore> {
   const databaseUrl = await freshDatabase();
   await migrate(databaseUrl);
   const db = createDatabase(databaseUrl);
   onTestFinished(() => db.$client.end());
+  await registerApps(
+    db,
+    apps.map((name) => ({ slug: slug(name) })),
+  );
 
   let now = clockStart.getTime();
   const clock = () => new Date(now);
   return {
-    app: createApp({ db, domain: aDomain(domain), now: clock, trustedProxy }),
+    app: createApp({
+      db,
+      origin: aCoreOrigin(origin),
+      now: clock,
+      trustedProxy,
+    }),
     db,
     now: clock,
     advance: (ms) => {

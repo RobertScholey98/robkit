@@ -113,7 +113,8 @@ export function isDomain(value: string): value is Domain {
 
 /**
  * The install's domain: `ROBKIT_DOMAIN`, or `fallback`, checked the same
- * way.
+ * way. It is lower-cased, as a browser and the URL parser write a host, so
+ * `Robkit.dev` compares equal to every host name read from a URL.
  */
 export function readDomain(env: Env, fallback?: string): Domain | InputProblem {
   const value = valueOf(env, "ROBKIT_DOMAIN") ?? fallback;
@@ -123,10 +124,21 @@ export function readDomain(env: Env, fallback?: string): Domain | InputProblem {
       "Set it to the install's domain, such as robkit.dev.",
     );
   }
-  if (isDomain(value)) return value;
+  const domain = value.toLowerCase();
+  if (isDomain(domain)) return domain;
   return problem(
     `ROBKIT_DOMAIN is "${value}", which isn't a domain. Set it to the install's domain alone, such as robkit.dev, with no scheme, port or path.`,
   );
+}
+
+/**
+ * Whether the install runs on `localhost` or a name under it, which only
+ * ever means development. Only a local install may run over plain http. A
+ * local install's cookies go without `Secure`: browsers treat *.localhost
+ * as a secure context, but WebKit drops Secure cookies over plain http.
+ */
+export function isLocal(domain: string): boolean {
+  return domain === "localhost" || domain.endsWith(".localhost");
 }
 
 declare const coreOriginBrand: unique symbol;
@@ -150,7 +162,9 @@ function isCoreOrigin(value: string): value is CoreOrigin {
 
 /**
  * Core's public origin, `ROBKIT_CORE_URL`, which an app's guard asks. A
- * path after the origin is dropped.
+ * path after the origin is dropped, and the URL parser lower-cases the
+ * host. It is https unless the install is local, since tokens travel in
+ * the URLs of an install's redirects.
  */
 export function readCoreUrl(env: Env): CoreOrigin | InputProblem {
   const value = valueOf(env, "ROBKIT_CORE_URL");
@@ -161,7 +175,13 @@ export function readCoreUrl(env: Env): CoreOrigin | InputProblem {
     );
   }
   const origin = URL.canParse(value) ? new URL(value).origin : value;
-  if (isCoreOrigin(origin)) return origin;
+  if (isCoreOrigin(origin)) {
+    const { protocol, hostname } = new URL(origin);
+    if (protocol === "https:" || isLocal(hostname)) return origin;
+    return problem(
+      `ROBKIT_CORE_URL is "${value}", which is http on a domain that isn't local. Serve the install over https and set it to ${origin.replace(/^http:/, "https:")}.`,
+    );
+  }
   return problem(
     `ROBKIT_CORE_URL is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
   );

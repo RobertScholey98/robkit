@@ -109,6 +109,8 @@ sequenceDiagram
   A-->>B: checks the state, sets the app token cookie, 302 to next
 ```
 
+Core mints a token at `/refresh` only when `next` is on the exact origin of admin or an app in its catalog: protocol, host and port, which core works out from its own origin, `ROBKIT_CORE_URL`. The hub sends the browser back after sign-in only to an app's exact origin too.
+
 If the app is open to anyone and nobody is signed in, the guard keeps core's word that nobody is signed in for a minute and lets the visitor in as nobody.
 
 ### Refreshing a lapsed token

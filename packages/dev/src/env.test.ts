@@ -14,12 +14,12 @@ describe("readDevConfig", () => {
   it("reads each setting", () => {
     expect(
       readDevConfig({
-        ROBKIT_DOMAIN: "dev.example.com",
+        ROBKIT_DOMAIN: "dev.robkit.localhost",
         ROBKIT_DEV_PORT: "4000",
         ROBKIT_POSTGRES_PORT: "5433",
       }),
     ).toEqual({
-      domain: "dev.example.com",
+      domain: "dev.robkit.localhost",
       devPort: 4000,
       adminUrl: "postgres://postgres:postgres@127.0.0.1:5433/robkit",
     });
@@ -27,6 +27,24 @@ describe("readDevConfig", () => {
       readDevConfig({ ROBKIT_DATABASE_URL: "postgres://a:b@db:5432/x" }),
     ).toMatchObject({ adminUrl: "postgres://a:b@db:5432/x" });
   });
+
+  it.each(["localhost", "Robkit.Localhost"])(
+    "takes %s, which is local",
+    (domain) => {
+      expect(readDevConfig({ ROBKIT_DOMAIN: domain })).toMatchObject({
+        domain: domain.toLowerCase(),
+      });
+    },
+  );
+
+  it.each(["example.com", "notlocalhost", "localhost.example.com"])(
+    "refuses %s, since pnpm dev serves only http",
+    (domain) => {
+      expect(readDevConfig({ ROBKIT_DOMAIN: domain })).toEqual({
+        error: `ROBKIT_DOMAIN is "${domain}", which isn't local. pnpm dev serves plain http, so it runs only on localhost or a name under it, such as robkit.localhost. Leave ROBKIT_DOMAIN unset, or deploy with robkit deploy to serve ${domain}.`,
+      });
+    },
+  );
 
   it("names every variable that won't do", () => {
     const read = readDevConfig({
