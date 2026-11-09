@@ -5,9 +5,15 @@ import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
+import type { AddressCase } from "./address-cases.ts";
 import { aViewer } from "./brands.ts";
 import { listeningPort } from "./known.ts";
 
+export {
+  addressCases,
+  readAddressCases,
+  type AddressCase,
+} from "./address-cases.ts";
 export {
   aCodeId,
   aDomain,
@@ -286,4 +292,25 @@ export function conformanceAnswer(
     case "not-found":
       return { status: 404, location: null, viewer: undefined };
   }
+}
+
+/** The cookie header a case's browser sends, if any. */
+export function addressCookie({ signedOut }: AddressCase): {
+  cookie?: string;
+} {
+  return signedOut ? { cookie: signedOutCookie() } : {};
+}
+
+/** What the guard must answer a case's page load with. */
+export function addressAnswer({
+  core,
+  signedOut,
+  next,
+}: AddressCase): Omit<PageAnswer, "viewer"> {
+  if (!signedOut) {
+    return { status: 302, location: refreshLocation(next, { origin: core }) };
+  }
+  const hub = new URL("/", core.replace("//core.", "//hub."));
+  hub.searchParams.set("next", next);
+  return { status: 302, location: hub.href };
 }

@@ -4,12 +4,16 @@ import { conformanceCases } from "@robkit/guard/conformance";
 import { createLocalJWKSet, decodeJwt, jwtVerify } from "jose";
 import { describe, expect, it } from "vitest";
 import {
+  addressAnswer,
+  addressCases,
+  addressCookie,
   aRoleId,
   callbackFor,
   conformanceAnswer,
   fakeCore,
   guest,
   owner,
+  readAddressCases,
   refreshLocation,
   signedOutCookie,
   signingKey,
@@ -273,5 +277,76 @@ describe("callbackFor", () => {
     ).toBe(
       "http://example.robkit.localhost:3000/_robkit/session?next=http%3A%2F%2Fexample.robkit.localhost%3A3000%2Fnotes%3Fx%3D1&state=s&token=t",
     );
+  });
+});
+
+describe("addressCases", () => {
+  const row = {
+    name: "a case",
+    core: "https://core.robkit.dev",
+    target: "/notes",
+    headers: { host: "evil.com" },
+    next: "https://example.robkit.dev/notes",
+  };
+
+  it("reads every row of address-cases.json", () => {
+    expect(addressCases.length).toBeGreaterThan(0);
+  });
+
+  it("reads a row, taking a left-out signedOut as false", () => {
+    expect(readAddressCases([row])).toEqual([{ ...row, signedOut: false }]);
+  });
+
+  it.each([
+    [
+      "isn't a list",
+      { row },
+      'address-cases.json must be a list of cases, but it holds {"row":',
+    ],
+    [
+      "holds a row that isn't an object",
+      ["row"],
+      "address-cases.json[0] must be an object.",
+    ],
+    [
+      "holds a row with a header that isn't a string",
+      [{ ...row, headers: { host: 1 } }],
+      "address-cases.json[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
+    ],
+    [
+      "holds a row whose signedOut isn't true or false",
+      [{ ...row, signedOut: "yes" }],
+      "address-cases.json[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
+    ],
+  ])("refuses a file that %s", (_, value, message) => {
+    expect(() => readAddressCases(value)).toThrow(message);
+  });
+
+  it("sends a browser that holds nothing to core, and a signed-out one to the hub", () => {
+    const [holdsNothing, signedOut] = readAddressCases([
+      row,
+      { ...row, signedOut: true },
+    ]);
+    if (!holdsNothing || !signedOut) throw new Error("Two rows went in.");
+
+    expect({
+      core: [addressCookie(holdsNothing), addressAnswer(holdsNothing)],
+      hub: [addressCookie(signedOut), addressAnswer(signedOut)],
+    }).toEqual({
+      core: [
+        {},
+        {
+          status: 302,
+          location: refreshLocation(row.next, { origin: row.core }),
+        },
+      ],
+      hub: [
+        { cookie: signedOutCookie() },
+        {
+          status: 302,
+          location: `https://hub.robkit.dev/?next=${encodeURIComponent(row.next)}`,
+        },
+      ],
+    });
   });
 });
