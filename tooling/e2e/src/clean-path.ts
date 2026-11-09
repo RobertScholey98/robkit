@@ -1,6 +1,7 @@
 import { access, constants, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
+import { removeWhenGone } from "@internal/test-postgres";
 
 async function executable(file: string): Promise<boolean> {
   return access(file, constants.X_OK).then(
@@ -32,6 +33,7 @@ export async function cleanPath(
     );
   }
   const bin = await mkdtemp(join(tmpdir(), "robkit-bin-"));
+  removeWhenGone({ path: bin });
   await writeFile(join(bin, "pnpm"), `#!/bin/sh\nexec '${pnpm}' "$@"\n`, {
     mode: 0o755,
   });

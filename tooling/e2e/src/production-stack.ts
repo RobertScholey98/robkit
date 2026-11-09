@@ -107,6 +107,7 @@ export async function startStack(dir: string, slugs: string[]): Promise<Stack> {
   removeWhenGone({ docker: name });
   const port = await freePort();
   const caDir = await mkdtemp(join(tmpdir(), "robkit-caddy-"));
+  removeWhenGone({ path: caDir });
   await writeFile(join(caDir, "Caddyfile"), caddyfile(port));
   await docker("network", "create", "--label", name, network);
   await docker(

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { defaultChoices, init, readyStacks } from "create-robkit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { removeWhenGone } from "@internal/test-postgres";
 import type { Slug } from "@robkit/input";
 import { takeBrowserLog } from "./browser.ts";
 import {
@@ -65,6 +66,7 @@ describe("the default install in production", () => {
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
+    removeWhenGone({ path: dir });
     await init(defaultChoices, dir, { link: true, install: true });
     // A host can't reach this checkout, so the install takes tarballs.
     await run("pnpm", ["run", "robkit", "vendor"], {

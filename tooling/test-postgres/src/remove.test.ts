@@ -1,10 +1,21 @@
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { removeWhenGone } from "./clean-up.ts";
-import { alive, removeLeftover } from "./remove.ts";
+import { alive, removeAll, removeLeftover } from "./remove.ts";
 
 const run = promisify(execFile);
 
@@ -30,9 +41,8 @@ function taggedShell(tag: string, script: string) {
     env: { ...process.env, ROBKIT_TEST_TAG: tag },
     stdio: "ignore",
   });
-  onTestFinished(() => {
-    child.kill("SIGKILL");
-  });
+  // Everything with the tag, so a sleep sh started goes too.
+  onTestFinished(() => removeLeftover({ tagged: tag }, 0));
   return once(child, "exit");
 }
 
@@ -95,5 +105,74 @@ describe("removeLeftover", () => {
     const exited = taggedShell(tag, "trap '' TERM; sleep 600");
     await removeLeftover({ tagged: tag }, 500);
     expect(await exited).toEqual([null, "SIGKILL"]);
+  });
+
+  it("finds a tagged process in a process list longer than a megabyte", async () => {
+    const tag = `test-${randomBytes(4).toString("hex")}`;
+    // ps prints each process's environment, so 12 processes with 100 kB of
+    // it each make the list longer than execFileSync's default buffer.
+    // They run sleep itself, not through sh, so stopping them leaves no
+    // sleep behind, and carry a tag of their own, first, where ps prints
+    // it in full, so the watcher stops them if this process is killed.
+    const padTag = `test-${randomBytes(4).toString("hex")}`;
+    removeWhenGone({ tagged: padTag });
+    onTestFinished(() => removeLeftover({ tagged: padTag }, 0));
+    for (let i = 0; i < 12; i++) {
+      spawn("sleep", ["600"], {
+        env: {
+          ROBKIT_TEST_TAG: padTag,
+          ...process.env,
+          PADDING: "x".repeat(100_000),
+        },
+        stdio: "ignore",
+      });
+    }
+    const exited = taggedShell(tag, "sleep 600");
+
+    await removeLeftover({ tagged: tag }, 5_000);
+
+    expect(await exited).toEqual([null, "SIGTERM"]);
+  });
+
+  it("removes a temp folder and what is in it", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-test-folder-"));
+    await mkdir(join(dir, "apps"));
+    await writeFile(join(dir, "apps", "notes.md"), "# Notes\n");
+
+    await removeLeftover({ path: dir });
+
+    await expect(stat(dir)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("releases the leases its owner holds, and no one else's", async () => {
+    const leases = await mkdtemp(join(tmpdir(), "robkit-test-leases-"));
+    onTestFinished(() => rm(leases, { recursive: true, force: true }));
+    await symlink("111", join(leases, "20000"));
+    await symlink("222", join(leases, "20020"));
+    await symlink("111", join(leases, "20040"));
+    await writeFile(join(leases, "notes.md"), "Not a lease.\n");
+
+    await removeLeftover({ leases, owner: 111 });
+
+    expect((await readdir(leases)).sort()).toEqual(["20020", "notes.md"]);
+  });
+});
+
+describe("removeAll", () => {
+  it("removes every leftover it can, then throws for those it couldn't", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-test-folder-"));
+    const missing = join(dir, "no-such-leases");
+    const after = await mkdtemp(join(tmpdir(), "robkit-test-folder-"));
+
+    const removing = removeAll([
+      { leases: missing, owner: 1 },
+      { path: after },
+    ]);
+
+    await expect(removing).rejects.toMatchObject({
+      errors: [expect.objectContaining({ code: "ENOENT", path: missing })],
+    });
+    await expect(stat(after)).rejects.toMatchObject({ code: "ENOENT" });
+    await rm(dir, { recursive: true });
   });
 });

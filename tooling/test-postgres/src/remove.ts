@@ -1,6 +1,8 @@
 // What the clean-up watcher does once its owner is gone. Its own module, so
 // tests can run it in-process.
 import { execFileSync } from "node:child_process";
+import { readdir, readlink, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { Leftover } from "./clean-up.ts";
 
@@ -51,9 +53,12 @@ function removeDocker(prefix: string): void {
 /** The pids of every process whose environment holds `ROBKIT_TEST_TAG=<tag>`. */
 function tagged(tag: string): number[] {
   // `e` appends each process's environment to its command, on Linux and macOS.
+  // With every environment in it, the list outgrows execFileSync's 1 MB
+  // default on a busy machine.
   const lines = execFileSync("ps", ["axeww", "-o", "pid=,command="], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
+    maxBuffer: 256 * 1024 * 1024,
   }).split("\n");
   const marker = new RegExp(`(^|\\s)ROBKIT_TEST_TAG=${tag}(\\s|$)`);
   return lines
@@ -83,6 +88,17 @@ async function stopTagged(tag: string, graceMs: number): Promise<void> {
   signal(tagged(tag), "SIGKILL");
 }
 
+/** Removes each lease in `folder` that names `owner`'s pid. */
+async function releaseLeases(folder: string, owner: number): Promise<void> {
+  for (const name of await readdir(folder)) {
+    const lease = join(folder, name);
+    // An entry it can't read as a link isn't one of owner's leases: another
+    // owner's watcher removed it after readdir listed it, or it's no lease.
+    const holder = await readlink(lease).catch(() => undefined);
+    if (holder === String(owner)) await rm(lease);
+  }
+}
+
 /**
  * Removes one leftover. A tagged process gets `graceMs` to stop after
  * SIGTERM before it gets SIGKILL: 15 seconds unless a test says otherwise.
@@ -92,5 +108,27 @@ export async function removeLeftover(
   graceMs = 15_000,
 ): Promise<void> {
   if ("tagged" in leftover) await stopTagged(leftover.tagged, graceMs);
-  else removeDocker(leftover.docker);
+  else if ("docker" in leftover) removeDocker(leftover.docker);
+  else if ("path" in leftover) {
+    await rm(leftover.path, { recursive: true, force: true });
+  } else await releaseLeases(leftover.leases, leftover.owner);
+}
+
+/**
+ * Removes each leftover in turn, even when removing one fails, then throws
+ * an `AggregateError` that keeps each failure.
+ */
+export async function removeAll(leftovers: readonly Leftover[]): Promise<void> {
+  const failures: unknown[] = [];
+  for (const leftover of leftovers) {
+    await removeLeftover(leftover).catch((error: unknown) => {
+      failures.push(error);
+    });
+  }
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures,
+      `The clean-up watcher couldn't remove ${String(failures.length)} of ${String(leftovers.length)} leftovers.`,
+    );
+  }
 }
