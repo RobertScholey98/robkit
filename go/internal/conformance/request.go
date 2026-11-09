@@ -1,9 +1,11 @@
 package conformance
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -65,6 +67,59 @@ func AddressCases(t testing.TB) []AddressCase {
 	}
 	if len(cases) == 0 {
 		t.Fatal("request-cases.json holds no address cases")
+	}
+	return cases
+}
+
+// CookieCase is one row of the "cookies" list in request-cases.json: a page
+// load on App, open to anyone, whose Cookie header carries core's word that
+// nobody is signed in under some name. A guard that reads it as the session
+// cookie lets the browser in as nobody. One that doesn't sends it to core,
+// as it would a browser holding nothing.
+type CookieCase struct {
+	Name string
+	// Core is core's origin, as the app's settings name it.
+	Core string
+	// Cookie is the Cookie header's bytes, as a browser sends them. The
+	// file gives them in hex, since a JSON string can't carry every byte to
+	// both ports. Go's server hands them on as they are.
+	Cookie string
+	// Now is when, in seconds since 1970, the runner's clock says it is.
+	Now int64
+	// Reads says whether the guard reads the cookie as the session cookie.
+	Reads bool
+}
+
+// CookieCases reads every cookie case, failing the test on a file or case
+// that won't do.
+func CookieCases(t testing.TB) []CookieCase {
+	t.Helper()
+	data, err := os.ReadFile(requestPath())
+	if err != nil {
+		t.Fatalf("can't read the request guard's cases: %v", err)
+	}
+	var file struct {
+		Cookies []struct {
+			Name   string `json:"name"`
+			Core   string `json:"core"`
+			Cookie string `json:"cookie"`
+			Now    int64  `json:"now"`
+			Reads  *bool  `json:"reads"`
+		} `json:"cookies"`
+	}
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatalf("request-cases.json must be an object with a cookies list of cases: %v", err)
+	}
+	cases := make([]CookieCase, 0, len(file.Cookies))
+	for i, row := range file.Cookies {
+		cookie, err := hex.DecodeString(strings.ReplaceAll(row.Cookie, " ", ""))
+		if row.Name == "" || row.Core == "" || row.Cookie == "" || err != nil || row.Now == 0 || row.Reads == nil {
+			t.Fatalf("request-cases.json cookies[%d] (%s) needs a name, core, cookie as bytes in hex, now and reads", i, row.Name)
+		}
+		cases = append(cases, CookieCase{Name: row.Name, Core: row.Core, Cookie: string(cookie), Now: row.Now, Reads: *row.Reads})
+	}
+	if len(cases) == 0 {
+		t.Fatal("request-cases.json holds no cookie cases")
 	}
 	return cases
 }

@@ -261,6 +261,27 @@ func TestGuardOnTheAppsOwnAddress(t *testing.T) {
 	}
 }
 
+func TestGuardOnTheCookiesARequestCarries(t *testing.T) {
+	for _, c := range conformance.CookieCases(t) {
+		t.Run(c.Name, func(t *testing.T) {
+			now := &clock{now: time.Unix(c.Now+1, 0)}
+			open := guarded(t, nil, session.Options{Access: guard.OpenRule{}, Core: c.Core, Now: now.Now})
+			page := strings.Replace(c.Core, "//core.", "//"+fakecore.App+".", 1) + "/"
+
+			// Go's server hands the header's bytes on as they are.
+			res := open.get(page, navigate, map[string]string{"cookie": c.Cookie})
+
+			if c.Reads {
+				if res.status != 200 || res.body != `{"kind":"nobody"}`+"\n" {
+					t.Errorf("got %d %q, want the browser let in as nobody", res.status, res.body)
+				}
+			} else if res.status != 302 || !isRefreshLocation(res.location(), page, c.Core) {
+				t.Errorf("got %d %q, want the browser sent to core", res.status, res.location())
+			}
+		})
+	}
+}
+
 func TestGuardTreatsATokenCoreDidntSignAsNoToken(t *testing.T) {
 	core := fakecore.Start(t)
 	forger := fakecore.NewKey(t, "key-1")
