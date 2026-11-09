@@ -191,6 +191,7 @@ describe("the app whose own origin a URL is on", () => {
     ["https://a.notes.robkit.dev/", "hosted"],
     ["https://robkit.dev/", "hosted"],
     ["https://notes.robkit.dev.evil.com/", "hosted"],
+    ["https://notes.robkit.dev@evil.com/", "hosted"],
     ["javascript://notes.robkit.dev/%0aalert(1)", "hosted"],
     ["/relative", "hosted"],
   ] as const)("finds no app for %s on the %s install", (url, on) => {

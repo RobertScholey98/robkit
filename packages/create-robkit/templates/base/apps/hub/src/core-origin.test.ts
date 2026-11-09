@@ -51,6 +51,10 @@ describe("returnTo", () => {
       "https://hub.example.com/?next=https%3A%2F%2Fadmin.example.com%3A8443%2F",
     ],
     [
+      "userinfo that names an app before another host",
+      "https://hub.example.com/?next=https%3A%2F%2Fnotes.example.com%40evil.com%2F",
+    ],
+    [
       "a page two labels deep",
       "https://hub.example.com/?next=https%3A%2F%2Fa.b.example.com%2F",
     ],
