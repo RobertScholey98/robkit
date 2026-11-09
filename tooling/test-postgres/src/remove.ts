@@ -118,3 +118,22 @@ export async function removeLeftover(
     await rm(leftover.path, { recursive: true, force: true });
   } else await releaseLeases(leftover.leases, leftover.owner);
 }
+
+/**
+ * Removes each leftover in turn, even when removing one fails, then throws
+ * an `AggregateError` that keeps each failure.
+ */
+export async function removeAll(leftovers: readonly Leftover[]): Promise<void> {
+  const failures: unknown[] = [];
+  for (const leftover of leftovers) {
+    await removeLeftover(leftover).catch((error: unknown) => {
+      failures.push(error);
+    });
+  }
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures,
+      `The clean-up watcher couldn't remove ${String(failures.length)} of ${String(leftovers.length)} leftovers.`,
+    );
+  }
+}

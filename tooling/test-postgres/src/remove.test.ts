@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { removeWhenGone } from "./clean-up.ts";
-import { alive, removeLeftover } from "./remove.ts";
+import { alive, removeAll, removeLeftover } from "./remove.ts";
 
 const run = promisify(execFile);
 
@@ -128,5 +128,24 @@ describe("removeLeftover", () => {
     await removeLeftover({ leases, owner: 111 });
 
     expect(await readdir(leases)).toEqual(["20020"]);
+  });
+});
+
+describe("removeAll", () => {
+  it("removes every leftover it can, then throws for those it couldn't", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-test-folder-"));
+    const missing = join(dir, "no-such-leases");
+    const after = await mkdtemp(join(tmpdir(), "robkit-test-folder-"));
+
+    const removing = removeAll([
+      { leases: missing, owner: 1 },
+      { path: after },
+    ]);
+
+    await expect(removing).rejects.toMatchObject({
+      errors: [expect.objectContaining({ code: "ENOENT", path: missing })],
+    });
+    await expect(stat(after)).rejects.toMatchObject({ code: "ENOENT" });
+    await rm(dir, { recursive: true });
   });
 });
