@@ -9,9 +9,21 @@ import { ownCiSteps, runOwnCi } from "./own-ci.ts";
 
 const run = promisify(execFile);
 
+describe("the installs these checks run in", () => {
+  it("are none that a journey runs pnpm dev in", () => {
+    const journeys = new Set(Object.values(inject("installs")));
+
+    const shared = Object.values(inject("checkInstalls")).filter((dir) =>
+      journeys.has(dir),
+    );
+
+    expect(shared).toEqual([]);
+  });
+});
+
 describe("the default install", () => {
   it("is its own git repository, as init with --install leaves it", async () => {
-    const dir = inject("installs").start;
+    const dir = inject("checkInstalls").start;
 
     const { stdout } = await run("git", ["rev-parse", "--show-toplevel"], {
       cwd: dir,
@@ -25,7 +37,7 @@ describe("the default install", () => {
 // check, typecheck, tests and the build, as an example and as an added app.
 describe.each(readyStacks)("the %s install", (name) => {
   it("passes its own CI workflow's steps", { timeout: 600_000 }, async () => {
-    const dir = inject("installs")[name];
+    const dir = inject("checkInstalls")[name];
     const steps = await ownCiSteps(dir);
 
     const runs = steps.flatMap((step) => step.run ?? []);
@@ -52,7 +64,7 @@ describe("the start install's lint", () => {
       "apps/hub/src/reach.ts:1:15  Layer rule: an app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.",
     ],
   ])("fails lint when %s", async (_, text, problem) => {
-    const dir = inject("installs").start;
+    const dir = inject("checkInstalls").start;
     const file = join(dir, "apps/hub/src/reach.ts");
     await writeFile(file, text);
     try {
@@ -84,7 +96,7 @@ describe("the start install's pre-commit hook", () => {
     );
 
   it("is set up by init's install", async () => {
-    const dir = inject("installs").start;
+    const dir = inject("checkInstalls").start;
 
     const { stdout } = await run("git", ["config", "core.hooksPath"], {
       cwd: dir,
@@ -94,7 +106,7 @@ describe("the start install's pre-commit hook", () => {
   });
 
   it("refuses a commit that breaks the layer rule", async () => {
-    const dir = inject("installs").start;
+    const dir = inject("checkInstalls").start;
     const path = "apps/hub/src/reach.ts";
     await writeFile(join(dir, path), 'export * from "@robkit/core";\n');
     try {
@@ -115,7 +127,7 @@ describe("the start install's pre-commit hook", () => {
   });
 
   it("takes a commit that keeps it, formatting what it stages", async () => {
-    const dir = inject("installs").start;
+    const dir = inject("checkInstalls").start;
     await writeFile(join(dir, "notes.md"), "# Notes\n*   one\n");
     await commit(dir, "add", "notes.md");
 
