@@ -9,7 +9,7 @@
 - **Password checks are bounded.** At most a few scrypt checks run at once. Each takes 32 MB, so many clients inside their own limits could otherwise exhaust core. The rest wait briefly or get 429.
 - **The limiter is bounded.** Its map has a cap, and pruning doesn't walk every client on every failure.
 - **Core says when a limit trips.** One log line when a client or the install reaches its limit, with the client's key and never the code tried.
-- **Check the error log.** Confirm whether Drizzle puts query parameters in the message core logs for an unexpected error (`app.ts`, `onError`). If it does, keep typed codes and password hashes out of the log.
+- **Query parameters stay out of the error log.** Drizzle's `DrizzleQueryError` carries the failed query's parameters, and core logs an unexpected error whole (`app.ts`, `onError`). So a database fault during sign-in or setup would log the code someone typed or the owner's password hash. Core logs the query and the cause without the parameters.
 
 **Blocked by:** 02
 
@@ -23,5 +23,6 @@
 - [ ] Admin refuses a new code under 5 characters; on an https install a 3-character code no longer signs in and admin says why; a local install still takes `test`
 - [ ] No more than the cap of password checks run at the same time
 - [ ] The limiter's map can't grow past its cap
+- [ ] A database fault during `/login/code` logs the failed query and no parameter
 - [ ] `SECURITY.md`'s known gaps say what the limit now holds against and what it costs
 - [ ] The PR's CI `gate` job passes on GitHub
