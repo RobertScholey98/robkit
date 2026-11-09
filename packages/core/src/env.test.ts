@@ -43,6 +43,15 @@ describe("readCoreConfig", () => {
     ).toMatchObject({ origin: "https://core.robkit.dev" });
   });
 
+  it("refuses an http origin off localhost, so tokens never travel in clear", () => {
+    expect(
+      readCoreConfig({ ...env, ROBKIT_CORE_URL: "http://core.example.com" }),
+    ).toEqual({
+      error:
+        'ROBKIT_CORE_URL is "http://core.example.com", which is http on a domain that isn\'t local. Serve the install over https and set it to https://core.example.com.',
+    });
+  });
+
   it.each(["robkit.test", "not a domain"])(
     "reads its domain from ROBKIT_CORE_URL alone, whatever ROBKIT_DOMAIN=%j says",
     (domain) => {

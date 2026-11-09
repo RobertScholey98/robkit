@@ -8,15 +8,7 @@ import { isDomain, readDomain, type CoreOrigin, type Domain } from "./env.ts";
 import { isProblem, orThrow } from "./problem.ts";
 import { readSlug, type Slug } from "./slug.ts";
 
-/**
- * Whether the install runs on `localhost` or a name under it, which only
- * ever means development. A local install's cookies go without `Secure`:
- * browsers treat *.localhost as a secure context, but WebKit drops Secure
- * cookies over plain http.
- */
-export function isLocal(domain: string): boolean {
-  return domain === "localhost" || domain.endsWith(".localhost");
-}
+export { isLocal } from "./env.ts";
 
 /** The domain an install answers on when `ROBKIT_DOMAIN` isn't set. */
 export const defaultDomain: Domain = orThrow(
