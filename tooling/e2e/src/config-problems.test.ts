@@ -40,6 +40,7 @@ describe("an app of the default install that starts with a config problem", () =
             ),
           ),
           DATABASE_URL: "postgres://core:x@127.0.0.1:1/robkit",
+          PORT: "3000",
           ROBKIT_DOMAIN: "robkit.localhost",
         },
       }),
