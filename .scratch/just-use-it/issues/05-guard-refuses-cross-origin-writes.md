@@ -19,6 +19,8 @@
 - **A form post after the token lapsed.** A POST that is a navigation (`Sec-Fetch-Mode: navigate`) and meets a lapsed token gets a small HTML page linking to `/_robkit/refresh`, not the JSON 401 a `fetch` gets.
 - **What it doesn't cover, said plainly.** `SECURITY.md` says the guard refuses cross-origin writes, that a GET with side effects is the app's own lookout, and that in a stack whose WebSocket upgrades never reach the guard the app must check `Origin` itself. Each stack's `AGENTS.md` says to change state only on POST, PUT, PATCH or DELETE, and names its own gaps: a Start server function declared as GET, and where upgrades go.
 
+The example apps record a visit as their page loads, on a GET, which is the one shape this rule can't protect. Ticket 08 changes them to read on GET and record on POST. Until it lands, each stack's `AGENTS.md` states the rule and the example breaks it; say so in the comments.
+
 No option to allow other origins yet. Note it in the comments as the place one would go.
 
 **Blocked by:** 03

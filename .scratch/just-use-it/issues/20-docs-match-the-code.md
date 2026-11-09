@@ -7,7 +7,6 @@
 - **New decisions get ADRs.** One short record each for: the guard knows its own address; the boundary between sibling subdomains (`__Host-` cookies, the cross-origin rule, the framing headers); platform wiring lives in packages; and provisioning as its own package. Each links the ticket that made it.
 - **The glossary.** Add the words this work brought in, if any stuck, and fix the two entries the review names.
 - **The map.** `.scratch/kit/map.md` gets a line for each decision this PRD made, its known gaps are brought up to date, and "Not yet specified" loses what is now specified.
-- **Checks that keep it true.** Where a drift could have been caught by a repo check, add the check: the README's package table against `packages/`, and the stacks a doc names against `readyStacks`.
 
 **Blocked by:** 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
 
@@ -15,7 +14,7 @@
 
 - [ ] Every item under "Docs that have drifted" is fixed or gone
 - [ ] Every `ts` fence still compiles under the doc-examples check, with no new `nocheck`
-- [ ] The README's package table and every list of stacks are checked against the code
+- [ ] The README's package table lists every folder under `packages/`, and every doc that lists stacks lists all five
 - [ ] Four new ADRs exist and are listed in `docs/adr/README.md`
 - [ ] The map's decisions, known gaps and "Not yet specified" are current
 - [ ] The PR's CI `gate` job passes on GitHub
