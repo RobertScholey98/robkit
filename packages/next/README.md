@@ -50,6 +50,8 @@ A page load that finds the session lapsed follows the guard's redirect to the hu
 - **A client navigation** fetches the next page's RSC payload. Next's client loads the page in full when that fetch gets an answer that isn't RSC, so the 401 becomes a page load, which the guard redirects. The adapter adds nothing.
 - **A server action** posts to the page. Next's client fails the action on an answer that isn't RSC, unless it carries `x-action-redirect`, which makes it load that address in full. So the adapter adds `x-action-redirect` to the guard's 401 for a server action: the 401's address with `next` set to the page, as `sessionFetch` from `@robkit/react` does. The 401 is otherwise unchanged.
 
+Next hands the proxy a URL on its own host and port. The adapter keeps only its path and query, and puts them on the app's own origin, from `ROBKIT_CORE_URL`, as the guard does. So the page a server action comes back to is on the app's origin, whatever `Host` or `X-Forwarded-Proto` the proxy in front sent.
+
 A route handler the page calls with `fetch` gets the 401 as it is. Call it with `sessionFetch` from `@robkit/react`.
 
 ## The viewer header
