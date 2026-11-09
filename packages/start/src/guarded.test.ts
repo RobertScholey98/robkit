@@ -48,7 +48,7 @@ describe("guarded", () => {
       {
         headers: {
           ...navigate,
-          ...(await core.key.cookieFor(asking, "start")),
+          ...(await core.cookieFor(asking, "start")),
         },
       },
     );

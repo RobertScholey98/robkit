@@ -112,11 +112,11 @@ describe("signingKey", () => {
   });
 
   it("gives each conformance case's visitor the cookie they'd send", async () => {
-    const key = await signingKey();
+    const core = await fakeCore();
 
     const sent = await Promise.all(
       conformanceCases.map(async (asking): Promise<[string, unknown]> => {
-        const { cookie } = await key.cookieFor(asking, "notes");
+        const { cookie } = await core.cookieFor(asking, "notes");
         const value = cookie?.replace(/^robkit_session=/, "");
         const name = [asking.session, asking.otherToken].filter(Boolean);
         if (value === undefined || value.startsWith("signed-out.")) {

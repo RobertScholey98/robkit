@@ -166,36 +166,6 @@ func SignedOutCookie() string {
 	return fmt.Sprintf("robkit_session=signed-out.%d", time.Now().Unix())
 }
 
-// CookieFor is the Cookie header a conformance case's visitor sends slug, or
-// "" for none: a token for it, another's token, or core's word that nobody
-// is signed in.
-func (k *Key) CookieFor(c conformance.Case, slug string) string {
-	cookie := func(o TokenOptions) string { return "robkit_session=" + k.Token(o) }
-	switch c.Session {
-	case "signed-out":
-		return SignedOutCookie()
-	case "expired":
-		return cookie(TokenOptions{Age: Lifetime + 5*time.Minute, Audience: slug})
-	case "owner":
-		return cookie(TokenOptions{Audience: slug})
-	case "guest":
-		roles := make([]string, 0, len(c.GuestRoles))
-		for _, role := range c.GuestRoles {
-			roles = append(roles, string(role))
-		}
-		return cookie(TokenOptions{Holder: Guest(roles...), Audience: slug})
-	}
-	switch c.OtherToken {
-	case "another-app":
-		return cookie(TokenOptions{Audience: "not" + slug})
-	case "core":
-		return cookie(TokenOptions{Audience: "core"})
-	case "no-audience":
-		return cookie(TokenOptions{NoAudience: true})
-	}
-	return ""
-}
-
 // Core is core on a loopback port, serving its JWKS and each app's rule.
 type Core struct {
 	// Origin is core's public origin, http://core.robkit.localhost:<port>.
@@ -289,4 +259,34 @@ func (c *Core) Fetched() []string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return append([]string(nil), c.fetched...)
+}
+
+// CookieFor is the Cookie header a conformance case's visitor sends slug, or
+// "" for none: a token for it signed with core's key, another's token, or
+// core's word that nobody is signed in.
+func (c *Core) CookieFor(asking conformance.Case, slug string) string {
+	cookie := func(o TokenOptions) string { return "robkit_session=" + c.Key.Token(o) }
+	switch asking.Session {
+	case "signed-out":
+		return SignedOutCookie()
+	case "expired":
+		return cookie(TokenOptions{Age: Lifetime + 5*time.Minute, Audience: slug})
+	case "owner":
+		return cookie(TokenOptions{Audience: slug})
+	case "guest":
+		roles := make([]string, 0, len(asking.GuestRoles))
+		for _, role := range asking.GuestRoles {
+			roles = append(roles, string(role))
+		}
+		return cookie(TokenOptions{Holder: Guest(roles...), Audience: slug})
+	}
+	switch asking.OtherToken {
+	case "another-app":
+		return cookie(TokenOptions{Audience: "not" + slug})
+	case "core":
+		return cookie(TokenOptions{Audience: "core"})
+	case "no-audience":
+		return cookie(TokenOptions{NoAudience: true})
+	}
+	return ""
 }

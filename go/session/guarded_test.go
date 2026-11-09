@@ -188,7 +188,7 @@ func TestGuardOnAPageLoadConformance(t *testing.T) {
 			core := fakecore.Start(t)
 			open := guarded(t, core, session.Options{Access: c.Rule})
 			headers := with(navigate)
-			if cookie := core.Key.CookieFor(c, fakecore.App); cookie != "" {
+			if cookie := core.CookieFor(c, fakecore.App); cookie != "" {
 				headers["cookie"] = cookie
 			}
 

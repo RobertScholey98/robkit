@@ -67,15 +67,6 @@ export interface SigningKey {
   publicKey: CryptoKey;
   /** A session token shaped like core's. */
   token(options?: TokenOptions): Promise<string>;
-  /**
-   * The cookie header a conformance case's visitor sends `slug`, if any:
-   * a token for it, another's token, or core's word that nobody is signed
-   * in.
-   */
-  cookieFor(
-    asking: ConformanceCase,
-    slug?: string,
-  ): Promise<{ cookie?: string }>;
 }
 
 /** Long enough ago that a token has expired. */
@@ -114,29 +105,34 @@ export async function signingKey(): Promise<SigningKey> {
     );
   };
 
-  const cookieFor = async (
-    { session, guestRoles, otherToken }: ConformanceCase,
-    slug = app,
-  ) => {
-    if (session === "signed-out") return { cookie: signedOutCookie() };
-    const other =
-      otherToken &&
-      {
-        "another-app": `not${slug}`,
-        core: "core",
-        "no-audience": null,
-      }[otherToken];
-    const value = {
-      unknown:
-        other === undefined ? undefined : () => token({ audience: other }),
-      expired: () => token({ ageSeconds: expiredAgeSeconds, audience: slug }),
-      owner: () => token({ audience: slug }),
-      guest: () => token({ holder: guest(guestRoles), audience: slug }),
-    }[session];
-    return value ? { cookie: `${sessionCookie}=${await value()}` } : {};
-  };
+  return { publicKey, token };
+}
 
-  return { publicKey, token, cookieFor };
+/**
+ * The cookie header a conformance case's visitor sends `slug`, if any, with
+ * tokens `key` signs.
+ */
+async function cookieFor(
+  key: SigningKey,
+  { session, guestRoles, otherToken }: ConformanceCase,
+  slug: string = app,
+): Promise<{ cookie?: string }> {
+  if (session === "signed-out") return { cookie: signedOutCookie() };
+  const other =
+    otherToken &&
+    {
+      "another-app": `not${slug}`,
+      core: "core",
+      "no-audience": null,
+    }[otherToken];
+  const value = {
+    unknown:
+      other === undefined ? undefined : () => key.token({ audience: other }),
+    expired: () => key.token({ ageSeconds: expiredAgeSeconds, audience: slug }),
+    owner: () => key.token({ audience: slug }),
+    guest: () => key.token({ holder: guest(guestRoles), audience: slug }),
+  }[session];
+  return value ? { cookie: `${sessionCookie}=${await value()}` } : {};
 }
 
 /** Core as an app's guard sees it: its JWKS and its app catalog's rules. */
@@ -152,6 +148,15 @@ export interface FakeCore {
   page: string;
   /** The key core signs sessions with. */
   key: SigningKey;
+  /**
+   * The cookie header a conformance case's visitor sends `slug`, if any:
+   * a token for it, another's token, or core's word that nobody is signed
+   * in.
+   */
+  cookieFor(
+    asking: ConformanceCase,
+    slug?: string,
+  ): Promise<{ cookie?: string }>;
   /** Each app's rule in core's catalog, by slug. */
   rules: Record<string, AccessRule>;
   /** Set to fail every request with this status, such as 503. */
@@ -202,6 +207,7 @@ export async function fakeCore(): Promise<FakeCore> {
     hub: `http://hub.robkit.localhost:${String(port)}`,
     page: `http://${app}.robkit.localhost:${String(port)}/notes?x=1`,
     key,
+    cookieFor: (asking, slug) => cookieFor(key, asking, slug),
     rules: {},
     status: 200,
     fetched: [],
