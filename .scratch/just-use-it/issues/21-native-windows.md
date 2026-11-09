@@ -19,3 +19,9 @@
 - [ ] No template script uses a form that only a POSIX shell runs
 - [ ] CI runs the fast gate and one install's start-up on Windows
 - [ ] The README drops "On Windows, run everything in WSL"
+
+## Comments
+
+Found while milestone 1 was built (2026-11-09):
+
+- Ticket 26 leases each block of test ports with a symlink (`tooling/test-postgres/src/index.ts`). Windows makes a symlink only with Developer Mode on or as an administrator. It works on R's machine. On a Windows machine without Developer Mode, test-postgres's own tests would fail in the fast gate. If R says yes to native Windows, the lease needs another atomic file there, such as one made with the `wx` flag.

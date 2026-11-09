@@ -20,3 +20,9 @@
 - [ ] Every workflow's actions are pinned by commit, and long jobs have a timeout
 - [ ] `tooling/eslint/README.md` and `tooling/repo-checks/README.md` describe each rule and check as it now is
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+Found while milestone 1 was built (2026-11-09):
+
+- Two of repo-checks' own tests hit Vitest's 30-second limit on a busy GitHub runner, once each, and passed on a rerun: the `beforeAll` in `tooling/repo-checks/src/new-package.test.ts` (PR 78, run 42719625052) and `doc-examples.test.ts` (PR 75). Each does real work in a hook or a test: it copies the repo, or builds. Give them a limit that fits the work, or make the work smaller. Don't add a retry.
