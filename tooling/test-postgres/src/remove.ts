@@ -92,17 +92,9 @@ async function stopTagged(tag: string, graceMs: number): Promise<void> {
 async function releaseLeases(folder: string, owner: number): Promise<void> {
   for (const name of await readdir(folder)) {
     const lease = join(folder, name);
-    const holder = await readlink(lease).catch((error: unknown) => {
-      // Another owner's watcher removed it after readdir listed it.
-      if (
-        error instanceof Error &&
-        "code" in error &&
-        error.code === "ENOENT"
-      ) {
-        return undefined;
-      }
-      throw error;
-    });
+    // An entry it can't read as a link isn't one of owner's leases: another
+    // owner's watcher removed it after readdir listed it, or it's no lease.
+    const holder = await readlink(lease).catch(() => undefined);
     if (holder === String(owner)) await rm(lease);
   }
 }

@@ -144,10 +144,11 @@ describe("removeLeftover", () => {
     await symlink("111", join(leases, "20000"));
     await symlink("222", join(leases, "20020"));
     await symlink("111", join(leases, "20040"));
+    await writeFile(join(leases, "notes.md"), "Not a lease.\n");
 
     await removeLeftover({ leases, owner: 111 });
 
-    expect(await readdir(leases)).toEqual(["20020"]);
+    expect((await readdir(leases)).sort()).toEqual(["20020", "notes.md"]);
   });
 });
 
