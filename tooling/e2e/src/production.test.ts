@@ -184,7 +184,7 @@ describe("the default install in production", () => {
     });
   });
 
-  it("serves an app on each other stack, added with robkit add, after its next deploy", async () => {
+  it("serves an app on each other stack, added with robkit add, after its next deploy, in __Host- cookies", async () => {
     for (const app of later) {
       await run(
         "pnpm",
@@ -228,6 +228,7 @@ describe("the default install in production", () => {
             openedAt: `${stack.addresses.origin(app.slug)}/`,
             heading: "Signed in as a guest",
             stylesheets: [200],
+            cookies: hostCookies(app.slug),
           },
         ]),
       ),
