@@ -72,6 +72,17 @@ export function requestGuard(
   options: GuardedOptions,
 ): (request: Request) => Promise<RequestDecision>;
 export const sessionCookie: "robkit_session";
+export function sessionCookies(origin: string): SessionCookies;
+export interface SessionCookies {
+  session: string;
+  state: string;
+  attributes: {
+    path: "/";
+    httpOnly: true;
+    sameSite: "Lax";
+    secure: boolean;
+  };
+}
 export type SessionTokenClaims = ViewerClaims & {
   sessionId: string;
 };

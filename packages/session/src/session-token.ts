@@ -14,8 +14,9 @@ import {
 import { isProblem, type Slug } from "@robkit/input";
 
 /**
- * The cookie that carries a session token: core's own on core's host, and
- * each app's own on the app's host. None is set on the parent domain.
+ * The session cookie's name before any prefix, as an http install names it.
+ * An https install's carries `__Host-`. `sessionCookies` gives the names
+ * for an origin.
  */
 export const sessionCookie = "robkit_session";
 
