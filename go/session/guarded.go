@@ -51,7 +51,11 @@ const (
 
 // requestGuard decides what the app does with each request.
 type requestGuard struct {
-	app           string
+	app string
+	// origin is the app's public origin, from its options: core's scheme
+	// and port, on <app>.<domain>. Every URL the guard builds starts with
+	// it.
+	origin        *url.URL
 	hub           string
 	rule          func() (guard.AccessRule, error)
 	onUnavailable func(Fault)
@@ -67,14 +71,6 @@ func Guarded(options Options) (func(http.Handler) http.Handler, error) {
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Go refuses an HTTP/1.1 request without a Host, but not an
-			// HTTP/1.0 one. Without it the guard can't tell which page
-			// was asked for.
-			if r.Host == "" {
-				answer := text("Send a Host header.", http.StatusBadRequest)
-				answer.write(w)
-				return
-			}
 			viewer, answer := g.check(r)
 			if answer != nil {
 				answer.write(w)
@@ -102,11 +98,13 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 	}
 	core, _ := url.Parse(options.Core)
 	domain := strings.TrimPrefix(core.Hostname(), "core.")
-	hub := *core
+	hub, origin := *core, *core
 	hub.Host = strings.Replace(core.Host, "core.", "hub.", 1)
+	origin.Host = strings.Replace(core.Host, "core.", options.App+".", 1)
 	client := coreClient()
 	g := &requestGuard{
 		app:           options.App,
+		origin:        &origin,
 		hub:           hub.String(),
 		onUnavailable: onUnavailable,
 	}
@@ -158,7 +156,7 @@ func (g *requestGuard) ruleUnavailable(cause error) response {
 
 // check is the viewer the guard lets r through to, or its own answer.
 func (g *requestGuard) check(r *http.Request) (guard.Viewer, *response) {
-	u := publicURL(r)
+	u := publicURL(r, g.origin)
 	if own, ok := g.protocol.answer(r, u); ok {
 		return nil, &own
 	}

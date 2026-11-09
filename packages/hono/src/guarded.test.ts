@@ -16,7 +16,6 @@ const example = slug("example");
 // requestGuard's own tests cover the guard. These cover the Hono glue: the
 // guard's answer goes out as is, and handlers behind it read c.var.viewer.
 
-const page = "http://example.robkit.localhost:3000/notes?x=1";
 const navigate = { "sec-fetch-mode": "navigate" };
 
 describe("guarded", () => {
@@ -26,7 +25,7 @@ describe("guarded", () => {
       .use(guarded({ app: example, access: asking.rule, core: core.origin }))
       .get("*", (c) => c.json(c.var.viewer));
 
-    const res = await app.request(page, {
+    const res = await app.request(core.page, {
       headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
     });
 
@@ -34,7 +33,7 @@ describe("guarded", () => {
       status: res.status,
       location: res.headers.get("location"),
       viewer: res.status === 200 ? await res.json() : undefined,
-    }).toEqual(conformanceAnswer(asking, page, core));
+    }).toEqual(conformanceAnswer(asking, core.page, core));
   });
 
   it("answers a call from the page with the guard's 401", async () => {
@@ -49,7 +48,7 @@ describe("guarded", () => {
       )
       .post("*", (c) => c.json(c.var.viewer));
 
-    const res = await app.request(page, {
+    const res = await app.request(core.page, {
       method: "POST",
       headers: { "sec-fetch-mode": "cors" },
     });
@@ -71,22 +70,25 @@ describe("guarded", () => {
         }),
       )
       .get("/notes", (c) => c.json(c.var.viewer));
-    const away = await app.request(page, { headers: navigate });
+    const away = await app.request(core.page, { headers: navigate });
     const [state] = away.headers.getSetCookie();
 
     const back = await app.request(
-      callbackFor(page, {
+      callbackFor(core.page, {
         state: stateIn(away.headers.get("location")),
         token: await core.key.token(),
       }),
       { headers: { ...navigate, cookie: state?.split(";")[0] ?? "" } },
     );
     const [session] = back.headers.getSetCookie();
-    const res = await app.request(page, {
+    const res = await app.request(core.page, {
       headers: { ...navigate, cookie: session?.split(";")[0] ?? "" },
     });
 
-    expect([back.status, back.headers.get("location")]).toEqual([302, page]);
+    expect([back.status, back.headers.get("location")]).toEqual([
+      302,
+      core.page,
+    ]);
     expect(await res.json()).toEqual(owner);
   });
 });

@@ -5,9 +5,16 @@ import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
+import type { AddressCase } from "./request-cases.ts";
 import { aViewer } from "./brands.ts";
 import { listeningPort } from "./known.ts";
 
+export {
+  addressCases,
+  readRequestCases,
+  type AddressCase,
+  type RequestCases,
+} from "./request-cases.ts";
 export {
   aCodeId,
   aCoreOrigin,
@@ -138,6 +145,11 @@ export interface FakeCore {
   origin: CoreOrigin;
   /** The hub's origin beside it, `http://hub.robkit.localhost:<port>`. */
   hub: string;
+  /**
+   * A page on the app the tests guard, beside core on its port, as the dev
+   * proxy puts every app: `http://example.robkit.localhost:<port>/notes?x=1`.
+   */
+  page: string;
   /** The key core signs sessions with. */
   key: SigningKey;
   /** Each app's rule in core's catalog, by slug. */
@@ -188,6 +200,7 @@ export async function fakeCore(): Promise<FakeCore> {
       }),
     ),
     hub: `http://hub.robkit.localhost:${String(port)}`,
+    page: `http://${app}.robkit.localhost:${String(port)}/notes?x=1`,
     key,
     rules: {},
     status: 200,
@@ -281,4 +294,25 @@ export function conformanceAnswer(
     case "not-found":
       return { status: 404, location: null, viewer: undefined };
   }
+}
+
+/** The cookie header a case's browser sends, if any. */
+export function addressCookie({ signedOut }: AddressCase): {
+  cookie?: string;
+} {
+  return signedOut ? { cookie: signedOutCookie() } : {};
+}
+
+/** What the guard must answer a case's page load with. */
+export function addressAnswer({
+  core,
+  signedOut,
+  next,
+}: AddressCase): Omit<PageAnswer, "viewer"> {
+  if (!signedOut) {
+    return { status: 302, location: refreshLocation(next, { origin: core }) };
+  }
+  const hub = new URL("/", core.replace("//core.", "//hub."));
+  hub.searchParams.set("next", next);
+  return { status: 302, location: hub.href };
 }

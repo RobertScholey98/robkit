@@ -66,18 +66,11 @@ func sessionLapsed(outcome, message, location string) response {
 	return response{status: http.StatusUnauthorized, header: header, body: bytes.TrimSuffix(body.Bytes(), []byte("\n"))}
 }
 
-// publicURL is the URL the browser asked for, as it saw it in front of the
-// proxy.
-func publicURL(r *http.Request) *url.URL {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	proto := strings.TrimSpace(strings.Split(r.Header.Get("x-forwarded-proto"), ",")[0])
-	if proto == "https" || proto == "http" {
-		scheme = proto
-	}
-	u := &url.URL{Scheme: scheme, Host: r.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
+// publicURL is the page the browser asked for: the app's own origin, from
+// its options, plus r's path and query. Nothing in r decides the origin, so
+// a proxy hop that rewrites Host or X-Forwarded-Proto changes nothing.
+func publicURL(r *http.Request, origin *url.URL) *url.URL {
+	u := &url.URL{Scheme: origin.Scheme, Host: origin.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
 	return normalized(u)
 }
 
