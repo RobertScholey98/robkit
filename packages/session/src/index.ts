@@ -13,6 +13,7 @@ export {
 } from "./session-token.ts";
 export type { AccessRuleFailure } from "./core-access.ts";
 export {
+  appOrigin,
   requestGuard,
   type GuardedOptions,
   type GuardFault,

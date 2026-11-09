@@ -16,7 +16,12 @@ import type { AccessRule } from "@robkit/guard";
 import type { CoreOrigin } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
-import { requestGuard, type GuardedOptions, type GuardFault } from "./index.ts";
+import {
+  appOrigin,
+  requestGuard,
+  type GuardedOptions,
+  type GuardFault,
+} from "./index.ts";
 import { readSessionLapsed } from "./lapsed.ts";
 import { coreOrigin } from "./test/core-origin.ts";
 
@@ -67,6 +72,23 @@ function cookiesFrom(...responses: Response[]): string {
     .map((header) => header.split(";")[0])
     .join("; ");
 }
+
+describe("appOrigin", () => {
+  it("puts the app on core's protocol and port", () => {
+    const notes = slug("notes");
+
+    expect([
+      appOrigin({ app: notes, core: coreOrigin("https://core.robkit.dev") }),
+      appOrigin({
+        app: notes,
+        core: coreOrigin("http://core.robkit.localhost:3000"),
+      }),
+    ]).toEqual([
+      "https://notes.robkit.dev",
+      "http://notes.robkit.localhost:3000",
+    ]);
+  });
+});
 
 describe("requestGuard, on a page load", () => {
   it.each(conformanceCases)("$name", async (asking) => {

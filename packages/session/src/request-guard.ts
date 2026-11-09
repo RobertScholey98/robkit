@@ -46,6 +46,18 @@ export interface GuardedOptions {
 }
 
 /**
+ * The app's public origin, such as `https://notes.robkit.dev`: core's
+ * protocol and port, on `<app>.<domain>`. It comes from the app's
+ * settings, never from a request's Host or X-Forwarded-Proto.
+ */
+export function appOrigin({
+  app,
+  core,
+}: Pick<GuardedOptions, "app" | "core">): string {
+  return coreInstall(core).origin(app);
+}
+
+/**
  * Why the guard couldn't check a request, so answered 503 rather than
  * treating the viewer as signed out. `failed` says what failed: checking
  * the session against core's key, loading the app's access rule, or
