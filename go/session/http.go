@@ -137,14 +137,16 @@ func hostOnlyCookie(name, value string, maxAge int, secure bool) string {
 }
 
 // cookieValues is every value of the cookie name the request's Cookie
-// headers carry, in order. A browser can hold more than one: a host-only
-// cookie, and one an older robkit set on the parent domain.
+// headers carry, in order. A name matches only when it is name exactly
+// once spaces and tabs around it are trimmed. strings.TrimSpace would also
+// strip a no-break space, and a sibling app can set a cookie whose name
+// starts with one, since a browser doesn't read that name as __Host-.
 func cookieValues(r *http.Request, name string) []string {
 	var values []string
 	for _, pair := range strings.Split(strings.Join(r.Header.Values("cookie"), "; "), ";") {
 		key, value, _ := strings.Cut(pair, "=")
-		if strings.TrimSpace(key) == name {
-			values = append(values, strings.TrimSpace(value))
+		if strings.Trim(key, " \t") == name {
+			values = append(values, strings.Trim(value, " \t"))
 		}
 	}
 	return values

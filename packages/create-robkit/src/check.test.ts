@@ -97,9 +97,15 @@ describe("checkInstall", () => {
       viewerFromAdapter,
     ],
     [
-      "an app reading the session cookie",
+      "an app reading the session cookie by its plain name",
       "apps/example/src/reach.ts",
       'export const token = (cookie: string) => cookie.split("robkit_session=")[1];\n',
+      viewerFromAdapter,
+    ],
+    [
+      "an app reading the session cookie by its __Host- name",
+      "apps/example/src/reach.ts",
+      'export const token = (cookie: string) => cookie.split("__Host-robkit_session=")[1];\n',
       viewerFromAdapter,
     ],
     [

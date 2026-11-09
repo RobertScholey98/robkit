@@ -3,10 +3,15 @@ import { request, type IncomingMessage } from "node:http";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { createLocalJWKSet, decodeJwt, jwtVerify } from "jose";
 import { describe, expect, it } from "vitest";
+import { isProblem, readCoreUrl } from "@robkit/input";
 import {
   addressAnswer,
   addressCases,
   addressCookie,
+  cookieAnswer,
+  cookieCases,
+  cookieRequest,
+  coreAddressCases,
   aRoleId,
   callbackFor,
   conformanceAnswer,
@@ -15,6 +20,7 @@ import {
   owner,
   readRequestCases,
   refreshLocation,
+  sessionCookieOn,
   signedOutCookie,
   signingKey,
   stateIn,
@@ -112,11 +118,11 @@ describe("signingKey", () => {
   });
 
   it("gives each conformance case's visitor the cookie they'd send", async () => {
-    const key = await signingKey();
+    const core = await fakeCore();
 
     const sent = await Promise.all(
       conformanceCases.map(async (asking): Promise<[string, unknown]> => {
-        const { cookie } = await key.cookieFor(asking, "notes");
+        const { cookie } = await core.cookieFor(asking, "notes");
         const value = cookie?.replace(/^robkit_session=/, "");
         const name = [asking.session, asking.otherToken].filter(Boolean);
         if (value === undefined || value.startsWith("signed-out.")) {
@@ -148,10 +154,28 @@ describe("signingKey", () => {
     );
   });
 
-  it("writes core's word that nobody is signed in, as of now", () => {
-    expect(signedOutCookie()).toBe(
-      `robkit_session=signed-out.${String(Math.floor(Date.now() / 1000))}`,
-    );
+  it("names the session cookie as @robkit/session does: __Host- over https, plain over http", () => {
+    expect([
+      sessionCookieOn("https://core.robkit.dev"),
+      sessionCookieOn("https://core.robkit.localhost:3443"),
+      sessionCookieOn("http://core.robkit.localhost:3000"),
+    ]).toEqual([
+      "__Host-robkit_session",
+      "__Host-robkit_session",
+      "robkit_session",
+    ]);
+  });
+
+  it("writes core's word that nobody is signed in, as of now, under the origin's name", () => {
+    const now = String(Math.floor(Date.now() / 1000));
+
+    expect([
+      signedOutCookie("https://core.robkit.dev"),
+      signedOutCookie("http://core.robkit.localhost:3000"),
+    ]).toEqual([
+      `__Host-robkit_session=signed-out.${now}`,
+      `robkit_session=signed-out.${now}`,
+    ]);
   });
 });
 
@@ -294,30 +318,43 @@ describe("addressCases", () => {
   });
 
   it("reads a row, taking a left-out signedOut as false", () => {
-    expect(readRequestCases({ address: [row] })).toEqual({
+    expect(
+      readRequestCases({ address: [row], cookies: [], coreAddress: [] }),
+    ).toEqual({
       address: [{ ...row, signedOut: false }],
+      cookies: [],
+      coreAddress: [],
     });
   });
 
   it.each([
     [
+      "isn't an object",
+      "cases",
+      'request-cases.json must be an object with a "address" list of cases, but it holds "cases".',
+    ],
+    [
       "has no address list",
-      [row],
-      'request-cases.json must be an object with an "address" list of cases, but it holds [{',
+      { cookies: [], coreAddress: [] },
+      'request-cases.json must be an object with a "address" list of cases, but it holds {"cookies":[],"coreAddress":[]}.',
     ],
     [
       "holds a row that isn't an object",
-      { address: ["row"] },
+      { address: ["row"], cookies: [], coreAddress: [] },
       "request-cases.json address[0] must be an object.",
     ],
     [
       "holds a row with a header that isn't a string",
-      { address: [{ ...row, headers: { host: 1 } }] },
+      {
+        address: [{ ...row, headers: { host: 1 } }],
+        cookies: [],
+        coreAddress: [],
+      },
       "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
     ],
     [
       "holds a row whose signedOut isn't true or false",
-      { address: [{ ...row, signedOut: "yes" }] },
+      { address: [{ ...row, signedOut: "yes" }], cookies: [], coreAddress: [] },
       "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
     ],
   ])("refuses a file that %s", (_, value, message) => {
@@ -327,6 +364,8 @@ describe("addressCases", () => {
   it("sends a browser that holds nothing to core, and a signed-out one to the hub", () => {
     const [holdsNothing, signedOut] = readRequestCases({
       address: [row, { ...row, signedOut: true }],
+      cookies: [],
+      coreAddress: [],
     }).address;
     if (!holdsNothing || !signedOut) throw new Error("Two rows went in.");
 
@@ -342,12 +381,113 @@ describe("addressCases", () => {
         },
       ],
       hub: [
-        { cookie: signedOutCookie() },
+        { cookie: signedOutCookie(row.core) },
         {
           status: 302,
           location: `https://hub.robkit.dev/?next=${encodeURIComponent(row.next)}`,
         },
       ],
     });
+  });
+});
+
+describe("cookieCases", () => {
+  const row = {
+    name: "a case",
+    core: "https://core.robkit.dev",
+    cookie: "c2a0 5f5f 3d 78",
+    now: 1798761600,
+    reads: false,
+  };
+  const read = (cookies: unknown[]) =>
+    readRequestCases({ address: [], cookies, coreAddress: [] }).cookies;
+
+  it("reads every cookie row of request-cases.json", () => {
+    expect(cookieCases.length).toBeGreaterThan(0);
+  });
+
+  it("reads a row's cookie from hex as bytes, ignoring spaces", () => {
+    expect(read([row])).toEqual([
+      { ...row, cookie: Uint8Array.from([0xc2, 0xa0, 0x5f, 0x5f, 0x3d, 0x78]) },
+    ]);
+  });
+
+  it.each([
+    [
+      "has no cookies list",
+      { address: [], coreAddress: [] },
+      'a "cookies" list of cases',
+    ],
+    [
+      "holds a row that isn't an object",
+      { address: [], cookies: [1], coreAddress: [] },
+      "cookies[0] must be an object.",
+    ],
+    ...[
+      { cookie: "c2a" },
+      { cookie: "zz" },
+      { cookie: 12 },
+      { now: 1.5 },
+      { reads: "no" },
+      { name: 1 },
+    ].map((change): [string, unknown, string] => [
+      `holds a row with ${JSON.stringify(change)}`,
+      { address: [], cookies: [{ ...row, ...change }], coreAddress: [] },
+      "cookies[0] needs a name and core as strings, cookie as bytes in hex, now as whole seconds, and reads as true or false.",
+    ]),
+  ])("refuses a file that %s", (_, value, message) => {
+    expect(() => readRequestCases(value)).toThrow(message);
+  });
+
+  it("hands the cookie on as Node's server does, each byte as a Latin-1 character", () => {
+    const [asking] = read([{ ...row, cookie: "c2a0 e28080 41" }]);
+    if (!asking) throw new Error("One row went in.");
+
+    expect(cookieRequest(asking)).toEqual({
+      page: "https://example.robkit.dev/",
+      cookie: "Â âA",
+    });
+  });
+
+  it("lets a browser whose cookie the guard reads in as nobody, and sends any other to core", () => {
+    const [ignored, readIt] = read([row, { ...row, reads: true }]);
+    if (!ignored || !readIt) throw new Error("Two rows went in.");
+
+    expect([cookieAnswer(readIt), cookieAnswer(ignored)]).toEqual([
+      { status: 200, location: null, viewer: { kind: "nobody" } },
+      {
+        status: 302,
+        location: refreshLocation("https://example.robkit.dev/", {
+          origin: "https://core.robkit.dev",
+        }),
+        viewer: undefined,
+      },
+    ]);
+  });
+});
+
+describe("coreAddressCases", () => {
+  it.each(coreAddressCases)(
+    "readCoreUrl judges $origin as the table does: $accepted",
+    ({ origin, accepted }) => {
+      const read = readCoreUrl({ ROBKIT_CORE_URL: origin });
+
+      expect(isProblem(read) ? false : read === origin).toBe(accepted);
+    },
+  );
+
+  it.each([
+    [
+      "has no coreAddress list",
+      { address: [], cookies: [] },
+      'a "coreAddress" list',
+    ],
+    [
+      "holds a row whose accepted isn't true or false",
+      { address: [], cookies: [], coreAddress: [{ origin: "x", accepted: 1 }] },
+      "coreAddress[0] needs an origin as a string and accepted as true or false.",
+    ],
+  ])("refuses a file that %s", (_, value, message) => {
+    expect(() => readRequestCases(value)).toThrow(message);
   });
 });

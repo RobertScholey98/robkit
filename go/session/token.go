@@ -105,8 +105,9 @@ func acceptsCritical(header map[string]any) bool {
 	return true
 }
 
-// checkTimes checks a token's iat, nbf and exp as jose does: a token not
-// yet valid is bad, and one whose exp has come is expired.
+// checkTimes checks a token's iat, nbf and exp as jose does with exp
+// required: a token with no exp, or not yet valid, is bad, and one whose
+// exp has come is expired.
 func checkTimes(claims map[string]any, now time.Time) (map[string]any, bool, error) {
 	seconds := float64(now.Unix())
 	number := func(name string) (float64, bool, bool) {
@@ -124,10 +125,10 @@ func checkTimes(claims map[string]any, now time.Time) (map[string]any, bool, err
 		return nil, false, nil
 	}
 	exp, present, ok := number("exp")
-	if !ok {
+	if !ok || !present {
 		return nil, false, nil
 	}
-	return claims, present && exp <= seconds, nil
+	return claims, exp <= seconds, nil
 }
 
 // viewerIn is who a token is for: the owner, or a guest by their code's

@@ -114,6 +114,11 @@ export interface GuestVisit {
   heading: string | null;
   /** How the app answered each stylesheet its page linked. */
   stylesheets: (number | undefined)[];
+  /**
+   * Each robkit cookie the browser holds once the app opens, as
+   * `<host> <name> <attributes>`, sorted.
+   */
+  cookies: string[];
 }
 
 /**
@@ -140,11 +145,27 @@ export async function guestOpens(
     });
     await guest.getByRole("main").getByRole("link", { name: slug }).click();
     await guest.waitForURL(`${install.origin(slug)}/`, { waitUntil: "load" });
+    const cookies = (await guest.context().cookies())
+      .filter(({ name }) => name.includes("robkit_"))
+      .map(({ domain, name, path, secure, httpOnly, sameSite }) =>
+        [
+          domain,
+          name,
+          `Path=${path}`,
+          secure && "Secure",
+          httpOnly && "HttpOnly",
+          sameSite,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      )
+      .sort();
     return {
       greeting,
       openedAt: guest.url(),
       heading: await guest.getByRole("heading").textContent(),
       stylesheets: await Promise.all(stylesheets),
+      cookies,
     };
   } finally {
     await browser.close();

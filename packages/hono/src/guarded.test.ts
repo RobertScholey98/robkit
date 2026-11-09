@@ -26,7 +26,7 @@ describe("guarded", () => {
       .get("*", (c) => c.json(c.var.viewer));
 
     const res = await app.request(core.page, {
-      headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
+      headers: { ...navigate, ...(await core.cookieFor(asking)) },
     });
 
     expect({

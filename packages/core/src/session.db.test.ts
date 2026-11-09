@@ -8,6 +8,7 @@ import {
   postJson,
   resigned,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
@@ -16,7 +17,7 @@ const day = 24 * 60 * minute;
 function getSession(app: Hono, sessionToken?: string) {
   return Promise.resolve(
     app.request("/session", {
-      headers: sessionToken ? { cookie: `robkit_session=${sessionToken}` } : {},
+      headers: sessionToken ? withSession(sessionToken) : {},
     }),
   );
 }
@@ -98,6 +99,17 @@ describe("GET /session", () => {
     },
   );
 
+  it("treats a request to an https core that carries only the plain-named cookie as carrying none", async () => {
+    const { app } = await freshCore();
+    const sessionToken = await claim(app);
+
+    const res = await app.request("/session", {
+      headers: { cookie: `robkit_session=${sessionToken}` },
+    });
+
+    expect(await res.json()).toEqual({ state: "signed-out" });
+  });
+
   it("finds core's own token among the cookies a browser sends", async () => {
     const { app, db } = await freshCore();
     const sessionToken = await claim(app);
@@ -105,7 +117,7 @@ describe("GET /session", () => {
 
     const res = await app.request("/session", {
       headers: {
-        cookie: `robkit_session=${older}; robkit_session=${sessionToken}`,
+        cookie: `${withSession(older).cookie}; ${withSession(sessionToken).cookie}`,
       },
     });
 

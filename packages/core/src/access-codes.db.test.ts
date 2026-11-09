@@ -7,6 +7,7 @@ import {
   freshCore,
   postJson,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
@@ -18,7 +19,7 @@ interface CodeAnswer {
 }
 
 function asOwner(sessionToken: string) {
-  return { cookie: `robkit_session=${sessionToken}` };
+  return withSession(sessionToken);
 }
 
 function listCodes(app: Hono, sessionToken: string) {
@@ -277,9 +278,7 @@ describe("the code endpoints", () => {
     );
     const { id, code } = (await minted.json()) as CodeAnswer;
     const signIn = await postJson(app, "/login/code", { code });
-    const guest = {
-      cookie: `robkit_session=${sessionCookieOf(signIn)?.value ?? ""}`,
-    };
+    const guest = withSession(sessionCookieOf(signIn)?.value ?? "");
 
     const answers = [
       await app.request("/codes", { headers: guest }),

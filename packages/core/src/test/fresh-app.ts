@@ -1,5 +1,6 @@
 import { aCoreOrigin, slug } from "@internal/test-session";
 import type { Hono } from "hono";
+import { sessionCookies } from "@robkit/session";
 import { decodeJwt, SignJWT, type JWTPayload } from "jose";
 import { onTestFinished } from "vitest";
 import { createApp } from "../app.ts";
@@ -9,6 +10,9 @@ import { createDatabase, type Database } from "../database.ts";
 import { migrate } from "../migrate.ts";
 import { ensureSigningKey } from "../signing-key.ts";
 import { freshDatabase } from "./fresh-database.ts";
+
+/** A fresh core's public origin, unless a test names another: a hosted install's. */
+export const defaultOrigin = "https://core.robkit.test";
 
 /** Where every fresh core's clock starts: 2026-11-01T12:00:00Z. */
 export const clockStart = new Date("2026-11-01T12:00:00Z");
@@ -27,7 +31,7 @@ export interface FreshCore {
  * moves. Closes its connections when the test finishes.
  */
 export async function freshCore({
-  origin = "https://core.robkit.test",
+  origin = defaultOrigin,
   apps = [],
   trustedProxy,
 }: {
@@ -63,9 +67,15 @@ export async function freshCore({
   };
 }
 
-/** Headers that send `sessionToken` as the session cookie. */
-export function withSession(sessionToken: string): Record<string, string> {
-  return { cookie: `robkit_session=${sessionToken}` };
+/**
+ * Headers that send `sessionToken` as the session cookie, named as the
+ * core at `origin` names it.
+ */
+export function withSession(
+  sessionToken: string,
+  origin: string = defaultOrigin,
+): { cookie: string } {
+  return { cookie: `${sessionCookies(origin).session}=${sessionToken}` };
 }
 
 /** Each role's id, by its name, as the owner lists them. */
@@ -102,15 +112,22 @@ export interface SetCookie {
   attributes: Record<string, string | true>;
 }
 
-/** The `robkit_session` cookie a response sets, if it sets one. */
-export function sessionCookieOf(res: Response): SetCookie | undefined {
+/**
+ * The session cookie a response from the core at `origin` sets, by the
+ * name that core uses, if it sets one.
+ */
+export function sessionCookieOf(
+  res: Response,
+  origin: string = defaultOrigin,
+): SetCookie | undefined {
+  const name = `${sessionCookies(origin).session}=`;
   const header = res.headers
     .getSetCookie()
-    .find((cookie) => cookie.startsWith("robkit_session="));
+    .find((cookie) => cookie.startsWith(name));
   if (header === undefined) return undefined;
   const [pair = "", ...attributes] = header.split(/;\s*/);
   return {
-    value: pair.slice("robkit_session=".length),
+    value: pair.slice(name.length),
     attributes: Object.fromEntries(
       attributes.map((attribute) => {
         const [name = "", value] = attribute.split("=");
@@ -120,13 +137,19 @@ export function sessionCookieOf(res: Response): SetCookie | undefined {
   };
 }
 
-/** Claims the install as `rob`, returning the session cookie's value. */
-export async function claim(app: Hono): Promise<string> {
+/**
+ * Claims the install as `rob` on the core at `origin`, returning the
+ * session cookie's value.
+ */
+export async function claim(
+  app: Hono,
+  origin: string = defaultOrigin,
+): Promise<string> {
   const res = await postJson(app, "/setup", {
     username: "rob",
     password: "correct horse battery",
   });
-  const cookie = sessionCookieOf(res);
+  const cookie = sessionCookieOf(res, origin);
   if (res.status !== 201 || !cookie) {
     throw new Error(`setup answered ${String(res.status)}`);
   }

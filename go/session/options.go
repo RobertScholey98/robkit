@@ -52,7 +52,7 @@ func ReadGuardEnv(getenv func(string) string) (Options, error) {
 	} else if origin, ok := originOf(core); ok && isCoreOrigin(origin) {
 		core = origin
 	} else {
-		problems = append(problems, "ROBKIT_CORE_URL is "+shown(core)+", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.")
+		problems = append(problems, notCoreOrigin("ROBKIT_CORE_URL is", core))
 	}
 	if len(problems) > 0 {
 		return Options{}, errors.New(strings.Join(problems, "\n"))
@@ -112,13 +112,39 @@ func origin(u *url.URL) string {
 	return scheme + "://" + host
 }
 
-// isCoreOrigin says whether value is an http(s) origin on core.<domain>.
-func isCoreOrigin(value string) bool {
+// coreDomain is the domain of value, an http(s) origin on core.<domain>,
+// whatever its protocol.
+func coreDomain(value string) (string, bool) {
 	origin, ok := originOf(value)
 	if !ok || origin != value {
-		return false
+		return "", false
 	}
 	u, _ := url.Parse(value)
-	host := u.Hostname()
-	return strings.HasPrefix(host, "core.") && isDomain(strings.TrimPrefix(host, "core."))
+	domain, found := strings.CutPrefix(u.Hostname(), "core.")
+	return domain, found && isDomain(domain)
+}
+
+// isLocal says whether domain is localhost or a name under it, as
+// @robkit/input's isLocal does.
+func isLocal(domain string) bool {
+	return domain == "localhost" || strings.HasSuffix(domain, ".localhost")
+}
+
+// isCoreOrigin says whether value is core's address: an origin on
+// core.<domain>, over https, or over http only on a local domain, as
+// readCoreUrl in @robkit/input allows. Both ReadGuardEnv and Guarded ask
+// it, so an address written in code is judged as one read from settings.
+func isCoreOrigin(value string) bool {
+	domain, ok := coreDomain(value)
+	return ok && (strings.HasPrefix(value, "https://") || isLocal(domain))
+}
+
+// notCoreOrigin is why value, as subject names it, isn't core's address.
+func notCoreOrigin(subject, value string) string {
+	if origin, ok := originOf(value); ok {
+		if domain, onCore := coreDomain(origin); onCore && !isLocal(domain) && strings.HasPrefix(origin, "http://") {
+			return subject + " " + shown(value) + ", which is http on a domain that isn't local. Serve the install over https and set it to https://" + strings.TrimPrefix(origin, "http://") + "."
+		}
+	}
+	return subject + " " + shown(value) + ", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev."
 }

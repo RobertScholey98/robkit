@@ -88,5 +88,82 @@
       "headers": { "host": "" },
       "next": "https://example.robkit.dev/notes?x=1"
     }
+  ],
+  "cookies": [
+    {
+      "name": "reads the __Host- session cookie on an https install",
+      "core": "https://core.robkit.dev",
+      "cookie": "5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": true
+    },
+    {
+      "name": "ignores the plain name on an https install",
+      "core": "https://core.robkit.dev",
+      "cookie": "726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "reads the plain name on an http install",
+      "core": "http://core.robkit.localhost:3000",
+      "cookie": "726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": true
+    },
+    {
+      "name": "ignores the __Host- name on an http install",
+      "core": "http://core.robkit.localhost:3000",
+      "cookie": "5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "ignores the name in another case",
+      "core": "https://core.robkit.dev",
+      "cookie": "5f5f484f53542d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "ignores the name after a lone A0 byte",
+      "core": "https://core.robkit.dev",
+      "cookie": "a0 5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "ignores the name after a no-break space in UTF-8, C2 A0",
+      "core": "https://core.robkit.dev",
+      "cookie": "c2a0 5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "ignores the name after an en quad in UTF-8, E2 80 80",
+      "core": "https://core.robkit.dev",
+      "cookie": "e28080 5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "trims only spaces and tabs around the name",
+      "core": "https://core.robkit.dev",
+      "cookie": "7468656d653d6461726b3b 2009 5f5f486f73742d726f626b69745f73657373696f6e 0920 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": true
+    }
+  ],
+  "coreAddress": [
+    { "origin": "https://core.robkit.dev", "accepted": true },
+    { "origin": "https://core.example.com", "accepted": true },
+    { "origin": "https://core.robkit.localhost:3443", "accepted": true },
+    { "origin": "http://core.robkit.localhost:3000", "accepted": true },
+    { "origin": "http://core.localhost:3000", "accepted": true },
+    { "origin": "http://core.localhost", "accepted": true },
+    { "origin": "http://core.example.com", "accepted": false },
+    { "origin": "http://core.robkit.dev", "accepted": false },
+    { "origin": "http://core.notlocalhost:3000", "accepted": false },
+    { "origin": "http://core.localhost.example.com", "accepted": false }
   ]
 }

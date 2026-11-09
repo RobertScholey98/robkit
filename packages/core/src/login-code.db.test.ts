@@ -7,6 +7,7 @@ import {
   freshCore,
   postJson,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
@@ -26,7 +27,7 @@ async function ownerMints(
     app,
     "/codes",
     { name: "Grandma", ...request },
-    { cookie: `robkit_session=${owner}` },
+    withSession(owner),
   );
   return { owner, ...((await res.json()) as Minted) };
 }
@@ -38,7 +39,7 @@ function signInWith(app: Hono, code: unknown) {
 function sessionOf(app: Hono, sessionToken: string) {
   return Promise.resolve(
     app.request("/session", {
-      headers: { cookie: `robkit_session=${sessionToken}` },
+      headers: withSession(sessionToken),
     }),
   );
 }
@@ -100,7 +101,7 @@ describe("POST /login/code", () => {
     const { app } = await freshCore({
       origin: "http://core.robkit.localhost:3000",
     });
-    await claim(app);
+    await claim(app, "http://core.robkit.localhost:3000");
 
     const res = await signInWith(app, "test");
 
@@ -129,12 +130,7 @@ describe("POST /login/code", () => {
   it("refuses a revoked code with 401", async () => {
     const { app } = await freshCore();
     const { owner, id, code } = await ownerMints(app);
-    await postJson(
-      app,
-      `/codes/${id}/revoke`,
-      {},
-      { cookie: `robkit_session=${owner}` },
-    );
+    await postJson(app, `/codes/${id}/revoke`, {}, withSession(owner));
 
     const res = await signInWith(app, code);
 
@@ -163,7 +159,7 @@ describe("POST /login/code", () => {
       const { app } = await freshCore({
         origin: "http://core.robkit.localhost:3000",
       });
-      await claim(app);
+      await claim(app, "http://core.robkit.localhost:3000");
 
       const res = await postJson(app, "/login/code", body);
 

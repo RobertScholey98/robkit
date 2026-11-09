@@ -5,6 +5,9 @@ import {
   aRoleId,
   callbackFor,
   conformanceAnswer,
+  cookieAnswer,
+  cookieCases,
+  cookieRequest,
   fakeCore,
   guest,
   owner,
@@ -99,7 +102,7 @@ describe("requestGuard, on a page load", () => {
     const open = guardedBy(core, { app: example, access: asking.rule });
 
     const res = await open(core.page, {
-      headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
+      headers: { ...navigate, ...(await core.cookieFor(asking)) },
     });
 
     expect({
@@ -140,7 +143,7 @@ describe("requestGuard, on a page load", () => {
     expect(away.outcome === "answer" && away.response.status).toBe(302);
   });
 
-  it("keeps an https install's pages on https, and sets Secure cookies off localhost", async () => {
+  it("keeps an https install's pages on https, and its state in a __Host- cookie", async () => {
     const check = requestGuard({
       app: slug("notes"),
       access: { kind: "owner" },
@@ -159,10 +162,67 @@ describe("requestGuard, on a page load", () => {
     );
     expect(res?.headers.getSetCookie()).toEqual([
       expect.stringMatching(
-        /^robkit_state=[\w-]{43}; Path=\/; Max-Age=600; HttpOnly; SameSite=Lax; Secure$/,
+        /^__Host-robkit_state=[\w-]{43}; Path=\/; Max-Age=600; HttpOnly; SameSite=Lax; Secure$/,
       ),
     ]);
   });
+
+  it.each([
+    ["https://core.example.com", "https://notes.example.com/"],
+    [
+      "https://core.robkit.localhost:3443",
+      "https://notes.robkit.localhost:3443/",
+    ],
+  ])(
+    "on %s, keeps core's word in a __Host- cookie, reads it back, and forgets it there",
+    async (core, page) => {
+      const check = requestGuard({
+        app: slug("notes"),
+        access: { kind: "open" },
+        core: coreOrigin(core),
+      });
+      const answer = async (url: string, cookie = "") => {
+        const decision = await check(
+          new Request(url, { headers: { ...navigate, cookie } }),
+        );
+        return decision.outcome === "answer"
+          ? decision.response
+          : Response.json(decision.viewer);
+      };
+      const gated = requestGuard({
+        app: slug("notes"),
+        access: { kind: "owner" },
+        core: coreOrigin(core),
+      });
+
+      const away = await answer(page);
+      const back = await answer(
+        callbackFor(page, { state: stateIn(away.headers.get("location")) }),
+        cookiesFrom(away),
+      );
+      const then = await answer(page, cookiesFrom(away, back));
+      const login = await gated(
+        new Request(page, {
+          headers: { ...navigate, cookie: cookiesFrom(away, back) },
+        }),
+      );
+
+      expect(back.headers.getSetCookie()).toEqual([
+        expect.stringMatching(
+          /^__Host-robkit_session=signed-out\.\d+; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure$/,
+        ),
+      ]);
+      expect([then.status, await then.json()]).toEqual([
+        200,
+        { kind: "nobody" },
+      ]);
+      expect(
+        login.outcome === "answer" && login.response.headers.getSetCookie(),
+      ).toEqual([
+        "__Host-robkit_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure",
+      ]);
+    },
+  );
 
   it("sends a page load from a browser that sends no fetch metadata to log in, not round core", async () => {
     const core = await fakeCore();
@@ -201,6 +261,33 @@ describe("requestGuard, on the app's own address", () => {
       status: res?.status,
       location: res?.headers.get("location"),
     }).toEqual(addressAnswer(asking));
+  });
+});
+
+describe("requestGuard, on the cookies a request carries", () => {
+  it.each(cookieCases)("$name", async (asking) => {
+    const check = requestGuard({
+      app: example,
+      access: { kind: "open" },
+      core: coreOrigin(asking.core),
+    });
+    const { page, cookie } = cookieRequest(asking);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime((asking.now + 1) * 1000);
+
+    const decision = await check(
+      new Request(page, { headers: { ...navigate, cookie } }),
+    );
+
+    const res =
+      decision.outcome === "answer"
+        ? decision.response
+        : Response.json(decision.viewer);
+    expect({
+      status: res.status,
+      location: res.headers.get("location"),
+      viewer: res.status === 200 ? await res.json() : undefined,
+    }).toEqual(cookieAnswer(asking));
   });
 });
 
@@ -288,7 +375,7 @@ describe("requestGuard, getting the app's token from core", () => {
   it("asks core again once its word that nobody is signed in is a minute old", async () => {
     const core = await fakeCore();
     const open = guardedBy(core, { app: example, access: { kind: "open" } });
-    const word = { cookie: signedOutCookie() };
+    const word = { cookie: signedOutCookie(core.origin) };
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(Date.now() + 61_000);
 
@@ -321,28 +408,116 @@ describe("requestGuard, getting the app's token from core", () => {
     expect(setCookies(second).robkit_state).toContain(`robkit_state=${state};`);
   });
 
-  it.each([
-    ["no state cookie", ""],
-    [
-      "another state",
-      "robkit_state=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    ],
-  ])(
-    "refuses a token sent to its callback by a link the browser didn't start, with %s",
-    async (_, held) => {
-      const core = await fakeCore();
-      const attacker = await core.key.token({ holder: guest(["family"]) });
+  it("refuses a token sent to its callback by a browser that holds no state, with the page that says so", async () => {
+    const core = await fakeCore();
+    const attacker = await core.key.token({ holder: guest(["family"]) });
 
-      const res = await guardedBy(core)(
-        callbackFor(core.page, {
-          state: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-          token: attacker,
+    const res = await guardedBy(core)(
+      callbackFor(core.page, {
+        state: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        token: attacker,
+      }),
+      { headers: navigate },
+    );
+
+    expect([res.status, await res.text()]).toEqual([
+      400,
+      "This browser didn't keep the app's cookie, so it can't sign you in here. Allow cookies for this site and try again.",
+    ]);
+    expect(res.headers.getSetCookie()).toEqual([]);
+  });
+
+  it("stores nothing from a callback whose state isn't the one the browser holds, and sends it on to next to start again", async () => {
+    const core = await fakeCore();
+    const attacker = await core.key.token({ holder: guest(["family"]) });
+
+    const res = await guardedBy(core)(
+      callbackFor(core.page, {
+        state: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        token: attacker,
+      }),
+      {
+        headers: {
+          ...navigate,
+          cookie: "robkit_state=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        },
+      },
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(core.page);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.getSetCookie()).toEqual([]);
+  });
+
+  it.each([
+    ["the first tab's", [0, 1]],
+    ["the second tab's", [1, 0]],
+  ])(
+    "takes two page loads started together to their pages when %s callback lands first",
+    async (_, order) => {
+      const core = await fakeCore();
+      const open = guardedBy(core);
+      const jar = new Map<string, string>();
+      const keep = (res: Response) => {
+        for (const header of res.headers.getSetCookie()) {
+          const [pair = ""] = header.split(";");
+          const [name = "", value = ""] = pair.split("=");
+          if (header.includes("Max-Age=0")) jar.delete(name);
+          else jar.set(name, value);
+        }
+      };
+      const send = async (url: string) => {
+        const cookie = [...jar].map(([name, value]) => `${name}=${value}`);
+        const res = await open(url, {
+          headers: { ...navigate, cookie: cookie.join("; ") },
+        });
+        keep(res);
+        return res;
+      };
+      const token = await core.key.token();
+      /** Follows redirects from `url`, through core as core would, to a page. */
+      const browse = async (url: string): Promise<[number, string]> => {
+        let at = url;
+        for (;;) {
+          const res = await send(at);
+          const location = res.headers.get("location");
+          if (res.status !== 302 || location === null) return [res.status, at];
+          const to = new URL(location);
+          at =
+            to.origin === core.origin
+              ? callbackFor(to.searchParams.get("next") ?? "", {
+                  state: to.searchParams.get("state") ?? "",
+                  token,
+                })
+              : location;
+        }
+      };
+      const pages = [core.page, new URL("/other", core.page).href];
+      // Both loads leave before either answer arrives, so neither carries
+      // a state, and the browser keeps the state of the answer that lands
+      // last.
+      const away = await Promise.all(
+        pages.map((page) => open(page, { headers: navigate })),
+      );
+      away.forEach(keep);
+      const callbacks = pages.map((page, tab) =>
+        callbackFor(page, {
+          state: stateIn(away[tab]?.headers.get("location") ?? null),
+          token,
         }),
-        { headers: { ...navigate, cookie: held } },
       );
 
-      expect(res.status).toBe(400);
-      expect(res.headers.getSetCookie()).toEqual([]);
+      const ends: Record<number, [number, string]> = {};
+      for (const tab of order) {
+        ends[tab] = await browse(callbacks[tab] ?? "");
+      }
+
+      expect([ends[0], ends[1]]).toEqual([
+        [200, pages[0]],
+        [200, pages[1]],
+      ]);
     },
   );
 

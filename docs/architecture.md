@@ -78,7 +78,7 @@ A page load that gets `login` or `refresh` is redirected. A call from the page (
 
 ## How tokens flow
 
-Core keeps each session. Core's own session token, with the audience `core`, sits in a host-only cookie on `core.<domain>`. Each app, admin included, holds its own app token, with its slug as the audience, in a host-only cookie on its own host. No cookie goes on the parent domain ([ADR 0004](adr/0004-per-app-tokens.md)). Tokens last 15 minutes; a session lasts 30 days.
+Core keeps each session. Core's own session token, with the audience `core`, sits in a host-only cookie on `core.<domain>`. Each app, admin included, holds its own app token, with its slug as the audience, in a host-only cookie on its own host. No cookie goes on the parent domain ([ADR 0004](adr/0004-per-app-tokens.md)). On an https install each cookie is named with the `__Host-` prefix, `__Host-robkit_session` and `__Host-robkit_state`, which a browser refuses to set with a `Domain`, so no app can plant one for another host. A local http install keeps `robkit_session` and `robkit_state`. `sessionCookies(origin)` in `@robkit/session` gives the names. Tokens last 15 minutes; a session lasts 30 days.
 
 ### Signing in and getting an app token
 

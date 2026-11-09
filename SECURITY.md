@@ -23,6 +23,12 @@ Core signs every session token with an Ed25519 key that only core holds. No cook
 
 See [ADR 0004](docs/adr/0004-per-app-tokens.md).
 
+### No sibling app can plant a session cookie
+
+A browser treats every subdomain of an install as the same site, so an app on one subdomain can set a cookie with `Domain=<domain>`, and the browser sends it to core and to every other app beside the real one. On an https install each session cookie, core's and every app's, and the guard's state cookie, is named with the `__Host-` prefix: `__Host-robkit_session` and `__Host-robkit_state`. A browser sets a `__Host-` cookie only when it is `Secure`, has `Path=/` and names no `Domain`, so no app can set one for another host. Core and the guard read only the prefixed names there, and match a name exactly, so a name in another case, or with a no-break space before it, isn't read.
+
+This holds for an https install, in a browser that refuses a cookie with no name whose value starts with `__Host-`, as the cookie standard's current draft (RFC 6265bis) asks. Such a cookie goes out in the `Cookie` header looking like the real one, so a browser that accepted it from a sibling would deliver it. An http install, which is only ever a local one, keeps the plain names, since the prefix needs `Secure`.
+
 ### Core checks whole origins
 
 Core knows its own origin from `ROBKIT_CORE_URL`, and works out every other address from it. It compares protocol, host and port, never the host alone:
@@ -54,4 +60,6 @@ The plan, `.scratch/kit/map.md`, lists the gaps we know of. The ones that bear o
 - Any container on Coolify's network can reach core directly and send its own forwarded headers. Only the owner's apps run there.
 - The sign-in limit is soft: two attempts racing in parallel can both get past it.
 - A hosted install's setup screen stays open until someone claims it. Claim it as soon as it's up.
+- A state the guard keeps for a trip through core, if read from a log, is good until ten minutes after the last trip that renewed it, in the one browser that holds its cookie. The guard reuses the state a browser holds and renews its ten minutes on each trip, so tabs that share it all arrive.
+- The hub signs a browser in with whatever access code an intro link carries, without asking, even when someone is already signed in. So an app on a sibling subdomain can send a viewer to an intro link of its own and swap their session for a guest's. [Ticket 27](.scratch/just-use-it/issues/27-templates-finished.md) makes the hub ask first.
 - `GET /apps/:slug/access` answers anyone, since each app's guard reads its rule there with no cookie. So a stranger can learn which slugs an install has, and who may open each.

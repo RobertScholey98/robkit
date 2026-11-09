@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -188,7 +189,7 @@ func TestGuardOnAPageLoadConformance(t *testing.T) {
 			core := fakecore.Start(t)
 			open := guarded(t, core, session.Options{Access: c.Rule})
 			headers := with(navigate)
-			if cookie := core.Key.CookieFor(c, fakecore.App); cookie != "" {
+			if cookie := core.CookieFor(c, fakecore.App); cookie != "" {
 				headers["cookie"] = cookie
 			}
 
@@ -242,7 +243,7 @@ func TestGuardOnTheAppsOwnAddress(t *testing.T) {
 			}
 			r.Header.Set("sec-fetch-mode", "navigate")
 			if c.SignedOut {
-				r.Header.Set("cookie", fakecore.SignedOutCookie())
+				r.Header.Set("cookie", fakecore.SignedOutCookie(c.Core))
 			}
 			w := httptest.NewRecorder()
 
@@ -256,6 +257,27 @@ func TestGuardOnTheAppsOwnAddress(t *testing.T) {
 			}
 			if w.Code != 302 || !sent {
 				t.Errorf("got %d %q, want the browser sent on with next %q", w.Code, location, c.Next)
+			}
+		})
+	}
+}
+
+func TestGuardOnTheCookiesARequestCarries(t *testing.T) {
+	for _, c := range conformance.CookieCases(t) {
+		t.Run(c.Name, func(t *testing.T) {
+			now := &clock{now: time.Unix(c.Now+1, 0)}
+			open := guarded(t, nil, session.Options{Access: guard.OpenRule{}, Core: c.Core, Now: now.Now})
+			page := strings.Replace(c.Core, "//core.", "//"+fakecore.App+".", 1) + "/"
+
+			// Go's server hands the header's bytes on as they are.
+			res := open.get(page, navigate, map[string]string{"cookie": c.Cookie})
+
+			if c.Reads {
+				if res.status != 200 || res.body != `{"kind":"nobody"}`+"\n" {
+					t.Errorf("got %d %q, want the browser let in as nobody", res.status, res.body)
+				}
+			} else if res.status != 302 || !isRefreshLocation(res.location(), page, c.Core) {
+				t.Errorf("got %d %q, want the browser sent to core", res.status, res.location())
 			}
 		})
 	}
@@ -282,7 +304,7 @@ func TestGuardLetsTheViewerThroughToTheHandler(t *testing.T) {
 	}
 }
 
-func TestGuardKeepsAnHTTPSInstallsPagesOnHTTPSAndSetsSecureCookiesOffLocalhost(t *testing.T) {
+func TestGuardKeepsAnHTTPSInstallsPagesOnHTTPSAndItsStateInAHostCookie(t *testing.T) {
 	notes := guarded(t, nil, session.Options{App: "notes", Access: guard.OwnerRule{}, Core: "https://core.example.com"})
 
 	res := notes.get("http://notes.example.com/", navigate)
@@ -290,9 +312,37 @@ func TestGuardKeepsAnHTTPSInstallsPagesOnHTTPSAndSetsSecureCookiesOffLocalhost(t
 	if !isRefreshLocation(res.location(), "https://notes.example.com/", "https://core.example.com") {
 		t.Errorf("location = %q", res.location())
 	}
-	secure := regexp.MustCompile(`^robkit_state=[\w-]{43}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax; Secure$`)
+	secure := regexp.MustCompile(`^__Host-robkit_state=[\w-]{43}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax; Secure$`)
 	if len(res.cookies) != 1 || !secure.MatchString(res.cookies[0]) {
 		t.Errorf("cookies = %q", res.cookies)
+	}
+}
+
+func TestGuardKeepsCoresWordInAHostCookieOnAnHTTPSInstall(t *testing.T) {
+	for _, c := range []struct{ core, page string }{
+		{"https://core.example.com", "https://notes.example.com/"},
+		{"https://core.robkit.localhost:3443", "https://notes.robkit.localhost:3443/"},
+	} {
+		t.Run(c.core, func(t *testing.T) {
+			open := guarded(t, nil, session.Options{App: "notes", Access: guard.OpenRule{}, Core: c.core})
+			gated := guarded(t, nil, session.Options{App: "notes", Access: guard.OwnerRule{}, Core: c.core})
+
+			away := open.get(c.page, navigate)
+			back := open.get(callbackFor(c.page, stateIn(away.location()), nil), navigate, cookiesFrom(away))
+			then := open.get(c.page, navigate, cookiesFrom(away, back))
+			login := gated.get(c.page, navigate, cookiesFrom(away, back))
+
+			word := regexp.MustCompile(`^__Host-robkit_session=signed-out\.\d+; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure$`)
+			if len(back.cookies) != 1 || !word.MatchString(back.cookies[0]) {
+				t.Errorf("back cookies: %q", back.cookies)
+			}
+			if then.status != 200 || then.body != `{"kind":"nobody"}`+"\n" {
+				t.Errorf("then: %d %s", then.status, then.body)
+			}
+			if want := []string{"__Host-robkit_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure"}; !slices.Equal(login.cookies, want) {
+				t.Errorf("login cookies: %q", login.cookies)
+			}
+		})
 	}
 }
 
@@ -372,7 +422,7 @@ func TestGuardAsksCoreAgainOnceItsWordIsAMinuteOld(t *testing.T) {
 	core := fakecore.Start(t)
 	now := realClock()
 	open := guarded(t, core, session.Options{Access: guard.OpenRule{}, Now: now.Now})
-	word := map[string]string{"cookie": fakecore.SignedOutCookie()}
+	word := map[string]string{"cookie": fakecore.SignedOutCookie(core.Origin)}
 	now.advance(61 * time.Second)
 
 	pageLoad := open.get(core.Page, navigate, word)
@@ -399,22 +449,95 @@ func TestGuardReusesTheStateItHolds(t *testing.T) {
 	}
 }
 
-func TestGuardRefusesATokenSentToItsCallbackByALinkTheBrowserDidntStart(t *testing.T) {
-	for name, held := range map[string]string{
-		"no state cookie": "",
-		"another state":   "robkit_state=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+func TestGuardRefusesATokenSentToItsCallbackByABrowserThatHoldsNoState(t *testing.T) {
+	core := fakecore.Start(t)
+	attacker := core.Key.Token(fakecore.TokenOptions{Holder: fakecore.Guest("family")})
+
+	res := ownerOnly(t, core).get(callbackFor(core.Page, "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", &attacker), navigate)
+
+	want := "This browser didn't keep the app's cookie, so it can't sign you in here. Allow cookies for this site and try again."
+	if res.status != 400 || res.body != want || len(res.cookies) != 0 {
+		t.Errorf("got %d %q %q", res.status, res.body, res.cookies)
+	}
+}
+
+func TestGuardStoresNothingFromASupersededCallbackAndSendsTheBrowserOnToNext(t *testing.T) {
+	core := fakecore.Start(t)
+	attacker := core.Key.Token(fakecore.TokenOptions{Holder: fakecore.Guest("family")})
+
+	res := ownerOnly(t, core).get(
+		callbackFor(core.Page, "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", &attacker),
+		navigate, map[string]string{"cookie": "robkit_state=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+	)
+
+	if res.status != 302 || res.location() != core.Page || len(res.cookies) != 0 {
+		t.Errorf("got %d %q %q", res.status, res.location(), res.cookies)
+	}
+	if res.header.Get("cache-control") != "no-store" || res.header.Get("referrer-policy") != "no-referrer" {
+		t.Errorf("headers: %v", res.header)
+	}
+}
+
+func TestGuardTakesTwoPageLoadsStartedTogetherToTheirPages(t *testing.T) {
+	for name, order := range map[string][]int{
+		"the first tab's callback first":  {0, 1},
+		"the second tab's callback first": {1, 0},
 	} {
 		t.Run(name, func(t *testing.T) {
 			core := fakecore.Start(t)
-			attacker := core.Key.Token(fakecore.TokenOptions{Holder: fakecore.Guest("family")})
+			open := ownerOnly(t, core)
+			token := core.Key.Token(fakecore.TokenOptions{})
+			jar := map[string]string{}
+			keep := func(a answer) {
+				for _, set := range a.cookies {
+					pair, _, _ := strings.Cut(set, ";")
+					name, value, _ := strings.Cut(pair, "=")
+					if strings.Contains(set, "Max-Age=0") {
+						delete(jar, name)
+					} else {
+						jar[name] = value
+					}
+				}
+			}
+			send := func(target string) answer {
+				var pairs []string
+				for name, value := range jar {
+					pairs = append(pairs, name+"="+value)
+				}
+				a := open.get(target, navigate, map[string]string{"cookie": strings.Join(pairs, "; ")})
+				keep(a)
+				return a
+			}
+			// browse follows redirects from target, through core as core
+			// would, to a page.
+			browse := func(target string) string {
+				for {
+					a := send(target)
+					if a.status != 302 {
+						return strconv.Itoa(a.status) + " " + target
+					}
+					to, _ := url.Parse(a.location())
+					target = a.location()
+					if strings.HasPrefix(target, core.Origin+"/") {
+						target = callbackFor(to.Query().Get("next"), to.Query().Get("state"), &token)
+					}
+				}
+			}
+			pages := []string{core.Page, strings.Replace(core.Page, "/notes?x=1", "/other", 1)}
+			// Both loads leave before either answer arrives, so neither
+			// carries a state, and the browser keeps the state of the
+			// answer that lands last.
+			away := []answer{open.get(pages[0], navigate), open.get(pages[1], navigate)}
+			keep(away[0])
+			keep(away[1])
 
-			res := ownerOnly(t, core).get(
-				callbackFor(core.Page, "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", &attacker),
-				navigate, map[string]string{"cookie": held},
-			)
+			ends := make([]string, 2)
+			for _, tab := range order {
+				ends[tab] = browse(callbackFor(pages[tab], stateIn(away[tab].location()), &token))
+			}
 
-			if res.status != 400 || len(res.cookies) != 0 {
-				t.Errorf("got %d %q", res.status, res.cookies)
+			if want := []string{"200 " + pages[0], "200 " + pages[1]}; !slices.Equal(ends, want) {
+				t.Errorf("ended on %q, want %q", ends, want)
 			}
 		})
 	}
@@ -680,7 +803,7 @@ func TestGuardReadsTokensAsCoreSignsThem(t *testing.T) {
 		"a critical header":               {fakecore.TokenOptions{Header: map[string]any{"crit": []string{"exp"}, "exp": 1}}, nobody},
 		"a token not yet valid":           {fakecore.TokenOptions{Claims: map[string]any{"nbf": now.Now().Unix() + 60}}, nobody},
 		"an expiry that isn't a number":   {fakecore.TokenOptions{Claims: map[string]any{"exp": "soon"}}, nobody},
-		"a token with no expiry":          {fakecore.TokenOptions{Claims: map[string]any{"exp": nil}}, `{"kind":"owner","id":"owner-1"}` + "\n"},
+		"a token with no expiry":          {fakecore.TokenOptions{Claims: map[string]any{"exp": nil}}, nobody},
 	} {
 		t.Run(name, func(t *testing.T) {
 			tc.options.Now = now.Now()
@@ -994,6 +1117,38 @@ func TestReadGuardEnv(t *testing.T) {
 		"ROBKIT_CORE_URL is not set. Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev."
 	if missing == nil || missing.Error() != want {
 		t.Errorf("missing: %v", missing)
+	}
+}
+
+func TestGuardJudgesCoresAddressAlikeFromSettingsAndCode(t *testing.T) {
+	for _, c := range conformance.CoreAddressCases(t) {
+		t.Run(c.Origin, func(t *testing.T) {
+			options, envErr := session.ReadGuardEnv(func(name string) string {
+				return map[string]string{"ROBKIT_APP": "notes", "ROBKIT_CORE_URL": c.Origin}[name]
+			})
+			_, codeErr := session.Guarded(session.Options{App: "notes", Core: c.Origin})
+
+			fromEnv := envErr == nil && options.Core == c.Origin
+			if fromEnv != c.Accepted || (codeErr == nil) != c.Accepted {
+				t.Errorf("ReadGuardEnv: %v, Guarded: %v, want accepted %v", envErr, codeErr, c.Accepted)
+			}
+		})
+	}
+}
+
+func TestGuardSaysWhyItRefusesPlainHTTPOffALocalDomain(t *testing.T) {
+	_, envErr := session.ReadGuardEnv(func(name string) string {
+		return map[string]string{"ROBKIT_APP": "notes", "ROBKIT_CORE_URL": "http://core.example.com/"}[name]
+	})
+	_, codeErr := session.Guarded(session.Options{App: "notes", Core: "http://core.example.com"})
+
+	fromEnv := `ROBKIT_CORE_URL is "http://core.example.com/", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`
+	fromCode := `session: Core is "http://core.example.com", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`
+	if envErr == nil || envErr.Error() != fromEnv {
+		t.Errorf("ReadGuardEnv: %v", envErr)
+	}
+	if codeErr == nil || codeErr.Error() != fromCode {
+		t.Errorf("Guarded: %v", codeErr)
 	}
 }
 

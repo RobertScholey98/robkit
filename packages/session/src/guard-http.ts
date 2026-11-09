@@ -1,3 +1,5 @@
+import type { SessionCookies } from "./session-cookies.ts";
+
 /**
  * The page the browser asked for: the app's own origin, from its settings,
  * plus the request's path and query. Nothing in the request decides the
@@ -74,19 +76,22 @@ export function redirect(
   });
 }
 
-/** A `Set-Cookie` value for a host-only cookie on the app's own subdomain. */
+/**
+ * A `Set-Cookie` value for a host-only cookie on the app's own subdomain,
+ * with no `Domain`, set as `sessionCookies` says.
+ */
 export function hostOnlyCookie(
   name: string,
   value: string,
   maxAge: number,
-  secure: boolean,
+  { path, sameSite, secure }: SessionCookies["attributes"],
 ): string {
   return [
     `${name}=${value}`,
-    "Path=/",
+    `Path=${path}`,
     `Max-Age=${String(maxAge)}`,
     "HttpOnly",
-    "SameSite=Lax",
+    `SameSite=${sameSite}`,
     ...(secure ? ["Secure"] : []),
   ].join("; ");
 }

@@ -5,6 +5,7 @@ import {
   freshCore,
   postJson,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 /** Signs out as the hub does: JSON content type, no body. */
@@ -14,7 +15,7 @@ function logout(app: Hono, sessionToken?: string) {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        ...(sessionToken && { cookie: `robkit_session=${sessionToken}` }),
+        ...(sessionToken && withSession(sessionToken)),
       },
     }),
   );
@@ -22,7 +23,7 @@ function logout(app: Hono, sessionToken?: string) {
 
 async function stateOf(app: Hono, sessionToken: string) {
   const res = await app.request("/session", {
-    headers: { cookie: `robkit_session=${sessionToken}` },
+    headers: withSession(sessionToken),
   });
   return ((await res.json()) as { state: string }).state;
 }
@@ -101,7 +102,7 @@ describe("POST /logout", () => {
 
     const res = await app.request("/logout", {
       method: "POST",
-      headers: { cookie: `robkit_session=${sessionToken}` },
+      headers: withSession(sessionToken),
     });
 
     expect(res.status).toBe(415);

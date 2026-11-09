@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/RobertScholey98/robkit/go/guard"
+	"github.com/RobertScholey98/robkit/go/internal/sessioncookies"
 )
 
 type viewerKey struct{}
@@ -86,7 +87,7 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 		return nil, errors.New("session: App: " + err.Error())
 	}
 	if !isCoreOrigin(options.Core) {
-		return nil, errors.New("session: Core is " + shown(options.Core) + ", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.")
+		return nil, errors.New(notCoreOrigin("session: Core is", options.Core))
 	}
 	now := options.Now
 	if now == nil {
@@ -97,7 +98,6 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 		onUnavailable = reportFault
 	}
 	core, _ := url.Parse(options.Core)
-	domain := strings.TrimPrefix(core.Hostname(), "core.")
 	hub, origin := *core, *core
 	hub.Host = strings.Replace(core.Host, "core.", "hub.", 1)
 	origin.Host = strings.Replace(core.Host, "core.", options.App+".", 1)
@@ -115,9 +115,9 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 		g.rule = newCoreAccess(options.Core, options.App, client, now).rule
 	}
 	g.protocol = &refreshProtocol{
-		app:    options.App,
-		core:   options.Core,
-		secure: domain != "localhost" && !strings.HasSuffix(domain, ".localhost"),
+		app:     options.App,
+		core:    options.Core,
+		cookies: sessioncookies.For(options.Core),
 		keys: &keySet{
 			url:    options.Core + "/.well-known/jwks.json",
 			client: client,

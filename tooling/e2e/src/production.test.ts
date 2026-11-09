@@ -64,6 +64,21 @@ describe("the default install in production", () => {
   let stack: Stack;
   let setUp: OwnerSetUp;
 
+  /**
+   * The cookies a guest holds once `app` opens, as the journey lists them:
+   * core's session and the app's session and state, each host-only under
+   * its __Host- name.
+   */
+  const hostCookies = (app: Slug): string[] => {
+    const host = (name: Slug) => new URL(stack.addresses.origin(name)).hostname;
+    const attributes = "Path=/ Secure HttpOnly Lax";
+    return [
+      `${host(slug("core"))} __Host-robkit_session ${attributes}`,
+      `${host(app)} __Host-robkit_session ${attributes}`,
+      `${host(app)} __Host-robkit_state ${attributes}`,
+    ].sort();
+  };
+
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
     removeWhenGone({ path: dir });
@@ -116,7 +131,7 @@ describe("the default install in production", () => {
     });
   });
 
-  it("lets a guest sign in with the owner's code and open the app over https", async () => {
+  it("lets a guest sign in with the owner's code and open the app over https, in __Host- cookies", async () => {
     const visit = await guestOpens(
       stack.addresses,
       setUp.code ?? "",
@@ -128,6 +143,7 @@ describe("the default install in production", () => {
       openedAt: `${stack.addresses.origin(exampleSlug)}/`,
       heading: "Signed in as a guest",
       stylesheets: [200],
+      cookies: hostCookies(exampleSlug),
     });
   });
 
@@ -170,7 +186,7 @@ describe("the default install in production", () => {
     });
   });
 
-  it("serves an app on each other stack, added with robkit add, after its next deploy", async () => {
+  it("serves an app on each other stack, added with robkit add, after its next deploy, in __Host- cookies", async () => {
     for (const app of later) {
       await run(
         "pnpm",
@@ -214,6 +230,7 @@ describe("the default install in production", () => {
             openedAt: `${stack.addresses.origin(app.slug)}/`,
             heading: "Signed in as a guest",
             stylesheets: [200],
+            cookies: hostCookies(app.slug),
           },
         ]),
       ),

@@ -136,7 +136,7 @@ describe("guarded", () => {
       });
 
     const res = await ask(app, core.page, {
-      headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
+      headers: { ...navigate, ...(await core.cookieFor(asking)) },
     });
 
     expect({

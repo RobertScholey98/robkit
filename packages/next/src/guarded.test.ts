@@ -84,7 +84,7 @@ describe("guarded", () => {
     });
 
     const res = await ask(proxy, core.page, {
-      headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
+      headers: { ...navigate, ...(await core.cookieFor(asking)) },
     });
 
     expect({
@@ -323,7 +323,7 @@ describe("guarded", () => {
     const res = await ask(proxy, core.page, {
       headers: {
         ...navigate,
-        cookie: signedOutCookie(),
+        cookie: signedOutCookie(core.origin),
         "robkit-viewer": await passedOn.text(),
       },
     });

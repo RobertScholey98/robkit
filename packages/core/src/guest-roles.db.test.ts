@@ -159,7 +159,9 @@ describe("a guest's session token", () => {
   it("gives the test code every role, even one made after sign-in", async () => {
     const { app } = await freshCore({
       apps: ["notes"],
-      origin: "http://core.robkit.localhost:3000",
+      // The test code needs a local domain, not http, so the helpers'
+      // https cookie name still works.
+      origin: "https://core.robkit.localhost:3443",
     });
     const owner = await claim(app);
     const guest = await signIn(app, "test");
@@ -175,7 +177,7 @@ describe("a guest's session token", () => {
     expect(rolesIn(guest)).toEqual([Family, Friends]);
     expect(
       rolesIn(
-        await refreshed(app, guest, "http://notes.robkit.localhost:3000"),
+        await refreshed(app, guest, "https://notes.robkit.localhost:3443"),
       ),
     ).toEqual([bookClub, Family, Friends]);
   });

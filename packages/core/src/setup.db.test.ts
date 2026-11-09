@@ -43,17 +43,23 @@ describe("POST /setup", () => {
   });
 
   it.each([
-    ["http://core.robkit.localhost:3000", undefined],
-    ["http://core.localhost:3000", undefined],
-    ["https://core.robkit.test", true],
-    ["https://core.notlocalhost.example", true],
-  ])("on %s, marks the cookie Secure: %s", async (origin, secure) => {
-    const { app } = await freshCore({ origin });
+    ["http://core.robkit.localhost:3000", "robkit_session", undefined],
+    ["http://core.localhost:3000", "robkit_session", undefined],
+    ["https://core.robkit.test", "__Host-robkit_session", true],
+    ["https://core.robkit.localhost:3443", "__Host-robkit_session", true],
+    ["https://core.notlocalhost.example", "__Host-robkit_session", true],
+  ])(
+    "on %s, names the cookie %s and marks it Secure: %s",
+    async (origin, name, secure) => {
+      const { app } = await freshCore({ origin });
 
-    const res = await postJson(app, "/setup", rob);
+      const res = await postJson(app, "/setup", rob);
 
-    expect(sessionCookieOf(res)?.attributes.Secure).toBe(secure);
-  });
+      const [cookie = ""] = res.headers.getSetCookie();
+      expect(cookie.split("=")[0]).toBe(name);
+      expect(sessionCookieOf(res, origin)?.attributes.Secure).toBe(secure);
+    },
+  );
 
   it("signs the cookie's session token with the key in the JWKS", async () => {
     const { app } = await freshCore();
