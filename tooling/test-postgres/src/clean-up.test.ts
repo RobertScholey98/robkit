@@ -1,6 +1,10 @@
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
+import { existsSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
@@ -47,8 +51,9 @@ async function eventually(check: () => Promise<boolean> | boolean) {
 }
 
 describe("removeWhenGone", () => {
-  it("removes a killed test's containers, images and every process it tagged", async () => {
+  it("removes a killed test's containers, images, temp folders and every process it tagged", async () => {
     const prefix = `robkit-test-gone${randomBytes(3).toString("hex")}`;
+    const folder = await mkdtemp(join(tmpdir(), "robkit-test-gone-"));
     // A stand-in for a test worker. It starts a container, and a tagged
     // parent that starts an app in a session of its own and then dies, as
     // robkit-dev can when its worker is killed. Then it waits to be killed.
@@ -71,7 +76,11 @@ describe("removeWhenGone", () => {
         );
         const [app] = await once(parent.stdout, "data");
         await once(parent, "exit");
-        removeWhenGone({ tagged: tag }, { docker: ${JSON.stringify(prefix)} });
+        removeWhenGone(
+          { tagged: tag },
+          { docker: ${JSON.stringify(prefix)} },
+          { path: ${JSON.stringify(folder)} },
+        );
         console.log(String(app).trim());
         setInterval(() => {}, 1000);
         `,
@@ -90,6 +99,7 @@ describe("removeWhenGone", () => {
     await eventually(async () => (await containerNames(prefix)).length === 0);
     await eventually(async () => (await imageNames(prefix)).length === 0);
     await eventually(() => !alive(app));
+    await eventually(() => !existsSync(folder));
   });
 });
 

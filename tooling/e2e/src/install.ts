@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { init, readyStacks, type Choices, type Stack } from "create-robkit";
 import type { TestProject } from "vitest/node";
+import { removeWhenGone } from "@internal/test-postgres";
 import { slug } from "@internal/test-session";
 
 const run = promisify(execFile);
@@ -55,6 +56,8 @@ declare module "vitest" {
  */
 export async function createInstall(choices: Choices): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
+  // Its teardown removes it too, but not when the run is killed.
+  removeWhenGone({ path: dir });
   await init(choices, dir, { link: true, install: true });
   const other = addedStackFor(choices.exampleStack);
   await run(
