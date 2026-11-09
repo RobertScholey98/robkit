@@ -3,6 +3,7 @@ import {
   conformanceAnswer,
   fakeCore,
   owner,
+  type FakeCore,
   stateIn,
   slug,
 } from "@internal/test-session";
@@ -13,10 +14,16 @@ import { guarded, type GuardedOptions } from "./index.ts";
 // requestGuard's own tests cover the guard. These cover the Start glue: the
 // guard's answer goes out as is, and Start gets the viewer as context.
 
-const page = "http://start.robkit.localhost:3000/notes?x=1";
-const serverFn = "http://start.robkit.localhost:3000/_serverFn/abc";
 const navigate = { "sec-fetch-mode": "navigate" };
 const minute = 60;
+
+/** `path` on the app the tests guard, beside `core` on its port. */
+function on(core: FakeCore, path = "/notes?x=1"): string {
+  return new URL(
+    path,
+    `http://start.robkit.localhost:${new URL(core.origin).port}`,
+  ).href;
+}
 
 /**
  * Asks the guarded entry for `url`. Start behind it answers with the context
@@ -33,6 +40,7 @@ function open(options: GuardedOptions, url: string, init: RequestInit = {}) {
 describe("guarded", () => {
   it.each(conformanceCases)("$name", async (asking) => {
     const core = await fakeCore();
+    const page = on(core);
 
     const res = await open(
       { app: slug("start"), access: asking.rule, core: core.origin },
@@ -65,7 +73,7 @@ describe("guarded", () => {
 
     const res = await open(
       { app: slug("start"), access: { kind: "owner" }, core: core.origin },
-      serverFn,
+      on(core, "/_serverFn/abc"),
       {
         method: "POST",
         headers: {
@@ -88,7 +96,7 @@ describe("guarded", () => {
 
     const res = await open(
       { app: slug("start"), access: { kind: "owner" }, core: core.origin },
-      serverFn,
+      on(core, "/_serverFn/abc"),
       {
         method: "POST",
         headers: {
@@ -110,6 +118,7 @@ describe("guarded", () => {
       access: { kind: "owner" },
       core: core.origin,
     } as const;
+    const page = on(core);
     const away = await open(options, page, { headers: navigate });
     const [state] = away.headers.getSetCookie();
 

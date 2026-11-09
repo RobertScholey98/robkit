@@ -4,12 +4,16 @@ import { conformanceCases } from "@robkit/guard/conformance";
 import { createLocalJWKSet, decodeJwt, jwtVerify } from "jose";
 import { describe, expect, it } from "vitest";
 import {
+  addressAnswer,
+  addressCases,
+  addressCookie,
   aRoleId,
   callbackFor,
   conformanceAnswer,
   fakeCore,
   guest,
   owner,
+  readRequestCases,
   refreshLocation,
   signedOutCookie,
   signingKey,
@@ -180,6 +184,16 @@ describe("fakeCore", () => {
     expect(unknown).toEqual({ status: 404, body: { error: "Not found" } });
   });
 
+  it("names a page on the app under test, beside core on its port", async () => {
+    const core = await fakeCore();
+    const { port } = new URL(core.origin);
+
+    expect([core.hub, core.page]).toEqual([
+      `http://hub.robkit.localhost:${port}`,
+      `http://example.robkit.localhost:${port}/notes?x=1`,
+    ]);
+  });
+
   it("answers every request with the status it's set to fail with", async () => {
     const core = await fakeCore();
     core.rules.example = { kind: "open" };
@@ -263,5 +277,77 @@ describe("callbackFor", () => {
     ).toBe(
       "http://example.robkit.localhost:3000/_robkit/session?next=http%3A%2F%2Fexample.robkit.localhost%3A3000%2Fnotes%3Fx%3D1&state=s&token=t",
     );
+  });
+});
+
+describe("addressCases", () => {
+  const row = {
+    name: "a case",
+    core: "https://core.robkit.dev",
+    target: "/notes",
+    headers: { host: "evil.com" },
+    next: "https://example.robkit.dev/notes",
+  };
+
+  it("reads every address row of request-cases.json", () => {
+    expect(addressCases.length).toBeGreaterThan(0);
+  });
+
+  it("reads a row, taking a left-out signedOut as false", () => {
+    expect(readRequestCases({ address: [row] })).toEqual({
+      address: [{ ...row, signedOut: false }],
+    });
+  });
+
+  it.each([
+    [
+      "has no address list",
+      [row],
+      'request-cases.json must be an object with an "address" list of cases, but it holds [{',
+    ],
+    [
+      "holds a row that isn't an object",
+      { address: ["row"] },
+      "request-cases.json address[0] must be an object.",
+    ],
+    [
+      "holds a row with a header that isn't a string",
+      { address: [{ ...row, headers: { host: 1 } }] },
+      "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
+    ],
+    [
+      "holds a row whose signedOut isn't true or false",
+      { address: [{ ...row, signedOut: "yes" }] },
+      "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
+    ],
+  ])("refuses a file that %s", (_, value, message) => {
+    expect(() => readRequestCases(value)).toThrow(message);
+  });
+
+  it("sends a browser that holds nothing to core, and a signed-out one to the hub", () => {
+    const [holdsNothing, signedOut] = readRequestCases({
+      address: [row, { ...row, signedOut: true }],
+    }).address;
+    if (!holdsNothing || !signedOut) throw new Error("Two rows went in.");
+
+    expect({
+      core: [addressCookie(holdsNothing), addressAnswer(holdsNothing)],
+      hub: [addressCookie(signedOut), addressAnswer(signedOut)],
+    }).toEqual({
+      core: [
+        {},
+        {
+          status: 302,
+          location: refreshLocation(row.next, { origin: row.core }),
+        },
+      ],
+      hub: [
+        { cookie: signedOutCookie() },
+        {
+          status: 302,
+          location: `https://hub.robkit.dev/?next=${encodeURIComponent(row.next)}`,
+        },
+      ],
+    });
   });
 });
