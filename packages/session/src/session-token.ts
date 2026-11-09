@@ -150,17 +150,6 @@ export async function readAppToken(
 }
 
 /**
- * Every session cookie's value a request's `Cookie` header carries, in the
- * order it sends them. A browser can hold more than one: a host-only cookie,
- * and one an older robkit set on the parent domain.
- */
-export function sessionTokensIn(
-  cookieHeader: string | null | undefined,
-): string[] {
-  return cookieValues(cookieHeader, sessionCookie);
-}
-
-/**
  * Spaces and tabs, the only whitespace a `Cookie` header puts around a
  * name or a value.
  */

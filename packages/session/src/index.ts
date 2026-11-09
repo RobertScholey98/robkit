@@ -4,14 +4,17 @@ export {
   readSessionToken,
   sessionCookie,
   sessionTokenLifetimeSeconds,
-  sessionTokensIn,
   type ReadAppToken,
   type ReadSessionToken,
   type SessionTokenClaims,
   type VerifyKey,
   type ViewerClaims,
 } from "./session-token.ts";
-export { sessionCookies, type SessionCookies } from "./session-cookies.ts";
+export {
+  sessionCookies,
+  sessionTokensIn,
+  type SessionCookies,
+} from "./session-cookies.ts";
 export type { AccessRuleFailure } from "./core-access.ts";
 export {
   appOrigin,

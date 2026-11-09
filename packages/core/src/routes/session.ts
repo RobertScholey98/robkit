@@ -36,7 +36,7 @@ function tooManyAttempts(c: Context, retryAfter: number): Response {
  */
 export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   const { db, install, now, signingKey, trustedProxy } = context;
-  const { domain } = install;
+  const origin = install.origin("core");
   const routes = new Hono<CoreEnv>();
   const loginLimiter = createRateLimiter({
     limit: 5,
@@ -119,7 +119,7 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     if (claim.outcome === "taken") {
       return c.json({ error: "This install already has an owner." }, 409);
     }
-    setSessionCookie(c, domain, claim.sessionToken);
+    setSessionCookie(c, origin, claim.sessionToken);
     return c.json<SessionAnswer>(
       { state: "signed-in", profile: claim.profile },
       201,
@@ -150,7 +150,7 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
       return c.json({ error: "Wrong username or password." }, 401);
     }
     loginLimiter.clear(client);
-    setSessionCookie(c, domain, result.sessionToken);
+    setSessionCookie(c, origin, result.sessionToken);
     return c.json<SessionAnswer>({
       state: "signed-in",
       profile: result.profile,
@@ -180,7 +180,7 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
       codeLimiter.fail(client);
       return c.json({ error: "That code doesn't work." }, 401);
     }
-    setSessionCookie(c, domain, result.sessionToken);
+    setSessionCookie(c, origin, result.sessionToken);
     return c.json<SessionAnswer>({
       state: "signed-in",
       profile: result.profile,
@@ -189,8 +189,8 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
 
   // The hub sends no body here, so none is read.
   routes.post("/logout", async (c) => {
-    await signOut(context, sessionTokensIn(c.req.header("cookie")));
-    setSessionCookie(c, domain, "", 0);
+    await signOut(context, sessionTokensIn(c.req.header("cookie"), origin));
+    setSessionCookie(c, origin, "", 0);
     return c.body(null, 204);
   });
 

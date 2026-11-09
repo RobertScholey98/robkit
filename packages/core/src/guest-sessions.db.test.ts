@@ -101,7 +101,7 @@ describe("a guest's session", () => {
   it("on the test code ends once the install leaves its local domain", async () => {
     const local = await freshCore({
       apps: ["notes"],
-      origin: "http://core.robkit.localhost:3000",
+      origin: "https://core.robkit.localhost:3443",
     });
     await claim(local.app);
     const signIn = await postJson(local.app, "/login/code", { code: "TEST" });

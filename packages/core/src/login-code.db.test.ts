@@ -101,7 +101,7 @@ describe("POST /login/code", () => {
     const { app } = await freshCore({
       origin: "http://core.robkit.localhost:3000",
     });
-    await claim(app);
+    await claim(app, "http://core.robkit.localhost:3000");
 
     const res = await signInWith(app, "test");
 
@@ -159,7 +159,7 @@ describe("POST /login/code", () => {
       const { app } = await freshCore({
         origin: "http://core.robkit.localhost:3000",
       });
-      await claim(app);
+      await claim(app, "http://core.robkit.localhost:3000");
 
       const res = await postJson(app, "/login/code", body);
 

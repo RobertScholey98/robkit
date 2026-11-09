@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sessionCookieOn } from "@internal/test-session";
-import { sessionCookies } from "./index.ts";
+import { sessionCookies, sessionTokensIn } from "./index.ts";
 
 const hostOnly = { path: "/", httpOnly: true, sameSite: "Lax" } as const;
 
@@ -38,5 +38,34 @@ describe("the test fakes' copy of the session cookie's name", () => {
     "http://core.robkit.localhost:3000",
   ])("agrees with sessionCookies on %s", (origin) => {
     expect(sessionCookieOn(origin)).toBe(sessionCookies(origin).session);
+  });
+});
+
+describe("sessionTokensIn", () => {
+  it("lists every session cookie a request to an https install sends, in order, under the __Host- name alone", () => {
+    expect(
+      sessionTokensIn(
+        "robkit_session=x.y.z; __Host-robkit_session=a.b.c; theme=dark;__Host-robkit_session = d.e.f",
+        "https://core.robkit.dev",
+      ),
+    ).toEqual(["a.b.c", "d.e.f"]);
+  });
+
+  it("reads the plain name alone on an http install", () => {
+    expect(
+      sessionTokensIn(
+        "__Host-robkit_session=x.y.z; robkit_session=a.b.c",
+        "http://core.robkit.localhost:3000",
+      ),
+    ).toEqual(["a.b.c"]);
+  });
+
+  it("lists none without a cookie header", () => {
+    const origin = "https://core.robkit.dev";
+
+    expect([
+      sessionTokensIn(null, origin),
+      sessionTokensIn("theme=dark", origin),
+    ]).toEqual([[], []]);
   });
 });

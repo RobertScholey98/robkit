@@ -1,6 +1,6 @@
 import { generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { describe, expect, it } from "vitest";
-import { readAppToken, readSessionToken, sessionTokensIn } from "./index.ts";
+import { readAppToken, readSessionToken } from "./index.ts";
 import { slug } from "@internal/test-session";
 
 const notes = slug("notes");
@@ -243,22 +243,5 @@ describe("readAppToken", () => {
         notes,
       ),
     ).toBeUndefined();
-  });
-});
-
-describe("sessionTokensIn", () => {
-  it("lists every session cookie a request sends, in order", () => {
-    expect(
-      sessionTokensIn(
-        "theme=dark; robkit_session=a.b.c; other=1;robkit_session = d.e.f",
-      ),
-    ).toEqual(["a.b.c", "d.e.f"]);
-  });
-
-  it("lists none without a cookie header", () => {
-    expect([sessionTokensIn(null), sessionTokensIn("theme=dark")]).toEqual([
-      [],
-      [],
-    ]);
   });
 });

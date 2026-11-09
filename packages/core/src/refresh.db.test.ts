@@ -12,6 +12,7 @@ import {
   clockStart,
   freshCore,
   resigned,
+  defaultOrigin,
   sessionCookieOf,
   withSession,
 } from "./test/fresh-app.ts";
@@ -24,13 +25,14 @@ function refresh(
   app: Hono,
   next: string | undefined,
   sessionToken?: string,
+  origin = defaultOrigin,
   query = `&state=${state}`,
 ) {
   const nextQuery =
     next === undefined ? "" : `next=${encodeURIComponent(next)}`;
   return Promise.resolve(
     app.request(`/refresh?${nextQuery}${query}`, {
-      headers: sessionToken ? withSession(sessionToken) : {},
+      headers: sessionToken ? withSession(sessionToken, origin) : {},
     }),
   );
 }
@@ -191,10 +193,11 @@ describe("GET /refresh", () => {
       apps: ["notes"],
       origin: "http://core.robkit.localhost:3000",
     });
-    const sessionToken = await claim(app);
+    const core = "http://core.robkit.localhost:3000";
+    const sessionToken = await claim(app, core);
     const local = "http://notes.robkit.localhost:3000/";
 
-    const res = await refresh(app, local, sessionToken);
+    const res = await refresh(app, local, sessionToken, core);
 
     expect(callbackOf(res)).toMatchObject({
       callback: "http://notes.robkit.localhost:3000/_robkit/session",
@@ -221,9 +224,9 @@ describe("GET /refresh", () => {
     ],
   ])("mints a token for %s", async (_, origin, next) => {
     const { app } = await freshCore({ apps: ["notes"], origin });
-    const sessionToken = await claim(app);
+    const sessionToken = await claim(app, origin);
 
-    const res = await refresh(app, next, sessionToken);
+    const res = await refresh(app, next, sessionToken, origin);
 
     expect(res.status).toBe(302);
     expect(callbackOf(res).next).toBe(next);
@@ -273,9 +276,9 @@ describe("GET /refresh", () => {
     ],
   ])("refuses %s with 400 and no cookie", async (_, origin, next) => {
     const { app } = await freshCore({ apps: ["notes"], origin });
-    const sessionToken = await claim(app);
+    const sessionToken = await claim(app, origin);
 
-    const res = await refresh(app, next, sessionToken);
+    const res = await refresh(app, next, sessionToken, origin);
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({

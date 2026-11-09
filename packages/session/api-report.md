@@ -89,6 +89,7 @@ export type SessionTokenClaims = ViewerClaims & {
 export const sessionTokenLifetimeSeconds: number;
 export function sessionTokensIn(
   cookieHeader: string | null | undefined,
+  origin: string,
 ): string[];
 export type VerifyKey = CryptoKey | JWTVerifyGetKey;
 export type ViewerClaims =

@@ -1,4 +1,4 @@
-import { sessionCookie } from "./session-token.ts";
+import { cookieValues, sessionCookie } from "./session-token.ts";
 
 /** The guard's state cookie's name, before any prefix. */
 const stateCookie = "robkit_state";
@@ -38,4 +38,15 @@ export function sessionCookies(origin: string): SessionCookies {
     state: `${prefix}${stateCookie}`,
     attributes: { path: "/", httpOnly: true, sameSite: "Lax", secure },
   };
+}
+
+/**
+ * Every session token a `Cookie` header carries to the install at
+ * `origin`, in the order it sends them, under that install's name alone.
+ */
+export function sessionTokensIn(
+  cookieHeader: string | null | undefined,
+  origin: string,
+): string[] {
+  return cookieValues(cookieHeader, sessionCookies(origin).session);
 }

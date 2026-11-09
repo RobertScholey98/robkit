@@ -99,6 +99,17 @@ describe("GET /session", () => {
     },
   );
 
+  it("treats a request to an https core that carries only the plain-named cookie as carrying none", async () => {
+    const { app } = await freshCore();
+    const sessionToken = await claim(app);
+
+    const res = await app.request("/session", {
+      headers: { cookie: `robkit_session=${sessionToken}` },
+    });
+
+    expect(await res.json()).toEqual({ state: "signed-out" });
+  });
+
   it("finds core's own token among the cookies a browser sends", async () => {
     const { app, db } = await freshCore();
     const sessionToken = await claim(app);
