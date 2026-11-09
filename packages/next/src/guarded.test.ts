@@ -1,4 +1,7 @@
 import {
+  addressAnswer,
+  addressCases,
+  addressCookie,
   aRoleId,
   callbackFor,
   conformanceAnswer,
@@ -10,6 +13,7 @@ import {
   stateIn,
 } from "@internal/test-session";
 import { conformanceCases } from "@robkit/guard/conformance";
+import { orThrow, readCoreUrl } from "@robkit/input";
 import { readSessionLapsed } from "@robkit/session/lapsed";
 import { NextRequest } from "next/server.js";
 import { describe, expect, it, vi } from "vitest";
@@ -26,6 +30,10 @@ vi.mock("next/headers.js", async () => {
 });
 
 const example = slug("example");
+
+/** `url` read as core's origin, for a test that names one. */
+const coreOrigin = (url: string) =>
+  orThrow(readCoreUrl({ ROBKIT_CORE_URL: url }));
 
 // requestGuard's own tests cover the guard. These cover the Next glue: the
 // guard's answer goes out as is, and pages, route handlers and server
@@ -158,7 +166,7 @@ describe("guarded", () => {
     );
   });
 
-  it("sends a server action back to the page over https when the proxy in front says so", async () => {
+  it("keeps a server action on the app's origin when a request says https", async () => {
     const core = await fakeCore();
     const proxy = guarded({
       app: example,
@@ -177,9 +185,8 @@ describe("guarded", () => {
       },
     });
 
-    const secure = core.page.replace("http:", "https:");
     expect(res.headers.get("x-action-redirect")).toBe(
-      `${new URL("/_robkit/refresh", secure).href}?next=${encodeURIComponent(secure)};push`,
+      `${new URL("/_robkit/refresh", core.page).href}?next=${encodeURIComponent(core.page)};push`,
     );
   });
 
@@ -235,18 +242,24 @@ describe("guarded", () => {
     expect(await res.json()).toEqual(owner);
   });
 
-  it("refuses a request that names no host", async () => {
-    const core = await fakeCore();
-    const proxy = guarded({ app: example, core: core.origin });
+  it.each(addressCases)("$name", async (asking) => {
+    const proxy = guarded({
+      app: example,
+      access: { kind: "owner" },
+      core: coreOrigin(asking.core),
+    });
 
+    // Next hands the proxy a URL on its own host and port.
     const res = await proxy(
-      new NextRequest("http://localhost:3001/", { headers: navigate }),
+      new NextRequest(`http://localhost:3001${asking.target}`, {
+        headers: { ...navigate, ...asking.headers, ...addressCookie(asking) },
+      }),
     );
 
-    expect([res.status, await res.text()]).toEqual([
-      400,
-      "Send a Host header.",
-    ]);
+    expect({
+      status: res.status,
+      location: res.headers.get("location"),
+    }).toEqual(addressAnswer(asking));
   });
 
   it("replaces a viewer the request came with by the guard's own", async () => {

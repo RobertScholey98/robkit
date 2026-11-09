@@ -115,6 +115,7 @@ export function requestGuard(
 ): (request: Request) => Promise<RequestDecision> {
   const { app, access, onUnavailable = reportFault } = options;
   const install = coreInstall(options.core);
+  const origin = appOrigin(options);
   const core = install.origin("core");
   const hub = install.origin("hub");
   const ruleOf = access ? () => Promise.resolve(access) : coreAccess(core, app);
@@ -189,7 +190,7 @@ export function requestGuard(
   };
 
   return async (request) => {
-    const url = publicUrl(request);
+    const url = publicUrl(request, origin);
     const own = await protocol.answer(request, url);
     if (own) return { outcome: "answer", response: own };
 

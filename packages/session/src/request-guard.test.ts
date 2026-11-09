@@ -1,4 +1,7 @@
 import {
+  addressAnswer,
+  addressCases,
+  addressCookie,
   aRoleId,
   callbackFor,
   conformanceAnswer,
@@ -137,7 +140,7 @@ describe("requestGuard, on a page load", () => {
     expect(away.outcome === "answer" && away.response.status).toBe(302);
   });
 
-  it("keeps the public scheme the proxy saw, and sets Secure cookies off localhost", async () => {
+  it("keeps an https install's pages on https, and sets Secure cookies off localhost", async () => {
     const check = requestGuard({
       app: slug("notes"),
       access: { kind: "owner" },
@@ -145,9 +148,7 @@ describe("requestGuard, on a page load", () => {
     });
 
     const decision = await check(
-      new Request("http://notes.example.com/", {
-        headers: { ...navigate, "x-forwarded-proto": "https" },
-      }),
+      new Request("http://notes.example.com/", { headers: navigate }),
     );
 
     const res = decision.outcome === "answer" ? decision.response : undefined;
@@ -174,6 +175,32 @@ describe("requestGuard, on a page load", () => {
       302,
       `${core.hub}/?next=${encodeURIComponent(core.page)}`,
     ]);
+  });
+});
+
+describe("requestGuard, on the app's own address", () => {
+  it.each(addressCases)("$name", async (asking) => {
+    const check = requestGuard({
+      app: example,
+      access: { kind: "owner" },
+      core: coreOrigin(asking.core),
+    });
+    // A server builds the request's URL from its Host, as Hono's and
+    // Start's do, or from its own name when there is none.
+    const { host = "" } = asking.headers;
+    const server = host === "" ? "localhost" : host;
+
+    const decision = await check(
+      new Request(`http://${server}${asking.target}`, {
+        headers: { ...navigate, ...asking.headers, ...addressCookie(asking) },
+      }),
+    );
+
+    const res = decision.outcome === "answer" ? decision.response : undefined;
+    expect({
+      status: res?.status,
+      location: res?.headers.get("location"),
+    }).toEqual(addressAnswer(asking));
   });
 });
 
@@ -504,7 +531,7 @@ describe("requestGuard, with core's keys", () => {
 
     expect([res.status, res.headers.get("location")]).toEqual([
       302,
-      refreshLocation(attacked, core),
+      refreshLocation(new URL("/", core.page).href, core),
     ]);
     expect(attacker.fetched).toEqual([]);
     expect(core.fetched).toHaveLength(1);

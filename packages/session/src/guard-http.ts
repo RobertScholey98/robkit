@@ -1,9 +1,12 @@
-/** The URL the browser asked for, as it saw it in front of the proxy. */
-export function publicUrl(request: Request): URL {
-  const url = new URL(request.url);
-  const proto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
-  if (proto === "https" || proto === "http") url.protocol = `${proto}:`;
-  return url;
+/**
+ * The page the browser asked for: the app's own origin, from its settings,
+ * plus the request's path and query. Nothing in the request decides the
+ * origin, so a proxy hop that rewrites Host or X-Forwarded-Proto changes
+ * nothing.
+ */
+export function publicUrl(request: Request, origin: string): URL {
+  const { pathname, search } = new URL(request.url);
+  return new URL(`${origin}${pathname}${search}`);
 }
 
 /**
