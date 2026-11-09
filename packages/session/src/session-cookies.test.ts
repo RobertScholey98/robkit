@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { sessionCookieOn } from "@internal/test-session";
 import { sessionCookies } from "./index.ts";
 
 const hostOnly = { path: "/", httpOnly: true, sameSite: "Lax" } as const;
@@ -25,5 +26,17 @@ describe("sessionCookies", () => {
       sessionCookies("https://notes.robkit.localhost:3443").session,
       sessionCookies("http://notes.example.com").session,
     ]).toEqual(["__Host-robkit_session", "robkit_session"]);
+  });
+});
+
+describe("the test fakes' copy of the session cookie's name", () => {
+  // @internal/test-session can't import this package, whose tests use it,
+  // so it writes the names out. This fails if the two ever disagree.
+  it.each([
+    "https://core.robkit.dev",
+    "https://core.robkit.localhost:3443",
+    "http://core.robkit.localhost:3000",
+  ])("agrees with sessionCookies on %s", (origin) => {
+    expect(sessionCookieOn(origin)).toBe(sessionCookies(origin).session);
   });
 });
