@@ -1,8 +1,8 @@
-# 17: `pnpm dev` on native Windows
+# 21: `pnpm dev` on native Windows
 
 **What to build:** An install runs on Linux, macOS, or WSL on Windows. On native Windows `pnpm dev` fails: the runner spawns `pnpm` without a shell, stops apps by process group, and some template scripts use POSIX forms. Docker Desktop runs the same Compose file on Windows, so Postgres isn't the obstacle.
 
-**Blocked by:** 15
+**Blocked by:** 16
 
 **Status:** needs-info
 

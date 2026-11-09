@@ -28,7 +28,7 @@ Notes from ticket 19:
 
 - The names stay `create-robkit` and `@robkit/*`. Both are free on npm, and the licence is MIT, as `LICENSE` says.
 - Every package releases at one version, and the first release is 0.1.0.
-- The release is a workflow someone starts by hand. Everything up to the publish gets built and tested from a local registry; R adds the npm token and triggers the first release.
+- Versions change through a pull request, and the publish is a workflow someone starts by hand. Everything up to the publish gets built and tested from a local registry; R adds the npm token and triggers the first release.
 - An install exempts `@robkit/*` and `create-robkit` from pnpm's one-day rule, so an install made on release day installs.
 
-The work is [just-use-it ticket 12](../../just-use-it/issues/12-create-robkit-outside-the-checkout.md) (create-robkit outside the checkout, an install from a registry) and [ticket 13](../../just-use-it/issues/13-release-workflow.md) (the release workflow). Ticket 13 closes this one.
+The work is [just-use-it ticket 13](../../just-use-it/issues/13-create-robkit-outside-the-checkout.md) (create-robkit outside the checkout, an install from a registry) and [ticket 14](../../just-use-it/issues/14-release-workflow.md) (the release workflow). Ticket 14 closes this one.

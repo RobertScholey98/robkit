@@ -1,4 +1,4 @@
-# 22: The templates, finished
+# 27: The templates, finished
 
 **What to build:** The templates are what an owner gets and reads first. The review found small faults across them that a careful reader would take as a sign of the rest ([review](../research/review-2026-11-09.md), "Templates").
 
@@ -7,10 +7,9 @@
 - **Error states.** The Go page shows a message when `/api/me` fails. Start's button handles a failed call and can't submit twice. Admin's copy button handles a refused clipboard and clears its timer. Each call from a page has a deadline, as the conventions ask.
 - **The Go server.** `GET /assets/` answers the page or a 404, never a folder listing.
 - **turbo.** The install's `turbo.json` makes an app's tasks depend on the shared packages it uses, so a change to `packages/theme` or `packages/core-client` isn't answered from cache.
-- **`.dockerignore`.** It leaves out `.env` files in any folder.
-- **Tests.** The hub's sign-in, `next` and intro-link flows, and admin's "Save access", revoke and copy, have unit tests. Each Node stack's template has at least one test of its own page, as the Go stack does.
+- **Tests.** The hub's sign-in, `next` and intro-link flows, and admin's "Save access", revoke and copy, have unit tests. Each stack's own page test comes from ticket 08.
 
-**Blocked by:** 07, 08, 09, 10
+**Blocked by:** 06, 08, 11, 23
 
 **Status:** ready-for-agent
 
