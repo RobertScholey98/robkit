@@ -23,10 +23,22 @@ import {
   type RouteContext,
 } from "./context.ts";
 
+/** `count` of `unit`, as a person reads it: "1 second", "15 minutes". */
+function plural(count: number, unit: string): string {
+  return count === 1 ? `1 ${unit}` : `${String(count)} ${unit}s`;
+}
+
+/**
+ * A 429 that says when to come back, in at least 1 second. A wait under a
+ * minute reads in seconds, so a 1-second wait doesn't say "1 minute".
+ */
 function tooManyAttempts(c: Context, retryAfter: number): Response {
-  const minutes = Math.ceil(retryAfter / 60);
-  const wait = minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;
-  c.header("Retry-After", String(retryAfter));
+  const seconds = Math.max(1, retryAfter);
+  const wait =
+    seconds < 60
+      ? plural(seconds, "second")
+      : plural(Math.ceil(seconds / 60), "minute");
+  c.header("Retry-After", String(seconds));
   return c.json({ error: `Too many attempts. Try again in ${wait}.` }, 429);
 }
 
