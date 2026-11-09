@@ -5,6 +5,9 @@ import {
   aRoleId,
   callbackFor,
   conformanceAnswer,
+  cookieAnswer,
+  cookieCases,
+  cookieRequest,
   fakeCore,
   guest,
   owner,
@@ -258,6 +261,33 @@ describe("requestGuard, on the app's own address", () => {
       status: res?.status,
       location: res?.headers.get("location"),
     }).toEqual(addressAnswer(asking));
+  });
+});
+
+describe("requestGuard, on the cookies a request carries", () => {
+  it.each(cookieCases)("$name", async (asking) => {
+    const check = requestGuard({
+      app: example,
+      access: { kind: "open" },
+      core: coreOrigin(asking.core),
+    });
+    const { page, cookie } = cookieRequest(asking);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime((asking.now + 1) * 1000);
+
+    const decision = await check(
+      new Request(page, { headers: { ...navigate, cookie } }),
+    );
+
+    const res =
+      decision.outcome === "answer"
+        ? decision.response
+        : Response.json(decision.viewer);
+    expect({
+      status: res.status,
+      location: res.headers.get("location"),
+      viewer: res.status === 200 ? await res.json() : undefined,
+    }).toEqual(cookieAnswer(asking));
   });
 });
 

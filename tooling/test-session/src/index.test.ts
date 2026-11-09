@@ -7,6 +7,9 @@ import {
   addressAnswer,
   addressCases,
   addressCookie,
+  cookieAnswer,
+  cookieCases,
+  cookieRequest,
   aRoleId,
   callbackFor,
   conformanceAnswer,
@@ -313,30 +316,36 @@ describe("addressCases", () => {
   });
 
   it("reads a row, taking a left-out signedOut as false", () => {
-    expect(readRequestCases({ address: [row] })).toEqual({
+    expect(readRequestCases({ address: [row], cookies: [] })).toEqual({
       address: [{ ...row, signedOut: false }],
+      cookies: [],
     });
   });
 
   it.each([
     [
+      "isn't an object",
+      "cases",
+      'request-cases.json must be an object with a "address" list of cases, but it holds "cases".',
+    ],
+    [
       "has no address list",
-      [row],
-      'request-cases.json must be an object with an "address" list of cases, but it holds [{',
+      { cookies: [] },
+      'request-cases.json must be an object with a "address" list of cases, but it holds {"cookies":[]}.',
     ],
     [
       "holds a row that isn't an object",
-      { address: ["row"] },
+      { address: ["row"], cookies: [] },
       "request-cases.json address[0] must be an object.",
     ],
     [
       "holds a row with a header that isn't a string",
-      { address: [{ ...row, headers: { host: 1 } }] },
+      { address: [{ ...row, headers: { host: 1 } }], cookies: [] },
       "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
     ],
     [
       "holds a row whose signedOut isn't true or false",
-      { address: [{ ...row, signedOut: "yes" }] },
+      { address: [{ ...row, signedOut: "yes" }], cookies: [] },
       "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
     ],
   ])("refuses a file that %s", (_, value, message) => {
@@ -346,6 +355,7 @@ describe("addressCases", () => {
   it("sends a browser that holds nothing to core, and a signed-out one to the hub", () => {
     const [holdsNothing, signedOut] = readRequestCases({
       address: [row, { ...row, signedOut: true }],
+      cookies: [],
     }).address;
     if (!holdsNothing || !signedOut) throw new Error("Two rows went in.");
 
@@ -368,5 +378,76 @@ describe("addressCases", () => {
         },
       ],
     });
+  });
+});
+
+describe("cookieCases", () => {
+  const row = {
+    name: "a case",
+    core: "https://core.robkit.dev",
+    cookie: "c2a0 5f5f 3d 78",
+    now: 1798761600,
+    reads: false,
+  };
+  const read = (cookies: unknown[]) =>
+    readRequestCases({ address: [], cookies }).cookies;
+
+  it("reads every cookie row of request-cases.json", () => {
+    expect(cookieCases.length).toBeGreaterThan(0);
+  });
+
+  it("reads a row's cookie from hex as bytes, ignoring spaces", () => {
+    expect(read([row])).toEqual([
+      { ...row, cookie: Uint8Array.from([0xc2, 0xa0, 0x5f, 0x5f, 0x3d, 0x78]) },
+    ]);
+  });
+
+  it.each([
+    ["has no cookies list", { address: [] }, 'a "cookies" list of cases'],
+    [
+      "holds a row that isn't an object",
+      { address: [], cookies: [1] },
+      "cookies[0] must be an object.",
+    ],
+    ...[
+      { cookie: "c2a" },
+      { cookie: "zz" },
+      { cookie: 12 },
+      { now: 1.5 },
+      { reads: "no" },
+      { name: 1 },
+    ].map((change): [string, unknown, string] => [
+      `holds a row with ${JSON.stringify(change)}`,
+      { address: [], cookies: [{ ...row, ...change }] },
+      "cookies[0] needs a name and core as strings, cookie as bytes in hex, now as whole seconds, and reads as true or false.",
+    ]),
+  ])("refuses a file that %s", (_, value, message) => {
+    expect(() => readRequestCases(value)).toThrow(message);
+  });
+
+  it("hands the cookie on as Node's server does, each byte as a Latin-1 character", () => {
+    const [asking] = read([{ ...row, cookie: "c2a0 e28080 41" }]);
+    if (!asking) throw new Error("One row went in.");
+
+    expect(cookieRequest(asking)).toEqual({
+      page: "https://example.robkit.dev/",
+      cookie: "Â âA",
+    });
+  });
+
+  it("lets a browser whose cookie the guard reads in as nobody, and sends any other to core", () => {
+    const [ignored, readIt] = read([row, { ...row, reads: true }]);
+    if (!ignored || !readIt) throw new Error("Two rows went in.");
+
+    expect([cookieAnswer(readIt), cookieAnswer(ignored)]).toEqual([
+      { status: 200, location: null, viewer: { kind: "nobody" } },
+      {
+        status: 302,
+        location: refreshLocation("https://example.robkit.dev/", {
+          origin: "https://core.robkit.dev",
+        }),
+        viewer: undefined,
+      },
+    ]);
   });
 });

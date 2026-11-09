@@ -160,7 +160,19 @@ export function sessionTokensIn(
   return cookieValues(cookieHeader, sessionCookie);
 }
 
-/** Every value of the cookie `name` a `Cookie` header carries, in order. */
+/**
+ * Spaces and tabs, the only whitespace a `Cookie` header puts around a
+ * name or a value.
+ */
+const spacesAndTabs = /^[ \t]+|[ \t]+$/g;
+
+/**
+ * Every value of the cookie `name` a `Cookie` header carries, in order. A
+ * name matches only when it is `name` exactly once spaces and tabs around it
+ * are trimmed. Trimming more would let a sibling app plant a cookie whose
+ * name starts with another space, which a browser doesn't read as
+ * `__Host-` and so lets it set with a `Domain`.
+ */
 export function cookieValues(
   cookieHeader: string | null | undefined,
   name: string,
@@ -168,7 +180,9 @@ export function cookieValues(
   const values: string[] = [];
   for (const pair of cookieHeader?.split(";") ?? []) {
     const [key, ...value] = pair.split("=");
-    if (key?.trim() === name) values.push(value.join("=").trim());
+    if (key?.replace(spacesAndTabs, "") === name) {
+      values.push(value.join("=").replace(spacesAndTabs, ""));
+    }
   }
   return values;
 }

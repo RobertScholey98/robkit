@@ -5,14 +5,16 @@ import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
-import type { AddressCase } from "./request-cases.ts";
+import type { AddressCase, CookieCase } from "./request-cases.ts";
 import { aViewer } from "./brands.ts";
 import { listeningPort } from "./known.ts";
 
 export {
   addressCases,
+  cookieCases,
   readRequestCases,
   type AddressCase,
+  type CookieCase,
   type RequestCases,
 } from "./request-cases.ts";
 export {
@@ -336,4 +338,33 @@ export function addressAnswer({
   const hub = new URL("/", core.replace("//core.", "//hub."));
   hub.searchParams.set("next", next);
   return { status: 302, location: hub.href };
+}
+
+/**
+ * The page a cookie case loads, on `example` beside the case's core, and
+ * its `Cookie` header as Node's HTTP server hands it on: each byte as the
+ * character with that code, which is Latin-1.
+ */
+export function cookieRequest({ core, cookie }: CookieCase): {
+  page: string;
+  cookie: string;
+} {
+  return {
+    page: `${core.replace("//core.", `//${app}.`)}/`,
+    cookie: Buffer.from(cookie).toString("latin1"),
+  };
+}
+
+/** What the guard must answer a cookie case's page load with. */
+export function cookieAnswer(asking: CookieCase): PageAnswer {
+  if (asking.reads) {
+    return { status: 200, location: null, viewer: { kind: "nobody" } };
+  }
+  return {
+    status: 302,
+    location: refreshLocation(cookieRequest(asking).page, {
+      origin: asking.core,
+    }),
+    viewer: undefined,
+  };
 }
