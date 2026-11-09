@@ -134,19 +134,39 @@ describe("an unexpected error", () => {
 });
 
 describe("CORS", () => {
-  const app = () =>
-    createApp({ db, origin: aCoreOrigin("https://core.robkit.test") });
+  const hosted = "https://core.robkit.test";
+  const local = "http://core.robkit.localhost:3000";
+  const app = (origin = hosted) =>
+    createApp({ db, origin: aCoreOrigin(origin) });
 
   it.each([
-    "http://hub.robkit.test:3000",
-    "https://hub.robkit.test",
-    "https://admin.robkit.test",
-  ])("lets %s make credentialed requests", async (origin) => {
-    const res = await app().request("/status", { headers: { origin } });
+    ["https://hub.robkit.test", hosted],
+    ["https://admin.robkit.test", hosted],
+    ["http://hub.robkit.localhost:3000", local],
+    ["http://admin.robkit.localhost:3000", local],
+  ])("lets %s make credentialed requests to %s", async (origin, core) => {
+    const res = await app(core).request("/status", { headers: { origin } });
 
     expect(res.headers.get("access-control-allow-origin")).toBe(origin);
     expect(res.headers.get("access-control-allow-credentials")).toBe("true");
   });
+
+  it.each([
+    ["http://hub.robkit.test", hosted],
+    ["http://admin.robkit.test", hosted],
+    ["http://hub.robkit.test:3000", hosted],
+    ["https://admin.robkit.test:8443", hosted],
+    ["http://hub.robkit.localhost", local],
+    ["http://admin.robkit.localhost:3001", local],
+    ["https://hub.robkit.localhost:3000", local],
+  ])(
+    "gives %s, the right host on the wrong protocol or port, no access to %s",
+    async (origin, core) => {
+      const res = await app(core).request("/status", { headers: { origin } });
+
+      expect(res.headers.get("access-control-allow-origin")).toBeNull();
+    },
+  );
 
   it("answers a preflight from the hub", async () => {
     const res = await app().request("/status", {
@@ -168,7 +188,9 @@ describe("CORS", () => {
     "https://robkit.test",
     "https://hub.robkit.test.evil.example",
     "https://evilhub.robkit.test",
+    "https://core.robkit.test",
     "https://hub.localhost",
+    "not a url",
     "null",
   ])("gives %s no access", async (origin) => {
     const res = await app().request("/status", { headers: { origin } });

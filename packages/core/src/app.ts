@@ -4,7 +4,7 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { reportToConsole, type Report } from "@robkit/input/report";
-import { platformApps, type CoreOrigin } from "@robkit/input";
+import type { CoreOrigin } from "@robkit/input";
 import { coreInstall } from "@robkit/input/addresses";
 import type { TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
@@ -37,18 +37,6 @@ export interface CoreOptions {
    * `reportToConsole`.
    */
   logError?: Report;
-}
-
-/** The platform apps that call core from the browser with the session cookie. */
-const trustedApps = platformApps.filter((slug) => slug !== "core");
-
-function hostnameOf(origin: string): string | undefined {
-  try {
-    return new URL(origin).hostname;
-  } catch {
-    // An Origin that isn't a URL names no host, so CORS refuses it.
-    return undefined;
-  }
 }
 
 function isJson(contentType: string | undefined): boolean {
@@ -99,15 +87,16 @@ export function createApp({
   });
 
   const install = coreInstall(origin);
-  const trustedHosts = new Set(trustedApps.map((slug) => install.host(slug)));
+  // The hub and admin call core from the browser with the session cookie.
+  // A browser's Origin header is serialized as URL.origin is, so each must
+  // match one exactly: protocol, host and port.
+  const trustedOrigins = new Set([
+    install.origin("hub"),
+    install.origin("admin"),
+  ]);
   app.use(
     cors({
-      origin: (origin) => {
-        const hostname = hostnameOf(origin);
-        return hostname !== undefined && trustedHosts.has(hostname)
-          ? origin
-          : null;
-      },
+      origin: (origin) => (trustedOrigins.has(origin) ? origin : null),
       credentials: true,
     }),
   );
