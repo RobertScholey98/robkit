@@ -108,6 +108,26 @@ describe("removeLeftover", () => {
     expect(await exited).toEqual([null, "SIGKILL"]);
   });
 
+  it("finds a tagged process in a process list longer than a megabyte", async () => {
+    const tag = `test-${randomBytes(4).toString("hex")}`;
+    // ps prints each process's environment, so 12 processes with 100 kB of
+    // it each make the list longer than execFileSync's default buffer.
+    for (let i = 0; i < 12; i++) {
+      const padded = spawn("sh", ["-c", "sleep 600"], {
+        env: { ...process.env, PADDING: "x".repeat(100_000) },
+        stdio: "ignore",
+      });
+      onTestFinished(() => {
+        padded.kill("SIGKILL");
+      });
+    }
+    const exited = taggedShell(tag, "sleep 600");
+
+    await removeLeftover({ tagged: tag }, 5_000);
+
+    expect(await exited).toEqual([null, "SIGTERM"]);
+  });
+
   it("removes a temp folder and what is in it", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-test-folder-"));
     await mkdir(join(dir, "apps"));

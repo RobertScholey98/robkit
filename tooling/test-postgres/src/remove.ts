@@ -53,9 +53,12 @@ function removeDocker(prefix: string): void {
 /** The pids of every process whose environment holds `ROBKIT_TEST_TAG=<tag>`. */
 function tagged(tag: string): number[] {
   // `e` appends each process's environment to its command, on Linux and macOS.
+  // With every environment in it, the list outgrows execFileSync's 1 MB
+  // default on a busy machine.
   const lines = execFileSync("ps", ["axeww", "-o", "pid=,command="], {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
+    maxBuffer: 256 * 1024 * 1024,
   }).split("\n");
   const marker = new RegExp(`(^|\\s)ROBKIT_TEST_TAG=${tag}(\\s|$)`);
   return lines
