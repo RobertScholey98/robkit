@@ -190,6 +190,44 @@ describe("guarded", () => {
     );
   });
 
+  it("sends a lapsed server action to a page on the app's origin, whatever Host and X-Forwarded-Proto say", async () => {
+    const core = await fakeCore();
+    const proxy = guarded({
+      app: example,
+      access: { kind: "owner" },
+      core: core.origin,
+    });
+    const { pathname, search } = new URL(core.page);
+    // Next hands the proxy a URL on its own host and port.
+    const action = (cookie: Record<string, string>) =>
+      proxy(
+        new NextRequest(`http://localhost:3001${pathname}${search}`, {
+          method: "POST",
+          headers: {
+            host: "evil.com",
+            "x-forwarded-host": "evil.com",
+            "x-forwarded-proto": "https",
+            "sec-fetch-mode": "cors",
+            "next-action": "7f00aa",
+            ...cookie,
+          },
+        }),
+      );
+    const expired = await core.key.token({ ageSeconds: 20 * 60 });
+
+    const refresh = await action({ cookie: `robkit_session=${expired}` });
+    const login = await action({});
+
+    const back = encodeURIComponent(core.page);
+    expect({
+      refresh: refresh.headers.get("x-action-redirect"),
+      login: login.headers.get("x-action-redirect"),
+    }).toEqual({
+      refresh: `${new URL("/_robkit/refresh", core.page).href}?next=${back};push`,
+      login: `${core.hub}/?next=${back};push`,
+    });
+  });
+
   it("answers a server action from a guest without the role with the guard's 404 alone", async () => {
     const core = await fakeCore();
     const proxy = guarded({
