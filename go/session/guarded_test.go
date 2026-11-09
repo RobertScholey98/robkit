@@ -229,6 +229,38 @@ func TestGuardOnAPageLoadConformance(t *testing.T) {
 	}
 }
 
+func TestGuardOnTheAppsOwnAddress(t *testing.T) {
+	for _, c := range conformance.AddressCases(t) {
+		t.Run(c.Name, func(t *testing.T) {
+			open := guarded(t, nil, session.Options{Access: guard.OwnerRule{}, Core: c.Core})
+			r := httptest.NewRequest(http.MethodGet, c.Target, nil)
+			r.Host = c.Headers["host"]
+			for name, value := range c.Headers {
+				if name != "host" {
+					r.Header.Set(name, value)
+				}
+			}
+			r.Header.Set("sec-fetch-mode", "navigate")
+			if c.SignedOut {
+				r.Header.Set("cookie", fakecore.SignedOutCookie())
+			}
+			w := httptest.NewRecorder()
+
+			open.handler.ServeHTTP(w, r)
+
+			location := w.Header().Get("location")
+			hub := strings.Replace(c.Core, "//core.", "//hub.", 1)
+			sent := isRefreshLocation(location, c.Next, c.Core)
+			if c.SignedOut {
+				sent = location == hub+"/?next="+url.QueryEscape(c.Next)
+			}
+			if w.Code != 302 || !sent {
+				t.Errorf("got %d %q, want the browser sent on with next %q", w.Code, location, c.Next)
+			}
+		})
+	}
+}
+
 func TestGuardTreatsATokenCoreDidntSignAsNoToken(t *testing.T) {
 	core := fakecore.Start(t)
 	forger := fakecore.NewKey(t, "key-1")
@@ -250,10 +282,10 @@ func TestGuardLetsTheViewerThroughToTheHandler(t *testing.T) {
 	}
 }
 
-func TestGuardKeepsThePublicSchemeAndSetsSecureCookiesOffLocalhost(t *testing.T) {
+func TestGuardKeepsAnHTTPSInstallsPagesOnHTTPSAndSetsSecureCookiesOffLocalhost(t *testing.T) {
 	notes := guarded(t, nil, session.Options{App: "notes", Access: guard.OwnerRule{}, Core: "https://core.example.com"})
 
-	res := notes.get("http://notes.example.com/", navigate, map[string]string{"x-forwarded-proto": "https"})
+	res := notes.get("http://notes.example.com/", navigate)
 
 	if !isRefreshLocation(res.location(), "https://notes.example.com/", "https://core.example.com") {
 		t.Errorf("location = %q", res.location())
@@ -271,20 +303,6 @@ func TestGuardSendsAPageLoadWithoutFetchMetadataToLogInNotRoundCore(t *testing.T
 
 	if res.status != 302 || res.location() != loginLocation(core, core.Page) {
 		t.Errorf("got %d %q", res.status, res.location())
-	}
-}
-
-func TestGuardAnswersARequestWithNoHost(t *testing.T) {
-	core := fakecore.Start(t)
-	open := ownerOnly(t, core)
-	r := httptest.NewRequest(http.MethodGet, "/", nil)
-	r.Host = ""
-	w := httptest.NewRecorder()
-
-	open.handler.ServeHTTP(w, r)
-
-	if w.Code != 400 || w.Body.String() != "Send a Host header." {
-		t.Errorf("got %d %q", w.Code, w.Body.String())
 	}
 }
 
@@ -569,7 +587,7 @@ func TestGuardChecksTokensAgainstTheConfiguredCoreWhateverPortTheHostNames(t *te
 
 	res := ownerOnly(t, core).get(attacked, navigate, cookie(attacker.Key.Token(fakecore.TokenOptions{})))
 
-	if res.status != 302 || !isRefreshLocation(res.location(), attacked, core.Origin) {
+	if res.status != 302 || !isRefreshLocation(res.location(), onApp(core.Origin, "/"), core.Origin) {
 		t.Errorf("got %d %q", res.status, res.location())
 	}
 	if len(attacker.Fetched()) != 0 || len(core.Fetched()) != 1 {
