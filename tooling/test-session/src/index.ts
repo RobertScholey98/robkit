@@ -12,9 +12,11 @@ import { listeningPort } from "./known.ts";
 export {
   addressCases,
   cookieCases,
+  coreAddressCases,
   readRequestCases,
   type AddressCase,
   type CookieCase,
+  type CoreAddressCase,
   type RequestCases,
 } from "./request-cases.ts";
 export {

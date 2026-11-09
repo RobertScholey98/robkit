@@ -3,7 +3,8 @@ import cases from "../request-cases.json" with { type: "json" };
 
 // request-cases.json holds the cases every port of the request guard must
 // pass, one list per kind, under its own key: "address" for where the
-// guard sends the browser, and "cookies" for which cookie it reads. A ticket that adds a kind adds a key, a row
+// guard sends the browser, "cookies" for which cookie it reads, and
+// "coreAddress" for which addresses of core each port's reader accepts. A ticket that adds a kind adds a key, a row
 // type and a reader here, and a reader in go/internal/conformance.
 
 /**
@@ -107,6 +108,30 @@ function readCookieCase(value: unknown, index: number): CookieCase {
   return { name, core, cookie: bytes, now: Number(now), reads };
 }
 
+/**
+ * One row of request-cases.json's `coreAddress` list: an address of core,
+ * always a bare origin, and whether each port accepts it, from settings or
+ * written in code. An http origin passes only on a local domain.
+ */
+export interface CoreAddressCase {
+  origin: string;
+  accepted: boolean;
+}
+
+function readCoreAddressCase(value: unknown, index: number): CoreAddressCase {
+  const at = `request-cases.json coreAddress[${String(index)}]`;
+  if (
+    !isRecord(value) ||
+    typeof value.origin !== "string" ||
+    typeof value.accepted !== "boolean"
+  ) {
+    throw new Error(
+      `${at} needs an origin as a string and accepted as true or false.`,
+    );
+  }
+  return { origin: value.origin, accepted: value.accepted };
+}
+
 /** The list of cases under `kind` in `file`, or a throw that names it. */
 function listIn(file: unknown, kind: keyof RequestCases): unknown[] {
   const list = isRecord(file) ? file[kind] : undefined;
@@ -122,6 +147,7 @@ function listIn(file: unknown, kind: keyof RequestCases): unknown[] {
 export interface RequestCases {
   address: AddressCase[];
   cookies: CookieCase[];
+  coreAddress: CoreAddressCase[];
 }
 
 /** The cases in `value`, as request-cases.json holds them. Throws on a bad one. */
@@ -129,6 +155,7 @@ export function readRequestCases(value: unknown): RequestCases {
   return {
     address: listIn(value, "address").map(readCase),
     cookies: listIn(value, "cookies").map(readCookieCase),
+    coreAddress: listIn(value, "coreAddress").map(readCoreAddressCase),
   };
 }
 
@@ -140,3 +167,6 @@ export const addressCases = requestCases.address;
 
 /** The cookie cases every port of the guard must pass. */
 export const cookieCases = requestCases.cookies;
+
+/** The addresses of core every port's reader must judge alike. */
+export const coreAddressCases = requestCases.coreAddress;

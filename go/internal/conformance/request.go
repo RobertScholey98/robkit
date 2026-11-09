@@ -123,3 +123,42 @@ func CookieCases(t testing.TB) []CookieCase {
 	}
 	return cases
 }
+
+// CoreAddressCase is one row of the "coreAddress" list in
+// request-cases.json: an address of core, always a bare origin, and whether
+// each port accepts it, from settings or written in code. An http origin
+// passes only on a local domain.
+type CoreAddressCase struct {
+	Origin   string
+	Accepted bool
+}
+
+// CoreAddressCases reads every core address case, failing the test on a
+// file or case that won't do.
+func CoreAddressCases(t testing.TB) []CoreAddressCase {
+	t.Helper()
+	data, err := os.ReadFile(requestPath())
+	if err != nil {
+		t.Fatalf("can't read the request guard's cases: %v", err)
+	}
+	var file struct {
+		CoreAddress []struct {
+			Origin   string `json:"origin"`
+			Accepted *bool  `json:"accepted"`
+		} `json:"coreAddress"`
+	}
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatalf("request-cases.json must be an object with a coreAddress list of cases: %v", err)
+	}
+	cases := make([]CoreAddressCase, 0, len(file.CoreAddress))
+	for i, row := range file.CoreAddress {
+		if row.Origin == "" || row.Accepted == nil {
+			t.Fatalf("request-cases.json coreAddress[%d] needs an origin and accepted", i)
+		}
+		cases = append(cases, CoreAddressCase{Origin: row.Origin, Accepted: *row.Accepted})
+	}
+	if len(cases) == 0 {
+		t.Fatal("request-cases.json holds no core address cases")
+	}
+	return cases
+}

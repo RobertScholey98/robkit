@@ -153,5 +153,17 @@
       "now": 1798761600,
       "reads": true
     }
+  ],
+  "coreAddress": [
+    { "origin": "https://core.robkit.dev", "accepted": true },
+    { "origin": "https://core.example.com", "accepted": true },
+    { "origin": "https://core.robkit.localhost:3443", "accepted": true },
+    { "origin": "http://core.robkit.localhost:3000", "accepted": true },
+    { "origin": "http://core.localhost:3000", "accepted": true },
+    { "origin": "http://core.localhost", "accepted": true },
+    { "origin": "http://core.example.com", "accepted": false },
+    { "origin": "http://core.robkit.dev", "accepted": false },
+    { "origin": "http://core.notlocalhost:3000", "accepted": false },
+    { "origin": "http://core.localhost.example.com", "accepted": false }
   ]
 }

@@ -1046,6 +1046,38 @@ func TestReadGuardEnv(t *testing.T) {
 	}
 }
 
+func TestGuardJudgesCoresAddressAlikeFromSettingsAndCode(t *testing.T) {
+	for _, c := range conformance.CoreAddressCases(t) {
+		t.Run(c.Origin, func(t *testing.T) {
+			options, envErr := session.ReadGuardEnv(func(name string) string {
+				return map[string]string{"ROBKIT_APP": "notes", "ROBKIT_CORE_URL": c.Origin}[name]
+			})
+			_, codeErr := session.Guarded(session.Options{App: "notes", Core: c.Origin})
+
+			fromEnv := envErr == nil && options.Core == c.Origin
+			if fromEnv != c.Accepted || (codeErr == nil) != c.Accepted {
+				t.Errorf("ReadGuardEnv: %v, Guarded: %v, want accepted %v", envErr, codeErr, c.Accepted)
+			}
+		})
+	}
+}
+
+func TestGuardSaysWhyItRefusesPlainHTTPOffALocalDomain(t *testing.T) {
+	_, envErr := session.ReadGuardEnv(func(name string) string {
+		return map[string]string{"ROBKIT_APP": "notes", "ROBKIT_CORE_URL": "http://core.example.com/"}[name]
+	})
+	_, codeErr := session.Guarded(session.Options{App: "notes", Core: "http://core.example.com"})
+
+	fromEnv := `ROBKIT_CORE_URL is "http://core.example.com/", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`
+	fromCode := `session: Core is "http://core.example.com", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`
+	if envErr == nil || envErr.Error() != fromEnv {
+		t.Errorf("ReadGuardEnv: %v", envErr)
+	}
+	if codeErr == nil || codeErr.Error() != fromCode {
+		t.Errorf("Guarded: %v", codeErr)
+	}
+}
+
 func TestViewerFromPanicsOutsideTheGuard(t *testing.T) {
 	defer func() {
 		if recover() == nil {

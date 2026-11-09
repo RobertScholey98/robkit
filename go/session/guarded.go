@@ -87,7 +87,7 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 		return nil, errors.New("session: App: " + err.Error())
 	}
 	if !isCoreOrigin(options.Core) {
-		return nil, errors.New("session: Core is " + shown(options.Core) + ", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.")
+		return nil, errors.New(notCoreOrigin("session: Core is", options.Core))
 	}
 	now := options.Now
 	if now == nil {

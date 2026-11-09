@@ -3,6 +3,7 @@ import { request, type IncomingMessage } from "node:http";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { createLocalJWKSet, decodeJwt, jwtVerify } from "jose";
 import { describe, expect, it } from "vitest";
+import { isProblem, readCoreUrl } from "@robkit/input";
 import {
   addressAnswer,
   addressCases,
@@ -10,6 +11,7 @@ import {
   cookieAnswer,
   cookieCases,
   cookieRequest,
+  coreAddressCases,
   aRoleId,
   callbackFor,
   conformanceAnswer,
@@ -316,9 +318,12 @@ describe("addressCases", () => {
   });
 
   it("reads a row, taking a left-out signedOut as false", () => {
-    expect(readRequestCases({ address: [row], cookies: [] })).toEqual({
+    expect(
+      readRequestCases({ address: [row], cookies: [], coreAddress: [] }),
+    ).toEqual({
       address: [{ ...row, signedOut: false }],
       cookies: [],
+      coreAddress: [],
     });
   });
 
@@ -330,22 +335,26 @@ describe("addressCases", () => {
     ],
     [
       "has no address list",
-      { cookies: [] },
-      'request-cases.json must be an object with a "address" list of cases, but it holds {"cookies":[]}.',
+      { cookies: [], coreAddress: [] },
+      'request-cases.json must be an object with a "address" list of cases, but it holds {"cookies":[],"coreAddress":[]}.',
     ],
     [
       "holds a row that isn't an object",
-      { address: ["row"], cookies: [] },
+      { address: ["row"], cookies: [], coreAddress: [] },
       "request-cases.json address[0] must be an object.",
     ],
     [
       "holds a row with a header that isn't a string",
-      { address: [{ ...row, headers: { host: 1 } }], cookies: [] },
+      {
+        address: [{ ...row, headers: { host: 1 } }],
+        cookies: [],
+        coreAddress: [],
+      },
       "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
     ],
     [
       "holds a row whose signedOut isn't true or false",
-      { address: [{ ...row, signedOut: "yes" }], cookies: [] },
+      { address: [{ ...row, signedOut: "yes" }], cookies: [], coreAddress: [] },
       "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
     ],
   ])("refuses a file that %s", (_, value, message) => {
@@ -356,6 +365,7 @@ describe("addressCases", () => {
     const [holdsNothing, signedOut] = readRequestCases({
       address: [row, { ...row, signedOut: true }],
       cookies: [],
+      coreAddress: [],
     }).address;
     if (!holdsNothing || !signedOut) throw new Error("Two rows went in.");
 
@@ -390,7 +400,7 @@ describe("cookieCases", () => {
     reads: false,
   };
   const read = (cookies: unknown[]) =>
-    readRequestCases({ address: [], cookies }).cookies;
+    readRequestCases({ address: [], cookies, coreAddress: [] }).cookies;
 
   it("reads every cookie row of request-cases.json", () => {
     expect(cookieCases.length).toBeGreaterThan(0);
@@ -403,10 +413,14 @@ describe("cookieCases", () => {
   });
 
   it.each([
-    ["has no cookies list", { address: [] }, 'a "cookies" list of cases'],
+    [
+      "has no cookies list",
+      { address: [], coreAddress: [] },
+      'a "cookies" list of cases',
+    ],
     [
       "holds a row that isn't an object",
-      { address: [], cookies: [1] },
+      { address: [], cookies: [1], coreAddress: [] },
       "cookies[0] must be an object.",
     ],
     ...[
@@ -418,7 +432,7 @@ describe("cookieCases", () => {
       { name: 1 },
     ].map((change): [string, unknown, string] => [
       `holds a row with ${JSON.stringify(change)}`,
-      { address: [], cookies: [{ ...row, ...change }] },
+      { address: [], cookies: [{ ...row, ...change }], coreAddress: [] },
       "cookies[0] needs a name and core as strings, cookie as bytes in hex, now as whole seconds, and reads as true or false.",
     ]),
   ])("refuses a file that %s", (_, value, message) => {
@@ -449,5 +463,31 @@ describe("cookieCases", () => {
         viewer: undefined,
       },
     ]);
+  });
+});
+
+describe("coreAddressCases", () => {
+  it.each(coreAddressCases)(
+    "readCoreUrl judges $origin as the table does: $accepted",
+    ({ origin, accepted }) => {
+      const read = readCoreUrl({ ROBKIT_CORE_URL: origin });
+
+      expect(isProblem(read) ? false : read === origin).toBe(accepted);
+    },
+  );
+
+  it.each([
+    [
+      "has no coreAddress list",
+      { address: [], cookies: [] },
+      'a "coreAddress" list',
+    ],
+    [
+      "holds a row whose accepted isn't true or false",
+      { address: [], cookies: [], coreAddress: [{ origin: "x", accepted: 1 }] },
+      "coreAddress[0] needs an origin as a string and accepted as true or false.",
+    ],
+  ])("refuses a file that %s", (_, value, message) => {
+    expect(() => readRequestCases(value)).toThrow(message);
   });
 });
