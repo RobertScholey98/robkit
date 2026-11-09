@@ -5,7 +5,7 @@ import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
-import type { AddressCase, CookieCase } from "./request-cases.ts";
+import type { AddressCase, CookieCase, WriteCase } from "./request-cases.ts";
 import { aViewer } from "./brands.ts";
 import { listeningPort } from "./known.ts";
 
@@ -14,10 +14,12 @@ export {
   cookieCases,
   coreAddressCases,
   readRequestCases,
+  writeCases,
   type AddressCase,
   type CookieCase,
   type CoreAddressCase,
   type RequestCases,
+  type WriteCase,
 } from "./request-cases.ts";
 export {
   aCodeId,
@@ -369,4 +371,33 @@ export function cookieAnswer(asking: CookieCase): PageAnswer {
     }),
     viewer: undefined,
   };
+}
+
+/**
+ * The request a write case sends: its method and headers, to its target on
+ * `example` beside its core.
+ */
+export function writeRequest({ core, method, target, headers }: WriteCase): {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+} {
+  return {
+    url: `${core.replace("//core.", `//${app}.`)}${target}`,
+    method,
+    headers,
+  };
+}
+
+/**
+ * What a write case's request must get: the guard's 403, with no handler
+ * run, or the app's handler.
+ */
+export function writeAnswer({ refused }: WriteCase): {
+  status: number;
+  reached: boolean;
+} {
+  return refused
+    ? { status: 403, reached: false }
+    : { status: 200, reached: true };
 }

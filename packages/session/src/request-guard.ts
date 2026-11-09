@@ -13,7 +13,13 @@ import {
   coreAccess,
   type AccessRuleFailure,
 } from "./core-access.ts";
-import { isNavigation, publicUrl, redirect, text } from "./guard-http.ts";
+import {
+  isFromAnotherOrigin,
+  isNavigation,
+  publicUrl,
+  redirect,
+  text,
+} from "./guard-http.ts";
 import { sessionLapsedResponse } from "./lapsed.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
 import { refreshProtocol } from "./refresh-protocol.ts";
@@ -99,6 +105,8 @@ const errors = {
   refresh: "Your session needs refreshing.",
   keys: "Can't reach core to check your session.",
   rule: "Can't reach core to check who may open this app.",
+  elsewhere:
+    "This app only accepts changes from its own pages, and this request came from another origin.",
 } as const;
 
 /**
@@ -191,6 +199,11 @@ export function requestGuard(
   };
 
   return async (request) => {
+    // Before anything else, the guard's own paths included, so a page on
+    // another origin can't act as the viewer.
+    if (isFromAnotherOrigin(request, origin)) {
+      return { outcome: "answer", response: text(errors.elsewhere, 403) };
+    }
     const url = publicUrl(request, origin);
     const own = await protocol.answer(request, url);
     if (own) return { outcome: "answer", response: own };

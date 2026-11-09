@@ -50,6 +50,37 @@ export function isBrowserNavigation(request: Request): boolean {
   );
 }
 
+/** A GET whose `Upgrade` is `websocket`, in any case. */
+function isWebSocketHandshake(request: Request): boolean {
+  return (
+    request.method === "GET" &&
+    request.headers.get("upgrade")?.toLowerCase() === "websocket"
+  );
+}
+
+/**
+ * Whether the guard refuses `request` as coming from another origin than
+ * the app's own, `origin`. A browser sends an app's cookie with a form
+ * posted from a sibling subdomain, so the cookie alone doesn't say the
+ * viewer meant it.
+ *
+ * GET, HEAD and OPTIONS pass. Every other method is a write. A browser
+ * can't forge `Sec-Fetch-Site`, so when a write carries it, only
+ * `same-origin` and `none` pass, whatever `Origin` says. Without it,
+ * `Origin` decides: absent or the app's own passes. A WebSocket handshake
+ * is judged by `Origin` alone, because browsers disagree on the fetch
+ * metadata they send with one.
+ */
+export function isFromAnotherOrigin(request: Request, origin: string): boolean {
+  const from = request.headers.get("origin");
+  const elsewhere = from !== null && from !== origin;
+  if (isWebSocketHandshake(request)) return elsewhere;
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return false;
+  const site = request.headers.get("sec-fetch-site");
+  if (site !== null) return site !== "same-origin" && site !== "none";
+  return elsewhere;
+}
+
 /** A plain-text answer that no cache keeps. */
 export function text(body: string, status: number): Response {
   return new Response(body, {

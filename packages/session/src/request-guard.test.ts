@@ -15,6 +15,9 @@ import {
   signedOutCookie,
   signingKey,
   stateIn,
+  writeAnswer,
+  writeCases,
+  writeRequest,
   type FakeCore,
   slug,
 } from "@internal/test-session";
@@ -288,6 +291,61 @@ describe("requestGuard, on the cookies a request carries", () => {
       location: res.headers.get("location"),
       viewer: res.status === 200 ? await res.json() : undefined,
     }).toEqual(cookieAnswer(asking));
+  });
+});
+
+describe("requestGuard, on a request from another origin", () => {
+  it.each(writeCases)("$name", async (asking) => {
+    const check = requestGuard({
+      app: example,
+      access: { kind: "open" },
+      core: coreOrigin(asking.core),
+    });
+    const { url, ...init } = writeRequest(asking);
+
+    const decision = await check(new Request(url, init));
+
+    expect(
+      decision.outcome === "serve"
+        ? { status: 200, reached: true }
+        : { status: decision.response.status, reached: false },
+    ).toEqual(writeAnswer(asking));
+  });
+
+  it("refuses with plain text that says why", async () => {
+    const core = await fakeCore();
+
+    const res = await guardedBy(core)(core.page, {
+      method: "POST",
+      headers: { "sec-fetch-site": "same-site", origin: core.hub },
+    });
+
+    expect({
+      status: res.status,
+      type: res.headers.get("content-type"),
+      cache: res.headers.get("cache-control"),
+      body: await res.text(),
+    }).toEqual({
+      status: 403,
+      type: "text/plain; charset=UTF-8",
+      cache: "no-store",
+      body: "This app only accepts changes from its own pages, and this request came from another origin.",
+    });
+  });
+
+  it("refuses before it reads the session, so asks core nothing", async () => {
+    const core = await fakeCore();
+    core.status = 503;
+
+    const res = await guardedBy(core, { app: example })(core.page, {
+      method: "POST",
+      headers: {
+        origin: core.hub,
+        ...cookie(await core.key.token()),
+      },
+    });
+
+    expect([res.status, core.fetched]).toEqual([403, []]);
   });
 });
 

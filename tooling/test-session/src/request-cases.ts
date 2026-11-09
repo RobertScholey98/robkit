@@ -3,9 +3,11 @@ import cases from "../request-cases.json" with { type: "json" };
 
 // request-cases.json holds the cases every port of the request guard must
 // pass, one list per kind, under its own key: "address" for where the
-// guard sends the browser, "cookies" for which cookie it reads, and
-// "coreAddress" for which addresses of core each port's reader accepts. A ticket that adds a kind adds a key, a row
-// type and a reader here, and a reader in go/internal/conformance.
+// guard sends the browser, "cookies" for which cookie it reads,
+// "coreAddress" for which addresses of core each port's reader accepts, and
+// "writes" for which requests from another origin it refuses. A ticket that
+// adds a kind adds a key, a row type and a reader here, and a reader in
+// go/internal/conformance.
 
 /**
  * One row of request-cases.json's `address` list: a page load on the app the tests guard,
@@ -132,6 +134,54 @@ function readCoreAddressCase(value: unknown, index: number): CoreAddressCase {
   return { origin: value.origin, accepted: value.accepted };
 }
 
+/**
+ * One row of request-cases.json's `writes` list: a request to `example`,
+ * open to anyone, with no cookie and exactly `headers`. The guard in each
+ * port, and each adapter, refuses it with 403 before any handler runs, or
+ * lets it through to the app's handler as nobody.
+ */
+export interface WriteCase {
+  name: string;
+  /** Core's origin, as the app's settings name it. */
+  core: string;
+  method: string;
+  /** The path and query on the request line. */
+  target: string;
+  /** The request's headers, by lowercase name. */
+  headers: Record<string, string>;
+  /** Whether the guard refuses it as a write from another origin. */
+  refused: boolean;
+}
+
+function readWriteCase(value: unknown, index: number): WriteCase {
+  const at = `request-cases.json writes[${String(index)}]`;
+  if (!isRecord(value)) throw new Error(`${at} must be an object.`);
+  const { name, core, method, target, headers, refused } = value;
+  if (
+    typeof name !== "string" ||
+    typeof core !== "string" ||
+    typeof method !== "string" ||
+    typeof target !== "string" ||
+    !isRecord(headers) ||
+    !Object.values(headers).every((header) => typeof header === "string") ||
+    typeof refused !== "boolean"
+  ) {
+    throw new Error(
+      `${at} needs a name, core, method and target as strings, headers as an object of strings, and refused as true or false.`,
+    );
+  }
+  return {
+    name,
+    core,
+    method,
+    target,
+    headers: Object.fromEntries(
+      Object.entries(headers).map(([key, header]) => [key, String(header)]),
+    ),
+    refused,
+  };
+}
+
 /** The list of cases under `kind` in `file`, or a throw that names it. */
 function listIn(file: unknown, kind: keyof RequestCases): unknown[] {
   const list = isRecord(file) ? file[kind] : undefined;
@@ -148,6 +198,7 @@ export interface RequestCases {
   address: AddressCase[];
   cookies: CookieCase[];
   coreAddress: CoreAddressCase[];
+  writes: WriteCase[];
 }
 
 /** The cases in `value`, as request-cases.json holds them. Throws on a bad one. */
@@ -156,6 +207,7 @@ export function readRequestCases(value: unknown): RequestCases {
     address: listIn(value, "address").map(readCase),
     cookies: listIn(value, "cookies").map(readCookieCase),
     coreAddress: listIn(value, "coreAddress").map(readCoreAddressCase),
+    writes: listIn(value, "writes").map(readWriteCase),
   };
 }
 
@@ -170,3 +222,6 @@ export const cookieCases = requestCases.cookies;
 
 /** The addresses of core every port's reader must judge alike. */
 export const coreAddressCases = requestCases.coreAddress;
+
+/** The requests every port of the guard must refuse or let through alike. */
+export const writeCases = requestCases.writes;
