@@ -93,6 +93,13 @@ const blockSpan = 20;
 const blocks = 500;
 const attempts = 50;
 
+export interface PortBlockOptions {
+  /** The leases folder: `portLeases` unless a test keeps its own. */
+  leases?: string;
+  /** Which block to try next, from 0 to 499: one at random unless a test says. */
+  pick?: () => number;
+}
+
 /** The leases folders this process has a watcher for. */
 const watched = new Set<string>();
 
@@ -118,7 +125,7 @@ async function lease(leases: string, first: number): Promise<boolean> {
 
 /**
  * Finds `size` consecutive free ports, for robkit-dev's proxy port and the
- * app ports that follow it, and leases them in `leases` until this process
+ * app ports that follow it, and leases them until this process
  * exits, so no other test process on the machine gets them in the meantime.
  * Their probe sockets close before this returns, so the caller's servers
  * can bind them later. The block sits below the OS's ephemeral range,
@@ -127,7 +134,10 @@ async function lease(leases: string, first: number): Promise<boolean> {
  */
 export async function freePortBlock(
   size: number,
-  leases = portLeases,
+  {
+    leases = portLeases,
+    pick = () => Math.floor(Math.random() * blocks),
+  }: PortBlockOptions = {},
 ): Promise<number> {
   if (size > blockSpan) {
     throw new Error(
@@ -135,7 +145,7 @@ export async function freePortBlock(
     );
   }
   for (let attempt = 0; attempt < attempts; attempt++) {
-    const first = 20_000 + blockSpan * Math.floor(Math.random() * blocks);
+    const first = 20_000 + blockSpan * pick();
     if (!(await lease(leases, first))) continue;
     try {
       for (let port = first; port < first + size; port++) await listenOn(port);

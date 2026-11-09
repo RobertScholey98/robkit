@@ -1,7 +1,7 @@
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readdir, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -129,7 +129,7 @@ function blockAsker(leases: string, count: number, size: number) {
       import { freePortBlock } from ${JSON.stringify(index)};
       const firsts = [];
       for (let i = 0; i < ${String(count)}; i++) {
-        firsts.push(await freePortBlock(${String(size)}, ${JSON.stringify(leases)}));
+        firsts.push(await freePortBlock(${String(size)}, { leases: ${JSON.stringify(leases)} }));
       }
       console.log(JSON.stringify(firsts));
       setInterval(() => {}, 1000);
@@ -170,6 +170,60 @@ describe("freePortBlock", () => {
       Array.from({ length: 20 }, (_, i) => first + i),
     );
     expect(new Set(ports).size).toBe(ports.length);
+  });
+
+  it("gives up after 50 tries when every block is leased", async () => {
+    const leases = await mkdtemp(join(tmpdir(), "robkit-test-leases-"));
+    onTestFinished(() => rm(leases, { recursive: true, force: true }));
+    for (let first = 20_000; first < 30_000; first += 20) {
+      await symlink("1", join(leases, String(first)));
+    }
+
+    await expect(freePortBlock(3, { leases })).rejects.toThrow(
+      `No free block of 3 ports in 50 tries. Check what is listening between 20000 and 30000, and the leases in ${leases}.`,
+    );
+  });
+
+  it("keeps a block whose port something else has, and tries another", async () => {
+    const leases = await mkdtemp(join(tmpdir(), "robkit-test-leases-"));
+    onTestFinished(() => rm(leases, { recursive: true, force: true }));
+    // This process leases a block for real, so no other suite has it, and
+    // listens on its first port, as something outside the tests might.
+    const taken = await freePortBlock(3);
+    const server = createServer().listen(taken, "127.0.0.1");
+    onTestFinished(() => {
+      server.close();
+    });
+    await once(server, "listening");
+    const free = await freePortBlock(3);
+    const picks = [taken, taken, free].map((first) => (first - 20_000) / 20);
+
+    const first = await freePortBlock(3, {
+      leases,
+      pick: () => picks.shift() ?? 0,
+    });
+
+    expect(first).toBe(free);
+    expect((await readdir(leases)).sort()).toEqual(
+      [String(taken), String(free)].sort(),
+    );
+  });
+
+  it("refuses a block longer than 20 ports", async () => {
+    await expect(freePortBlock(21)).rejects.toThrow(
+      "A port block holds at most 20 ports, not 21.",
+    );
+  });
+
+  it("fails when it can't write a lease", async () => {
+    const leases = await mkdtemp(join(tmpdir(), "robkit-test-leases-"));
+    onTestFinished(() => rm(leases, { recursive: true, force: true }));
+    await chmod(leases, 0o500);
+    onTestFinished(() => chmod(leases, 0o700));
+
+    await expect(freePortBlock(3, { leases })).rejects.toMatchObject({
+      code: "EACCES",
+    });
   });
 
   it("clears the leases of a process that was killed", async () => {
