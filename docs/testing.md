@@ -42,7 +42,8 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 ## When a test fails
 
 - **Rerun it alone** before you change code: `pnpm --filter <package> exec vitest run <file>`. Under load, a test can fail for reasons that aren't the code. In WSL, Node 24 occasionally crashes under a heavy gate; rerun before you blame the change.
-- **A whole-stack journey prints what its browser saw** when it fails: console errors, failed requests, every 4xx and 5xx answer, each request still loading when the browser closed, each open page's text, and what the dev runner said meanwhile. Start with that output. A wait for `networkidle` that timed out names its cause in the requests still loading.
+- **A whole-stack journey prints what its browser saw** when it fails: console errors, failed requests, every 4xx and 5xx answer, each request still loading when the browser closed, each open page's text, and what the dev runner said meanwhile. Start with that output.
+- **Wait for a quiet page with `networkIdle(page)`** from `tooling/e2e/src/browser.ts`, not Playwright's `networkidle`, which lint bans. If a page goes quiet for 500 ms before its `load` event and then loads one more thing, `load` takes back the `networkidle` Playwright fired, and nothing fires it again. A Next dev page does that on a busy machine. When `networkIdle` gives up, its error names each request still loading.
 - **Screenshots.** Set `E2E_SCREENSHOTS=<folder>` and the whole-stack test saves each page it checks there:
 
   ```sh
