@@ -162,3 +162,54 @@ func CoreAddressCases(t testing.TB) []CoreAddressCase {
 	}
 	return cases
 }
+
+// WriteCase is one row of the "writes" list in request-cases.json: a
+// request to App, open to anyone, with no cookie and exactly Headers. Each
+// port's guard refuses it with 403 before any handler runs, or lets it
+// through to the app's handler as nobody.
+type WriteCase struct {
+	Name string
+	// Core is core's origin, as the app's settings name it.
+	Core   string
+	Method string
+	// Target is the path and query on the request line.
+	Target string
+	// Headers are the request's headers, by lowercase name.
+	Headers map[string]string
+	// Refused says the guard refuses it as a write from another origin.
+	Refused bool
+}
+
+// WriteCases reads every write case, failing the test on a file or case
+// that won't do.
+func WriteCases(t testing.TB) []WriteCase {
+	t.Helper()
+	data, err := os.ReadFile(requestPath())
+	if err != nil {
+		t.Fatalf("can't read the request guard's cases: %v", err)
+	}
+	var file struct {
+		Writes []struct {
+			Name    string            `json:"name"`
+			Core    string            `json:"core"`
+			Method  string            `json:"method"`
+			Target  string            `json:"target"`
+			Headers map[string]string `json:"headers"`
+			Refused *bool             `json:"refused"`
+		} `json:"writes"`
+	}
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatalf("request-cases.json must be an object with a writes list of cases: %v", err)
+	}
+	cases := make([]WriteCase, 0, len(file.Writes))
+	for i, row := range file.Writes {
+		if row.Name == "" || row.Core == "" || row.Method == "" || row.Target == "" || row.Headers == nil || row.Refused == nil {
+			t.Fatalf("request-cases.json writes[%d] (%s) needs a name, core, method, target, headers and refused", i, row.Name)
+		}
+		cases = append(cases, WriteCase{Name: row.Name, Core: row.Core, Method: row.Method, Target: row.Target, Headers: row.Headers, Refused: *row.Refused})
+	}
+	if len(cases) == 0 {
+		t.Fatal("request-cases.json holds no write cases")
+	}
+	return cases
+}

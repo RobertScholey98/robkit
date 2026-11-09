@@ -103,6 +103,39 @@ func nextOn(u *url.URL) (string, bool) {
 	return target.String(), true
 }
 
+// isWebSocketHandshake says whether r is a GET whose Upgrade is websocket,
+// in any case.
+func isWebSocketHandshake(r *http.Request) bool {
+	return r.Method == http.MethodGet && strings.EqualFold(strings.Join(r.Header.Values("upgrade"), ", "), "websocket")
+}
+
+// isFromAnotherOrigin says whether the guard refuses r as coming from
+// another origin than the app's own, appOrigin. A browser sends an app's
+// cookie with a form posted from a sibling subdomain, so the cookie alone
+// doesn't say the viewer meant it.
+//
+// GET, HEAD and OPTIONS pass. Every other method is a write. A browser
+// can't forge Sec-Fetch-Site, so when a write carries it, only same-origin
+// and none pass, whatever Origin says. Without it, Origin decides: absent
+// or the app's own passes. A WebSocket handshake is judged by Origin alone,
+// because browsers disagree on the fetch metadata they send with one.
+func isFromAnotherOrigin(r *http.Request, appOrigin string) bool {
+	from := r.Header.Values("origin")
+	elsewhere := len(from) > 0 && strings.Join(from, ", ") != appOrigin
+	if isWebSocketHandshake(r) {
+		return elsewhere
+	}
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return false
+	}
+	if site := r.Header.Values("sec-fetch-site"); len(site) > 0 {
+		joined := strings.Join(site, ", ")
+		return joined != "same-origin" && joined != "none"
+	}
+	return elsewhere
+}
+
 // isNavigation says whether r is a page load, which can follow a redirect
 // to the hub or core. A fetch from the page, or a server calling the app,
 // can't, so it gets 401 and the place to send the browser. Without fetch

@@ -44,10 +44,11 @@ func ViewerFrom(ctx context.Context) guard.Viewer {
 }
 
 const (
-	errLogin   = "Sign in to use this app."
-	errRefresh = "Your session needs refreshing."
-	errKeys    = "Can't reach core to check your session."
-	errRule    = "Can't reach core to check who may open this app."
+	errLogin     = "Sign in to use this app."
+	errRefresh   = "Your session needs refreshing."
+	errKeys      = "Can't reach core to check your session."
+	errRule      = "Can't reach core to check who may open this app."
+	errElsewhere = "This app only accepts changes from its own pages, and this request came from another origin."
 )
 
 // requestGuard decides what the app does with each request.
@@ -156,6 +157,12 @@ func (g *requestGuard) ruleUnavailable(cause error) response {
 
 // check is the viewer the guard lets r through to, or its own answer.
 func (g *requestGuard) check(r *http.Request) (guard.Viewer, *response) {
+	// Before anything else, the guard's own paths included, so a page on
+	// another origin can't act as the viewer.
+	if isFromAnotherOrigin(r, origin(g.origin)) {
+		answer := text(errElsewhere, http.StatusForbidden)
+		return nil, &answer
+	}
 	u := publicURL(r, g.origin)
 	if own, ok := g.protocol.answer(r, u); ok {
 		return nil, &own

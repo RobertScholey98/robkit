@@ -283,6 +283,47 @@ func TestGuardOnTheCookiesARequestCarries(t *testing.T) {
 	}
 }
 
+func TestGuardOnARequestFromAnotherOrigin(t *testing.T) {
+	for _, c := range conformance.WriteCases(t) {
+		t.Run(c.Name, func(t *testing.T) {
+			open := guarded(t, nil, session.Options{Access: guard.OpenRule{}, Core: c.Core})
+			page := strings.Replace(c.Core, "//core.", "//"+fakecore.App+".", 1) + c.Target
+
+			res := open.open(c.Method, page, c.Headers)
+
+			reached := res.body == `{"kind":"nobody"}`+"\n"
+			if c.Refused && (res.status != 403 || reached) {
+				t.Errorf("got %d %q, want the guard's 403", res.status, res.body)
+			}
+			if !c.Refused && (res.status != 200 || !reached) {
+				t.Errorf("got %d %q, want the handler as nobody", res.status, res.body)
+			}
+		})
+	}
+}
+
+func TestGuardRefusesAnotherOriginWithPlainTextThatSaysWhy(t *testing.T) {
+	core := fakecore.Start(t)
+
+	res := ownerOnly(t, core).open(http.MethodPost, core.Page, map[string]string{"sec-fetch-site": "same-site", "origin": core.Hub})
+
+	if res.status != 403 || res.header.Get("content-type") != "text/plain; charset=UTF-8" || res.header.Get("cache-control") != "no-store" ||
+		res.body != "This app only accepts changes from its own pages, and this request came from another origin." {
+		t.Errorf("got %d %v %q", res.status, res.header, res.body)
+	}
+}
+
+func TestGuardRefusesAnotherOriginBeforeItReadsTheSession(t *testing.T) {
+	core := fakecore.Start(t)
+	core.SetStatus(503)
+
+	res := guarded(t, core, session.Options{}).open(http.MethodPost, core.Page, map[string]string{"origin": core.Hub}, cookie(core.Key.Token(fakecore.TokenOptions{})))
+
+	if res.status != 403 || len(core.Fetched()) != 0 {
+		t.Errorf("got %d, core asked %q", res.status, core.Fetched())
+	}
+}
+
 func TestGuardTreatsATokenCoreDidntSignAsNoToken(t *testing.T) {
 	core := fakecore.Start(t)
 	forger := fakecore.NewKey(t, "key-1")
