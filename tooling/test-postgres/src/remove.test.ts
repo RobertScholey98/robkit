@@ -1,7 +1,15 @@
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { mkdtemp, readdir, rm, symlink } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readdir,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -98,6 +106,16 @@ describe("removeLeftover", () => {
     const exited = taggedShell(tag, "trap '' TERM; sleep 600");
     await removeLeftover({ tagged: tag }, 500);
     expect(await exited).toEqual([null, "SIGKILL"]);
+  });
+
+  it("removes a temp folder and what is in it", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-test-folder-"));
+    await mkdir(join(dir, "apps"));
+    await writeFile(join(dir, "apps", "notes.md"), "# Notes\n");
+
+    await removeLeftover({ path: dir });
+
+    await expect(stat(dir)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("releases the leases its owner holds, and no one else's", async () => {

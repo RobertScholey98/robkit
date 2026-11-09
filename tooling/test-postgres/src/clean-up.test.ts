@@ -97,11 +97,12 @@ describe("readLeftovers", () => {
   it("reads the leftovers removeWhenGone hands its watcher", () => {
     expect(
       readLeftovers(
-        '[{"tagged": "12-ab"}, {"docker": "robkit-test-1"}, {"leases": "/tmp/robkit-port-leases", "owner": 12}]',
+        '[{"tagged": "12-ab"}, {"docker": "robkit-test-1"}, {"path": "/tmp/robkit-bin-1"}, {"leases": "/tmp/robkit-port-leases", "owner": 12}]',
       ),
     ).toEqual([
       { tagged: "12-ab" },
       { docker: "robkit-test-1" },
+      { path: "/tmp/robkit-bin-1" },
       { leases: "/tmp/robkit-port-leases", owner: 12 },
     ]);
     expect(readLeftovers("[]")).toEqual([]);

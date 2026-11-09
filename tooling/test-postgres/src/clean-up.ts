@@ -19,6 +19,8 @@ export type Leftover =
    * builds.
    */
   | { docker: string }
+  /** A file or folder, such as a temp folder a test made, and all in it. */
+  | { path: string }
   /** Every port-block lease in the folder `leases` that `owner` holds. */
   | { leases: string; owner: number };
 
@@ -28,6 +30,8 @@ function readLeftover(value: unknown): Leftover | undefined {
   if (typeof tagged === "string") return { tagged };
   const docker: unknown = Reflect.get(value, "docker");
   if (typeof docker === "string") return { docker };
+  const path: unknown = Reflect.get(value, "path");
+  if (typeof path === "string") return { path };
   const leases: unknown = Reflect.get(value, "leases");
   const owner: unknown = Reflect.get(value, "owner");
   return typeof leases === "string" && typeof owner === "number"

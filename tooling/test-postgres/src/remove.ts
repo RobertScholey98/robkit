@@ -114,5 +114,7 @@ export async function removeLeftover(
 ): Promise<void> {
   if ("tagged" in leftover) await stopTagged(leftover.tagged, graceMs);
   else if ("docker" in leftover) removeDocker(leftover.docker);
-  else await releaseLeases(leftover.leases, leftover.owner);
+  else if ("path" in leftover) {
+    await rm(leftover.path, { recursive: true, force: true });
+  } else await releaseLeases(leftover.leases, leftover.owner);
 }
