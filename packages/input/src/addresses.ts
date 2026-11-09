@@ -45,6 +45,13 @@ export interface Install {
    * slug.
    */
   appOf(url: string | URL): Slug | undefined;
+  /**
+   * The slug of the app `url` is on, if `url`'s origin is exactly that
+   * app's `origin`: the install's protocol and port as well as
+   * `<slug>.<domain>`. Use it where `url` decides who gets a token or the
+   * owner's cookie, since `appOf` ignores the protocol and port.
+   */
+  appAt(url: string | URL): Slug | undefined;
 }
 
 export interface InstallOptions {
@@ -63,11 +70,20 @@ export function install({
   port,
 }: InstallOptions): Install {
   const portPart = port === undefined ? "" : `:${String(port)}`;
+  const origin = (slug: Slug): string =>
+    new URL(`${protocol}://${slug}.${domain}${portPart}`).origin;
+  const appOf = (url: string | URL): Slug | undefined => {
+    if (!URL.canParse(url)) return undefined;
+    const target = new URL(url);
+    const suffix = `.${domain}`;
+    if (!isWeb(target) || !target.hostname.endsWith(suffix)) return undefined;
+    const slug = readSlug(target.hostname.slice(0, -suffix.length));
+    return isProblem(slug) ? undefined : slug;
+  };
   return {
     domain,
     host: (slug) => `${slug}.${domain}`,
-    origin: (slug) =>
-      new URL(`${protocol}://${slug}.${domain}${portPart}`).origin,
+    origin,
     onInstall(url) {
       if (url === undefined || !URL.canParse(url)) return undefined;
       const target = new URL(url);
@@ -75,13 +91,10 @@ export function install({
         ? target.href
         : undefined;
     },
-    appOf(url) {
-      if (!URL.canParse(url)) return undefined;
-      const target = new URL(url);
-      const suffix = `.${domain}`;
-      if (!isWeb(target) || !target.hostname.endsWith(suffix)) return undefined;
-      const slug = readSlug(target.hostname.slice(0, -suffix.length));
-      return isProblem(slug) ? undefined : slug;
+    appOf,
+    appAt(url) {
+      const slug = appOf(url);
+      return slug && new URL(url).origin === origin(slug) ? slug : undefined;
     },
   };
 }

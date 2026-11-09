@@ -166,3 +166,34 @@ describe("the app a URL is on", () => {
     expect(hosted.appOf(url)).toBeUndefined();
   });
 });
+
+describe("the app whose own origin a URL is on", () => {
+  const installs = {
+    hosted: install({ domain: robkitDev, protocol: "https" }),
+    local: install({ domain: defaultDomain, port: defaultDevPort }),
+  };
+
+  it.each([
+    ["https://notes.robkit.dev/list?x=1", "hosted", "notes"],
+    ["https://admin.robkit.dev:443/", "hosted", "admin"],
+    ["http://notes.robkit.localhost:3000/", "local", "notes"],
+    ["http://Admin.Robkit.Localhost:3000/", "local", "admin"],
+  ] as const)("finds %s on the %s install", (url, on, slug) => {
+    expect(installs[on].appAt(url)).toBe(slug);
+    expect(installs[on].appAt(new URL(url))).toBe(slug);
+  });
+
+  it.each([
+    ["http://notes.robkit.dev/", "hosted"],
+    ["https://notes.robkit.dev:8443/", "hosted"],
+    ["http://notes.robkit.localhost/", "local"],
+    ["https://notes.robkit.localhost:3000/", "local"],
+    ["https://a.notes.robkit.dev/", "hosted"],
+    ["https://robkit.dev/", "hosted"],
+    ["https://notes.robkit.dev.evil.com/", "hosted"],
+    ["javascript://notes.robkit.dev/%0aalert(1)", "hosted"],
+    ["/relative", "hosted"],
+  ] as const)("finds no app for %s on the %s install", (url, on) => {
+    expect(installs[on].appAt(url)).toBeUndefined();
+  });
+});
