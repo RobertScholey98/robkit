@@ -35,7 +35,7 @@ await provisionDatabases(config);
 console.log(`provisioned ${config.slugs.join(", ")}`);
 ```
 
-`robkit-dev` reads `ROBKIT_DOMAIN` (default `robkit.localhost`) and `ROBKIT_DEV_PORT` (default `3000`). It tells each app its slug as `ROBKIT_APP` and core's address as `ROBKIT_CORE_URL`, and hands core every app's manifest as `ROBKIT_APPS`.
+`robkit-dev` reads `ROBKIT_DOMAIN` (default `robkit.localhost`) and `ROBKIT_DEV_PORT` (default `3000`). It serves plain http, so it refuses a domain that isn't `localhost` or a name under it. It tells each app its slug as `ROBKIT_APP` and core's address as `ROBKIT_CORE_URL`, and hands core every app's manifest as `ROBKIT_APPS`.
 
 ## Exports
 
