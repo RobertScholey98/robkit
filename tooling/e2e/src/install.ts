@@ -45,6 +45,11 @@ declare module "vitest" {
   export interface ProvidedContext {
     /** Each install in `installChoices`, made in a temp folder, by name. */
     installs: Record<InstallName, string>;
+    /**
+     * A second install for each, for install-checks.test.ts, whose builds
+     * and edits would otherwise land under a running `pnpm dev`.
+     */
+    checkInstalls: Record<InstallName, string>;
   }
 }
 
@@ -79,14 +84,9 @@ export async function createInstall(choices: Choices): Promise<string> {
   return dir;
 }
 
-/**
- * Makes every install before any suite starts. pnpm hard-links
- * packages from one shared store, so an install beside a running dev stack
- * touches the files under its core, and `node --watch` restarts core
- * mid-journey.
- */
-export default async function setup(project: TestProject) {
-  const installs = Object.fromEntries(
+/** One install for each of `installChoices`, by name. */
+async function createInstalls(): Promise<Record<InstallName, string>> {
+  return Object.fromEntries(
     await Promise.all(
       Object.entries(installChoices).map(
         async ([name, choices]) =>
@@ -94,10 +94,24 @@ export default async function setup(project: TestProject) {
       ),
     ),
   ) as Record<InstallName, string>;
+}
+
+/**
+ * Makes every install before any suite starts. pnpm hard-links
+ * packages from one shared store, so an install beside a running dev stack
+ * touches the files under its core, and `node --watch` restarts core
+ * mid-journey.
+ */
+export default async function setup(project: TestProject) {
+  const [installs, checkInstalls] = await Promise.all([
+    createInstalls(),
+    createInstalls(),
+  ]);
   project.provide("installs", installs);
+  project.provide("checkInstalls", checkInstalls);
   return async () => {
     await Promise.all(
-      Object.values(installs).map((dir) =>
+      [...Object.values(installs), ...Object.values(checkInstalls)].map((dir) =>
         rm(dir, { recursive: true, force: true }),
       ),
     );
