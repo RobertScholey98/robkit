@@ -17,7 +17,7 @@
 - [x] The Express and Next adapters guard `//evil.com/_robkit/refresh?next=…` as a path on the app, and a request with no `Host` or an empty one without throwing
 - [x] The cases above are in the shared conformance file, or in one table both ports' tests read, so the two can't drift
 - [x] `docs/architecture.md` and the session package's README say the address comes from settings
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -60,3 +60,7 @@ Chosen in the build, awaiting R's review.
 - **Adapters that build URLs.** Only Express and Next build a URL for the guard. Next has a second place, `forServerAction`, which builds the server action's redirect from the request the guard read; it is covered by "sends a lapsed server action to a page on the app's origin, whatever Host and X-Forwarded-Proto say". Hono and Start pass the request through and send the guard's answer as it is. `@robkit/react`'s `sessionFetch` sets `next` from the browser's own `location`.
 - **`@internal/test-postgres`** reads `ps axeww` with `execFileSync`'s default 1 MB buffer, so a machine with a few processes carrying large environments fails its tests. Ticket 26 may want a `maxBuffer`.
 - **Windows.** `corepack pnpm` works, but turbo calls whatever `pnpm` is first on `PATH`; here that was a global pnpm of another version, which fails the build with `ERR_PNPM_BAD_PM_VERSION`. `corepack enable --install-directory <folder> pnpm` from PowerShell, with that folder first on `PATH`, fixed it. Git Bash's path conversion breaks the same command.
+
+### Merged
+
+Added by the lead. PR 76 merged into `m1-the-subdomain-boundary` on 2026-11-09, with `gate` green on `a6c8da6`. That run was the first full gate on this branch, since the build's own run in WSL didn't finish.

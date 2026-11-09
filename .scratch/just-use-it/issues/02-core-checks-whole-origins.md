@@ -22,7 +22,7 @@
 - [x] `pnpm dev`'s config refuses a `ROBKIT_DOMAIN` that isn't local (added by the lead, 2026-11-09)
 - [x] After sign-in the hub sends the browser only to a page on an app's exact origin: it refuses an http downgrade on an https install, another port, `a.b.<domain>`, userinfo such as `https://notes.<domain>@evil.com/`, and a look-alike domain (added by the lead, 2026-11-09)
 - [x] The whole-stack and production tests pass
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -70,3 +70,7 @@ Chosen in the build.
 - **Ticket 12:** `CoreConfig.origin` replaces `domain`, and `createApp` takes `origin`. Core needs `ROBKIT_CORE_URL` and ignores `ROBKIT_DOMAIN`. `tooling/e2e/src/core-app.test.ts` boots core with `ROBKIT_CORE_URL`, and `config-problems.test.ts` runs `apps/core/src/main.ts` without it, which moves when `main.ts` goes.
 - **Ticket 24:** `/refresh` asks `accessOf(db, slug)` whether core mints for a slug. Make a removed app answer `undefined` there and `/refresh` refuses it with no other change.
 - **Ticket 20:** `packages/create-robkit/README.md`'s "Change a template" step 4 still names a digest in `generate.test.ts` that doesn't exist.
+
+### Merged
+
+Added by the lead. PR 77 merged into `m1-the-subdomain-boundary` on 2026-11-09, with `gate` and the `production` job green on `49ce72d`.

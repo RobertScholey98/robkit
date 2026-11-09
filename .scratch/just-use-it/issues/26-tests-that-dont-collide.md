@@ -17,7 +17,7 @@
 - [x] After a killed e2e run, the watcher has removed the run's temp folders as well as its containers
 - [x] The cause of the Next server-action journey's timeout is found and recorded in the comments, a regression test covers that cause, and a bounded stress run passed afterwards (the comments say what ran and how many times). No retry, and no longer timeout
 - [x] `docs/testing.md` describes the lease and the watcher as they now are
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -91,3 +91,7 @@ Chosen in the build, awaiting R's review.
   A shared helper that makes a temp folder and hands it to `removeWhenGone` would fix them in one place.
 - **A teardown race in WSL.** Once, removing an install hit `ENOTEMPTY` on `apps/example/dist/dev/types` while Next dev was still writing there, and vitest exited 1. I only saw it in WSL.
 - **`doc-examples.test.ts` timed out once in CI.** In repo-checks, "compile against the built packages" ran past its 30 s timeout in run 42711930226, attempt 1. It passed on the rerun and in the WSL gate. It compiles every docs example in one test, so it slows down as the docs grow.
+
+### Merged
+
+Added by the lead. PR 75 merged into `m1-the-subdomain-boundary` on 2026-11-09, with `gate` green on `8458f43`.

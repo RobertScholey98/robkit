@@ -33,11 +33,15 @@ Add this ticket's cases to `tooling/test-session/request-cases.json`, the shared
 - [x] A callback whose state doesn't match stores no token and redirects with `Referrer-Policy: no-referrer`, and one with no state cookie gets the page that says the browser kept none
 - [x] A core-signed token with no `exp` is refused by both ports
 - [x] `robkit check` refuses an app that reads the session cookie by its plain name, and one that reads it by its prefixed name
-- [ ] The production test passes over https and asserts the `__Host-` names on core's and an app's cookies; the PR carries the `production` label
+- [x] The production test passes over https and asserts the `__Host-` names on core's and an app's cookies; the PR carries the `production` label
 - [x] `SECURITY.md` says why the cookies carry the prefix, that the guarantee is for an https install in a browser that refuses a nameless cookie posing as a prefixed one, the state's renewing ten minutes, and the intro-link gap that ticket 27 closes; the map's known gap about the old parent-domain cookie is removed
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
+
+### Merged, with CI's proof
+
+Added by the lead. PR 78 merged into `m1-the-subdomain-boundary` on 2026-11-09. On its last head, `6b2733a`, `gate` passed and so did the `production` job (run 42722327319), which asserts the `__Host-` names over https for the example and for the app on each other stack, Go included. That run is the proof for the two criteria the build left unticked. The lead added one commit to the branch: test-session's branches threshold went from 94 to 96, which the coverage check asked for.
 
 ### Amended by the lead after the council's sixth round
 
