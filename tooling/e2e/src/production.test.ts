@@ -114,18 +114,25 @@ describe("the default install in production", () => {
     });
   });
 
-  it("lets a guest sign in with the owner's code and open the app over https", async () => {
+  it("lets a guest sign in with the owner's code and open the app over https, in __Host- cookies", async () => {
     const visit = await guestOpens(
       stack.addresses,
       setUp.code ?? "",
       exampleSlug,
     );
 
+    const host = (name: Slug) => new URL(stack.addresses.origin(name)).hostname;
+    const attributes = "Path=/ Secure HttpOnly Lax";
     expect(visit).toEqual({
       greeting: "Signed in as Grandma",
       openedAt: `${stack.addresses.origin(exampleSlug)}/`,
       heading: "Signed in as a guest",
       stylesheets: [200],
+      cookies: [
+        `${host(slug("core"))} __Host-robkit_session ${attributes}`,
+        `${host(exampleSlug)} __Host-robkit_session ${attributes}`,
+        `${host(exampleSlug)} __Host-robkit_state ${attributes}`,
+      ],
     });
   });
 
