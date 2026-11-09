@@ -1,6 +1,9 @@
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
+import { mkdtemp, readdir, rm, symlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { removeWhenGone } from "./clean-up.ts";
@@ -95,5 +98,17 @@ describe("removeLeftover", () => {
     const exited = taggedShell(tag, "trap '' TERM; sleep 600");
     await removeLeftover({ tagged: tag }, 500);
     expect(await exited).toEqual([null, "SIGKILL"]);
+  });
+
+  it("releases the leases its owner holds, and no one else's", async () => {
+    const leases = await mkdtemp(join(tmpdir(), "robkit-test-leases-"));
+    onTestFinished(() => rm(leases, { recursive: true, force: true }));
+    await symlink("111", join(leases, "20000"));
+    await symlink("222", join(leases, "20020"));
+    await symlink("111", join(leases, "20040"));
+
+    await removeLeftover({ leases, owner: 111 });
+
+    expect(await readdir(leases)).toEqual(["20020"]);
   });
 });

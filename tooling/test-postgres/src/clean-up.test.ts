@@ -96,17 +96,27 @@ describe("removeWhenGone", () => {
 describe("readLeftovers", () => {
   it("reads the leftovers removeWhenGone hands its watcher", () => {
     expect(
-      readLeftovers('[{"tagged": "12-ab"}, {"docker": "robkit-test-1"}]'),
-    ).toEqual([{ tagged: "12-ab" }, { docker: "robkit-test-1" }]);
+      readLeftovers(
+        '[{"tagged": "12-ab"}, {"docker": "robkit-test-1"}, {"leases": "/tmp/robkit-port-leases", "owner": 12}]',
+      ),
+    ).toEqual([
+      { tagged: "12-ab" },
+      { docker: "robkit-test-1" },
+      { leases: "/tmp/robkit-port-leases", owner: 12 },
+    ]);
     expect(readLeftovers("[]")).toEqual([]);
   });
 
-  it.each(["{", "{}", "[1]", '[{"tagged": 1}]', '[{"other": "x"}]'])(
-    "throws on %s",
-    (text) => {
-      expect(() => readLeftovers(text)).toThrow(
-        `The clean-up watcher was handed ${text}, not a JSON list of leftovers.`,
-      );
-    },
-  );
+  it.each([
+    "{",
+    "{}",
+    "[1]",
+    '[{"tagged": 1}]',
+    '[{"other": "x"}]',
+    '[{"leases": "/tmp/x"}]',
+  ])("throws on %s", (text) => {
+    expect(() => readLeftovers(text)).toThrow(
+      `The clean-up watcher was handed ${text}, not a JSON list of leftovers.`,
+    );
+  });
 });

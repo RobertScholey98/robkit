@@ -1,8 +1,12 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { once } from "node:events";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import postgres from "postgres";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import {
@@ -14,6 +18,7 @@ import {
 } from "./index.ts";
 
 const run = promisify(execFile);
+const index = fileURLToPath(new URL("./index.ts", import.meta.url));
 
 async function selectOne(url: string): Promise<unknown> {
   const sql = postgres(url, { max: 1, connect_timeout: 2 });
@@ -109,7 +114,76 @@ describe("publishedPorts", () => {
   });
 });
 
+/**
+ * A stand-in for a test worker that asks for `count` port blocks of
+ * `size`, leased in `leases`, prints each block's first port as one JSON
+ * list, then waits to be killed.
+ */
+function blockAsker(leases: string, count: number, size: number) {
+  const child = spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `
+      import { freePortBlock } from ${JSON.stringify(index)};
+      const firsts = [];
+      for (let i = 0; i < ${String(count)}; i++) {
+        firsts.push(await freePortBlock(${String(size)}, ${JSON.stringify(leases)}));
+      }
+      console.log(JSON.stringify(firsts));
+      setInterval(() => {}, 1000);
+      `,
+    ],
+    { stdio: ["ignore", "pipe", "inherit"] },
+  );
+  onTestFinished(() => {
+    child.kill("SIGKILL");
+  });
+  const firsts = once(child.stdout, "data").then(
+    ([data]: unknown[]) => JSON.parse(String(data)) as number[],
+  );
+  return { child, firsts };
+}
+
+async function eventually(check: () => Promise<boolean>): Promise<void> {
+  const deadline = Date.now() + 30_000;
+  while (!(await check())) {
+    if (Date.now() > deadline) throw new Error("never happened");
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+}
+
 describe("freePortBlock", () => {
+  it("never gives two processes overlapping blocks", async () => {
+    const leases = await mkdtemp(join(tmpdir(), "robkit-test-leases-"));
+    onTestFinished(() => rm(leases, { recursive: true, force: true }));
+
+    // 2 × 120 blocks of 20 from the 500 there are: picked at random without
+    // a lease, some would overlap.
+    const [a, b] = await Promise.all([
+      blockAsker(leases, 120, 20).firsts,
+      blockAsker(leases, 120, 20).firsts,
+    ]);
+
+    const ports = [...a, ...b].flatMap((first) =>
+      Array.from({ length: 20 }, (_, i) => first + i),
+    );
+    expect(new Set(ports).size).toBe(ports.length);
+  });
+
+  it("clears the leases of a process that was killed", async () => {
+    const leases = await mkdtemp(join(tmpdir(), "robkit-test-leases-"));
+    onTestFinished(() => rm(leases, { recursive: true, force: true }));
+    const asker = blockAsker(leases, 2, 3);
+    const firsts = await asker.firsts;
+    expect((await readdir(leases)).sort()).toEqual(firsts.map(String).sort());
+
+    asker.child.kill("SIGKILL");
+
+    await eventually(async () => (await readdir(leases)).length === 0);
+  });
+
   it("finds consecutive ports that can all be listened on", async () => {
     const first = await freePortBlock(3);
     const servers = [first, first + 1, first + 2].map((port) =>

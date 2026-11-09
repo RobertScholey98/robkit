@@ -1,6 +1,8 @@
 // What the clean-up watcher does once its owner is gone. Its own module, so
 // tests can run it in-process.
 import { execFileSync } from "node:child_process";
+import { readdir, readlink, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { Leftover } from "./clean-up.ts";
 
@@ -83,6 +85,25 @@ async function stopTagged(tag: string, graceMs: number): Promise<void> {
   signal(tagged(tag), "SIGKILL");
 }
 
+/** Removes each lease in `folder` that names `owner`'s pid. */
+async function releaseLeases(folder: string, owner: number): Promise<void> {
+  for (const name of await readdir(folder)) {
+    const lease = join(folder, name);
+    const holder = await readlink(lease).catch((error: unknown) => {
+      // Another owner's watcher removed it after readdir listed it.
+      if (
+        error instanceof Error &&
+        "code" in error &&
+        error.code === "ENOENT"
+      ) {
+        return undefined;
+      }
+      throw error;
+    });
+    if (holder === String(owner)) await rm(lease);
+  }
+}
+
 /**
  * Removes one leftover. A tagged process gets `graceMs` to stop after
  * SIGTERM before it gets SIGKILL: 15 seconds unless a test says otherwise.
@@ -92,5 +113,6 @@ export async function removeLeftover(
   graceMs = 15_000,
 ): Promise<void> {
   if ("tagged" in leftover) await stopTagged(leftover.tagged, graceMs);
-  else removeDocker(leftover.docker);
+  else if ("docker" in leftover) removeDocker(leftover.docker);
+  else await releaseLeases(leftover.leases, leftover.owner);
 }
