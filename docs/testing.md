@@ -7,7 +7,8 @@ This page covers the suites that start Docker: what they do, how they clean up, 
 The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postgres containers, and so do core's and dev's `*.db.test.ts` files. Core and dev run those in a `db` Vitest project, with the Postgres global setup and longer timeouts; their other tests are the `unit` project, which `test:unit` and `pnpm check` run.
 
 - Each suite gets its own test Postgres from `tooling/test-postgres`, whose data stays in memory (`in-memory.yaml`, added to `COMPOSE_FILE` by `testComposeFiles()`).
-- A test registers what it starts with `removeWhenGone`: a detached watcher removes its Compose project and stops every process carrying its `ROBKIT_TEST_TAG` once the test process exits, however it ends, so a failed or interrupted gate leaves nothing running.
+- A test registers what it starts with `removeWhenGone`: a detached watcher waits for the test process to exit, however it ends, then removes its Compose project, stops every process carrying its `ROBKIT_TEST_TAG`, deletes the temp folders it made and releases its port leases. It tries each of those even when one fails, so a failed or interrupted gate leaves nothing running and nothing in the temp folder.
+- A block of ports, for `pnpm dev`'s proxy and the apps after it, comes from `freePortBlock()`. Blocks start every 20 ports from 20000, and each is leased until the test process exits: a symlink in `$TMPDIR/robkit-port-leases`, named for the block's first port and pointing at the process's pid. Only one process can make it, so two suites on the machine never get the same block, even though their servers bind long after the probe. The watcher removes the leases of a process that exited. A block that something outside the tests holds keeps its lease, and the next of up to 50 tries takes a fresh one.
 - A Postgres port comes from `freePostgresPort()`, which also skips the ports Docker already publishes, because Docker Desktop publishes them from its own VM where `freePort()` can't see them.
 - Where Docker runs natively on Linux, as on CI, set `COMPOSE_FILE` as `.github/workflows/ci.yml` does, so every test Postgres runs on the host's network: each new compose network otherwise adds host interfaces, and Chromium fails its in-flight requests with `ERR_NETWORK_CHANGED`. Docker Desktop keeps its networks in its own VM, so the suite in WSL with Docker Desktop doesn't need it.
 - In WSL, if Docker can't pull images because of Docker Desktop's credential helper, point `DOCKER_CONFIG` at a folder with an empty `config.json`. CONTRIBUTING's WSL steps show how.
@@ -20,7 +21,7 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 - Each stack's journeys run from its own file, `src/<stack>.test.ts`, which calls `describeJourneys("<stack>")` with any journey only its example has: the call from the page that Start's server function and the Go example's API make, and Next's client navigation and server action with a lapsed session. A repo check fails on a ready stack without one.
 - The React + Go install needs Go on the `PATH`, as `pnpm check` does for the Go module's own tests.
 - It takes a browser through each install's example and added app in Chromium. It needs Chromium once: `pnpm --filter @internal/e2e exec playwright install --with-deps chromium`.
-- On every install it runs the install's own CI workflow on a `PATH` that can't see any `node_modules/.bin`: lint, the format check, typecheck, tests and the build. On the Start install it also checks that `pnpm lint` catches a cross-app import, and that the pre-commit hook refuses a commit that breaks the layer rule.
+- `src/install-checks.test.ts` runs each install's own CI workflow on a `PATH` that can't see any `node_modules/.bin`: lint, the format check, typecheck, tests and the build. It takes the jobs with no `if`, the ones a pull request runs, so the deploy job stays out. On the Start install it also checks that `pnpm lint` catches a cross-app import, and that the pre-commit hook refuses a commit that breaks the layer rule. It runs in a second install of each stack, made with the first before any suite starts, so its builds and edits never land under a running `pnpm dev`.
 - It isn't the only place an install's own unit tests run. create-robkit's `src/install-checks.test.ts` runs the hub's, admin's and core-client's tests and the install's lint in a fresh install, with no Docker, so `pnpm check` covers them.
 - axe checks every install's hub, admin and apps. A theme journey changes the theme's variables on the hub and checks its controls follow them.
 - CI's job summary lists how long it took, beside each package's tests.
@@ -41,7 +42,7 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 ## When a test fails
 
 - **Rerun it alone** before you change code: `pnpm --filter <package> exec vitest run <file>`. Under load, a test can fail for reasons that aren't the code. In WSL, Node 24 occasionally crashes under a heavy gate; rerun before you blame the change.
-- **A whole-stack journey prints what its browser saw** when it fails: console errors, failed requests, every 4xx and 5xx answer, each open page's text, and what the dev runner said meanwhile. Start with that output.
+- **A whole-stack journey prints what its browser saw** when it fails: console errors, failed requests, every 4xx and 5xx answer, each request still loading when the browser closed, each open page's text, and what the dev runner said meanwhile. Start with that output. A wait for `networkidle` that timed out names its cause in the requests still loading.
 - **Screenshots.** Set `E2E_SCREENSHOTS=<folder>` and the whole-stack test saves each page it checks there:
 
   ```sh
@@ -49,5 +50,5 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
   ```
 
 - **A failed production journey** prints what the browser saw and each container's state and last logs.
-- **Leftover containers.** The watcher removes what a test started when the test process exits, however it ends. If a machine crashed mid-run, `docker ps` shows any `robkit-test-*` or `robkit-install-*` containers left; remove them before the next run.
+- **Leftovers.** The watcher removes what a test started when the test process exits, however it ends. If a machine crashed mid-run, the watcher died with it: `docker ps` shows any `robkit-test-*` or `robkit-e2e-*` containers left, and the temp folder may hold `robkit-install-*`, `robkit-bin-*` and `robkit-caddy-*` folders and leases in `robkit-port-leases`. Remove them before the next run.
 - **`ERR_NETWORK_CHANGED` in Chromium** where Docker runs natively on Linux: set `COMPOSE_FILE` as above. Docker Desktop doesn't need it.
