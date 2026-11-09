@@ -1,4 +1,4 @@
-import { chromium, type Browser } from "playwright";
+import { chromium, type Browser, type Request } from "playwright";
 
 let lines: string[] = [];
 
@@ -16,13 +16,16 @@ function note(line: string): void {
 /**
  * Chromium, with every context noting what went wrong in it: console errors,
  * page errors, failed requests, 4xx and 5xx answers and each navigation. On
- * close it notes each open page's URL and text, so a journey that timed out
- * says what the page showed instead.
+ * close it notes each request still loading, which is what keeps a wait for
+ * `networkidle` waiting, and each open page's URL and text, so a journey
+ * that timed out says what the page showed instead.
  */
 export async function launch(
   options?: Parameters<typeof chromium.launch>[0],
 ): Promise<Browser> {
   const browser = await chromium.launch(options);
+  // Each request that has neither finished nor failed, and when it started.
+  const loading = new Map<Request, string>();
   const newContext = browser.newContext.bind(browser);
   browser.newContext = async (contextOptions) => {
     const context = await newContext(contextOptions);
@@ -36,7 +39,14 @@ export async function launch(
     context.on("weberror", (error) => {
       note(`page error ${error.error().message}`);
     });
+    context.on("request", (request) => {
+      loading.set(request, new Date().toISOString());
+    });
+    context.on("requestfinished", (request) => {
+      loading.delete(request);
+    });
     context.on("requestfailed", (request) => {
+      loading.delete(request);
       note(
         `request failed ${request.url()}: ${request.failure()?.errorText ?? ""}`,
       );
@@ -55,6 +65,11 @@ export async function launch(
   };
   const close = browser.close.bind(browser);
   browser.close = async (closeOptions) => {
+    for (const [request, since] of loading) {
+      note(
+        `still loading at close, since ${since}: ${request.resourceType()} ${request.method()} ${request.url()}`,
+      );
+    }
     for (const context of browser.contexts()) {
       for (const page of context.pages()) {
         const text = await page
