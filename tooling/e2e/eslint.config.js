@@ -5,4 +5,18 @@ import { config } from "@internal/eslint-config";
 export default [
   ...config(import.meta.dirname),
   { rules: { "@typescript-eslint/no-unsafe-type-assertion": "off" } },
+  {
+    files: ["src/**/*.ts"],
+    ignores: ["src/browser.test.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value='networkidle']",
+          message:
+            "Playwright's networkidle can be taken back by load and never fire again. Use networkIdle from browser.ts.",
+        },
+      ],
+    },
+  },
 ];
