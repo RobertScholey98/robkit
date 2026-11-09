@@ -100,11 +100,25 @@ export function refreshProtocol({
   };
 
   /**
+   * Sends the browser on to `next`, a page on the app, with any cookie.
+   * The URL it leaves carries a token or a state, so no page it goes to
+   * learns that URL as the referrer.
+   */
+  const toNext = (next: string, set: [string, string][] = []): Response =>
+    redirect(next, [...set, ["referrer-policy", "no-referrer"]]);
+
+  /**
    * Core sent the browser back with the app's token, or none if nobody is
    * signed in. The guard keeps whichever it got in the app's cookie and
    * sends the browser on to `next`. Each refusal is a page rather than a
    * redirect, so a browser that can't keep the cookie stops here instead of
    * going round again.
+   *
+   * A state that isn't the one the browser holds is a trip another page
+   * load superseded: two tabs that start together each get a state, and
+   * the browser keeps the last. The guard stores nothing from it and sends
+   * the browser on to `next`, which goes round again with the state it
+   * holds.
    */
   const arrive = async (request: Request, url: URL): Promise<Response> => {
     const next = nextOn(url);
@@ -116,12 +130,7 @@ export function refreshProtocol({
         400,
       );
     }
-    if (!sameState(url.searchParams.get("state"), held)) {
-      return text(
-        "This sign-in didn't start in this browser. Open the app again.",
-        400,
-      );
-    }
+    if (!sameState(url.searchParams.get("state"), held)) return toNext(next);
     const token = url.searchParams.get("token");
     let value = `${signedOutPrefix}${String(nowSeconds())}`;
     if (token !== null) {
@@ -142,9 +151,8 @@ export function refreshProtocol({
       }
       value = token;
     }
-    return redirect(next, [
+    return toNext(next, [
       ["set-cookie", cookie(cookies.session, value, appCookieMaxAgeSeconds)],
-      ["referrer-policy", "no-referrer"],
     ]);
   };
 

@@ -408,28 +408,116 @@ describe("requestGuard, getting the app's token from core", () => {
     expect(setCookies(second).robkit_state).toContain(`robkit_state=${state};`);
   });
 
-  it.each([
-    ["no state cookie", ""],
-    [
-      "another state",
-      "robkit_state=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    ],
-  ])(
-    "refuses a token sent to its callback by a link the browser didn't start, with %s",
-    async (_, held) => {
-      const core = await fakeCore();
-      const attacker = await core.key.token({ holder: guest(["family"]) });
+  it("refuses a token sent to its callback by a browser that holds no state, with the page that says so", async () => {
+    const core = await fakeCore();
+    const attacker = await core.key.token({ holder: guest(["family"]) });
 
-      const res = await guardedBy(core)(
-        callbackFor(core.page, {
-          state: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
-          token: attacker,
+    const res = await guardedBy(core)(
+      callbackFor(core.page, {
+        state: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        token: attacker,
+      }),
+      { headers: navigate },
+    );
+
+    expect([res.status, await res.text()]).toEqual([
+      400,
+      "This browser didn't keep the app's cookie, so it can't sign you in here. Allow cookies for this site and try again.",
+    ]);
+    expect(res.headers.getSetCookie()).toEqual([]);
+  });
+
+  it("stores nothing from a callback whose state isn't the one the browser holds, and sends it on to next to start again", async () => {
+    const core = await fakeCore();
+    const attacker = await core.key.token({ holder: guest(["family"]) });
+
+    const res = await guardedBy(core)(
+      callbackFor(core.page, {
+        state: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        token: attacker,
+      }),
+      {
+        headers: {
+          ...navigate,
+          cookie: "robkit_state=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        },
+      },
+    );
+
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(core.page);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.getSetCookie()).toEqual([]);
+  });
+
+  it.each([
+    ["the first tab's", [0, 1]],
+    ["the second tab's", [1, 0]],
+  ])(
+    "takes two page loads started together to their pages when %s callback lands first",
+    async (_, order) => {
+      const core = await fakeCore();
+      const open = guardedBy(core);
+      const jar = new Map<string, string>();
+      const keep = (res: Response) => {
+        for (const header of res.headers.getSetCookie()) {
+          const [pair = ""] = header.split(";");
+          const [name = "", value = ""] = pair.split("=");
+          if (header.includes("Max-Age=0")) jar.delete(name);
+          else jar.set(name, value);
+        }
+      };
+      const send = async (url: string) => {
+        const cookie = [...jar].map(([name, value]) => `${name}=${value}`);
+        const res = await open(url, {
+          headers: { ...navigate, cookie: cookie.join("; ") },
+        });
+        keep(res);
+        return res;
+      };
+      const token = await core.key.token();
+      /** Follows redirects from `url`, through core as core would, to a page. */
+      const browse = async (url: string): Promise<[number, string]> => {
+        let at = url;
+        for (;;) {
+          const res = await send(at);
+          const location = res.headers.get("location");
+          if (res.status !== 302 || location === null) return [res.status, at];
+          const to = new URL(location);
+          at =
+            to.origin === core.origin
+              ? callbackFor(to.searchParams.get("next") ?? "", {
+                  state: to.searchParams.get("state") ?? "",
+                  token,
+                })
+              : location;
+        }
+      };
+      const pages = [core.page, new URL("/other", core.page).href];
+      // Both loads leave before either answer arrives, so neither carries
+      // a state, and the browser keeps the state of the answer that lands
+      // last.
+      const away = await Promise.all(
+        pages.map((page) => open(page, { headers: navigate })),
+      );
+      away.forEach(keep);
+      const callbacks = pages.map((page, tab) =>
+        callbackFor(page, {
+          state: stateIn(away[tab]?.headers.get("location") ?? null),
+          token,
         }),
-        { headers: { ...navigate, cookie: held } },
       );
 
-      expect(res.status).toBe(400);
-      expect(res.headers.getSetCookie()).toEqual([]);
+      const ends: Record<number, [number, string]> = {};
+      for (const tab of order) {
+        ends[tab] = await browse(callbacks[tab] ?? "");
+      }
+
+      expect([ends[0], ends[1]]).toEqual([
+        [200, pages[0]],
+        [200, pages[1]],
+      ]);
     },
   );
 
