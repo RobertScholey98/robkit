@@ -729,7 +729,7 @@ func TestGuardReadsTokensAsCoreSignsThem(t *testing.T) {
 		"a critical header":               {fakecore.TokenOptions{Header: map[string]any{"crit": []string{"exp"}, "exp": 1}}, nobody},
 		"a token not yet valid":           {fakecore.TokenOptions{Claims: map[string]any{"nbf": now.Now().Unix() + 60}}, nobody},
 		"an expiry that isn't a number":   {fakecore.TokenOptions{Claims: map[string]any{"exp": "soon"}}, nobody},
-		"a token with no expiry":          {fakecore.TokenOptions{Claims: map[string]any{"exp": nil}}, `{"kind":"owner","id":"owner-1"}` + "\n"},
+		"a token with no expiry":          {fakecore.TokenOptions{Claims: map[string]any{"exp": nil}}, nobody},
 	} {
 		t.Run(name, func(t *testing.T) {
 			tc.options.Now = now.Now()
