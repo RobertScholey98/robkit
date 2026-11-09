@@ -21,7 +21,7 @@
 - [x] Core refuses to start with no `ROBKIT_CORE_URL`, or with an http one off localhost, and names the variable (the lead replaced the `ROBKIT_DOMAIN` check, 2026-11-09)
 - [x] `pnpm dev`'s config refuses a `ROBKIT_DOMAIN` that isn't local (added by the lead, 2026-11-09)
 - [x] After sign-in the hub sends the browser only to a page on an app's exact origin: it refuses an http downgrade on an https install, another port, `a.b.<domain>`, userinfo such as `https://notes.<domain>@evil.com/`, and a look-alike domain (added by the lead, 2026-11-09)
-- [ ] The whole-stack and production tests pass
+- [x] The whole-stack and production tests pass
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -53,16 +53,19 @@ Chosen in the build.
 - `@robkit/input`: 228 tests. Core unit: 132. Core's db project in WSL: 222 passed. `@robkit/dev`'s env tests: 11. The hub's tests in a linked install: 18 in `core-origin.test.ts`, 60 in the app.
 - `pnpm check` on Windows, with Go on `PATH`: 59 of 59 tasks.
 - `pnpm check:all` in WSL: 60 of 61 tasks. `@internal/e2e` failed 6 of 85: my new config-problems test (core also printed "PORT is not set"; fixed in ff5a731), and 5 guest journeys that timed out waiting for the hub's page, with Vite module fetches timing out at load average 22 while another worker's suites ran.
-- Rerunning `@internal/e2e` alone was worse and failed on the machine: Docker's API answered 500, Postgres connections were refused and reset, and stacks never came up, at load average 24. Owner journeys that passed in the first run failed in the second. I couldn't get a clean whole-stack run here; CI judges it.
+- Rerunning `@internal/e2e` alone was worse and failed on the machine: Docker's API answered 500, Postgres connections were refused and reset, and stacks never came up, at load average 24. The lead found Docker Desktop's engine had stopped that evening, with C: full.
+- After merging ticket 01 (`origin/m1-the-subdomain-boundary`, 19ddfed) and with Docker back, `pnpm check:all` in WSL: 61 of 61 tasks in 5 minutes 25 seconds. `@internal/e2e` 74 passed and 11 skipped of 85, the guest journeys included. Core 354, `@robkit/dev` 83, `@robkit/input` 235.
+- CI on 9bf29e4, before the merge: `check:all` passed, the production test passed (run 42701744317), and `check` failed at the coverage ratchet: "packages/dev/vitest.config.ts sets the functions threshold to 80, but its tests cover 82.19%. Raise it to 82." That was this ticket's `readDevDomain`; 6f2b60f raises it.
 
 ### Not verified
 
-- The whole-stack and production tests, locally: see above. The PR carries the `production` label so CI runs the production test.
+- The production test locally. It passed in CI before the merge with ticket 01, and runs again on the merged head.
 - `pnpm dev` by hand in a browser.
 
 ### For other tickets
 
 - **Ticket 03:** the install is `context.install` in every routes module; core's protocol is `new URL(context.install.origin("core")).protocol`. `setSessionCookie` in `routes/context.ts` still decides `Secure` with `isLocal(install.domain)`, and `standingOf` decides the test code the same way. Go's `ReadGuardEnv` (`go/session/options.go`) still accepts `http://core.example.com`; the lead assigned that to ticket 03, since it changes the Go port anyway.
+- **Shared request cases:** this ticket adds no kind to `tooling/test-session/request-cases.json`. Its checks are core's, which has no Go port; the http-off-localhost rule for Go's reader is ticket 03's.
 - **Ticket 04:** `freshCore({ origin, apps, trustedProxy })` builds a core; `routes/session.ts` destructures `db` from the context now.
 - **Ticket 12:** `CoreConfig.origin` replaces `domain`, and `createApp` takes `origin`. Core needs `ROBKIT_CORE_URL` and ignores `ROBKIT_DOMAIN`. `tooling/e2e/src/core-app.test.ts` boots core with `ROBKIT_CORE_URL`, and `config-problems.test.ts` runs `apps/core/src/main.ts` without it, which moves when `main.ts` goes.
 - **Ticket 24:** `/refresh` asks `accessOf(db, slug)` whether core mints for a slug. Make a removed app answer `undefined` there and `/refresh` refuses it with no other change.
