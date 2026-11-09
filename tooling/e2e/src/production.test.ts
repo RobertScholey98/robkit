@@ -63,6 +63,21 @@ describe("the default install in production", () => {
   let stack: Stack;
   let setUp: OwnerSetUp;
 
+  /**
+   * The cookies a guest holds once `app` opens, as the journey lists them:
+   * core's session and the app's session and state, each host-only under
+   * its __Host- name.
+   */
+  const hostCookies = (app: Slug): string[] => {
+    const host = (name: Slug) => new URL(stack.addresses.origin(name)).hostname;
+    const attributes = "Path=/ Secure HttpOnly Lax";
+    return [
+      `${host(slug("core"))} __Host-robkit_session ${attributes}`,
+      `${host(app)} __Host-robkit_session ${attributes}`,
+      `${host(app)} __Host-robkit_state ${attributes}`,
+    ].sort();
+  };
+
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
     await init(defaultChoices, dir, { link: true, install: true });
@@ -121,18 +136,12 @@ describe("the default install in production", () => {
       exampleSlug,
     );
 
-    const host = (name: Slug) => new URL(stack.addresses.origin(name)).hostname;
-    const attributes = "Path=/ Secure HttpOnly Lax";
     expect(visit).toEqual({
       greeting: "Signed in as Grandma",
       openedAt: `${stack.addresses.origin(exampleSlug)}/`,
       heading: "Signed in as a guest",
       stylesheets: [200],
-      cookies: [
-        `${host(slug("core"))} __Host-robkit_session ${attributes}`,
-        `${host(exampleSlug)} __Host-robkit_session ${attributes}`,
-        `${host(exampleSlug)} __Host-robkit_state ${attributes}`,
-      ],
+      cookies: hostCookies(exampleSlug),
     });
   });
 
