@@ -109,8 +109,9 @@ Left open by build tickets 02 to 11 and app-sharing ticket 02, with no ticket ye
 - An app open to anyone takes core's word that nobody is signed in for a minute. A visitor who opens it signed out, then signs in at the hub, shows as nobody there until that minute is up. (app-sharing 02)
 - Core hands an app its token in the callback's URL, so a proxy that logs URLs logs that app's token, good for 15 minutes on that app alone. (app-sharing 02)
 - A browser that keeps no cookies used to see an app open to anyone as nobody. It now stops at the app's callback with a page saying it kept no cookie. (app-sharing 02)
+- A state the guard keeps for a trip through core, if read from a log, is good until ten minutes after the last trip that renewed it, in the one browser that holds its cookie. Clearing it once a trip ends would break tabs that share it. (just-use-it 03)
+- The hub signs a browser in with whatever access code an intro link carries, without asking, so a sibling app can swap a viewer's session for a guest's. (just-use-it 27 closes it)
 - Any app can send a visiting browser through core's `/refresh` and learn who the visitor is: their id, kind and roles. That is what an app needs to serve them, but an imported app learns it too, for every guest who opens it. (app-sharing 02)
-- A browser that signed in before per-app tokens keeps the old parent-domain cookie until it expires, up to 30 days. Core and every app ignore it, but it still reaches every app's server. (app-sharing 02)
 
 ## Not yet specified
 
