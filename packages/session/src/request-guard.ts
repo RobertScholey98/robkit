@@ -6,7 +6,7 @@ import {
   type Viewer,
 } from "@robkit/guard";
 import type { CoreOrigin, Slug } from "@robkit/input";
-import { coreInstall, isLocal } from "@robkit/input/addresses";
+import { coreInstall } from "@robkit/input/addresses";
 import { appRefreshPath } from "./app-session.ts";
 import {
   AccessRuleError,
@@ -17,6 +17,7 @@ import { isNavigation, publicUrl, redirect, text } from "./guard-http.ts";
 import { sessionLapsedResponse } from "./lapsed.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
 import { refreshProtocol } from "./refresh-protocol.ts";
+import { sessionCookies } from "./session-cookies.ts";
 import { reportToConsole } from "@robkit/input/report";
 
 export interface GuardedOptions {
@@ -147,7 +148,7 @@ export function requestGuard(
   const protocol = refreshProtocol({
     app,
     core,
-    secure: !isLocal(install.domain),
+    cookies: sessionCookies(origin),
     keyUnavailable,
   });
 

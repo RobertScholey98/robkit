@@ -15,6 +15,7 @@ import {
   owner,
   readRequestCases,
   refreshLocation,
+  sessionCookieOn,
   signedOutCookie,
   signingKey,
   stateIn,
@@ -148,10 +149,28 @@ describe("signingKey", () => {
     );
   });
 
-  it("writes core's word that nobody is signed in, as of now", () => {
-    expect(signedOutCookie()).toBe(
-      `robkit_session=signed-out.${String(Math.floor(Date.now() / 1000))}`,
-    );
+  it("names the session cookie as @robkit/session does: __Host- over https, plain over http", () => {
+    expect([
+      sessionCookieOn("https://core.robkit.dev"),
+      sessionCookieOn("https://core.robkit.localhost:3443"),
+      sessionCookieOn("http://core.robkit.localhost:3000"),
+    ]).toEqual([
+      "__Host-robkit_session",
+      "__Host-robkit_session",
+      "robkit_session",
+    ]);
+  });
+
+  it("writes core's word that nobody is signed in, as of now, under the origin's name", () => {
+    const now = String(Math.floor(Date.now() / 1000));
+
+    expect([
+      signedOutCookie("https://core.robkit.dev"),
+      signedOutCookie("http://core.robkit.localhost:3000"),
+    ]).toEqual([
+      `__Host-robkit_session=signed-out.${now}`,
+      `robkit_session=signed-out.${now}`,
+    ]);
   });
 });
 
@@ -342,7 +361,7 @@ describe("addressCases", () => {
         },
       ],
       hub: [
-        { cookie: signedOutCookie() },
+        { cookie: signedOutCookie(row.core) },
         {
           status: 302,
           location: `https://hub.robkit.dev/?next=${encodeURIComponent(row.next)}`,

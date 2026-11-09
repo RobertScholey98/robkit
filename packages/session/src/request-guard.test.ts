@@ -140,7 +140,7 @@ describe("requestGuard, on a page load", () => {
     expect(away.outcome === "answer" && away.response.status).toBe(302);
   });
 
-  it("keeps an https install's pages on https, and sets Secure cookies off localhost", async () => {
+  it("keeps an https install's pages on https, and its state in a __Host- cookie", async () => {
     const check = requestGuard({
       app: slug("notes"),
       access: { kind: "owner" },
@@ -159,10 +159,67 @@ describe("requestGuard, on a page load", () => {
     );
     expect(res?.headers.getSetCookie()).toEqual([
       expect.stringMatching(
-        /^robkit_state=[\w-]{43}; Path=\/; Max-Age=600; HttpOnly; SameSite=Lax; Secure$/,
+        /^__Host-robkit_state=[\w-]{43}; Path=\/; Max-Age=600; HttpOnly; SameSite=Lax; Secure$/,
       ),
     ]);
   });
+
+  it.each([
+    ["https://core.example.com", "https://notes.example.com/"],
+    [
+      "https://core.robkit.localhost:3443",
+      "https://notes.robkit.localhost:3443/",
+    ],
+  ])(
+    "on %s, keeps core's word in a __Host- cookie, reads it back, and forgets it there",
+    async (core, page) => {
+      const check = requestGuard({
+        app: slug("notes"),
+        access: { kind: "open" },
+        core: coreOrigin(core),
+      });
+      const answer = async (url: string, cookie = "") => {
+        const decision = await check(
+          new Request(url, { headers: { ...navigate, cookie } }),
+        );
+        return decision.outcome === "answer"
+          ? decision.response
+          : Response.json(decision.viewer);
+      };
+      const gated = requestGuard({
+        app: slug("notes"),
+        access: { kind: "owner" },
+        core: coreOrigin(core),
+      });
+
+      const away = await answer(page);
+      const back = await answer(
+        callbackFor(page, { state: stateIn(away.headers.get("location")) }),
+        cookiesFrom(away),
+      );
+      const then = await answer(page, cookiesFrom(away, back));
+      const login = await gated(
+        new Request(page, {
+          headers: { ...navigate, cookie: cookiesFrom(away, back) },
+        }),
+      );
+
+      expect(back.headers.getSetCookie()).toEqual([
+        expect.stringMatching(
+          /^__Host-robkit_session=signed-out\.\d+; Path=\/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure$/,
+        ),
+      ]);
+      expect([then.status, await then.json()]).toEqual([
+        200,
+        { kind: "nobody" },
+      ]);
+      expect(
+        login.outcome === "answer" && login.response.headers.getSetCookie(),
+      ).toEqual([
+        "__Host-robkit_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure",
+      ]);
+    },
+  );
 
   it("sends a page load from a browser that sends no fetch metadata to log in, not round core", async () => {
     const core = await fakeCore();
@@ -288,7 +345,7 @@ describe("requestGuard, getting the app's token from core", () => {
   it("asks core again once its word that nobody is signed in is a minute old", async () => {
     const core = await fakeCore();
     const open = guardedBy(core, { app: example, access: { kind: "open" } });
-    const word = { cookie: signedOutCookie() };
+    const word = { cookie: signedOutCookie(core.origin) };
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(Date.now() + 61_000);
 

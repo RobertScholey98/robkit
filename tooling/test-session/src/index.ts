@@ -26,7 +26,7 @@ export {
 } from "./brands.ts";
 
 // Written out rather than imported from @robkit/session, whose own tests use
-// this package. If session's cookie, lifetime, callback or word that nobody
+// this package. If session's cookies, lifetime, callback or word that nobody
 // is signed in changes, its guard tests fail.
 const sessionCookie = "robkit_session";
 const sessionTokenLifetimeSeconds = 15 * 60;
@@ -72,9 +72,23 @@ export interface SigningKey {
 /** Long enough ago that a token has expired. */
 const expiredAgeSeconds = sessionTokenLifetimeSeconds + 5 * 60;
 
-/** The app's cookie, saying core said just now that nobody is signed in. */
-export function signedOutCookie(): string {
-  return `${sessionCookie}=signed-out.${String(Math.floor(Date.now() / 1000))}`;
+/**
+ * The session cookie's name on the install at `origin`, as
+ * `sessionCookies` in @robkit/session names it: `__Host-` over https, plain
+ * over http.
+ */
+export function sessionCookieOn(origin: string): string {
+  return new URL(origin).protocol === "https:"
+    ? `__Host-${sessionCookie}`
+    : sessionCookie;
+}
+
+/**
+ * The app's cookie on the install at `origin`, saying core said just now
+ * that nobody is signed in.
+ */
+export function signedOutCookie(origin: string): string {
+  return `${sessionCookieOn(origin)}=signed-out.${String(Math.floor(Date.now() / 1000))}`;
 }
 
 export async function signingKey(): Promise<SigningKey> {
@@ -109,15 +123,16 @@ export async function signingKey(): Promise<SigningKey> {
 }
 
 /**
- * The cookie header a conformance case's visitor sends `slug`, if any, with
- * tokens `key` signs.
+ * The cookie header a conformance case's visitor sends `slug` on the install
+ * at `origin`, if any, with tokens `key` signs.
  */
 async function cookieFor(
+  origin: string,
   key: SigningKey,
   { session, guestRoles, otherToken }: ConformanceCase,
   slug: string = app,
 ): Promise<{ cookie?: string }> {
-  if (session === "signed-out") return { cookie: signedOutCookie() };
+  if (session === "signed-out") return { cookie: signedOutCookie(origin) };
   const other =
     otherToken &&
     {
@@ -132,7 +147,7 @@ async function cookieFor(
     owner: () => key.token({ audience: slug }),
     guest: () => key.token({ holder: guest(guestRoles), audience: slug }),
   }[session];
-  return value ? { cookie: `${sessionCookie}=${await value()}` } : {};
+  return value ? { cookie: `${sessionCookieOn(origin)}=${await value()}` } : {};
 }
 
 /** Core as an app's guard sees it: its JWKS and its app catalog's rules. */
@@ -207,7 +222,7 @@ export async function fakeCore(): Promise<FakeCore> {
     hub: `http://hub.robkit.localhost:${String(port)}`,
     page: `http://${app}.robkit.localhost:${String(port)}/notes?x=1`,
     key,
-    cookieFor: (asking, slug) => cookieFor(key, asking, slug),
+    cookieFor: (asking, slug) => cookieFor(core.origin, key, asking, slug),
     rules: {},
     status: 200,
     fetched: [],
@@ -303,10 +318,10 @@ export function conformanceAnswer(
 }
 
 /** The cookie header a case's browser sends, if any. */
-export function addressCookie({ signedOut }: AddressCase): {
+export function addressCookie({ core, signedOut }: AddressCase): {
   cookie?: string;
 } {
-  return signedOut ? { cookie: signedOutCookie() } : {};
+  return signedOut ? { cookie: signedOutCookie(core) } : {};
 }
 
 /** What the guard must answer a case's page load with. */
