@@ -1,4 +1,4 @@
-import { type Domain } from "@robkit/input";
+import type { Install } from "@robkit/input/addresses";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import type { CodeId, RoleId, SessionState } from "@robkit/guard";
 import {
@@ -23,8 +23,8 @@ import type { SigningKey } from "./signing-key.ts";
 /** What core needs to start and read sessions. */
 export interface SessionContext {
   db: Database;
-  /** The install's domain, which decides whether the test code works. */
-  domain: Domain;
+  /** The install's addresses. Its domain decides whether the test code works. */
+  install: Install;
   now: () => Date;
   signingKey: () => Promise<SigningKey>;
 }
@@ -151,7 +151,7 @@ export async function signInWithCode(
     .select()
     .from(accessCodes)
     .where(eq(accessCodes.code, code));
-  if (!found || standingOf(found, ctx.now(), ctx.domain) !== "live") {
+  if (!found || standingOf(found, ctx.now(), ctx.install.domain) !== "live") {
     return { outcome: "refused" };
   }
   return {
@@ -204,7 +204,10 @@ async function holderOf(
         .from(sessions)
         .innerJoin(accessCodes, eq(sessions.codeId, accessCodes.id))
         .where(and(live, eq(sessions.codeId, claims.id)));
-      if (!found || standingOf(found.code, now, ctx.domain) !== "live") {
+      if (
+        !found ||
+        standingOf(found.code, now, ctx.install.domain) !== "live"
+      ) {
         return undefined;
       }
       return {

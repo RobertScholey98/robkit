@@ -92,13 +92,13 @@ export function viewer(
       answer.state === "signed-in" && answer.profile.kind === "owner";
     if (ownerOnly && !isOwner) return c.json({ error: "Not found" }, 404);
     if (freshSessionToken) {
-      setSessionCookie(c, context.domain, freshSessionToken);
+      setSessionCookie(c, context.install.domain, freshSessionToken);
     } else if (
       renew &&
       sessionTokens.length > 0 &&
       answer.state !== "signed-in"
     ) {
-      setSessionCookie(c, context.domain, "", 0);
+      setSessionCookie(c, context.install.domain, "", 0);
     }
     c.set("session", session);
     await next();

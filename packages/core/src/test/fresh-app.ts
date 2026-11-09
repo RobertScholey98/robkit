@@ -1,4 +1,4 @@
-import { aDomain } from "@internal/test-session";
+import { aCoreOrigin } from "@internal/test-session";
 import type { Hono } from "hono";
 import { decodeJwt, SignJWT, type JWTPayload } from "jose";
 import { onTestFinished } from "vitest";
@@ -26,10 +26,11 @@ export interface FreshCore {
  * connections when the test finishes.
  */
 export async function freshCore({
-  domain = "robkit.test",
+  origin = "https://core.robkit.test",
   trustedProxy,
 }: {
-  domain?: string;
+  /** Core's public origin: a hosted install's unless it says. */
+  origin?: string;
   trustedProxy?: TrustedProxy | undefined;
 } = {}): Promise<FreshCore> {
   const databaseUrl = await freshDatabase();
@@ -40,7 +41,12 @@ export async function freshCore({
   let now = clockStart.getTime();
   const clock = () => new Date(now);
   return {
-    app: createApp({ db, domain: aDomain(domain), now: clock, trustedProxy }),
+    app: createApp({
+      db,
+      origin: aCoreOrigin(origin),
+      now: clock,
+      trustedProxy,
+    }),
     db,
     now: clock,
     advance: (ms) => {

@@ -1,7 +1,7 @@
 import { Hono, type Context } from "hono";
 import { validator } from "hono/validator";
 import { appSessionUrl, sessionTokensIn } from "@robkit/session";
-import { install, isLocal } from "@robkit/input/addresses";
+import { isLocal } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
 import { parseAccessCode } from "../access-codes.ts";
 import { clientOf } from "../client.ts";
@@ -35,9 +35,9 @@ function tooManyAttempts(c: Context, retryAfter: number): Response {
  * app with the keys that check them.
  */
 export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
-  const { domain, now, signingKey, trustedProxy } = context;
+  const { install, now, signingKey, trustedProxy } = context;
+  const { domain } = install;
   const routes = new Hono<CoreEnv>();
-  const addresses = install({ domain });
   const loginLimiter = createRateLimiter({
     limit: 5,
     windowMs: 15 * 60 * 1000,
@@ -70,8 +70,8 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   routes.get(
     "/refresh",
     validator("query", (_, c) => {
-      const next = addresses.onInstall(c.req.query("next"));
-      const slug = next && addresses.appOf(next);
+      const next = install.onInstall(c.req.query("next"));
+      const slug = next && install.appOf(next);
       // A token in a URL goes only over https, but on a local install.
       const safe = isLocal(domain) || next?.startsWith("https:");
       if (!next || !slug || !safe || slug === "core" || slug === "hub") {

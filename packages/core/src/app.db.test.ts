@@ -1,4 +1,4 @@
-import { aDomain } from "@internal/test-session";
+import { aCoreOrigin } from "@internal/test-session";
 import { freePort } from "@internal/test-postgres";
 import {
   afterAll,
@@ -25,7 +25,10 @@ afterAll(async () => {
 
 describe("GET /status", () => {
   it("answers ok once the database answers", async () => {
-    const app = createApp({ db, domain: aDomain("localhost") });
+    const app = createApp({
+      db,
+      origin: aCoreOrigin("http://core.localhost:3000"),
+    });
 
     const res = await app.request("/status");
 
@@ -40,7 +43,7 @@ describe("GET /status", () => {
     const logged: [string, unknown][] = [];
     const app = createApp({
       db: unreachable,
-      domain: aDomain("localhost"),
+      origin: aCoreOrigin("http://core.localhost:3000"),
       logError: (message, cause) => logged.push([message, cause]),
     });
 
@@ -64,7 +67,7 @@ describe("an unexpected error", () => {
     const logged: [string, unknown][] = [];
     const app = createApp({
       db: unreachable,
-      domain: aDomain("localhost"),
+      origin: aCoreOrigin("http://core.localhost:3000"),
       logError: (message, cause) => logged.push([message, cause]),
     });
 
@@ -90,7 +93,7 @@ describe("an unexpected error", () => {
     );
     const app = createApp({
       db: unreachable,
-      domain: aDomain("localhost"),
+      origin: aCoreOrigin("http://core.localhost:3000"),
       logError: () => undefined,
     });
 
@@ -111,7 +114,10 @@ describe("an unexpected error", () => {
     onTestFinished(() => {
       log.mockRestore();
     });
-    const app = createApp({ db: unreachable, domain: aDomain("localhost") });
+    const app = createApp({
+      db: unreachable,
+      origin: aCoreOrigin("http://core.localhost:3000"),
+    });
 
     await app.request("/.well-known/jwks.json");
     await unreachable.$client.end();
@@ -128,7 +134,8 @@ describe("an unexpected error", () => {
 });
 
 describe("CORS", () => {
-  const app = () => createApp({ db, domain: aDomain("robkit.test") });
+  const app = () =>
+    createApp({ db, origin: aCoreOrigin("https://core.robkit.test") });
 
   it.each([
     "http://hub.robkit.test:3000",

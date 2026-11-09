@@ -153,7 +153,9 @@ describe("a guest's session token", () => {
   });
 
   it("gives the test code every role, even one made after sign-in", async () => {
-    const { app } = await freshCore({ domain: "robkit.localhost" });
+    const { app } = await freshCore({
+      origin: "http://core.robkit.localhost:3000",
+    });
     const owner = await claim(app);
     const guest = await signIn(app, "test");
     const created = await postJson(

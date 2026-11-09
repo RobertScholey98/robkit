@@ -186,7 +186,9 @@ describe("GET /refresh", () => {
   });
 
   it("hands a token over plain http on a local install", async () => {
-    const { app } = await freshCore({ domain: "robkit.localhost" });
+    const { app } = await freshCore({
+      origin: "http://core.robkit.localhost:3000",
+    });
     const sessionToken = await claim(app);
     const local = "http://notes.robkit.localhost:3000/";
 

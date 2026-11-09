@@ -97,7 +97,9 @@ describe("POST /login/code", () => {
   });
 
   it("signs a guest in with the test code on a local domain", async () => {
-    const { app } = await freshCore({ domain: "robkit.localhost" });
+    const { app } = await freshCore({
+      origin: "http://core.robkit.localhost:3000",
+    });
     await claim(app);
 
     const res = await signInWith(app, "test");
@@ -158,7 +160,9 @@ describe("POST /login/code", () => {
   it.each([{}, { code: 12345 }, "TEST"])(
     "refuses %j with 400",
     async (body) => {
-      const { app } = await freshCore({ domain: "robkit.localhost" });
+      const { app } = await freshCore({
+        origin: "http://core.robkit.localhost:3000",
+      });
       await claim(app);
 
       const res = await postJson(app, "/login/code", body);
@@ -169,7 +173,9 @@ describe("POST /login/code", () => {
   );
 
   it("refuses with 409 before anyone has set up the install", async () => {
-    const { app } = await freshCore({ domain: "robkit.localhost" });
+    const { app } = await freshCore({
+      origin: "http://core.robkit.localhost:3000",
+    });
 
     const res = await signInWith(app, "TEST");
 
