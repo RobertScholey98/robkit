@@ -245,3 +245,21 @@ describe("readAppToken", () => {
     ).toBeUndefined();
   });
 });
+
+describe("a token with no exp", () => {
+  it("is refused as core's token and as an app's", async () => {
+    const { privateKey, publicKey } = await keyPair();
+    const forever = (aud: string) =>
+      new SignJWT({ aud, sid: "session-1", kind: "owner" })
+        .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
+        .setSubject("owner-1")
+        .setIssuedAt(Math.floor(issuedAt.getTime() / 1000))
+        .sign(privateKey);
+    const now = new Date(issuedAt.getTime() + minute);
+
+    expect([
+      await readSessionToken(publicKey, await forever("core"), now),
+      await readAppToken(publicKey, await forever("notes"), now, notes),
+    ]).toEqual([undefined, undefined]);
+  });
+});

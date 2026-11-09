@@ -95,7 +95,13 @@ async function verified(
   token: string,
   now: Date,
 ): Promise<{ payload: JWTPayload; expired: boolean } | undefined> {
-  const options = { algorithms: ["EdDSA"], currentDate: now };
+  // A token must expire: one with no exp would let a leaked token in for
+  // good.
+  const options = {
+    algorithms: ["EdDSA"],
+    currentDate: now,
+    requiredClaims: ["exp"],
+  };
   try {
     const { payload } =
       typeof key === "function"
