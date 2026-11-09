@@ -23,6 +23,14 @@ Core signs every session token with an Ed25519 key that only core holds. No cook
 
 See [ADR 0004](docs/adr/0004-per-app-tokens.md).
 
+### Core checks whole origins
+
+Core knows its own origin from `ROBKIT_CORE_URL`, and works out every other address from it. It compares protocol, host and port, never the host alone:
+
+- `/refresh` mints a token only when `next` is on the exact origin of admin or an app in core's catalog. It mints none for the hub or core.
+- CORS lets exactly the hub's and admin's origins call core with the owner's cookie.
+- Only a local install, on `localhost` or a name under it, runs over plain http. Core and every app refuse an http `ROBKIT_CORE_URL` on any other domain, since tokens travel in the URLs of `/refresh`'s redirects, and `pnpm dev` refuses a domain that isn't local.
+
 ### What an imported app can and can't do
 
 An app the owner installs, whoever wrote it, can:
@@ -46,3 +54,4 @@ The plan, `.scratch/kit/map.md`, lists the gaps we know of. The ones that bear o
 - Any container on Coolify's network can reach core directly and send its own forwarded headers. Only the owner's apps run there.
 - The sign-in limit is soft: two attempts racing in parallel can both get past it.
 - A hosted install's setup screen stays open until someone claims it. Claim it as soon as it's up.
+- `GET /apps/:slug/access` answers anyone, since each app's guard reads its rule there with no cookie. So a stranger can learn which slugs an install has, and who may open each.

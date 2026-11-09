@@ -77,10 +77,12 @@ Core's routes are in `src/routes/`, one Hono app each for status, the session, c
 - Keep a table outside the `core` schema. Declare each with `core.table()` in `src/schema.ts`. `tooling/eslint` enforces it.
 - Be reached by anything but the proxy. It trusts `X-Forwarded-For`, or `CF-Connecting-IP` with `ROBKIT_TRUSTED_PROXY=cloudflare`, for its sign-in limit.
 - Read any cookie but its own. It renews only from core's token, never from an app token.
+- Compare a host name where it means an origin. It reads its own origin from `ROBKIT_CORE_URL`, and `/refresh` and CORS compare protocol, host and port against the install's addresses from `coreInstall`.
 - Be imported by an app. `robkit check` enforces that in an install.
 
 ## For contributors
 
+- Each routes module gets the install's addresses as `context.install`, worked out once from core's origin. `/refresh` mints for `next` only on `install.appAt`'s exact origin, and only for admin or an app in core's catalog.
 - `createApp` takes `logError`, a `Report` from `@robkit/input/report` that defaults to `reportToConsole`. Every unexpected error (one handler, `app.onError`, answering a generic 500) and an unreachable database are reported there.
 - `session-claims.ts` holds the session logic that needs no database: when a session expires, the holder's claims and guard viewer, and when a live session's token renews. `session-store.ts` calls it, and its unit tests need no Postgres.
 - Each 500 carries a fresh request id, in the `X-Request-Id` header and the body's `requestId`. The log line names the same id, such as `GET /path failed (request <id>).`, so a 500 a person reports leads to its cause in core's log.
