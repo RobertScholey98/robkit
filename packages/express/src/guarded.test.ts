@@ -2,6 +2,9 @@ import { once } from "node:events";
 import { request, type OutgoingHttpHeaders } from "node:http";
 import { connect, type AddressInfo } from "node:net";
 import {
+  addressAnswer,
+  addressCases,
+  addressCookie,
   callbackFor,
   conformanceAnswer,
   fakeCore,
@@ -10,6 +13,7 @@ import {
   slug,
 } from "@internal/test-session";
 import { conformanceCases } from "@robkit/guard/conformance";
+import { orThrow, readCoreUrl } from "@robkit/input";
 import { readSessionLapsed } from "@robkit/session/lapsed";
 import express, { type Express } from "express";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -69,6 +73,49 @@ async function ask(
     req.on("error", reject);
     req.end(init.body);
   });
+}
+
+/**
+ * Sends `target` on the request line to `app` over a plain socket, with
+ * exactly `headers`, so a test can send what Node's client won't: a target
+ * that starts with two slashes, or no Host. A request with no Host is
+ * HTTP/1.0, since Node refuses an HTTP/1.1 one without it. Answers with the
+ * status and the Location header.
+ */
+async function sendRaw(
+  app: Express,
+  target: string,
+  headers: Record<string, string>,
+): Promise<{ status: number; location: string | null }> {
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  onTestFinished(async () => {
+    server.close();
+    await once(server, "close");
+  });
+  const socket = connect((server.address() as AddressInfo).port, "127.0.0.1");
+  const version = "host" in headers ? "1.1" : "1.0";
+  socket.end(
+    [
+      `GET ${target} HTTP/${version}`,
+      ...Object.entries(headers).map(([name, value]) => `${name}: ${value}`),
+      "connection: close",
+      "",
+      "",
+    ].join("\r\n"),
+  );
+  let reply = "";
+  for await (const chunk of socket) reply += String(chunk);
+  const [head = ""] = reply.split("\r\n\r\n");
+  const [statusLine = "", ...lines] = head.split("\r\n");
+  const location = lines.find((line) => /^location:/i.test(line));
+  return {
+    status: Number(statusLine.split(" ")[1]),
+    location:
+      location === undefined
+        ? null
+        : location.slice(location.indexOf(":") + 1).trim(),
+  };
 }
 
 /** The value of each cookie `res` sets, as a `Cookie` header sends it. */
@@ -159,25 +206,22 @@ describe("guarded", () => {
     expect(await res.json()).toEqual(owner);
   });
 
-  it("refuses an HTTP/1.0 request that names no host", async () => {
-    const core = await fakeCore();
-    const server = express()
-      .use(guarded({ app: example, core: core.origin }))
-      .listen(0, "127.0.0.1");
-    await once(server, "listening");
-    onTestFinished(async () => {
-      server.close();
-      await once(server, "close");
-    });
-    const socket = connect((server.address() as AddressInfo).port, "127.0.0.1");
-    socket.end("GET / HTTP/1.0\r\n\r\n");
-    let reply = "";
-    for await (const chunk of socket) reply += String(chunk);
+  it.each(addressCases)("$name", async (asking) => {
+    const app = express().use(
+      guarded({
+        app: example,
+        access: { kind: "owner" },
+        core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+      }),
+    );
 
-    expect([reply.split("\r\n")[0], reply.split("\r\n\r\n")[1]]).toEqual([
-      "HTTP/1.1 400 Bad Request",
-      "Send a Host header.",
-    ]);
+    const res = await sendRaw(app, asking.target, {
+      ...navigate,
+      ...asking.headers,
+      ...addressCookie(asking),
+    });
+
+    expect(res).toEqual(addressAnswer(asking));
   });
 
   it("leaves the request's body for the app's handlers", async () => {

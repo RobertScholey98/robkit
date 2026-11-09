@@ -1,5 +1,5 @@
 import type { Viewer } from "@robkit/guard";
-import { requestGuard, type GuardedOptions } from "@robkit/session";
+import { appOrigin, requestGuard, type GuardedOptions } from "@robkit/session";
 import type {
   NextFunction,
   Request as ExpressRequest,
@@ -17,27 +17,22 @@ export interface GuardedLocals {
 export type GuardedResponse = ExpressResponse<unknown, GuardedLocals>;
 
 /**
- * The request as the guard reads it: its URL, method and headers. The body
- * stays unread, for the app's own handlers.
+ * The request as the guard reads it: the path and query on its request
+ * line, on the app's own origin, its method and its headers. A target that
+ * starts with two slashes stays a path on the app, and no Host is read. The
+ * body stays unread, for the app's own handlers.
  */
-function webRequest(req: ExpressRequest, host: string): Request {
+function webRequest(req: ExpressRequest, origin: string): Request {
   const headers = new Headers();
   for (let i = 0; i < req.rawHeaders.length; i += 2) {
     headers.append(String(req.rawHeaders[i]), String(req.rawHeaders[i + 1]));
   }
-  const url = new URL(req.originalUrl, `${req.protocol}://${host}`);
+  const url = new URL(origin);
+  const [path = "", ...query] = req.originalUrl.split("?");
+  url.pathname = path;
+  url.search = query.join("?");
   return new Request(url, { method: req.method, headers });
 }
-
-/**
- * Node refuses an HTTP/1.1 request without a Host header, but not an
- * HTTP/1.0 one. Without it the guard can't tell which page was asked for.
- */
-const noHost = () =>
-  new Response("Send a Host header.", {
-    status: 400,
-    headers: { "content-type": "text/plain; charset=UTF-8" },
-  });
 
 /** Sends the guard's answer as it is: status, every header and the body. */
 async function send(answer: Response, res: ExpressResponse): Promise<void> {
@@ -61,13 +56,9 @@ export function guarded(
   next: NextFunction,
 ) => Promise<void> {
   const check = requestGuard(options);
+  const origin = appOrigin(options);
   return async (req, res, next) => {
-    const { host } = req.headers;
-    if (host === undefined) {
-      await send(noHost(), res);
-      return;
-    }
-    const decision = await check(webRequest(req, host));
+    const decision = await check(webRequest(req, origin));
     if (decision.outcome === "answer") {
       await send(decision.response, res);
       return;
