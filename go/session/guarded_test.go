@@ -242,7 +242,7 @@ func TestGuardOnTheAppsOwnAddress(t *testing.T) {
 			}
 			r.Header.Set("sec-fetch-mode", "navigate")
 			if c.SignedOut {
-				r.Header.Set("cookie", fakecore.SignedOutCookie())
+				r.Header.Set("cookie", fakecore.SignedOutCookie(c.Core))
 			}
 			w := httptest.NewRecorder()
 
@@ -282,7 +282,7 @@ func TestGuardLetsTheViewerThroughToTheHandler(t *testing.T) {
 	}
 }
 
-func TestGuardKeepsAnHTTPSInstallsPagesOnHTTPSAndSetsSecureCookiesOffLocalhost(t *testing.T) {
+func TestGuardKeepsAnHTTPSInstallsPagesOnHTTPSAndItsStateInAHostCookie(t *testing.T) {
 	notes := guarded(t, nil, session.Options{App: "notes", Access: guard.OwnerRule{}, Core: "https://core.example.com"})
 
 	res := notes.get("http://notes.example.com/", navigate)
@@ -290,9 +290,37 @@ func TestGuardKeepsAnHTTPSInstallsPagesOnHTTPSAndSetsSecureCookiesOffLocalhost(t
 	if !isRefreshLocation(res.location(), "https://notes.example.com/", "https://core.example.com") {
 		t.Errorf("location = %q", res.location())
 	}
-	secure := regexp.MustCompile(`^robkit_state=[\w-]{43}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax; Secure$`)
+	secure := regexp.MustCompile(`^__Host-robkit_state=[\w-]{43}; Path=/; Max-Age=600; HttpOnly; SameSite=Lax; Secure$`)
 	if len(res.cookies) != 1 || !secure.MatchString(res.cookies[0]) {
 		t.Errorf("cookies = %q", res.cookies)
+	}
+}
+
+func TestGuardKeepsCoresWordInAHostCookieOnAnHTTPSInstall(t *testing.T) {
+	for _, c := range []struct{ core, page string }{
+		{"https://core.example.com", "https://notes.example.com/"},
+		{"https://core.robkit.localhost:3443", "https://notes.robkit.localhost:3443/"},
+	} {
+		t.Run(c.core, func(t *testing.T) {
+			open := guarded(t, nil, session.Options{App: "notes", Access: guard.OpenRule{}, Core: c.core})
+			gated := guarded(t, nil, session.Options{App: "notes", Access: guard.OwnerRule{}, Core: c.core})
+
+			away := open.get(c.page, navigate)
+			back := open.get(callbackFor(c.page, stateIn(away.location()), nil), navigate, cookiesFrom(away))
+			then := open.get(c.page, navigate, cookiesFrom(away, back))
+			login := gated.get(c.page, navigate, cookiesFrom(away, back))
+
+			word := regexp.MustCompile(`^__Host-robkit_session=signed-out\.\d+; Path=/; Max-Age=2592000; HttpOnly; SameSite=Lax; Secure$`)
+			if len(back.cookies) != 1 || !word.MatchString(back.cookies[0]) {
+				t.Errorf("back cookies: %q", back.cookies)
+			}
+			if then.status != 200 || then.body != `{"kind":"nobody"}`+"\n" {
+				t.Errorf("then: %d %s", then.status, then.body)
+			}
+			if want := []string{"__Host-robkit_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax; Secure"}; !slices.Equal(login.cookies, want) {
+				t.Errorf("login cookies: %q", login.cookies)
+			}
+		})
 	}
 }
 
@@ -372,7 +400,7 @@ func TestGuardAsksCoreAgainOnceItsWordIsAMinuteOld(t *testing.T) {
 	core := fakecore.Start(t)
 	now := realClock()
 	open := guarded(t, core, session.Options{Access: guard.OpenRule{}, Now: now.Now})
-	word := map[string]string{"cookie": fakecore.SignedOutCookie()}
+	word := map[string]string{"cookie": fakecore.SignedOutCookie(core.Origin)}
 	now.advance(61 * time.Second)
 
 	pageLoad := open.get(core.Page, navigate, word)

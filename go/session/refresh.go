@@ -12,15 +12,10 @@ import (
 	"time"
 
 	"github.com/RobertScholey98/robkit/go/guard"
+	"github.com/RobertScholey98/robkit/go/internal/sessioncookies"
 )
 
 const (
-	// sessionCookie carries the app's own token, in a host-only cookie on
-	// the app's host.
-	sessionCookie = "robkit_session"
-	// stateCookie holds the state the guard sent core, until core comes
-	// back.
-	stateCookie = "robkit_state"
 	// appSessionPath is the callback where core hands the app its token,
 	// or none.
 	appSessionPath = "/_robkit/session"
@@ -50,26 +45,29 @@ var statePattern = regexp.MustCompile(`^[\w-]{43}$`)
 // the two together, and the app's own cookie that holds the token, or
 // core's word that nobody is signed in.
 type refreshProtocol struct {
-	app            string
-	core           string
-	secure         bool
+	app  string
+	core string
+	// cookies are the app's cookies: the session cookie that holds its
+	// token, or core's word that nobody is signed in, and the state cookie
+	// that holds the state it sent core until core comes back.
+	cookies        sessioncookies.Names
 	keys           *keySet
 	now            func() time.Time
 	keyUnavailable func(error) response
 }
 
 func (p *refreshProtocol) cookie(name, value string, maxAge int) string {
-	return hostOnlyCookie(name, value, maxAge, p.secure)
+	return hostOnlyCookie(name, value, maxAge, p.cookies.Secure)
 }
 
 // forget is a Set-Cookie that forgets core's word that nobody is signed in.
 func (p *refreshProtocol) forget() string {
-	return p.cookie(sessionCookie, "", 0)
+	return p.cookie(p.cookies.Session, "", 0)
 }
 
 // stateIn is the state this browser holds for a trip through core, if any.
-func stateIn(r *http.Request) (string, bool) {
-	for _, value := range cookieValues(r, stateCookie) {
+func (p *refreshProtocol) stateIn(r *http.Request) (string, bool) {
+	for _, value := range cookieValues(r, p.cookies.State) {
 		if statePattern.MatchString(value) {
 			return value, true
 		}
@@ -82,14 +80,14 @@ func stateIn(r *http.Request) (string, bool) {
 // Only this browser holds the state, so no one else's link can hand the app
 // a token.
 func (p *refreshProtocol) toCore(r *http.Request, next string) response {
-	state, held := stateIn(r)
+	state, held := p.stateIn(r)
 	if !held {
 		random := make([]byte, 32)
 		_, _ = rand.Read(random)
 		state = base64.RawURLEncoding.EncodeToString(random)
 	}
 	return redirect(withQuery(p.core+"/refresh", "next", next, "state", state),
-		"set-cookie", p.cookie(stateCookie, state, stateMaxAge))
+		"set-cookie", p.cookie(p.cookies.State, state, stateMaxAge))
 }
 
 // arrive answers core sending the browser back with the app's token, or
@@ -102,7 +100,7 @@ func (p *refreshProtocol) arrive(r *http.Request, u *url.URL) response {
 	if !ok {
 		return text(nextNotOnApp, http.StatusBadRequest)
 	}
-	held, ok := stateIn(r)
+	held, ok := p.stateIn(r)
 	if !ok {
 		return text("This browser didn't keep the app's cookie, so it can't sign you in here. Allow cookies for this site and try again.", http.StatusBadRequest)
 	}
@@ -126,7 +124,7 @@ func (p *refreshProtocol) arrive(r *http.Request, u *url.URL) response {
 		value = tokens[0]
 	}
 	return redirect(next,
-		"set-cookie", p.cookie(sessionCookie, value, appCookieMaxAge),
+		"set-cookie", p.cookie(p.cookies.Session, value, appCookieMaxAge),
 		"referrer-policy", "no-referrer")
 }
 
@@ -159,7 +157,7 @@ func signedOutAt(value string) (int64, bool) {
 // sessionOf is what the app's own cookie says about who is asking.
 func (p *refreshProtocol) sessionOf(r *http.Request) (guard.SessionState, error) {
 	var saidSignedOut *int64
-	for _, value := range cookieValues(r, sessionCookie) {
+	for _, value := range cookieValues(r, p.cookies.Session) {
 		if at, ok := signedOutAt(value); ok {
 			if saidSignedOut == nil || at > *saidSignedOut {
 				saidSignedOut = &at
