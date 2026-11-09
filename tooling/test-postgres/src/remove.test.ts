@@ -41,9 +41,8 @@ function taggedShell(tag: string, script: string) {
     env: { ...process.env, ROBKIT_TEST_TAG: tag },
     stdio: "ignore",
   });
-  onTestFinished(() => {
-    child.kill("SIGKILL");
-  });
+  // Everything with the tag, so a sleep sh started goes too.
+  onTestFinished(() => removeLeftover({ tagged: tag }, 0));
   return once(child, "exit");
 }
 
@@ -112,13 +111,20 @@ describe("removeLeftover", () => {
     const tag = `test-${randomBytes(4).toString("hex")}`;
     // ps prints each process's environment, so 12 processes with 100 kB of
     // it each make the list longer than execFileSync's default buffer.
+    // They run sleep itself, not through sh, so stopping them leaves no
+    // sleep behind, and carry a tag of their own, first, where ps prints
+    // it in full, so the watcher stops them if this process is killed.
+    const padTag = `test-${randomBytes(4).toString("hex")}`;
+    removeWhenGone({ tagged: padTag });
+    onTestFinished(() => removeLeftover({ tagged: padTag }, 0));
     for (let i = 0; i < 12; i++) {
-      const padded = spawn("sh", ["-c", "sleep 600"], {
-        env: { ...process.env, PADDING: "x".repeat(100_000) },
+      spawn("sleep", ["600"], {
+        env: {
+          ROBKIT_TEST_TAG: padTag,
+          ...process.env,
+          PADDING: "x".repeat(100_000),
+        },
         stdio: "ignore",
-      });
-      onTestFinished(() => {
-        padded.kill("SIGKILL");
       });
     }
     const exited = taggedShell(tag, "sleep 600");
