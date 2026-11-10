@@ -1,4 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
+import { matchesGlob } from "node:path/posix";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -137,6 +138,7 @@ describe("generateInstall", () => {
     expect(Object.keys(settings)).toEqual([
       "packages",
       "catalogMode",
+      "minimumReleaseAgeExclude",
       "allowBuilds",
       "overrides",
       "catalog",
@@ -592,6 +594,25 @@ describe("generateInstall", () => {
     expect(catalog).not.toHaveProperty("playwright");
     // Only the one that keeps Babel out of a Next.js app's image.
     expect(overrides).toEqual({ "styled-jsx>@babel/core": "-" });
+  });
+
+  it("exempts every robkit package from pnpm's release-age rule, and nothing else", async () => {
+    const settings = workspace(await generateInstall(defaultChoices)) as {
+      catalog: Record<string, string>;
+      minimumReleaseAgeExclude?: string[];
+    };
+    const exempt = settings.minimumReleaseAgeExclude ?? [];
+    const isExempt = (name: string) =>
+      exempt.some((pattern) => matchesGlob(name, pattern));
+    const names = Object.keys(settings.catalog);
+
+    expect(exempt).toEqual(["@robkit/*", "create-robkit"]);
+    expect(names.filter(isExempt)).toEqual(
+      names.filter(
+        (name) => name.startsWith("@robkit/") || name === "create-robkit",
+      ),
+    );
+    expect(names.filter(isExempt)).toContain("@robkit/core");
   });
 
   it("catalogs every stack robkit add offers, not only the example's", async () => {
