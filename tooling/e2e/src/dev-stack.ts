@@ -40,7 +40,7 @@ export const owner = { username: "rob", password: "correct horse battery" };
  */
 export interface DevStack {
   /** The install's folder. */
-  dir: string;
+  readonly dir: string;
   /** Its Compose project, which holds its Postgres. */
   project: string;
   addresses: () => Install;
@@ -70,15 +70,19 @@ export interface DevStack {
 /**
  * Runs `pnpm dev` in the install `name` for the suite this is called in,
  * and stops it and its Postgres after. A failed journey prints what its
- * browser saw and what the dev runner said meanwhile.
+ * browser saw and what the dev runner said meanwhile. `name` is one of the
+ * installs the global setup made, or a suite's own install, by its folder
+ * once an earlier `beforeAll` has made it.
  */
 export function useDevStack(
-  name: InstallName,
+  name: InstallName | { name: string; dir: () => string },
   /** Changes the install before `pnpm dev` starts in it. */
   prepare?: (dir: string) => Promise<void>,
 ): DevStack {
-  const dir = inject("installs")[name];
-  const project = `robkit-e2e-${name}-${String(process.pid)}`;
+  const dirOf =
+    typeof name === "string" ? () => inject("installs")[name] : name.dir;
+  const label = typeof name === "string" ? name : name.name;
+  const project = `robkit-e2e-${label}-${String(process.pid)}`;
   let dev: ChildProcess | undefined;
   let devPort = 0;
   let addresses: Install | undefined;
@@ -174,6 +178,7 @@ export function useDevStack(
     }));
 
   beforeAll(async () => {
+    const dir = dirOf();
     await prepare?.(dir);
     devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
     addresses = install({ domain: defaultDomain, port: devPort });
@@ -216,12 +221,14 @@ export function useDevStack(
   afterAll(async () => {
     if (dev?.exitCode === null && dev.pid) process.kill(-dev.pid, "SIGKILL");
     await run("docker", ["compose", "-p", project, "down", "-v"], {
-      cwd: dir,
+      cwd: dirOf(),
     });
   });
 
   return {
-    dir,
+    get dir() {
+      return dirOf();
+    },
     project,
     addresses: addressesOf,
     port: () => devPort,
