@@ -5,7 +5,11 @@ import {
   owner,
   stateIn,
   slug,
+  writeAnswer,
+  writeCases,
+  writeRequest,
 } from "@internal/test-session";
+import { orThrow, readCoreUrl } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
@@ -34,6 +38,27 @@ describe("guarded", () => {
       location: res.headers.get("location"),
       viewer: res.status === 200 ? await res.json() : undefined,
     }).toEqual(conformanceAnswer(asking, core.page, core));
+  });
+
+  it.each(writeCases)("$name", async (asking) => {
+    let reached = false;
+    const app = new Hono<GuardedEnv>()
+      .use(
+        guarded({
+          app: example,
+          access: { kind: "open" },
+          core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+        }),
+      )
+      .all("*", (c) => {
+        reached = true;
+        return c.json(c.var.viewer);
+      });
+    const { url, ...init } = writeRequest(asking);
+
+    const res = await app.request(url, init);
+
+    expect({ status: res.status, reached }).toEqual(writeAnswer(asking));
   });
 
   it("answers a call from the page with the guard's 401", async () => {

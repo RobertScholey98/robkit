@@ -46,12 +46,12 @@ app.use(guarded({ app: "admin", access: { kind: "owner" }, core }));
 
 ## Exports
 
-| Export             | What it is                                                                                            |
-| ------------------ | ----------------------------------------------------------------------------------------------------- |
-| `guarded(options)` | Hono middleware. Lets the request through with `c.var.viewer` set, or answers it (redirect, 401, 404) |
-| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                  |
-| `GuardedEnv`       | The Hono env that types `c.var.viewer`                                                                |
-| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                             |
+| Export             | What it is                                                                                                 |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `guarded(options)` | Hono middleware. Lets the request through with `c.var.viewer` set, or answers it (redirect, 401, 403, 404) |
+| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                       |
+| `GuardedEnv`       | The Hono env that types `c.var.viewer`                                                                     |
+| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                  |
 
 ## What it must never do
 

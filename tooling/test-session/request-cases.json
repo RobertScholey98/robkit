@@ -165,5 +165,498 @@
     { "origin": "http://core.robkit.dev", "accepted": false },
     { "origin": "http://core.notlocalhost:3000", "accepted": false },
     { "origin": "http://core.localhost.example.com", "accepted": false }
+  ],
+  "writes": [
+    {
+      "name": "passes a POST the browser says came from the app's own origin, whatever Origin says",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-origin",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a POST the viewer made directly",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "sec-fetch-site": "none" },
+      "refused": false
+    },
+    {
+      "name": "passes a same-origin POST that sends no Origin",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "sec-fetch-site": "same-origin" },
+      "refused": false
+    },
+    {
+      "name": "refuses a POST from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a POST from a sibling app, whatever Origin says",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a POST from another site",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "cross-site",
+        "origin": "https://evil.com"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a Sec-Fetch-Site that is a list",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-origin, same-origin",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a Sec-Fetch-Site in another case",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "Same-Origin",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a Sec-Fetch-Site it doesn't know",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-app",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses an empty Sec-Fetch-Site",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "passes a POST with neither header, as a script sends",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {},
+      "refused": false
+    },
+    {
+      "name": "passes a POST from the app's own origin in a browser without fetch metadata",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://example.robkit.dev" },
+      "refused": false
+    },
+    {
+      "name": "refuses a POST from a sibling app in a browser without fetch metadata",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://notes.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "refuses an Origin of null",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "null" },
+      "refused": true
+    },
+    {
+      "name": "refuses an Origin that isn't one",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "not an origin" },
+      "refused": true
+    },
+    {
+      "name": "refuses an empty Origin",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "" },
+      "refused": true
+    },
+    {
+      "name": "refuses the app's host on another port",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://example.robkit.dev:8443" },
+      "refused": true
+    },
+    {
+      "name": "refuses the app's host over another protocol",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "http://example.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "refuses the app's origin with a path",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://example.robkit.dev/" },
+      "refused": true
+    },
+    {
+      "name": "refuses the app's origin in another case",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://EXAMPLE.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "refuses a PUT from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "PUT",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a PATCH from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "PATCH",
+      "target": "/notes",
+      "headers": { "origin": "https://notes.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "refuses a DELETE from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "DELETE",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "passes a DELETE from the app's own origin",
+      "core": "https://core.robkit.dev",
+      "method": "DELETE",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-origin",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "judges a method it doesn't know as a write",
+      "core": "https://core.robkit.dev",
+      "method": "PURGE",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "passes a GET from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a HEAD from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "HEAD",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes an OPTIONS from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "OPTIONS",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "refuses a POST to the guard's callback from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/_robkit/session?next=https%3A%2F%2Fexample.robkit.dev%2F&state=x",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a POST to the guard's refresh path from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/_robkit/refresh?next=https%3A%2F%2Fexample.robkit.dev%2F",
+      "headers": { "origin": "https://notes.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "judges a POST that asks for a WebSocket as a write",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "sec-fetch-site": "same-site",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "passes a same-origin POST that asks for a WebSocket, whatever Origin says",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "sec-fetch-site": "same-origin",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a WebSocket handshake from the app's own origin, whatever Sec-Fetch-Site says",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "sec-fetch-site": "same-site",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a WebSocket handshake from the app's own origin without fetch metadata",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a WebSocket handshake with no Origin, as a script sends",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": { "upgrade": "websocket" },
+      "refused": false
+    },
+    {
+      "name": "refuses a WebSocket handshake from a sibling app, whatever Sec-Fetch-Site says",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "sec-fetch-site": "same-origin",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a WebSocket handshake from a sibling app without fetch metadata",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a WebSocket handshake whose Upgrade is in another case",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "WebSocket",
+        "sec-fetch-site": "same-origin",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a WebSocket handshake with an Origin of null",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": { "upgrade": "websocket", "origin": "null" },
+      "refused": true
+    },
+    {
+      "name": "passes a POST from the app's own origin on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "http://example.robkit.localhost:3000" },
+      "refused": false
+    },
+    {
+      "name": "refuses a POST from the app's host on another port on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "http://example.robkit.localhost:5173" },
+      "refused": true
+    },
+    {
+      "name": "passes a WebSocket handshake from the app's own origin on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "method": "GET",
+      "target": "/",
+      "headers": {
+        "upgrade": "websocket",
+        "origin": "http://example.robkit.localhost:3000"
+      },
+      "refused": false
+    },
+    {
+      "name": "refuses a WebSocket handshake from a sibling app on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "method": "GET",
+      "target": "/",
+      "headers": {
+        "upgrade": "websocket",
+        "origin": "http://notes.robkit.localhost:3000"
+      },
+      "refused": true
+    }
+  ],
+  "formPost": [
+    {
+      "name": "links back to the page the form was on",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/notes?x=1",
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "keeps a page whose query holds several values",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/notes?a=1&b=%3Cx%3E",
+      "next": "https://example.robkit.dev/notes?a=1&b=%3Cx%3E"
+    },
+    {
+      "name": "links to the app's front page when the browser sends no Referer",
+      "core": "https://core.robkit.dev",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer on a sibling app",
+      "core": "https://core.robkit.dev",
+      "referer": "https://notes.robkit.dev/notes",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer on the app's host on another port",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev:8443/notes",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer under the guard's own paths",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/_robkit/refresh?next=x",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer with markup in its query",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/notes?q=\"><script>alert(1)</script>",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer with markup in its path",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/<img src=x onerror=alert(1)>",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer with a quote in it",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/it's",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer that isn't a URL",
+      "core": "https://core.robkit.dev",
+      "referer": "not a url",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "links back to the page on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "referer": "http://example.robkit.localhost:3000/notes",
+      "next": "http://example.robkit.localhost:3000/notes"
+    }
   ]
 }

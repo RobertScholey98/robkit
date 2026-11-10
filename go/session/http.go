@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -91,16 +93,95 @@ func normalized(u *url.URL) *url.URL {
 // nextOn is the next u names, if it is a page on the same app. A page
 // under the guard's own paths isn't one.
 func nextOn(u *url.URL) (string, bool) {
-	next := u.Query().Get("next")
-	target, err := url.Parse(next)
+	return pageOn(u.Query().Get("next"), origin(u))
+}
+
+// pageOn is page as a browser writes it, if it is a page on the app at
+// appOrigin and not under the guard's own paths.
+func pageOn(page, appOrigin string) (string, bool) {
+	target, err := url.Parse(page)
 	if err != nil || (target.Scheme != "http" && target.Scheme != "https") || target.Host == "" || target.User != nil {
 		return "", false
 	}
 	target = normalized(target)
-	if origin(target) != origin(u) || strings.HasPrefix(target.EscapedPath(), "/_robkit/") {
+	if origin(target) != appOrigin || strings.HasPrefix(target.EscapedPath(), "/_robkit/") {
 		return "", false
 	}
 	return target.String(), true
+}
+
+// isFormPost says whether r is a form the browser posted as a page load.
+// It can't follow the guard to core and back with its body, so it gets a
+// page instead.
+func isFormPost(r *http.Request) bool {
+	return r.Method == http.MethodPost && strings.Join(r.Header.Values("sec-fetch-mode"), ", ") == "navigate"
+}
+
+// urlCharacters are the characters a URL may hold, as a browser writes
+// one, other than a quote. A Referer with any other isn't one a browser
+// sent, and the two ports would read it differently.
+var urlCharacters = regexp.MustCompile(`^[\w\-.~:/?#\[\]@!$&()*+,;=%]+$`)
+
+// formNotSent is the page for a form the guard didn't take because it must
+// first check who sent it, with the status the guard's 401 for a call has.
+// Its one link goes through the app's refresh path, which asks core, back
+// to the page the form was on: the Referer, when it is a page on the app at
+// appOrigin, and the app's / otherwise.
+func formNotSent(r *http.Request, appOrigin string) response {
+	next := appOrigin + "/"
+	if referer := strings.Join(r.Header.Values("referer"), ", "); urlCharacters.MatchString(referer) {
+		if page, ok := pageOn(referer, appOrigin); ok {
+			next = page
+		}
+	}
+	page := strings.Join([]string{
+		"<!doctype html>",
+		`<html lang="en">`,
+		`<meta charset="utf-8">`,
+		`<meta name="viewport" content="width=device-width, initial-scale=1">`,
+		"<title>Your form wasn't sent</title>",
+		"<h1>Your form wasn't sent</h1>",
+		"<p>The app needs to check who you are first. Go back to the page, then send the form again.</p>",
+		`<p><a href="` + html.EscapeString(withQuery(appOrigin+appRefreshPath, "next", next)) + `">Back to the page</a></p>`,
+		"",
+	}, "\n")
+	header := http.Header{}
+	header.Set("content-type", "text/html; charset=UTF-8")
+	header.Set("cache-control", "no-store")
+	return response{status: http.StatusUnauthorized, header: header, body: []byte(page)}
+}
+
+// isWebSocketHandshake says whether r is a GET whose Upgrade is websocket,
+// in any case.
+func isWebSocketHandshake(r *http.Request) bool {
+	return r.Method == http.MethodGet && strings.EqualFold(strings.Join(r.Header.Values("upgrade"), ", "), "websocket")
+}
+
+// isFromAnotherOrigin says whether the guard refuses r as coming from
+// another origin than the app's own, appOrigin. A browser sends an app's
+// cookie with a form posted from a sibling subdomain, so the cookie alone
+// doesn't say the viewer meant it.
+//
+// GET, HEAD and OPTIONS pass. Every other method is a write. A browser
+// can't forge Sec-Fetch-Site, so when a write carries it, only same-origin
+// and none pass, whatever Origin says. Without it, Origin decides: absent
+// or the app's own passes. A WebSocket handshake is judged by Origin alone,
+// because browsers disagree on the fetch metadata they send with one.
+func isFromAnotherOrigin(r *http.Request, appOrigin string) bool {
+	from := r.Header.Values("origin")
+	elsewhere := len(from) > 0 && strings.Join(from, ", ") != appOrigin
+	if isWebSocketHandshake(r) {
+		return elsewhere
+	}
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return false
+	}
+	if site := r.Header.Values("sec-fetch-site"); len(site) > 0 {
+		joined := strings.Join(site, ", ")
+		return joined != "same-origin" && joined != "none"
+	}
+	return elsewhere
 }
 
 // isNavigation says whether r is a page load, which can follow a redirect

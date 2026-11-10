@@ -13,7 +13,15 @@ import {
   coreAccess,
   type AccessRuleFailure,
 } from "./core-access.ts";
-import { isNavigation, publicUrl, redirect, text } from "./guard-http.ts";
+import {
+  formNotSent,
+  isFormPost,
+  isFromAnotherOrigin,
+  isNavigation,
+  publicUrl,
+  redirect,
+  text,
+} from "./guard-http.ts";
 import { sessionLapsedResponse } from "./lapsed.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
 import { refreshProtocol } from "./refresh-protocol.ts";
@@ -99,6 +107,8 @@ const errors = {
   refresh: "Your session needs refreshing.",
   keys: "Can't reach core to check your session.",
   rule: "Can't reach core to check who may open this app.",
+  elsewhere:
+    "This app only accepts changes from its own pages, and this request came from another origin.",
 } as const;
 
 /**
@@ -165,32 +175,39 @@ export function requestGuard(
         // Core's word that nobody is signed in goes, so once the browser
         // signs in at the hub and comes back, the app asks core again.
         const location = new URL("/", hub);
-        if (!isNavigation(request)) {
-          // A call doesn't know the page it came from. The page adds next.
-          const response = sessionLapsedResponse({
-            outcome: "login",
-            error: errors.login,
-            location: location.href,
-          });
-          response.headers.append("set-cookie", protocol.forget);
-          return response;
+        if (isNavigation(request)) {
+          location.searchParams.set("next", url.href);
+          return redirect(location.href, [["set-cookie", protocol.forget]]);
         }
-        location.searchParams.set("next", url.href);
-        return redirect(location.href, [["set-cookie", protocol.forget]]);
+        // A call doesn't know the page it came from. The page adds next.
+        const response = isFormPost(request)
+          ? formNotSent(request, origin)
+          : sessionLapsedResponse({
+              outcome: "login",
+              error: errors.login,
+              location: location.href,
+            });
+        response.headers.append("set-cookie", protocol.forget);
+        return response;
       }
       case "refresh":
-        if (!isNavigation(request)) {
-          return sessionLapsedResponse({
-            outcome: "refresh",
-            error: errors.refresh,
-            location: new URL(appRefreshPath, url).href,
-          });
-        }
-        return protocol.toCore(request, url.href);
+        if (isNavigation(request)) return protocol.toCore(request, url.href);
+        return isFormPost(request)
+          ? formNotSent(request, origin)
+          : sessionLapsedResponse({
+              outcome: "refresh",
+              error: errors.refresh,
+              location: new URL(appRefreshPath, url).href,
+            });
     }
   };
 
   return async (request) => {
+    // Before anything else, the guard's own paths included, so a page on
+    // another origin can't act as the viewer.
+    if (isFromAnotherOrigin(request, origin)) {
+      return { outcome: "answer", response: text(errors.elsewhere, 403) };
+    }
     const url = publicUrl(request, origin);
     const own = await protocol.answer(request, url);
     if (own) return { outcome: "answer", response: own };

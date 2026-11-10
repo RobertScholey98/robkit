@@ -23,6 +23,12 @@ The proxy passes the viewer on in a request header, with a key a client can't kn
 
 A session can lapse while the page is open. A client navigation then loads the next page in full, and a server action sends the browser where the guard says. Either way the browser goes through core's refresh, or to the hub to sign in, and comes back to the page. A route handler the page calls with `fetch` gets a 401 instead: call it with `sessionFetch` from `@robkit/react`, which does the same.
 
+## Changing state
+
+A browser sends this app's cookie with a form posted from any app beside it, since they share a domain. So the guard refuses a write from another origin with a 403 before any handler runs. A write is any request but a GET, HEAD or OPTIONS. The guard can't protect a GET, which a link or an image on another app can send, so change state only on POST, PUT, PATCH or DELETE. Server actions are POSTs, so the guard covers them.
+
+Never change state while a page renders or in a route handler's `GET`. Files outside the matcher in `src/proxy.ts` skip the guard, so serve nothing there that changes state.
+
 ## Serving
 
 - `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. `next.config.ts` lets the dev proxy's host reach Next's dev server. Telemetry is off: the `dev` script sets `NEXT_TELEMETRY_DISABLED` because `next dev`'s own process never loads `next.config.ts`, and `next.config.ts` sets it for `next build` and the server.

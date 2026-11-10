@@ -32,7 +32,7 @@ async function signIn(
 }
 
 /** Opens the example signed in as the owner, once React has hydrated it. */
-async function openSignedIn(
+export async function openSignedIn(
   context: BrowserContext,
   options: JourneyOptions,
 ): Promise<Page> {

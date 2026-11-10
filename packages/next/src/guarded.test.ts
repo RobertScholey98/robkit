@@ -11,6 +11,9 @@ import {
   signedOutCookie,
   slug,
   stateIn,
+  writeAnswer,
+  writeCases,
+  writeRequest,
 } from "@internal/test-session";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { orThrow, readCoreUrl } from "@robkit/input";
@@ -298,6 +301,23 @@ describe("guarded", () => {
       status: res.status,
       location: res.headers.get("location"),
     }).toEqual(addressAnswer(asking));
+  });
+
+  it.each(writeCases)("$name", async (asking) => {
+    let reached = false;
+    const proxy = guarded({
+      app: example,
+      access: { kind: "open" },
+      core: coreOrigin(asking.core),
+    });
+    const { url, method, headers } = writeRequest(asking);
+
+    const res = await ask(proxy, url, { method, headers }, () => {
+      reached = true;
+      return Promise.resolve(Response.json({}));
+    });
+
+    expect({ status: res.status, reached }).toEqual(writeAnswer(asking));
   });
 
   it("replaces a viewer the request came with by the guard's own", async () => {

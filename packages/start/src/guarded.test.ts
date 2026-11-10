@@ -6,7 +6,11 @@ import {
   type FakeCore,
   stateIn,
   slug,
+  writeAnswer,
+  writeCases,
+  writeRequest,
 } from "@internal/test-session";
+import { orThrow, readCoreUrl } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { describe, expect, it } from "vitest";
 import { guarded, type GuardedOptions } from "./index.ts";
@@ -62,6 +66,26 @@ describe("guarded", () => {
       location: res.headers.get("location"),
       viewer: body?.viewer,
     }).toEqual(conformanceAnswer(asking, page, core));
+  });
+
+  it.each(writeCases)("$name", async (asking) => {
+    let reached = false;
+    const start = {
+      fetch: () => {
+        reached = true;
+        return Response.json({});
+      },
+    };
+    const entry = guarded(start, {
+      app: slug("example"),
+      access: { kind: "open" },
+      core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+    });
+    const { url, ...init } = writeRequest(asking);
+
+    const res = await entry.fetch(new Request(url, init));
+
+    expect({ status: res.status, reached }).toEqual(writeAnswer(asking));
   });
 
   it("answers a server function call with an expired session with the guard's 401", async () => {

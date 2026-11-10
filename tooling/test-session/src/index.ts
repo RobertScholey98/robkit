@@ -5,7 +5,12 @@ import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
-import type { AddressCase, CookieCase } from "./request-cases.ts";
+import type {
+  AddressCase,
+  CookieCase,
+  FormPostCase,
+  WriteCase,
+} from "./request-cases.ts";
 import { aViewer } from "./brands.ts";
 import { listeningPort } from "./known.ts";
 
@@ -13,11 +18,15 @@ export {
   addressCases,
   cookieCases,
   coreAddressCases,
+  formPostCases,
   readRequestCases,
+  writeCases,
   type AddressCase,
   type CookieCase,
   type CoreAddressCase,
+  type FormPostCase,
   type RequestCases,
+  type WriteCase,
 } from "./request-cases.ts";
 export {
   aCodeId,
@@ -369,4 +378,85 @@ export function cookieAnswer(asking: CookieCase): PageAnswer {
     }),
     viewer: undefined,
   };
+}
+
+/**
+ * The request a write case sends: its method and headers, to its target on
+ * `example` beside its core.
+ */
+export function writeRequest({ core, method, target, headers }: WriteCase): {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+} {
+  return {
+    url: `${core.replace("//core.", `//${app}.`)}${target}`,
+    method,
+    headers,
+  };
+}
+
+/**
+ * What a write case's request must get: the guard's 403, with no handler
+ * run, or the app's handler.
+ */
+export function writeAnswer({ refused }: WriteCase): {
+  status: number;
+  reached: boolean;
+} {
+  return refused
+    ? { status: 403, reached: false }
+    : { status: 200, reached: true };
+}
+
+/**
+ * The form a form-post case's browser sends: a POST to `example`, beside
+ * its core, that navigates, from the app's own origin, with its `Referer`.
+ */
+export function formPostRequest({ core, referer }: FormPostCase): {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+} {
+  return {
+    url: `${core.replace("//core.", `//${app}.`)}/notes`,
+    method: "POST",
+    headers: {
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-origin",
+      ...(referer === undefined ? {} : { referer }),
+    },
+  };
+}
+
+/**
+ * What the guard must answer a form-post case with: its 401 page, whose
+ * one link goes through the app's refresh path back to `next`.
+ */
+export function formPostAnswer({ core, next }: FormPostCase): {
+  status: number;
+  type: string;
+  links: string[];
+} {
+  const link = new URL(
+    "/_robkit/refresh",
+    core.replace("//core.", `//${app}.`),
+  );
+  link.searchParams.set("next", next);
+  return {
+    status: 401,
+    type: "text/html; charset=UTF-8",
+    links: [link.href],
+  };
+}
+
+/**
+ * The links in a page's HTML, as a browser reads each `href`: every
+ * `&amp;` back to `&`. A link the page broke with unescaped text isn't
+ * one it means.
+ */
+export function linksIn(html: string): string[] {
+  return [...html.matchAll(/<a href="([^"<>]*)">/g)].map(([, href = ""]) =>
+    href.replaceAll("&amp;", "&"),
+  );
 }

@@ -36,12 +36,12 @@ export async function GET(): Promise<Response> {
 
 ## Exports
 
-| Export             | What it is                                                                                        |
-| ------------------ | ------------------------------------------------------------------------------------------------- |
-| `guarded(options)` | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 404) |
-| `viewer()`         | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request          |
-| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule              |
-| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                         |
+| Export             | What it is                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `guarded(options)` | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 403, 404) |
+| `viewer()`         | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request               |
+| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                   |
+| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                              |
 
 ## A lapsed session
 

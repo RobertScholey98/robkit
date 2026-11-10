@@ -29,6 +29,22 @@ A browser treats every subdomain of an install as the same site, so an app on on
 
 This holds for an https install, in a browser that refuses a cookie with no name whose value starts with `__Host-`, as the cookie standard's current draft (RFC 6265bis) asks. Such a cookie goes out in the `Cookie` header looking like the real one, so a browser that accepted it from a sibling would deliver it. An http install, which is only ever a local one, keeps the plain names, since the prefix needs `Secure`.
 
+### No sibling app can write as the viewer
+
+`SameSite=Lax` sends an app's cookie with a form posted from any sibling subdomain, because a browser counts every subdomain of an install as one site. So the guard refuses a write from another origin with a plain-text 403, before it reads the session and before any handler runs. The rule covers the guard's own paths under `/_robkit/` too.
+
+- GET, HEAD and OPTIONS pass. Every other method is a write.
+- A browser can't forge `Sec-Fetch-Site`, so when a write carries it, it decides: `same-origin` and `none` pass, and anything else is refused, whatever `Origin` says.
+- In a browser that sends no fetch metadata, `Origin` decides: absent or the app's own origin passes, and anything else is refused.
+- A server or a script that sends neither header passes. It carries no cookie the viewer didn't give it.
+- A WebSocket handshake that reaches the guard is judged by `Origin` alone, since browsers disagree on the fetch metadata they send with one.
+
+What stays the app's job:
+
+- A GET with side effects. A link or an image on another app can send one, and the rule can't tell it from the viewer's own. Change state only on POST, PUT, PATCH or DELETE. Each stack's `AGENTS.md` says so, and names where that stack makes a GET easy to miss.
+- A WebSocket the guard never sees. Go's guard sees every handshake. On the Node stacks a socket is usually upgraded outside the framework's middleware, where the guard doesn't run, so the app must check `Origin` itself.
+- Allowing another origin to write. There's no option for it yet.
+
 ### Core checks whole origins
 
 Core knows its own origin from `ROBKIT_CORE_URL`, and works out every other address from it. It compares protocol, host and port, never the host alone:
@@ -48,6 +64,7 @@ An app the owner installs, whoever wrote it, can:
 It can't:
 
 - Open admin or another app as the viewer. Its app token is good only for its own slug, and core never renews from it.
+- Post to another app as the viewer from its own pages. The other app's guard refuses a write from another origin.
 - Read core's tables or another app's schema. Its database role reaches its own schema and nothing else.
 - Import `@robkit/core`, another app, or read the session cookie itself, if it keeps to the install's layer rule. `robkit check` enforces that rule on the source, so review an imported app's code before you trust it beyond that.
 

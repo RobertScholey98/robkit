@@ -21,6 +21,12 @@ Key a viewer's data by its id. Never read the session cookie or verify the token
 
 The page is React, in `src/main.tsx`. It asks the server who is asking with `sessionFetch` from `@robkit/react`. A call from the page whose session has lapsed gets a 401 rather than a redirect, and `sessionFetch` sends the browser through core's refresh and back to the page. Make every call from the page to the app with it.
 
+## Changing state
+
+A browser sends this app's cookie with a form posted from any app beside it, since they share a domain. So the guard refuses a write from another origin with a 403 before any handler runs. A write is any request but a GET, HEAD or OPTIONS. The guard can't protect a GET, which a link or an image on another app can send, so change state only on POST, PUT, PATCH or DELETE.
+
+Every request reaches the guard, WebSocket handshakes included. It lets a handshake through only when its `Origin` is this app's own, which is how Vite's hot updates pass under `pnpm dev`.
+
 ## Serving
 
 - `pnpm dev` runs `go run . dev`. The Go server listens on `PORT` and guards everything, as in production. It starts Vite on a port of its own and passes it every request beyond the API: the page, its modules, and Vite's hot updates over a WebSocket. Restart `pnpm dev` after changing Go code; Vite reloads the page's own changes.

@@ -24,6 +24,13 @@ import {
   signedOutCookie,
   signingKey,
   stateIn,
+  formPostAnswer,
+  formPostCases,
+  formPostRequest,
+  linksIn,
+  writeAnswer,
+  writeCases,
+  writeRequest,
 } from "./index.ts";
 
 /** A token's holder and age, as a verifier with core's public key reads it. */
@@ -319,11 +326,19 @@ describe("addressCases", () => {
 
   it("reads a row, taking a left-out signedOut as false", () => {
     expect(
-      readRequestCases({ address: [row], cookies: [], coreAddress: [] }),
+      readRequestCases({
+        address: [row],
+        cookies: [],
+        coreAddress: [],
+        writes: [],
+        formPost: [],
+      }),
     ).toEqual({
       address: [{ ...row, signedOut: false }],
       cookies: [],
       coreAddress: [],
+      writes: [],
+      formPost: [],
     });
   });
 
@@ -335,12 +350,18 @@ describe("addressCases", () => {
     ],
     [
       "has no address list",
-      { cookies: [], coreAddress: [] },
-      'request-cases.json must be an object with a "address" list of cases, but it holds {"cookies":[],"coreAddress":[]}.',
+      { cookies: [], coreAddress: [], writes: [], formPost: [] },
+      'request-cases.json must be an object with a "address" list of cases, but it holds {"cookies":[],"coreAddress":[],"writes":[],"formPost":[]}.',
     ],
     [
       "holds a row that isn't an object",
-      { address: ["row"], cookies: [], coreAddress: [] },
+      {
+        address: ["row"],
+        cookies: [],
+        coreAddress: [],
+        writes: [],
+        formPost: [],
+      },
       "request-cases.json address[0] must be an object.",
     ],
     [
@@ -349,12 +370,20 @@ describe("addressCases", () => {
         address: [{ ...row, headers: { host: 1 } }],
         cookies: [],
         coreAddress: [],
+        writes: [],
+        formPost: [],
       },
       "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
     ],
     [
       "holds a row whose signedOut isn't true or false",
-      { address: [{ ...row, signedOut: "yes" }], cookies: [], coreAddress: [] },
+      {
+        address: [{ ...row, signedOut: "yes" }],
+        cookies: [],
+        coreAddress: [],
+        writes: [],
+        formPost: [],
+      },
       "request-cases.json address[0] needs a name, core, target and next as strings, headers as an object of strings, and signedOut as true, false or left out.",
     ],
   ])("refuses a file that %s", (_, value, message) => {
@@ -366,6 +395,8 @@ describe("addressCases", () => {
       address: [row, { ...row, signedOut: true }],
       cookies: [],
       coreAddress: [],
+      writes: [],
+      formPost: [],
     }).address;
     if (!holdsNothing || !signedOut) throw new Error("Two rows went in.");
 
@@ -400,7 +431,13 @@ describe("cookieCases", () => {
     reads: false,
   };
   const read = (cookies: unknown[]) =>
-    readRequestCases({ address: [], cookies, coreAddress: [] }).cookies;
+    readRequestCases({
+      address: [],
+      cookies,
+      coreAddress: [],
+      writes: [],
+      formPost: [],
+    }).cookies;
 
   it("reads every cookie row of request-cases.json", () => {
     expect(cookieCases.length).toBeGreaterThan(0);
@@ -415,12 +452,12 @@ describe("cookieCases", () => {
   it.each([
     [
       "has no cookies list",
-      { address: [], coreAddress: [] },
+      { address: [], coreAddress: [], writes: [], formPost: [] },
       'a "cookies" list of cases',
     ],
     [
       "holds a row that isn't an object",
-      { address: [], cookies: [1], coreAddress: [] },
+      { address: [], cookies: [1], coreAddress: [], writes: [], formPost: [] },
       "cookies[0] must be an object.",
     ],
     ...[
@@ -432,7 +469,13 @@ describe("cookieCases", () => {
       { name: 1 },
     ].map((change): [string, unknown, string] => [
       `holds a row with ${JSON.stringify(change)}`,
-      { address: [], cookies: [{ ...row, ...change }], coreAddress: [] },
+      {
+        address: [],
+        cookies: [{ ...row, ...change }],
+        coreAddress: [],
+        writes: [],
+        formPost: [],
+      },
       "cookies[0] needs a name and core as strings, cookie as bytes in hex, now as whole seconds, and reads as true or false.",
     ]),
   ])("refuses a file that %s", (_, value, message) => {
@@ -479,15 +522,191 @@ describe("coreAddressCases", () => {
   it.each([
     [
       "has no coreAddress list",
-      { address: [], cookies: [] },
+      { address: [], cookies: [], writes: [], formPost: [] },
       'a "coreAddress" list',
     ],
     [
       "holds a row whose accepted isn't true or false",
-      { address: [], cookies: [], coreAddress: [{ origin: "x", accepted: 1 }] },
+      {
+        address: [],
+        cookies: [],
+        coreAddress: [{ origin: "x", accepted: 1 }],
+        writes: [],
+        formPost: [],
+      },
       "coreAddress[0] needs an origin as a string and accepted as true or false.",
     ],
   ])("refuses a file that %s", (_, value, message) => {
     expect(() => readRequestCases(value)).toThrow(message);
+  });
+});
+
+describe("writeCases", () => {
+  const row = {
+    name: "a case",
+    core: "https://core.robkit.dev",
+    method: "POST",
+    target: "/notes?x=1",
+    headers: { origin: "https://notes.robkit.dev" },
+    refused: true,
+  };
+  const read = (writes: unknown[]) =>
+    readRequestCases({
+      address: [],
+      cookies: [],
+      coreAddress: [],
+      writes,
+      formPost: [],
+    }).writes;
+
+  it("reads every write row of request-cases.json", () => {
+    expect(writeCases.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    [
+      "has no writes list",
+      { address: [], cookies: [], coreAddress: [] },
+      'a "writes" list',
+    ],
+    [
+      "holds a row that isn't an object",
+      { address: [], cookies: [], coreAddress: [], writes: [1], formPost: [] },
+      "writes[0] must be an object.",
+    ],
+    ...[
+      { method: 1 },
+      { target: null },
+      { headers: { origin: 1 } },
+      { headers: "origin" },
+      { refused: "yes" },
+    ].map((change): [string, unknown, string] => [
+      `holds a row with ${JSON.stringify(change)}`,
+      {
+        address: [],
+        cookies: [],
+        coreAddress: [],
+        writes: [{ ...row, ...change }],
+        formPost: [],
+      },
+      "writes[0] needs a name, core, method and target as strings, headers as an object of strings, and refused as true or false.",
+    ]),
+  ])("refuses a file that %s", (_, value, message) => {
+    expect(() => readRequestCases(value)).toThrow(message);
+  });
+
+  it("sends a row's method and headers to its target on example", () => {
+    const [asking] = read([row]);
+    if (!asking) throw new Error("One row went in.");
+
+    expect(writeRequest(asking)).toEqual({
+      url: "https://example.robkit.dev/notes?x=1",
+      method: "POST",
+      headers: { origin: "https://notes.robkit.dev" },
+    });
+  });
+
+  it("expects the guard's 403 for a refused row, and the handler for any other", () => {
+    const [refused, passes] = read([row, { ...row, refused: false }]);
+    if (!refused || !passes) throw new Error("Two rows went in.");
+
+    expect([writeAnswer(refused), writeAnswer(passes)]).toEqual([
+      { status: 403, reached: false },
+      { status: 200, reached: true },
+    ]);
+  });
+});
+
+describe("formPostCases", () => {
+  const row = {
+    name: "a case",
+    core: "https://core.robkit.dev",
+    referer: "https://example.robkit.dev/notes?x=1",
+    next: "https://example.robkit.dev/notes?x=1",
+  };
+  const read = (formPost: unknown[]) =>
+    readRequestCases({
+      address: [],
+      cookies: [],
+      coreAddress: [],
+      writes: [],
+      formPost,
+    }).formPost;
+
+  it("reads every form-post row of request-cases.json", () => {
+    expect(formPostCases.length).toBeGreaterThan(0);
+  });
+
+  it.each([
+    [
+      "has no formPost list",
+      { address: [], cookies: [], coreAddress: [], writes: [] },
+      'a "formPost" list',
+    ],
+    [
+      "holds a row that isn't an object",
+      { address: [], cookies: [], coreAddress: [], writes: [], formPost: [1] },
+      "formPost[0] must be an object.",
+    ],
+    ...[{ referer: 1 }, { next: null }].map(
+      (change): [string, unknown, string] => [
+        `holds a row with ${JSON.stringify(change)}`,
+        {
+          address: [],
+          cookies: [],
+          coreAddress: [],
+          writes: [],
+          formPost: [{ ...row, ...change }],
+        },
+        "formPost[0] needs a name, core and next as strings, and referer as a string or left out.",
+      ],
+    ),
+  ])("refuses a file that %s", (_, value, message) => {
+    expect(() => readRequestCases(value)).toThrow(message);
+  });
+
+  it("posts a form that navigates from the app's own origin, with its Referer if it has one", () => {
+    const { referer, ...noReferer } = row;
+    const [withOne, withNone] = read([row, noReferer]);
+    if (!withOne || !withNone) throw new Error("Two rows went in.");
+
+    expect([formPostRequest(withOne), formPostRequest(withNone)]).toEqual([
+      {
+        url: "https://example.robkit.dev/notes",
+        method: "POST",
+        headers: {
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-site": "same-origin",
+          referer,
+        },
+      },
+      {
+        url: "https://example.robkit.dev/notes",
+        method: "POST",
+        headers: {
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-site": "same-origin",
+        },
+      },
+    ]);
+  });
+
+  it("expects the page's one link through the refresh path to next", () => {
+    const [asking] = read([row]);
+    if (!asking) throw new Error("One row went in.");
+
+    expect(formPostAnswer(asking)).toEqual({
+      status: 401,
+      type: "text/html; charset=UTF-8",
+      links: [
+        "https://example.robkit.dev/_robkit/refresh?next=https%3A%2F%2Fexample.robkit.dev%2Fnotes%3Fx%3D1",
+      ],
+    });
+  });
+
+  it("reads each link as a browser does, and none that markup broke", () => {
+    expect(
+      linksIn('<p><a href="/a?b=1&amp;c=2">One</a> <a href="/x"y">Two</a></p>'),
+    ).toEqual(["/a?b=1&c=2"]);
   });
 });

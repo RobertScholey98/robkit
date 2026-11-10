@@ -11,6 +11,9 @@ import {
   owner,
   stateIn,
   slug,
+  writeAnswer,
+  writeCases,
+  writeRequest,
 } from "@internal/test-session";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { orThrow, readCoreUrl } from "@robkit/input";
@@ -76,9 +79,10 @@ async function ask(
 }
 
 /**
- * Sends `target` on the request line to `app` over a plain socket, with
- * exactly `headers`, so a test can send what Node's client won't: a target
- * that starts with two slashes, or no Host. A request with no Host is
+ * Sends `method` and `target` on the request line to `app` over a plain
+ * socket, with exactly `headers`, so a test can send what Node's client
+ * won't: a target that starts with two slashes, no Host, or an Upgrade
+ * without asking to switch protocols. A request with no Host is
  * HTTP/1.0, since Node refuses an HTTP/1.1 one without it. Answers with the
  * status and the Location header.
  */
@@ -86,6 +90,7 @@ async function sendRaw(
   app: Express,
   target: string,
   headers: Record<string, string>,
+  method = "GET",
 ): Promise<{ status: number; location: string | null }> {
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -97,7 +102,7 @@ async function sendRaw(
   const version = "host" in headers ? "1.1" : "1.0";
   socket.end(
     [
-      `GET ${target} HTTP/${version}`,
+      `${method} ${target} HTTP/${version}`,
       ...Object.entries(headers).map(([name, value]) => `${name}: ${value}`),
       "connection: close",
       "",
@@ -222,6 +227,33 @@ describe("guarded", () => {
     });
 
     expect(res).toEqual(addressAnswer(asking));
+  });
+
+  it.each(writeCases)("$name", async (asking) => {
+    let reached = false;
+    const app = express()
+      .use(
+        guarded({
+          app: example,
+          access: { kind: "open" },
+          core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+        }),
+      )
+      .all("/{*path}", (_req, res: GuardedResponse) => {
+        reached = true;
+        res.json(res.locals.viewer);
+      });
+    const { url, method, headers } = writeRequest(asking);
+    const { host, pathname, search } = new URL(url);
+
+    const { status } = await sendRaw(
+      app,
+      `${pathname}${search}`,
+      { host, ...headers },
+      method,
+    );
+
+    expect({ status, reached }).toEqual(writeAnswer(asking));
   });
 
   it("leaves the request's body for the app's handlers", async () => {

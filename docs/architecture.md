@@ -57,7 +57,7 @@ sequenceDiagram
     H-->>B: the page
   else login, refresh or not-found
     R-->>A: { response }
-    A-->>B: redirect to the hub or core, 401 for a call, or 404
+    A-->>B: redirect, 401 for a call, 403 for a write from elsewhere, or 404
   end
 ```
 
@@ -74,7 +74,9 @@ The guard's four outcomes come from one table in `packages/guard/src/guard.ts`:
 | A guest with a role    | allow   | allow          | not-found  |
 | A guest without one    | allow   | not-found      | not-found  |
 
-A page load that gets `login` or `refresh` is redirected. A call from the page (a `fetch`, or a Start server function) gets a 401 with a `Robkit-Session` header instead, and `sessionFetch` from `@robkit/react` sends the browser on. `not-found` is a real 404, so a guest can't tell an app they may not open from one that doesn't exist.
+A page load that gets `login` or `refresh` is redirected. A call from the page (a `fetch`, or a Start server function) gets a 401 with a `Robkit-Session` header instead, and `sessionFetch` from `@robkit/react` sends the browser on. A form posted as a page load gets the same status with a small HTML page, whose one link goes through `/_robkit/refresh` back to the form's page. `not-found` is a real 404, so a guest can't tell an app they may not open from one that doesn't exist.
+
+Before it reads the session, the guard refuses a write from another origin with a 403, since a browser sends an app's cookie with a form posted from a sibling app. [SECURITY.md](../SECURITY.md#no-sibling-app-can-write-as-the-viewer) has the rule.
 
 ## How tokens flow
 
