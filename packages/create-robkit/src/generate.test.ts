@@ -483,6 +483,21 @@ describe("generateInstall", () => {
     },
   );
 
+  // The adapters read HOST and PORT, so a stack's own files never do.
+  it("gives no stack a file that imports @robkit/input, or a manifest that lists it", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+
+    expect(
+      [...files]
+        .filter(
+          ([path, text]) =>
+            path.startsWith("stacks/") && text.includes("@robkit/input"),
+        )
+        .map(([path]) => path),
+    ).toEqual([]);
+  });
+
   // The hub is a built page, so its image holds @robkit/serve and what it
   // runs on: no build tool, and nothing from the guard.
   it("serves the hub with servePage() alone", async () => {

@@ -13,7 +13,6 @@
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
     "@internal/ui": "workspace:*",
-    "@robkit/input": "catalog:",
     "@robkit/react": "catalog:",
     "@robkit/vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
