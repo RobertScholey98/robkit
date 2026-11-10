@@ -55,6 +55,8 @@ function unclaimed(c: Context): Response {
  */
 export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   const { db, install, now, signingKey, signInLimits, trustedProxy } = context;
+  const origin = install.origin("core");
+  const routes = new Hono<CoreEnv>();
   const minutes = (ms: number) => plural(Math.round(ms / 60_000), "minute");
 
   /** Writes one log line when one of `route`'s limits trips. */
@@ -66,8 +68,7 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
           : `${route}: the limit holds ${plural(signInLimits.clientsTracked, "client")}, the most it keeps. ${whenFull}`,
       );
     };
-  const origin = install.origin("core");
-  const routes = new Hono<CoreEnv>();
+
   // When full, a new client may still try its password, uncounted:
   // refusing it would let someone with many addresses fill the limit once
   // and shut the owner out for the whole window. The cap on password
@@ -102,7 +103,7 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   });
   // Holds wrong codes from every client together, so rotating addresses
   // buys no more guesses. Once spent, it stops code sign-in for everyone
-  // until its window passes: R accepted that trade on 2026-11-09.
+  // until its window passes. That trade is chosen: SECURITY.md says why.
   const codeBudget = createRateLimiter({
     limit: signInLimits.codesPerInstall,
     windowMs: signInLimits.installWindowMs,
