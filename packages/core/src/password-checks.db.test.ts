@@ -83,10 +83,21 @@ describe("the cap on password checks", () => {
     await claim(app);
     const release = hold();
 
-    const logins = Array.from({ length: 12 }, (_, i) =>
-      postJson(app, "/login", wrong, from(`203.0.113.${String(i)}`)),
-    );
-    await checksRunning(2);
+    const answered: number[] = [];
+    const logins = Array.from({ length: 12 }, async (_, i) => {
+      const res = await postJson(
+        app,
+        "/login",
+        wrong,
+        from(`203.0.113.${String(i)}`),
+      );
+      answered.push(res.status);
+      return res;
+    });
+    // 2 run and 8 wait, so 2 are answered while the rest are held.
+    await vi.waitFor(() => {
+      expect(answered).toEqual([429, 429]);
+    });
     release();
     const responses = await Promise.all(logins);
     const refused = responses.filter(({ status }) => status === 429);
