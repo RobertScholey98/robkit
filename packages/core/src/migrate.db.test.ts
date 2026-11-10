@@ -73,6 +73,20 @@ describe("migrate", () => {
     ).toEqual([{ runs: 5, migrations: 5 }]);
   });
 
+  it("fails with Postgres's own error when it can't create its journal", async () => {
+    const databaseUrl = await freshDatabase();
+    // An enum of the journal's name stops the table being made, since a
+    // table's row type takes its name, and no other run made the table.
+    await query(
+      databaseUrl,
+      "create type core.__drizzle_migrations as enum ('taken')",
+    );
+
+    await expect(migrate(databaseUrl)).rejects.toMatchObject({
+      cause: { code: "42710" },
+    });
+  });
+
   it("waits on its journal table, holding no advisory lock", async () => {
     const databaseUrl = await freshDatabase();
     await migrate(databaseUrl);

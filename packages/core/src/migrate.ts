@@ -1,7 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { sql } from "drizzle-orm";
 import { readMigrationFiles } from "drizzle-orm/migrator";
-import postgres from "postgres";
 import { createDatabase, type Database } from "./database.ts";
 
 const migrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.url));
@@ -61,39 +60,29 @@ export async function migrateFrom(
 
 /**
  * Creates core's journal table unless it exists. Two runs that both find it
- * missing both try to create it, and Postgres refuses the later one. That
- * one finds the table there on its next look.
+ * missing both try to create it, and Postgres refuses the later one. Which
+ * error it gives depends on how far the first had got: `42P07` for the
+ * table, `42710` for the row type every table gets, or `23505` on one of
+ * its own catalog indexes. The refused run doesn't sort them. Postgres
+ * gives each only once the first run has committed, so it looks for the
+ * table, and goes on if it is there.
  */
 async function createJournal(db: Database): Promise<void> {
-  for (let attempt = 1; ; attempt++) {
-    try {
-      await db.execute(sql`
-        create table if not exists core.__drizzle_migrations (
-          id serial primary key,
-          hash text not null,
-          created_at bigint
-        )`);
-      return;
-    } catch (error) {
-      if (attempt === 3 || !lostCreateRace(error)) throw error;
-    }
+  try {
+    await db.execute(sql`
+      create table if not exists core.__drizzle_migrations (
+        id serial primary key,
+        hash text not null,
+        created_at bigint
+      )`);
+  } catch (error) {
+    // pg_tables, not to_regclass, which would also find a type or a view
+    // of that name.
+    const [journal] = await db.execute<{ made: boolean }>(sql`
+      select exists (
+        select from pg_tables
+        where schemaname = 'core' and tablename = '__drizzle_migrations'
+      ) as made`);
+    if (journal?.made !== true) throw error;
   }
-}
-
-/**
- * Whether `error` says another run created the table first. Found by test
- * (`migrate.db.test.ts`, "several runs start together"): `42P07`, the
- * relation exists, or `23505` on one of Postgres's own catalog indexes,
- * such as `pg_class_relname_nsp_index` for the table or its id's sequence,
- * or `pg_type_typname_nsp_index` for the row type every table gets.
- */
-function lostCreateRace(error: unknown): boolean {
-  // Drizzle wraps the driver's error as its cause.
-  const cause = error instanceof Error ? error.cause : undefined;
-  if (!(cause instanceof postgres.PostgresError)) return false;
-  return (
-    cause.code === "42P07" ||
-    (cause.code === "23505" &&
-      cause.constraint_name?.startsWith("pg_") === true)
-  );
 }
