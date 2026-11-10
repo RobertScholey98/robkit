@@ -140,3 +140,87 @@ describe("robkit add with no pnpm dev running", () => {
     });
   });
 });
+
+describe.skipIf(process.platform === "win32")("robkit migrate", () => {
+  it("asks pnpm dev to migrate the app, and prints its answer", async (context) => {
+    const { dir, env } = await installedInstall();
+    const asked = await runnerAnswering(context, dir, env, {
+      outcome: "done",
+      message: "pnpm dev migrated example.",
+    });
+
+    const { code, output } = await drive(
+      bin,
+      dir,
+      ["migrate", "example"],
+      [],
+      env,
+    );
+
+    expect(asked).toEqual(['{"operation":"migrate","slug":"example"}\n']);
+    expect({ code, output }).toEqual({
+      code: 0,
+      output: "pnpm dev migrated example.\n",
+    });
+  });
+
+  it("prints the problem pnpm dev answers with", async (context) => {
+    const { dir, env } = await installedInstall();
+    await runnerAnswering(context, dir, env, {
+      outcome: "refused",
+      message: "pnpm dev isn't running gamma.",
+    });
+
+    const { code, output } = await drive(
+      bin,
+      dir,
+      ["migrate", "gamma"],
+      [],
+      env,
+    );
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output: "pnpm dev isn't running gamma.\n",
+    });
+  });
+});
+
+describe("robkit migrate with no pnpm dev running", () => {
+  it("says to start pnpm dev, which migrates", async () => {
+    const { dir, env } = await installedInstall();
+
+    const { code, output } = await drive(
+      bin,
+      dir,
+      ["migrate", "example"],
+      [],
+      env,
+    );
+
+    expect({ code, output }).toEqual({
+      code: 0,
+      output:
+        "No pnpm dev is running in this install. Start it with pnpm dev, which migrates every app as it starts.\n",
+    });
+  });
+
+  it.each([
+    [[], "Usage: robkit migrate <slug>"],
+    [["My_App"], `"My_App" can't be an app's slug`],
+    [["example", "more"], "Usage: robkit migrate <slug>"],
+  ])("refuses %j", async (args, message) => {
+    const { dir, env } = await installedInstall();
+
+    const { code, output } = await drive(
+      bin,
+      dir,
+      ["migrate", ...args],
+      [],
+      env,
+    );
+
+    expect(code).toBe(1);
+    expect(output).toContain(message);
+  });
+});

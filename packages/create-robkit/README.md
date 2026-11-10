@@ -31,6 +31,7 @@ Inside an install:
 ```sh
 pnpm robkit add                                       # asks for the name, stack, who may open it and an icon
 pnpm robkit add notes --stack react-hono --access roles --roles Family --icon 📝
+pnpm robkit migrate notes                             # applies a new migration in the running pnpm dev
 pnpm robkit check                                     # the install's layer rule; pnpm lint runs it
 pnpm robkit vendor                                    # packs the linked packages, and what they run on, into vendor/robkit
 ```

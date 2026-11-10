@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { askDev, CommandProblem, runCommand } from "@robkit/dev/cli";
-import { isProblem, parseJson } from "@robkit/input";
+import { isProblem, parseJson, readSlug } from "@robkit/input";
 import {
   defaultDevPort,
   defaultDomain,
@@ -28,7 +28,15 @@ import { vendorDir, vendorPackages } from "./vendor.ts";
 /** Where an install's apps answer under pnpm dev. */
 const dev = addresses({ domain: defaultDomain, port: defaultDevPort });
 
+const migrateUsage = `Usage: robkit migrate <slug>
+
+Asks the pnpm dev running in this install to run the app's migrate script,
+with the database URL it gave the app, so a new migration applies without
+a restart.`;
+
 const usage = `${addUsage}
+
+${migrateUsage}
 
 Usage: robkit check
 
@@ -60,6 +68,7 @@ process.exitCode = await runCommand(async () => {
   const [command] = process.argv.slice(2);
   const commands: Record<string, () => Promise<number | undefined>> = {
     check,
+    migrate: migrateApp,
     vendor,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
@@ -237,6 +246,25 @@ The same app without the questions:
 
   pnpm ${addCommandFor(choices)}`);
   }
+}
+
+async function migrateApp(): Promise<undefined> {
+  const { positionals } = readArgs({ allowPositionals: true }, usage);
+  const [, given, ...rest] = positionals;
+  if (given === undefined || rest.length > 0) {
+    throw new CommandProblem(migrateUsage);
+  }
+  const root = process.cwd();
+  await readInstallChoices(root);
+  const slug = readSlug(given);
+  if (isProblem(slug)) throw new CommandProblem(slug.error);
+  const answer = await askDev(root, { operation: "migrate", slug });
+  if (answer.outcome === "refused") throw new CommandProblem(answer.message);
+  console.log(
+    answer.outcome === "done"
+      ? answer.message
+      : "No pnpm dev is running in this install. Start it with pnpm dev, which migrates every app as it starts.",
+  );
 }
 
 function fail(message: string): never {
