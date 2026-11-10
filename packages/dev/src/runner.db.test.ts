@@ -575,19 +575,27 @@ describe("robkit-dev's checks before it starts", () => {
 
   it("starts with no change to any setting after pnpm dev and its apps were killed", async () => {
     const first = await startDev();
-    await eventually(() => get(first.port, "alpha.robkit.localhost"));
+    const slugs = ["alpha", "beta"];
+    // Each app answers before the kill, so each has written its pid.
+    for (const slug of slugs) {
+      await eventually(() => get(first.port, `${slug}.robkit.localhost`));
+    }
 
     first.child.kill("SIGKILL");
     await exitCode(first.child);
-    for (const slug of ["alpha", "beta"]) {
+    for (const slug of slugs) {
       const pid = Number(
         await readFile(join(first.root, "apps", slug, "started"), "utf8"),
       );
       process.kill(pid, "SIGKILL");
     }
-    await eventually(async () => {
-      if (await isListening(first.port + 1)) throw new Error("alpha is up");
-    });
+    for (const [index, slug] of slugs.entries()) {
+      await eventually(async () => {
+        if (await isListening(first.port + 1 + index)) {
+          throw new Error(`${slug} is still up`);
+        }
+      });
+    }
     // This install's Postgres is still up from the killed run.
     expect(await runningContainers(first.root)).not.toBe("");
 
