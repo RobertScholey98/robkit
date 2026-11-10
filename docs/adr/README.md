@@ -23,3 +23,4 @@ To change one of these, open a ticket that argues against it. If R accepts it, w
 | [0015](0015-sibling-subdomains-are-a-boundary.md) | Each app's origin is a boundary: `__Host-` cookies, the cross-origin rule and the framing headers     |
 | [0016](0016-platform-wiring-lives-in-packages.md) | What every app does the same way lives in a package: Drizzle, Vite, serving, tests and core's command |
 | [0017](0017-provisioning-is-its-own-package.md)   | Provisioning is `@robkit/provision`, a small package below core and the dev runner                    |
+| [0018](0018-go-module-travels-in-the-install.md)  | robkit's Go module travels in the install, in `vendor/robkit/go`                                      |
