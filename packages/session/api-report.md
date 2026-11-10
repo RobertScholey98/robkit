@@ -21,6 +21,7 @@ export function appSessionUrl(
   },
 ): string;
 export const coreAudience: "core";
+export function coreOrigin(): CoreOrigin;
 export type Framers = "same-origin" | "none";
 export interface GuardedOptions extends GuardSettings {
   app?: string | undefined;

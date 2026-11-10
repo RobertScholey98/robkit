@@ -5,7 +5,12 @@ import {
   type FakeCore,
 } from "@internal/test-session";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { appOrigin, requestGuard, type GuardedOptions } from "./index.ts";
+import {
+  appOrigin,
+  coreOrigin,
+  requestGuard,
+  type GuardedOptions,
+} from "./index.ts";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -131,5 +136,23 @@ describe("appOrigin", () => {
       "https://todo.robkit.dev",
       "http://notes.robkit.localhost:3000",
     ]);
+  });
+});
+
+describe("coreOrigin", () => {
+  it("is core's origin from ROBKIT_CORE_URL, with any path dropped", () => {
+    setEnv(undefined, "https://Core.robkit.dev/x?y");
+
+    expect(coreOrigin()).toBe("https://core.robkit.dev");
+  });
+
+  it("exits with the reader's message when it's unset or won't do", () => {
+    setEnv(undefined, undefined);
+    expect(printedOnExit(() => coreOrigin())).toBe(notSet.core);
+
+    setEnv(undefined, "http://core.example.com");
+    expect(printedOnExit(() => coreOrigin())).toBe(
+      httpOffLocal("ROBKIT_CORE_URL", "http://core.example.com"),
+    );
   });
 });

@@ -2,6 +2,7 @@ import type { AccessRule, RoleId, Viewer } from "@robkit/guard";
 import { describe, expectTypeOf, it } from "vitest";
 import {
   appOrigin,
+  coreOrigin,
   requestGuard,
   type AccessRuleFailure,
   type GuardedOptions,
@@ -58,6 +59,10 @@ describe("session's types", () => {
     options({ app: notes, core });
     // @ts-expect-error A slug is text.
     options({ app: 1 });
+  });
+
+  it("reads core's origin for a page that shows it", () => {
+    expectTypeOf(coreOrigin).toEqualTypeOf<() => CoreOrigin>();
   });
 
   it("says how core's answer failed only for the access rule", () => {

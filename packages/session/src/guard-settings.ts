@@ -57,3 +57,12 @@ export function readGuardSettings({ app, core }: GuardSettings = {}): {
       : { app: slug, core: origin },
   );
 }
+
+/**
+ * Core's public origin, from `ROBKIT_CORE_URL`, for an app that shows it,
+ * such as admin, whose page calls core. It reads the variable as the guard
+ * does, and ends the process the same way when it is unset or won't do.
+ */
+export function coreOrigin(): CoreOrigin {
+  return orExit(readCoreUrl(process.env));
+}

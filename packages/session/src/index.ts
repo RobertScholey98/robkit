@@ -16,7 +16,7 @@ export {
   type SessionCookies,
 } from "./session-cookies.ts";
 export type { AccessRuleFailure } from "./core-access.ts";
-export { type GuardSettings } from "./guard-settings.ts";
+export { coreOrigin, type GuardSettings } from "./guard-settings.ts";
 export {
   appOrigin,
   requestGuard,
