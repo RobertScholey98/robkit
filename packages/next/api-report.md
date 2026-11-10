@@ -6,7 +6,7 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 
 ```ts
 export function guarded(
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): (request: Request) => Promise<Response>;
 export interface GuardedOptions extends GuardSettings {
   app?: string | undefined;
