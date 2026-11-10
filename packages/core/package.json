@@ -39,6 +39,7 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@hono/node-server": "catalog:",
     "@robkit/drizzle": "workspace:*",
     "@robkit/guard": "workspace:*",
     "@robkit/input": "workspace:*",

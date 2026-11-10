@@ -1,3 +1,4 @@
+import { getRequestListener } from "@hono/node-server";
 import { isProblem, type Env } from "@robkit/input";
 import { CommandProblem } from "@robkit/input/command";
 import { createApp } from "./app.ts";
@@ -38,8 +39,7 @@ export async function serveCore(env: Env): Promise<number> {
   })();
   // Core trusts the proxy's X-Forwarded-For, so only the proxy may reach
   // it. A container sets HOST to listen beyond loopback.
-  return listenUntilStopped({
-    fetch: app.fetch,
+  return listenUntilStopped(getRequestListener(app.fetch), {
     hostname: config.host,
     port: config.port,
     name: "core",

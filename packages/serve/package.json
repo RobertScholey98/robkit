@@ -37,10 +37,6 @@
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "hono": "catalog:"
-  },
-  "dependencies": {
-    "@hono/node-server": "catalog:"
+    "vitest": "catalog:"
   }
 }

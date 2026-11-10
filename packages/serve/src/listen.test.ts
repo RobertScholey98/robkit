@@ -4,7 +4,7 @@ import { Agent, request } from "node:http";
 import { connect, createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
-import { listenUntilStopped } from "./listen.ts";
+import { listenUntilStopped, start } from "./listen.ts";
 
 const slowServer = fileURLToPath(
   new URL("test/slow-server.ts", import.meta.url),
@@ -71,6 +71,16 @@ function logged(): () => unknown[] {
   return () => log.mock.calls.map(([line]) => line as unknown);
 }
 
+/** Options for a server named `test` on `port` that cleans nothing up. */
+function on(port: number) {
+  return {
+    hostname: "127.0.0.1",
+    port,
+    name: "test",
+    onStopped: () => Promise.resolve(),
+  };
+}
+
 // These run in this process, so the coverage report sees them. Only the
 // server a test starts here listens for SIGTERM; the test runner doesn't.
 describe("listenUntilStopped in this process", () => {
@@ -79,13 +89,10 @@ describe("listenUntilStopped in this process", () => {
     const lines = logged();
     const onStopped = vi.fn(() => Promise.resolve());
 
-    const served = listenUntilStopped({
-      fetch: () => new Response("hello"),
-      hostname: "127.0.0.1",
-      port,
-      name: "test",
-      onStopped,
-    });
+    const served = listenUntilStopped(
+      (_request, response) => response.end("hello"),
+      { ...on(port), onStopped },
+    );
     const listening = `test listening on 127.0.0.1:${String(port)}`;
     await expect.poll(lines).toContain(listening);
     const answer = await fetch(`http://127.0.0.1:${String(port)}/`);
@@ -106,17 +113,10 @@ describe("listenUntilStopped in this process", () => {
     logged();
     const { promise: released, resolve: release } = Promise.withResolvers();
     const { promise: opened, resolve: open } = Promise.withResolvers();
-    const served = listenUntilStopped({
-      fetch: async () => {
-        open(undefined);
-        await released;
-        return new Response("finished");
-      },
-      hostname: "127.0.0.1",
-      port,
-      name: "test",
-      onStopped: () => Promise.resolve(),
-    });
+    const served = listenUntilStopped((_request, response) => {
+      open(undefined);
+      void released.then(() => response.end("finished"));
+    }, on(port));
     await expect.poll(() => connects(port)).toBe(true);
     const agent = new Agent({ keepAlive: true, maxSockets: 1 });
     onTestFinished(() => {
@@ -132,6 +132,85 @@ describe("listenUntilStopped in this process", () => {
     expect(await served).toBe(0);
   });
 
+  // Its headers went out before the signal, so they can't say it. The next
+  // request on the connection is answered, and that answer says it.
+  it("closes a connection whose answer had begun when SIGTERM arrived with the next answer on it", async () => {
+    const port = await freePort();
+    logged();
+    const { promise: released, resolve: release } = Promise.withResolvers();
+    const { promise: begun, resolve: begin } = Promise.withResolvers();
+    const served = listenUntilStopped((request, response) => {
+      if (request.url !== "/begun") {
+        response.end("next");
+        return;
+      }
+      response.writeHead(200).write("started");
+      begin(undefined);
+      void released.then(() => response.end());
+    }, on(port));
+    await expect.poll(() => connects(port)).toBe(true);
+    const agent = new Agent({ keepAlive: true, maxSockets: 1 });
+    onTestFinished(() => {
+      agent.destroy();
+    });
+
+    const first = answerTo({ port, path: "/begun", agent });
+    await begun;
+    process.emit("SIGTERM", "SIGTERM");
+    release(undefined);
+    const firstAnswer = await first;
+    const next = await answerTo({ port, path: "/next", agent });
+
+    expect({ first: firstAnswer, next }).toEqual({
+      first: { status: 200, connection: "keep-alive" },
+      next: { status: 200, connection: "close" },
+    });
+    expect(await served).toBe(0);
+  });
+
+  it("answers 500 when the app throws or rejects, ends an answer it had begun, and goes on serving", async () => {
+    const port = await freePort();
+    const lines = logged();
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    onTestFinished(() => {
+      errors.mockRestore();
+    });
+    const fault = new Error("the app broke");
+    const served = listenUntilStopped((request, response) => {
+      if (request.url === "/throws") throw fault;
+      if (request.url === "/rejects") return Promise.reject(fault);
+      if (request.url === "/begun") {
+        response.writeHead(200).write("part");
+        return Promise.reject(fault);
+      }
+      response.end("fine");
+    }, on(port));
+    await expect.poll(lines).toHaveLength(1);
+    const url = `http://127.0.0.1:${String(port)}`;
+
+    const answers = [];
+    for (const path of ["/throws", "/rejects", "/begun", "/"]) {
+      const answer = await fetch(url + path);
+      answers.push([answer.status, await answer.text()]);
+    }
+    process.emit("SIGTERM", "SIGTERM");
+
+    expect(answers).toEqual([
+      [500, ""],
+      [500, ""],
+      [200, "part"],
+      [200, "fine"],
+    ]);
+    expect(errors.mock.calls).toEqual([
+      ["test couldn't answer GET /throws.", fault],
+      ["test couldn't answer GET /rejects.", fault],
+      ["test couldn't answer GET /begun.", fault],
+    ]);
+    expect(await served).toBe(0);
+  });
+
   it("runs onStopped and rejects when its port is taken", async () => {
     const taken = createServer().listen(0, "127.0.0.1");
     await once(taken, "listening");
@@ -143,16 +222,29 @@ describe("listenUntilStopped in this process", () => {
     const onStopped = vi.fn(() => Promise.resolve());
 
     await expect(
-      listenUntilStopped({
-        fetch: () => new Response("hello"),
-        hostname: "127.0.0.1",
-        port,
-        name: "test",
+      listenUntilStopped((_request, response) => response.end(), {
+        ...on(port),
         onStopped,
       }),
     ).rejects.toThrow(/EADDRINUSE/);
     expect(onStopped).toHaveBeenCalledOnce();
     expect(process.listenerCount("SIGTERM")).toBe(0);
+  });
+});
+
+describe("start", () => {
+  it("takes its signal listeners away when something else closes the server", async () => {
+    const port = await freePort();
+    const lines = logged();
+    const { server } = start((_request, response) => response.end(), on(port));
+    await once(server, "listening");
+
+    server.close();
+    await once(server, "close");
+
+    expect(process.listenerCount("SIGTERM")).toBe(0);
+    expect(process.listenerCount("SIGINT")).toBe(0);
+    expect(lines()).toEqual([`test listening on 127.0.0.1:${String(port)}`]);
   });
 });
 

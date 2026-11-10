@@ -4,9 +4,10 @@ What every robkit server does the same way, written once: listen, and stop on SI
 
 ## Example
 
-Core's server, from `packages/core/src/serve-core.ts`:
+Core's server, from `packages/core/src/serve-core.ts`. It takes a Node request listener, so core, a Hono app, hands it `getRequestListener(app.fetch)`:
 
 ```ts
+import { getRequestListener } from "@hono/node-server";
 import { listenUntilStopped } from "@robkit/serve";
 import { Hono } from "hono";
 
@@ -14,8 +15,7 @@ const app = new Hono();
 app.get("/status", (c) => c.text("ok"));
 
 process.exit(
-  await listenUntilStopped({
-    fetch: app.fetch,
+  await listenUntilStopped(getRequestListener(app.fetch), {
     hostname: "127.0.0.1",
     port: 3000,
     name: "core",
@@ -28,10 +28,10 @@ It prints `core listening on 127.0.0.1:3000`. On SIGTERM or SIGINT it stops taki
 
 ## Exports
 
-| Export                        | What it is                                                                                   |
-| ----------------------------- | -------------------------------------------------------------------------------------------- |
-| `listenUntilStopped(options)` | Serves `fetch` on `hostname` and `port` until SIGTERM or SIGINT, and resolves with 0         |
-| `ListenOptions`               | `fetch`, `hostname`, `port`, `name` for the lines it prints, and `onStopped`, run as it ends |
+| Export                             | What it is                                                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `listenUntilStopped(app, options)` | Serves `app`, a Node request listener, on `hostname` and `port` until SIGTERM or SIGINT, and resolves with 0 |
+| `ListenOptions`                    | `hostname`, `port`, `name` for the lines it prints, and `onStopped`, run as it ends                          |
 
 ## What it must never do
 

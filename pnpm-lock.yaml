@@ -142,6 +142,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@hono/node-server':
+        specifier: 'catalog:'
+        version: 2.1.5(hono@4.13.14)
       '@robkit/drizzle':
         specifier: workspace:*
         version: link:../drizzle
@@ -610,10 +613,6 @@ importers:
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/serve:
-    dependencies:
-      '@hono/node-server':
-        specifier: 'catalog:'
-        version: 2.1.5(hono@4.13.14)
     devDependencies:
       '@internal/eslint-config':
         specifier: workspace:*
@@ -630,9 +629,6 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)
-      hono:
-        specifier: 'catalog:'
-        version: 4.13.14
       typescript:
         specifier: 'catalog:'
         version: 6.0.3

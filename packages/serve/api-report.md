@@ -6,17 +6,17 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 
 ```ts
 export interface ListenOptions {
-  fetch: (request: Request) => Response | Promise<Response>;
   hostname: string;
   port: number;
   name: string;
   onStopped: () => Promise<void>;
 }
-export function listenUntilStopped({
-  fetch: handle,
-  hostname,
-  port,
-  name,
-  onStopped,
-}: ListenOptions): Promise<number>;
+export function listenUntilStopped(
+  app: RequestHandler,
+  options: ListenOptions,
+): Promise<number>;
+export type RequestHandler = (
+  request: IncomingMessage,
+  response: ServerResponse,
+) => void | Promise<void>;
 ```

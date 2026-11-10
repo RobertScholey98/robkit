@@ -1,31 +1,31 @@
 // A server with one slow route, for listen.test.ts: GET /slow answers once
-// the test writes a line to its stdin. It listens on the port in PORT and prints what
-// listenUntilStopped prints.
-import { Hono } from "hono";
+// the test writes a line to its stdin. It listens on the port in PORT and
+// prints what listenUntilStopped prints.
 import { listenUntilStopped } from "../listen.ts";
 
-let release: () => void = () => undefined;
-const released = new Promise<void>((resolve) => {
-  release = resolve;
-});
+const { promise: released, resolve: release } = Promise.withResolvers();
 
 process.stdin.once("data", () => {
-  release();
-});
-
-const app = new Hono();
-app.get("/slow", async (c) => {
-  console.log("slow request open");
-  await released;
-  return c.text("finished");
+  release(undefined);
 });
 
 process.exit(
-  await listenUntilStopped({
-    fetch: app.fetch,
-    hostname: "127.0.0.1",
-    port: Number(process.env.PORT),
-    name: "slow",
-    onStopped: () => Promise.resolve(),
-  }),
+  await listenUntilStopped(
+    (request, response) => {
+      if (request.url !== "/slow") {
+        response.end("quick");
+        return;
+      }
+      console.log("slow request open");
+      void released.then(() => {
+        response.end("finished");
+      });
+    },
+    {
+      hostname: "127.0.0.1",
+      port: Number(process.env.PORT),
+      name: "slow",
+      onStopped: () => Promise.resolve(),
+    },
+  ),
 );

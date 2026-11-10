@@ -1,1 +1,5 @@
-export { listenUntilStopped, type ListenOptions } from "./listen.ts";
+export {
+  listenUntilStopped,
+  type ListenOptions,
+  type RequestHandler,
+} from "./listen.ts";
