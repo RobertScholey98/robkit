@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -127,6 +127,25 @@ Then open http://notes.robkit.localhost:3000.
       code: 1,
       output: `${dir} isn't a robkit install: it has no robkit.json. Run robkit in an install's folder.\n`,
     });
+  });
+});
+
+describe("robkit add with an icon that isn't one emoji", () => {
+  it("fails with the manifest's message and writes nothing", async () => {
+    const dir = await freshInstall();
+
+    const { code, output } = await drive(bin, dir, [
+      "add",
+      "notes",
+      "--icon",
+      "memo",
+    ]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output: 'robkit.icon must be one emoji, such as "📝".\n',
+    });
+    expect(await readdir(join(dir, "apps"))).not.toContain("notes");
   });
 });
 

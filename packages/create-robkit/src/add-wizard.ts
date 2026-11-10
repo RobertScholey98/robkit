@@ -1,6 +1,7 @@
 import { isCancel, type CANCEL_SYMBOL } from "@clack/prompts";
 import { CommandProblem } from "@robkit/dev/cli";
 import { isProblem, readSlug } from "@robkit/input";
+import { readAppManifest } from "@robkit/input/manifest";
 import { newSlugProblem, readNewSlug, type AppChoices } from "./add.ts";
 import {
   defaultChoices,
@@ -59,6 +60,22 @@ function accessFrom(
   );
 }
 
+/**
+ * Why `icon` can't be an app's icon, by the manifest's own rule, so a bad
+ * one fails now and not at the next `pnpm dev`. Its shape fits a prompt's
+ * `validate`.
+ */
+function iconProblem(icon: string): string | undefined {
+  const manifest = readAppManifest({ icon });
+  return isProblem(manifest) ? manifest.error : undefined;
+}
+
+function readIcon(icon: string): string {
+  const problem = iconProblem(icon);
+  if (problem) throw new CommandProblem(problem);
+  return icon;
+}
+
 /** The app robkit add's flags describe, with a default for each left out. */
 export function appChoicesFromFlags(name: string, flags: AddFlags): AppChoices {
   const slug = readSlug(name);
@@ -67,7 +84,7 @@ export function appChoicesFromFlags(name: string, flags: AddFlags): AppChoices {
     stack: stackFrom(flags.stack ?? defaultChoices.exampleStack),
     slug,
     access: accessFrom(flags.access ?? "owner", flags.roles),
-    icon: flags.icon ?? defaultIcon,
+    icon: readIcon(flags.icon ?? defaultIcon),
   };
 }
 
@@ -149,6 +166,8 @@ export async function askAdd(
       message: "Which emoji should the launcher show?",
       placeholder: defaultIcon,
       defaultValue: defaultIcon,
+      // Nothing typed takes the default, which clack doesn't validate.
+      validate: (answer) => iconProblem(answer ?? defaultIcon),
     }),
   );
   return {
