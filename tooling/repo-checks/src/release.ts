@@ -155,3 +155,67 @@ export async function releasePackages(): Promise<
     };
   });
 }
+
+/** Where robkit publishes. */
+export const npmRegistry = "https://registry.npmjs.org";
+
+/**
+ * Each version `registry` has of the package `name`, or none for a package
+ * it has never seen. Any other answer throws, so a release never publishes
+ * without knowing what is there.
+ */
+export async function registryVersions(
+  name: string,
+  registry: string = npmRegistry,
+): Promise<string[]> {
+  const response = await fetch(`${registry}/${name.replace("/", "%2f")}`, {
+    // npm's short form of a package's document, which lists its versions.
+    headers: { accept: "application/vnd.npm.install-v1+json" },
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (response.status === 404) return [];
+  if (!response.ok) {
+    throw new Error(
+      `${registry} answered ${String(response.status)} for ${name}, so the release can't tell what is published. Run the release again once npm answers.`,
+    );
+  }
+  const json: unknown = await response.json();
+  if (!isRecord(json) || !isRecord(json.versions)) {
+    throw new Error(
+      `${registry}'s answer for ${name} lists no versions, so the release can't tell what is published.`,
+    );
+  }
+  return Object.keys(json.versions);
+}
+
+/**
+ * How the release runs `pnpm publish` in a package's folder. pnpm, not npm,
+ * since only pnpm swaps in `publishConfig`'s `exports` and `bin` and turns
+ * `workspace:` and `catalog:` into versions as it packs. Provenance links
+ * each version to the workflow run that published it. No package script
+ * runs while the token is there.
+ */
+export const publishArgs = [
+  "publish",
+  "--provenance",
+  "--access",
+  "public",
+  "--no-git-checks",
+  "--ignore-scripts",
+] as const;
+
+/**
+ * The environment that gives pnpm `token` for `registry` and nowhere else.
+ * pnpm 11 reads `pnpm_config__auth`, keyed by registry, from the
+ * environment only, never from the repo's own config.
+ */
+export function authEnv(
+  token: string,
+  registry: string = npmRegistry,
+): { pnpm_config__auth: string } {
+  return {
+    pnpm_config__auth: JSON.stringify({
+      [registry]: { "@": { authToken: token } },
+    }),
+  };
+}
