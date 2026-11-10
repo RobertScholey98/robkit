@@ -1,7 +1,11 @@
 import {
+  answerHeadersOf,
   callbackFor,
   conformanceAnswer,
   fakeCore,
+  headerAnswer,
+  headerCases,
+  headerRequest,
   owner,
   type FakeCore,
   stateIn,
@@ -86,6 +90,36 @@ describe("guarded", () => {
     const res = await entry.fetch(new Request(url, init));
 
     expect({ status: res.status, reached }).toEqual(writeAnswer(asking));
+  });
+
+  it.each(headerCases)("$name", async (asking) => {
+    let reached = false;
+    const { url, access, ...init } = headerRequest(asking);
+    const start = {
+      fetch: (request: Request) => {
+        reached = true;
+        // Response.redirect() makes headers that can't change.
+        if (new URL(request.url).pathname === "/moved") {
+          return Response.redirect(new URL("/", request.url), 302);
+        }
+        return new Response("the app", {
+          headers: { "content-security-policy": "default-src 'self'" },
+        });
+      },
+    };
+    const entry = guarded(start, {
+      app: slug("example"),
+      access,
+      core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+    });
+
+    const res = await entry.fetch(new Request(url, init));
+
+    expect({
+      status: res.status,
+      reached,
+      headers: answerHeadersOf(res.headers),
+    }).toEqual(headerAnswer(asking));
   });
 
   it("answers a server function call with an expired session with the guard's 401", async () => {
