@@ -114,12 +114,13 @@ async function dockerProblem(
 }
 
 /**
- * The ids of the containers listed by a Docker command, one a line.
+ * What a Docker command printed, a line each, such as the ids of the
+ * containers it lists.
  *
  * @throws a {@link CommandProblem} with Docker's message when it fails,
  *   such as on a compose.yaml Compose can't read
  */
-async function containerIds(
+async function dockerLines(
   args: string[],
   { root, env }: Pick<Needs, "root" | "env">,
 ): Promise<string[]> {
@@ -140,7 +141,7 @@ async function containerIds(
       { cause: error },
     );
   }
-  return stdout.split("\n").filter((id) => id !== "");
+  return stdout.split("\n").filter((line) => line !== "");
 }
 
 /**
@@ -152,12 +153,12 @@ async function containerIds(
  */
 async function postgresPortTaken(needs: Needs): Promise<boolean> {
   const own = new Set(
-    await containerIds(
+    await dockerLines(
       ["compose", "ps", "--quiet", "--no-trunc", "postgres"],
       needs,
     ),
   );
-  const publishers = await containerIds(
+  const publishers = await dockerLines(
     [
       "ps",
       "--quiet",
