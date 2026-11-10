@@ -30,10 +30,15 @@
     "test": "vitest run --coverage",
     "test:unit": "vitest run --coverage"
   },
+  "dependencies": {
+    "@robkit/input": "workspace:*",
+    "serve-static": "catalog:"
+  },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "@types/serve-static": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "typescript": "catalog:",

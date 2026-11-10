@@ -106,7 +106,7 @@ export const packageGraph = {
   // What every server does the same way: listen, serve the client's files
   // and stop. Nothing from the guard, Vite or a stack, so the hub's image
   // holds none of them.
-  "@robkit/serve": { dependencies: [], devDependencies: [] },
+  "@robkit/serve": { dependencies: ["@robkit/input"], devDependencies: [] },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
   "@internal/tsconfig": { dependencies: [], devDependencies: [] },
   "@internal/test-postgres": { dependencies: [], devDependencies: [] },

@@ -1,0 +1,128 @@
+import type { IncomingMessage, Server, ServerResponse } from "node:http";
+import { orExit, readServeEnv } from "@robkit/input";
+import { noSniff } from "@robkit/input/headers";
+import serveStatic from "serve-static";
+import { start, type RequestHandler } from "./listen.ts";
+
+/** A folder of files, and the path its files are answered under. */
+export interface Files {
+  /** The path, such as `/assets`, or `/` for the root. */
+  at: string;
+  /**
+   * The folder, such as `dist/assets`. A relative one is found from the
+   * folder the server runs in, which the container sets.
+   */
+  folder: string;
+}
+
+/** What every server can be told: its name, and what to do once it stops. */
+export interface ServerOptions {
+  /** The server's name in the lines it prints. `server` unless set. */
+  name?: string;
+  /** Runs once the server has stopped, before its last line, such as closing a database. */
+  onStopped?: () => Promise<void>;
+}
+
+export interface ServeOptions extends ServerOptions {
+  /**
+   * The folders of files answered before the app, in order. A request for
+   * a file that isn't there goes on to the next folder, then the app.
+   */
+  files?: readonly Files[];
+  /** Where to listen. `HOST` and `PORT` unless set. */
+  address?: { host: string; port: number };
+}
+
+/** Express's shape for one step: answer, or hand the request on. */
+type Step = (
+  request: IncomingMessage,
+  response: ServerResponse,
+  next: (error?: unknown) => void,
+) => void;
+
+/**
+ * Answers a GET or HEAD for a file in `folder` under `at`, and hands on
+ * every other request. A path that climbs out of the folder, encoded or
+ * not, gets no file, nor does a dotfile or a folder.
+ */
+function filesAt({ at, folder }: Files): Step {
+  const answer = serveStatic(folder, { index: false, redirect: false });
+  const prefix = at.endsWith("/") ? at : `${at}/`;
+  return (request, response, next) => {
+    // A server request always has one.
+    const url = String(request.url);
+    if (!url.startsWith(prefix)) {
+      next();
+      return;
+    }
+    // serve-static finds the file from the URL's path, so it sees the
+    // path under `at`, and the app gets the URL as it came.
+    request.url = url.slice(prefix.length - 1);
+    answer(request, response, (error?: unknown) => {
+      request.url = url;
+      next(error);
+    });
+  };
+}
+
+/** `app` behind `files`, with `nosniff` on every answer. */
+function withFiles(
+  app: RequestHandler,
+  files: readonly Files[],
+): RequestHandler {
+  const steps = files.map(filesAt);
+  return (request, response) => {
+    response.setHeader(...noSniff);
+    return new Promise((resolve, reject) => {
+      // A file sent settles nothing, as serve-static calls on only to
+      // hand the request on, so the answer's end does.
+      response.once("close", resolve);
+      const from =
+        (index: number) =>
+        (error?: unknown): void => {
+          const step = steps[index];
+          if (error !== undefined) {
+            reject(
+              new Error("serve-static couldn't send a file.", { cause: error }),
+            );
+          } else if (step) step(request, response, from(index + 1));
+          else resolve(app(request, response));
+        };
+      from(0)();
+    });
+  };
+}
+
+/**
+ * Serves `app` behind `files` on `HOST` and `PORT`, or `address`, with
+ * `nosniff` on every answer. It refuses a malformed `HOST` or `PORT` with
+ * the reader's message and exits 1. On SIGTERM it stops as
+ * `listenUntilStopped` does, then exits 0.
+ *
+ * @returns the server, which has started to listen
+ */
+export function serve(app: RequestHandler, options: ServeOptions = {}): Server {
+  const {
+    files = [],
+    name = "server",
+    onStopped = () => Promise.resolve(),
+  } = options;
+  const { host, port } = options.address ?? orExit(readServeEnv(process.env));
+  const { server, stopped } = start(withFiles(app, files), {
+    hostname: host,
+    port,
+    name,
+    onStopped,
+  });
+  stopped.then(
+    (code) => process.exit(code),
+    (error: unknown) => {
+      console.error(
+        `${name} couldn't listen on ${host}:${String(port)}.`,
+        error,
+      );
+      process.exit(1);
+    },
+  );
+  return server;
+}

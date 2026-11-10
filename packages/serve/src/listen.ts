@@ -9,12 +9,12 @@ import {
 /**
  * What answers each request, as Node hands it over: an Express app, or a
  * fetch handler made into one, such as by `getRequestListener` from
- * `@hono/node-server`.
+ * `@hono/node-server`. A promise it returns that rejects gets a 500.
  */
 export type RequestHandler = (
   request: IncomingMessage,
   response: ServerResponse,
-) => void | Promise<void>;
+) => unknown;
 
 export interface ListenOptions {
   hostname: string;
@@ -73,7 +73,7 @@ export function start(
     response.once("close", () => open.delete(response));
     // A handler that throws or rejects is a fault in the app. It gets a
     // 500 rather than ending the server and every request open on it.
-    new Promise<void>((resolve) => {
+    new Promise((resolve) => {
       resolve(app(request, response));
     }).catch((error: unknown) => {
       console.error(

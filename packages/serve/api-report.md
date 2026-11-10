@@ -5,6 +5,10 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/serve
 
 ```ts
+export interface Files {
+  at: string;
+  folder: string;
+}
 export interface ListenOptions {
   hostname: string;
   port: number;
@@ -18,5 +22,17 @@ export function listenUntilStopped(
 export type RequestHandler = (
   request: IncomingMessage,
   response: ServerResponse,
-) => void | Promise<void>;
+) => unknown;
+export function serve(app: RequestHandler, options?: ServeOptions): Server;
+export interface ServeOptions extends ServerOptions {
+  files?: readonly Files[];
+  address?: {
+    host: string;
+    port: number;
+  };
+}
+export interface ServerOptions {
+  name?: string;
+  onStopped?: () => Promise<void>;
+}
 ```
