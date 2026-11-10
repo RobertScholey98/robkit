@@ -8,7 +8,7 @@ export interface ListenOptions {
   /** The server's name in the lines it prints, such as `core`. */
   name: string;
   /** Runs once the server has stopped, before its line, such as closing the database. */
-  onStopped?: () => Promise<void>;
+  onStopped: () => Promise<void>;
 }
 
 /**
@@ -30,10 +30,20 @@ export async function listenUntilStopped({
   onStopped,
 }: ListenOptions): Promise<number> {
   const { promise: stopped, resolve, reject } = Promise.withResolvers<number>();
+  const cleanUp = () => {
+    process.off("SIGTERM", stop);
+    process.off("SIGINT", stop);
+    return onStopped();
+  };
   const server = serve({ fetch, hostname, port }, ({ port }) => {
     console.log(`${name} listening on ${hostname}:${String(port)}`);
   });
-  server.once("error", reject);
+  // Such as the port being taken: it never listened, so nothing is open.
+  server.once("error", (error) => {
+    cleanUp().then(() => {
+      reject(error);
+    }, reject);
+  });
 
   let stopping = false;
   const stop = () => {
@@ -43,14 +53,8 @@ export async function listenUntilStopped({
     stopping = true;
     // Node closes idle keep-alive connections at once, and each busy one
     // once its response is sent.
-    server.close((error) => {
-      process.off("SIGTERM", stop);
-      process.off("SIGINT", stop);
-      if (error) {
-        reject(error);
-        return;
-      }
-      (onStopped ?? (() => Promise.resolve()))().then(() => {
+    server.close(() => {
+      cleanUp().then(() => {
         console.log(`${name} stopped`);
         resolve(0);
       }, reject);

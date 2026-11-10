@@ -151,6 +151,9 @@ importers:
       '@robkit/input':
         specifier: workspace:*
         version: link:../input
+      '@robkit/provision':
+        specifier: workspace:*
+        version: link:../provision
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -179,9 +182,6 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
-      '@robkit/provision':
-        specifier: workspace:*
-        version: link:../provision
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5

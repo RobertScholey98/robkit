@@ -7,18 +7,24 @@ declare module "vitest" {
     adminUrl: string;
     /** Core's own `DATABASE_URL`, connecting as the core role. */
     databaseUrl: string;
+    /**
+     * The secret core's password comes from. A test that runs the provision
+     * step uses it too, so core's password stays the same for every test.
+     */
+    databaseSecret: string;
   }
 }
+
+// Production derives core's password from the install's secret; any
+// secret of 32 characters or more does for a test database.
+const databaseSecret = "core's test database secret, not a real one";
 
 export default async function setup(project: TestProject) {
   const { adminUrl, stop } = await startPostgres();
   project.provide("adminUrl", adminUrl);
-  // Production derives core's password from the install's secret; any
-  // secret of 32 characters or more does for a test database.
-  const secret = "core's test database secret, not a real one";
   const provisioned = await provisionDatabases({
     adminUrl,
-    secret,
+    secret: databaseSecret,
     slugs: ["core"],
   });
   const databaseUrl =
@@ -31,5 +37,6 @@ export default async function setup(project: TestProject) {
     });
   }
   project.provide("databaseUrl", databaseUrl);
+  project.provide("databaseSecret", databaseSecret);
   return stop;
 }

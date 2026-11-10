@@ -61,14 +61,15 @@ export const packageGraph = {
     dependencies: ["@robkit/input"],
     devDependencies: ["@internal/test-postgres", "@internal/test-session"],
   },
-  // Core's tests provision their database with the provision step.
+  // robkit-core runs the provision step before it migrates and serves.
   "@robkit/core": {
-    dependencies: ["@robkit/guard", "@robkit/input", "@robkit/session"],
-    devDependencies: [
-      "@internal/test-postgres",
-      "@internal/test-session",
+    dependencies: [
+      "@robkit/guard",
+      "@robkit/input",
       "@robkit/provision",
+      "@robkit/session",
     ],
+    devDependencies: ["@internal/test-postgres", "@internal/test-session"],
   },
   "@robkit/dev": {
     dependencies: ["@robkit/input", "@robkit/provision"],
