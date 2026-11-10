@@ -524,6 +524,9 @@ importers:
       '@robkit/input':
         specifier: workspace:*
         version: link:../input
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../session

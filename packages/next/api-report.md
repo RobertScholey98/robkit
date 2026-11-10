@@ -40,3 +40,10 @@ export { owner } from "@robkit/guard/testing";
 ```ts
 export function withRobkit(config?: NextConfig): (phase: string) => NextConfig;
 ```
+
+## @robkit/next/serve
+
+```ts
+export function serve(options?: ServeOptions): Promise<Server>;
+export type ServeOptions = ServerOptions;
+```

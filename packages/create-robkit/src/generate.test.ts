@@ -458,6 +458,10 @@ describe("generateInstall", () => {
       ['import { serve } from "@robkit/start/serve";', "await serve();"],
     ],
     [
+      "stacks/next/src/serve.ts",
+      ['import { serve } from "@robkit/next/serve";', "await serve();"],
+    ],
+    [
       "base/apps/admin/src/serve.ts",
       [
         'import { serve } from "@robkit/hono/serve";',
