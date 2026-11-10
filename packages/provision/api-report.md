@@ -54,7 +54,7 @@ export interface ProvisionDatabasesOptions {
 export type ProvisionRefusal = ShortSecret | RefusedApp;
 export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem;
 export interface RefusedApp {
-  outcome: "not-a-slug";
+  outcome: "not-a-slug" | "own-role" | "superuser";
   slug: string;
   error: string;
 }

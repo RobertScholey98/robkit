@@ -4,7 +4,7 @@ Gives each app of a robkit install its own Postgres schema and a login role that
 
 Core runs it in production before it migrates, and the dev runner runs it before `pnpm dev` starts the apps. create-robkit uses it to work out each app's `DATABASE_URL` for a deploy.
 
-It returns what it can refuse as a value, so each command says what to do in its own words: a name that isn't a slug, and a database secret shorter than 32 characters. It changes nothing when it refuses.
+It returns what it can refuse as a value, so each command says what to do in its own words: a name that isn't a slug, the role it connects as, a superuser, and a database secret shorter than 32 characters. It changes nothing when it refuses.
 
 ## Example
 
@@ -24,6 +24,7 @@ if (isProblem(config)) {
 
 const provisioned = await provisionDatabases(config);
 if (provisioned.outcome !== "provisioned") {
+  // Such as an app named after a superuser. The sentence names the app.
   console.error(provisioned.error);
   process.exit(1);
 }

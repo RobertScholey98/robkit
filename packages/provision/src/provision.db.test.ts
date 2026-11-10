@@ -118,6 +118,37 @@ describe("provisionDatabase", () => {
       error: `"drop table x;--" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
     });
   });
+
+  it("refuses an existing superuser's name, and leaves it a superuser", async () => {
+    const admin = connect(adminUrl);
+    await admin`create role chief superuser`;
+
+    expect(await provisionDatabase(adminUrl, slug("chief"))).toEqual({
+      outcome: "superuser",
+      slug: "chief",
+      error: `"chief" is a superuser in the install's database, so the provision step won't make it an app's role.`,
+    });
+    expect(await roles(["chief"])).toEqual([
+      { rolname: "chief", rolsuper: true },
+    ]);
+  });
+
+  it("refuses the name of the role it connects as, and leaves that role alone", async () => {
+    const admin = connect(adminUrl);
+    await admin`create role keeper login superuser password 'keeper'`;
+    const asKeeper = new URL(adminUrl);
+    asKeeper.username = "keeper";
+    asKeeper.password = "keeper";
+
+    expect(await provisionDatabase(asKeeper.href, slug("keeper"))).toEqual({
+      outcome: "own-role",
+      slug: "keeper",
+      error: `"keeper" is the role the provision step connects as, so it can't also be an app's role.`,
+    });
+    expect(await roles(["keeper"])).toEqual([
+      { rolname: "keeper", rolsuper: true },
+    ]);
+  });
 });
 
 const secret = "correct horse battery staple, 32+";
@@ -189,5 +220,19 @@ describe("provisionDatabases", () => {
       error: "The database secret is 5 characters. It must be at least 32.",
     });
     expect(await roles(["untouched"])).toEqual([]);
+  });
+
+  it("stops at the first app it refuses, and says which", async () => {
+    const admin = connect(adminUrl);
+    await admin`create role boss superuser`;
+
+    expect(
+      await provisionDatabases({
+        adminUrl,
+        secret,
+        slugs: [slug("boss"), slug("afterboss")],
+      }),
+    ).toMatchObject({ outcome: "superuser", slug: "boss" });
+    expect(await roles(["afterboss"])).toEqual([]);
   });
 });

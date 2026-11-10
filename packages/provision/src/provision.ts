@@ -11,10 +11,11 @@ export interface ShortSecret {
 
 /**
  * Why the provision step won't give an app its database: its name isn't a
- * slug. `error` says so in a sentence that names it.
+ * slug, or it names a role the step won't touch, either the one it
+ * connects as or a superuser. `error` says so in a sentence that names it.
  */
 export interface RefusedApp {
-  outcome: "not-a-slug";
+  outcome: "not-a-slug" | "own-role" | "superuser";
   slug: string;
   error: string;
 }
@@ -100,7 +101,8 @@ export function databaseUrl(
  * Gives an app its own schema and a login role that can touch nothing else,
  * both named after the app's slug. Safe to run on every start: it converges
  * on the same grants and sets the password each time, a fresh one unless
- * given. It refuses a name that isn't a slug.
+ * given. It refuses a name that isn't a slug, the role it connects as, and
+ * any superuser, and changes nothing then.
  *
  * @param adminUrl a superuser URL for the install's database
  * @returns the app's `DATABASE_URL`, or why it refused
@@ -118,9 +120,24 @@ export async function provisionDatabase(
   const role = `"${slug}"`;
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
   try {
-    await sql.begin(async (tx) => {
-      const [existing] =
-        await tx`select 1 from pg_roles where rolname = ${slug}`;
+    const refusal = await sql.begin(async (tx) => {
+      const [self] = await tx<{ name: string }[]>`select current_user as name`;
+      if (self?.name === slug) {
+        return {
+          outcome: "own-role" as const,
+          slug,
+          error: `"${slug}" is the role the provision step connects as, so it can't also be an app's role.`,
+        };
+      }
+      const [existing] = await tx<{ superuser: boolean }[]>`
+        select rolsuper as superuser from pg_roles where rolname = ${slug}`;
+      if (existing?.superuser) {
+        return {
+          outcome: "superuser" as const,
+          slug,
+          error: `"${slug}" is a superuser in the install's database, so the provision step won't make it an app's role.`,
+        };
+      }
       const verb = existing ? "alter" : "create";
       await tx.unsafe(
         `${verb} role ${role} with login nosuperuser nocreatedb nocreaterole password '${password}'`,
@@ -135,7 +152,9 @@ export async function provisionDatabase(
       await tx.unsafe(`revoke all on database "${database}" from public`);
       await tx.unsafe(`grant connect on database "${database}" to ${role}`);
       await tx.unsafe(`revoke all on schema public from public`);
+      return undefined;
     });
+    if (refusal) return refusal;
   } finally {
     await sql.end();
   }

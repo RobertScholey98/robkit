@@ -1,9 +1,10 @@
-import { cp, mkdtemp } from "node:fs/promises";
+import { cp, mkdtemp, rename } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { afterAll, describe, expect, inject, it } from "vitest";
+import { CommandProblem } from "@robkit/input/command";
 import { provisionApps } from "./provision.ts";
 import { slug } from "@internal/test-session";
 
@@ -98,5 +99,17 @@ describe("provisionApps", () => {
     });
 
     expect(databaseUrls.size).toBe(0);
+  });
+
+  it("stops with a message naming an app whose name is a superuser's", async () => {
+    const root = await install();
+    await rename(join(root, "apps/ledger"), join(root, "apps/overseer"));
+    await connect(adminUrl)`create role overseer superuser`;
+
+    await expect(provisionApps(root, { adminUrl, env })).rejects.toEqual(
+      new CommandProblem(
+        `pnpm dev can't give overseer its database. "overseer" is a superuser in the install's database, so the provision step won't make it an app's role. Rename apps/overseer.`,
+      ),
+    );
   });
 });
