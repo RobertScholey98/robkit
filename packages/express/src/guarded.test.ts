@@ -13,6 +13,7 @@ import {
   headerCases,
   headerRequest,
   owner,
+  printedOnExit,
   stateIn,
   slug,
   writeAnswer,
@@ -23,7 +24,7 @@ import { conformanceCases } from "@robkit/guard/conformance";
 import { orThrow, readCoreUrl } from "@robkit/input";
 import { readSessionLapsed } from "@robkit/session/lapsed";
 import express, { type Express } from "express";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { guarded, type GuardedResponse } from "./index.ts";
 
 const example = slug("example");
@@ -352,5 +353,80 @@ describe("guarded", () => {
       body: { text: "Buy milk" },
       viewer: owner,
     });
+  });
+});
+
+describe("guarded(), reading its own settings", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("guards with ROBKIT_APP and ROBKIT_CORE_URL as it does when given them", async () => {
+    const core = await fakeCore();
+    core.rules.example = { kind: "owner" };
+    vi.stubEnv("ROBKIT_APP", "example");
+    vi.stubEnv("ROBKIT_CORE_URL", core.origin);
+    const app = express()
+      .use(guarded())
+      .get("*splat", (_req, res: GuardedResponse) => {
+        res.json(res.locals.viewer);
+      });
+
+    const signedIn = await ask(app, core.page, {
+      headers: {
+        ...navigate,
+        cookie: `robkit_session=${await core.key.token()}`,
+      },
+    });
+    const away = await ask(app, core.page, { headers: navigate });
+
+    expect([signedIn.status, await signedIn.json(), away.status]).toEqual([
+      200,
+      owner,
+      302,
+    ]);
+  });
+
+  it("exits with the reader's message when a setting is unset or won't do", () => {
+    vi.stubEnv("ROBKIT_APP", "Example");
+    vi.stubEnv("ROBKIT_CORE_URL", undefined);
+
+    expect(printedOnExit(() => guarded())).toBe(
+      [
+        `ROBKIT_APP: "Example" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+        "ROBKIT_CORE_URL is not set. Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.",
+      ].join("\n"),
+    );
+  });
+
+  it("takes the app and core as plain strings, and refuses a bad one the same way", async () => {
+    const core = await fakeCore();
+    const app = express()
+      .use(
+        guarded({
+          app: "example",
+          core: String(core.origin),
+          access: { kind: "owner" },
+        }),
+      )
+      .get("*splat", (_req, res: GuardedResponse) => {
+        res.json(res.locals.viewer);
+      });
+
+    const res = await ask(app, core.page, {
+      headers: {
+        ...navigate,
+        cookie: `robkit_session=${await core.key.token()}`,
+      },
+    });
+
+    expect(await res.json()).toEqual(owner);
+    expect(
+      printedOnExit(() =>
+        guarded({ app: "example", core: "http://core.example.com" }),
+      ),
+    ).toBe(
+      `guarded()'s core is "http://core.example.com", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`,
+    );
   });
 });
