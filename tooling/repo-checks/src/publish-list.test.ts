@@ -2,13 +2,13 @@
 // token, short of publishing: a stand-in registry answers.
 import { execFile } from "node:child_process";
 import { once } from "node:events";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { isRecord } from "@robkit/input";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   authEnv,
   matchTarballs,
@@ -43,7 +43,7 @@ async function publishedNames(): Promise<string[]> {
 const pnpm = process.env.npm_execpath ?? "";
 
 /** How to start that pnpm: a JS file through Node, a binary as it is. */
-const [command = "", ...prefix] = /.[cm]?js$/.test(pnpm)
+const [command = "", ...prefix] = /\.[cm]?js$/.test(pnpm)
   ? [process.execPath, pnpm]
   : [pnpm];
 
@@ -52,6 +52,8 @@ interface Received {
   method: string;
   url: string;
   authorization: string | undefined;
+  /** What the request sent, as text. */
+  body: string;
 }
 
 let server: Server | undefined;
@@ -65,12 +67,17 @@ async function registry(
 ): Promise<{ url: string; received: Received[] }> {
   const received: Received[] = [];
   server = createServer((request, response) => {
-    received.push({
+    const got: Received = {
       method: request.method ?? "",
       url: request.url ?? "",
       authorization: request.headers.authorization,
+      body: "",
+    };
+    received.push(got);
+    request.setEncoding("utf8");
+    request.on("data", (chunk: string) => {
+      got.body += chunk;
     });
-    request.resume();
     request.on("end", () => {
       const { status, body } = answer(request);
       response.writeHead(status, { "content-type": "application/json" });
@@ -121,47 +128,115 @@ describe("registryVersions", () => {
   });
 });
 
-describe("publishing through pnpm", () => {
-  // Run through pnpm, as turbo does, so npm_execpath names it.
-  it.runIf(/pnpm/i.test(pnpm))(
-    "hands pnpm the token for the registry it publishes to",
-    async () => {
+/**
+ * Packs a stand-in package with the pnpm running the tests, as the pack job
+ * does, and gives the tarball's path. Its `publishConfig` swaps the export
+ * for built JS, as robkit's packages' do.
+ */
+async function packStandIn(dir: string): Promise<string> {
+  const source = join(dir, "source");
+  const out = join(dir, "out");
+  await mkdir(source);
+  await writeFile(
+    join(source, "package.json"),
+    JSON.stringify({
+      name: "@robkit/stand-in",
+      version: "0.1.0",
+      license: "MIT",
+      exports: { ".": "./src/index.ts" },
+      publishConfig: { exports: { ".": "./index.js" } },
+    }),
+  );
+  await writeFile(join(source, "index.js"), "export {};\n");
+  await run(command, [...prefix, "pack", "--pack-destination", out], {
+    cwd: source,
+  });
+  return join(out, "robkit-stand-in-0.1.0.tgz");
+}
+
+/** The environment of a run that no CI provider would recognise. */
+function outsideCi(): NodeJS.ProcessEnv {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(
+      ([key]) => key !== "CI" && !key.startsWith("GITHUB_"),
+    ),
+  );
+}
+
+// Run through pnpm, as turbo does, so npm_execpath names it.
+describe.runIf(/pnpm/i.test(pnpm))(
+  "pnpm publish <tarball>",
+  { timeout: 120_000 },
+  () => {
+    let dir: string;
+    beforeEach(async () => {
+      dir = await mkdtemp(join(tmpdir(), "robkit-publish-"));
+    });
+    afterEach(async () => {
+      await rm(dir, { recursive: true, force: true });
+    });
+
+    it("sends the packed tarball unchanged, with the token", async () => {
       const { url, received } = await registry((request) => ({
         status: request.method === "PUT" ? 200 : 404,
       }));
-      const dir = await mkdtemp(join(tmpdir(), "robkit-publish-"));
-      try {
-        await writeFile(
-          join(dir, "package.json"),
-          JSON.stringify({
-            name: "@robkit/stand-in",
-            version: "0.1.0",
-            license: "MIT",
-          }),
-        );
-        await writeFile(join(dir, "index.js"), "export {};\n");
+      const tarball = await packStandIn(dir);
+      // Provenance needs the identity token only CI has, so this leaves it
+      // out. Every other flag is the release's own.
+      const args = publishArgs(tarball).filter((arg) => arg !== "--provenance");
 
-        // Provenance needs the identity token only CI has, so this leaves it
-        // out. Every other flag is the release's own.
-        const args = publishArgs.filter((arg) => arg !== "--provenance");
-        await run(command, [...prefix, ...args, "--registry", url], {
-          cwd: dir,
-          env: { ...process.env, ...authEnv("t0ken", url) },
-        });
-      } finally {
-        await rm(dir, { recursive: true, force: true });
-      }
+      await run(command, [...prefix, ...args, "--registry", url], {
+        cwd: dir,
+        env: { ...process.env, ...authEnv("t0ken", url) },
+      });
 
       const put = received.find(({ method }) => method === "PUT");
       expect(put?.url).toBe("/@robkit%2fstand-in");
       expect(put?.authorization).toBe("Bearer t0ken");
-    },
-    120_000,
-  );
+      const sent: unknown = JSON.parse(put?.body ?? "{}");
+      const attachments = isRecord(sent) ? sent._attachments : undefined;
+      const [attachment] = isRecord(attachments)
+        ? Object.values(attachments)
+        : [];
+      const data = isRecord(attachment) ? attachment.data : undefined;
+      expect(Buffer.from(String(data), "base64")).toEqual(
+        await readFile(tarball),
+      );
+      // The manifest pnpm sends is the packed one, publishConfig applied.
+      const versions = isRecord(sent) ? sent.versions : undefined;
+      expect(isRecord(versions) && versions["0.1.0"]).toMatchObject({
+        exports: { ".": "./index.js" },
+      });
+    });
 
-  it("publishes with provenance, as public, and runs no package script", () => {
-    expect(publishArgs).toEqual([
+    it("takes --provenance with a tarball, and sends nothing without CI's identity", async () => {
+      const { url, received } = await registry(() => ({ status: 404 }));
+      const tarball = await packStandIn(dir);
+
+      const publishing = run(
+        command,
+        [...prefix, ...publishArgs(tarball), "--registry", url],
+        { cwd: dir, env: { ...outsideCi(), ...authEnv("t0ken", url) } },
+      );
+
+      const failure = await publishing.then(
+        () => undefined,
+        (error: unknown) => error,
+      );
+      // pnpm prints its errors to stdout.
+      expect(isRecord(failure) && failure.stdout).toContain(
+        "Automatic provenance generation not supported for provider: null",
+      );
+      expect(received.filter(({ method }) => method === "PUT")).toEqual([]);
+    });
+  },
+);
+
+describe("publishArgs", () => {
+  it("publishes the tarball with provenance, as public, and runs no package script", () => {
+    expect(publishArgs("/tmp/robkit-core-0.1.0.tgz")).toEqual([
       "publish",
+      "/tmp/robkit-core-0.1.0.tgz",
       "--provenance",
       "--access",
       "public",

@@ -1,7 +1,9 @@
-// The release workflow's publish step refuses to start without the token.
-// publish-list.test.ts covers what it decides and how it publishes.
+// The release workflow's publish step refuses to start without the token,
+// or before the tarballs match main's packages. publish-list.test.ts covers
+// what it decides and how it publishes.
 import { spawnSync } from "node:child_process";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -47,6 +49,47 @@ describe("release-publish.ts", () => {
       );
     },
   );
+
+  it("stops without the tarballs' folder", () => {
+    const { status, stdout, stderr } = spawnSync(
+      process.execPath,
+      ["release-publish.ts"],
+      {
+        cwd: import.meta.dirname,
+        env: { ...process.env, NPM_TOKEN: "t0ken" },
+        encoding: "utf8",
+      },
+    );
+
+    expect(status).toBe(1);
+    expect(stdout).toBe("");
+    expect(stderr.trim()).toBe(
+      "Name the folder that holds the pack job's tarballs: node tooling/repo-checks/src/release-publish.ts <folder>",
+    );
+  });
+
+  it("stops before it reads npm when a package has no tarball", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-tarballs-"));
+    try {
+      const { status, stdout, stderr } = spawnSync(
+        process.execPath,
+        ["release-publish.ts", dir],
+        {
+          cwd: import.meta.dirname,
+          env: { ...process.env, NPM_TOKEN: "t0ken" },
+          encoding: "utf8",
+        },
+      );
+
+      expect(status).toBe(1);
+      expect(stdout).toBe("");
+      expect(stderr).toMatch(
+        /^The pack job's artifact has no robkit-core-[\d.]+\.tgz for @robkit\/core@[\d.]+, which main holds\. Run the release again from main\.$/m,
+      );
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 
   // It runs beside the npm token, so no package's code runs with it.
   it("imports only node: modules and files that do the same", async () => {

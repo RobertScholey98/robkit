@@ -1,15 +1,19 @@
-// The release workflow's publish step runs this, on main, after the gate
-// and the dry run, with the npm token in NPM_TOKEN:
-//   node tooling/repo-checks/src/release-publish.ts
-// It publishes every package whose version npm lacks, so a release that
-// stopped halfway runs again from where it stopped. Once npm has them all
-// it writes `tag=v<version>` to $GITHUB_OUTPUT, for the step that tags.
+// The release workflow's publish step runs this, on main, with the npm token
+// in NPM_TOKEN and the pack job's tarballs in a folder:
+//   node tooling/repo-checks/src/release-publish.ts <tarball folder>
+// It checks each tarball is one of main's packages at main's version, then
+// publishes every one whose version npm lacks, so a release that stopped
+// halfway runs again from where it stopped. Once npm has them all it writes
+// `tag=v<version>` to $GITHUB_OUTPUT, for the step that tags.
 import { spawnSync } from "node:child_process";
-import { appendFile } from "node:fs/promises";
+import { appendFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
 import {
   authEnv,
+  matchTarballs,
   publishArgs,
   publishPlan,
+  readTarball,
   registryVersions,
   releasePackages,
 } from "./publish-list.ts";
@@ -22,23 +26,41 @@ if (!token) {
   process.exit(1);
 }
 
+const dir = process.argv[2];
+if (dir === undefined) {
+  console.error(
+    "Name the folder that holds the pack job's tarballs: node tooling/repo-checks/src/release-publish.ts <folder>",
+  );
+  process.exit(1);
+}
+
 const packages = await releasePackages();
+const files = (await readdir(dir)).filter((file) => file.endsWith(".tgz"));
+const tarballs = await Promise.all(
+  files.map((file) => readTarball(join(dir, file))),
+);
+const { matched, problems } = matchTarballs(packages, tarballs);
+if (problems.length > 0) {
+  for (const problem of problems) console.error(problem);
+  process.exit(1);
+}
+
 const published = new Map(
   await Promise.all(
-    packages.map(
+    matched.map(
       async ({ name }) => [name, await registryVersions(name)] as const,
     ),
   ),
 );
-const { publish } = publishPlan(packages, published);
-const onNpm = packages.length - publish.length;
+const { publish } = publishPlan(matched, published);
+const onNpm = matched.length - publish.length;
 console.log(
   `${String(publish.length)} to publish, ${String(onNpm)} already on npm.`,
 );
 
-for (const { name, version, dir } of publish) {
-  console.log(`Publishing ${name}@${version}`);
-  const { status } = spawnSync("pnpm", publishArgs, {
+for (const { name, version, tarball } of publish) {
+  console.log(`Publishing ${name}@${version} from ${tarball}`);
+  const { status } = spawnSync("pnpm", publishArgs(join(dir, tarball)), {
     cwd: dir,
     env: { ...process.env, ...authEnv(token) },
     stdio: "inherit",
@@ -52,7 +74,7 @@ for (const { name, version, dir } of publish) {
   published.set(name, [...(published.get(name) ?? []), version]);
 }
 
-const { tag } = publishPlan(packages, published);
+const { tag } = publishPlan(matched, published);
 console.log(
   `npm has every package. The next step pushes the tag ${tag ?? ""}.`,
 );

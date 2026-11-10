@@ -230,20 +230,22 @@ export function matchTarballs<P extends ReleasePackage>(
 }
 
 /**
- * How the release runs `pnpm publish` in a package's folder. pnpm, not npm,
- * since only pnpm swaps in `publishConfig`'s `exports` and `bin` and turns
- * `workspace:` and `catalog:` into versions as it packs. Provenance links
- * each version to the workflow run that published it. No package script
- * runs while the token is there.
+ * How the release runs `pnpm publish` on a tarball the pack job made. pnpm
+ * sends the tarball as it is, so what the dry run checked is what npm gets.
+ * Provenance links each version to the workflow run that published it. No
+ * package script runs while the token is there.
  */
-export const publishArgs = [
-  "publish",
-  "--provenance",
-  "--access",
-  "public",
-  "--no-git-checks",
-  "--ignore-scripts",
-] as const;
+export function publishArgs(tarball: string): string[] {
+  return [
+    "publish",
+    tarball,
+    "--provenance",
+    "--access",
+    "public",
+    "--no-git-checks",
+    "--ignore-scripts",
+  ];
+}
 
 /**
  * The environment that gives pnpm `token` for `registry` and nowhere else.
