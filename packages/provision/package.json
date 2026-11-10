@@ -2,6 +2,12 @@
   "name": "@robkit/provision",
   "version": "0.0.0",
   "description": "Gives each app of a robkit install its own Postgres schema and role.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/provision"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -18,6 +24,7 @@
     "dist",
     "src",
     "!src/**/*.test.ts",
+    "!src/**/*.test-d.ts",
     "!src/test"
   ],
   "engines": {

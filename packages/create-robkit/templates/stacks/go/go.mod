@@ -15,7 +15,7 @@ require (
 	golang.org/x/text v0.41.0 // indirect
 )
 
-// robkit's guard for Go isn't on a module proxy. robkit vendor copies it
-// to the install's vendor/robkit/go, and an install made with --link
+// robkit's guard for Go isn't on a module proxy. init and robkit add copy
+// it to the install's vendor/robkit/go, and an install made with --link
 // points this at the robkit checkout instead.
 replace github.com/RobertScholey98/robkit/go => ../../vendor/robkit/go

@@ -1,4 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
+import { matchesGlob } from "node:path/posix";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -137,6 +138,7 @@ describe("generateInstall", () => {
     expect(Object.keys(settings)).toEqual([
       "packages",
       "catalogMode",
+      "minimumReleaseAgeExclude",
       "allowBuilds",
       "overrides",
       "catalog",
@@ -594,6 +596,25 @@ describe("generateInstall", () => {
     expect(overrides).toEqual({ "styled-jsx>@babel/core": "-" });
   });
 
+  it("exempts every robkit package from pnpm's release-age rule, and nothing else", async () => {
+    const settings = workspace(await generateInstall(defaultChoices)) as {
+      catalog: Record<string, string>;
+      minimumReleaseAgeExclude?: string[];
+    };
+    const exempt = settings.minimumReleaseAgeExclude ?? [];
+    const isExempt = (name: string) =>
+      exempt.some((pattern) => matchesGlob(name, pattern));
+    const names = Object.keys(settings.catalog);
+
+    expect(exempt).toEqual(["@robkit/*", "create-robkit"]);
+    expect(names.filter(isExempt)).toEqual(
+      names.filter(
+        (name) => name.startsWith("@robkit/") || name === "create-robkit",
+      ),
+    );
+    expect(names.filter(isExempt)).toContain("@robkit/core");
+  });
+
   it("catalogs every stack robkit add offers, not only the example's", async () => {
     const { catalog } = workspace(await generateInstall(honoExample));
 
@@ -653,6 +674,31 @@ describe("generateInstall", () => {
     expect(plain.get("apps/example/go.mod")).toContain(
       "\nreplace github.com/RobertScholey98/robkit/go => ../../vendor/robkit/go\n",
     );
+  });
+
+  it("writes robkit's Go module to vendor/robkit/go with a Go example, but not under --link", async () => {
+    const goExample: Choices = { exampleStack: "go" };
+    const vendored = (files: Files) =>
+      [...files.keys()].filter((path) => path.startsWith("vendor/"));
+
+    const plain = await generateInstall(goExample);
+    const linked = await generateInstall(goExample, { link: true });
+    const noGo = await generateInstall(defaultChoices);
+
+    expect(vendored(plain)).toEqual(
+      expect.arrayContaining([
+        "vendor/robkit/go/go.mod",
+        "vendor/robkit/go/session/guarded.go",
+      ]),
+    );
+    expect(vendored(plain).filter((path) => path.endsWith("_test.go"))).toEqual(
+      [],
+    );
+    expect(plain.get("vendor/robkit/go/go.mod")).toContain(
+      "module github.com/RobertScholey98/robkit/go\n",
+    );
+    expect(vendored(linked)).toEqual([]);
+    expect(vendored(noGo)).toEqual([]);
   });
 
   it("restores the dotfiles npm would drop", async () => {

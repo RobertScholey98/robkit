@@ -2,6 +2,12 @@
   "name": "@robkit/core",
   "version": "0.0.0",
   "description": "robkit's core: the Hono backend that owns the core tables.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/core"
+  },
   "type": "module",
   "bin": {
     "robkit-core": "./src/robkit-core-command.ts"
@@ -24,6 +30,7 @@
     "dist",
     "src",
     "!src/**/*.test.ts",
+    "!src/**/*.test-d.ts",
     "!src/test",
     "drizzle"
   ],

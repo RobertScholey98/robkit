@@ -14,7 +14,9 @@ pnpm create-install                                  # asks for a folder and the
 pnpm create-install ../my-install --stack start      # or asks nothing
 ```
 
-`pnpm create-install` runs `src/create-robkit-command.ts --link --install`: it links the install's `@robkit/*` packages to this checkout, initialises git and installs dependencies. Once the packages are on npm, `npm create robkit my-install -- --stack start --install` will do the same without the checkout.
+`pnpm create-install` runs `src/create-robkit-command.ts --link --install`: it links the install's `@robkit/*` packages to this checkout, initialises git and installs dependencies. Once the packages are on npm, `npm create robkit my-install -- --stack start --install` will do the same without the checkout. robkit's registry test already runs that command, against a local registry.
+
+`pnpm create robkit` works too, unless pnpm's `minimumReleaseAgeStrict` is on: then pnpm refuses a create-robkit released in the last day, and only the install it writes exempts robkit's packages. Use `npm create robkit` on a release day.
 
 Inside an install:
 
@@ -64,6 +66,7 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 - Init asks only for the folder and the example app's stack. It ends by printing the flags that make the same install: `--stack`, and `--install` and `--link` when it was given them.
 - `init` in `src/init.ts` is the one operation from choices to a finished install: generate, write, then with `install` initialise git and install dependencies, in that order, so Husky's postinstall finds the repository. The command line and the whole-stack test both call it.
 - The generator reads `base` in memory, mounts the example's stack at `apps/example`, writes the catalog from robkit's own, covering every stack, and records the example's stack in `robkit.json`.
+- `readRobkitRepo` in `src/robkit-repo.ts` is where the generator gets what an install takes from robkit: the catalog, pnpm's version, each package's version, the lint policy and the Go module. The build writes them to `dist/carried.json` with `scripts/carry.ts`, and the built package reads that, so it needs no checkout. The source, and any run with `--link`, reads the checkout. `turbo.json` names each file the build reads as an input to `create-robkit#build`, and `src/robkit-repo.test.ts` fails if one is missing.
 - Every install of one robkit version has the same `packages/ui`, `packages/theme`, `packages/core-client` and catalog.
 
 ### The templates
@@ -158,7 +161,7 @@ React + Express went in this way (stacks ticket 01). What a stack knows lives in
 6. **Check it.** Make a linked install with `pnpm create-install ../try --stack <name>`, and in it run `pnpm lint`, `pnpm format:check`, `pnpm typecheck` and `pnpm build`. Then run `pnpm check`, and in Linux the whole-stack test (`pnpm --filter @internal/e2e test`) and the production test.
 7. **Docs.** Name the stack in this README's exports, the root `README.md`'s packages, `docs/architecture.md`'s package map and `docs/testing.md`, and add a line to `.scratch/kit/map.md`.
 
-React + Go (stacks ticket 03) is the stack whose server isn't Node, and it differs in three places. Its guard is a Go module in `go/`, a port tested against the same cases ([ADR 0013](../../docs/adr/0013-go-guard-is-a-port.md)), rather than an adapter package. Its entry in `stacks` says `ownsDatabase`, so `generate.test.ts`'s Drizzle expectations skip it, and `toolchain: "go"`, so init and `robkit add` check for Go. And its template's `go.mod` reaches the module with a `replace` that `src/go-module.ts` points at the checkout under `--link`, and `robkit vendor` at its copy in `vendor/robkit/go`.
+React + Go (stacks ticket 03) is the stack whose server isn't Node, and it differs in three places. Its guard is a Go module in `go/`, a port tested against the same cases ([ADR 0013](../../docs/adr/0013-go-guard-is-a-port.md)), rather than an adapter package. Its entry in `stacks` says `ownsDatabase`, so `generate.test.ts`'s Drizzle expectations skip it, and `toolchain: "go"`, so init and `robkit add` check for Go. And its template's `go.mod` reaches the module with a `replace` that `src/go-module.ts` points at the checkout under `--link`, and at the install's copy in `vendor/robkit/go` otherwise. init and `robkit add` write that copy when they write a Go app in an install that isn't linked, so robkit's module is never fetched.
 
 ### The robkit command
 

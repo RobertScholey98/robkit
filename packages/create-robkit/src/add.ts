@@ -28,7 +28,13 @@ import {
   stackTemplate,
   type Files,
 } from "./generate.ts";
-import { goModuleFor, withGoModule } from "./go-module.ts";
+import {
+  goModuleFor,
+  vendoredGoModule,
+  withGoModule,
+  writeGoModule,
+} from "./go-module.ts";
+import { readRobkitRepo } from "./robkit-repo.ts";
 import { writeInstall } from "./write.ts";
 
 /**
@@ -154,10 +160,13 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
   const goMod = files.get("go.mod");
   if (goMod !== undefined) {
     const settings = await readFile(join(root, pnpmSettings), "utf8");
-    files.set(
-      "go.mod",
-      withGoModule(goMod, goModuleFor(overridesIn(settings))),
-    );
+    const goModule = goModuleFor(overridesIn(settings));
+    files.set("go.mod", withGoModule(goMod, goModule));
+    // The first Go app of an install that isn't linked brings robkit's Go
+    // module, and a later one refreshes it.
+    if (goModule === vendoredGoModule) {
+      await writeGoModule(root, (await readRobkitRepo()).goModule);
+    }
   }
   await writeInstall(join(root, "apps", choices.slug), files);
 }

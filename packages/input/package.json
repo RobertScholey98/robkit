@@ -2,6 +2,12 @@
   "name": "@robkit/input",
   "version": "0.0.0",
   "description": "robkit's readers for input from outside its own code: environment variables, JSON, slugs and an app's manifest.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/input"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -42,7 +48,9 @@
   "files": [
     "dist",
     "src",
-    "!src/**/*.test.ts"
+    "!src/**/*.test.ts",
+    "!src/**/*.test-d.ts",
+    "!src/test"
   ],
   "engines": {
     "node": ">=24"

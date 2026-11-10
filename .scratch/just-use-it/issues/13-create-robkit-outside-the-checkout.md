@@ -14,20 +14,20 @@
 
 **Blocked by:** 09, 10, 11, 12
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `npm create robkit@<version>`, run outside the repo against a local registry with pnpm's release-age rule on, writes an install that installs, lints, typechecks, tests and builds, for every stack
-- [ ] A Go app in that install builds with no `GOFLAGS`; with its other modules already in the cache it builds with `GOPROXY=off`, and `go list -m` shows robkit's module replaced by `vendor/robkit/go`
-- [ ] `robkit add` of a Go app, in a registry install that had none, writes `vendor/robkit/go`, and the app builds
-- [ ] `create-robkit#build` names the catalog, the packages' manifests, the lint policy and the Go module as inputs in `turbo.json`
-- [ ] In the registry install of one stack, `pnpm dev` brings up the hub and the example, and the example answers the owner once signed in
-- [ ] `--link` still reads the checkout, and the whole-stack test still uses it
-- [ ] An install from the registry has no overrides for robkit's packages
-- [ ] No published tarball holds one of robkit's own test files, create-robkit's still holds its templates' tests, each manifest has `license` and `repository`, and each tarball holds `LICENSE`
-- [ ] `SECURITY.md` says what the release-age exemption gives up, and the Proof says what `pnpm create robkit` did against packages under a day old
-- [ ] `robkit vendor` re-runs cleanly after a failed copy, and works in a folder whose path has a space or a `$`
-- [ ] The production test still passes on vendored tarballs
-- [ ] v0.1 ticket 31 records the answers and points here
+- [x] `npm create robkit@<version>`, run outside the repo against a local registry with pnpm's release-age rule on, writes an install that installs, lints, typechecks, tests and builds, for every stack
+- [x] A Go app in that install builds with no `GOFLAGS`; with its other modules already in the cache it builds with `GOPROXY=off`, and `go list -m` shows robkit's module replaced by `vendor/robkit/go`
+- [x] `robkit add` of a Go app, in a registry install that had none, writes `vendor/robkit/go`, and the app builds
+- [x] `create-robkit#build` names the catalog, the packages' manifests, the lint policy and the Go module as inputs in `turbo.json`
+- [x] In the registry install of one stack, `pnpm dev` brings up the hub and the example, and the example answers the owner once signed in
+- [x] `--link` still reads the checkout, and the whole-stack test still uses it
+- [x] An install from the registry has no overrides for robkit's packages
+- [x] No published tarball holds one of robkit's own test files, create-robkit's still holds its templates' tests, each manifest has `license` and `repository`, and each tarball holds `LICENSE`
+- [x] `SECURITY.md` says what the release-age exemption gives up, and the Proof says what `pnpm create robkit` did against packages under a day old
+- [x] `robkit vendor` re-runs cleanly after a failed copy, and works in a folder whose path has a space or a `$`
+- [x] The production test still passes on vendored tarballs
+- [x] v0.1 ticket 31 records the answers and points here
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -53,3 +53,31 @@ Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Neither had a must
 - **A Go app added to an install with no Go app** (Sol) has its own criterion.
 - **No package folder has a `LICENSE`** (Opus), so no tarball has one. npm packs it only from the package's own folder.
 - **The `pnpm dev` run needs Docker** (Sol), so "outside Docker" was the wrong heading for the proof.
+
+### From the build, 2026-11-10
+
+Chosen in the build:
+
+- **create-robkit keeps what it carries in `dist/carried.json`.** Its build runs `scripts/carry.ts` after `tsc`. `readRobkitRepo()` in `src/robkit-repo.ts` reads that file when it exists and `--link` isn't set, and the checkout otherwise. The source has no `dist`, so tests and the checkout's own `pnpm create-install` read the checkout.
+- **The proof serves the packages from a small registry of its own.** `tooling/e2e/src/registry.ts` is about 150 lines of `node:http`, with no new dependency. It packs every package under `packages/` with `pnpm pack` and serves each as published the moment it was packed, so pnpm's release-age rule sees it as seconds old. It answers only robkit's packages and redirects every other request to npm, so the install's other packages come from where an owner's would. A real registry such as Verdaccio would need a pinned dev dependency, a config and a publish step for each package, for no more proof.
+- **One registry install covers every stack.** Its example is on Start, and `robkit add` gives it an app on React + Hono, Express, Next and Go. The Go app is the install's first, so it also proves `robkit add` writes `vendor/robkit/go`. A second install, with its example on Go, proves init writes it.
+- **`@internal/e2e#test` waits for `@internal/repo-checks#typecheck`**, which builds every published package, since the registry test packs their `dist`.
+- **`vendor/` is in an install's `.prettierignore`**, so the copied Go module's README doesn't fail the format check.
+
+What the build found:
+
+- **pnpm packs the repo's `LICENSE`** into a package that has none, so the packages need no copies. The pack check fails on a tarball without it.
+- **pnpm 11.28.9 doesn't refuse a young package by default.** It lets it through and adds it to `minimumReleaseAgeExclude` in the install's settings itself. Only with `minimumReleaseAgeStrict` does it refuse, with `ERR_PNPM_NO_MATURE_MATCHING_VERSION`. So the registry test runs strict, and checks that a project without the exemption fails while the install doesn't, and that pnpm added nothing to the install's settings.
+- **`pnpm create robkit@<version>`** on a create-robkit published seconds before worked by default, and failed under strict with `ERR_PNPM_NO_MATURE_MATCHING_VERSION create-robkit@0.0.0 was published at ...`. create-robkit's README says to use `npm create robkit` if pnpm refuses it.
+- **pnpm reads `pnpm_config_registry`, not `npm_config_registry`.** npm passed `--registry` to create-robkit's bin, but the install's `pnpm install` needed pnpm's own setting.
+- **`robkit vendor` now runs `pnpm pack` with an argument list** and finds each tarball by the name pnpm gives it, so pnpm's output shows as it packs instead of printing as JSON.
+
+The registry test took about 100 seconds alone in WSL with a warm pnpm store and Go cache: packing, two `npm create`s, two installs, four `robkit add`s, the install's lint, typecheck, test and build, and one `pnpm dev`. Beside the whole-stack test, which `test` runs at the same time, it took about 265 seconds.
+
+The production test stays on vendored tarballs. Switching it to the registry waits for the first release.
+
+For the next tickets:
+
+- **14 (release):** `packProblems` in `tooling/repo-checks/src/published.ts` now also fails on one of robkit's own tests in a tarball, a missing `LICENSE`, and a manifest without `license` or `repository`. `templateTestProblems` fails on a template test going missing. `packRobkit` and `serveRobkit` in `tooling/e2e/src/registry.ts` pack and serve every package, for a dry run of the release.
+- **15 (init installs):** init's own `pnpm install` must pass the registry to pnpm as `pnpm_config_registry` or `--registry`, since pnpm ignores npm's setting. The registry test runs `pnpm install` itself after `npm create`; once init installs, it can drop that step.
+- **19 (`robkit upgrade`):** `readRobkitRepo()` gives what create-robkit carries: the catalog, each package's version, the lint policy and the Go module. `writeGoModule` in `src/go-module.ts` replaces an install's `vendor/robkit/go` whole.

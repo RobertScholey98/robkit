@@ -2,6 +2,12 @@
   "name": "@robkit/react",
   "version": "0.0.0",
   "description": "robkit's client helper: sends the browser through core's refresh when a session lapses, and hands every other answer to the caller.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/react"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -17,7 +23,9 @@
   "files": [
     "dist",
     "src",
-    "!src/**/*.test.ts"
+    "!src/**/*.test.ts",
+    "!src/**/*.test-d.ts",
+    "!src/test"
   ],
   "engines": {
     "node": ">=24"

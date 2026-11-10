@@ -48,7 +48,7 @@ COPY --from=go /usr/local/go /usr/local/go
 ENV PATH=/usr/local/go/bin:$PATH
 COPY --from=prune /install/out/json/ ./
 # robkit vendor's tarballs, when the install takes robkit's packages from
-# them, and its copy of robkit's Go module.
+# them, and the install's copy of robkit's Go module.
 COPY vendo[r] ./vendor/
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
