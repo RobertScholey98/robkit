@@ -7,6 +7,7 @@ This is a robkit install: a monorepo of small apps behind one sign-in. Core hold
 ```sh
 pnpm dev                     # Postgres, core, the hub, admin and every app, on *.robkit.localhost:3000
 pnpm robkit add              # add an app; asks for its stack, name, who can open it and an icon
+pnpm robkit migrate <slug>   # apply an app's new migration in the running pnpm dev
 pnpm lint                    # robkit check, ESLint, then each app's own lint
 pnpm typecheck
 pnpm test
@@ -23,6 +24,13 @@ Set them in a `.env` file at the install's root, which git ignores. `pnpm dev` a
 - `ROBKIT_DOMAIN`: `robkit.localhost` by default. It must be `localhost` or a name under it.
 
 Before it starts anything, `pnpm dev` checks that Docker answers and that these ports are free, and says which setting to change when one is taken.
+
+## Adding and removing apps
+
+- `pnpm robkit add` works while `pnpm dev` runs. Once the app's files are written and installed, `pnpm dev` gives it a database, migrates it, starts it on a port no running app holds and routes its subdomain, then restarts core so the launcher lists it. Nobody is signed out. `robkit add` prints the app's address, or the problem if it can't start, and every other app keeps running.
+- `pnpm robkit migrate <slug>` applies an app's new migration while `pnpm dev` runs, as the app's own role, so its password stays the same. With no `pnpm dev` running, start it: it migrates every app as it starts.
+- Removing an app needs a restart. Stop `pnpm dev`, delete `apps/<slug>`, then start `pnpm dev` again.
+- `pnpm dev` hears these commands over a socket file in a folder it makes for you alone: `robkit-<uid>`, in `XDG_RUNTIME_DIR` or in the temp folder where that isn't set. It refuses to start if others can open that folder.
 
 ## An app's own settings
 

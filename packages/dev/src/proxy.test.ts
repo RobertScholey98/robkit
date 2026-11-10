@@ -195,6 +195,66 @@ describe("startProxy's addresses", () => {
   });
 });
 
+describe("a proxy's routes", () => {
+  it("takes one more while it runs, on every address, and keeps the rest", async () => {
+    const hub = await listen(echoApp());
+    const notes = await listen(echoApp());
+    const proxy = await start(
+      [{ host: "hub.robkit.localhost", app: "hub", port: hub }],
+      loopback,
+    );
+
+    proxy.route({ host: "notes.robkit.localhost", app: "notes", port: notes });
+
+    for (const host of proxy.hosts) {
+      const reply = await new Promise<number>((resolve, reject) => {
+        request(
+          {
+            host,
+            port: proxy.port,
+            headers: { host: "notes.robkit.localhost" },
+          },
+          (res) => {
+            res.resume();
+            resolve(res.statusCode ?? 0);
+          },
+        )
+          .on("error", reject)
+          .end();
+      });
+      expect(reply).toBe(201);
+    }
+    expect((await send(proxy.port, "hub.robkit.localhost")).status).toBe(201);
+    expect((await send(proxy.port, "nope.robkit.localhost")).body).toBe(
+      "No app answers nope.robkit.localhost. This proxy serves:\n  hub.robkit.localhost\n  notes.robkit.localhost\n",
+    );
+  });
+
+  it("sends a host's requests to the port of its latest route", async () => {
+    const before = await listen(echoApp());
+    const after = await listen(
+      createServer((_req, res) => {
+        res.writeHead(202).end();
+      }),
+    );
+    const proxy = await start(
+      [{ host: "core.robkit.localhost", app: "core", port: before }],
+      loopback,
+    );
+
+    proxy.route({ host: "core.robkit.localhost", app: "core", port: after });
+
+    expect({
+      core: (await send(proxy.port, "core.robkit.localhost")).status,
+      serves: (await send(proxy.port, "nope.robkit.localhost")).body,
+    }).toEqual({
+      core: 202,
+      serves:
+        "No app answers nope.robkit.localhost. This proxy serves:\n  core.robkit.localhost\n",
+    });
+  });
+});
+
 describe("startProxy", () => {
   it("forwards a request to the app that owns its host", async () => {
     const hub = await listen(echoApp());

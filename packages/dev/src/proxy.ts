@@ -42,14 +42,16 @@ function forwardedFor(req: IncomingMessage): string {
 interface Handlers {
   onRequest: (req: IncomingMessage, res: ServerResponse) => void;
   onUpgrade: (req: IncomingMessage, socket: Duplex, head: Buffer) => void;
+  /** Routes one more host, or a host to a new port, from the next request on. */
+  route: (route: Route) => void;
 }
 
 /**
  * Routes each request by its Host header to the app that owns that host, so
  * local URLs look like production subdomains.
  */
-function proxyHandlers(routes: readonly Route[]): Handlers {
-  const byHost = new Map(routes.map((route) => [route.host, route]));
+function proxyHandlers(first: readonly Route[]): Handlers {
+  const byHost = new Map(first.map((route) => [route.host, route]));
   const routeFor = (host: string | undefined) => {
     const hostname = hostnameOf(host);
     return hostname === undefined ? undefined : byHost.get(hostname);
@@ -61,7 +63,7 @@ function proxyHandlers(routes: readonly Route[]): Handlers {
       res.writeHead(404, plainText);
       res.end(
         `No app answers ${String(req.headers.host)}. This proxy serves:\n` +
-          routes.map((r) => `  ${r.host}\n`).join(""),
+          [...byHost.keys()].map((host) => `  ${host}\n`).join(""),
       );
       return;
     }
@@ -135,7 +137,11 @@ function proxyHandlers(routes: readonly Route[]): Handlers {
     upstream.on("close", () => socket.destroy());
   };
 
-  return { onRequest, onUpgrade };
+  const route = (added: Route) => {
+    byHost.set(added.host, added);
+  };
+
+  return { onRequest, onUpgrade, route };
 }
 
 /**
@@ -151,6 +157,11 @@ export interface Proxy {
   hosts: string[];
   /** Its port: the one asked for, or the one the first address got for 0. */
   port: number;
+  /**
+   * Routes one more host, or a host to a new port, on every address, from
+   * the next request on.
+   */
+  route: (route: Route) => void;
   /** Stops listening and ends every open request. */
   close: () => void;
 }
@@ -189,7 +200,7 @@ export async function startProxy(
   port: number,
   hosts: readonly string[] = loopback,
 ): Promise<Proxy> {
-  const { onRequest, onUpgrade } = proxyHandlers(routes);
+  const { onRequest, onUpgrade, route } = proxyHandlers(routes);
   const listening: { host: string; server: Server }[] = [];
   const close = () => {
     for (const { server } of listening) {
@@ -214,5 +225,10 @@ export async function startProxy(
       `The dev proxy found none of ${hosts.join(", ")} on this machine to listen on.`,
     );
   }
-  return { hosts: listening.map(({ host }) => host), port: bound, close };
+  return {
+    hosts: listening.map(({ host }) => host),
+    port: bound,
+    route,
+    close,
+  };
 }

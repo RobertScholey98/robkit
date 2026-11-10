@@ -2,8 +2,8 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { CommandProblem, runCommand } from "@robkit/dev/cli";
-import { isProblem, parseJson } from "@robkit/input";
+import { askDev, CommandProblem, runCommand } from "@robkit/dev/cli";
+import { isProblem, parseJson, readSlug } from "@robkit/input";
 import {
   defaultDevPort,
   defaultDomain,
@@ -19,6 +19,7 @@ import {
   askAdd,
 } from "./add-wizard.ts";
 import { readCoolifyConfig } from "./coolify-config.ts";
+import { afterAdd, afterMigrate } from "./dev-answers.ts";
 import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { readAppList, readCoolify, readDatabaseUrlsConfig } from "./env.ts";
@@ -28,7 +29,15 @@ import { vendorDir, vendorPackages } from "./vendor.ts";
 /** Where an install's apps answer under pnpm dev. */
 const dev = addresses({ domain: defaultDomain, port: defaultDevPort });
 
+const migrateUsage = `Usage: robkit migrate <slug>
+
+Asks the pnpm dev running in this install to run the app's migrate script,
+with the database URL it gave the app, so a new migration applies without
+a restart.`;
+
 const usage = `${addUsage}
+
+${migrateUsage}
 
 Usage: robkit check
 
@@ -60,6 +69,7 @@ process.exitCode = await runCommand(async () => {
   const [command] = process.argv.slice(2);
   const commands: Record<string, () => Promise<number | undefined>> = {
     check,
+    migrate: migrateApp,
     vendor,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
@@ -210,17 +220,36 @@ async function add(): Promise<undefined> {
       `apps/${choices.slug} has its files but the install doesn't have its dependencies`,
     );
   }
-  console.log(`Added apps/${choices.slug}. Next:
-${hasDependencies ? "" : "\n  pnpm install"}
-  pnpm dev
-
-Then open ${dev.origin(choices.slug)}.`);
+  // A pnpm dev already running starts the app; with no dependencies in,
+  // none can be.
+  const answer = hasDependencies
+    ? await askDev(root, { operation: "add", slug: choices.slug })
+    : ({ outcome: "not-running" } as const);
+  console.log(
+    afterAdd(choices.slug, answer, {
+      hasDependencies,
+      origin: dev.origin(choices.slug),
+    }),
+  );
   if (asked) {
     console.log(`
 The same app without the questions:
 
   pnpm ${addCommandFor(choices)}`);
   }
+}
+
+async function migrateApp(): Promise<undefined> {
+  const { positionals } = readArgs({ allowPositionals: true }, usage);
+  const [, given, ...rest] = positionals;
+  if (given === undefined || rest.length > 0) {
+    throw new CommandProblem(migrateUsage);
+  }
+  const root = process.cwd();
+  await readInstallChoices(root);
+  const slug = readSlug(given);
+  if (isProblem(slug)) throw new CommandProblem(slug.error);
+  console.log(afterMigrate(await askDev(root, { operation: "migrate", slug })));
 }
 
 function fail(message: string): never {

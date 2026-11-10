@@ -3,6 +3,7 @@ import { createServer } from "node:net";
 import { promisify } from "node:util";
 import { CommandProblem } from "@robkit/input/command";
 import type { App } from "./apps.ts";
+import { hasCode } from "./files.ts";
 import { loopback } from "./proxy.ts";
 
 const run = promisify(execFile);
@@ -43,16 +44,6 @@ function postgresPortProblem(port: number): CommandProblem {
   );
 }
 
-/** Whether `error` is the system error with one of `codes`. */
-function hasCode(error: unknown, ...codes: string[]): boolean {
-  return (
-    error instanceof Error &&
-    "code" in error &&
-    typeof error.code === "string" &&
-    codes.includes(error.code)
-  );
-}
-
 /**
  * Whether something holds `port` on `host`: it tries to listen there, and
  * closes at once. A host the machine lacks, as one with IPv6 off lacks
@@ -76,6 +67,30 @@ export async function isTaken(port: number, host: string): Promise<boolean> {
   }
   await new Promise((resolve) => server.close(resolve));
   return false;
+}
+
+/** The highest port there is. */
+const lastPort = 65_535;
+
+/**
+ * The port for an app added while `pnpm dev` runs: the first after the
+ * proxy's that no running app holds and nothing else listens on, so no
+ * running app moves.
+ *
+ * @param held the ports the running apps listen on
+ * @throws a {@link CommandProblem} when every port after the proxy's is taken
+ */
+export async function portForNewApp(
+  devPort: number,
+  held: readonly number[],
+): Promise<number> {
+  for (let port = devPort + 1; port <= lastPort; port++) {
+    if (held.includes(port)) continue;
+    if (!(await isTaken(port, "127.0.0.1"))) return port;
+  }
+  throw new CommandProblem(
+    `Every port after ${String(devPort)} is taken, so pnpm dev has none for a new app. Free one, or set ROBKIT_DEV_PORT in this install's .env to a lower port.`,
+  );
 }
 
 /** Whether something holds `port` on any of `hosts`. */

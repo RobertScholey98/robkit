@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { connect } from "node:net";
+import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { discoverApps } from "@robkit/dev";
 import { describe, expect, it } from "vitest";
@@ -9,7 +10,13 @@ import { testCrossOriginJourney, type Posts } from "./cross-origin-journey.ts";
 import { letTheHubFrameNext, testFramingJourneys } from "./framing-journey.ts";
 import { interrupt, owner, useDevStack } from "./dev-stack.ts";
 import { testGuestJourney } from "./guest-journey.ts";
-import { installChoices, type InstallName } from "./install.ts";
+import {
+  addedIcon,
+  addedSlug,
+  exampleSlug,
+  installChoices,
+  type InstallName,
+} from "./install.ts";
 import {
   testClientNavigationJourney,
   testServerActionJourney,
@@ -127,7 +134,7 @@ export function describeJourneys(
     });
 
     it("lets the owner claim the install and stay signed in", async () => {
-      await dev.up();
+      await dev.started();
       const core = dev.hostOf("core");
       const origin = dev.addresses().origin("hub");
 
@@ -154,6 +161,80 @@ export function describeJourneys(
       });
       // The session core reads back is the one setup started.
       expect(JSON.parse(after.body)).toEqual(signedIn);
+    });
+
+    it("starts the app robkit add makes, and keeps a guest signed in", async () => {
+      await dev.claimedBeforeAdd();
+      const core = dev.hostOf("core");
+      const origin = dev.addresses().origin("hub");
+      const signIn = await dev.send(core, "/login/code", {
+        method: "POST",
+        headers: { origin, "content-type": "application/json" },
+        body: JSON.stringify({ code: "test" }),
+      });
+      const [cookie = ""] = signIn.headers["set-cookie"] ?? [];
+      const asGuest = {
+        headers: { origin, cookie: cookie.split(";")[0] ?? "" },
+      };
+      const launcher = async (): Promise<unknown> =>
+        JSON.parse((await dev.send(core, "/launcher", asGuest)).body);
+      const session = async (): Promise<unknown> =>
+        JSON.parse((await dev.send(core, "/session", asGuest)).body);
+      const before = {
+        session: await session(),
+        launcher: await launcher(),
+      };
+
+      // The example keeps answering while robkit add installs and pnpm dev
+      // starts the new app and restarts core.
+      const adding = dev.added();
+      const finished = adding.then(
+        () => true,
+        () => true,
+      );
+      const exampleAnswered = new Set<number>();
+      do {
+        const reply = await dev.send(dev.hostOf(exampleSlug), "/");
+        exampleAnswered.add(reply.status);
+      } while (!(await Promise.race([finished, delay(250, false)])));
+      const printed = await adding;
+
+      expect(printed).toContain(
+        `Added apps/${addedSlug}. pnpm dev started ${addedSlug} at ${dev.addresses().origin(addedSlug)}.`,
+      );
+      // Signed out, the example answers 401 every time. Its guard may
+      // answer 503 when a loaded machine slows core past its wait;
+      // requests.db.test.ts in @robkit/dev shows core answering throughout.
+      // Anything else, such as the proxy's 502, is the example gone.
+      expect(exampleAnswered).toContain(401);
+      expect(
+        [...exampleAnswered].filter((status) => ![401, 503].includes(status)),
+      ).toEqual([]);
+      // The example is the owner's alone, so the guest's launcher was empty.
+      expect({
+        session: before.session,
+        launcher: before.launcher,
+      }).toMatchObject({
+        session: { state: "signed-in", profile: { kind: "guest" } },
+        launcher: { apps: [] },
+      });
+      // Core restarted with the longer list, and the guest's session lived
+      // through it.
+      expect({
+        session: await session(),
+        launcher: await launcher(),
+      }).toMatchObject({
+        session: before.session,
+        launcher: { apps: [{ slug: addedSlug, icon: addedIcon }] },
+      });
+      // The proxy still reaches every app on the port it had.
+      expect({
+        hub: (await dev.send(dev.hostOf("hub"), "/")).status,
+        core: (await dev.send(core, "/status")).status,
+        admin: (await dev.send(dev.hostOf("admin"), "/")).status,
+        example: (await dev.send(dev.hostOf(exampleSlug), "/")).status,
+        added: (await dev.send(dev.hostOf(addedSlug), "/")).status,
+      }).toEqual({ hub: 200, core: 200, admin: 401, example: 401, added: 200 });
     });
 
     testOwnerJourney(dev);

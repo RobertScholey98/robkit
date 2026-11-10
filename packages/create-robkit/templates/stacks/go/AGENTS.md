@@ -61,7 +61,7 @@ The app's own settings, such as an API key, go in its `.env`, which git ignores.
 
 The app owns its database code: it talks to Postgres with pgx over `DATABASE_URL`, as its own role, in plain SQL. robkit's Drizzle files, which the install's Node apps use, don't apply to it. The role has the app's own schema first on its search path, so a table named without a schema lands there. The role can't reach core's schema or another app's.
 
-- `migrations/` holds the migrations, one `.sql` file each, applied in name order. To change the schema, add the next file, such as `0002_add_notes.sql`, and commit it. Never edit a migration that has run.
+- `migrations/` holds the migrations, one `.sql` file each, applied in name order. To change the schema, add the next file, such as `0002_add_notes.sql`, and commit it. Never edit a migration that has run. With `pnpm dev` running, run `pnpm robkit migrate <slug>` in the install's folder to apply it without a restart. The app keeps its connection and its password.
 - `visits.go` shows a query. `server.go` connects with `pgxpool` as the server starts.
 
 `migrate.go` applies the migrations that haven't run yet, and records each in the `schema_migrations` table. They are embedded in the binary, so `dist/server migrate` needs no files beside it. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It locks `schema_migrations` while it migrates, so two containers that start together apply each migration once.
