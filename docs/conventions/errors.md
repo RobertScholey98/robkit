@@ -88,7 +88,7 @@ A boundary is where robkit meets a person or another program: an HTTP route, a c
 A file or program the person owns, or can install, fails as a `CommandProblem` that names it:
 
 - A malformed file the person owns, such as `robkit.json` or an install's own `robkit/templates/<stack>` override, names the file and says how to fix it.
-- A command that fails names itself, the folder it ran in and its exit code, and says its output is above: "pnpm install --no-frozen-lockfile exited with 1 in /home/me/robkit. Its output is above: fix what it says, then try again." `exec` from `@robkit/dev/cli` does this. A command whose output robkit reads, such as `pnpm pack --json`, puts what it printed in the message instead.
+- A command that fails names itself, the folder it ran in and its exit code, and says its output is above: "pnpm install --no-frozen-lockfile exited with 1 in /home/me/robkit. Its output is above: fix what it says, then try again." `exec` from `@robkit/dev/cli` does this. Where the command ran in another terminal, as a migration that `robkit migrate` asks a running `pnpm dev` for, the answer says where its output is: "Its output is in pnpm dev's." A command whose output robkit reads, such as `pnpm pack --json`, puts what it printed in the message instead.
 - A command that can't start, such as git or pnpm missing, says what to check and keeps the spawn error as `cause`.
 
 A malformed file robkit ships, such as one of its own templates, is a fault: the person can't fix it, so it prints as a bug.
