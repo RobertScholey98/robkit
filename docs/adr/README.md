@@ -2,7 +2,7 @@
 
 Each record here is a settled decision a newcomer might question. It says what we faced, what we chose and what follows from it, and links the ticket that made the choice. The tickets keep the full discussion. `.scratch/kit/map.md` lists every decision, settled or not, and links each record.
 
-To change one of these, open a ticket that argues against it. If R accepts it, write a new record that supersedes the old one, and mark the old one superseded rather than deleting it.
+To change one of these, open a ticket that argues against it. If R accepts it, write a new record that supersedes the old one, and mark the old one superseded rather than deleting it. Where a record's decision stands but a fact in it has gone out of date, such as a file that moved, add a dated note under the passage and leave the record's own words as they are.
 
 | Record                                                  | Decision                                                                                               |
 | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
