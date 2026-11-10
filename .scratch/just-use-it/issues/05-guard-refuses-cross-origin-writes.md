@@ -46,7 +46,7 @@ No option to allow other origins yet. Note it in the comments as the place one w
 - [x] The whole-stack test posts to an app from a sibling app's origin and is refused, and the app's own page still posts, on the Go, Next and Start examples, which post today
 - [x] The production test passes over https; the PR carries the `production` label
 - [x] `SECURITY.md` and each stack's `AGENTS.md` say what the guard refuses and what stays the app's job
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -82,3 +82,7 @@ Chosen in the build.
 - **Ticket 06: where the guard builds its answers.** The 403 is built at the top of the function `requestGuard` returns, in `packages/session/src/request-guard.ts`, as `text(errors.elsewhere, 403)`, and at the top of `check` in `go/session/guarded.go`, as `text(errElsewhere, http.StatusForbidden)`. The rule is `isFromAnotherOrigin` in `guard-http.ts` and `http.go`. The form page is `formNotSent` in `guard-http.ts` and `http.go`, called from `respond` in TS and `check` in Go. Every answer the guard gives comes from `text`, `redirect`, `formNotSent` or the 401 (`sessionLapsedResponse`, Go's `sessionLapsed`).
 - **Ticket 08: the examples break the rule today.** react-hono and Express record a visit in `GET /`. Next records one while `Home` renders. Start's loader runs its server function on the server during the page's GET, whatever method it declares. Each stack's `AGENTS.md` now says to change state only on POST, PUT, PATCH or DELETE, and Start's says a loader must change nothing, so until 08 lands those examples contradict their own docs. The cross-origin journey (`tooling/e2e/src/cross-origin-journey.ts`) presses "Visit again" and needs that button to keep posting. Once react-hono and Express post too, pass `posts: true` in their test files.
 - **Allowing another origin.** There's no option yet. One would go on `GuardedOptions` and Go's `Options`, read by `isFromAnotherOrigin` in each port, with rows in the `writes` list.
+
+### Merged
+
+Added by the lead. PR 80 merged into `m1-the-subdomain-boundary` on 2026-11-10, with `gate` and the `production` job green on `bdc9110`, after ticket 04 was merged into it.
