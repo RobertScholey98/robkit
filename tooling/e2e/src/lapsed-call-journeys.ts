@@ -15,7 +15,8 @@ import {
 // rather than a page load: a client navigation, which fetches the next
 // page's data, and a server action. Next's example makes both.
 
-async function visitsOn(page: Page): Promise<number> {
+/** The visit count the example's page shows. */
+export async function visitsOn(page: Page): Promise<number> {
   const text = (await page.getByTestId("visits").textContent()) ?? "";
   return Number(text.replace("Visits: ", ""));
 }
@@ -200,7 +201,8 @@ export function testServerActionJourney(dev: DevStack, runs: boolean): void {
         backAt: example,
         heading: "Signed in as the owner",
         // The refused call recorded nothing. The page load after it did.
-        visitsAfterSignIn: first + 2,
+        // Only the call before sign-out recorded: page loads record nothing.
+        visitsAfterSignIn: first + 1,
       });
     },
   );
