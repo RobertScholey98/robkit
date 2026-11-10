@@ -14,9 +14,9 @@
 //   clean when the upgrade started. The catalog's create-robkit entry is at
 //   its own version, that version is installed, and nothing else changed.
 //   Every `@robkit/*` entry is still the old version's, so the second step
-//   raises the ones its robkit has. This step asks the registry for no
-//   package but create-robkit, so a later robkit can drop or rename any
-//   other.
+//   raises the ones its robkit has. This step names no package but
+//   create-robkit, and pnpm fetches that version of it with what it depends
+//   on. So a later robkit can drop or rename any other package.
 // - When it exits with anything but 0, this step puts back the five paths
 //   in `ownedPaths` and no others, then says the second step failed. A
 //   second step that writes anywhere else puts that back itself first.
