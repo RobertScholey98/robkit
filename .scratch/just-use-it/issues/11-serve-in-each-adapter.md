@@ -40,7 +40,7 @@
 - [x] No Node stack's files import `@robkit/input`, and no stack's manifest lists it
 - [x] The production test passes for every stack, its extra-packages check included
 - [x] `@robkit/serve` has its README, API report, graph entry, changeset and thresholds, and the API reports, READMEs and changesets cover the adapters' new entries
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -76,3 +76,7 @@ For milestone 3:
 
 - A WebSocket server attached to the returned server must check `Origin` itself, as each stack's `AGENTS.md` says. The stop closes its sockets at the limit.
 - The production test's `imagePackages()` lists every package in an image, so a later check can name another package that must be missing.
+
+### Merged
+
+Added by the lead. PR 88 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `a0905ba`.
