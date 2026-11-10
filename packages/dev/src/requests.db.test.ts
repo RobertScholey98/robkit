@@ -226,6 +226,22 @@ describe("robkit-dev adding an app while it runs", () => {
     ).toMatchObject({ slug: "alpha" });
   });
 
+  it("says an added app exited before it answered, and every other app keeps answering", async () => {
+    const dev = await runningDev();
+    await writeApp(dev.root, "aardvark", { dev: `node -e "process.exit(2)"` });
+
+    const answer = await dev.ask("add", "aardvark");
+
+    expect(answer).toEqual({
+      outcome: "refused",
+      message:
+        "aardvark exited with 2 before it answered. Its output is in pnpm dev's.",
+    });
+    expect(
+      JSON.parse(await get(dev.port, "alpha.robkit.localhost")),
+    ).toMatchObject({ slug: "alpha" });
+  });
+
   it("stops everything once an added app that answered exits", async () => {
     const dev = await runningDev();
     await writeApp(dev.root, "aardvark");

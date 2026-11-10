@@ -1,8 +1,15 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, stat, symlink } from "node:fs/promises";
-import { connect, createServer } from "node:net";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { connect, createServer, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { slug } from "@internal/test-session";
@@ -174,6 +181,21 @@ describe.skipIf(process.platform === "win32")("serveRequests", () => {
     });
   });
 
+  it("closes a connection that ends having sent nothing, and goes on serving", async () => {
+    const { root, env, socket } = await place();
+    await serving(socket);
+
+    const empty = connect(socket.path).end();
+    await once(empty, "close");
+    const next = await askDev(
+      root,
+      { operation: "add", slug: slug("notes") },
+      env,
+    );
+
+    expect(next).toEqual({ outcome: "done", message: "add notes" });
+  });
+
   it("refuses a line over 1 KB without waiting for the rest of it", async () => {
     const { socket } = await place();
     await serving(socket);
@@ -328,15 +350,14 @@ describe.skipIf(process.platform === "win32")("askDev", () => {
     expect(performance.now() - started).toBeLessThan(1000);
   });
 
-  it("refuses an answer that isn't one it knows, as a fault", async () => {
+  it.each([
+    "not an answer\n",
+    "[]\n",
+    '{"outcome":"done"}\n',
+    '{"outcome":"maybe","message":"Added."}\n',
+  ])("refuses the answer %j as a fault", async (sent) => {
     const { root, env, socket } = await place();
-    const impostor = createServer((connection) => {
-      connection.end("not an answer\n");
-    }).listen(socket.path);
-    await once(impostor, "listening");
-    onTestFinished(() => {
-      impostor.close();
-    });
+    await impostorAt(socket.path, (connection) => connection.end(sent));
 
     const answer = askDev(root, { operation: "add", slug: slug("notes") }, env);
 
@@ -344,7 +365,51 @@ describe.skipIf(process.platform === "win32")("askDev", () => {
       `pnpm dev answered at ${socket.path} with something robkit doesn't read.`,
     );
   });
+
+  it("refuses a connection closed with no answer, as a fault", async () => {
+    const { root, env, socket } = await place();
+    await impostorAt(socket.path, (connection) => connection.end());
+
+    const answer = askDev(root, { operation: "add", slug: slug("notes") }, env);
+
+    await expect(answer).rejects.toThrow(
+      `pnpm dev closed the connection at ${socket.path} unanswered.`,
+    );
+  });
+
+  // Root opens any folder.
+  it.skipIf(process.getuid?.() === 0)(
+    "refuses a socket in a folder it can't open, as a fault",
+    async () => {
+      const { root, env, socket } = await place();
+      await impostorAt(socket.path, (connection) => connection.end());
+      await chmod(socket.folder, 0o000);
+      onTestFinished(() => chmod(socket.folder, 0o700));
+
+      const answer = askDev(
+        root,
+        { operation: "add", slug: slug("notes") },
+        env,
+      );
+
+      await expect(answer).rejects.toThrow(
+        `robkit couldn't ask pnpm dev at ${socket.path}.`,
+      );
+    },
+  );
 });
+
+/** Something listening at `path` that isn't pnpm dev, until the test ends. */
+async function impostorAt(
+  path: string,
+  answer: (connection: Socket) => void,
+): Promise<void> {
+  const impostor = createServer(answer).listen(path);
+  await once(impostor, "listening");
+  onTestFinished(() => {
+    impostor.close();
+  });
+}
 
 describe.skipIf(process.platform === "win32")("privateFolder", () => {
   it("makes the folder only this account can open", async () => {
@@ -353,6 +418,16 @@ describe.skipIf(process.platform === "win32")("privateFolder", () => {
     await privateFolder({ folder, setBy: "TMPDIR" });
 
     expect((await stat(folder)).mode & 0o777).toBe(0o700);
+  });
+
+  it("says when it can't make the folder", async () => {
+    const file = join(await mkdtemp(join(tmpdir(), "robkit-")), "a-file");
+    await writeFile(file, "");
+    const folder = join(file, "robkit-0");
+
+    const made = privateFolder({ folder, setBy: "TMPDIR" });
+
+    await expect(made).rejects.toThrow(`robkit-dev couldn't make ${folder}.`);
   });
 
   it("refuses a folder others can open", async () => {
