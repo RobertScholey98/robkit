@@ -30,7 +30,8 @@ export type Exports = Readonly<Record<string, ExportTarget>>;
 
 type Strings = Readonly<Record<string, string>>;
 
-const dependencyFields = [
+/** Each field of a package.json that lists dependencies. */
+export const dependencyFields = [
   "dependencies",
   "devDependencies",
   "peerDependencies",

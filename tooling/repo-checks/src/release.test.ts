@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 import { publishedPackages } from "./published.ts";
 import {
+  dryRunProblems,
   fixedGroupProblems,
   majorChangesetProblems,
   publishPlan,
@@ -211,5 +212,118 @@ describe("releasePackages", () => {
     expect(createRobkit?.dependsOn).not.toContain("prettier");
     expect(createRobkit?.dir).toBe(join(root, "packages", "create-robkit"));
     expect(new Set(packages.map(({ version }) => version)).size).toBe(1);
+  });
+});
+
+describe("dryRunProblems", () => {
+  /** What create-robkit carries: each package's version, as its build writes it. */
+  const carried = (versions: Record<string, string>) =>
+    JSON.stringify({
+      packages: Object.fromEntries(
+        Object.entries(versions).map(([name, version]) => [
+          name,
+          { version, dependencies: [] },
+        ]),
+      ),
+    });
+  const guard = {
+    name: "@robkit/guard",
+    version: "0.1.0",
+    specifiers: [
+      { field: "dependencies", name: "@robkit/input", range: "0.1.0" },
+    ],
+    carried: undefined,
+  };
+  const createRobkit = {
+    name: "create-robkit",
+    version: "0.1.0",
+    specifiers: [{ field: "dependencies", name: "yaml", range: "2.9.0" }],
+    carried: carried({ "@robkit/guard": "0.1.0", "create-robkit": "0.1.0" }),
+  };
+
+  it("finds nothing wrong with packages at one version that carry it", () => {
+    expect(dryRunProblems([guard, createRobkit])).toEqual([]);
+  });
+
+  it("names the versions when two packages differ", () => {
+    expect(
+      dryRunProblems([
+        { ...guard, version: "0.1.1" },
+        {
+          ...createRobkit,
+          carried: carried({
+            "@robkit/guard": "0.1.1",
+            "create-robkit": "0.1.0",
+          }),
+        },
+      ]),
+    ).toEqual([
+      "The packages aren't at one version: @robkit/guard@0.1.1, create-robkit@0.1.0. Every package is in .changeset/config.json's fixed group, so set them back to one version with pnpm release:version.",
+    ]);
+  });
+
+  it("names a packed manifest that still says workspace: or catalog:", () => {
+    expect(
+      dryRunProblems([
+        {
+          ...guard,
+          specifiers: [
+            {
+              field: "dependencies",
+              name: "@robkit/input",
+              range: "workspace:*",
+            },
+            { field: "peerDependencies", name: "hono", range: "catalog:" },
+          ],
+        },
+        createRobkit,
+      ]),
+    ).toEqual([
+      "@robkit/guard's packed package.json still says workspace:* for @robkit/input in dependencies. Pack and publish with pnpm, which turns workspace: and catalog: into versions.",
+      "@robkit/guard's packed package.json still says catalog: for hono in peerDependencies. Pack and publish with pnpm, which turns workspace: and catalog: into versions.",
+    ]);
+  });
+
+  it("names a version create-robkit carries that isn't the one packed", () => {
+    expect(
+      dryRunProblems([
+        guard,
+        {
+          ...createRobkit,
+          carried: carried({
+            "@robkit/guard": "0.0.0",
+            "create-robkit": "0.1.0",
+          }),
+        },
+      ]),
+    ).toEqual([
+      "create-robkit carries @robkit/guard@0.0.0, but @robkit/guard packs at 0.1.0. Build create-robkit again: its build writes dist/carried.json.",
+    ]);
+  });
+
+  it("names a package create-robkit doesn't carry, or carries but nothing packs", () => {
+    expect(
+      dryRunProblems([
+        guard,
+        {
+          ...createRobkit,
+          carried: carried({
+            "create-robkit": "0.1.0",
+            "@robkit/gone": "0.1.0",
+          }),
+        },
+      ]),
+    ).toEqual([
+      "create-robkit doesn't carry @robkit/guard, so an install can't name its version. Build create-robkit again: its build writes dist/carried.json.",
+      "create-robkit carries @robkit/gone, which no package packs.",
+    ]);
+  });
+
+  it("names a create-robkit tarball without what it carries", () => {
+    expect(
+      dryRunProblems([guard, { ...createRobkit, carried: undefined }]),
+    ).toEqual([
+      "create-robkit's tarball lacks dist/carried.json, so an install made from it reads no versions. Build create-robkit before packing it.",
+    ]);
   });
 });
