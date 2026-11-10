@@ -244,6 +244,48 @@ describe("provisionDatabases", () => {
     expect(await roles(["afterboss"])).toEqual([]);
   });
 
+  it("waits on Postgres's own locks, holding no advisory lock", async () => {
+    const holder = postgres(adminUrl, { max: 1, onnotice: () => undefined });
+    const watcher = connect(adminUrl);
+    try {
+      let provisioning: Promise<unknown> | undefined;
+      await holder
+        .begin(async (tx) => {
+          // Another run that is making the same role, and hasn't committed.
+          await tx`create role lockprobe`;
+          provisioning = provisionDatabases({
+            adminUrl,
+            secret,
+            slugs: [slug("lockprobe")],
+          });
+          await expect
+            .poll(
+              async () =>
+                (
+                  await watcher<{ n: number }[]>`
+                    select count(*)::int as n from pg_locks where not granted`
+                )[0]?.n,
+            )
+            .toBe(1);
+
+          expect(
+            await watcher`select count(*)::int as n from pg_locks where locktype = 'advisory'`,
+          ).toEqual([{ n: 0 }]);
+          throw new Error("roll back");
+        })
+        .catch((error: unknown) => {
+          // The holder rolls back on purpose, so the step can go on.
+          if (!(error instanceof Error && error.message === "roll back")) {
+            throw error;
+          }
+        });
+
+      expect(await provisioning).toMatchObject({ outcome: "provisioned" });
+    } finally {
+      await holder.end();
+    }
+  });
+
   // Two cores can start together, as in a rolling deploy. The one that
   // loses a race to create a role, a schema or a grant tries that app again.
   it.each([1, 2, 3])(
