@@ -93,11 +93,11 @@ Core's `logError`, the guard's default `onUnavailable` and `runCommand` all repo
 
 The one top-level handler of robkit's command lines. `@robkit/dev/cli` re-exports it.
 
-| Export                      | What it is                                                                                                                                                                                                         |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `runCommand(main, report?)` | Runs a command line and returns its exit code. A thrown `CommandProblem` prints its message alone and exits 1. Anything else prints a line saying it's a bug and where to report it, then the error with its stack |
-| `CommandProblem`            | A problem the person running the command can fix. Its message says what to do                                                                                                                                      |
-| `reportFaultsAt`            | Where a fault robkit didn't expect gets reported                                                                                                                                                                   |
+| Export                      | What it is                                                                                                                                                                                                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runCommand(main, report?)` | Runs a command line and returns its exit code. A thrown `CommandProblem` prints its message alone and exits 1, and so do several in an `AggregateError`, a line each. Anything else prints a line saying it's a bug and where to report it, then the error with its stack |
+| `CommandProblem`            | A problem the person running the command can fix. Its message says what to do                                                                                                                                                                                             |
+| `reportFaultsAt`            | Where a fault robkit didn't expect gets reported                                                                                                                                                                                                                          |
 
 ## What it must never do
 

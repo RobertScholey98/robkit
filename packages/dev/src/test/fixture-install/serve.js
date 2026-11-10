@@ -8,13 +8,21 @@ const databaseUrl = process.env.DATABASE_URL;
 if (process.env.FIXTURE_SLOW_START === slug) {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 }
-writeFileSync("started", "");
+// Its pid, so a test can kill it as a crash would.
+writeFileSync("started", String(process.pid));
 
 // An app with a database must find its migration already run.
 if (databaseUrl && readFileSync("migrated", "utf8") !== databaseUrl) {
   console.error("started before its migration");
   process.exit(1);
 }
+// Says so as it stops, as most servers do, so the runner writes while it
+// stops too.
+process.on("SIGTERM", () => {
+  console.log("stopping");
+  process.exit(0);
+});
+
 // Crashes once every app is listening, so the runner has running apps to
 // stop however long each took to start. A fixed delay raced the slowest app.
 if (process.env.FIXTURE_CRASH === slug) {
@@ -26,7 +34,8 @@ if (process.env.FIXTURE_CRASH === slug) {
   }, 50);
 }
 
-createServer((_req, res) => {
+// It listens on HOST, as core and the Go stack do.
+const server = createServer((_req, res) => {
   res.end(
     JSON.stringify({
       slug,
@@ -37,9 +46,10 @@ createServer((_req, res) => {
       database: databaseUrl !== undefined,
       nextTelemetry: process.env.NEXT_TELEMETRY_DISABLED,
       vitest: process.env.VITEST,
+      listeningOn: server.address().address,
     }),
   );
-}).listen(Number(process.env.PORT), "127.0.0.1", () => {
+}).listen(Number(process.env.PORT), process.env.HOST, () => {
   writeFileSync("listening", "");
   console.log(`listening on ${process.env.PORT}`);
 });

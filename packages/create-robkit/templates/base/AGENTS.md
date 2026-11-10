@@ -14,6 +14,16 @@ pnpm build
 pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 ```
 
+## Settings for pnpm dev
+
+Set them in a `.env` file at the install's root, which git ignores. `pnpm dev` and Docker Compose both read it, and a value exported in the shell wins over the file's.
+
+- `ROBKIT_DEV_PORT`: where the proxy listens, `3000` by default. The apps take the ports after it, one each, so moving it moves them too.
+- `ROBKIT_POSTGRES_PORT`: where Postgres listens on this machine, `54320` by default.
+- `ROBKIT_DOMAIN`: `robkit.localhost` by default. It must be `localhost` or a name under it.
+
+Before it starts anything, `pnpm dev` checks that Docker answers and that these ports are free, and says which setting to change when one is taken.
+
 ## Layout
 
 - `apps/<slug>` is an app. Its folder name is its slug, its subdomain (`<slug>.robkit.localhost` locally) and its Postgres role and schema. A slug is lowercase letters and digits, starting with a letter. Each app has its own `AGENTS.md` for its stack.

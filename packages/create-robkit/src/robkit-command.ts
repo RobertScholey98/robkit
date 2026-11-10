@@ -1,22 +1,16 @@
 #!/usr/bin/env node
-import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { CommandProblem, runCommand } from "@robkit/dev/cli";
-import {
-  type InputProblem,
-  isProblem,
-  parseJson,
-  type Slug,
-} from "@robkit/input";
+import { isProblem, parseJson } from "@robkit/input";
 import {
   defaultDevPort,
   defaultDomain,
   install as addresses,
 } from "@robkit/input/addresses";
 import { addApp, readInstallChoices } from "./add.ts";
+import { affectedApps } from "./affected-apps.ts";
 import { readArgs } from "./args.ts";
 import {
   addCommandFor,
@@ -27,12 +21,7 @@ import {
 import { readCoolifyConfig } from "./coolify-config.ts";
 import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
-import {
-  readAffectedApps,
-  readAppList,
-  readCoolify,
-  readDatabaseUrlsConfig,
-} from "./env.ts";
+import { readAppList, readCoolify, readDatabaseUrlsConfig } from "./env.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
@@ -67,6 +56,7 @@ since TURBO_SCM_BASE. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run,
 prints each app's variables and contacts nothing.`;
 
 process.exitCode = await runCommand(async () => {
+  requireInstall(process.cwd());
   const [command] = process.argv.slice(2);
   const commands: Record<string, () => Promise<number | undefined>> = {
     check,
@@ -76,6 +66,15 @@ process.exitCode = await runCommand(async () => {
   };
   return (commands[command ?? ""] ?? add)();
 });
+
+/** Refuses a folder with no `robkit.json` in one line, whatever the command. */
+function requireInstall(root: string): void {
+  if (!existsSync(join(root, "robkit.json"))) {
+    throw new CommandProblem(
+      `${root} isn't a robkit install: it has no robkit.json. Run robkit in an install's folder.`,
+    );
+  }
+}
 
 async function check(): Promise<number> {
   const { positionals } = readArgs({ allowPositionals: true }, usage);
@@ -178,16 +177,6 @@ async function deployInstall(): Promise<number | undefined> {
     affected,
   });
   return ok ? 0 : 1;
-}
-
-/** The apps turbo finds changed since TURBO_SCM_BASE, by slug. */
-async function affectedApps(root: string): Promise<Slug[] | InputProblem> {
-  const { stdout } = await promisify(exec)(
-    "turbo ls --affected --output json",
-    { cwd: root },
-  );
-  const parsed = parseJson(stdout, "turbo ls --affected's output");
-  return isProblem(parsed) ? parsed : readAffectedApps(parsed.json);
 }
 
 async function add(): Promise<undefined> {

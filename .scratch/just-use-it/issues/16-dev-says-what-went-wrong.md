@@ -16,22 +16,22 @@
 
 **Blocked by:** 12
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] With Docker stopped, `pnpm dev` prints one line that says to start Docker, exits 1, and starts nothing
-- [ ] With the proxy's port or an app's port taken, or Postgres's port taken by something else, it names the port and the setting that moves it, and starts no app
-- [ ] A second `pnpm dev` in the same install exits 1 with one line, and the first keeps answering
-- [ ] `ROBKIT_POSTGRES_PORT` in the install's root `.env` moves Postgres and the runner together, and the shell's value wins over the file's
-- [ ] After `kill -9` of a running `pnpm dev`, and of the apps it left, the next `pnpm dev` starts with no change to any setting
-- [ ] SIGHUP with the runner's stdout and stderr closed, as a closed terminal leaves them, stops every app, the proxy and Postgres, and a second `pnpm dev` then starts cleanly
-- [ ] The proxy is bound to `127.0.0.1`, to `::1` where the machine has it, and to no other address, and it starts on a machine with no `::1`
-- [ ] With `HOST` exported in the shell, core and every app still listen on `127.0.0.1`
-- [ ] A request made the moment an address is printed gets the app's answer, not the proxy's
-- [ ] A request whose app is killed mid-answer ends within a second
-- [ ] `robkit-dev` and `robkit`, each run outside an install, print one line that says so
-- [ ] A failing `turbo ls` in `robkit deploy` prints turbo's message
-- [ ] No expected failure above prints "robkit hit a bug"
-- [ ] The Proof says what a Windows browser saw against an install in WSL 2
+- [x] With Docker stopped, `pnpm dev` prints one line that says to start Docker, exits 1, and starts nothing
+- [x] With the proxy's port or an app's port taken, or Postgres's port taken by something else, it names the port and the setting that moves it, and starts no app
+- [x] A second `pnpm dev` in the same install exits 1 with one line, and the first keeps answering
+- [x] `ROBKIT_POSTGRES_PORT` in the install's root `.env` moves Postgres and the runner together, and the shell's value wins over the file's
+- [x] After `kill -9` of a running `pnpm dev`, and of the apps it left, the next `pnpm dev` starts with no change to any setting
+- [x] SIGHUP with the runner's stdout and stderr closed, as a closed terminal leaves them, stops every app, the proxy and Postgres, and a second `pnpm dev` then starts cleanly
+- [x] The proxy is bound to `127.0.0.1`, to `::1` where the machine has it, and to no other address, and it starts on a machine with no `::1`
+- [x] With `HOST` exported in the shell, core and every app still listen on `127.0.0.1`
+- [x] A request made the moment an address is printed gets the app's answer, not the proxy's
+- [x] A request whose app is killed mid-answer ends within a second
+- [x] `robkit-dev` and `robkit`, each run outside an install, print one line that says so
+- [x] A failing `turbo ls` in `robkit deploy` prints turbo's message
+- [x] No expected failure above prints "robkit hit a bug"
+- [x] The Proof says what a Windows browser saw against an install in WSL 2
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -60,3 +60,44 @@ Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Opus had two must-
 - **Probing is chosen** (Opus), so the build doesn't have to choose.
 - **Criteria added** for an app's port, a second runner, a run outside an install and a failed `turbo ls` (both).
 - **For the Windows proof**, `curl.exe` from PowerShell stands in for a browser: it resolves a name under `.localhost` to loopback itself, as a browser does.
+
+### From the build, 2026-11-10
+
+Built on branch `92-dev-says-what-went-wrong`, one commit per fault.
+
+**How each check works** (`checkBeforeStart` in `packages/dev/src/checks.ts`). It runs after the apps are found and before Compose starts, outside the runner's stop, so a refused run stops nothing. It only reads.
+
+- **Docker**: `docker version --format {{.Server.Version}}`, with a 20-second limit. No `docker` on the PATH says to install it; any other failure says to start it.
+- **Ports**: it tries to listen on each port and closes at once. The proxy's port is tried on `127.0.0.1` and `::1`, each app's and Postgres's on `127.0.0.1`. `EADDRINUSE` and `EACCES` count as taken.
+- **Postgres's own container**: `docker compose ps -q postgres` gives this install's container, and `docker ps --filter publish=<port>` every container that publishes the port. A port only this install's container publishes passes. One any other container publishes fails, even where Docker publishes from a VM and a listen here would succeed.
+
+**Chosen in the build:**
+
+- **Docker, then the proxy's port, each alone.** If Docker doesn't answer, that is the only line. If the proxy's port is taken, that is the only line too, since another `pnpm dev` holds the apps' ports as well and `ROBKIT_DEV_PORT` moves them all. That is what makes a second `pnpm dev` print one line. Taken app ports and Postgres's port then print together, a line each.
+- **The proxy starts before the apps.** A port taken between the check and the listen then starts no app, and prints the same line as the check.
+- **The root `.env` counts as the shell everywhere the runner passes the shell on**, to Compose, to each app and to each `migrate` script, for `ROBKIT_` names only. The shell wins when it sets the name, even to an empty value, as Compose does.
+- **A failed write to the runner's output stops it**, as SIGHUP does, whether or not SIGHUP came first. A closed terminal sends both in either order. So `pnpm dev | head` stops once `head` exits. Once the output is gone, `compose stop` runs with its output sent nowhere: with it inherited, Compose exited 1 on the closed pipe and left Postgres running. The test proves both.
+- **Each address prints as `<slug> is ready at <url>`**, once a connection to its port on `127.0.0.1` succeeds, tried every 100 ms. The old "robkit is running:" block is gone; nothing read it.
+- **`exec` from `@robkit/dev/cli` takes `quiet`**, for that `compose stop`. It is a published export, so the API report changed.
+- **`robkit` refuses outside an install before reading its arguments**, so `robkit` alone, `robkit check` and `robkit vendor --nope` all print the one line. The test that gave a bad option outside an install now uses an install.
+- **`affectedApps` moved to `packages/create-robkit/src/affected-apps.ts`.** The bin runs only in child processes, which coverage doesn't see, and the new lines took create-robkit under its line threshold.
+- **`runCommand` in `@robkit/input`** prints each message of an `AggregateError` whose failures are all `CommandProblem`s. One that holds any other error still prints as a bug.
+
+**The two stop limits: left as they are.** The runner gives an app 5 seconds after SIGTERM, and `@robkit/serve` waits up to 8 for connections still open. Under `pnpm dev` the proxy opens a connection to core only for a request, and `server.close()` closes idle ones at once, so core waits only on a request still being answered or an upgraded connection. A kill then is harmless in dev, where sessions are in the database. Raising the runner's limit to match would make every Ctrl+C on a stuck app wait longer.
+
+**The leftover `serving.ts`: seen once, cause not found.** My first full gate, run at a load average near 190, left one `serving.ts` running: core's served child, with its `--watch` parent gone. Twelve runs of the restart test alone left nothing. Node 24's watch mode (`lib/internal/main/watch_mode.js`) isn't the window the comment above suspected. A SIGTERM during a restart makes the signal handler and the restart wait on the same exit, and the handler's `process.exit` runs a step before the restart's `start()`, so no new child starts. One candidate I haven't confirmed: the test's clean-up SIGKILLs `robkit-core` when it outlives the test, which would leave its children running, and under that load a test can outlive its wait. The port check now names core's port if a leftover holds it.
+
+**For the next tickets:**
+
+- **17**: what the runner sets for an app is in `packages/dev/src/app-env.ts`. `appSettings(install, app, databaseUrl)` returns every name it sets, now with `HOST` among them, and `sharedSettings(install)` what a `migrate` script gets. Check an app's `.env` against those keys. `withInstallEnv` in `env.ts` reads the root `.env` with `util.parseEnv`, the parser 17 uses.
+- **18**: `startProxy(routes, port, hosts)` in `proxy.ts` builds one set of handlers and listens on each loopback address with them, so one more route is a change to the map in `proxyHandlers`. `untilAnswering(port, signal)` in `answering.ts` is what prints an added app's address. The runner's stop takes its apps from `running`, so an app added later only needs pushing there. `checkBeforeStart` checks the ports of the apps it is given, which an added app's port can reuse via `isTaken`.
+- **21**: the checks run Docker through `execFile`, which finds `docker.exe` on Windows. Signals and process groups are unchanged, and SIGHUP doesn't exist there.
+
+**Proof on Windows** (the criterion asks what a Windows browser saw). In WSL 2 I made an install with `pnpm create-install ~/robkit-install-jui16 --stack react-hono`, put `ROBKIT_DEV_PORT=3460` and `ROBKIT_POSTGRES_PORT=54360` in its root `.env`, and ran `pnpm dev`. `ss -ltn` showed the proxy on `127.0.0.1:3460` and `[::1]:3460` and nothing else. From PowerShell, with `curl.exe` and not a browser:
+
+- `curl.exe -i http://hub.robkit.localhost:3460/` connected to `[::1]:3460` and got `200 OK` with the hub's page.
+- `curl.exe -4` connected to `127.0.0.1:3460` and got `200 OK`.
+- `curl.exe http://core.robkit.localhost:3460/status` got `{"status":"ok"}`.
+- `curl.exe -H "Host: hub.robkit.localhost" http://172.26.203.120:3460/`, WSL's own address, got "Connection refused".
+
+SIGHUP to `robkit-dev` then stopped core ("core stopped"), every app, the proxy and Postgres, and left no port held.
