@@ -85,3 +85,16 @@ Not taken:
 
 - **19 (robkit upgrade)**: an upgrade that changes a running install should stop `pnpm dev` first, or say to. `askDev(root, request)` answers `not-running` at once when none is, so the upgrade can tell. The request reader refuses any operation but `add` and `migrate`; adding one means a new case in `readDevRequest` and in the runner's `handle`.
 - **20 (docs)**: the root README's quickstart, the install's `AGENTS.md` ("Adding and removing apps") and each stack's `AGENTS.md` now say to leave `pnpm dev` running for `robkit add`, and name `pnpm robkit migrate <slug>`. Removing an app still needs a restart. The socket's folder and its refusals are in `packages/dev/README.md`.
+
+### From the lead's read of the pull request, 2026-11-10
+
+I read all of PR 96 and changed three things on its branch before it merged.
+
+- **The socket's folder is robkit's own in `XDG_RUNTIME_DIR` too.** The build kept the socket directly in `XDG_RUNTIME_DIR` and refused to start when others could open that folder. Under WSL without systemd it is `/mnt/wslg/runtime-dir`, which is mode 777 on R's machine, so `pnpm dev` would have stopped there and said to `chmod` a folder the system owns. Every test set the variable to a new private folder, so none saw it. The runner now makes `robkit-<uid>` there with mode 0700, as it did in the temp folder, and checks that one. The ticket's text above says so now.
+- **A folder the runner can't make is the owner's to fix.** It was reported as a bug in robkit. Now it is one line that names the folder and the variable to change. This is what an account sees after `su`, when `XDG_RUNTIME_DIR` still names the first account's folder.
+- **The add journey fails on any answer but 401 or 503.** It failed only on a 502.
+
+Checked and left as built:
+
+- **The 503 the journey allows.** The example's guard answers 503 when core takes longer than its wait. Under a loaded gate that happened while `pnpm install` ran, before core restarted. The runner's own test asks core through the proxy every 20 ms during an add and gets an answer every time.
+- **Each whole-stack request on a connection of its own.** Node's client was handing out a kept-alive connection the proxy had just closed. A browser sends such a request again by itself.
