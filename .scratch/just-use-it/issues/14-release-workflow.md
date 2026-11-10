@@ -101,3 +101,21 @@ For R, before the first release:
 1. Merge a fix for the four tests above.
 2. Merge ticket 19.
 3. Do "Set up once" in CONTRIBUTING.md's "Releasing", then follow the rest of it.
+
+### From the lead's review, 2026-11-10
+
+The publish job ran `pnpm install` and the dry run before its token step. Any dev dependency's code could then change the publish script, `node_modules` or pnpm before the token arrived, and the token step loaded `@robkit/input` and `yaml`. So the build moved that work out of the job with the token. This replaces "The publish step doesn't run `changeset publish`" above where they differ.
+
+- **A `pack` job runs after `gate`.** It has read-only permissions, no secret and no environment. It installs, runs `pnpm release:dry-run --out "$RUNNER_TEMP/tarballs"`, and uploads the tarballs the dry run checked as the artifact `tarballs`. The dry run writes them only once every check passes.
+- **The `publish` job has checkout, pnpm and Node setup, the artifact's download and the token step, then the tag step.** It has no install, build or dry run. `release-workflow.test.ts` fails on any other step in it, and on pnpm's setup given anything to install.
+- **The token step publishes tarballs.** `release-publish.ts` takes the tarballs' folder. Before it asks npm anything, it reads each tarball's `package/package.json` and checks it against `packages/*/package.json` on main: one tarball for each package, named as `pnpm pack` names it, holding that name and version, and no others. The publish list still comes from main's versions and what npm has. For each tarball npm lacks it runs `pnpm publish <tarball> --provenance --access public --no-git-checks --ignore-scripts`, from the tarballs' folder.
+- **The script imports only `node:` modules.** `publish-list.ts` lost `@robkit/input` and reads tarballs with `node:zlib`, not a tar package. `release-publish.test.ts` walks the script's imports and fails on anything but `node:` or a relative file that does the same.
+- **The artifact actions are pinned by commit.** `actions/upload-artifact` v7.0.2 is `cf430e030ddbb5b0abf93d22962f4752f3646cd9` and `actions/download-artifact` v8.0.2 is `9000827ccba6bdab643e8b6fd33ac0654aef8333`. Both tags are lightweight, read with `gh api repos/actions/<name>/git/ref/tags/<tag>`.
+- **The artifact keeps GitHub's default retention**, so the publish job can still download it after the `release` environment's reviewer waits.
+
+What the build found about publishing a tarball with pnpm 11.28.9:
+
+- pnpm's docs give `pnpm publish [<tarball|folder>]`, and say pnpm rejects a pre-built tarball's manifest, README or archive metadata over 64 MiB. They don't say whether pnpm changes the tarball.
+- A test packs a stand-in with `pnpm pack`, publishes the tarball to a stand-in registry, and checks the request. The attachment is the tarball byte for byte, the manifest sent is the packed one with `publishConfig` applied, and the token arrives as `Bearer <token>`.
+- pnpm takes `--provenance` with a tarball. Outside CI it fails with "Automatic provenance generation not supported for provider: null" and sends nothing, which a test checks. So the flag reaches the provenance code. Whether provenance works from the `release` environment, only the first release will show.
+- No fallback to npm was needed.
