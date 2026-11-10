@@ -11,7 +11,12 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { CommandProblem } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
-import { firstCommit, installDependencies, startGit } from "./set-up.ts";
+import {
+  firstCommit,
+  installDependencies,
+  pnpmEnv,
+  startGit,
+} from "./set-up.ts";
 import { gitEnv } from "./test/git.ts";
 import { pathWith } from "./test/path.ts";
 
@@ -42,6 +47,34 @@ describe("installDependencies", { timeout: 30_000 }, () => {
     await expect(installing).rejects.toThrow(
       `pnpm install --no-frozen-lockfile exited with 1 in ${dir}. Its output is above: fix what it says, then try again.`,
     );
+  });
+});
+
+describe("pnpmEnv", () => {
+  it("hands pnpm the registry npm create ran with, which pnpm doesn't read itself", () => {
+    expect(
+      pnpmEnv({
+        npm_config_registry: "http://127.0.0.1:4873/",
+        HOME: "/home/r",
+      }),
+    ).toEqual({
+      npm_config_registry: "http://127.0.0.1:4873/",
+      pnpm_config_registry: "http://127.0.0.1:4873/",
+      HOME: "/home/r",
+    });
+  });
+
+  it("keeps a registry pnpm was given its own way", () => {
+    const env = {
+      npm_config_registry: "http://127.0.0.1:4873/",
+      pnpm_config_registry: "https://npm.example.com/",
+    };
+
+    expect(pnpmEnv(env)).toEqual(env);
+  });
+
+  it("adds nothing without npm's registry", () => {
+    expect(pnpmEnv({ HOME: "/home/r" })).toEqual({ HOME: "/home/r" });
   });
 });
 

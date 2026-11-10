@@ -1,6 +1,20 @@
 import { CommandProblem, exec } from "@robkit/dev/cli";
 import { onPath, run, type Ran } from "./toolchain.ts";
 
+/**
+ * `env` with npm's registry handed on to pnpm. npm create passes the
+ * registry it ran with as `npm_config_registry`, which pnpm doesn't read,
+ * so an install made from a mirror or a local registry would install from
+ * npm's own. A registry pnpm already has its own way stays.
+ */
+export function pnpmEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const registry = env.npm_config_registry;
+  if (registry === undefined || env.pnpm_config_registry !== undefined) {
+    return env;
+  }
+  return { ...env, pnpm_config_registry: registry };
+}
+
 /** Installs a new install's dependencies, which have no lockfile yet. */
 export function installDependencies(
   dir: string,
@@ -9,7 +23,7 @@ export function installDependencies(
   // pnpm on CI refuses an install with no lockfile unless told.
   return exec("pnpm", ["install", "--no-frozen-lockfile"], {
     cwd: dir,
-    env,
+    env: pnpmEnv(env),
   });
 }
 
