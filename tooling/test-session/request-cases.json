@@ -87,6 +87,13 @@
       "target": "/notes?x=1",
       "headers": { "host": "" },
       "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "reads %2e in a path as the dot a browser reads",
+      "core": "https://core.robkit.dev",
+      "target": "/a/%2e/x/%2e%2E/notes?x=1",
+      "headers": { "host": "example.robkit.dev" },
+      "next": "https://example.robkit.dev/a/notes?x=1"
     }
   ],
   "cookies": [
@@ -657,6 +664,18 @@
       "core": "http://core.robkit.localhost:3000",
       "referer": "http://example.robkit.localhost:3000/notes",
       "next": "http://example.robkit.localhost:3000/notes"
+    },
+    {
+      "name": "ignores a Referer a browser reads as under the guard's own paths",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/x/%2e%2e/_robkit/refresh?next=x",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "links back to a page whose path holds %2e, as a browser reads it",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/a/%2E/notes",
+      "next": "https://example.robkit.dev/a/notes"
     }
   ],
   "headers": [

@@ -91,12 +91,36 @@ func publicURL(r *http.Request, origin *url.URL) *url.URL {
 	return normalized(u)
 }
 
+// plainDots is an escaped path with each segment a browser reads as "." or
+// ".." written that way. A browser reads %2e in such a segment as a dot,
+// in either case, so /x/%2e%2e/y is /y to it.
+func plainDots(escaped string) string {
+	segments := strings.Split(escaped, "/")
+	for i, segment := range segments {
+		switch strings.ToLower(segment) {
+		case "%2e":
+			segments[i] = "."
+		case ".%2e", "%2e.", "%2e%2e":
+			segments[i] = ".."
+		}
+	}
+	return strings.Join(segments, "/")
+}
+
 // normalized is u as a browser writes it: the scheme and host in
 // lowercase, no port where it is the scheme's own, a path with no dot
-// segments, at least "/".
+// segments, escaped ones included, at least "/". @robkit/session reads a
+// URL with the browser's own parser, so the two ports name the same page.
 func normalized(u *url.URL) *url.URL {
 	host := strings.TrimPrefix(origin(u), strings.ToLower(u.Scheme)+"://")
-	clean := u.ResolveReference(&url.URL{})
+	plain := *u
+	if escaped := plainDots(u.EscapedPath()); escaped != u.EscapedPath() {
+		// The escapes were valid before, and a dot needs none.
+		if path, err := url.PathUnescape(escaped); err == nil {
+			plain.Path, plain.RawPath = path, escaped
+		}
+	}
+	clean := plain.ResolveReference(&url.URL{})
 	clean.Scheme, clean.Host = strings.ToLower(u.Scheme), host
 	clean.Fragment, clean.RawFragment = u.Fragment, u.RawFragment
 	if clean.Path == "" {
