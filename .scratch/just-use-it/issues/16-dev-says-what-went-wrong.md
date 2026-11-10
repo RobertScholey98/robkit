@@ -114,3 +114,12 @@ Its first two CI runs failed four tests in `packages/dev` that had passed in WSL
 - **The kill test raced.** It waited for one app to answer and then read both apps' pid files. It now waits for each app.
 
 For tickets 17 and 18: a Docker test must not read how Docker publishes a port or match Docker's words, and CI is the only place the host-network path runs.
+
+### From the code round, 2026-11-10
+
+Milestone 3's code had its one council round at `8bca5524`. Opus 5.5 gave it 7 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. I checked each finding against the code before I acted on it. These are the ones about this ticket.
+
+Taken:
+
+- **"Docker isn't answering" ends with what Docker said** (Opus, should-change). On Linux, an account outside the `docker` group was told to start Docker while Docker was running. The line now ends "Docker said:" and the first line Docker printed, where it printed one.
+- **Two runners that start together** (Sol, must-change). This ticket's criterion that a second `pnpm dev` leaves the first running didn't cover two that start at the same moment. The fix and its test are in ticket 18's comments.

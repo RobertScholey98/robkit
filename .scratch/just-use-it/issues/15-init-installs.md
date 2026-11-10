@@ -95,3 +95,12 @@ I added four commits to the branch before it merged:
 The second CI run failed in the Next journey, for a cause that wasn't this ticket's: core restarted mid-journey when another install's `pnpm install` linked a file core imports. That is ticket 33. The same commit passed when the job ran again.
 
 After the merge I made the six tests that named robkit's version as 0.0.0 read it from `package.json`, so the version pull request passes `gate`: five in create-robkit and the registry test in `tooling/e2e`. In a copy bumped to 0.1.0 with `changeset version`, create-robkit's 364 tests and the registry test's 11 passed.
+
+### From the code round, 2026-11-10
+
+Milestone 3's code had its one council round at `8bca5524`. Opus 5.5 gave it 7 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. I checked each finding against the code before I acted on it. These are the ones about this ticket.
+
+Both were Sol's should-changes, and I took both:
+
+- **The `cd` init prints is quoted where the folder has a space.** The wizard accepts `my app` and quoted it in the command that repeats the choice, but printed `cd my app`. It prints `cd "my app"`.
+- **The registry test reads what `npm create` left before it adds apps.** "is installed and committed by npm create alone" checked `node_modules` after four adds and a `pnpm install`, which would have repaired an init that installed nothing. It now reads the installed bin and the git log straight after `npm create`.

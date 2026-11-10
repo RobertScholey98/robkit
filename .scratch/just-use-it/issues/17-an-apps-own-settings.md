@@ -82,3 +82,11 @@ Built on branch `93-an-apps-own-settings`.
 Added by the lead. PR 93 merged into `m3-making-an-install` on 2026-11-10 as `507d512`, with `gate`, `check`, `pull-request` and `production` green on `03b4c5b`, on the first CI run.
 
 The worker's full gate never passed on the lead's machine: three gates ran side by side and two runs failed on time limits alone, and the production test lost one container to the machine running out of memory. Each test passed alone, and CI passed all of them.
+
+### From the code round, 2026-11-10
+
+Milestone 3's code had its one council round at `8bca5524`. Opus 5.5 gave it 7 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. I checked each finding against the code before I acted on it. These are the ones about this ticket.
+
+Not taken:
+
+- **Pass only the four documented dev settings from the root `.env` to an app** (Opus, should-change). `withInstallEnv` gives every `ROBKIT_` name in the install's root `.env` to every app. Opus said it isn't a leak today, and asked for the limit so it can't become one. Under `pnpm dev` an app runs as the owner, with the owner's files, so it can read the root `.env` itself. "Why the shell still reaches every app" above gives the same reason for the shell's environment. A limit would stop nothing the app can't already reach.

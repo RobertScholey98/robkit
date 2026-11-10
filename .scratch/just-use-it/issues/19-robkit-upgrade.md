@@ -3,14 +3,14 @@
 **What to build:** Milestone 2 moves platform logic out of an install's files and into packages so that a fix reaches an install by a version bump ([ADR 0008](../../../docs/adr/0008-packages-update-apps-are-owned.md)). Nothing does the bump. An owner would have to know which lines of `pnpm-workspace.yaml` are robkit's, and which copied files go with them.
 
 - **Two steps, because the old robkit doesn't know the new one.** `pnpm robkit upgrade` runs the robkit the install already has. That one can't hold the new version's Go module, lint policy or catalog needs. So:
-  1. The installed robkit sets the catalog's entries for `create-robkit` and every `@robkit/*` package to the new version, and runs `pnpm install`.
-  2. It then hands over by running `pnpm robkit upgrade --finish <old version>`, which the newly installed robkit answers. That one refreshes the copies of robkit's own files the install holds (`vendor/robkit/go` when the install has a Go app, and the lint policy in `tooling/eslint`), adds or raises any catalog entry its packages need, raises `packageManager` to its own pnpm where the install's is older, and installs again if it changed either.
+  1. The installed robkit sets the catalog's entry for `create-robkit` to the new version, and runs `pnpm install`. Until the code round of 2026-11-10 it set every `@robkit/*` entry too. The comments say why that changed.
+  2. It then hands over by running `pnpm robkit upgrade --finish <old version>`, which the newly installed robkit answers. That one raises the catalog's entry for each of robkit's other packages, refreshes the copies of robkit's own files the install holds (`vendor/robkit/go` when the install has a Go app, and the lint policy in `tooling/eslint`), adds or raises any catalog entry its packages need, raises `packageManager` to its own pnpm where the install's is older, and installs again if it changed either.
 - **The handover can't change.** Once 0.1.0 is on npm, its step 1 calls `upgrade --finish <old version>` on every later robkit, for as long as anyone upgrades from 0.1.0. So that call, its one argument and the state step 1 leaves for it are public, like an export. The repo keeps a copy of what 0.1.0's step 1 does, and a test runs the current step 2 after it. `--finish` isn't in the usage text: an owner never types it.
 - **It checks everything before it changes anything.** It refuses, with what to do, when:
   - git isn't installed, or the install has no commit. init skips the first commit where git has no name set (ticket 15), so this isn't rare. The message gives the three commands that make one.
   - the tree has an uncommitted change or an untracked file.
   - the version given isn't in the registry, or isn't newer than the installed one. It moves forward only, and says so for the same version. With no version given, the newest is the registry's `latest` for create-robkit.
-  - `tooling/eslint` or `vendor/robkit/go` is a link. It overwrites both whole and follows no link.
+  - `tooling/eslint` or `vendor/robkit/go` is a link, or a folder above one is, or one of the three files it writes is. It overwrites both folders whole and follows no link.
   - `pnpm dev` is running in the install. An upgrade swaps the packages under every running app, so it says to stop `pnpm dev` first.
 - **A failure puts the files back.** Each step changes files and then runs `pnpm install`, which can fail: no network, or a version pnpm can't resolve. Upgrade then restores every file it changed from the last commit, removes what it added under the two folders it owns, says which step failed and why, and says to run `pnpm install` to put `node_modules` back. The tree was clean when it started, so everything changed is its own. The owner is never left with a tree that upgrade's own check refuses.
 - **Git is the undo.** It overwrites robkit's copies whole, and ends by saying to read `git diff` and commit. The install's README gives the commands that undo an upgrade by hand, for one that was killed partway.
@@ -66,7 +66,8 @@ Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Both raised the sa
 **The handover, as 0.1.0 will ship it.** The ticket fixed the call and its argument. These details it left open, and the build chose them. Each is frozen once 0.1.0 is on npm, so R should read them before the first release:
 
 - **Step 1 calls `pnpm exec robkit upgrade --finish <old version>`**, not `pnpm robkit ...`. The install's `robkit` script is the owner's to rename, and `pnpm exec` finds the bin whatever the script is called.
-- **Step 1 sets only the robkit entries the catalog already has** (`create-robkit` and every `@robkit/*` there) to the new version. Adding the entries a new version needs is step 2's job.
+- **Step 1 moves `create-robkit` alone in the catalog** to the new version. Every `@robkit/*` entry stays at the old version, and step 2 raises the ones its robkit has. So step 1 names no package but create-robkit, and a later robkit can drop or rename any other. Changed in the code round, below: it used to set every robkit entry the catalog had.
+- **Ctrl+C stops the command step 1 is running, and not step 1.** Step 1 then puts the files back as it does for any failure. Added in the code round.
 - **Step 1's `pnpm install` takes `--no-frozen-lockfile`**, so a CI-like environment with `frozen-lockfile` set doesn't refuse the change step 1 just made.
 - **Step 2 must exit non-zero when it fails.** Step 1 treats any non-zero exit as a failed step 2, puts every file back, and says "Step 2 of robkit upgrade failed: robkit X couldn't finish it." Step 2 prints its own reason first.
 - **How a file goes back is part of step 1**: `git ls-tree --name-only HEAD` on `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `package.json`, `tooling/eslint` and `vendor/robkit/go`, then `git checkout HEAD --` on those it lists, then `git clean -fdq --` on the five. Step 2 puts back the same way before it exits, and step 1 does it again after. Doing it twice changes nothing.
@@ -115,3 +116,23 @@ Left as built, for R to read before the first release: the choices under "The ha
 Added by the lead. PR 97 merged into `m3-making-an-install` on 2026-11-10 as `5e8a5510`, with `gate`, `check` and `pull-request` green on `f29ff9aa`, at the first full run on the branch.
 
 `packages/create-robkit/src/upgrade-handover.ts` can still change until 0.1.0 is on npm, and its test's hash moves with it. Milestone 3's code round reads it, and so should R, before the first release.
+
+### From the code round, 2026-11-10
+
+Milestone 3's code had its one council round at `8bca5524`. Opus 5.5 gave it 7 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. I checked each finding against the code before I acted on it. These are the ones about this ticket.
+
+Taken, each in a commit of its own with a test that failed first:
+
+- **No link at or above any path upgrade writes** (Sol, must-change). The check looked at `tooling/eslint` and `vendor/robkit/go` alone. With `tooling` linked to a folder outside the install, upgrade would have emptied that folder, and git can't put it back. It now refuses a link at each of the two folders, at every folder above them, and at `pnpm-workspace.yaml`, `pnpm-lock.yaml` and `package.json`. Step 2 checks again, since it can be run by hand.
+- **Step 1 moves create-robkit alone** (Opus, must-change). It set every `@robkit/*` entry to the new version and installed. A later robkit that dropped or renamed one package would then be out of reach of every install on 0.1.0: step 1 would ask the registry for a version that isn't there. Step 2 now raises robkit's other entries. It keeps the entry of a package its robkit no longer has, at the version it was.
+- **Ctrl+C puts the files back** (Opus, should-change). Node ended step 1 on Ctrl+C before it could put anything back. Step 1 now outlives the signal, the command it is running fails, and the files go back.
+
+The second and third change the frozen file, and its hash in `upgrade-handover.test.ts` moved with each. The link check is in `upgrade.ts`, outside it. The whole-stack upgrade test passed against a local registry with the smaller first step.
+
+One thing I found while writing this up: step 1's `pnpm install` also fetches what the new create-robkit depends on, which is four robkit packages today. The frozen file's comment said it asked for no package but create-robkit. It now says the step names no other package, which is the part a later version relies on.
+
+Not taken:
+
+- **A whole-stack test that installs the real `create-robkit@0.1.0` as the older version** (Opus, should-change). The handover test runs the frozen file with today's `exec` and `yaml`, not 0.1.0's. Opus is right that it proves less once 0.1.0 is out. It can't be written until 0.1.0 is on npm, so it belongs to the first change to upgrade after the release.
+
+For R, before the first release: "The handover, as 0.1.0 will ship it" above is current. The step 1 bullet and the Ctrl+C bullet are the two this round changed.

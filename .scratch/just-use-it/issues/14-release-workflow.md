@@ -137,3 +137,15 @@ Before the first release:
 - Six tests named robkit's version as 0.0.0, so the version pull request would have failed `gate`. They read it from `package.json` since `10d49e9` and `109f1a9`. Ticket 15's Merged note has the detail.
 - Ticket 19 had to merge first, and has (PR 97, 2026-11-10): 0.1.0's first upgrade step can't change once it is published. R reads "The handover, as 0.1.0 will ship it" in ticket 19's comments before the release, since that is the last chance to change it.
 - R does "Set up once" in `CONTRIBUTING.md`'s "Releasing": the `robkit` organisation and a token on npm, then the `release` environment on GitHub, limited to `main`, with R as its reviewer and the token as its `NPM_TOKEN` secret.
+
+### From the code round, 2026-11-10
+
+Milestone 3's code had its one council round at `8bca5524`. Opus 5.5 gave it 7 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. I checked each finding against the code before I acted on it. These are the ones about this ticket.
+
+Both reviewers read the release and found the token's separation sound: the gate and the pack run with no secret, and the publish step sends the checked tarballs, installs nothing and imports only `node:` modules.
+
+Taken:
+
+- **A stopped release is re-run, not started again** (Opus, should-change). The runbook said to start a new run from `main`. A new run packs `main` as it is by then. If a pull request merged in between, the rest of the packages would reach npm from a later commit under the same version, and the tag would land on that commit. "If the release stops" in `CONTRIBUTING.md` now says to choose **Re-run failed jobs** on the run that stopped, which keeps its commit and its tarballs. The publish script's message says the same.
+
+Nothing else about the release changed in this round, and the workflow has still never run.
