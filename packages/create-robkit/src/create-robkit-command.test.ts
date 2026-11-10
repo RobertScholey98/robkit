@@ -1,13 +1,13 @@
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { spawnSync } from "node:child_process";
 import { join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { reportFaultsAt } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 
 const bin = fileURLToPath(new URL("create-robkit-command.ts", import.meta.url));
-
 const defaultAnswers: [question: string, keys: string][] = [
   ["Which stack should the example app use?", keys.enter],
 ];
@@ -34,6 +34,42 @@ async function readTree(dir: string): Promise<Map<string, string>> {
     ),
   );
 }
+
+describe("init's entry file", () => {
+  it("imports nothing, so it can check Node's version before anything loads", async () => {
+    const source = await readFile(bin, "utf8");
+
+    expect(source).not.toMatch(/^\s*(import|export)\b(?!\s*\()/m);
+  });
+
+  it("stops on a Node older than 24, saying which it needs and writing nothing", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+    const older = join(cwd, "older-node.mjs");
+    await writeFile(
+      older,
+      `Object.defineProperty(process.versions, "node", { value: "22.12.0" });\n`,
+    );
+
+    const { status, stdout, stderr } = spawnSync(
+      process.execPath,
+      [
+        "--import",
+        pathToFileURL(older).href,
+        bin,
+        "my-app",
+        "--stack",
+        "start",
+      ],
+      { cwd, encoding: "utf8" },
+    );
+
+    expect(status).toBe(1);
+    expect(stdout + stderr).toBe(
+      "Node 22.12.0 is too old: robkit needs Node 24 or later. Install it from https://nodejs.org, then run npm create robkit again.\n",
+    );
+    expect(await readdir(cwd)).toEqual(["older-node.mjs"]);
+  });
+});
 
 describe("init with no flags", () => {
   it("asks init's questions and prints the command that skips them", async () => {
