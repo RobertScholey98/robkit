@@ -386,6 +386,33 @@ describe("robkit deploy", () => {
 `);
   });
 
+  // The stand-in turbo is a shell script, which Windows can't run.
+  it.skipIf(process.platform === "win32")(
+    "prints turbo's own message when turbo ls fails",
+    async () => {
+      const dir = await freshInstall();
+      await writeFile(join(dir, "coolify.json"), coolifyJson);
+      const standIn = await mkdtemp(join(tmpdir(), "turbo-stand-in-"));
+      await writeFile(
+        join(standIn, "turbo"),
+        "#!/bin/sh\necho '  x No git repository found' >&2\nexit 1\n",
+        { mode: 0o755 },
+      );
+
+      const { code, output } = await drive(bin, dir, ["deploy"], [], {
+        COOLIFY_URL: "https://coolify.example",
+        COOLIFY_TOKEN: "t",
+        PATH: `${standIn}:${String(process.env.PATH)}`,
+      });
+
+      expect({ code, output }).toEqual({
+        code: 1,
+        output:
+          "turbo ls --affected couldn't find the apps that changed: x No git repository found. Name the apps to deploy with --apps, or deploy them all with --all.\n",
+      });
+    },
+  );
+
   it("deploys nothing until COOLIFY_URL is set", async () => {
     const dir = await freshInstall();
     await writeFile(join(dir, "coolify.json"), coolifyJson);
