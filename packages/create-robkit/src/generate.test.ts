@@ -707,6 +707,25 @@ describe("generateInstall", () => {
     expect(vendored(noGo)).toEqual([]);
   });
 
+  it("has a README whose every pnpm command is one of the install's scripts", async () => {
+    const files = await generateInstall(defaultChoices);
+    const readme = files.get("README.md") ?? "";
+    const { scripts } = json(files, "package.json") as {
+      scripts: Record<string, string>;
+    };
+
+    const named = [...readme.matchAll(/^pnpm ([\w:-]+)/gm)].map(
+      ([, script]) => script,
+    );
+
+    expect(named).toEqual(
+      expect.arrayContaining(["dev", "robkit", "lint", "test"]),
+    );
+    expect(named.filter((script) => !(script in scripts))).toEqual([]);
+    expect(readme).toContain("## Commands\n");
+    expect(readme).toContain("docker compose down --volumes\n");
+  });
+
   it("restores the dotfiles npm would drop", async () => {
     const files = await generateInstall(defaultChoices);
 
