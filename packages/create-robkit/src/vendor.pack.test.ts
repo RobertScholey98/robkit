@@ -1,8 +1,8 @@
-import { access, mkdtemp, readFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parse } from "yaml";
+import { parse, parseDocument } from "yaml";
 import { defaultChoices } from "./choices.ts";
 import { init } from "./init.ts";
 import { vendorPackages } from "./vendor.ts";
@@ -41,5 +41,22 @@ describe("vendorPackages", () => {
     }
     // And robkit's Go module, from the checkout's go folder.
     await access(join(dir, "vendor/robkit/go/session/guarded.go"));
+  });
+
+  it("packs @robkit/provision behind core for an install made before it was linked", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
+    await init(defaultChoices, dir, { link: true });
+    const path = join(dir, "pnpm-workspace.yaml");
+    const settings = parseDocument(await readFile(path, "utf8"));
+    settings.deleteIn(["overrides", "@robkit/provision"]);
+    await writeFile(path, settings.toString());
+
+    await vendorPackages(dir);
+
+    const tarball = "vendor/robkit/robkit-provision-0.0.0.tgz";
+    expect((await overridesOf(dir))["@robkit/provision"]).toBe(
+      `file:${tarball}`,
+    );
+    await access(join(dir, tarball));
   });
 });

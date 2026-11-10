@@ -87,7 +87,7 @@ describe("vendorPackages", () => {
 
       await expect(vendoring).rejects.toThrow(CommandProblem);
       await expect(vendoring).rejects.toThrow(
-        `pnpm --recursive --filter @robkit/broken run build exited with 3 in ${checkout}. Its output is above: fix what it says, then try again.`,
+        `pnpm --recursive --filter-prod @robkit/broken... run build exited with 3 in ${checkout}. Its output is above: fix what it says, then try again.`,
       );
     });
 
@@ -102,7 +102,7 @@ describe("vendorPackages", () => {
       await expect(vendoring).rejects.toThrow(CommandProblem);
       await expect(vendoring).rejects.toThrow(
         new RegExp(
-          `^pnpm --recursive --filter @robkit/broken pack --json --pack-destination ".+" exited with 4 in ${escape(checkout)}\\. It printed:\\n[^]*prepack: \`exit 4\`[^]*\\nFix what it says, then try again\\.$`,
+          `^pnpm --recursive --filter-prod @robkit/broken\\.\\.\\. pack --json --pack-destination ".+" exited with 4 in ${escape(checkout)}\\. It printed:\\n[^]*prepack: \`exit 4\`[^]*\\nFix what it says, then try again\\.$`,
         ),
       );
     });
@@ -125,6 +125,45 @@ describe("vendorPackages", () => {
 
       expect(await overridesOf(dir)).toEqual({
         "@robkit/broken": "file:vendor/robkit/robkit-broken-0.0.0.tgz",
+        "styled-jsx>@babel/core": "-",
+      });
+    });
+
+    it("packs what a linked package runs on, though the install doesn't link it", async () => {
+      const { dir, root, checkout } = await linkedToBroken();
+      // The checkout is a workspace: broken runs on helper, and builds
+      // with tooling, which stays out.
+      await writeFile(
+        join(root, "pnpm-workspace.yaml"),
+        "packages:\n  - packages/*\n",
+      );
+      const manifest = (name: string, more: object = {}) =>
+        JSON.stringify({
+          name,
+          version: "0.0.0",
+          scripts: { build: "exit 0" },
+          ...more,
+        });
+      await writeFile(
+        join(checkout, "package.json"),
+        manifest("@robkit/broken", {
+          dependencies: { "@robkit/helper": "workspace:*" },
+          devDependencies: { "@robkit/tooling": "workspace:*" },
+        }),
+      );
+      for (const name of ["helper", "tooling"]) {
+        await mkdir(join(root, "packages", name));
+        await writeFile(
+          join(root, "packages", name, "package.json"),
+          manifest(`@robkit/${name}`),
+        );
+      }
+
+      await vendorPackages(dir);
+
+      expect(await overridesOf(dir)).toEqual({
+        "@robkit/broken": "file:vendor/robkit/robkit-broken-0.0.0.tgz",
+        "@robkit/helper": "file:vendor/robkit/robkit-helper-0.0.0.tgz",
         "styled-jsx>@babel/core": "-",
       });
     });

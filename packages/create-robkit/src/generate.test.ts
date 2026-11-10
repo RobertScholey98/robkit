@@ -444,6 +444,7 @@ describe("generateInstall", () => {
       "@robkit/hono": at("hono"),
       "@robkit/input": at("input"),
       "@robkit/next": at("next"),
+      // No manifest names it: it arrives behind @robkit/core.
       "@robkit/provision": at("provision"),
       "@robkit/react": at("react"),
       "@robkit/session": at("session"),

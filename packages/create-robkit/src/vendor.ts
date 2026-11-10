@@ -70,9 +70,11 @@ export const vendorDir = "vendor/robkit";
 const vendoredGoDir = `${vendorDir}/go`;
 
 /**
- * Packs each robkit package an install links to into its `vendor/robkit`
- * folder, as `pnpm publish` would pack it, and points the install's
- * overrides at those tarballs. It copies robkit's Go module too. The
+ * Packs each robkit package an install links to, and each robkit package
+ * those run on, into its `vendor/robkit` folder, as `pnpm publish` would
+ * pack it, and points the install's overrides at those tarballs. An install
+ * made before a package arrived behind another, as `@robkit/provision`
+ * did behind `@robkit/core`, then asks npm for neither. It copies robkit's Go module too. The
  * install then builds without the checkout, as a Docker build on a host
  * must, before the packages are on npm. Run `pnpm install` afterwards to
  * take them in.
@@ -109,7 +111,9 @@ export async function vendorPackages(root: string): Promise<void> {
   // them finds the rest by name. One pnpm builds them all, in dependency
   // order, and one packs them, rather than two pnpm processes a package.
   const cwd = first[1].slice(protocol.length);
-  const filters = names.flatMap((name) => ["--filter", name]);
+  // `name...` picks the package and what it depends on, and
+  // --filter-prod leaves out its dev dependencies.
+  const filters = names.flatMap((name) => ["--filter-prod", `${name}...`]);
   // The build's output shows as it runs, and a failure points to it.
   await exec("pnpm", ["--recursive", ...filters, "run", "build"], {
     cwd,
@@ -123,13 +127,13 @@ export async function vendorPackages(root: string): Promise<void> {
     ),
     cwd,
   );
-  for (const name of names) {
-    const filename = tarballs.get(name);
-    if (filename === undefined) {
-      throw new CommandProblem(
-        `pnpm pack wrote no tarball for ${name} in ${cwd}. Check that the install's overrides link to a robkit checkout with ${name} in it, then try again.`,
-      );
-    }
+  const missing = names.find((name) => !tarballs.has(name));
+  if (missing !== undefined) {
+    throw new CommandProblem(
+      `pnpm pack wrote no tarball for ${missing} in ${cwd}. Check that the install's overrides link to a robkit checkout with ${missing} in it, then try again.`,
+    );
+  }
+  for (const [name, filename] of tarballs) {
     workspace.setIn(
       ["overrides", name],
       `file:${vendorDir}/${basename(filename)}`,
