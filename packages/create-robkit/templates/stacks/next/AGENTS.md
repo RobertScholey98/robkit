@@ -37,7 +37,7 @@ A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page s
 
 ## Serving
 
-- `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. `next.config.ts` lets the dev proxy's host reach Next's dev server. Telemetry is off: the `dev` script sets `NEXT_TELEMETRY_DISABLED` because `next dev`'s own process never loads `next.config.ts`, and `next.config.ts` sets it for `next build` and the server.
+- `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. `next.config.ts` lets the dev proxy's host reach Next's dev server. Telemetry is off: `pnpm dev` sets `NEXT_TELEMETRY_DISABLED` for every app, because `next dev`'s own process never loads `next.config.ts`, and `next.config.ts` sets it for `next build`.
 - `pnpm build` runs `next build`, which writes the build to `dist`.
 - The production image runs the `start` script, which migrates and then runs `src/serve.ts`. It serves the build with Next's request handler on `HOST` and `PORT`.
 - `dependencies` are what runs in production: Next, React, and what `src/serve.ts` imports, and `@robkit/drizzle` with `drizzle-orm` and `postgres`, which the `migrate` script runs. The production image installs only those. `next build` bundles everything else the pages and the proxy import, `@robkit/next` and the UI kit among them, so those are dev dependencies.

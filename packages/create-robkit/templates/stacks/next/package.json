@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NEXT_TELEMETRY_DISABLED=1 next dev --hostname 127.0.0.1",
+    "dev": "next dev --hostname 127.0.0.1",
     "typecheck": "tsc",
     "test": "vitest run",
     "build": "next build",
