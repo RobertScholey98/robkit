@@ -34,14 +34,13 @@ pnpm dev
 - Open http://admin.robkit.localhost:3000 to make access codes and roles. Every new install has an access code, `test`, for signing in as a guest. It works only while the install runs on a `.localhost` domain.
 - Open http://example.robkit.localhost:3000 to see the example app. Only the owner may open it until you change its rule in admin.
 
-Add an app of your own. Stop `pnpm dev` with Ctrl+C first, then:
+Add an app of your own. Leave `pnpm dev` running, and in another terminal in the install's folder:
 
 ```sh
 pnpm robkit add notes --stack react-hono --access open   # or pnpm robkit add, and it asks
-pnpm dev
 ```
 
-Your new app is at http://notes.robkit.localhost:3000, in `apps/notes`, with its own Postgres schema. Its `AGENTS.md` describes its stack.
+`pnpm dev` starts the new app, and `robkit add` prints its address: http://notes.robkit.localhost:3000. It is in `apps/notes`, with its own Postgres schema. Its `AGENTS.md` describes its stack.
 
 When you're ready to host it, the install's `docs/deploy.md` walks through deploying to Coolify.
 

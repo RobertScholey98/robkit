@@ -7,13 +7,14 @@ This is a robkit install: your own small apps for friends and family, behind one
 ## Commands
 
 ```sh
-pnpm dev            # Postgres in Docker, then core, the hub, admin and every app
-pnpm robkit add     # add an app; asks for its stack, name, who can open it and an icon
-pnpm lint           # the install's layer rule, ESLint, then each app's own lint
+pnpm dev                    # Postgres in Docker, then core, the hub, admin and every app
+pnpm robkit add             # add an app, with pnpm dev running or not; asks for its stack, name, who can open it and an icon
+pnpm robkit migrate <slug>  # apply an app's new migration while pnpm dev runs
+pnpm lint                   # the install's layer rule, ESLint, then each app's own lint
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm format         # format every file with Prettier
+pnpm format                 # format every file with Prettier
 ```
 
 ## Where things are
