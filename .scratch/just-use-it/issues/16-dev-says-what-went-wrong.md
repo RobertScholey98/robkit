@@ -32,7 +32,7 @@
 - [x] A failing `turbo ls` in `robkit deploy` prints turbo's message
 - [x] No expected failure above prints "robkit hit a bug"
 - [x] The Proof says what a Windows browser saw against an install in WSL 2
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -101,3 +101,16 @@ Built on branch `92-dev-says-what-went-wrong`, one commit per fault.
 - `curl.exe -H "Host: hub.robkit.localhost" http://172.26.203.120:3460/`, WSL's own address, got "Connection refused".
 
 SIGHUP to `robkit-dev` then stopped core ("core stopped"), every app, the proxy and Postgres, and left no port held.
+
+### Merged
+
+Added by the lead. PR 91 merged into `m3-making-an-install` on 2026-11-10, with `gate`, `check` and `pull-request` green on `76c96b1`.
+
+Its first two CI runs failed four tests in `packages/dev` that had passed in WSL. CI runs every test's Postgres on the host's network (`tooling/test-postgres/host-network.yaml`), where Docker publishes no port, and Docker Desktop in WSL can't do the same. I fixed them on the branch:
+
+- **One was a fault in the check.** After a killed `pnpm dev`, the next one called this install's own Postgres "taken": nothing published the port, and something listened on it. `postgresPortTaken` in `packages/dev/src/checks.ts` now asks Docker which network the install's Postgres is on before it calls the port taken. A new test in `checks.db.test.ts` runs Postgres on the host's network and holds the port, and failed before the fix. An install's own `compose.yaml` publishes the port, so no owner would have met this. robkit's own CI did.
+- **Two tests asked Compose which port it published.** They now check that something listens on the port.
+- **One matched Compose's own words for a missing service**, which CI's extra Compose file changes. It now reads the install's file alone and checks robkit's part of the message.
+- **The kill test raced.** It waited for one app to answer and then read both apps' pid files. It now waits for each app.
+
+For tickets 17 and 18: a Docker test must not read how Docker publishes a port or match Docker's words, and CI is the only place the host-network path runs.
