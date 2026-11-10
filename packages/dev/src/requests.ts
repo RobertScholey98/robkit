@@ -32,11 +32,11 @@ export interface DevRequest {
 
 /** Where a running `pnpm dev` listens for requests. */
 export interface DevSocket {
-  /** The folder it is in, which only the owner may open. */
+  /** The folder it is in, which the runner makes for this account alone. */
   folder: string;
   /** The socket file. */
   path: string;
-  /** The variable that moves the folder. */
+  /** The variable that names the folder `folder` is in. */
   setBy: "XDG_RUNTIME_DIR" | "TMPDIR";
 }
 
@@ -44,11 +44,15 @@ export interface DevSocket {
 const maxPathBytes = 100;
 
 /**
- * Where `pnpm dev` in the install at `root` listens for requests: in
- * `XDG_RUNTIME_DIR` where `env` sets it, or else in a folder of this
- * account's own under the temp folder, named after a hash of the install's
- * real path, so two installs never share one. It reads the folder's path
- * and makes nothing.
+ * Where `pnpm dev` in the install at `root` listens for requests: in a
+ * folder of this account's own, in `XDG_RUNTIME_DIR` where `env` sets it
+ * and in the temp folder where it doesn't. The socket is named after a
+ * hash of the install's real path, so two installs never share one. It
+ * reads the folder's path and makes nothing.
+ *
+ * The folder is robkit's own even in `XDG_RUNTIME_DIR`, since not every
+ * system keeps that one private: under WSL without systemd it is
+ * `/mnt/wslg/runtime-dir`, which every account can open.
  *
  * @throws a {@link CommandProblem} when the path is 100 bytes or more
  */
@@ -57,12 +61,11 @@ export async function devSocket(
   env: NodeJS.ProcessEnv,
 ): Promise<DevSocket> {
   const runtime = env.XDG_RUNTIME_DIR;
-  const { folder, setBy } = runtime
-    ? { folder: runtime, setBy: "XDG_RUNTIME_DIR" as const }
-    : {
-        folder: join(tmpdir(), `robkit-${String(process.getuid?.())}`),
-        setBy: "TMPDIR" as const,
-      };
+  // An empty XDG_RUNTIME_DIR names no folder.
+  const [within, setBy] = runtime
+    ? ([runtime, "XDG_RUNTIME_DIR"] as const)
+    : ([tmpdir(), "TMPDIR"] as const);
+  const folder = join(within, `robkit-${String(process.getuid?.())}`);
   const hash = createHash("sha256")
     .update(await realpath(root))
     .digest("hex")

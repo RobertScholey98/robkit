@@ -39,7 +39,9 @@ async function runnerAnswering(
   env: NodeJS.ProcessEnv,
   answer: { outcome: string; message: string },
 ): Promise<string[]> {
-  const { path } = await devSocket(dir, env);
+  const { folder, path } = await devSocket(dir, env);
+  // The runner makes the socket's folder, so the stand-in does.
+  await mkdir(folder, { recursive: true, mode: 0o700 });
   const asked: string[] = [];
   const server = createServer((connection) => {
     connection.setEncoding("utf8");

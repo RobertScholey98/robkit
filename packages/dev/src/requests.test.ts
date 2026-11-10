@@ -6,28 +6,32 @@ import { CommandProblem } from "@robkit/input/command";
 import { describe, expect, it } from "vitest";
 import { devSocket, readDevRequest } from "./requests.ts";
 
-/** A new folder only this account can open, as XDG_RUNTIME_DIR is. */
+/** A new folder only this account can open, as XDG_RUNTIME_DIR often is. */
 async function runtimeDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "robkit-run-"));
 }
+
+/** The name of this account's own folder, in whichever folder holds it. */
+const own = `robkit-${String(process.getuid?.())}`;
 
 async function installDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "robkit-install-"));
 }
 
 describe.skipIf(process.platform === "win32")("devSocket", () => {
-  it("puts the socket in XDG_RUNTIME_DIR, named after the install", async () => {
+  it("puts the socket in a folder of this account's own in XDG_RUNTIME_DIR, named after the install", async () => {
     const run = await runtimeDir();
     const root = await installDir();
 
     const socket = await devSocket(root, { XDG_RUNTIME_DIR: run });
 
+    const folder = join(run, own);
     expect({ folder: socket.folder, setBy: socket.setBy }).toEqual({
-      folder: run,
+      folder,
       setBy: "XDG_RUNTIME_DIR",
     });
     expect(socket.path).toMatch(
-      new RegExp(`^${run}/robkit-[0-9a-f]{16}\\.sock$`),
+      new RegExp(`^${folder}/robkit-[0-9a-f]{16}\\.sock$`),
     );
   });
 
@@ -36,7 +40,7 @@ describe.skipIf(process.platform === "win32")("devSocket", () => {
 
     const socket = await devSocket(root, {});
 
-    const folder = join(tmpdir(), `robkit-${String(process.getuid?.())}`);
+    const folder = join(tmpdir(), own);
     expect({ folder: socket.folder, setBy: socket.setBy }).toEqual({
       folder,
       setBy: "TMPDIR",
@@ -79,7 +83,7 @@ describe.skipIf(process.platform === "win32")("devSocket", () => {
     await expect(socket).rejects.toThrow(CommandProblem);
     await expect(socket).rejects.toThrow(
       new RegExp(
-        `^pnpm dev keeps its socket at ${run}/robkit-[0-9a-f]{16}\\.sock, which is \\d+ bytes, and a socket's path must be under 100\\. Point XDG_RUNTIME_DIR at a shorter folder, then run pnpm dev again\\.$`,
+        `^pnpm dev keeps its socket at ${run}/${own}/robkit-[0-9a-f]{16}\\.sock, which is \\d+ bytes, and a socket's path must be under 100\\. Point XDG_RUNTIME_DIR at a shorter folder, then run pnpm dev again\\.$`,
       ),
     );
   });

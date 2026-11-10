@@ -30,7 +30,7 @@ Before it starts anything, `pnpm dev` checks that Docker answers and that these 
 - `pnpm robkit add` works while `pnpm dev` runs. Once the app's files are written and installed, `pnpm dev` gives it a database, migrates it, starts it on a port no running app holds and routes its subdomain, then restarts core so the launcher lists it. Nobody is signed out. `robkit add` prints the app's address, or the problem if it can't start, and every other app keeps running.
 - `pnpm robkit migrate <slug>` applies an app's new migration while `pnpm dev` runs, as the app's own role, so its password stays the same. With no `pnpm dev` running, start it: it migrates every app as it starts.
 - Removing an app needs a restart. Stop `pnpm dev`, delete `apps/<slug>`, then start `pnpm dev` again.
-- `pnpm dev` hears these commands over a socket file in a folder only you can open: `XDG_RUNTIME_DIR`, or a `robkit-<uid>` folder in the temp folder. It refuses to start if others can open that folder.
+- `pnpm dev` hears these commands over a socket file in a folder it makes for you alone: `robkit-<uid>`, in `XDG_RUNTIME_DIR` or in the temp folder where that isn't set. It refuses to start if others can open that folder.
 
 ## An app's own settings
 

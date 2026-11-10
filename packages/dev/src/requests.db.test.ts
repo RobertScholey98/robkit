@@ -401,10 +401,12 @@ describe("robkit-dev migrating an app while it runs", () => {
 
 describe("robkit-dev's socket", () => {
   it("refuses a socket folder others can open before it starts anything", async () => {
-    const folder = await mkdtemp(join(tmpdir(), "robkit-run-"));
+    const runtime = await mkdtemp(join(tmpdir(), "robkit-run-"));
+    const folder = join(runtime, `robkit-${String(process.getuid?.())}`);
+    await mkdir(folder);
     await chmod(folder, 0o755);
 
-    const dev = await startDev({ XDG_RUNTIME_DIR: folder });
+    const dev = await startDev({ XDG_RUNTIME_DIR: runtime });
 
     expect(await exitCode(dev.child)).toBe(1);
     expect(dev.output()).toBe(

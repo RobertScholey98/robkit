@@ -24,7 +24,10 @@ import {
   type DevSocket,
 } from "./requests.ts";
 
-/** An install's folder, and an XDG_RUNTIME_DIR of its own, for one test. */
+/**
+ * An install's folder, and an XDG_RUNTIME_DIR of its own, for one test,
+ * with the socket's folder in it, as a `pnpm dev` that ran there left it.
+ */
 async function place(): Promise<{
   root: string;
   env: NodeJS.ProcessEnv;
@@ -32,7 +35,9 @@ async function place(): Promise<{
 }> {
   const root = await mkdtemp(join(tmpdir(), "robkit-install-"));
   const env = { XDG_RUNTIME_DIR: await mkdtemp(join(tmpdir(), "robkit-run-")) };
-  return { root, env, socket: await devSocket(root, env) };
+  const socket = await devSocket(root, env);
+  await mkdir(socket.folder, { mode: 0o700 });
+  return { root, env, socket };
 }
 
 type Handle = (request: DevRequest) => Promise<Answered>;
@@ -318,6 +323,24 @@ describe.skipIf(process.platform === "win32")("serveRequests", () => {
       "robkit hit a bug while pnpm dev handled add broken. Report it at https://github.com/RobertScholey98/robkit/issues, with the error below.",
       new Error("broke on purpose"),
     ]);
+  });
+
+  it("listens where others can open XDG_RUNTIME_DIR, as they can WSLg's, in a folder they can't", async () => {
+    const root = await mkdtemp(join(tmpdir(), "robkit-install-"));
+    const runtime = await mkdtemp(join(tmpdir(), "robkit-run-"));
+    await chmod(runtime, 0o777);
+    const env = { XDG_RUNTIME_DIR: runtime };
+    const socket = await devSocket(root, env);
+    await serving(socket);
+
+    const answer = await askDev(
+      root,
+      { operation: "add", slug: slug("notes") },
+      env,
+    );
+
+    expect(answer).toEqual({ outcome: "done", message: "add notes" });
+    expect((await stat(socket.folder)).mode & 0o777).toBe(0o700);
   });
 
   it("removes a socket file a killed run left, and listens there", async () => {
