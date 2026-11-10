@@ -154,7 +154,7 @@ export async function provisionDatabase(
  * means another run just made what this one was making, so the next try
  * finds it there.
  */
-const raceAttempts = 5;
+const raceAttempts = 10;
 
 /**
  * One try at an app's role and schema, in one transaction: the check of
@@ -195,8 +195,38 @@ async function provisionInOne(
   >`select current_database() as database`;
   await tx.unsafe(`create schema if not exists ${role} authorization ${role}`);
   await tx.unsafe(`alter role ${role} set search_path = ${role}`);
-  await tx.unsafe(`revoke all on database "${database}" from public`);
-  await tx.unsafe(`grant connect on database "${database}" to ${role}`);
-  await tx.unsafe(`revoke all on schema public from public`);
+  // Each of these rewrites one row that every app's run shares, the
+  // database's or the public schema's, so two runs that both write it
+  // collide. Each is written only while it still needs it: after the
+  // first run, the rest only read.
+  const [access] = await tx<
+    { databaseOpen: boolean; publicOpen: boolean; canConnect: boolean }[]
+  >`
+    select
+      exists (
+        select from pg_database d,
+          aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a
+        where d.datname = current_database() and a.grantee = 0
+      ) as "databaseOpen",
+      exists (
+        select from pg_namespace n,
+          aclexplode(coalesce(n.nspacl, acldefault('n', n.nspowner))) a
+        where n.nspname = 'public' and a.grantee = 0
+      ) as "publicOpen",
+      exists (
+        select from pg_database d,
+          aclexplode(coalesce(d.datacl, acldefault('d', d.datdba))) a
+        where d.datname = current_database()
+          and a.grantee = ${slug}::regrole and a.privilege_type = 'CONNECT'
+      ) as "canConnect"`;
+  if (access?.databaseOpen !== false) {
+    await tx.unsafe(`revoke all on database "${database}" from public`);
+  }
+  if (access?.canConnect !== true) {
+    await tx.unsafe(`grant connect on database "${database}" to ${role}`);
+  }
+  if (access?.publicOpen !== false) {
+    await tx.unsafe(`revoke all on schema public from public`);
+  }
   return undefined;
 }

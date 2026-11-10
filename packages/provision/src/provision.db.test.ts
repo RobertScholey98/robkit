@@ -123,7 +123,7 @@ describe("provisionDatabase", () => {
     const nowhere = "postgres://postgres:postgres@127.0.0.1:1/robkit";
 
     await expect(provisionDatabase(nowhere, slug("unreached"))).rejects.toThrow(
-      "The provision step couldn't give unreached its database (attempt 1 of 5).",
+      "The provision step couldn't give unreached its database (attempt 1 of 10).",
     );
   });
 
