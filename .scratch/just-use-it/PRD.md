@@ -92,7 +92,7 @@ Each is built by the ticket named, and that ticket's comments record what the bu
 14. **init installs.** `npm create robkit` installs dependencies and makes the first commit unless told `--no-install`. This reverses app-sharing ticket 01's `--install` flag, since an install that needs a second command isn't "just use it". (15)
 15. **An app's own settings live in its `.env`.** `pnpm dev` loads `apps/<slug>/.env` into that app alone. What the runner sets wins, then the shell, then the file, and a file that names one of robkit's settings is refused. The install's root `.env` holds robkit's own dev settings, such as its ports (16). In production the owner sets an app's settings on the host. A value the browser reads isn't in an image yet (32, waiting for R). (17)
 16. **`robkit add` tells a running `pnpm dev`.** The runner listens on a socket file in a folder only the owner can open. No browser can reach one, so it needs no token. A request names an operation and a slug, and nothing else. `robkit add` reports the new app once it is installed, and the runner brings it up without moving a running app's port. The same channel applies a new migration without a restart, as `pnpm robkit migrate <slug>`. No folder watching. (18)
-17. **`robkit upgrade` runs in two steps.** The installed robkit moves the catalog to the new version and installs it. The new robkit then writes what only it holds. The call that hands over from one to the other can't change once 0.1.0 is published, and a test holds it. Upgrade refuses a tree with uncommitted changes, so git shows the owner everything it did, and a step that fails puts the files back. (19)
+17. **`robkit upgrade` runs in two steps.** The installed robkit moves `create-robkit` in the catalog to the new version and installs it. The new robkit then raises robkit's other packages and writes what only it holds. The call that hands over from one to the other can't change once 0.1.0 is published, and a test holds it. Upgrade refuses a tree with uncommitted changes, so git shows the owner everything it did, and a step that fails puts the files back. (19)
 18. **`robkit check` is a lint, not a boundary.** It catches an app that breaks the layer rule by mistake. What holds an imported app is its database role, its token's audience and its own image. `SECURITY.md` says so. (23)
 
 ## Milestones and tickets
@@ -141,6 +141,8 @@ Ticket 33, [Core restarts only when robkit's source changes](issues/33-core-watc
 
 The one council round on these tickets ran on 2026-11-10, at `a314729`: Opus 5.5 gave them 7 out of 10 and Sol 6.1 gave 7. Each ticket's comments say what was taken, with what the code showed, and what wasn't.
 
+The one council round on this milestone's code ran on 2026-11-10, at `8bca5524`: Opus 5.5 gave it 7 out of 10 and Sol 6.1 gave 7. Pull request 98 lists what was taken and what wasn't, and each ticket's comments have the detail under "From the code round". One finding became ticket 34, in milestone 4.
+
 **4. Nothing skipped**
 
 22. [Deploys don't skip](issues/22-deploys-dont-skip.md)
@@ -156,6 +158,8 @@ The one council round on these tickets ran on 2026-11-10, at `a314729`: Opus 5.5
 32. [A setting the browser reads, in production](issues/32-browser-settings-in-an-image.md) (needs R's answer)
 
 22, 23, 24, 28 and 30 start together. 25 follows 22, and 27 follows 23.
+
+Ticket 34, [`robkit add` finds `pnpm dev` from any terminal](issues/34-add-finds-dev-from-any-terminal.md), came from milestone 3's code round. It waits on nothing.
 
 ## How the work runs
 
