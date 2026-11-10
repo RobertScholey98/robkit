@@ -43,6 +43,14 @@ process.exitCode = await runCommand(async () => {
     values.stack === undefined
       ? await askInit(given)
       : { folder: given ?? fail(usage), stack: stackFrom(values.stack) };
+  // Printed before the install's output, so the next steps come last.
+  if (asked) {
+    console.log(`
+The same install without the questions:
+
+  ${commandFor(answers, { install, link })}
+`);
+  }
   const dir = resolve(answers.folder);
   const { notes } = await init({ exampleStack: answers.stack }, dir, {
     link,
@@ -54,17 +62,10 @@ process.exitCode = await runCommand(async () => {
     ...(install ? [] : ["pnpm install"]),
     "pnpm dev",
   ];
-  console.log(`Wrote a robkit install in ${dir}. Next:
+  console.log(`Made a robkit install in ${dir}. Next:
 
 ${steps.map((step) => `  ${step}`).join("\n")}
 
-Then open ${hubOrigin}, claim the install as its owner,
-or sign in as a guest with the code test.`);
-  if (asked) {
-    console.log(`
-The same install without the questions:
-
-  ${commandFor(answers, { install, link })}`);
-  }
+Then open ${hubOrigin} and claim the install.`);
   return 0;
 });
