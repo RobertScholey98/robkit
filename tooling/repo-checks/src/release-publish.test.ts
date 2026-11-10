@@ -152,7 +152,7 @@ describe("release-publish.ts", () => {
   it.each([undefined, ""])(
     "stops before it reads npm or publishes anything when NPM_TOKEN is %j",
     (token) => {
-      const env = { ...process.env, NPM_TOKEN: token };
+      const env: NodeJS.ProcessEnv = { ...process.env, NPM_TOKEN: token };
       if (token === undefined) delete env.NPM_TOKEN;
       const { status, stdout, stderr } = spawnSync(
         process.execPath,
