@@ -137,6 +137,8 @@ Ticket 26 runs first, beside milestone 1, out of its number's order: it steadies
 
 13 and 16 start together. 14 follows 13. 15 follows 13 and 16. 17 follows 16. 18 follows 15 and 17. 19 follows 14 and 18. 20 is last, and the docs site starts once it has merged. The first release waits for 19, whose half of `robkit upgrade` in 0.1.0 can't change afterwards.
 
+Ticket 33, [Core restarts only when robkit's source changes](issues/33-core-watches-its-own-source.md), was found and built while this milestone was built, after the council round. It waits on nothing.
+
 The one council round on these tickets ran on 2026-11-10, at `a314729`: Opus 5.5 gave them 7 out of 10 and Sol 6.1 gave 7. Each ticket's comments say what was taken, with what the code showed, and what wasn't.
 
 **4. Nothing skipped**
