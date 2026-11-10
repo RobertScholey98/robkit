@@ -19,6 +19,7 @@ import {
   askAdd,
 } from "./add-wizard.ts";
 import { readCoolifyConfig } from "./coolify-config.ts";
+import { afterAdd, afterMigrate } from "./dev-answers.ts";
 import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { readAppList, readCoolify, readDatabaseUrlsConfig } from "./env.ts";
@@ -224,21 +225,11 @@ async function add(): Promise<undefined> {
   const answer = hasDependencies
     ? await askDev(root, { operation: "add", slug: choices.slug })
     : ({ outcome: "not-running" } as const);
-  if (answer.outcome === "refused") {
-    throw new CommandProblem(`Added apps/${choices.slug}, but pnpm dev couldn't start it:
-
-  ${answer.message}
-
-Fix that, then stop pnpm dev and start it again, which starts every app in apps/.`);
-  }
   console.log(
-    answer.outcome === "done"
-      ? `Added apps/${choices.slug}. ${answer.message}`
-      : `Added apps/${choices.slug}. Next:
-${hasDependencies ? "" : "\n  pnpm install"}
-  pnpm dev
-
-Then open ${dev.origin(choices.slug)}.`,
+    afterAdd(choices.slug, answer, {
+      hasDependencies,
+      origin: dev.origin(choices.slug),
+    }),
   );
   if (asked) {
     console.log(`
@@ -258,13 +249,7 @@ async function migrateApp(): Promise<undefined> {
   await readInstallChoices(root);
   const slug = readSlug(given);
   if (isProblem(slug)) throw new CommandProblem(slug.error);
-  const answer = await askDev(root, { operation: "migrate", slug });
-  if (answer.outcome === "refused") throw new CommandProblem(answer.message);
-  console.log(
-    answer.outcome === "done"
-      ? answer.message
-      : "No pnpm dev is running in this install. Start it with pnpm dev, which migrates every app as it starts.",
-  );
+  console.log(afterMigrate(await askDev(root, { operation: "migrate", slug })));
 }
 
 function fail(message: string): never {
