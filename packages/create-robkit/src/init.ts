@@ -2,7 +2,7 @@ import { requireGo } from "@robkit/dev/cli";
 import { toolchainOf, type Choices } from "./choices.ts";
 import { generateInstall, type GenerateOptions } from "./generate.ts";
 import { jsonObject, stringsIn } from "./json.ts";
-import { firstCommit, installDependencies, startGit } from "./set-up.ts";
+import { finishInstall, firstCommit, startGit } from "./set-up.ts";
 import { dockerNote, requirePnpm } from "./toolchain.ts";
 import { writeInstall } from "./write.ts";
 
@@ -56,7 +56,11 @@ export async function init(
   await writeInstall(dir, files);
   if (!install) return { notes };
   const noGit = await startGit(dir, env);
-  await installDependencies(dir, env);
+  await finishInstall(
+    dir,
+    "the install has its files but not its dependencies",
+    env,
+  );
   const noCommit = noGit ?? (await firstCommit(dir, env));
   return { notes: noCommit === undefined ? notes : [...notes, noCommit] };
 }

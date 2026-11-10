@@ -8,6 +8,7 @@ import { defaultChoices, type Choices } from "./choices.ts";
 import { appFiles } from "./generate.ts";
 import { init } from "./init.ts";
 import { drive, keys, questionsAsked } from "./test/drive.ts";
+import { pathWith } from "./test/path.ts";
 
 const bin = fileURLToPath(new URL("robkit-command.ts", import.meta.url));
 
@@ -126,6 +127,33 @@ Then open http://notes.robkit.localhost:3000.
       code: 1,
       output: `${dir} isn't a robkit install: it has no robkit.json. Run robkit in an install's folder.\n`,
     });
+  });
+});
+
+describe("robkit add in an install with its dependencies", () => {
+  it("names the folder and the command to finish with when pnpm install fails", async () => {
+    const dir = await freshInstall();
+    await mkdir(join(dir, "node_modules"));
+    const env = await pathWith({
+      pnpm: { line: "11.28.9", failsOn: "install" },
+    });
+
+    const { code, output } = await drive(
+      bin,
+      dir,
+      ["add", "notes", "--stack", "react-hono"],
+      [],
+      env,
+    );
+
+    expect(code).toBe(1);
+    expect(output).toContain(
+      `pnpm install failed in ${dir}, so apps/notes has its files but the install doesn't have its dependencies. Its output is above. Fix what it says, then run pnpm install in ${dir} to finish.
+`,
+    );
+    expect(
+      await readFile(join(dir, "apps/notes/package.json"), "utf8"),
+    ).toContain("@internal/notes-app");
   });
 });
 

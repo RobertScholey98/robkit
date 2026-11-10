@@ -70,4 +70,17 @@ describe("init", () => {
     ]);
     expect(await exists(join(dir, "robkit.json"))).toBe(true);
   });
+
+  it("names the folder and the command to finish with when pnpm install fails", async () => {
+    const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "my-app");
+    const env = await pathWith({
+      pnpm: { line: "11.28.9", failsOn: "install" },
+      git: "git",
+    });
+
+    await expect(init(defaultChoices, dir, { env })).rejects.toThrow(
+      `pnpm install failed in ${dir}, so the install has its files but not its dependencies. Its output is above. Fix what it says, then run pnpm install in ${dir} to finish.`,
+    );
+    expect(await exists(join(dir, "robkit.json"))).toBe(true);
+  });
 });

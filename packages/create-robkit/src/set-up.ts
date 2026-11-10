@@ -1,4 +1,4 @@
-import { exec } from "@robkit/dev/cli";
+import { CommandProblem, exec } from "@robkit/dev/cli";
 import { onPath, run, type Ran } from "./toolchain.ts";
 
 /** Installs a new install's dependencies, which have no lockfile yet. */
@@ -11,6 +11,30 @@ export function installDependencies(
     cwd: dir,
     env,
   });
+}
+
+/**
+ * Installs the dependencies of the install at `dir`, whose files are
+ * already written. "Try again" would hit the folder that's now in use, so
+ * a failure says how to finish instead: `written` says what has its files.
+ *
+ * @throws a {@link CommandProblem} naming the folder and the command that
+ *   finishes the job, when pnpm install fails
+ */
+export async function finishInstall(
+  dir: string,
+  written: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+  try {
+    await installDependencies(dir, env);
+  } catch (error) {
+    if (!(error instanceof CommandProblem)) throw error;
+    throw new CommandProblem(
+      `pnpm install failed in ${dir}, so ${written}. Its output is above. Fix what it says, then run pnpm install in ${dir} to finish.`,
+      { cause: error },
+    );
+  }
 }
 
 /** One line saying which git command failed, and git's first line on why. */
