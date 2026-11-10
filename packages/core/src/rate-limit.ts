@@ -1,15 +1,44 @@
+/**
+ * A place a request holds in a client's limit while its check runs. It ends
+ * once, the first time either method is called; later calls do nothing.
+ */
+export interface Place {
+  /** Records the attempt as a failure, at the time of the call. */
+  fail: () => void;
+  /** Gives the place back without counting the attempt. */
+  release: () => void;
+}
+
+export type Reservation =
+  | { outcome: "reserved"; place: Place }
+  /** `retryAfter` is in whole seconds, at least 1. */
+  | { outcome: "refused"; retryAfter: number };
+
 export interface RateLimiter {
-  /** Seconds until `client` may try again, or 0 if it may try now. */
-  retryAfter: (client: string) => number;
-  /** Records a failed attempt by `client`. */
-  fail: (client: string) => void;
-  /** Forgets `client`'s failed attempts. */
+  /**
+   * Takes a place for `client` before its check runs, or refuses it if its
+   * failures and the places it already holds fill the limit.
+   */
+  reserve: (client: string) => Reservation;
+  /**
+   * Forgets `client`'s recorded failures. Places it holds stay held, and
+   * each still ends as its own check says.
+   */
   clear: (client: string) => void;
 }
 
+interface Client {
+  /** When each failure was recorded, oldest first. */
+  failures: number[];
+  /** Places held by checks still running. */
+  checking: number;
+}
+
 /**
- * Allows each client `limit` failed attempts in any `windowMs`. Kept in
- * memory, which is enough for one core process.
+ * Allows each client `limit` attempts in any `windowMs`, counting both
+ * its failures and the attempts still being checked, so a burst sent
+ * before the first verdict gets no more than the limit. Kept in memory,
+ * which is enough for one core process.
  */
 export function createRateLimiter({
   limit,
@@ -20,32 +49,75 @@ export function createRateLimiter({
   windowMs: number;
   now: () => Date;
 }): RateLimiter {
-  const failures = new Map<string, number[]>();
+  const clients = new Map<string, Client>();
 
-  const recent = (client: string, at: number) =>
-    (failures.get(client) ?? []).filter((time) => at - time < windowMs);
+  const recent = (client: Client, at: number) =>
+    client.failures.filter((time) => at - time < windowMs);
 
-  const prune = (at: number) => {
-    for (const [client, times] of failures) {
-      if (times.every((time) => at - time >= windowMs)) failures.delete(client);
+  /** Drops `key` once it holds no place and no failure in the window. */
+  const forgetIfIdle = (key: string, client: Client, at: number) => {
+    if (client.checking === 0 && recent(client, at).length === 0) {
+      clients.delete(key);
     }
   };
 
+  /**
+   * Seconds until a place frees. Enough of the oldest failures must expire
+   * to leave one; with too few failures to count from, every place is held
+   * by a check, and one ends soon.
+   */
+  const waitFor = (failures: number[], checking: number, at: number) => {
+    const toExpire = failures.length + checking - limit + 1;
+    const freeing = failures[toExpire - 1];
+    if (freeing === undefined) return 1;
+    return Math.max(1, Math.ceil((freeing + windowMs - at) / 1000));
+  };
+
+  function placeFor(key: string, client: Client): Place {
+    let ended = false;
+    const end = (record: boolean) => {
+      if (ended) return;
+      ended = true;
+      client.checking -= 1;
+      const at = now().getTime();
+      if (record) {
+        client.failures = [...recent(client, at), at];
+        // Kept in order of each client's latest failure.
+        clients.delete(key);
+        clients.set(key, client);
+      }
+      forgetIfIdle(key, client, at);
+    };
+    return {
+      fail: () => {
+        end(true);
+      },
+      release: () => {
+        end(false);
+      },
+    };
+  }
+
   return {
-    retryAfter(client) {
+    reserve(key) {
       const at = now().getTime();
-      const times = recent(client, at);
-      const oldest = times[times.length - limit];
-      if (oldest === undefined) return 0;
-      return Math.ceil((oldest + windowMs - at) / 1000);
+      const client = clients.get(key) ?? { failures: [], checking: 0 };
+      client.failures = recent(client, at);
+      if (client.failures.length + client.checking >= limit) {
+        return {
+          outcome: "refused",
+          retryAfter: waitFor(client.failures, client.checking, at),
+        };
+      }
+      client.checking += 1;
+      if (!clients.has(key)) clients.set(key, client);
+      return { outcome: "reserved", place: placeFor(key, client) };
     },
-    fail(client) {
-      const at = now().getTime();
-      prune(at);
-      failures.set(client, [...recent(client, at), at]);
-    },
-    clear(client) {
-      failures.delete(client);
+    clear(key) {
+      const client = clients.get(key);
+      if (!client) return;
+      client.failures = [];
+      forgetIfIdle(key, client, now().getTime());
     },
   };
 }

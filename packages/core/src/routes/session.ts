@@ -42,6 +42,13 @@ function tooManyAttempts(c: Context, retryAfter: number): Response {
   return c.json({ error: `Too many attempts. Try again in ${wait}.` }, 429);
 }
 
+function unclaimed(c: Context): Response {
+  return c.json(
+    { error: "This install has no owner yet. Set it up first." },
+    409,
+  );
+}
+
 /**
  * Signing in and out, who is signed in, and the tokens core mints for each
  * app with the keys that check them.
@@ -56,8 +63,9 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     now,
   });
   // Apart from the owner's limit, so a guest guessing codes can't lock the
-  // owner out. A guest's sign-in never clears it, or one live code would buy
-  // endless guesses at the others.
+  // owner out. A guest's sign-in frees only its own place and never clears
+  // the client's failures, or one live code would buy endless guesses at the
+  // others.
   const codeLimiter = createRateLimiter({
     limit: 10,
     windowMs: 15 * 60 * 1000,
@@ -143,30 +151,33 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     if (isProblem(credentials)) return c.json(credentials, 400);
 
     const client = clientOf(c, trustedProxy);
-    const retryAfter = loginLimiter.retryAfter(client);
-    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
-
-    const result = await signIn(
-      context,
-      credentials.username,
-      credentials.password,
-    );
-    if (result.outcome === "unclaimed") {
-      return c.json(
-        { error: "This install has no owner yet. Set it up first." },
-        409,
+    const reservation = loginLimiter.reserve(client);
+    if (reservation.outcome === "refused") {
+      return tooManyAttempts(c, reservation.retryAfter);
+    }
+    const { place } = reservation;
+    // Released on every path but a wrong password, which records it, so a
+    // check that throws leaks no place.
+    try {
+      const result = await signIn(
+        context,
+        credentials.username,
+        credentials.password,
       );
+      if (result.outcome === "unclaimed") return unclaimed(c);
+      if (result.outcome === "wrong") {
+        place.fail();
+        return c.json({ error: "Wrong username or password." }, 401);
+      }
+      loginLimiter.clear(client);
+      setSessionCookie(c, origin, result.sessionToken);
+      return c.json<SessionAnswer>({
+        state: "signed-in",
+        profile: result.profile,
+      });
+    } finally {
+      place.release();
     }
-    if (result.outcome === "wrong") {
-      loginLimiter.fail(client);
-      return c.json({ error: "Wrong username or password." }, 401);
-    }
-    loginLimiter.clear(client);
-    setSessionCookie(c, origin, result.sessionToken);
-    return c.json<SessionAnswer>({
-      state: "signed-in",
-      profile: result.profile,
-    });
   });
 
   routes.post("/login/code", async (c) => {
@@ -175,28 +186,29 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
       return c.json({ error: "Send a code." }, 400);
     }
     const client = clientOf(c, trustedProxy);
-    const retryAfter = codeLimiter.retryAfter(client);
-    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
-
-    const code = parseAccessCode(fields.code);
-    const result = code
-      ? await signInWithCode(context, code)
-      : { outcome: "refused" as const };
-    if (result.outcome === "unclaimed") {
-      return c.json(
-        { error: "This install has no owner yet. Set it up first." },
-        409,
-      );
+    const reservation = codeLimiter.reserve(client);
+    if (reservation.outcome === "refused") {
+      return tooManyAttempts(c, reservation.retryAfter);
     }
-    if (result.outcome === "refused") {
-      codeLimiter.fail(client);
-      return c.json({ error: "That code doesn't work." }, 401);
+    const { place } = reservation;
+    try {
+      const code = parseAccessCode(fields.code);
+      const result = code
+        ? await signInWithCode(context, code)
+        : { outcome: "refused" as const };
+      if (result.outcome === "unclaimed") return unclaimed(c);
+      if (result.outcome === "refused") {
+        place.fail();
+        return c.json({ error: "That code doesn't work." }, 401);
+      }
+      setSessionCookie(c, origin, result.sessionToken);
+      return c.json<SessionAnswer>({
+        state: "signed-in",
+        profile: result.profile,
+      });
+    } finally {
+      place.release();
     }
-    setSessionCookie(c, origin, result.sessionToken);
-    return c.json<SessionAnswer>({
-      state: "signed-in",
-      profile: result.profile,
-    });
   });
 
   // The hub sends no body here, so none is read.
