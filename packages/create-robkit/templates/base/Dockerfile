@@ -81,7 +81,9 @@ RUN rm -rf /usr/local/lib/node_modules /usr/local/include /opt/yarn-* \
 FROM scratch
 COPY --from=node / /
 ARG ROBKIT_APP
-ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+# The app's own bins first, such as core's robkit-core, as `node --run`
+# would put them.
+ENV PATH=/install/apps/${ROBKIT_APP}/node_modules/.bin:/install/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     NODE_ENV=production HOST=0.0.0.0 PORT=3000 ROBKIT_APP=${ROBKIT_APP}
 COPY --from=production --chown=node:node /install /install
 WORKDIR /install/apps/${ROBKIT_APP}
@@ -90,4 +92,8 @@ EXPOSE 3000
 # Any answer short of a server error: a guarded app turns a stranger away.
 HEALTHCHECK --interval=10s --timeout=3s --start-period=60s \
   CMD node -e "fetch('http://127.0.0.1:' + process.env.PORT + '/').then((r) => process.exit(r.status < 500 ? 0 : 1), () => process.exit(1))"
-CMD ["node", "--run", "start"]
+# The app's start script, run by Alpine's shell rather than `node --run`,
+# which passes no signal on to what it runs. The shell runs the last command
+# of an `&&` list, the server, in its own place, so the server is the
+# process `docker stop` signals, and the container exits with its code.
+CMD ["/bin/sh", "-c", "exec /bin/sh -c \"$(node -p 'require(\"./package.json\").scripts.start')\""]

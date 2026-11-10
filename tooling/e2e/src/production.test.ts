@@ -20,6 +20,7 @@ import {
   extraneousPackages,
   robkitPackages,
   stackReport,
+  stopApp,
   withVisitors,
 } from "./production-checks.ts";
 import { startStack, stopStack, type Stack } from "./production-stack.ts";
@@ -268,4 +269,20 @@ describe("the default install in production", () => {
       expect(await extraneousPackages(stack, app.slug)).toEqual([]);
     },
   );
+
+  // Last, since they stop what the tests above use. The exit code is the
+  // server's own: Docker's signal reached it, and it stopped before
+  // Docker's kill, which would have made it 137.
+  it("stops core's container with code 0 on docker stop, once core has stopped", async () => {
+    expect(await stopApp(stack, slug("core"))).toEqual({
+      exitCode: 0,
+      lastLine: "core stopped",
+    });
+  });
+
+  it("stops a Go app's container with code 0 on docker stop", async () => {
+    const go = later.find((app) => app.stack === "go");
+
+    expect((await stopApp(stack, go?.slug ?? slug("go"))).exitCode).toBe(0);
+  });
 });
