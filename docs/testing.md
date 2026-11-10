@@ -70,5 +70,5 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
   ```
 
 - **A failed production journey** prints what the browser saw and each container's state and last logs.
-- **Leftovers.** The watcher removes what a test started when the test process exits, however it ends. If a machine crashed mid-run, the watcher died with it: `docker ps` shows any `robkit-test-*` or `robkit-e2e-*` containers left, and the temp folder may hold `robkit-install-*`, `robkit-bin-*` and `robkit-caddy-*` folders and leases in `robkit-port-leases`. Remove them before the next run.
+- **Leftovers.** The watcher removes what a test started when the test process exits, however it ends. If a machine crashed mid-run, the watcher died with it: `docker ps` shows any `robkit-test-*`, `robkit-e2e-*` or `robkit-prod-*` containers left, and the temp folder may hold `robkit-install-*`, `robkit-bin-*`, `robkit-caddy-*` and `robkit-newer-*` folders and leases in `robkit-port-leases`. Remove them before the next run.
 - **`ERR_NETWORK_CHANGED` in Chromium** where Docker runs natively on Linux: set `COMPOSE_FILE` as above. Docker Desktop doesn't need it.
