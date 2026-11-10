@@ -55,8 +55,16 @@ describe("an app of the default install that starts with a config problem", () =
   });
 
   it("prints the example's migration's problem alone and exits 1", async () => {
+    const exampleDir = join(inject("installs").start, "apps", "example");
     await expect(
-      runWithout("example", "src/migrate.ts", "DATABASE_URL"),
+      run(join(exampleDir, "node_modules/.bin/robkit-migrate"), [], {
+        cwd: exampleDir,
+        env: Object.fromEntries(
+          Object.entries(process.env).filter(
+            ([name]) => name !== "DATABASE_URL",
+          ),
+        ),
+      }),
     ).rejects.toMatchObject({
       code: 1,
       stderr:

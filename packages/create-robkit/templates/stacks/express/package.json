@@ -7,11 +7,12 @@
     "test": "vitest run",
     "build": "vite build",
     "start": "node --run migrate && node dist/serve.js",
-    "migrate": "node src/migrate.ts",
+    "migrate": "robkit-migrate",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@internal/ui": "workspace:*",
+    "@robkit/drizzle": "catalog:",
     "@robkit/express": "catalog:",
     "@robkit/input": "catalog:",
     "drizzle-orm": "catalog:",

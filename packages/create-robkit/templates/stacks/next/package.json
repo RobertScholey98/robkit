@@ -7,10 +7,11 @@
     "test": "vitest run",
     "build": "next build",
     "start": "node --run migrate && node src/serve.ts",
-    "migrate": "node src/migrate.ts",
+    "migrate": "robkit-migrate",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@robkit/drizzle": "catalog:",
     "@robkit/input": "catalog:",
     "drizzle-orm": "catalog:",
     "next": "catalog:",

@@ -464,6 +464,7 @@ describe("generateInstall", () => {
     expect(overrides).toEqual({
       "@robkit/core": at("core"),
       "@robkit/dev": at("dev"),
+      "@robkit/drizzle": at("drizzle"),
       "@robkit/express": at("express"),
       "@robkit/guard": at("guard"),
       "@robkit/hono": at("hono"),
@@ -556,14 +557,23 @@ describe("generateInstall", () => {
         dependencies: Record<string, string>;
       };
 
-      expect(files.has("src/migrate.ts")).toBe(true);
+      expect(files.has("src/migrate.ts")).toBe(false);
+      expect(files.get("src/database.ts")).toBe(
+        `import { appDatabase } from "@robkit/drizzle";
+import * as schema from "./schema.ts";
+
+export const database = appDatabase(schema);
+`,
+      );
       expect(files.has("src/visits.ts")).toBe(true);
       expect(files.has("drizzle/0000_init.sql")).toBe(true);
-      expect(manifest.scripts.migrate).toBe("node src/migrate.ts");
+      expect(manifest.scripts.migrate).toBe("robkit-migrate");
+      expect(manifest.dependencies["@robkit/drizzle"]).toBe("catalog:");
       expect(manifest.dependencies["drizzle-orm"]).toBe("catalog:");
+      expect(manifest.dependencies.postgres).toBe("catalog:");
       expect(manifest.scripts.start).toMatch(/^node --run migrate && /);
       expect(files.get("AGENTS.md")).toContain(
-        "`src/migrate.ts` applies the migrations",
+        "The `migrate` script runs `robkit-migrate`, from `@robkit/drizzle`",
       );
     },
   );

@@ -40,7 +40,7 @@ A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page s
 - `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. `next.config.ts` lets the dev proxy's host reach Next's dev server. Telemetry is off: the `dev` script sets `NEXT_TELEMETRY_DISABLED` because `next dev`'s own process never loads `next.config.ts`, and `next.config.ts` sets it for `next build` and the server.
 - `pnpm build` runs `next build`, which writes the build to `dist`.
 - The production image runs the `start` script, which migrates and then runs `src/serve.ts`. It serves the build with Next's request handler on `HOST` and `PORT`.
-- `dependencies` are what runs in production: Next, React, and what `src/serve.ts` and `src/migrate.ts` import. The production image installs only those. `next build` bundles everything else the pages and the proxy import, `@robkit/next` and the UI kit among them, so those are dev dependencies.
+- `dependencies` are what runs in production: Next, React, and what `src/serve.ts` imports, and `@robkit/drizzle` with `drizzle-orm` and `postgres`, which the `migrate` script runs. The production image installs only those. `next build` bundles everything else the pages and the proxy import, `@robkit/next` and the UI kit among them, so those are dev dependencies.
 
 ## Testing
 
@@ -69,7 +69,7 @@ The example's queries are in `src/visits.ts`. `src/app/page.tsx` shows the count
 The app talks to Postgres with Drizzle over `DATABASE_URL`, as its own role. The role has the app's own schema first on its search path, so a table named without a schema lands there. The role can't reach core's schema or another app's.
 
 - `src/schema.ts` declares the tables. Use `pgTable`, never `pgSchema`: the app's schema is the role's, and naming another one fails.
-- `src/database.ts` gives queries the database, connected on first use. `src/visits.ts` shows a query.
+- `src/database.ts` gives queries the database with `appDatabase(schema)` from `@robkit/drizzle`, which connects on first use. `src/visits.ts` shows a query.
 - `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run.
 
-`src/migrate.ts` applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It follows Drizzle's migrator but skips its `CREATE SCHEMA`, which the app's role may not run, and keeps its journal table in the app's schema.
+The `migrate` script runs `robkit-migrate`, from `@robkit/drizzle`, which applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It keeps its journal table in the app's schema, and two containers that start together apply each migration once. If you set `out` in `drizzle.config.ts` to another folder, name it in the script: `robkit-migrate <folder>`.
