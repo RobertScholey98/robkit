@@ -19,6 +19,7 @@ import {
   answerOf,
   answers,
   extraneousPackages,
+  imagePackages,
   robkitPackages,
   stackReport,
   stopApp,
@@ -296,6 +297,15 @@ describe("the default install in production", () => {
     "builds the $stack app's image with no package production doesn't need",
     async (app) => {
       expect(await extraneousPackages(stack, app.slug)).toEqual([]);
+    },
+  );
+
+  // The extra-packages check counts a peer as needed, so it can't see a
+  // build tool that arrives as one. These two would get Vite that way.
+  it.each(["hub", "express"])(
+    "builds %s's image without vite",
+    async (name) => {
+      expect(await imagePackages(stack, slug(name))).not.toContain("vite");
     },
   );
 
