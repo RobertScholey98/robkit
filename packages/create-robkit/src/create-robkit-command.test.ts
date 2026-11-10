@@ -8,6 +8,7 @@ import { reportFaultsAt } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
 import { gitEnv } from "./test/git.ts";
+import { installsPnpm, pathAhead } from "./test/path.ts";
 
 const bin = fileURLToPath(new URL("create-robkit-command.ts", import.meta.url));
 
@@ -90,8 +91,24 @@ async function gitLog(dir: string): Promise<string> {
   return stdout.trim();
 }
 
-// Each runs a real pnpm install, which takes most of a minute under load.
-describe("init with no --no-install", { timeout: 120_000 }, () => {
+/**
+ * A machine with Docker and a pnpm that can run the install's, both fakes,
+ * and its own git, with or without a name and email. The fake pnpm prints
+ * its version whatever it is asked, so its install is that one line.
+ */
+async function machine(identity: boolean): Promise<NodeJS.ProcessEnv> {
+  return pathAhead(
+    { pnpm: await installsPnpm(), docker: "docker" },
+    await gitEnv(identity),
+  );
+}
+
+/** What a run printed, with the line endings a fake command has on Windows made plain. */
+const printed = (output: string) => output.replaceAll("\r\n", "\n");
+
+// A fake pnpm stands in, so these wait on no registry. The registry test in
+// tooling/e2e makes an install with the real one, from npm create alone.
+describe("init with no --no-install", () => {
   it("writes, installs and commits, then prints the next commands and the hub's address", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
 
@@ -100,14 +117,13 @@ describe("init with no --no-install", { timeout: 120_000 }, () => {
       cwd,
       ["my-app", "--stack", "start", "--link"],
       [],
-      await gitEnv(true),
-      110_000,
+      await machine(true),
     );
 
     expect(code).toBe(0);
-    expect(output.endsWith(nextSteps(cwd))).toBe(true);
+    // pnpm install's output, then nothing but the next steps.
+    expect(printed(output)).toBe(`${await installsPnpm()}\n${nextSteps(cwd)}`);
     const dir = join(cwd, "my-app");
-    expect(await readdir(dir)).toContain("node_modules");
     expect(await gitLog(dir)).toBe("Make a robkit install");
     const { stdout } = await run("git", ["status", "--porcelain"], {
       cwd: dir,
@@ -123,18 +139,14 @@ describe("init with no --no-install", { timeout: 120_000 }, () => {
       cwd,
       ["my-app", "--stack", "start", "--link"],
       [],
-      await gitEnv(false),
-      110_000,
+      await machine(false),
     );
 
     expect(code).toBe(0);
-    expect(
-      output.endsWith(
-        `git has no name or email set, so init made no first commit. Set them with git config --global user.name and git config --global user.email.\n${nextSteps(cwd)}`,
-      ),
-    ).toBe(true);
+    expect(printed(output)).toBe(
+      `${await installsPnpm()}\ngit has no name or email set, so init made no first commit. Set them with git config --global user.name and git config --global user.email.\n${nextSteps(cwd)}`,
+    );
     const dir = join(cwd, "my-app");
-    expect(await readdir(dir)).toContain("node_modules");
     await expect(gitLog(dir)).rejects.toThrow();
   });
 });
