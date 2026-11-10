@@ -2,7 +2,14 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { signingKeys } from "./schema.ts";
 import { ensureSigningKey } from "./signing-key.ts";
+import { createDatabase, type Database } from "./database.ts";
 import { freshCore } from "./test/fresh-app.ts";
+
+/** The URL `db` connects with, for a second connection to the same database. */
+function databaseUrlOf(db: Database): string {
+  const { host, port, database, user, pass } = db.$client.options;
+  return `postgres://${user}:${String(pass)}@${host[0] ?? ""}:${String(port[0])}/${database}`;
+}
 
 describe("ensureSigningKey", () => {
   it("creates a key once and loads it after that", async () => {
@@ -27,6 +34,34 @@ describe("ensureSigningKey", () => {
         sql`select count(*)::int as count from core.signing_keys`,
       ),
     ).toEqual([{ count: 1 }]);
+  });
+
+  it("waits on core's table while another boot creates the key, holding no advisory lock", async () => {
+    const { db } = await freshCore();
+    const other = createDatabase(databaseUrlOf(db));
+    try {
+      let loading: Promise<unknown> | undefined;
+      await other.transaction(async (tx) => {
+        await tx.execute(sql`lock table core.signing_keys in exclusive mode`);
+        loading = ensureSigningKey(db);
+        await expect
+          .poll(async () =>
+            db.execute(
+              sql`select count(*)::int as n from pg_locks where not granted and relation = 'core.signing_keys'::regclass`,
+            ),
+          )
+          .toEqual([{ n: 1 }]);
+
+        expect(
+          await db.execute(
+            sql`select count(*)::int as n from pg_locks where locktype = 'advisory'`,
+          ),
+        ).toEqual([{ n: 0 }]);
+      });
+      await loading;
+    } finally {
+      await other.$client.end();
+    }
   });
 
   it("refuses a stored key that is a shared secret, not an EdDSA key", async () => {
