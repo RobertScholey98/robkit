@@ -26,3 +26,4 @@ To change one of these, open a ticket that argues against it. If R accepts it, w
 | [0018](0018-go-module-travels-in-the-install.md)        | robkit's Go module travels in the install, in `vendor/robkit/go`                                       |
 | [0019](0019-one-version-a-pull-request-and-a-button.md) | Every package releases at one version, through a version pull request and a publish started by hand    |
 | [0020](0020-runner-takes-requests-on-a-socket-file.md)  | The dev runner takes `add` and `migrate` requests on a socket file in a folder only the owner can open |
+| [0021](0021-upgrade-runs-in-two-steps.md)               | `robkit upgrade` runs in two steps, and the handover between them is frozen at 0.1.0                   |
