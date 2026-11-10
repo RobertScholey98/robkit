@@ -18,7 +18,7 @@ import {
 import { orThrow, readCoreUrl } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { guarded, type GuardedOptions } from "./index.ts";
+import { coreOrigin, guarded, type GuardedOptions } from "./index.ts";
 
 // requestGuard's own tests cover the guard. These cover the Start glue: the
 // guard's answer goes out as is, and Start gets the viewer as context.
@@ -256,6 +256,26 @@ describe("guarded(entry), reading its own settings", () => {
       ),
     ).toBe(
       `guarded()'s app: "Start" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+    );
+  });
+});
+
+describe("coreOrigin", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("is core's origin from ROBKIT_CORE_URL, for a page that shows it", () => {
+    vi.stubEnv("ROBKIT_CORE_URL", "https://core.robkit.dev/");
+
+    expect(coreOrigin()).toBe("https://core.robkit.dev");
+  });
+
+  it("exits with the reader's message when ROBKIT_CORE_URL is unset", () => {
+    vi.stubEnv("ROBKIT_CORE_URL", undefined);
+
+    expect(printedOnExit(() => coreOrigin())).toBe(
+      "ROBKIT_CORE_URL is not set. Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.",
     );
   });
 });

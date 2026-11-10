@@ -25,7 +25,7 @@ import { orThrow, readCoreUrl } from "@robkit/input";
 import { readSessionLapsed } from "@robkit/session/lapsed";
 import { NextRequest } from "next/server.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { guarded, viewer } from "./index.ts";
+import { coreOrigin as originOfCore, guarded, viewer } from "./index.ts";
 import {
   requestHeaders,
   servedWith,
@@ -509,6 +509,26 @@ describe("guarded(), reading its own settings", () => {
       ),
     ).toBe(
       `guarded()'s core is "http://core.example.com", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`,
+    );
+  });
+});
+
+describe("coreOrigin", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("is core's origin from ROBKIT_CORE_URL, for a page that shows it", () => {
+    vi.stubEnv("ROBKIT_CORE_URL", "https://core.robkit.dev/");
+
+    expect(originOfCore()).toBe("https://core.robkit.dev");
+  });
+
+  it("exits with the reader's message when ROBKIT_CORE_URL is unset", () => {
+    vi.stubEnv("ROBKIT_CORE_URL", undefined);
+
+    expect(printedOnExit(() => originOfCore())).toBe(
+      "ROBKIT_CORE_URL is not set. Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.",
     );
   });
 });

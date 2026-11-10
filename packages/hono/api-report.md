@@ -5,6 +5,9 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/hono
 
 ```ts
+export function coreOrigin(): CoreOrigin {
+  return orExit(readCoreUrl(process.env));
+}
 export function guarded(
   options?: GuardedOptions,
 ): MiddlewareHandler<GuardedEnv>;

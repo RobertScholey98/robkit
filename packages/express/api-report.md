@@ -5,6 +5,9 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/express
 
 ```ts
+export function coreOrigin(): CoreOrigin {
+  return orExit(readCoreUrl(process.env));
+}
 export function guarded(
   options?: GuardedOptions,
 ): (
