@@ -30,7 +30,10 @@ With no --stack, init asks for the folder and the example app's stack.
     "--stack <name>",
     `the example app's stack: ${readyStacks.join(", ")}`,
   ),
-  flagLine("--install", "install dependencies and initialise git"),
+  flagLine(
+    "--no-install",
+    "write the files only: skip pnpm install and the first commit",
+  ),
   flagLine(
     "--link",
     "link the @robkit packages to the robkit checkout this runs from, instead of installing them from npm",

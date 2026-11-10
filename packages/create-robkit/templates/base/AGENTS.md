@@ -7,12 +7,50 @@ This is a robkit install: a monorepo of small apps behind one sign-in. Core hold
 ```sh
 pnpm dev                     # Postgres, core, the hub, admin and every app, on *.robkit.localhost:3000
 pnpm robkit add              # add an app; asks for its stack, name, who can open it and an icon
+pnpm robkit migrate <slug>   # apply an app's new migration in the running pnpm dev
+pnpm robkit upgrade          # move to a newer robkit, with pnpm dev stopped and every change committed
 pnpm lint                    # robkit check, ESLint, then each app's own lint
 pnpm typecheck
 pnpm test
 pnpm build
 pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 ```
+
+## Settings for pnpm dev
+
+Set them in a `.env` file at the install's root, which git ignores. `pnpm dev` and Docker Compose both read it, and a value exported in the shell wins over the file's.
+
+- `ROBKIT_DEV_PORT`: where the proxy listens, `3000` by default. The apps take the ports after it, one each, so moving it moves them too.
+- `ROBKIT_POSTGRES_PORT`: where Postgres listens on this machine, `54320` by default.
+- `ROBKIT_DOMAIN`: `robkit.localhost` by default. It must be `localhost` or a name under it.
+
+Before it starts anything, `pnpm dev` checks that Docker answers and that these ports are free, and says which setting to change when one is taken.
+
+## Adding and removing apps
+
+- `pnpm robkit add` works while `pnpm dev` runs. Once the app's files are written and installed, `pnpm dev` gives it a database, migrates it, starts it on a port no running app holds and routes its subdomain, then restarts core so the launcher lists it. Nobody is signed out. `robkit add` prints the app's address, or the problem if it can't start, and every other app keeps running.
+- `pnpm robkit migrate <slug>` applies an app's new migration while `pnpm dev` runs, as the app's own role, so its password stays the same. With no `pnpm dev` running, start it: it migrates every app as it starts.
+- Removing an app needs a restart. Stop `pnpm dev`, delete `apps/<slug>`, then start `pnpm dev` again.
+- `pnpm dev` hears these commands over a socket file in a folder it makes for you alone: `robkit-<uid>`, in `XDG_RUNTIME_DIR` or in the temp folder where that isn't set. It refuses to start if others can open that folder or another account owns it, and the `robkit` commands refuse to use one.
+
+## Upgrading robkit
+
+- `pnpm robkit upgrade` writes only `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `packageManager` in `package.json`, `tooling/eslint` and `vendor/robkit/go`. It replaces the last two whole, so don't edit them.
+- In the catalog it raises an entry robkit needs higher and adds one it lacks. It never lowers or removes one, so an entry of your own stays.
+- It never rewrites an app, the hub, admin, `packages/`, the `Dockerfile`, `compose.yaml`, `turbo.json` or `.github`. When a new robkit changes what those should hold, the changelog it prints says what to change by hand.
+- It refuses while `pnpm dev` runs, without a commit, or with a change not committed, so `git diff` afterwards shows only what it did. `README.md` gives the commands that undo an upgrade stopped partway.
+
+## An app's own settings
+
+An app's own settings, such as an API key, go in `apps/<slug>/.env`, which git ignores. Commit an `.env.example` beside it that names each setting without its value.
+
+- `pnpm dev` reads the file as it starts, and gives its settings to that app and its `migrate` script, and to no other app. An edit takes effect at the next `pnpm dev`.
+- The runner's own settings win, then a value exported in the shell, then the file's. Every app still gets the shell's whole environment.
+- The file can't set `DATABASE_URL`, `PORT`, `HOST`, `NODE_ENV`, `VITEST` or any name that starts `ROBKIT_`. A file that tries stops `pnpm dev`, which names the file and the variable. It may set `NEXT_TELEMETRY_DISABLED`, which `pnpm dev` otherwise sets to `1`.
+- `.env` is the only file `pnpm dev` loads. A stack that loads files of its own, as Next does with `.env.local`, still does.
+- A test runs with no `pnpm dev` behind it, so nothing loads the file for it. A test that needs a setting sets it.
+- In production the owner sets the app's settings on the host, and no image holds an `.env`. `docs/deploy.md` says where.
+- Vite and Next write a value the browser reads, a `VITE_*` or `NEXT_PUBLIC_*` one, into the page when they build the app. Docker builds an image without the app's `.env`, so in production the page doesn't have it. Read the setting on the server and hand it to the page instead.
 
 ## Layout
 

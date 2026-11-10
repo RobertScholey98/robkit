@@ -2,7 +2,7 @@
 
 robkit's guard for an app whose server is Go, the React + Go stack's. It ports `@robkit/session`'s request guard and `@robkit/guard`'s decision table, and passes the same `packages/guard/conformance.json`.
 
-An install reaches it with a `replace` directive in the app's `go.mod`: to this folder in a robkit checkout under `--link`, and to `vendor/robkit/go` after `robkit vendor`. It isn't on a Go module proxy yet.
+An install reaches it with a `replace` directive in the app's `go.mod`: to this folder in a robkit checkout under `--link`, and to the install's own copy in `vendor/robkit/go` otherwise. init and `robkit add` write that copy with the first Go app, from what create-robkit carries, so the module is never fetched. It isn't on a Go module proxy.
 
 ## Example
 

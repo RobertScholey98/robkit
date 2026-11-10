@@ -28,7 +28,42 @@ export function discoverApps(root: string, firstPort?: number): Promise<App[]>;
 ## @robkit/dev/cli
 
 ```ts
+export function askDev(
+  root: string,
+  request: DevRequest,
+  env?: NodeJS.ProcessEnv,
+): Promise<DevAnswer>;
 export { CommandProblem } from "@robkit/input/command";
+export type DevAnswer =
+  | {
+      outcome: "done";
+      message: string;
+    }
+  | {
+      outcome: "refused";
+      message: string;
+    }
+  | {
+      outcome: "not-running";
+    };
+export type DevOperation = "add" | "migrate";
+export interface DevRequest {
+  operation: DevOperation;
+  slug: Slug;
+}
+export function devRunning(
+  root: string,
+  env?: NodeJS.ProcessEnv,
+): Promise<boolean>;
+export function devSocket(
+  root: string,
+  env: NodeJS.ProcessEnv,
+): Promise<DevSocket>;
+export interface DevSocket {
+  folder: string;
+  path: string;
+  setBy: "XDG_RUNTIME_DIR" | "TMPDIR";
+}
 export function exec(
   command: string,
   args: string[],
@@ -36,6 +71,8 @@ export function exec(
     cwd: string;
     env: NodeJS.ProcessEnv;
     slug?: string;
+    quiet?: boolean;
+    signal?: AbortSignal | undefined;
   },
 ): Promise<void>;
 export function isMissing(error: unknown): boolean;

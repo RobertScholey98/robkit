@@ -6,6 +6,15 @@ packages:
 # Manifests say `catalog:`, so every external version lives in the catalog.
 catalogMode: strict
 
+# pnpm holds back a package published in the last day, in case it was taken
+# over and published again, and refuses it under minimumReleaseAgeStrict.
+# robkit's own packages are exempt, so an install made on the day of a
+# release installs. SECURITY.md in robkit's repository says what that gives
+# up.
+minimumReleaseAgeExclude:
+  - "@robkit/*"
+  - create-robkit
+
 # esbuild ships its binary as an optional dependency, so its install script
 # has nothing to do.
 allowBuilds:

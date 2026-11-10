@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -17,6 +17,7 @@ import {
 import { buildApp, hostEnv, startApp } from "./production-apps.ts";
 import {
   answerOf,
+  appFolderFiles,
   answers,
   extraneousPackages,
   imagePackages,
@@ -96,7 +97,14 @@ describe("the default install in production", () => {
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
     removeWhenGone({ path: dir });
-    await init(defaultChoices, dir, { link: true, install: true });
+    await init(defaultChoices, dir, { link: true });
+    // The example's own settings, as its author keeps them for pnpm dev.
+    for (const name of [".env", ".env.local", ".env.example"]) {
+      await writeFile(
+        join(dir, "apps", exampleSlug, name),
+        "EXAMPLE_SECRET=only on this machine\n",
+      );
+    }
     // A host can't reach this checkout, so the install takes tarballs.
     await run("pnpm", ["run", "robkit", "vendor"], {
       cwd: dir,
@@ -168,6 +176,14 @@ describe("the default install in production", () => {
       expect(await extraneousPackages(stack, slug(name))).toEqual([]);
     },
   );
+
+  it("leaves an app's .env files out of its image, and keeps .env.example", async () => {
+    const files = await appFolderFiles(stack, exampleSlug);
+
+    expect(files.filter((name) => name.startsWith(".env"))).toEqual([
+      ".env.example",
+    ]);
+  });
 
   // Core's manifest doesn't name @robkit/provision: it arrives behind
   // core, from the tarball robkit vendor packed, not from npm.
@@ -293,7 +309,9 @@ describe("the default install in production", () => {
         ]),
       ),
     );
-  });
+    // It builds four images, which takes 215 to 245 seconds on a usual CI
+    // runner and over 300 on a slow one. So it gets the hooks' limit.
+  }, 900_000);
 
   it.each(later)(
     "builds the $stack app's image with no package production doesn't need",

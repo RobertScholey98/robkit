@@ -1,7 +1,15 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { randomBytes } from "node:crypto";
-import { readFile, utimes } from "node:fs/promises";
+import {
+  link as linkTo,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  utimes,
+} from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { freePort } from "@internal/test-postgres";
 import postgres from "postgres";
@@ -399,6 +407,53 @@ describe("robkit-core serve", () => {
     await expect
       .poll(() => run.stdout().split(listening).length - 1, { timeout: 30_000 })
       .toBe(2);
+    expect(await statusOf(port)).toBe(200);
+    run.stop();
+    expect(await run.exited).toBe(0);
+  });
+
+  it("keeps serving when a dependency gains a hard link, as every pnpm install on the machine gives it", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    const port = await freePort();
+    const run = spawnCore(["serve"], {
+      DATABASE_URL: databaseUrl,
+      ROBKIT_CORE_URL: coreUrl,
+      PORT: String(port),
+    });
+    const listening = `core listening on 127.0.0.1:${String(port)}`;
+    const starts = () => run.stdout().split(listening).length - 1;
+    await expect.poll(starts, { timeout: 30_000 }).toBe(1);
+    // A file core imports, in pnpm's store, and a folder on the same disk
+    // to link it from.
+    const dependency = await realpath(
+      fileURLToPath(
+        new URL("../node_modules/hono/dist/index.js", import.meta.url),
+      ),
+    );
+    const elsewhere = await mkdtemp(
+      fileURLToPath(new URL("../node_modules/.hard-link-", import.meta.url)),
+    );
+    onTestFinished(() => rm(elsewhere, { recursive: true, force: true }));
+
+    await linkTo(dependency, join(elsewhere, "index.js"));
+    // Node restarts a moment after a change, and takes a second change in
+    // that moment for the same one. So a restart gets two seconds to show
+    // before the change that must cause one. A watcher of everything core
+    // imports had restarted core within one.
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+    expect(starts()).toBe(1);
+    // Then a change core does restart for, which shows it was watching.
+    const now = new Date();
+    await utimes(
+      fileURLToPath(new URL("serve-core.ts", import.meta.url)),
+      now,
+      now,
+    );
+
+    await expect.poll(starts, { timeout: 30_000 }).toBe(2);
+    // Node names each file whose change restarts core.
+    expect(run.stdout() + run.stderr()).not.toContain(dependency);
     expect(await statusOf(port)).toBe(200);
     run.stop();
     expect(await run.exited).toBe(0);

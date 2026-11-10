@@ -105,7 +105,7 @@ It returns the function Next calls with its phase, and gives the app's settings 
 
 Under `next dev` it checks `ROBKIT_APP` and `ROBKIT_CORE_URL`, and stops with the reader's message, naming the one that's missing. Next loads `proxy.ts`, and the guard, only on the first request, so without it a missing setting would wait for that.
 
-It sets `NEXT_TELEMETRY_DISABLED`, which `next build` reads after it loads the config. `next dev`'s own process reads it before it loads any config, so `pnpm dev` sets it for every app. Next's production server sends no telemetry.
+It sets `NEXT_TELEMETRY_DISABLED=1` where nothing has set it, so the shell or the app's `.env` decides. `next build` reads it after it loads the config. `next dev`'s own process reads it before it loads any config, so `pnpm dev` sets the same default for every app. Next's production server sends no telemetry.
 
 Next loads `next.config.ts` in production as well, so an app lists `@robkit/next` under `dependencies`, and `@robkit/next/config` imports nothing from the guard or from a build tool.
 

@@ -19,6 +19,18 @@
     "test:unit": {
       "dependsOn": ["^build"]
     },
+    "create-robkit#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/tooling/eslint/*.js",
+        "$TURBO_ROOT$/go/**"
+      ]
+    },
     "create-robkit#test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],
@@ -51,7 +63,11 @@
       ]
     },
     "@internal/e2e#test": {
-      "dependsOn": ["^build", "create-robkit#test"],
+      "dependsOn": [
+        "^build",
+        "create-robkit#test",
+        "@internal/repo-checks#typecheck"
+      ],
       "cache": false
     },
     "@internal/repo-checks#test": {
@@ -72,7 +88,8 @@
         "$TURBO_ROOT$/AGENTS.md",
         "$TURBO_ROOT$/docs/**",
         "$TURBO_ROOT$/renovate.json",
-        "$TURBO_ROOT$/.changeset/config.json"
+        "$TURBO_ROOT$/.changeset/**",
+        "$TURBO_ROOT$/.github/workflows/**"
       ]
     },
     "@internal/repo-checks#test:unit": {
@@ -93,7 +110,8 @@
         "$TURBO_ROOT$/AGENTS.md",
         "$TURBO_ROOT$/docs/**",
         "$TURBO_ROOT$/renovate.json",
-        "$TURBO_ROOT$/.changeset/config.json"
+        "$TURBO_ROOT$/.changeset/**",
+        "$TURBO_ROOT$/.github/workflows/**"
       ]
     }
   }

@@ -1,5 +1,10 @@
-import { readFile, stat } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { matchesGlob } from "node:path/posix";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import {
@@ -16,6 +21,9 @@ import {
   stackTemplate,
   type Files,
 } from "./generate.ts";
+import { robkitVersion } from "./test/robkit-version.ts";
+
+const run = promisify(execFile);
 
 function json(files: Files, path: string): unknown {
   return JSON.parse(files.get(path) ?? "null");
@@ -137,6 +145,7 @@ describe("generateInstall", () => {
     expect(Object.keys(settings)).toEqual([
       "packages",
       "catalogMode",
+      "minimumReleaseAgeExclude",
       "allowBuilds",
       "overrides",
       "catalog",
@@ -578,11 +587,11 @@ describe("generateInstall", () => {
     );
 
     expect(catalog).toMatchObject({
-      "@robkit/core": "0.0.0",
-      "@robkit/dev": "0.0.0",
-      "@robkit/start": "0.0.0",
+      "@robkit/core": robkitVersion,
+      "@robkit/dev": robkitVersion,
+      "@robkit/start": robkitVersion,
       "@tanstack/react-start": "1.169.4",
-      "create-robkit": "0.0.0",
+      "create-robkit": robkitVersion,
       "drizzle-orm": "0.45.4",
       hono: "4.13.14",
       prettier: "3.9.10",
@@ -594,13 +603,32 @@ describe("generateInstall", () => {
     expect(overrides).toEqual({ "styled-jsx>@babel/core": "-" });
   });
 
+  it("exempts every robkit package from pnpm's release-age rule, and nothing else", async () => {
+    const settings = workspace(await generateInstall(defaultChoices)) as {
+      catalog: Record<string, string>;
+      minimumReleaseAgeExclude?: string[];
+    };
+    const exempt = settings.minimumReleaseAgeExclude ?? [];
+    const isExempt = (name: string) =>
+      exempt.some((pattern) => matchesGlob(name, pattern));
+    const names = Object.keys(settings.catalog);
+
+    expect(exempt).toEqual(["@robkit/*", "create-robkit"]);
+    expect(names.filter(isExempt)).toEqual(
+      names.filter(
+        (name) => name.startsWith("@robkit/") || name === "create-robkit",
+      ),
+    );
+    expect(names.filter(isExempt)).toContain("@robkit/core");
+  });
+
   it("catalogs every stack robkit add offers, not only the example's", async () => {
     const { catalog } = workspace(await generateInstall(honoExample));
 
     expect(catalog).toMatchObject({
-      "@robkit/express": "0.0.0",
-      "@robkit/next": "0.0.0",
-      "@robkit/start": "0.0.0",
+      "@robkit/express": robkitVersion,
+      "@robkit/next": robkitVersion,
+      "@robkit/start": robkitVersion,
       "@tailwindcss/postcss": "4.3.3",
       "@tanstack/react-start": "1.169.4",
       "@types/express": "5.0.6",
@@ -655,11 +683,102 @@ describe("generateInstall", () => {
     );
   });
 
+  it("writes robkit's Go module to vendor/robkit/go with a Go example, but not under --link", async () => {
+    const goExample: Choices = { exampleStack: "go" };
+    const vendored = (files: Files) =>
+      [...files.keys()].filter((path) => path.startsWith("vendor/"));
+
+    const plain = await generateInstall(goExample);
+    const linked = await generateInstall(goExample, { link: true });
+    const noGo = await generateInstall(defaultChoices);
+
+    expect(vendored(plain)).toEqual(
+      expect.arrayContaining([
+        "vendor/robkit/go/go.mod",
+        "vendor/robkit/go/session/guarded.go",
+      ]),
+    );
+    expect(vendored(plain).filter((path) => path.endsWith("_test.go"))).toEqual(
+      [],
+    );
+    expect(plain.get("vendor/robkit/go/go.mod")).toContain(
+      "module github.com/RobertScholey98/robkit/go\n",
+    );
+    expect(vendored(linked)).toEqual([]);
+    expect(vendored(noGo)).toEqual([]);
+  });
+
+  it("has a README whose every pnpm command is pnpm install or one of the install's scripts", async () => {
+    const files = await generateInstall(defaultChoices);
+    const readme = files.get("README.md") ?? "";
+    const { scripts } = json(files, "package.json") as {
+      scripts: Record<string, string>;
+    };
+
+    const named = [...readme.matchAll(/^pnpm ([\w:-]+)/gm)].map(
+      ([, script]) => script ?? "",
+    );
+
+    expect(named).toEqual(
+      expect.arrayContaining(["dev", "robkit", "lint", "test", "install"]),
+    );
+    expect(
+      named.filter((script) => script !== "install" && !(script in scripts)),
+    ).toEqual([]);
+    expect(readme).toContain("## Commands\n");
+    expect(readme).toContain("docker compose down --volumes\n");
+  });
+
   it("restores the dotfiles npm would drop", async () => {
     const files = await generateInstall(defaultChoices);
 
     expect(files.get(".gitignore")).toContain("node_modules/");
     expect(files.has("gitignore")).toBe(false);
+  });
+
+  /** A `.env` file in every place one goes, and the one that is committed. */
+  const envFiles = [
+    ".env",
+    ".env.local",
+    "apps/notes/.env",
+    "apps/notes/.env.local",
+    "apps/notes/.env.production",
+  ];
+  const examples = [".env.example", "apps/notes/.env.example"];
+
+  it("keeps every .env out of git, in every folder, but .env.example", async () => {
+    const files = await generateInstall(defaultChoices);
+    const repo = await mkdtemp(join(tmpdir(), "robkit-gitignore-"));
+    await run("git", ["init", "-q"], { cwd: repo });
+    await writeFile(join(repo, ".gitignore"), files.get(".gitignore") ?? "");
+
+    // It prints each path git ignores.
+    const { stdout } = await run(
+      "git",
+      ["check-ignore", ...envFiles, ...examples],
+      { cwd: repo },
+    );
+
+    expect(stdout.split("\n").filter(Boolean)).toEqual(envFiles);
+  });
+
+  it("keeps every .env out of an image, in every folder, but .env.example", async () => {
+    const files = await generateInstall(defaultChoices);
+    const patterns = (files.get(".dockerignore") ?? "")
+      .split("\n")
+      .filter((line) => line && !line.startsWith("#"));
+    // Docker's rules: each pattern matches from the build's root, the
+    // last one that matches decides, and a ! pattern keeps the file.
+    const leftOut = (path: string) =>
+      patterns.reduce(
+        (out, pattern) =>
+          matchesGlob(path, pattern.replace(/^!/, ""))
+            ? !pattern.startsWith("!")
+            : out,
+        false,
+      );
+
+    expect([...envFiles, ...examples].filter(leftOut)).toEqual(envFiles);
   });
 
   it("has a template folder for every stack robkit can make", async () => {

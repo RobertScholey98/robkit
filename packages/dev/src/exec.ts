@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import { CommandProblem } from "@robkit/input/command";
+import { stopGroup } from "./process-group.ts";
 
 /** Copies each line from `from` to `to`, prefixed with the app's slug. */
 export function prefixLines(
@@ -33,6 +34,26 @@ export function startProblem(
   );
 }
 
+const outputIsAbove = " Its output is above: fix what it says, then try again.";
+
+/**
+ * The problem when a command ran and failed. Its message says the
+ * command's output is above, which is so in the terminal that ran it.
+ */
+export class CommandFailed extends CommandProblem {
+  constructor(what: string) {
+    super(`${what}${outputIsAbove}`);
+  }
+
+  /**
+   * What failed, without where its output is, for a caller that reports
+   * the failure in another terminal.
+   */
+  get what(): string {
+    return this.message.slice(0, -outputIsAbove.length);
+  }
+}
+
 /**
  * The command line Windows' shell runs for `command` and `args`, each part
  * in double quotes so the shell reads none of it. A quote can't keep `"`,
@@ -56,22 +77,44 @@ export function windowsCommandLine(command: string, args: string[]): string {
 
 /**
  * Runs a command to completion. With a slug, its output is prefixed with
- * the slug; without one, it shares this process's output. On Windows the
+ * the slug; quiet, it goes nowhere; otherwise it shares this process's
+ * output. On Windows the
  * shell starts it, so a command that isn't installed exits 1 with the
  * shell's message rather than failing to start.
  *
  * @throws a {@link CommandProblem} naming the command, its folder and its exit
- *   code if it fails, or saying why it couldn't start
+ *   code if it fails, or saying why it couldn't start. A command its signal
+ *   stopped is no failure.
  */
 export async function exec(
   command: string,
   args: string[],
-  options: { cwd: string; env: NodeJS.ProcessEnv; slug?: string },
+  options: {
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    slug?: string;
+    quiet?: boolean;
+    /**
+     * Stops the command when it aborts. The command then runs in its own
+     * process group, and every process in it is stopped. `exec` returns once
+     * they are gone, with no error, so the caller reads the signal.
+     */
+    signal?: AbortSignal | undefined;
+  },
 ): Promise<void> {
+  const { signal } = options;
+  if (signal?.aborted) return;
   const spawnOptions = {
     cwd: options.cwd,
     env: options.env,
-    stdio: options.slug ? ["ignore", "pipe", "pipe"] : "inherit",
+    stdio: options.quiet
+      ? "ignore"
+      : options.slug
+        ? ["ignore", "pipe", "pipe"]
+        : "inherit",
+    // Its own process group, so stopping it reaches every process it starts.
+    // Windows has no process groups, and would open a console for one.
+    detached: signal !== undefined && process.platform !== "win32",
   } satisfies SpawnOptions;
   // Windows starts pnpm and npm from .cmd files, which only its shell runs.
   const child =
@@ -85,17 +128,35 @@ export async function exec(
     prefixLines(options.slug, child.stdout, process.stdout);
     prefixLines(options.slug, child.stderr, process.stderr);
   }
+  let stopped: Promise<void> | undefined;
+  const stopIt = () => {
+    if (spawnOptions.detached) {
+      stopped = stopGroup(options.slug ?? command, child.pid);
+      // Awaited below, once the command has exited.
+      stopped.catch(() => undefined);
+    } else {
+      child.kill();
+      stopped = Promise.resolve();
+    }
+  };
+  signal?.addEventListener("abort", stopIt, { once: true });
   let exited: unknown[];
   try {
     // Rejects with the child's error event, which it emits if it can't start.
     exited = await once(child, "exit");
   } catch (error) {
     throw startProblem(command, args, options.cwd, error);
+  } finally {
+    signal?.removeEventListener("abort", stopIt);
   }
-  const [code, signal] = exited;
+  if (stopped) {
+    await stopped;
+    return;
+  }
+  const [code, exitSignal] = exited;
   if (code !== 0) {
-    throw new CommandProblem(
-      `${[command, ...args].join(" ")} exited with ${String(code ?? signal)} in ${options.cwd}. Its output is above: fix what it says, then try again.`,
+    throw new CommandFailed(
+      `${[command, ...args].join(" ")} exited with ${String(code ?? exitSignal)} in ${options.cwd}.`,
     );
   }
 }

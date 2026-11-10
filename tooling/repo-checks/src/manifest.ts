@@ -30,7 +30,8 @@ export type Exports = Readonly<Record<string, ExportTarget>>;
 
 type Strings = Readonly<Record<string, string>>;
 
-const dependencyFields = [
+/** Each field of a package.json that lists dependencies. */
+export const dependencyFields = [
   "dependencies",
   "devDependencies",
   "peerDependencies",
@@ -41,6 +42,7 @@ const dependencyFields = [
 export interface Manifest {
   name?: string;
   private?: boolean;
+  version?: string;
   scripts?: Strings;
   dependencies?: Strings;
   devDependencies?: Strings;
@@ -49,6 +51,9 @@ export interface Manifest {
   exports?: Exports;
   publishConfig?: { exports?: Exports };
   bin?: Strings;
+  license?: string;
+  /** A URL, or npm's object form, which names it as `url`. */
+  repository?: string | Strings;
 }
 
 /** Whether `value` maps names to strings, as `dependencies` does. */
@@ -86,6 +91,13 @@ export function readManifest(
       return fieldProblem("name", "must be a string");
     manifest.name = name;
   }
+  const { version } = json;
+  if (version !== undefined) {
+    if (typeof version !== "string") {
+      return fieldProblem("version", "must be a string");
+    }
+    manifest.version = version;
+  }
   if (isPrivate !== undefined) {
     if (typeof isPrivate !== "boolean") {
       return fieldProblem("private", "must be true or false");
@@ -105,6 +117,22 @@ export function readManifest(
   if (exports !== undefined) {
     if (!isExports(exports)) return fieldProblem("exports", exportsRule);
     manifest.exports = exports;
+  }
+  const { license, repository } = json;
+  if (license !== undefined) {
+    if (typeof license !== "string") {
+      return fieldProblem("license", "must be a string");
+    }
+    manifest.license = license;
+  }
+  if (repository !== undefined) {
+    if (typeof repository !== "string" && !isStrings(repository)) {
+      return fieldProblem(
+        "repository",
+        "must be a URL or an object of strings",
+      );
+    }
+    manifest.repository = repository;
   }
   const { publishConfig } = json;
   if (publishConfig !== undefined) {

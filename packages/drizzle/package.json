@@ -2,6 +2,12 @@
   "name": "@robkit/drizzle",
   "version": "0.0.0",
   "description": "Gives a robkit app its Drizzle database and applies its migrations in its own schema.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/drizzle"
+  },
   "type": "module",
   "bin": {
     "robkit-migrate": "./src/robkit-migrate-command.ts"
@@ -24,6 +30,7 @@
     "dist",
     "src",
     "!src/**/*.test.ts",
+    "!src/**/*.test-d.ts",
     "!src/test"
   ],
   "engines": {

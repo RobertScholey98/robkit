@@ -8,13 +8,21 @@ const databaseUrl = process.env.DATABASE_URL;
 if (process.env.FIXTURE_SLOW_START === slug) {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 }
-writeFileSync("started", "");
+// Its pid, so a test can kill it as a crash would.
+writeFileSync("started", String(process.pid));
 
 // An app with a database must find its migration already run.
 if (databaseUrl && readFileSync("migrated", "utf8") !== databaseUrl) {
   console.error("started before its migration");
   process.exit(1);
 }
+// Says so as it stops, as most servers do, so the runner writes while it
+// stops too.
+process.on("SIGTERM", () => {
+  console.log("stopping");
+  process.exit(0);
+});
+
 // Crashes once every app is listening, so the runner has running apps to
 // stop however long each took to start. A fixed delay raced the slowest app.
 if (process.env.FIXTURE_CRASH === slug) {
@@ -26,7 +34,37 @@ if (process.env.FIXTURE_CRASH === slug) {
   }, 50);
 }
 
-createServer((_req, res) => {
+// With a database, one connection made as it starts, so a test can see
+// what the app sees without a restart.
+const sql =
+  databaseUrl && process.env.FIXTURE_POSTGRES
+    ? (await import(process.env.FIXTURE_POSTGRES)).default(databaseUrl, {
+        max: 1,
+      })
+    : undefined;
+if (sql) await sql`select 1`;
+
+// It listens on HOST, as core and the Go stack do.
+const server = createServer(async (req, res) => {
+  if (req.url === "/pid") {
+    res.end(String(process.pid));
+    return;
+  }
+  if (req.url === "/tables" && sql) {
+    const rows =
+      await sql`select table_name from information_schema.tables where table_schema = current_schema() order by table_name`;
+    res.end(JSON.stringify(rows.map((row) => row.table_name)));
+    return;
+  }
+  // A write, on the connection it made as it started: how many visits the
+  // table holds once this one is in.
+  if (req.url === "/visit" && sql) {
+    await sql`create table if not exists visits (id serial primary key)`;
+    await sql`insert into visits default values`;
+    const [{ count }] = await sql`select count(*)::int as count from visits`;
+    res.end(String(count));
+    return;
+  }
   res.end(
     JSON.stringify({
       slug,
@@ -37,9 +75,12 @@ createServer((_req, res) => {
       database: databaseUrl !== undefined,
       nextTelemetry: process.env.NEXT_TELEMETRY_DISABLED,
       vitest: process.env.VITEST,
+      own: process.env.FIXTURE_OWN,
+      shadowed: process.env.FIXTURE_SHADOWED,
+      listeningOn: server.address().address,
     }),
   );
-}).listen(Number(process.env.PORT), "127.0.0.1", () => {
+}).listen(Number(process.env.PORT), process.env.HOST, () => {
   writeFileSync("listening", "");
   console.log(`listening on ${process.env.PORT}`);
 });

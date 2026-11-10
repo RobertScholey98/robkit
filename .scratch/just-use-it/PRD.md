@@ -88,11 +88,11 @@ Each is built by the ticket named, and that ticket's comments record what the bu
 10. **Each Node adapter serves in production.** `serve()` from the adapter's `/serve` entry serves the built app on `HOST` and `PORT`, and returns the server. `serve.ts` stays in the app, three lines long, so the owner can put their own code before it. What every server does the same way is written once, in `@robkit/serve`: read the address, listen, serve the client's files, stop on SIGTERM. The hub, a built page with no app behind it, uses `servePage()` from that package, and core serves through it too. (11)
 11. **Core is one command, and provisioning is its own package.** `@robkit/core` ships `robkit-core`, which provisions, migrates and serves. `apps/core` has no source. The code that gives each app its schema and role moves to `@robkit/provision`, below both core and the dev runner. It returns a failure its caller can expect as a value, and each command prints its own message for it. The commands' one handler, `runCommand`, moves to `@robkit/input/command`, so core's command needs nothing from the dev runner. Two cores can start together, with no lock an app's role could hold. `docker stop` reaches the server in every image. The generator and `robkit vendor` cover the packages that an install's named packages depend on, so one that arrives behind core is linked or packed too. Three placements were weighed: in core with the dev runner importing it (which pulls core, Hono and Drizzle into `npm create robkit`), core depending on `@robkit/dev` (the dev runner in core's image), or a small package below both. (12)
 12. **create-robkit carries what it needs.** At build it takes in the catalog, the pnpm version, each package's version, the lint policy and the Go module's source. A linked install still reads the checkout. An install's Go apps reach robkit's Go module in the install's own `vendor/robkit/go`, so robkit's module never waits on a Go proxy or a tag. (13)
-13. **A release is a pull request and a button.** Versions change through a "Version packages" pull request, because `main` takes no direct push. A workflow someone starts by hand then publishes what is on `main` that isn't on npm yet, and pushes tags. (14)
+13. **A release is a pull request and a button.** Versions change through a "Version packages" pull request, because `main` takes no direct push. One command opens that pull request from a clone, since GitHub runs no checks on one a workflow opened. A workflow someone starts by hand then publishes what is on `main` that isn't on npm yet, and pushes one tag. Only its publish step holds the npm token. (14)
 14. **init installs.** `npm create robkit` installs dependencies and makes the first commit unless told `--no-install`. This reverses app-sharing ticket 01's `--install` flag, since an install that needs a second command isn't "just use it". (15)
-15. **An app's own settings live in its `.env`.** `pnpm dev` loads `apps/<slug>/.env` into that app alone. In production the owner sets them on the host. (17)
-16. **`robkit add` tells a running `pnpm dev`.** The runner listens on a local control port and records it in a state file. `robkit add` reports the new app once it is installed, and the runner brings it up. The same channel applies a new migration without a restart. No folder watching. (18)
-17. **`robkit upgrade` runs in two steps.** The installed robkit moves the catalog to the new version and installs it. The new robkit then writes what only it holds. It refuses a tree with uncommitted changes, so git shows the owner everything it did. (19)
+15. **An app's own settings live in its `.env`.** `pnpm dev` loads `apps/<slug>/.env` into that app alone. What the runner sets wins, then the shell, then the file, and a file that names one of robkit's settings is refused. The install's root `.env` holds robkit's own dev settings, such as its ports (16). In production the owner sets an app's settings on the host. A value the browser reads isn't in an image yet (32, waiting for R). (17)
+16. **`robkit add` tells a running `pnpm dev`.** The runner listens on a socket file in a folder only the owner can open. No browser can reach one, so it needs no token. A request names an operation and a slug, and nothing else. `robkit add` reports the new app once it is installed, and the runner brings it up without moving a running app's port. The same channel applies a new migration without a restart, as `pnpm robkit migrate <slug>`. No folder watching. (18)
+17. **`robkit upgrade` runs in two steps.** The installed robkit moves `create-robkit` in the catalog to the new version and installs it. The new robkit then raises robkit's other packages and writes what only it holds. The call that hands over from one to the other can't change once 0.1.0 is published, and a test holds it. Upgrade refuses a tree with uncommitted changes, so git shows the owner everything it did, and a step that fails puts the files back. (19)
 18. **`robkit check` is a lint, not a boundary.** It catches an app that breaks the layer rule by mistake. What holds an imported app is its database role, its token's audience and its own image. `SECURITY.md` says so. (23)
 
 ## Milestones and tickets
@@ -135,7 +135,13 @@ Ticket 26 runs first, beside milestone 1, out of its number's order: it steadies
 20. [The repo's docs match the code](issues/20-docs-match-the-code.md)
 21. [`pnpm dev` on native Windows](issues/21-native-windows.md) (needs R's answer)
 
-13 and 16 start together. 14 and 15 follow 13, and 19 follows both. 17 then 18 follow 16. 20 is last, and the docs site starts once it has merged.
+13 and 16 start together. 14 follows 13. 15 follows 13 and 16. 17 follows 16. 18 follows 15 and 17. 19 follows 14 and 18. 20 is last, and the docs site starts once it has merged. The first release waits for 19, whose half of `robkit upgrade` in 0.1.0 can't change afterwards.
+
+Ticket 33, [Core restarts only when robkit's source changes](issues/33-core-watches-its-own-source.md), was found and built while this milestone was built, after the council round. It waits on nothing.
+
+The one council round on these tickets ran on 2026-11-10, at `a314729`: Opus 5.5 gave them 7 out of 10 and Sol 6.1 gave 7. Each ticket's comments say what was taken, with what the code showed, and what wasn't.
+
+The one council round on this milestone's code ran on 2026-11-10, at `8bca5524`: Opus 5.5 gave it 7 out of 10 and Sol 6.1 gave 7. Pull request 98 lists what was taken and what wasn't, and each ticket's comments have the detail under "From the code round". One finding became ticket 34, in milestone 4.
 
 **4. Nothing skipped**
 
@@ -149,8 +155,11 @@ Ticket 26 runs first, beside milestone 1, out of its number's order: it steadies
 29. [Access codes are at least 5 characters](issues/29-access-codes-at-least-five.md) (needs R's answer)
 30. [Core's error log holds no query parameters](issues/30-error-log-holds-no-parameters.md)
 31. [Password sign-in under a flood](issues/31-password-sign-in-under-a-flood.md) (needs R's answer)
+32. [A setting the browser reads, in production](issues/32-browser-settings-in-an-image.md) (needs R's answer)
 
 22, 23, 24, 28 and 30 start together. 25 follows 22, and 27 follows 23.
+
+Ticket 34, [`robkit add` finds `pnpm dev` from any terminal](issues/34-add-finds-dev-from-any-terminal.md), came from milestone 3's code round. It waits on nothing.
 
 ## How the work runs
 

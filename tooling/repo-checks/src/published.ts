@@ -12,7 +12,12 @@ import { problemKindInfo } from "@arethetypeswrong/core/problems";
 import { publint, type Message } from "publint";
 import { formatMessage } from "publint/utils";
 import { isProblem, orThrow, parseJson } from "@robkit/input";
-import { readJsonFile, readManifest, readNamedManifest } from "./manifest.ts";
+import {
+  dependencyFields,
+  readJsonFile,
+  readManifest,
+  readNamedManifest,
+} from "./manifest.ts";
 
 const run = promisify(execFile);
 // A shell finds pnpm.cmd on Windows, which execFile won't run.
@@ -34,15 +39,61 @@ export async function publishedPackages(): Promise<string[]> {
   return dirs;
 }
 
+/** A dependency as a packed manifest names it, such as `hono` at `4.13.14`. */
+export interface Specifier {
+  /** `dependencies`, `peerDependencies` and the like. */
+  field: string;
+  name: string;
+  range: string;
+}
+
 /** What a packed package tells Node to load, and which files it holds. */
 export interface Packed {
   name: string;
+  version: string;
+  /** The tarball's file name, as pnpm names it. */
+  file: string;
+  /** The package's folder in this repo. */
+  dir: string;
   /** Each export and bin target, as the packed manifest names it. */
   targets: string[];
   /** Every file in the tarball, relative to the package root. */
   files: string[];
+  /** The packed manifest's `license`, if it has one. */
+  license: string | undefined;
+  /** The packed manifest's repository URL, if it names one. */
+  repository: string | undefined;
+  /** Every dependency the packed manifest lists, in every field. */
+  specifiers: Specifier[];
+  /** create-robkit's `dist/carried.json`, as text, if the tarball holds it. */
+  carried: string | undefined;
   /** The tarball itself, gzipped. */
   tarball: Uint8Array;
+}
+
+/**
+ * A test file, as robkit's packages and their templates name them: a
+ * Vitest test or type test, a Go test, or a helper under `src/test`.
+ */
+function isTestFile(path: string): boolean {
+  return (
+    /\.test(-d)?\.tsx?$|_test\.go$/.test(path) || path.startsWith("src/test/")
+  );
+}
+
+/** create-robkit's templates, which hold an install's own tests. */
+const templatesDir = join(packagesDir, "create-robkit", "templates");
+
+/**
+ * Each test file in create-robkit's templates, by its path in the package,
+ * such as `templates/stacks/go/server_test.go`.
+ */
+export async function templateTests(): Promise<string[]> {
+  const paths = await readdir(templatesDir, { recursive: true });
+  return paths
+    .map((path) => `templates/${path.replaceAll("\\", "/")}`)
+    .filter(isTestFile)
+    .sort();
 }
 
 /**
@@ -73,13 +124,38 @@ export async function pack(dir: string): Promise<Packed> {
       ),
       ...Object.values(json.bin ?? {}),
     ];
+    const { repository, version } = json;
+    if (version === undefined) {
+      throw new Error(`${dir}'s packed package.json has no version.`);
+    }
+    const files = list
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => line.replace(/^package\//, ""));
+    const carried = files.includes("dist/carried.json")
+      ? (
+          await run("tar", ["-xOzf", tarball, "package/dist/carried.json"], {
+            cwd: out,
+          })
+        ).stdout
+      : undefined;
     return {
       name: json.name,
+      version,
+      file: tarball,
+      dir,
       targets,
-      files: list
-        .split("\n")
-        .filter((line) => line !== "")
-        .map((line) => line.replace(/^package\//, "")),
+      files,
+      license: json.license,
+      repository: typeof repository === "string" ? repository : repository?.url,
+      specifiers: dependencyFields.flatMap((field) =>
+        Object.entries(json[field] ?? {}).map(([name, range]) => ({
+          field,
+          name,
+          range,
+        })),
+      ),
+      carried,
       tarball: new Uint8Array(await readFile(join(out, tarball))),
     };
   } finally {
@@ -88,15 +164,23 @@ export async function pack(dir: string): Promise<Packed> {
 }
 
 /**
- * Why a packed package won't run from `node_modules`, where Node doesn't
- * strip types: a target that is TypeScript source, or one the tarball lacks.
+ * What's wrong with a packed package. A target that is TypeScript source or
+ * that the tarball lacks won't run from `node_modules`, where Node doesn't
+ * strip types. robkit's own tests don't ship, though a template's do, since
+ * they are an install's. Every package carries the licence, and says where
+ * its source is.
  */
 export function packProblems({
   name,
   targets,
   files,
-}: Pick<Packed, "name" | "targets" | "files">): string[] {
-  return targets.flatMap((target) => {
+  license,
+  repository,
+}: Pick<
+  Packed,
+  "name" | "targets" | "files" | "license" | "repository"
+>): string[] {
+  const problems = targets.flatMap((target) => {
     const file = target.replace(/^\.\//, "");
     if (file.endsWith(".ts") && !file.endsWith(".d.ts")) {
       return [`${name} points at TypeScript source: ${target}`];
@@ -104,6 +188,25 @@ export function packProblems({
     if (!files.includes(file)) return [`${name} lacks ${target}`];
     return [];
   });
+  for (const file of files) {
+    if (isTestFile(file) && !file.startsWith("templates/")) {
+      problems.push(`${name} ships robkit's own test ${file}`);
+    }
+  }
+  if (!files.includes("LICENSE")) problems.push(`${name} lacks LICENSE`);
+  if (!license) problems.push(`${name}'s package.json has no license`);
+  if (!repository) problems.push(`${name}'s package.json has no repository`);
+  return problems;
+}
+
+/** Each of `expected`, create-robkit's template tests, that its tarball lacks. */
+export function templateTestProblems(
+  { name, files }: Pick<Packed, "name" | "files">,
+  expected: readonly string[],
+): string[] {
+  return expected
+    .filter((test) => !files.includes(test))
+    .map((test) => `${name} lacks its template's test ${test}`);
 }
 
 /**

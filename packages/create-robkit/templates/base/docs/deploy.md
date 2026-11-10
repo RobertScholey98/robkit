@@ -27,6 +27,14 @@ The deploy sets these on each app:
 
 Core also gets `ROBKIT_APPS` (the app catalog), `ROBKIT_DATABASES` (the apps to provision), `ROBKIT_ADMIN_DATABASE_URL` and `ROBKIT_DB_SECRET`. The last two are references to shared variables, so no secret lives in this repository or in CI. Core's server starts without them; only the provision step sees them. When `coolify.json` sets `trustedProxy`, core also gets `ROBKIT_TRUSTED_PROXY` (see [Behind a Cloudflare tunnel](#behind-a-cloudflare-tunnel)).
 
+## An app's own settings
+
+Set an app's own settings, such as an API key, on Coolify. Open the app's application, `<project>-<slug>`, and add each one under Environment Variables. Coolify gives them to the app when it next starts, so redeploy the app from Coolify after a change, since `robkit deploy` deploys only the apps whose code changed.
+
+`robkit deploy` sets only the variables in the table above, and sends Coolify nothing that removes or replaces any other. Don't give one of your own a name from that table, or the next deploy replaces its value.
+
+No image holds an app's `.env`. `.dockerignore` leaves out every `.env` file but `.env.example`, so the settings an app has under `pnpm dev` must be set here too. Vite and Next write a value the browser reads, a `VITE_*` or `NEXT_PUBLIC_*` one, into the page when the image builds, and the build takes no setting but `ROBKIT_APP`. So in production the page doesn't have it. Read the setting on the server and hand it to the page instead.
+
 ## One-time setup
 
 1. In Coolify, add a GitHub App under Sources, install it on this repository only, and leave pull request previews off.

@@ -2,7 +2,7 @@
 
 The client helper. `sessionFetch` is a `fetch` for calls from the page to its own app. When the guard says the app's token has lapsed, it sends the browser for a new one, or to the hub to sign in, and back to the same page. Every other answer goes to the caller untouched.
 
-Apps on the TanStack Start stack use it for their server functions. Any app whose page calls its own server can use it.
+Apps on the TanStack Start stack use it for their server functions, and a React + Go app's page for its calls to the Go server. Any app whose page calls its own server can use it.
 
 ## Example
 

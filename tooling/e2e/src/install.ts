@@ -54,18 +54,18 @@ declare module "vitest" {
 }
 
 /**
- * Makes an install for `choices` in a temp folder, as init with
- * `--install --link` does: linked to this checkout's `@robkit/*` packages,
- * with its dependencies installed and git initialised. Then adds an app on
- * the next stack, as the owner would with robkit add's flags.
+ * Adds an app on the stack after `exampleStack` to the install in `dir`,
+ * as the owner would with robkit add's flags. With `pnpm dev` running
+ * there, robkit add has it start the app.
+ *
+ * @returns what robkit add printed
  */
-export async function createInstall(choices: Choices): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
-  // Its teardown removes it too, but not when the run is killed.
-  removeWhenGone({ path: dir });
-  await init(choices, dir, { link: true, install: true });
-  const other = addedStackFor(choices.exampleStack);
-  await run(
+export async function addTheApp(
+  dir: string,
+  exampleStack: Stack,
+): Promise<string> {
+  const other = addedStackFor(exampleStack);
+  const { stdout } = await run(
     "pnpm",
     [
       "run",
@@ -81,31 +81,50 @@ export async function createInstall(choices: Choices): Promise<string> {
     ],
     { cwd: dir },
   );
+  return stdout;
+}
+
+/**
+ * Makes an install for `choices` in a temp folder, as init with
+ * `--link` does: linked to this checkout's `@robkit/*` packages,
+ * with its dependencies installed and git initialised. With `add`, it then
+ * adds an app on the next stack.
+ */
+export async function createInstall(
+  choices: Choices,
+  { add = true }: { add?: boolean } = {},
+): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
+  // Its teardown removes it too, but not when the run is killed.
+  removeWhenGone({ path: dir });
+  await init(choices, dir, { link: true });
+  if (add) await addTheApp(dir, choices.exampleStack);
   return dir;
 }
 
 /** One install for each of `installChoices`, by name. */
-async function createInstalls(): Promise<Record<InstallName, string>> {
+async function createInstalls(
+  add: boolean,
+): Promise<Record<InstallName, string>> {
   return Object.fromEntries(
     await Promise.all(
       Object.entries(installChoices).map(
         async ([name, choices]) =>
-          [name, await createInstall(choices)] as const,
+          [name, await createInstall(choices, { add })] as const,
       ),
     ),
   ) as Record<InstallName, string>;
 }
 
 /**
- * Makes every install before any suite starts. pnpm hard-links
- * packages from one shared store, so an install beside a running dev stack
- * touches the files under its core, and `node --watch` restarts core
- * mid-journey.
+ * Makes every install before any suite starts. A suite's install has no
+ * added app yet: the suite adds it while `pnpm dev` runs, as an owner
+ * would. The installs install-checks.test.ts builds have theirs already.
  */
 export default async function setup(project: TestProject) {
   const [installs, checkInstalls] = await Promise.all([
-    createInstalls(),
-    createInstalls(),
+    createInstalls(false),
+    createInstalls(true),
   ]);
   project.provide("installs", installs);
   project.provide("checkInstalls", checkInstalls);

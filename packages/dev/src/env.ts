@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { parseEnv } from "node:util";
 import {
   allProblems,
   type Env,
@@ -14,6 +17,7 @@ import {
   defaultDomain,
   isLocal,
 } from "@robkit/input/addresses";
+import { isMissing } from "./files.ts";
 
 /** What `robkit-dev` runs with, read from its environment. */
 export interface DevConfig {
@@ -29,6 +33,8 @@ export interface DevConfig {
    * Compose's on `ROBKIT_POSTGRES_PORT`.
    */
   adminUrl: string;
+  /** `ROBKIT_POSTGRES_PORT`: where Compose publishes the install's Postgres. */
+  postgresPort: number;
 }
 
 /**
@@ -40,6 +46,45 @@ function readDevDomain(env: Env): Domain | InputProblem {
   if (isProblem(domain) || isLocal(domain)) return domain;
   return problem(
     `ROBKIT_DOMAIN is "${domain}", which isn't local. pnpm dev serves plain http, so it runs only on localhost or a name under it, such as robkit.localhost. Leave ROBKIT_DOMAIN unset, or deploy with robkit deploy to serve ${domain}.`,
+  );
+}
+
+/**
+ * The environment `robkit-dev` runs with: the shell's, plus each `ROBKIT_`
+ * name in the install's root `.env` that the shell doesn't set. Compose
+ * reads that file by itself, with the shell winning the same way, so a
+ * setting there moves Postgres and the runner together. Node's parser reads
+ * it, and nothing changes in this process's own environment.
+ */
+export async function withInstallEnv(
+  root: string,
+  shell: NodeJS.ProcessEnv,
+): Promise<NodeJS.ProcessEnv> {
+  const fromFile = Object.entries(await readEnvFile(join(root, ".env"))).filter(
+    ([name]) => name.startsWith("ROBKIT_") && shell[name] === undefined,
+  );
+  return { ...shell, ...Object.fromEntries(fromFile) };
+}
+
+/**
+ * The variables a `.env` file sets, or none when it isn't there. Node's
+ * parser reads it, so nothing changes in this process's own environment.
+ * It reports no errors: a line it can't read is skipped.
+ */
+export async function readEnvFile(
+  path: string,
+): Promise<Record<string, string>> {
+  let text: string;
+  try {
+    text = await readFile(path, "utf8");
+  } catch (error) {
+    if (isMissing(error)) return {};
+    throw new Error(`robkit-dev couldn't read ${path}.`, { cause: error });
+  }
+  return Object.fromEntries(
+    Object.entries(parseEnv(text)).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
   );
 }
 
@@ -65,5 +110,6 @@ export function readDevConfig(env: Env): DevConfig | InputProblem {
     adminUrl:
       databaseUrl ??
       `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
+    postgresPort,
   };
 }

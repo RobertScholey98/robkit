@@ -47,6 +47,23 @@ export async function robkitPackages(
   );
 }
 
+/** The names in the app's own folder in `slug`'s image, dotfiles included. */
+export async function appFolderFiles(
+  stack: Stack,
+  slug: Slug,
+): Promise<string[]> {
+  const listing = await docker(
+    "run",
+    "--rm",
+    "--entrypoint",
+    "ls",
+    `${stack.name}/${slug}`,
+    "-A",
+    `/install/apps/${slug}`,
+  );
+  return listing.split("\n").filter(Boolean);
+}
+
 /**
  * Stops `slug`'s container as a redeploy does, with `docker stop`: SIGTERM,
  * then SIGKILL 10 seconds later. Answers with its exit code, which is 137

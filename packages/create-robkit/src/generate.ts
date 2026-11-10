@@ -7,7 +7,12 @@ import { jsonObject, stringsIn } from "./json.ts";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readyStacks, type Choices, type Stack } from "./choices.ts";
-import { goModuleFor, withGoModule } from "./go-module.ts";
+import {
+  goModuleFor,
+  vendoredGoDir,
+  vendoredGoModule,
+  withGoModule,
+} from "./go-module.ts";
 import {
   readRobkitRepo,
   withDependencies,
@@ -16,6 +21,19 @@ import {
 
 /** An install in memory: each file's path from the install root, and its text. */
 export type Files = Map<string, string>;
+
+/**
+ * An app's files, which may come from the owner's own template: each
+ * file's text, or its bytes where they aren't UTF-8 text, such as an
+ * image's.
+ */
+export type AppFiles = Map<string, string | Uint8Array>;
+
+/** The text of the file at `path` in `files`, or undefined if it has none. */
+export function textIn(files: AppFiles, path: string): string | undefined {
+  const content = files.get(path);
+  return typeof content === "string" ? content : undefined;
+}
 
 export interface GenerateOptions {
   /**
@@ -47,25 +65,54 @@ function restored(path: string): string {
 
 type Json = Record<string, unknown>;
 
-/** Every file under `dir`, by its path from `dir`. */
-export async function readFolder(dir: string): Promise<Files> {
+/** Every file under `dir`, as `read` reads it, by its path from `dir`. */
+async function readEach<T>(
+  dir: string,
+  read: (bytes: Buffer) => T,
+): Promise<Map<string, T>> {
   const entries = await readdir(dir, { recursive: true, withFileTypes: true });
-  const files: Files = new Map();
+  const files = new Map<string, T>();
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     const file = join(entry.parentPath, entry.name);
     const path = relative(dir, file).replaceAll("\\", "/");
-    // A Windows checkout may hold the templates with CRLF endings.
-    const text = (await readFile(file, "utf8")).replaceAll("\r\n", "\n");
-    files.set(restored(path), text);
+    files.set(restored(path), read(await readFile(file)));
   }
   return files;
 }
 
+// A Windows checkout may hold text with CRLF endings, which an install
+// doesn't keep.
+const lf = (text: string) => text.replaceAll("\r\n", "\n");
+
+/** Every file under `dir`, robkit's own text, by its path from `dir`. */
+export function readFolder(dir: string): Promise<Files> {
+  return readEach(dir, (bytes) => lf(bytes.toString("utf8")));
+}
+
+// Fails on bytes that aren't UTF-8, and keeps a byte order mark.
+const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+
+/**
+ * Every file under `dir`, a template the owner keeps in their install, by
+ * its path from `dir`. A file that isn't UTF-8 text, such as an image,
+ * keeps its bytes.
+ */
+export function readOwnTemplate(dir: string): Promise<AppFiles> {
+  return readEach(dir, (bytes): string | Uint8Array => {
+    try {
+      return lf(utf8.decode(bytes));
+    } catch {
+      // Not text, so it arrives byte for byte.
+      return bytes;
+    }
+  });
+}
+
 const toJson = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
-function editJson(files: Files, path: string, edit: (json: Json) => Json) {
-  const text = files.get(path);
+function editJson(files: AppFiles, path: string, edit: (json: Json) => Json) {
+  const text = textIn(files, path);
   if (text === undefined) throw new Error(`the install has no ${path}`);
   files.set(path, toJson(edit(jsonObject(text, path))));
 }
@@ -83,12 +130,12 @@ export const defaultIcon = "📦";
  * their path from the app's folder. Its manifest is named after the slug,
  * and carries what the app declares, if anything.
  */
-export function appFiles(
-  template: Files,
+export function appFiles<Content extends string | Uint8Array>(
+  template: Map<string, Content>,
   slug: string,
   manifest: AppManifest = {},
-): Files {
-  const files: Files = new Map(template);
+): Map<string, Content | string> {
+  const files = new Map<string, Content | string>(template);
   editJson(files, "package.json", (json) => ({
     name: `@internal/${slug}-app`,
     ...json,
@@ -132,30 +179,34 @@ export function overridesIn(text: string): Record<string, string> {
 }
 
 /**
+ * The catalog an install needs from `repo`, by name: every dependency its
+ * base and every stack robkit add offers take from the catalog, so adding
+ * an app needs no version the install lacks.
+ */
+export async function installCatalog(
+  repo: RobkitRepo,
+): Promise<Map<string, string>> {
+  const base = await readFolder(join(templatesDir, "base"));
+  const stacks = await Promise.all(readyStacks.map(stackTemplate));
+  const names = catalogued([...base, ...stacks.flatMap((stack) => [...stack])]);
+  return new Map(names.map((name) => [name, versionOf(repo, name)]));
+}
+
+/**
  * Writes pnpm's settings: the catalog, and the links to robkit's packages
  * when asked. Then names pnpm's version in
  * the root manifest.
  */
-async function renderSettings(
-  files: Files,
-  names: string[],
-  repo: RobkitRepo,
-  { link = false }: GenerateOptions,
-): Promise<void> {
+async function renderSettings(files: Files, repo: RobkitRepo): Promise<void> {
   const workspace = parseDocument(files.get(pnpmSettings) ?? "");
-  workspace.set(
-    "catalog",
-    Object.fromEntries(names.map((name) => [name, versionOf(repo, name)])),
-  );
-  // Every robkit package the install runs on, named or not, so pnpm asks
-  // npm for none of them.
-  for (const name of link ? withDependencies(names, repo.packages) : []) {
-    const pkg = repo.packages.get(name);
-    if (pkg === undefined) continue;
-    workspace.setIn(
-      ["overrides", name],
-      `link:${pkg.dir.replaceAll("\\", "/")}`,
-    );
+  const catalog = await installCatalog(repo);
+  workspace.set("catalog", Object.fromEntries(catalog));
+  // With --link, every robkit package the install runs on, named or not,
+  // so pnpm asks npm for none of them.
+  for (const name of withDependencies(catalog.keys(), repo.packages)) {
+    const dir = repo.links.get(name);
+    if (dir === undefined) continue;
+    workspace.setIn(["overrides", name], `link:${dir.replaceAll("\\", "/")}`);
   }
   files.set(
     pnpmSettings,
@@ -185,19 +236,20 @@ export async function generateInstall(
     files.set(`apps/${exampleSlug}/${path}`, text);
   }
 
-  // The catalog covers every stack robkit add offers, so adding an app
-  // needs no version the install lacks.
-  const stacks = await Promise.all(readyStacks.map(stackTemplate));
-  const names = catalogued([
-    ...files,
-    ...stacks.flatMap((stack) => [...stack]),
-  ]);
-  const repo = await readRobkitRepo();
-  await renderSettings(files, names, repo, options);
+  const repo = await readRobkitRepo(options);
+  await renderSettings(files, repo);
   const goModule = goModuleFor(overridesIn(files.get(pnpmSettings) ?? ""));
-  for (const [path, text] of files) {
-    if (/^apps\/[^/]+\/go\.mod$/.test(path)) {
-      files.set(path, withGoModule(text, goModule));
+  const goApps = [...files.keys()].filter((path) =>
+    /^apps\/[^/]+\/go\.mod$/.test(path),
+  );
+  for (const path of goApps) {
+    files.set(path, withGoModule(files.get(path) ?? "", goModule));
+  }
+  // An install that isn't linked carries robkit's Go module for its Go
+  // apps, so none waits on a module proxy for it.
+  if (goApps.length > 0 && goModule === vendoredGoModule) {
+    for (const [path, text] of repo.goModule) {
+      files.set(`${vendoredGoDir}/${path}`, text);
     }
   }
   // The install lints with the policy robkit lints itself with.

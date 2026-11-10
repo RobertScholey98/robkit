@@ -91,6 +91,14 @@ It can't:
 - Read core's tables or another app's schema. Its database role reaches its own schema and nothing else.
 - Import `@robkit/core`, another app, or read the session cookie itself, if it keeps to the install's layer rule. `robkit check` enforces that rule on the source, so review an imported app's code before you trust it beyond that.
 
+### robkit's own packages skip pnpm's one-day wait
+
+pnpm holds back a version published in the last day while an older one fits. That gives the registry and the package's authors a day to notice and pull a version published by someone who took the package over. Where only the new version fits, pnpm takes it anyway by default, and refuses it once the install sets `minimumReleaseAge` or `minimumReleaseAgeStrict`.
+
+An install's catalog names each of robkit's packages at one exact version, so only that version ever fits. Its `pnpm-workspace.yaml` exempts `@robkit/*` and `create-robkit` from the wait, in `minimumReleaseAgeExclude`. So an install made on the day of a release installs, under the strict setting too. Every other package still waits its day.
+
+What that gives up: if someone took over robkit's npm packages and published a version, an install made or upgraded before anyone noticed would take it at once, with no day's wait. To keep the wait, delete the two entries from `minimumReleaseAgeExclude` and set `minimumReleaseAgeStrict: true`. An install then can't take a robkit release until it is a day old.
+
 ### Known gaps
 
 The plan, `.scratch/kit/map.md`, lists the gaps we know of. The ones that bear on security:

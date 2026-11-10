@@ -125,5 +125,8 @@ describe("each published package's api-report.md", async () => {
         `${folder}'s API changed. Run pnpm --filter @internal/repo-checks api:update and commit its api-report.md.`,
       ).toMatchFileSnapshot(join(dir, "api-report.md"));
     },
+    // Each report takes 3 to 25 seconds on a CI runner, while the suite's
+    // other files pack and build beside it. One passed the suite's 30.
+    120_000,
   );
 });

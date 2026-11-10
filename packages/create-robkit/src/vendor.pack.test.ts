@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { parse, parseDocument } from "yaml";
 import { defaultChoices } from "./choices.ts";
 import { init } from "./init.ts";
+import { robkitVersion } from "./test/robkit-version.ts";
 import { vendorPackages } from "./vendor.ts";
 
 // Builds and packs every robkit package this checkout links, so it runs in
@@ -21,7 +22,7 @@ async function overridesOf(dir: string): Promise<Record<string, string>> {
 describe("vendorPackages", () => {
   it("packs each linked package into vendor/robkit and points the install at the tarballs", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
-    await init(defaultChoices, dir, { link: true });
+    await init(defaultChoices, dir, { link: true, install: false });
     const before = await overridesOf(dir);
     const linked = Object.keys(before).filter((name) =>
       before[name]?.startsWith("link:"),
@@ -35,7 +36,7 @@ describe("vendorPackages", () => {
     expect(overrides["styled-jsx>@babel/core"]).toBe("-");
     for (const name of linked) {
       const spec = overrides[name];
-      const tarball = `vendor/robkit/${name.replace("@", "").replace("/", "-")}-0.0.0.tgz`;
+      const tarball = `vendor/robkit/${name.replace("@", "").replace("/", "-")}-${robkitVersion}.tgz`;
       expect(spec).toBe(`file:${tarball}`);
       await access(join(dir, tarball));
     }
@@ -45,7 +46,7 @@ describe("vendorPackages", () => {
 
   it("packs @robkit/provision behind core for an install made before it was linked", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
-    await init(defaultChoices, dir, { link: true });
+    await init(defaultChoices, dir, { link: true, install: false });
     const path = join(dir, "pnpm-workspace.yaml");
     const settings = parseDocument(await readFile(path, "utf8"));
     settings.deleteIn(["overrides", "@robkit/provision"]);
@@ -53,7 +54,7 @@ describe("vendorPackages", () => {
 
     await vendorPackages(dir);
 
-    const tarball = "vendor/robkit/robkit-provision-0.0.0.tgz";
+    const tarball = `vendor/robkit/robkit-provision-${robkitVersion}.tgz`;
     expect((await overridesOf(dir))["@robkit/provision"]).toBe(
       `file:${tarball}`,
     );

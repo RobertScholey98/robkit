@@ -1,13 +1,18 @@
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { execFile, spawnSync } from "node:child_process";
 import { join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { reportFaultsAt } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { drive, keys, questionsAsked, type Run } from "./test/drive.ts";
+import { gitEnv } from "./test/git.ts";
+import { installsPnpm, pathAhead } from "./test/path.ts";
 
 const bin = fileURLToPath(new URL("create-robkit-command.ts", import.meta.url));
 
+const run = promisify(execFile);
 const defaultAnswers: [question: string, keys: string][] = [
   ["Which stack should the example app use?", keys.enter],
 ];
@@ -35,13 +40,124 @@ async function readTree(dir: string): Promise<Map<string, string>> {
   );
 }
 
+describe("init's entry file", () => {
+  it("imports nothing, so it can check Node's version before anything loads", async () => {
+    const source = await readFile(bin, "utf8");
+
+    expect(source).not.toMatch(/^\s*(import|export)\b(?!\s*\()/m);
+  });
+
+  it("stops on a Node older than 24, saying which it needs and writing nothing", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+    const older = join(cwd, "older-node.mjs");
+    await writeFile(
+      older,
+      `Object.defineProperty(process.versions, "node", { value: "22.12.0" });\n`,
+    );
+
+    const { status, stdout, stderr } = spawnSync(
+      process.execPath,
+      [
+        "--import",
+        pathToFileURL(older).href,
+        bin,
+        "my-app",
+        "--stack",
+        "start",
+      ],
+      { cwd, encoding: "utf8" },
+    );
+
+    expect(status).toBe(1);
+    expect(stdout + stderr).toBe(
+      "Node 22.12.0 is too old: robkit needs Node 24 or later. Install it from https://nodejs.org, then run npm create robkit again.\n",
+    );
+    expect(await readdir(cwd)).toEqual(["older-node.mjs"]);
+  });
+});
+
+/** What init prints last when it made an install in `my-app` under `cwd`. */
+function nextSteps(cwd: string, ...steps: string[]): string {
+  return `Made a robkit install in ${join(cwd, "my-app")}. Next:
+
+${["cd my-app", ...steps, "pnpm dev"].map((step) => `  ${step}`).join("\n")}
+
+Then open http://hub.robkit.localhost:3000 and claim the install.
+`;
+}
+
+async function gitLog(dir: string): Promise<string> {
+  const { stdout } = await run("git", ["log", "--format=%s"], { cwd: dir });
+  return stdout.trim();
+}
+
+/**
+ * A machine with Docker and a pnpm that can run the install's, both fakes,
+ * and its own git, with or without a name and email. The fake pnpm prints
+ * its version whatever it is asked, so its install is that one line.
+ */
+async function machine(identity: boolean): Promise<NodeJS.ProcessEnv> {
+  return pathAhead(
+    { pnpm: await installsPnpm(), docker: "docker" },
+    await gitEnv(identity),
+  );
+}
+
+/** What a run printed, with the line endings a fake command has on Windows made plain. */
+const printed = (output: string) => output.replaceAll("\r\n", "\n");
+
+// A fake pnpm stands in, so these wait on no registry. The registry test in
+// tooling/e2e makes an install with the real one, from npm create alone.
+describe("init with no --no-install", () => {
+  it("writes, installs and commits, then prints the next commands and the hub's address", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await drive(
+      bin,
+      cwd,
+      ["my-app", "--stack", "start", "--link"],
+      [],
+      await machine(true),
+    );
+
+    expect(code).toBe(0);
+    // pnpm install's output, then nothing but the next steps.
+    expect(printed(output)).toBe(`${await installsPnpm()}\n${nextSteps(cwd)}`);
+    const dir = join(cwd, "my-app");
+    expect(await gitLog(dir)).toBe("Make a robkit install");
+    const { stdout } = await run("git", ["status", "--porcelain"], {
+      cwd: dir,
+    });
+    expect(stdout).toBe("");
+  });
+
+  it("finishes with no git name or email, saying in one line that it made no commit", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await drive(
+      bin,
+      cwd,
+      ["my-app", "--stack", "start", "--link"],
+      [],
+      await machine(false),
+    );
+
+    expect(code).toBe(0);
+    expect(printed(output)).toBe(
+      `${await installsPnpm()}\ngit has no name or email set, so init made no first commit. Set them with git config --global user.name and git config --global user.email.\n${nextSteps(cwd)}`,
+    );
+    const dir = join(cwd, "my-app");
+    await expect(gitLog(dir)).rejects.toThrow();
+  });
+});
+
 describe("init with no flags", () => {
   it("asks init's questions and prints the command that skips them", async () => {
     const asked = await mkdtemp(join(tmpdir(), "robkit-"));
 
     const { code, output } = await init(
       asked,
-      [],
+      ["--no-install"],
       [
         ["Where should robkit create the install?", `my-app${keys.enter}`],
         ["Which stack should the example app use?", keys.down + keys.enter],
@@ -53,7 +169,8 @@ describe("init with no flags", () => {
       "Where should robkit create the install?",
       "Which stack should the example app use?",
     ]);
-    const command = "npm create robkit@latest my-app -- --stack react-hono";
+    const command =
+      "npm create robkit@latest my-app -- --stack react-hono --no-install";
     expect(output).toContain(command);
 
     // npm hands create-robkit the arguments after the --.
@@ -76,7 +193,7 @@ describe("init with no flags", () => {
 
     const { code, output } = await init(
       cwd,
-      ["my-app", "--link"],
+      ["my-app", "--link", "--no-install"],
       defaultAnswers,
     );
 
@@ -85,19 +202,38 @@ describe("init with no flags", () => {
       "Which stack should the example app use?",
     ]);
     expect(output).toContain(
-      "npm create robkit@latest my-app -- --stack start --link",
+      "npm create robkit@latest my-app -- --stack start --no-install --link",
     );
   });
 
-  it("tells the owner to initialise git before installing", async () => {
+  it("with --no-install, writes only and prints the install command first", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
 
-    const { code, output } = await init(cwd, ["my-app"], defaultAnswers);
+    const { code, output } = await init(
+      cwd,
+      ["my-app", "--no-install"],
+      defaultAnswers,
+    );
 
     expect(code).toBe(0);
-    expect(output).toContain(
-      "Next:\n\n  cd my-app\n  git init\n  pnpm install\n  pnpm dev\n",
-    );
+    expect(output.endsWith(nextSteps(cwd, "pnpm install"))).toBe(true);
+    const written = await readdir(join(cwd, "my-app"));
+    expect(written).not.toContain("node_modules");
+    expect(written).not.toContain(".git");
+  });
+
+  it("prints a cd a shell reads as one folder when its name has a space", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(cwd, [
+      "my app",
+      "--stack",
+      "start",
+      "--no-install",
+    ]);
+
+    expect(code).toBe(0);
+    expect(printed(output)).toContain(`\n  cd "my app"\n`);
   });
 
   it("prints a known problem alone, without a stack", async () => {
@@ -137,6 +273,7 @@ describe("init with no flags", () => {
       "notes.txt/install",
       "--stack",
       "start",
+      "--no-install",
     ]);
 
     expect(code).toBe(1);
@@ -202,6 +339,7 @@ describe("init with --stack", () => {
       "my-app",
       "--stack",
       "react-hono",
+      "--no-install",
     ]);
 
     expect(code).toBe(0);

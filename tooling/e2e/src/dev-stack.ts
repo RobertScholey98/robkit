@@ -14,7 +14,13 @@ import { isRecord, type Slug } from "@robkit/input";
 import { defaultDomain, install, type Install } from "@robkit/input/addresses";
 import { afterAll, beforeAll, beforeEach, inject } from "vitest";
 import { takeBrowserLog } from "./browser.ts";
-import { addedSlug, exampleSlug, type InstallName } from "./install.ts";
+import {
+  addedSlug,
+  addTheApp,
+  exampleSlug,
+  installChoices,
+  type InstallName,
+} from "./install.ts";
 import type { JourneyOptions } from "./owner-journey.ts";
 
 const run = promisify(execFile);
@@ -36,11 +42,13 @@ export const owner = { username: "rob", password: "correct horse battery" };
 
 /**
  * `pnpm dev` running in one of the installs, for a suite's journeys. Its
- * addresses and ports exist once the suite's `beforeAll` has run.
+ * addresses and ports exist once the suite's `beforeAll` has run. An
+ * install the global setup made gets its second app from robkit add while
+ * `pnpm dev` runs, as an owner would.
  */
 export interface DevStack {
   /** The install's folder. */
-  dir: string;
+  readonly dir: string;
   /** Its Compose project, which holds its Postgres. */
   project: string;
   addresses: () => Install;
@@ -57,9 +65,23 @@ export interface DevStack {
     attempt: () => Promise<Reply>,
     status?: number,
   ) => Promise<Reply>;
+  /** Waits until core, the hub, admin and the apps `pnpm dev` started answer. */
+  started: () => Promise<void>;
+  /**
+   * Waits for `started`, then runs robkit add for the second app, unless
+   * the install had it when `pnpm dev` started.
+   *
+   * @returns what robkit add printed, or `undefined` when it didn't run
+   */
+  added: () => Promise<string | undefined>;
   /** Waits until core, the hub, admin and both apps answer. */
   up: () => Promise<void>;
-  /** Waits for `up`, then claims the install as `owner` unless it's claimed. */
+  /**
+   * Waits for `started`, then claims the install as `owner` unless it's
+   * claimed. It doesn't wait for the added app.
+   */
+  claimedBeforeAdd: () => Promise<void>;
+  /** Waits for `claimedBeforeAdd`, then for `up`. */
   claimed: () => Promise<void>;
   /** What a journey needs to sign the owner in and reach the database. */
   journey: () => JourneyOptions;
@@ -70,20 +92,31 @@ export interface DevStack {
 /**
  * Runs `pnpm dev` in the install `name` for the suite this is called in,
  * and stops it and its Postgres after. A failed journey prints what its
- * browser saw and what the dev runner said meanwhile.
+ * browser saw and what the dev runner said meanwhile. `name` is one of the
+ * installs the global setup made, or a suite's own install, by its folder
+ * once an earlier `beforeAll` has made it.
  */
 export function useDevStack(
-  name: InstallName,
+  name: InstallName | { name: string; dir: () => string },
   /** Changes the install before `pnpm dev` starts in it. */
   prepare?: (dir: string) => Promise<void>,
 ): DevStack {
-  const dir = inject("installs")[name];
-  const project = `robkit-e2e-${name}-${String(process.pid)}`;
+  const dirOf =
+    typeof name === "string" ? () => inject("installs")[name] : name.dir;
+  const label = typeof name === "string" ? name : name.name;
+  // The global setup makes its installs without the second app, so the
+  // suite adds it after the example's stack.
+  const exampleStack =
+    typeof name === "string" ? installChoices[name].exampleStack : undefined;
+  const adds = exampleStack !== undefined;
+  const project = `robkit-e2e-${label}-${String(process.pid)}`;
   let dev: ChildProcess | undefined;
   let devPort = 0;
   let addresses: Install | undefined;
   let postgresPort = 0;
   let output = "";
+  let isStarted: Promise<void> | undefined;
+  let isAdded: Promise<string | undefined> | undefined;
   let isUp: Promise<void> | undefined;
   let isClaimed: Promise<void> | undefined;
 
@@ -110,6 +143,9 @@ export function useDevStack(
           method,
           path,
           headers: { host, ...headers },
+          // A connection of its own: one the proxy closes for idling while
+          // the agent hands it out ends the request with a reset.
+          agent: false,
         },
         (res) => {
           let text = "";
@@ -145,17 +181,27 @@ export function useDevStack(
 
   // pnpm dev waits for no app, and the proxy answers 502 for one still
   // starting. Signed out, a guarded app answers a fetch with 401.
-  const up = () =>
-    (isUp ??= Promise.all([
+  const startedUp = () =>
+    (isStarted ??= Promise.all([
       eventually(() => send(hostOf("hub"), "/")),
       eventually(() => send(hostOf("core"), "/status")),
       eventually(() => send(hostOf("admin"), "/"), 401),
       eventually(() => send(hostOf(exampleSlug), "/"), 401),
-      eventually(() => send(hostOf(addedSlug), "/")),
+      ...(adds ? [] : [eventually(() => send(hostOf(addedSlug), "/"))]),
     ]).then(() => undefined));
 
-  const claimed = () =>
-    (isClaimed ??= up().then(async () => {
+  const added = () =>
+    (isAdded ??= startedUp().then(() =>
+      exampleStack ? addTheApp(dirOf(), exampleStack) : undefined,
+    ));
+
+  const up = () =>
+    (isUp ??= added().then(async () => {
+      await eventually(() => send(hostOf(addedSlug), "/"));
+    }));
+
+  const claimedBeforeAdd = () =>
+    (isClaimed ??= startedUp().then(async () => {
       const core = hostOf("core");
       const origin = addressesOf().origin("hub");
       const session = await send(core, "/session", { headers: { origin } });
@@ -172,10 +218,14 @@ export function useDevStack(
         );
       }
     }));
+  const claimed = () => claimedBeforeAdd().then(up);
 
   beforeAll(async () => {
+    const dir = dirOf();
     await prepare?.(dir);
-    devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
+    // The proxy, each app, and the app robkit add starts.
+    const apps = (await discoverApps(dir)).length;
+    devPort = await freePortBlock(1 + apps + (adds ? 1 : 0));
     addresses = install({ domain: defaultDomain, port: devPort });
     postgresPort = await freePostgresPort();
     const tag = testTag();
@@ -216,12 +266,14 @@ export function useDevStack(
   afterAll(async () => {
     if (dev?.exitCode === null && dev.pid) process.kill(-dev.pid, "SIGKILL");
     await run("docker", ["compose", "-p", project, "down", "-v"], {
-      cwd: dir,
+      cwd: dirOf(),
     });
   });
 
   return {
-    dir,
+    get dir() {
+      return dirOf();
+    },
     project,
     addresses: addressesOf,
     port: () => devPort,
@@ -229,7 +281,10 @@ export function useDevStack(
     at,
     send,
     eventually,
+    started: startedUp,
+    added,
     up,
+    claimedBeforeAdd,
     claimed,
     journey: () => ({
       install: addressesOf(),

@@ -24,12 +24,19 @@ import {
   appFiles,
   overridesIn,
   pnpmSettings,
-  readFolder,
+  readOwnTemplate,
   stackTemplate,
-  type Files,
+  textIn,
+  type AppFiles,
 } from "./generate.ts";
-import { goModuleFor, withGoModule } from "./go-module.ts";
-import { writeInstall } from "./write.ts";
+import {
+  goModuleFor,
+  vendoredGoModule,
+  withGoModule,
+  writeGoModule,
+} from "./go-module.ts";
+import { readRobkitRepo } from "./robkit-repo.ts";
+import { writeApp } from "./write.ts";
 
 /**
  * What robkit add asks: the stack, the app's slug, who may open it and its
@@ -112,12 +119,12 @@ export function newSlugProblem(root: string, name: string): string | undefined {
  *   has no `package.json` or one that isn't a JSON object, since the person
  *   owns it and can fix it
  */
-async function templateFor(root: string, stack: Stack): Promise<Files> {
+async function templateFor(root: string, stack: Stack): Promise<AppFiles> {
   const folder = `robkit/templates/${stack}`;
   const own = join(root, folder);
   if (!(await exists(own))) return stackTemplate(stack);
-  const files = await readFolder(own);
-  const text = files.get("package.json");
+  const files = await readOwnTemplate(own);
+  const text = textIn(files, "package.json");
   if (text === undefined) {
     throw new CommandProblem(
       `${folder} has no package.json. Add one, or delete the folder to use robkit's template.`,
@@ -135,7 +142,8 @@ async function templateFor(root: string, stack: Stack): Promise<Files> {
 
 /**
  * Writes a new app at `apps/<slug>` in the install at `root`, on one of
- * robkit's stacks. It writes files only: `pnpm dev`, or the
+ * robkit's stacks, in one move, so an add that fails leaves nothing under
+ * `apps/`. It writes files only: `pnpm dev`, or the
  * provision step before a deploy, gives the app its database, and core adds
  * it to its catalog with the rule it declares. An app on React + Go needs
  * Go, so it checks for Go before it writes anything.
@@ -151,13 +159,16 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
     access: choices.access,
     icon: choices.icon,
   });
-  const goMod = files.get("go.mod");
+  const goMod = textIn(files, "go.mod");
   if (goMod !== undefined) {
     const settings = await readFile(join(root, pnpmSettings), "utf8");
-    files.set(
-      "go.mod",
-      withGoModule(goMod, goModuleFor(overridesIn(settings))),
-    );
+    const goModule = goModuleFor(overridesIn(settings));
+    files.set("go.mod", withGoModule(goMod, goModule));
+    // The first Go app of an install that isn't linked brings robkit's Go
+    // module, and a later one refreshes it.
+    if (goModule === vendoredGoModule) {
+      await writeGoModule(root, (await readRobkitRepo()).goModule);
+    }
   }
-  await writeInstall(join(root, "apps", choices.slug), files);
+  await writeApp(root, choices.slug, files);
 }

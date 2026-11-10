@@ -38,7 +38,7 @@ Set it in the handler, with `w.Header().Set("Content-Security-Policy", ...)` bef
 - `pnpm dev` runs `go run . dev`. The Go server listens on `PORT` and guards everything, as in production. It starts Vite on a port of its own and passes it every request beyond the API: the page, its modules, and Vite's hot updates over a WebSocket. Restart `pnpm dev` after changing Go code; Vite reloads the page's own changes.
 - `pnpm build` runs `vite build`, which writes the page to `dist/public`, then `go build`, which writes the server to `dist/server`. The built server serves each file in `dist/public` and `index.html` for any other path, so the page can have routes of its own.
 - The production image runs the `start` script, which migrates and then serves. The image runs the binary alone, so the server needs nothing from `node_modules`, and the page's packages are all `devDependencies`.
-- `pnpm lint` runs `gofmt -d .`, `pnpm typecheck` runs `go vet` and `tsc`, and `pnpm test` runs `go test`.
+- `pnpm lint` runs `gofmt -d .`, `pnpm typecheck` runs `go vet` and `tsc`, and `pnpm test` runs `go test`. `go test` loads no `.env`, so a test that needs a setting sets it with `t.Setenv`.
 
 ## Calling core
 
@@ -55,11 +55,17 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `session.Guarded(s
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 - `HOST` and `PORT` are where the server listens, by default `127.0.0.1:3000`.
 
+The app's own settings, such as an API key, go in its `.env`, which git ignores. `pnpm dev` loads it for this app alone as it starts, so an edit waits for the next `pnpm dev`. Commit an `.env.example` that names each setting. The install's `AGENTS.md` says what the file can't set, and where the settings go in production. Vite writes a `VITE_*` value into the page when it builds the app, and Docker builds an image without the `.env`, so in production the page doesn't have it. Read the setting on the server and hand it to the page instead.
+
 ## The database
 
 The app owns its database code: it talks to Postgres with pgx over `DATABASE_URL`, as its own role, in plain SQL. robkit's Drizzle files, which the install's Node apps use, don't apply to it. The role has the app's own schema first on its search path, so a table named without a schema lands there. The role can't reach core's schema or another app's.
 
-- `migrations/` holds the migrations, one `.sql` file each, applied in name order. To change the schema, add the next file, such as `0002_add_notes.sql`, and commit it. Never edit a migration that has run.
+- `migrations/` holds the migrations, one `.sql` file each, applied in name order. To change the schema, add the next file, such as `0002_add_notes.sql`, and commit it. Never edit a migration that has run. With `pnpm dev` running, run `pnpm robkit migrate <slug>` in the install's folder to apply it without a restart. The app keeps its connection and its password.
 - `visits.go` shows a query. `server.go` connects with `pgxpool` as the server starts.
 
 `migrate.go` applies the migrations that haven't run yet, and records each in the `schema_migrations` table. They are embedded in the binary, so `dist/server migrate` needs no files beside it. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It locks `schema_migrations` while it migrates, so two containers that start together apply each migration once.
+
+## Upgrading robkit
+
+`pnpm robkit upgrade` replaces robkit's Go module in `vendor/robkit/go`, which this app builds against, and the `@robkit/*` packages its page runs on, with a newer version's. It never rewrites a file in this folder. When a new robkit changes what an app should hold, the changelog it prints says what to change here by hand.

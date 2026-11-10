@@ -43,7 +43,7 @@ Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` fr
 
 ## Testing
 
-`pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does, and needs no database, no core and no `pnpm dev`. A server function runs only through Start's compiler and request handler, so a test calls what its handler calls instead. `src/home.test.tsx` shows the pattern:
+`pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does, and needs no database, no core and no `pnpm dev`. A test runs with no `pnpm dev` behind it, so the app's `.env` doesn't reach `process.env`. A test that needs a setting sets it, with `vi.stubEnv`. A server function runs only through Start's compiler and request handler, so a test calls what its handler calls instead. `src/home.test.tsx` shows the pattern:
 
 - Each server function's handler hands `context.viewer` to a plain function, as `src/routes/index.tsx` hands it to `shownTo` and `visitAgainAs` in `src/visits.ts`.
 - The test calls that function with a viewer from `@robkit/start/testing`: `owner()`, `guest({ roles: ["family"] })` or `nobody()`.
@@ -64,6 +64,8 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded(entry)` t
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
+The app's own settings, such as an API key, go in its `.env`, which git ignores. `pnpm dev` loads it for this app alone as it starts, so an edit waits for the next `pnpm dev`. Commit an `.env.example` that names each setting. The install's `AGENTS.md` says what the file can't set, and where the settings go in production. Vite writes a `VITE_*` value into the page when it builds the app, and Docker builds an image without the `.env`, so in production the page doesn't have it. Read the setting on the server and hand it to the page instead.
+
 The example's queries are in `src/visits.ts`. `src/routes/index.tsx` reads the count from its loader with a GET server function, and records a visit with a POST one when the button is pressed.
 
 ## The database
@@ -72,6 +74,10 @@ The app talks to Postgres with Drizzle over `DATABASE_URL`, as its own role. The
 
 - `src/schema.ts` declares the tables. Use `pgTable`, never `pgSchema`: the app's schema is the role's, and naming another one fails.
 - `src/database.ts` gives queries the database with `appDatabase(schema)` from `@robkit/drizzle`, which connects on first use. `src/visits.ts` shows a query.
-- `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run.
+- `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run. With `pnpm dev` running, run `pnpm robkit migrate <slug>` in the install's folder to apply it without a restart. The app keeps its connection and its password.
 
 The `migrate` script runs `robkit-migrate`, from `@robkit/drizzle`, which applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It keeps its journal table in the app's schema, and two containers that start together apply each migration once. If you set `out` in `drizzle.config.ts` to another folder, name it in the script: `robkit-migrate <folder>`.
+
+## Upgrading robkit
+
+`pnpm robkit upgrade` moves the `@robkit/*` packages this app runs on to a newer version, and never rewrites a file in this folder. When a new robkit changes what an app should hold, the changelog it prints says what to change here by hand.

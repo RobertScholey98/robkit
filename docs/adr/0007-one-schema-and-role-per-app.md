@@ -10,8 +10,13 @@ Each app needs its own data, kept apart from core's and from other apps'. A data
 
 An install runs one Postgres. Each app with a `migrate` script gets its own schema and a login role, both named after its slug, and the role can touch only that schema. The provision step (`provisionApps` in `@robkit/dev`) creates both and then runs the app's `migrate` script. Core gets its own schema the same way.
 
+> **Note, 2026-11-10:** the decision stands, but the code has moved. The provision step is now its own package, `@robkit/provision` ([0017](0017-provisioning-is-its-own-package.md)). `robkit-core start` runs it in production and the dev runner runs it before `pnpm dev` starts the apps. `provisionApps` is the dev runner's own and isn't exported from `@robkit/dev`.
+
 ## Consequences
 
 - A slug must be a plain Postgres identifier and a hostname label: lowercase letters and digits, starting with a letter. `slugProblem` in `@robkit/dev` holds the rule.
+
+  > **Note, 2026-11-10:** `slugProblem` is now in `@robkit/input`.
+
 - In production each role's password is an HMAC of its slug under one install secret, `ROBKIT_DB_SECRET`, so `robkit database-urls` can print each app's `DATABASE_URL` without storing it.
 - The `migrate` script runs on every `pnpm dev` and every container start, so migrations must be safe to run again.

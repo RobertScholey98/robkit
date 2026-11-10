@@ -81,21 +81,21 @@ A boundary is where robkit meets a person or another program: an HTTP route, a c
 - **App servers.** An adapter's `serve()`, an app's `server.ts` and its scripts read their environment with `orExit` from `@robkit/input`. A variable that won't do prints its problem alone and exits 1, so the owner sees the line that says how to fix it, not a stack. A Vite config uses `orThrow` instead, since Vite prints what it throws. `appDatabase` from `@robkit/drizzle`, which an app's `database.ts` calls, reads `DATABASE_URL` with `orExit` too, on its first call rather than as the module loads, since `next build` loads an app with no database set. `robkit-migrate` is a command, so it throws the reader's problem as a `CommandProblem`.
 - **The guard's settings.** `guarded()` in every adapter, and `requestGuard()` and `coreOrigin()` in `@robkit/session`, read `ROBKIT_APP` and `ROBKIT_CORE_URL` themselves as the app's server starts, so they are an app server's boundary too and end the same way, through `orExit`. An `app` or `core` passed in code goes through the same reader, and its problem names the option, such as `guarded()'s core`. Go's `session.Guarded` returns the same problems as its error, and the template's `main` prints it and exits 1.
 - **The hub and admin.** Their `callCore`, in an install's `packages/core-client`, answers `{ outcome: "ok", value }` or `{ outcome: "failed", error }`, with `error` a sentence to show. It reads core's answer with a reader that returns `T | InputProblem`. It tells `report(message, cause?)` what went wrong underneath: no answer, an answer that isn't JSON, or one the reader refuses, with the method, path, status and the reader's problem. It never passes on what core sent, so `JSON.parse`'s error, which quotes the answer, isn't the cause. `report` defaults to core-client's `reportToConsole`.
-- **Command lines.** `create-robkit`, `robkit` and `robkit-dev` each run through `runCommand` from `@robkit/input/command`, which `@robkit/dev/cli` re-exports. It lives below the dev runner so a command that ships in an app's image needs nothing from it. Throw a `CommandProblem` for something the person can fix. It prints its message alone and exits 1, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints a line saying it's a bug and where to report it, then the fault with its stack and cause, and exits 1.
+- **Command lines.** `create-robkit`, `robkit`, `robkit-dev`, `robkit-core` and `robkit-migrate` each run through `runCommand` from `@robkit/input/command`, which `@robkit/dev/cli` re-exports. It lives below the dev runner so a command that ships in an app's image needs nothing from it. Throw a `CommandProblem` for something the person can fix. It prints its message alone and exits 1, and an `AggregateError` of them prints each message, so the message must say what to do: "Set COOLIFY_TOKEN to deploy." Anything else is a fault in robkit. It prints a line saying it's a bug and where to report it, then the fault with its stack and cause, and exits 1.
 
 ## Whose fault is it
 
 A file or program the person owns, or can install, fails as a `CommandProblem` that names it:
 
 - A malformed file the person owns, such as `robkit.json` or an install's own `robkit/templates/<stack>` override, names the file and says how to fix it.
-- A command that fails names itself, the folder it ran in and its exit code, and says its output is above: "pnpm install --no-frozen-lockfile exited with 1 in /home/me/robkit. Its output is above: fix what it says, then try again." `exec` from `@robkit/dev/cli` does this. A command whose output robkit reads, such as `pnpm pack --json`, puts what it printed in the message instead.
+- A command that fails names itself, the folder it ran in and its exit code, and says its output is above: "pnpm install --no-frozen-lockfile exited with 1 in /home/me/robkit. Its output is above: fix what it says, then try again." `exec` from `@robkit/dev/cli` does this. Where the command ran in another terminal, as a migration that `robkit migrate` asks a running `pnpm dev` for, the answer says where its output is: "Its output is in pnpm dev's." A command whose output robkit reads, such as `pnpm pack --json`, puts what it printed in the message instead.
 - A command that can't start, such as git or pnpm missing, says what to check and keeps the spawn error as `cause`.
 
 A malformed file robkit ships, such as one of its own templates, is a fault: the person can't fix it, so it prints as a bug.
 
 ## One way to report
 
-`Report` in `@robkit/session` is the one shape for saying what went wrong when nobody calling can handle it:
+`Report` in `@robkit/input/report` is the one shape for saying what went wrong when nobody calling can handle it:
 
 ```ts
 type Report = (message: string, cause?: unknown) => void;
@@ -105,7 +105,7 @@ The message says what robkit was doing; the cause is the error underneath. Core'
 
 ## Cleaning up
 
-Code that starts several things, such as the dev runner with its apps, proxy and Postgres, stops every one of them even when stopping one fails. Run each step, collect what failed, then throw: one failure as it is, so a `CommandProblem` still prints alone, or several in an `AggregateError` that keeps each.
+Code that starts several things, such as the dev runner with its apps, proxy and Postgres, stops every one of them even when stopping one fails. Run each step, collect what failed, then throw: one failure as it is, so a `CommandProblem` still prints alone, or several in an `AggregateError` that keeps each. When every one is a `CommandProblem`, `runCommand` prints each message and no bug line.
 
 Only the error that means "already gone" counts as gone. A signal to a process group that fails with `ESRCH` means the group has exited; any other code, such as `EPERM`, is rethrown with its cause.
 

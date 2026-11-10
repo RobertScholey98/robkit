@@ -1,22 +1,16 @@
 #!/usr/bin/env node
-import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
-import { CommandProblem, runCommand } from "@robkit/dev/cli";
-import {
-  type InputProblem,
-  isProblem,
-  parseJson,
-  type Slug,
-} from "@robkit/input";
+import { askDev, CommandProblem, isMissing, runCommand } from "@robkit/dev/cli";
+import { isProblem, parseJson, readSlug } from "@robkit/input";
 import {
   defaultDevPort,
   defaultDomain,
   install as addresses,
 } from "@robkit/input/addresses";
 import { addApp, readInstallChoices } from "./add.ts";
+import { affectedApps } from "./affected-apps.ts";
 import { readArgs } from "./args.ts";
 import {
   addCommandFor,
@@ -25,21 +19,36 @@ import {
   askAdd,
 } from "./add-wizard.ts";
 import { readCoolifyConfig } from "./coolify-config.ts";
+import { afterAdd, afterMigrate } from "./dev-answers.ts";
 import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
-import {
-  readAffectedApps,
-  readAppList,
-  readCoolify,
-  readDatabaseUrlsConfig,
-} from "./env.ts";
-import { installDependencies } from "./set-up.ts";
+import { readAppList, readCoolify, readDatabaseUrlsConfig } from "./env.ts";
+import { readRobkitRepo } from "./robkit-repo.ts";
+import { finishInstall, installDependencies } from "./set-up.ts";
+import { finishUpgrade, upgrade } from "./upgrade.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
 /** Where an install's apps answer under pnpm dev. */
 const dev = addresses({ domain: defaultDomain, port: defaultDevPort });
 
+const migrateUsage = `Usage: robkit migrate <slug>
+
+Asks the pnpm dev running in this install to run the app's migrate script,
+with the database URL it gave the app, so a new migration applies without
+a restart.`;
+
+const upgradeUsage = `Usage: robkit upgrade [version]
+
+Moves the install to a newer robkit: the newest, or the version given. It
+updates the catalog, the lint policy in tooling/eslint and the Go module in
+vendor/robkit/go, and never your apps. It needs every change committed and
+pnpm dev stopped.`;
+
 const usage = `${addUsage}
+
+${migrateUsage}
+
+${upgradeUsage}
 
 Usage: robkit check
 
@@ -67,15 +76,27 @@ since TURBO_SCM_BASE. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run,
 prints each app's variables and contacts nothing.`;
 
 process.exitCode = await runCommand(async () => {
+  requireInstall(process.cwd());
   const [command] = process.argv.slice(2);
   const commands: Record<string, () => Promise<number | undefined>> = {
     check,
+    migrate: migrateApp,
+    upgrade: upgradeInstall,
     vendor,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
   };
   return (commands[command ?? ""] ?? add)();
 });
+
+/** Refuses a folder with no `robkit.json` in one line, whatever the command. */
+function requireInstall(root: string): void {
+  if (!existsSync(join(root, "robkit.json"))) {
+    throw new CommandProblem(
+      `${root} isn't a robkit install: it has no robkit.json. Run robkit in an install's folder.`,
+    );
+  }
+}
 
 async function check(): Promise<number> {
   const { positionals } = readArgs({ allowPositionals: true }, usage);
@@ -180,16 +201,6 @@ async function deployInstall(): Promise<number | undefined> {
   return ok ? 0 : 1;
 }
 
-/** The apps turbo finds changed since TURBO_SCM_BASE, by slug. */
-async function affectedApps(root: string): Promise<Slug[] | InputProblem> {
-  const { stdout } = await promisify(exec)(
-    "turbo ls --affected --output json",
-    { cwd: root },
-  );
-  const parsed = parseJson(stdout, "turbo ls --affected's output");
-  return isProblem(parsed) ? parsed : readAffectedApps(parsed.json);
-}
-
 async function add(): Promise<undefined> {
   const { values, positionals } = readArgs(
     {
@@ -216,19 +227,80 @@ async function add(): Promise<undefined> {
   // An install whose dependencies are in keeps them in, new app included.
   const hasDependencies = existsSync(join(root, "node_modules"));
   if (hasDependencies) {
-    await installDependencies(root);
+    await finishInstall(
+      root,
+      `apps/${choices.slug} has its files but the install doesn't have its dependencies`,
+    );
   }
-  console.log(`Added apps/${choices.slug}. Next:
-${hasDependencies ? "" : "\n  pnpm install"}
-  pnpm dev
-
-Then open ${dev.origin(choices.slug)}.`);
+  // A pnpm dev already running starts the app; with no dependencies in,
+  // none can be.
+  const answer = hasDependencies
+    ? await askDev(root, { operation: "add", slug: choices.slug })
+    : ({ outcome: "not-running" } as const);
+  console.log(
+    afterAdd(choices.slug, answer, {
+      hasDependencies,
+      origin: dev.origin(choices.slug),
+    }),
+  );
   if (asked) {
     console.log(`
 The same app without the questions:
 
   pnpm ${addCommandFor(choices)}`);
   }
+}
+
+async function migrateApp(): Promise<undefined> {
+  const { positionals } = readArgs({ allowPositionals: true }, usage);
+  const [, given, ...rest] = positionals;
+  if (given === undefined || rest.length > 0) {
+    throw new CommandProblem(migrateUsage);
+  }
+  const root = process.cwd();
+  await readInstallChoices(root);
+  const slug = readSlug(given);
+  if (isProblem(slug)) throw new CommandProblem(slug.error);
+  console.log(afterMigrate(await askDev(root, { operation: "migrate", slug })));
+}
+
+async function upgradeInstall(): Promise<undefined> {
+  const { values, positionals } = readArgs(
+    {
+      allowPositionals: true,
+      // The first step runs `robkit upgrade --finish <version>` on the
+      // robkit it installs. An owner never types it.
+      options: { finish: { type: "string" } },
+    },
+    upgradeUsage,
+  );
+  const [, given, ...rest] = positionals;
+  const finishing = values.finish;
+  if (rest.length > 0 || (finishing !== undefined && given !== undefined)) {
+    throw new CommandProblem(upgradeUsage);
+  }
+  const root = process.cwd();
+  await readInstallChoices(root);
+  if (finishing === undefined) {
+    const nothing = await upgrade(root, given, process.env);
+    if (nothing !== undefined) console.log(nothing);
+    return;
+  }
+  const changelog = await readFile(
+    new URL("../CHANGELOG.md", import.meta.url),
+    "utf8",
+  ).catch((error: unknown) => {
+    if (isMissing(error)) return undefined;
+    throw error;
+  });
+  console.log(
+    await finishUpgrade(root, {
+      from: finishing,
+      repo: await readRobkitRepo(),
+      changelog,
+      env: process.env,
+    }),
+  );
 }
 
 function fail(message: string): never {

@@ -2,6 +2,12 @@
   "name": "create-robkit",
   "version": "0.0.0",
   "description": "Writes a robkit install: core, the hub, admin, one Postgres and an example app.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/create-robkit"
+  },
   "type": "module",
   "bin": {
     "create-robkit": "./src/create-robkit-command.ts",
@@ -23,9 +29,11 @@
     }
   },
   "files": [
+    "CHANGELOG.md",
     "dist",
     "src",
     "!src/**/*.test.ts",
+    "!src/**/*.test-d.ts",
     "!src/test",
     "!src/**/__snapshots__",
     "templates"
@@ -34,7 +42,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/carry.ts",
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run --coverage",

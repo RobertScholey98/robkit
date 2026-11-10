@@ -32,10 +32,14 @@ export type DeploymentValue =
 export function init(
   choices: Choices,
   dir: string,
-  { install, ...options }?: InitOptions,
-): Promise<void>;
+  { install, env, ...options }?: InitOptions,
+): Promise<InitResult>;
 export interface InitOptions extends GenerateOptions {
   install?: boolean;
+  env?: NodeJS.ProcessEnv;
+}
+export interface InitResult {
+  notes: string[];
 }
 export const readyStacks: Stack[];
 export type Stack = Ready["value"];

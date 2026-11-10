@@ -12,7 +12,7 @@ import { slug, aDomain } from "@internal/test-session";
 /** The default install, plus `brochure` on react-hono, open to anyone. */
 async function makeInstall(): Promise<string> {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
-  await init(defaultChoices, dir);
+  await init(defaultChoices, dir, { install: false });
   await addApp(dir, {
     slug: slug("brochure"),
     stack: "react-hono",

@@ -26,6 +26,25 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 - axe checks every install's hub, admin and apps. A theme journey changes the theme's variables on the hub and checks its controls follow them.
 - CI's job summary lists how long it took, beside each package's tests.
 
+## The registry test
+
+`src/registry.test.ts` in `@internal/e2e`, its own Vitest project beside the whole-stack test, which `test` runs too.
+
+- It makes an install the way a new owner does: `npm create robkit@<version>` in a temp folder with no checkout above it, which installs and commits by itself, with npm's registry setting only. So create-robkit runs from its packed bin and reads what its build carried, not the checkout.
+- Nothing is on npm yet, so `src/registry.ts` packs every package under `packages/` and serves them from a registry on 127.0.0.1, each published the moment it was packed. It answers only robkit's packages. Any other request it redirects to npm, which serves it as it would an owner.
+- pnpm runs with `minimumReleaseAgeStrict` on, so a package under a day old fails the install unless the install exempts it. robkit's packages are seconds old, so the install passing proves its exemption, and a project without one fails.
+- It adds an app on every other stack with `robkit add`, then runs the install's own `lint`, `typecheck`, `test` and `build`. The first Go app writes `vendor/robkit/go`, and the Go app builds against it with `GOPROXY=off`. A second install, with its example on Go, builds the same way.
+- Last, it runs `pnpm dev` in the install and signs the owner in to the example. There `robkit-dev`, `robkit-core`, `robkit-migrate` and `robkit()` all come from installed packages, which no other test runs.
+- turbo runs it after the repo checks' typecheck, which builds every published package, since it packs their `dist`.
+
+## The upgrade test
+
+`src/upgrade.test.ts` in `@internal/e2e`, in the same Vitest project as the registry test.
+
+- It packs every package, then repacks each tarball a patch higher with `packNewer` in `src/newer-version.ts`. Each `@robkit/*` dependency and every version create-robkit carries moves with it, or the newer install wouldn't resolve. The newer version's lint policy and Go module each gain a line, and its create-robkit ships a `CHANGELOG.md`.
+- The local registry serves both versions, and the newer is `latest`.
+- It makes an install at the older version with `npm create robkit`, with its example on Go, takes one catalog entry out, lowers another and adds one of the owner's, and commits. Then it runs `pnpm robkit upgrade`, and checks the catalog, `packageManager`, `tooling/eslint`, `vendor/robkit/go`, that no file under `apps/` changed, and the changelog it printed. Last, the install installs from its lockfile, and passes its own lint, typecheck and build.
+
 ## The production test
 
 `pnpm --filter @internal/e2e test:production`.
@@ -51,5 +70,5 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
   ```
 
 - **A failed production journey** prints what the browser saw and each container's state and last logs.
-- **Leftovers.** The watcher removes what a test started when the test process exits, however it ends. If a machine crashed mid-run, the watcher died with it: `docker ps` shows any `robkit-test-*` or `robkit-e2e-*` containers left, and the temp folder may hold `robkit-install-*`, `robkit-bin-*` and `robkit-caddy-*` folders and leases in `robkit-port-leases`. Remove them before the next run.
+- **Leftovers.** The watcher removes what a test started when the test process exits, however it ends. If a machine crashed mid-run, the watcher died with it: `docker ps` shows any `robkit-test-*`, `robkit-e2e-*` or `robkit-prod-*` containers left, and the temp folder may hold `robkit-install-*`, `robkit-bin-*`, `robkit-caddy-*` and `robkit-newer-*` folders and leases in `robkit-port-leases`. Remove them before the next run.
 - **`ERR_NETWORK_CHANGED` in Chromium** where Docker runs natively on Linux: set `COMPOSE_FILE` as above. Docker Desktop doesn't need it.

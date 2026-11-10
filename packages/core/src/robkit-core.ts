@@ -1,6 +1,8 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { constants } from "node:os";
-import { extname, sep } from "node:path";
+import { basename, dirname, extname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isProblem, readDatabaseUrl, type Env } from "@robkit/input";
 import { CommandProblem } from "@robkit/input/command";
@@ -58,10 +60,11 @@ export async function robkitCore(
     case "migrate":
       await migrateCore(env);
       return 0;
-    case "serve":
-      return watches(fileURLToPath(import.meta.url))
-        ? runChild(["--watch", servingFile], env)
-        : serveCore(env);
+    case "serve": {
+      const own = fileURLToPath(import.meta.url);
+      if (!watches(own)) return serveCore(env);
+      return runChild([...(await watchFlags(own)), servingFile], env);
+    }
     default:
       throw new CommandProblem(
         `robkit-core has no command "${command}".\n\n${usage}`,
@@ -136,6 +139,26 @@ function serveWithoutSecrets(env: Env): Promise<number> {
  */
 export function watches(file: string): boolean {
   return !file.split(sep).includes("node_modules");
+}
+
+/**
+ * Node's flags for what `serve` watches in a robkit checkout, given
+ * core's own `file` there: a `--watch-path` for the source of each of
+ * robkit's packages, core's among them, so an edit to any restarts core.
+ * Node's plain `--watch` would watch every file core imports, and so its
+ * dependencies under `node_modules`. pnpm links those from its store, and
+ * Node takes a file's new hard link for a change, so every `pnpm install`
+ * on the machine restarted core.
+ */
+export async function watchFlags(file: string): Promise<string[]> {
+  const source = dirname(file);
+  const packages = join(source, "..", "..");
+  const entries = await readdir(packages, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(packages, entry.name, basename(source)))
+    .filter((folder) => existsSync(folder))
+    .map((folder) => `--watch-path=${folder}`);
 }
 
 /**
