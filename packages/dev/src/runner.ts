@@ -186,8 +186,8 @@ export async function runDev(
   /**
    * Restarts core with today's catalog, since core reads `ROBKIT_APPS` as
    * it starts. Sessions are in the database, so nobody is signed out. In a
-   * linked checkout core runs under Node's watch mode, so its whole process
-   * group stops.
+   * linked checkout core runs under Node's watch mode, so its whole
+   * process group stops.
    */
   const restartCore = async () => {
     const core = runningApp("core");
