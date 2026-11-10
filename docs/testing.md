@@ -37,6 +37,14 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 - Last, it runs `pnpm dev` in the install and signs the owner in to the example. There `robkit-dev`, `robkit-core`, `robkit-migrate` and `robkit()` all come from installed packages, which no other test runs.
 - turbo runs it after the repo checks' typecheck, which builds every published package, since it packs their `dist`.
 
+## The upgrade test
+
+`src/upgrade.test.ts` in `@internal/e2e`, in the same Vitest project as the registry test.
+
+- It packs every package, then repacks each tarball a patch higher with `packNewer` in `src/newer-version.ts`. Each `@robkit/*` dependency and every version create-robkit carries moves with it, or the newer install wouldn't resolve. The newer version's lint policy and Go module each gain a line, and its create-robkit ships a `CHANGELOG.md`.
+- The local registry serves both versions, and the newer is `latest`.
+- It makes an install at the older version with `npm create robkit`, with its example on Go, takes one catalog entry out, lowers another and adds one of the owner's, and commits. Then it runs `pnpm robkit upgrade`, and checks the catalog, `packageManager`, `tooling/eslint`, `vendor/robkit/go`, that no file under `apps/` changed, and the changelog it printed. Last, the install installs from its lockfile, and passes its own lint, typecheck and build.
+
 ## The production test
 
 `pnpm --filter @internal/e2e test:production`.
