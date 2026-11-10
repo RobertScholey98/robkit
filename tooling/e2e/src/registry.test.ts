@@ -39,6 +39,11 @@ describe("an install from a registry", () => {
   let dir: string;
   /** Whether the install had vendor/robkit/go before its first Go app. */
   let hadGoModule: boolean;
+  /**
+   * What npm create left, read before any other command ran: whether the
+   * robkit command was installed, and git's log.
+   */
+  let afterCreate: { installed: boolean; log: string };
   let env: NodeJS.ProcessEnv;
 
   beforeAll(async () => {
@@ -68,6 +73,10 @@ describe("an install from a registry", () => {
     );
     dir = join(home, "install");
     hadGoModule = existsSync(join(dir, "vendor/robkit/go"));
+    afterCreate = {
+      installed: existsSync(join(dir, "node_modules/.bin/robkit")),
+      log: (await run("git", ["log", "--format=%s"], { cwd: dir, env })).trim(),
+    };
     for (const { slug, stack } of added) {
       await run(
         "pnpm",
@@ -89,10 +98,11 @@ describe("an install from a registry", () => {
     });
   });
 
-  it("is installed and committed by npm create alone", async () => {
-    expect(existsSync(join(dir, "node_modules/.bin/robkit"))).toBe(true);
-    const log = await run("git", ["log", "--format=%s"], { cwd: dir, env });
-    expect(log.trim()).toBe("Make a robkit install");
+  it("is installed and committed by npm create alone", () => {
+    expect(afterCreate).toEqual({
+      installed: true,
+      log: "Make a robkit install",
+    });
   });
 
   it("names robkit's packages at the versions packed, with no overrides for them", async () => {
