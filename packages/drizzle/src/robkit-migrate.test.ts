@@ -44,10 +44,11 @@ describe("robkit-migrate", () => {
     ).rejects.toEqual(new CommandProblem(usage));
   });
 
-  it("says how to use it when asked for help", async () => {
-    await expect(
-      robkitMigrate(["--help"], { DATABASE_URL: databaseUrl }),
-    ).rejects.toEqual(new CommandProblem(usage));
+  // Asking how needs no database, so it says how before it reads one.
+  it("says how to use it when asked for help, with no DATABASE_URL set", async () => {
+    await expect(robkitMigrate(["--help"], {})).rejects.toEqual(
+      new CommandProblem(usage),
+    );
   });
 
   it("says where it looked when the folder holds no migrations", async () => {

@@ -22,12 +22,12 @@ export async function robkitMigrate(
   args: readonly string[],
   env: Env,
 ): Promise<number> {
-  const databaseUrl = readDatabaseUrl(env);
-  if (isProblem(databaseUrl)) throw new CommandProblem(databaseUrl.error);
   const [given = "drizzle", ...rest] = args;
   if (rest.length > 0 || given.startsWith("-")) {
     throw new CommandProblem(usage);
   }
+  const databaseUrl = readDatabaseUrl(env);
+  if (isProblem(databaseUrl)) throw new CommandProblem(databaseUrl.error);
   const folder = resolve(given);
   if (!existsSync(join(folder, "meta", "_journal.json"))) {
     throw new CommandProblem(
