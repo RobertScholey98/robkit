@@ -1,5 +1,7 @@
-import type { Domain } from "@robkit/input";
+import { join } from "node:path";
+import type { Domain, Slug } from "@robkit/input";
 import type { App } from "./apps.ts";
+import { readEnvFile } from "./env.ts";
 
 /** What `robkit-dev` tells every app about the install it runs in. */
 export interface InstallFacts {
@@ -47,16 +49,41 @@ export function appSettings(
 
 /**
  * The environment `robkit-dev` gives an app, and its `migrate` script:
- * the runner's settings over the shell's.
+ * the runner's settings win, then the shell's, then the app's own, from
+ * its `.env`.
  */
 export function appEnv(
   install: InstallFacts,
   shell: NodeJS.ProcessEnv,
   app: Pick<App, "slug" | "port">,
-  databaseUrl?: string,
+  {
+    own = {},
+    databaseUrl,
+  }: {
+    own?: Record<string, string> | undefined;
+    databaseUrl?: string | undefined;
+  } = {},
 ): NodeJS.ProcessEnv {
-  const env = { ...shell, ...appSettings(install, app, databaseUrl) };
+  const env = { ...own, ...shell, ...appSettings(install, app, databaseUrl) };
   return Object.fromEntries(
     Object.entries(env).filter(([, value]) => value !== undefined),
+  );
+}
+
+/**
+ * Each app's own settings, by slug: what `apps/<slug>/.env` sets, or
+ * nothing when it has none. Read once, as `pnpm dev` starts.
+ */
+export async function ownSettings(
+  install: InstallFacts,
+  apps: readonly Pick<App, "slug" | "port" | "dir">[],
+): Promise<Map<Slug, Record<string, string>>> {
+  return new Map(
+    await Promise.all(
+      apps.map(
+        async (app) =>
+          [app.slug, await readEnvFile(join(app.dir, ".env"))] as const,
+      ),
+    ),
   );
 }

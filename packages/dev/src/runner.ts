@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { install } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
 import { CommandProblem } from "@robkit/input/command";
-import { appEnv, type InstallFacts } from "./app-env.ts";
+import { appEnv, type InstallFacts, ownSettings } from "./app-env.ts";
 import { untilAnswering } from "./answering.ts";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { checkBeforeStart, proxyPortProblem } from "./checks.ts";
@@ -45,6 +45,12 @@ export async function runDev(
   const { domain, devPort, adminUrl, postgresPort } = config;
   const addresses = install({ domain, port: devPort });
   const apps = await discoverApps(root, devPort + 1);
+  const facts: InstallFacts = {
+    domain,
+    coreUrl: addresses.origin("core"),
+    catalog: catalogOf(apps),
+  };
+  const own = await ownSettings(facts, apps);
   // An app with a go.mod runs on Go. Say so before anything starts.
   if (apps.some((app) => existsSync(join(app.dir, "go.mod")))) {
     await requireGo(env);
@@ -52,14 +58,9 @@ export async function runDev(
   // Before anything starts, and outside the stop below, so a second pnpm
   // dev stops nothing the first one runs.
   await checkBeforeStart({ root, env, devPort, postgresPort, apps });
-  const facts: InstallFacts = {
-    domain,
-    coreUrl: addresses.origin("core"),
-    catalog: catalogOf(apps),
-  };
   // An app and its migrate script get the same environment.
   const envFor = (app: App, databaseUrl?: string) =>
-    appEnv(facts, env, app, databaseUrl);
+    appEnv(facts, env, app, { own: own.get(app.slug), databaseUrl });
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;

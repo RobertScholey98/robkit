@@ -499,6 +499,40 @@ async function holding(port: number): Promise<void> {
   });
 }
 
+describe("an app's own .env", () => {
+  it("reaches the app and its migrate script, under the shell's values, and no other app", async () => {
+    const dev = await startDev(
+      { FIXTURE_SHADOWED: "from the shell" },
+      async (root) => {
+        await writeFile(
+          join(root, "apps", "alpha", ".env"),
+          "FIXTURE_OWN=alpha's own\nFIXTURE_SHADOWED=from the file\n",
+        );
+      },
+    );
+
+    const alpha: unknown = JSON.parse(
+      await eventually(() => get(dev.port, "alpha.robkit.localhost")),
+    );
+    const beta: unknown = JSON.parse(
+      await eventually(() => get(dev.port, "beta.robkit.localhost")),
+    );
+    const migratedWith: unknown = JSON.parse(
+      await readFile(
+        join(dev.root, "apps", "alpha", "migrated-with.json"),
+        "utf8",
+      ),
+    );
+
+    expect(alpha).toMatchObject({
+      own: "alpha's own",
+      shadowed: "from the shell",
+    });
+    expect(beta).not.toHaveProperty("own");
+    expect(migratedWith).toMatchObject({ own: "alpha's own" });
+  });
+});
+
 describe("robkit-dev's checks before it starts", () => {
   it("says to start Docker, in one line, and starts nothing when Docker doesn't answer", async () => {
     // A Docker that doesn't answer, rather than stopping this machine's.

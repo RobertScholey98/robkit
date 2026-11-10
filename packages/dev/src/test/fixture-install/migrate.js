@@ -17,6 +17,7 @@ writeFileSync(
     app: process.env.ROBKIT_APP,
     port: process.env.PORT,
     vitest: process.env.VITEST,
+    own: process.env.FIXTURE_OWN,
   }),
 );
 console.log("migrated");
