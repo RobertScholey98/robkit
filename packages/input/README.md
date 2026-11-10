@@ -6,7 +6,7 @@ Every robkit package and every app can import it. It imports nothing, so the bro
 
 ## Example
 
-An app's `serve.ts` reads where to listen once, at start. `orExit` gives back the value, or prints the problem alone and exits 1:
+A server reads where to listen once, at start, as `@robkit/serve` does. `orExit` gives back the value, or prints the problem alone and exits 1:
 
 ```ts
 import { orExit, readServeEnv } from "@robkit/input";

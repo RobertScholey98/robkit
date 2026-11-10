@@ -29,10 +29,10 @@ Core loads its signing key before it listens. On SIGTERM it stops taking new req
 
 ### Your own core
 
-To change how core starts, write your own `main.ts` from the same parts, and point `apps/core`'s scripts at it. It needs `@hono/node-server` and `@robkit/input` in `apps/core`'s dependencies:
+To change how core starts, write your own `main.ts` from the same parts, and point `apps/core`'s scripts at it. It needs `@hono/node-server`, `@robkit/input` and `@robkit/serve` in `apps/core`'s dependencies:
 
 ```ts
-import { serve } from "@hono/node-server";
+import { getRequestListener } from "@hono/node-server";
 import {
   createApp,
   createDatabase,
@@ -42,6 +42,7 @@ import {
   registerApps,
 } from "@robkit/core";
 import { orExit } from "@robkit/input";
+import { serve } from "@robkit/serve";
 
 const config = orExit(readCoreConfig(process.env));
 
@@ -62,12 +63,12 @@ const app = createApp({
 });
 
 // Core trusts the proxy's X-Forwarded-For, so only the proxy may reach it.
-// A container sets HOST to listen beyond loopback.
-const { host: hostname, port } = config;
-const server = serve({ fetch: app.fetch, hostname, port });
-
-process.on("SIGTERM", () => {
-  server.close(() => void db.$client.end());
+// A container sets HOST to listen beyond loopback. On SIGTERM it lets open
+// requests finish, then closes the database and exits 0.
+serve(getRequestListener(app.fetch), {
+  name: "core",
+  address: { host: config.host, port: config.port },
+  onStopped: () => db.$client.end(),
 });
 ```
 
