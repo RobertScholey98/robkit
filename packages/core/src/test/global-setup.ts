@@ -1,9 +1,5 @@
 import { startPostgres } from "@internal/test-postgres";
-import {
-  databasePassword,
-  databaseUrl,
-  provisionDatabases,
-} from "@robkit/provision";
+import { provisionDatabases } from "@robkit/provision";
 import type { TestProject } from "vitest/node";
 
 declare module "vitest" {
@@ -20,10 +16,20 @@ export default async function setup(project: TestProject) {
   // Production derives core's password from the install's secret; any
   // secret of 32 characters or more does for a test database.
   const secret = "core's test database secret, not a real one";
-  await provisionDatabases({ adminUrl, secret, slugs: ["core"] });
-  project.provide(
-    "databaseUrl",
-    databaseUrl(adminUrl, "core", databasePassword(secret, "core")),
-  );
+  const provisioned = await provisionDatabases({
+    adminUrl,
+    secret,
+    slugs: ["core"],
+  });
+  const databaseUrl =
+    provisioned.outcome === "provisioned"
+      ? provisioned.databaseUrls.get("core")
+      : undefined;
+  if (databaseUrl === undefined) {
+    throw new Error(`Couldn't provision core's test database.`, {
+      cause: provisioned,
+    });
+  }
+  project.provide("databaseUrl", databaseUrl);
   return stop;
 }

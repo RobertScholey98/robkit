@@ -1,6 +1,7 @@
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { CommandProblem } from "@robkit/input/command";
 import { describe, expect, it } from "vitest";
 import { addApp } from "./add.ts";
 import { defaultChoices } from "./choices.ts";
@@ -128,6 +129,19 @@ describe("databaseUrls", () => {
     ]);
     expect(urls.get("CORE_DATABASE_URL")).toMatch(
       /^postgres:\/\/core:[0-9a-f]{64}@db\.internal:5432\/robkit$/,
+    );
+  });
+
+  it("refuses a secret too short to derive passwords from", async () => {
+    await expect(
+      databaseUrls(await install(), {
+        adminUrl: "postgres://postgres:pw@db.internal:5432/robkit",
+        secret: "short",
+      }),
+    ).rejects.toEqual(
+      new CommandProblem(
+        "robkit database-urls can't derive brochure's password. The database secret is 5 characters. It must be at least 32. Set ROBKIT_DB_SECRET to the install's secret.",
+      ),
     );
   });
 });

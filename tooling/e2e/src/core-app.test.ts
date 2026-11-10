@@ -6,11 +6,7 @@ import {
   startPostgres,
   type TestPostgres,
 } from "@internal/test-postgres";
-import {
-  databasePassword,
-  databaseUrl as appDatabaseUrl,
-  provisionDatabases,
-} from "@robkit/provision";
+import { provisionDatabases } from "@robkit/provision";
 import postgres from "postgres";
 import {
   afterAll,
@@ -31,16 +27,21 @@ beforeAll(async () => {
   database = await startPostgres();
   admin = postgres(database.adminUrl, { max: 1 });
   const secret = "core's test database secret, not a real one";
-  await provisionDatabases({
+  const provisioned = await provisionDatabases({
     adminUrl: database.adminUrl,
     secret,
     slugs: ["core"],
   });
-  databaseUrl = appDatabaseUrl(
-    database.adminUrl,
-    "core",
-    databasePassword(secret, "core"),
-  );
+  const url =
+    provisioned.outcome === "provisioned"
+      ? provisioned.databaseUrls.get("core")
+      : undefined;
+  if (url === undefined) {
+    throw new Error("Couldn't provision core's database.", {
+      cause: provisioned,
+    });
+  }
+  databaseUrl = url;
 });
 
 afterEach(() => {

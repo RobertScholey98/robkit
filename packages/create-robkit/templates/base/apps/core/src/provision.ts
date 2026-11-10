@@ -8,5 +8,9 @@ import { orExit } from "@robkit/input";
 
 const config = orExit(readProvisionConfig(process.env));
 
-await provisionDatabases(config);
+const provisioned = await provisionDatabases(config);
+if (provisioned.outcome !== "provisioned") {
+  console.error(provisioned.error);
+  process.exit(1);
+}
 console.log(`provisioned ${config.slugs.join(", ")}`);

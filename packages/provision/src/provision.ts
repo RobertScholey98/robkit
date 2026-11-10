@@ -1,7 +1,26 @@
 import { createHmac, randomBytes } from "node:crypto";
 import postgres from "postgres";
-import { CommandProblem } from "@robkit/input/command";
 import { isProblem, readSlug, type Slug } from "@robkit/input";
+
+/** The database secret is too short to derive passwords from. */
+export interface ShortSecret {
+  outcome: "short-secret";
+  /** What is wrong, as a sentence. */
+  error: string;
+}
+
+/**
+ * Why the provision step won't give an app its database: its name isn't a
+ * slug. `error` says so in a sentence that names it.
+ */
+export interface RefusedApp {
+  outcome: "not-a-slug";
+  slug: string;
+  error: string;
+}
+
+/** What the provision step can refuse to do, as a value its caller expects. */
+export type ProvisionRefusal = ShortSecret | RefusedApp;
 
 export interface ProvisionDatabasesOptions {
   /** A superuser URL for the install's database. */
@@ -16,35 +35,53 @@ export interface ProvisionDatabasesOptions {
  * The provision step in production: gives each app in `slugs` its database,
  * with the password `databasePassword` derives for it, so the `DATABASE_URL`
  * the owner set on the host keeps working. Runs no `migrate` script; each
- * app migrates itself as it starts. Safe to run on every deploy.
+ * app migrates itself as it starts. Safe to run on every deploy. It stops at
+ * the first app it refuses, and refuses a short secret before it starts.
  *
- * @returns each app's `DATABASE_URL`, by slug
+ * @returns each app's `DATABASE_URL`, by slug, or what it refused
  */
 export async function provisionDatabases({
   adminUrl,
   secret,
   slugs,
-}: ProvisionDatabasesOptions): Promise<Map<Slug, string>> {
-  const databaseUrls = new Map<Slug, string>();
+}: ProvisionDatabasesOptions): Promise<
+  { outcome: "provisioned"; databaseUrls: Map<Slug, string> } | ProvisionRefusal
+> {
+  const passwords = new Map<Slug, string>();
   for (const slug of slugs) {
-    const password = databasePassword(secret, slug);
-    databaseUrls.set(slug, await provisionDatabase(adminUrl, slug, password));
+    const derived = databasePassword(secret, slug);
+    if (derived.outcome !== "derived") return derived;
+    passwords.set(slug, derived.password);
   }
-  return databaseUrls;
+  const databaseUrls = new Map<Slug, string>();
+  for (const [slug, password] of passwords) {
+    const result = await provisionDatabase(adminUrl, slug, password);
+    if (result.outcome !== "provisioned") return result;
+    databaseUrls.set(slug, result.databaseUrl);
+  }
+  return { outcome: "provisioned", databaseUrls };
 }
+
+/** The shortest database secret the step derives passwords from. */
+const shortestSecret = 32;
 
 /**
  * The password of an app's role in production: the HMAC of its slug under
  * the install's database secret. Anyone with the secret can work out every
  * app's password, so only the provision step holds it.
  */
-export function databasePassword(secret: string, slug: Slug): string {
-  if (secret.length < 32) {
-    throw new CommandProblem(
-      "The database secret must be at least 32 characters.",
-    );
+export function databasePassword(
+  secret: string,
+  slug: Slug,
+): { outcome: "derived"; password: string } | ShortSecret {
+  if (secret.length < shortestSecret) {
+    return {
+      outcome: "short-secret",
+      error: `The database secret is ${String(secret.length)} characters. It must be at least ${String(shortestSecret)}.`,
+    };
   }
-  return createHmac("sha256", secret).update(slug).digest("hex");
+  const password = createHmac("sha256", secret).update(slug).digest("hex");
+  return { outcome: "derived", password };
 }
 
 /** An app's `DATABASE_URL`: the admin URL's database, as the app's role. */
@@ -63,19 +100,21 @@ export function databaseUrl(
  * Gives an app its own schema and a login role that can touch nothing else,
  * both named after the app's slug. Safe to run on every start: it converges
  * on the same grants and sets the password each time, a fresh one unless
- * given.
+ * given. It refuses a name that isn't a slug.
  *
  * @param adminUrl a superuser URL for the install's database
- * @returns the app's `DATABASE_URL`
+ * @returns the app's `DATABASE_URL`, or why it refused
  */
 export async function provisionDatabase(
   adminUrl: string,
   slug: Slug,
   password = randomBytes(24).toString("hex"),
-): Promise<string> {
+): Promise<{ outcome: "provisioned"; databaseUrl: string } | RefusedApp> {
   // The slug goes into DDL, so a caller in plain JavaScript is checked too.
   const read = readSlug(slug);
-  if (isProblem(read)) throw new CommandProblem(read.error);
+  if (isProblem(read)) {
+    return { outcome: "not-a-slug", slug, error: read.error };
+  }
   const role = `"${slug}"`;
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
   try {
@@ -101,5 +140,8 @@ export async function provisionDatabase(
     await sql.end();
   }
 
-  return databaseUrl(adminUrl, slug, password);
+  return {
+    outcome: "provisioned",
+    databaseUrl: databaseUrl(adminUrl, slug, password),
+  };
 }

@@ -5,4 +5,7 @@ export {
   provisionDatabase,
   provisionDatabases,
   type ProvisionDatabasesOptions,
+  type ProvisionRefusal,
+  type RefusedApp,
+  type ShortSecret,
 } from "./provision.ts";

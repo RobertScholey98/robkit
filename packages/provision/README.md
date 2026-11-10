@@ -4,6 +4,8 @@ Gives each app of a robkit install its own Postgres schema and a login role that
 
 Core runs it in production before it migrates, and the dev runner runs it before `pnpm dev` starts the apps. create-robkit uses it to work out each app's `DATABASE_URL` for a deploy.
 
+It returns what it can refuse as a value, so each command says what to do in its own words: a name that isn't a slug, and a database secret shorter than 32 characters. It changes nothing when it refuses.
+
 ## Example
 
 The provision step in production:
@@ -20,18 +22,23 @@ if (isProblem(config)) {
   process.exit(1);
 }
 
-await provisionDatabases(config);
+const provisioned = await provisionDatabases(config);
+if (provisioned.outcome !== "provisioned") {
+  console.error(provisioned.error);
+  process.exit(1);
+}
 console.log(`provisioned ${config.slugs.join(", ")}`);
 ```
 
 ## Exports
 
-| Export                                          | What it is                                                                                    |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `readProvisionConfig(env)`, `ProvisionConfig`   | The production provision step's environment                                                   |
-| `provisionDatabases(options)`                   | The provision step in production, with each password from `ROBKIT_DB_SECRET`                  |
-| `provisionDatabase(adminUrl, slug, password?)`  | One app's schema and role, with the password given or a fresh one. Returns its `DATABASE_URL` |
-| `databasePassword(secret, slug)`, `databaseUrl` | An app's role password (an HMAC of its slug) and its `DATABASE_URL`                           |
+| Export                                          | What it is                                                                                      |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `ProvisionRefusal`, `RefusedApp`, `ShortSecret` | What it refuses, each with `outcome` and an `error` sentence. A refused app's sentence names it |
+| `readProvisionConfig(env)`, `ProvisionConfig`   | The production provision step's environment                                                     |
+| `provisionDatabases(options)`                   | The provision step in production, with each password from `ROBKIT_DB_SECRET`                    |
+| `provisionDatabase(adminUrl, slug, password?)`  | One app's schema and role, with the password given or a fresh one. Returns its `DATABASE_URL`   |
+| `databasePassword(secret, slug)`, `databaseUrl` | An app's role password (an HMAC of its slug) and its `DATABASE_URL`                             |
 
 ## What it must never do
 

@@ -1,5 +1,6 @@
 import type { Slug } from "@robkit/input";
 import { provisionDatabase } from "@robkit/provision";
+import { CommandProblem } from "@robkit/input/command";
 import { discoverApps } from "./apps.ts";
 import { exec } from "./exec.ts";
 
@@ -15,7 +16,8 @@ export interface ProvisionOptions {
 /**
  * The provision step: gives every app in the install at `root` that has a
  * `migrate` script its database, then runs that script as the app. Apps go
- * one at a time in slug order, and the step stops at the first failure. Safe
+ * one at a time in slug order, and the step stops at the first failure: an
+ * app it refuses is a `CommandProblem` that names it. Safe
  * to run on every start: a second run changes nothing but the passwords.
  *
  * @returns each provisioned app's `DATABASE_URL`, by slug
@@ -28,7 +30,13 @@ export async function provisionApps(
   for (const app of await discoverApps(root)) {
     if (signal?.aborted) break;
     if (!app.migrates) continue;
-    const databaseUrl = await provisionDatabase(adminUrl, app.slug);
+    const provisioned = await provisionDatabase(adminUrl, app.slug);
+    if (provisioned.outcome !== "provisioned") {
+      throw new CommandProblem(
+        `pnpm dev can't give ${app.slug} its database. ${provisioned.error} Rename apps/${app.slug}.`,
+      );
+    }
+    const { databaseUrl } = provisioned;
     await exec("pnpm", ["run", "migrate"], {
       cwd: app.dir,
       env: { ...env, DATABASE_URL: databaseUrl },
