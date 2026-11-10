@@ -3,20 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/main.ts",
-    "migrate": "node src/migrate.ts",
-    "typecheck": "tsc",
-    "start": "node src/provision.ts && node src/migrate.ts && env -u ROBKIT_ADMIN_DATABASE_URL -u ROBKIT_DB_SECRET node src/main.ts"
+    "dev": "robkit-core serve",
+    "migrate": "robkit-core migrate",
+    "start": "robkit-core start"
   },
   "dependencies": {
-    "@hono/node-server": "catalog:",
-    "@robkit/core": "catalog:",
-    "@robkit/input": "catalog:",
-    "@robkit/provision": "catalog:"
-  },
-  "devDependencies": {
-    "@internal/tsconfig": "workspace:*",
-    "@types/node": "catalog:",
-    "typescript": "catalog:"
+    "@robkit/core": "catalog:"
   }
 }

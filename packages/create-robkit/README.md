@@ -84,7 +84,7 @@ The hub, admin and core-client are template files, not packages of this repo. In
 | The hub         | `base/apps/hub/src/`: the launcher (`launcher.tsx`), sign-in forms and `core-api.ts`              |
 | Admin           | `base/apps/admin/src/client/` for its screens, and `src/server.ts` for its server                 |
 | core-client     | `base/packages/core-client/src/`: `call-core.ts`, and `fake-core.ts`, which the tests answer from |
-| Core's app      | `base/apps/core/src/`, which starts `@robkit/core`                                                |
+| Core's app      | `base/apps/core/package.json`, whose scripts run `robkit-core` from `@robkit/core`                |
 | The example app | `stacks/<stack>/`, mounted at `apps/example`                                                      |
 
 An install's paths match the template's: `templates/base/apps/hub/src/launcher.tsx` becomes `apps/hub/src/launcher.tsx`. The one exception is `.gitignore`, which the template keeps as `gitignore` because npm would drop it from the package.

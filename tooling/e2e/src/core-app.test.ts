@@ -53,9 +53,11 @@ afterAll(async () => {
   await database.stop();
 });
 
-function start(script: string, env: Record<string, string>): ChildProcess {
-  const child = spawn(process.execPath, [script], {
-    cwd: join(inject("installs").start, "apps/core"),
+/** Runs `robkit-core <command>` in the install's apps/core, as its scripts do. */
+function start(command: string, env: Record<string, string>): ChildProcess {
+  const dir = join(inject("installs").start, "apps/core");
+  const child = spawn(join(dir, "node_modules/.bin/robkit-core"), [command], {
+    cwd: dir,
     env: { ...process.env, ...env },
     stdio: ["ignore", "inherit", "inherit"],
   });
@@ -88,8 +90,12 @@ async function signingKeyIds(): Promise<string[]> {
   return rows.map((row) => row.kid);
 }
 
+/**
+ * Starts core as its container does, without the provision step's
+ * settings: `start` migrates core's database, then serves.
+ */
 function boot(port: number, env: Record<string, string> = {}): ChildProcess {
-  return start("src/main.ts", {
+  return start("start", {
     PORT: String(port),
     DATABASE_URL: databaseUrl,
     ROBKIT_CORE_URL: "http://core.robkit.localhost:3000",
@@ -99,16 +105,10 @@ function boot(port: number, env: Record<string, string> = {}): ChildProcess {
 
 // These run in order on one database: core first meets it unmigrated.
 describe("the default install's apps/core", () => {
-  it("won't start, and doesn't migrate, before core's schema exists", async () => {
-    const core = boot(await freePort());
-    const [code] = (await once(core, "exit")) as [number | null];
-
-    expect(code).toBe(1);
-    expect(await coreTables()).toEqual([]);
-  });
-
   it("migrates core's schema as a separate step", async () => {
-    const migrate = start("src/migrate.ts", {
+    expect(await coreTables()).toEqual([]);
+
+    const migrate = start("migrate", {
       DATABASE_URL: databaseUrl,
     });
     const [code] = (await once(migrate, "exit")) as [number | null];

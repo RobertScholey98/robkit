@@ -191,7 +191,8 @@ flowchart TD
 | Access codes, roles and the app catalog         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                 |
 | The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`, `sign-in-limits.ts`, `password.ts`         |
 | `pnpm dev`: finding apps, the proxy, the runner | `packages/dev/src/apps.ts`, `proxy.ts`, `runner.ts`                                        |
-| Each app's schema and role                      | `packages/dev/src/provision.ts`                                                            |
+| Each app's schema and role                      | `packages/provision/src/provision.ts` (`@robkit/provision`)                                |
+| How core starts and stops                       | `packages/core/src/robkit-core.ts`, `serve-core.ts`, `listen.ts`                           |
 | What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/` |
 | `robkit add`                                    | `packages/create-robkit/src/add.ts`, `add-wizard.ts`                                       |
 | The install's layer rule                        | `packages/create-robkit/src/check.ts`                                                      |
