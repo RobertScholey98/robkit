@@ -31,7 +31,7 @@
 - [x] A repo check fails if a published package is missing from the fixed group, and on a `major` changeset while the version is under 1.0.0
 - [x] `CONTRIBUTING.md` has the releasing runbook and the rule for a change an owner must act on, and `.changeset/README.md` no longer says there is no release
 - [x] v0.1 ticket 31 is closed with a pointer here
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -119,3 +119,19 @@ What the build found about publishing a tarball with pnpm 11.28.9:
 - A test packs a stand-in with `pnpm pack`, publishes the tarball to a stand-in registry, and checks the request. The attachment is the tarball byte for byte, the manifest sent is the packed one with `publishConfig` applied, and the token arrives as `Bearer <token>`.
 - pnpm takes `--provenance` with a tarball. Outside CI it fails with "Automatic provenance generation not supported for provider: null" and sends nothing, which a test checks. So the flag reaches the provenance code. Whether provenance works from the `release` environment, only the first release will show.
 - No fallback to npm was needed.
+
+### Merged
+
+Added by the lead. PR 92 merged into `m3-making-an-install` on 2026-11-10 as `0c2435b`, with `gate`, `check` and `pull-request` green on `8d8821d`. Nothing was published, and the release workflow was never started.
+
+Its first two CI runs failed, and I fixed each on the branch:
+
+- **A test committed with no git identity.** `version-pull-request.test.ts` made a second clone and committed in it. CI's runner has no identity of its own, and every machine that had run the test had a global one. Both clones now come from one helper that sets one.
+- **The branch was behind the milestone branch**, so the coverage check read `packages/dev`'s raised thresholds as lowered. I merged the milestone branch in.
+- **An API report test passed its 30 seconds.** Each report takes 3 to 25 seconds on a CI runner. I gave them 120 seconds on the milestone branch. Ticket 25 has the note.
+
+Before the first release:
+
+- Four create-robkit tests expect version 0.0.0, so the version pull request would fail `gate`. The lead fixes them once ticket 15 merges.
+- Ticket 19 must merge first: 0.1.0's first upgrade step can't change once it is published.
+- R does "Set up once" in `CONTRIBUTING.md`'s "Releasing": the `robkit` organisation and a token on npm, then the `release` environment on GitHub, limited to `main`, with R as its reviewer and the token as its `NPM_TOKEN` secret.
