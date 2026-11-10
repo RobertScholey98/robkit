@@ -26,6 +26,8 @@ process.exit(
 
 It prints `core listening on 127.0.0.1:3000`. On SIGTERM or SIGINT it stops taking new connections, lets the requests already open finish, closes each connection with its last answer, runs `onStopped`, prints `core stopped` and resolves with 0. Docker sends SIGTERM to stop a container, and kills it 10 seconds later.
 
+Some connections close only when the client lets go: one that has sent nothing yet, one whose answer began before the signal, or an upgraded one such as a WebSocket. So the stop has a limit of 8 seconds. Then it closes every connection still open, prints `core closed 1 connection still open after 8 seconds` and stops as usual, so `core stopped` is always its last line.
+
 ## Exports
 
 | Export                             | What it is                                                                                                   |

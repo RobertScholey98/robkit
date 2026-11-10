@@ -1,3 +1,4 @@
+import type { Socket } from "node:net";
 import {
   createServer,
   type IncomingMessage,
@@ -24,6 +25,18 @@ export interface ListenOptions {
   onStopped: () => Promise<void>;
 }
 
+/**
+ * How long the stop waits for open connections before it closes them, in
+ * milliseconds. Docker kills a container 10 seconds after its signal, so
+ * this leaves time for `onStopped` and the exit.
+ */
+const stopLimit = 8000;
+
+/** "1 connection" or "2 connections". */
+function connections(count: number): string {
+  return `${String(count)} connection${count === 1 ? "" : "s"}`;
+}
+
 /** A server that has started, and its exit code once a signal stops it. */
 interface Started {
   server: Server;
@@ -37,11 +50,12 @@ interface Started {
 /**
  * Starts serving `app` on `hostname` and `port`, and stops it on SIGTERM
  * or SIGINT. Closing the server any other way, as a test does, takes its
- * signal listeners away with it.
+ * signal listeners away with it. `limit` is the stop's, for tests.
  */
 export function start(
   app: RequestHandler,
   { hostname, port, name, onStopped }: ListenOptions,
+  limit = stopLimit,
 ): Started {
   const { promise: stopped, resolve, reject } = Promise.withResolvers<number>();
   let stopping = false;
@@ -70,6 +84,13 @@ export function start(
       response.end();
     });
   });
+  // Every connection, upgraded ones such as a WebSocket's included, which
+  // Node's closeAllConnections() leaves open.
+  const sockets = new Set<Socket>();
+  server.on("connection", (socket: Socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
   const stop = () => {
     // A second signal, such as Ctrl+C reaching a whole process group, is
     // the same request: the listener stays so it can't end the process.
@@ -78,8 +99,18 @@ export function start(
     for (const response of open) {
       if (!response.headersSent) response.setHeader("connection", "close");
     }
+    // Some connections close only when the client lets go: one that has
+    // sent nothing yet, one whose answer began before the signal, or an
+    // upgraded one. Past the limit the stop closes them.
+    const timer = setTimeout(() => {
+      console.log(
+        `${name} closed ${connections(sockets.size)} still open after ${String(limit / 1000)} seconds`,
+      );
+      for (const socket of sockets) socket.destroy();
+    }, limit);
     // Node takes no new connection and closes the idle ones at once.
     server.close(() => {
+      clearTimeout(timer);
       onStopped().then(() => {
         console.log(`${name} stopped`);
         resolve(0);
@@ -111,6 +142,8 @@ export function start(
  * stops taking new connections, lets the requests already open finish,
  * closes each connection with its last answer, runs `onStopped`, prints
  * `<name> stopped` and resolves with 0, the exit code for a clean stop.
+ * Connections still open 8 seconds after the signal are closed, and a line
+ * before `<name> stopped` says how many.
  * Docker sends SIGTERM to stop a container, and waits 10 seconds before it
  * kills it.
  *

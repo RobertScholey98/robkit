@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { Agent, request } from "node:http";
-import { connect, createServer } from "node:net";
+import { connect, createServer, type Socket } from "node:net";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { listenUntilStopped, start } from "./listen.ts";
@@ -55,6 +55,20 @@ function answerTo(options: {
       .once("error", reject)
       .end();
   });
+}
+
+/**
+ * A connection to `port` that sends nothing, once the server has taken it.
+ * A server takes connections in the order they arrive, so once a request
+ * on a later one is answered, it has this one.
+ */
+async function openedSilently(port: number): Promise<Socket> {
+  const silent = connect(port, "127.0.0.1");
+  await once(silent, "connect");
+  await fetch(`http://127.0.0.1:${String(port)}/`, {
+    headers: { connection: "close" },
+  }).then((answer) => answer.text());
+  return silent;
 }
 
 /** Resolves once `text` has appeared in what `lines` collected. */
@@ -246,6 +260,35 @@ describe("start", () => {
     expect(process.listenerCount("SIGINT")).toBe(0);
     expect(lines()).toEqual([`test listening on 127.0.0.1:${String(port)}`]);
   });
+
+  it.each([
+    [1, "1 connection"],
+    [2, "2 connections"],
+  ])(
+    "closes what is still open once the stop's limit runs out, says so, then stops (%i)",
+    async (count, said) => {
+      const port = await freePort();
+      const lines = logged();
+      const { stopped } = start(
+        (_request, response) => response.end(),
+        on(port),
+        50,
+      );
+      await expect.poll(lines).toHaveLength(1);
+      const silent: Socket[] = [];
+      for (let i = 0; i < count; i++) silent.push(await openedSilently(port));
+      const closed = silent.map((socket) => once(socket, "close"));
+
+      process.emit("SIGTERM", "SIGTERM");
+
+      expect(await stopped).toBe(0);
+      await Promise.all(closed);
+      expect(lines().slice(1)).toEqual([
+        `test closed ${said} still open after 0.05 seconds`,
+        "test stopped",
+      ]);
+    },
+  );
 });
 
 // Windows has no SIGTERM to send: process.kill there ends the process.
@@ -317,4 +360,40 @@ describe.skipIf(process.platform === "win32")("listenUntilStopped", () => {
       server.kill("SIGKILL");
     }
   });
+
+  // A connection that has sent nothing holds Node's close() open: it isn't
+  // idle to closeIdleConnections(), and close() stops the timer that would
+  // have ended it.
+  it("doesn't let a connection that has sent nothing hold it past the stop's limit", async () => {
+    const port = await freePort();
+    const server = spawn(process.execPath, [slowServer], {
+      env: { ...process.env, PORT: String(port) },
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    const output: string[] = [];
+    server.stdout.on("data", (chunk: Buffer) => output.push(String(chunk)));
+    const exited = once(server, "exit");
+    await printed(output, `slow listening on 127.0.0.1:${String(port)}`);
+    const silent = await openedSilently(port);
+    try {
+      const signalled = performance.now();
+      server.kill("SIGTERM");
+      const [code] = (await exited) as [number | null];
+      const took = performance.now() - signalled;
+
+      expect({ code, end: output.join("").split("\n").slice(-3) }).toEqual({
+        code: 0,
+        end: [
+          "slow closed 1 connection still open after 8 seconds",
+          "slow stopped",
+          "",
+        ],
+      });
+      // Docker kills the container at 10 seconds.
+      expect(took).toBeLessThan(9000);
+    } finally {
+      silent.destroy();
+      server.kill("SIGKILL");
+    }
+  }, 15_000);
 });
