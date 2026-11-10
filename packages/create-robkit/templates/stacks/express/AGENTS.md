@@ -19,6 +19,12 @@ The guard never reads a request's body, so put a body parser such as `express.js
 
 A call from the browser that isn't a page load, and whose session has lapsed, gets a 401 rather than a redirect. Make such calls with `sessionFetch` from `@robkit/react`, which sends the browser through core's refresh and back to the page.
 
+## Changing state
+
+A browser sends this app's cookie with a form posted from any app beside it, since they share a domain. So the guard refuses a write from another origin with a 403 before any handler runs. A write is any request but a GET, HEAD or OPTIONS. The guard can't protect a GET, which a link or an image on another app can send, so change state only on POST, PUT, PATCH or DELETE. Record nothing in an `app.get` handler.
+
+Node hands a WebSocket upgrade to the HTTP server's `upgrade` event, not to Express, so the guard never sees one. If you add a WebSocket, check its `Origin` against this app's own origin before you accept it.
+
 ## Serving
 
 - `pnpm dev` runs Vite. `vite.config.ts` hands every request Vite doesn't answer itself to the Express app in `src/server.tsx`, which it loads afresh after each change. Don't call `app.listen` in `src/server.tsx`.
