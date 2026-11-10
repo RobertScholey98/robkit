@@ -182,9 +182,10 @@ describe("an install from a registry", () => {
       "@robkit/*",
       "create-robkit",
     ]);
-    expect(existsSync(join(dir, "node_modules/.pnpm/@robkit+core@0.0.0"))).toBe(
-      true,
-    );
+    const core = registry.versions.get("@robkit/core") ?? "";
+    expect(
+      existsSync(join(dir, `node_modules/.pnpm/@robkit+core@${core}`)),
+    ).toBe(true);
   });
 
   it.each(["lint", "typecheck", "test", "build"])(
