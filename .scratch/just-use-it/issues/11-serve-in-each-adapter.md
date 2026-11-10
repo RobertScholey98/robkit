@@ -32,6 +32,7 @@
 - [ ] In production, a file in a react-hono or Express app's `public` folder is answered at the root, as it is under `pnpm dev`
 - [ ] A stylesheet and a script each arrive with their content type, and a conditional request for an unchanged file gets a 304
 - [ ] In `@robkit/serve`'s tests, a request open when SIGTERM arrives finishes, and the process then prints its line and exits with code 0
+- [ ] In `@robkit/serve`'s tests, a keep-alive connection that is busy when SIGTERM arrives closes with its answer, and a connection that has sent nothing doesn't hold the process past the stop's limit: it still exits with code 0 (the lead's comment below has the measurements)
 - [ ] `robkit-core serve` listens and stops through `@robkit/serve`, and core's SIGTERM test from ticket 12 passes
 - [ ] `docker stop` on the hub's, admin's and every Node stack's production image ends the container with exit code 0 before Docker's kill timeout, and its log holds the line the server prints when it has stopped
 - [ ] The hub's production image holds neither Vite nor the guard's packages, and its answers carry the three headers, and `Strict-Transport-Security` on an https install
