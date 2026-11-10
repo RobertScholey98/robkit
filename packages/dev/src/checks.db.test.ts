@@ -1,20 +1,31 @@
+import { execFile } from "node:child_process";
 import { once } from "node:events";
 import { cp, mkdtemp, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import {
   composeFile,
   freePortBlock,
   freePostgresPort,
+  removeWhenGone,
+  testComposeFiles,
 } from "@internal/test-postgres";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 import { CommandProblem } from "@robkit/input/command";
 import { discoverApps } from "./apps.ts";
 import { checkBeforeStart, type Needs } from "./checks.ts";
 
+const run = promisify(execFile);
+
 const fixture = fileURLToPath(new URL("test/fixture-install", import.meta.url));
+
+/** Runs an install's Postgres on the host's network, as CI runs every test's. */
+const hostNetwork = fileURLToPath(
+  new URL("../../../tooling/test-postgres/host-network.yaml", import.meta.url),
+);
 
 const servers: ReturnType<typeof createServer>[] = [];
 
@@ -26,6 +37,17 @@ async function hold(port: number): Promise<void> {
   const server = createServer().listen(port, "127.0.0.1");
   servers.push(server);
   await once(server, "listening");
+}
+
+/** Holds `port` as {@link hold} does, unless something already holds it. */
+async function holdUnlessHeld(port: number): Promise<void> {
+  try {
+    await hold(port);
+  } catch (error) {
+    const inUse =
+      error instanceof Error && "code" in error && error.code === "EADDRINUSE";
+    if (!inUse) throw error;
+  }
 }
 
 /**
@@ -114,6 +136,39 @@ describe("checkBeforeStart", () => {
       expect.stringContaining("ROBKIT_POSTGRES_PORT"),
     ]);
   });
+
+  it(
+    "passes a Postgres port its own Postgres holds on the host's network, where Docker publishes none",
+    { timeout: 120_000 },
+    async () => {
+      const install = await needs();
+      const project = `robkit-test-checks-host-${String(install.devPort)}`;
+      const env: NodeJS.ProcessEnv = {
+        ...install.env,
+        COMPOSE_PROJECT_NAME: project,
+        COMPOSE_FILE: testComposeFiles({
+          COMPOSE_FILE: `compose.yaml:${hostNetwork}`,
+        }),
+      };
+      removeWhenGone({ docker: project });
+      onTestFinished(async () => {
+        await run("docker", ["compose", "down", "-v"], {
+          cwd: install.root,
+          env,
+        });
+      });
+      await run("docker", ["compose", "up", "-d", "--wait", "postgres"], {
+        cwd: install.root,
+        env,
+      });
+      // Where Docker runs on this machine, Postgres now holds the port
+      // itself. Docker Desktop's host is a VM of its own, so there the port
+      // still looks free here, and this holds it in Postgres's place.
+      await holdUnlessHeld(install.postgresPort);
+
+      expect(await problems(checkBeforeStart({ ...install, env }))).toEqual([]);
+    },
+  );
 
   it("says what Compose said when the install's compose.yaml has no Postgres", async () => {
     const install = await needs();

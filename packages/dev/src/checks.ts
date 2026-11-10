@@ -145,11 +145,28 @@ async function dockerLines(
 }
 
 /**
+ * Whether one of `ids`, this install's running Postgres containers, is on
+ * the host's network. Docker publishes no port for one that is: Postgres
+ * listens on the machine's own loopback, as it does in robkit's tests on CI.
+ */
+async function onHostNetwork(
+  ids: readonly string[],
+  needs: Needs,
+): Promise<boolean> {
+  if (ids.length === 0) return false;
+  const modes = await dockerLines(
+    ["inspect", "--format", "{{.HostConfig.NetworkMode}}", ...ids],
+    needs,
+  );
+  return modes.includes("host");
+}
+
+/**
  * Whether something but this install's own Postgres holds `postgresPort`.
  * Docker may publish a port from a VM of its own, as Docker Desktop does,
  * so a container that publishes it counts even when the port looks free
  * here. This install's Postgres, left running by a runner that was killed,
- * doesn't count: `compose up` takes it over.
+ * doesn't count, however it holds the port: `compose up` takes it over.
  */
 async function postgresPortTaken(needs: Needs): Promise<boolean> {
   const own = new Set(
@@ -170,7 +187,10 @@ async function postgresPortTaken(needs: Needs): Promise<boolean> {
   );
   if (publishers.some((id) => !own.has(id))) return true;
   if (publishers.length > 0) return false;
-  return isTaken(needs.postgresPort, "127.0.0.1");
+  if (!(await isTaken(needs.postgresPort, "127.0.0.1"))) return false;
+  // Something listens there, and no container publishes it. That is this
+  // install's Postgres when it runs on the host's network.
+  return !(await onHostNetwork([...own], needs));
 }
 
 /**
