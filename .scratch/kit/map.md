@@ -117,16 +117,14 @@ Build tickets 01 to 09 were deleted once done (R, 2026-11-03). Their notes for l
 
 ## Known gaps
 
-Left open by build tickets 02 to 11 and app-sharing ticket 02, with no ticket yet:
+Left open by build tickets 02 to 11, app-sharing ticket 02 and the just-use-it tickets. Each has no ticket yet unless it names one:
 
 - For up to a minute after the owner changes an app's rule, the launcher and the app can disagree. (06)
 - Roles can't be renamed or deleted, and an app's name is its slug. (06)
-- The sign-in limit is soft: two attempts racing in parallel can both get past the check. (03)
 - Local dev doesn't work in Safari, because WebKit doesn't send the cookie on the hub's fetch to core. Tested in Playwright's WebKit only. (03)
 - In dev, React StrictMode sends an intro link's sign-in twice, which leaves one extra session. (05)
 - Vite prints `http://127.0.0.1:<port>`, which shows nothing, since each app answers only on its subdomain. (02)
-- Running `pnpm install` anywhere on the machine touches the hard-linked files under a running core, and `node --watch` restarts it. (08)
-- `pnpm dev`, the runner tests, the whole-stack test, `repo-checks` and one `migrate.test.ts` case need Linux or macOS. The whole suite passes in WSL. (04 to 09)
+- `pnpm dev`, the runner tests, the whole-stack test, `repo-checks` and one `migrate.test.ts` case need Linux or macOS. The whole suite passes in WSL, and `pnpm dev` runs there. Native Windows waits for R on [just-use-it ticket 21](../just-use-it/issues/21-native-windows.md). (04 to 09)
 - In production, apps reach core over its public URL, through Cloudflare and back, not over Coolify's Docker network. (11)
 - Any container on Coolify's network can reach core directly and send its own `X-Forwarded-For` or `CF-Connecting-IP`. Only the owner's apps run there. (30)
 - After sign-out, an app the browser opened in the last 15 minutes still lets it in until that app's token expires, since apps verify tokens locally and core can't clear another host's cookie. Core's session ends at once, so the hub, admin's calls to core and every refresh see the browser signed out. (app-sharing 02)
@@ -136,10 +134,17 @@ Left open by build tickets 02 to 11 and app-sharing ticket 02, with no ticket ye
 - A state the guard keeps for a trip through core, if read from a log, is good until ten minutes after the last trip that renewed it, in the one browser that holds its cookie. Clearing it once a trip ends would break tabs that share it. (just-use-it 03)
 - The hub signs a browser in with whatever access code an intro link carries, without asking, so a sibling app can swap a viewer's session for a guest's. (just-use-it 27 closes it)
 - Any app can send a visiting browser through core's `/refresh` and learn who the visitor is: their id, kind and roles. That is what an app needs to serve them, but an imported app learns it too, for every guest who opens it. (app-sharing 02)
+- Removing an app from a running `pnpm dev` needs a restart of `pnpm dev`. Adding one doesn't. (just-use-it 18)
+- A SIGTERM that arrives while `robkit-core start` provisions or migrates is ignored until Docker kills the container 10 seconds later. A migration cut off that way rolls back. (just-use-it 12)
+- Postgres logs a failed statement whole, so a lost provisioning race writes `create role … password '…'` into Postgres's own log. (just-use-it 12; noted on ticket 30)
+- `serve()` doesn't close an app's database pool when it stops, so Postgres logs the dropped connections. An owner can pass `onStopped`. (just-use-it 11)
+- The runner gives an app 5 seconds to stop and `@robkit/serve` waits up to 8, so the runner can kill core first. Harmless in dev, where sessions are in the database. (just-use-it 16)
+- A setting the browser reads, such as `VITE_…` or `NEXT_PUBLIC_…`, works under `pnpm dev` and is missing from a production image. ([just-use-it ticket 32](../just-use-it/issues/32-browser-settings-in-an-image.md) waits for R)
+- Once 0.1.0 is on npm, upgrade's first step can't gain a check for an install on 0.1.0. Only the new robkit's second step can refuse. (just-use-it 19)
 
 ## Not yet specified
 
-- The robkit.dev website and its docs, including the later deployment cookbook.
+- What the robkit.dev website says, including the later deployment cookbook. Where it lives is decided: under `site/` in this repo, built with Astro, with a PRD of its own (R, 2026-11-09).
 - Backups, observability and secret rotation for a running install.
 
 ## Out of scope
