@@ -36,6 +36,7 @@ export function exec(
     cwd: string;
     env: NodeJS.ProcessEnv;
     slug?: string;
+    quiet?: boolean;
   },
 ): Promise<void>;
 export function isMissing(error: unknown): boolean;

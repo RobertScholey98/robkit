@@ -1,13 +1,16 @@
+import { spawn } from "node:child_process";
 import { once } from "node:events";
 import {
   createServer,
   request,
   type IncomingHttpHeaders,
+  type IncomingMessage,
   type Server,
 } from "node:http";
-import type { AddressInfo, Socket } from "node:net";
-import { afterEach, describe, expect, it } from "vitest";
-import { createProxy, type Route } from "./proxy.ts";
+import { connect, type AddressInfo, type Socket } from "node:net";
+import { networkInterfaces } from "node:os";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
+import { loopback, startProxy, type Proxy, type Route } from "./proxy.ts";
 
 interface Reply {
   status: number;
@@ -99,15 +102,104 @@ function send(
   });
 }
 
-async function startProxy(routes: Route[]): Promise<number> {
-  return listen(createProxy(routes));
+const proxies: Proxy[] = [];
+
+afterEach(() => {
+  for (const proxy of proxies.splice(0)) proxy.close();
+});
+
+/** A proxy for `routes` on `hosts`, closed after the test. */
+async function start(
+  routes: Route[],
+  hosts: readonly string[] = ["127.0.0.1"],
+): Promise<Proxy> {
+  const proxy = await startProxy(routes, 0, hosts);
+  proxies.push(proxy);
+  return proxy;
 }
 
-describe("createProxy", () => {
+/** The port of a proxy for `routes` on 127.0.0.1. */
+async function proxyPort(routes: Route[]): Promise<number> {
+  return (await start(routes)).port;
+}
+
+/** Whether this machine lets a server listen on `host`. */
+async function canListenOn(host: string): Promise<boolean> {
+  const server = createServer();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, host, resolve);
+    });
+  } catch {
+    // The machine lacks the address.
+    return false;
+  }
+  server.close();
+  return true;
+}
+
+/** Whether a connection to `host` and `port` is taken. */
+function connects(host: string, port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = connect(port, host);
+    socket.on("connect", () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on("error", () => {
+      resolve(false);
+    });
+  });
+}
+
+/** An address of this machine that isn't loopback, if it has one. */
+function outsideAddress(): string | undefined {
+  return Object.values(networkInterfaces())
+    .flat()
+    .find(
+      (address) => address && !address.internal && address.family === "IPv4",
+    )?.address;
+}
+
+describe("startProxy's addresses", () => {
+  it("listens on 127.0.0.1, on ::1 where the machine has it, and nowhere else", async () => {
+    const hasIpv6Loopback = await canListenOn("::1");
+
+    const proxy = await start([], loopback);
+
+    expect(proxy.hosts).toEqual(
+      hasIpv6Loopback ? ["127.0.0.1", "::1"] : ["127.0.0.1"],
+    );
+    expect(await connects("127.0.0.1", proxy.port)).toBe(true);
+    if (hasIpv6Loopback) expect(await connects("::1", proxy.port)).toBe(true);
+    const outside = outsideAddress();
+    if (outside) expect(await connects(outside, proxy.port)).toBe(false);
+  });
+
+  it("starts without an address the machine lacks, as one with IPv6 off lacks ::1", async () => {
+    // 2001:db8::/32 is for documentation, so no machine has it, and the
+    // listen fails as it does for ::1 on a machine without it.
+    const proxy = await start([], ["127.0.0.1", "2001:db8::1"]);
+
+    expect(proxy.hosts).toEqual(["127.0.0.1"]);
+    expect(await connects("127.0.0.1", proxy.port)).toBe(true);
+  });
+
+  it("refuses a port that's taken, leaving nothing listening", async () => {
+    const taken = await listen(createServer());
+
+    await expect(
+      startProxy([], taken, ["127.0.0.1", "::1"]),
+    ).rejects.toMatchObject({ code: "EADDRINUSE" });
+  });
+});
+
+describe("startProxy", () => {
   it("forwards a request to the app that owns its host", async () => {
     const hub = await listen(echoApp());
     const core = await listen(echoApp());
-    const proxy = await startProxy([
+    const proxy = await proxyPort([
       { host: "hub.localhost", app: "hub", port: hub },
       { host: "core.localhost", app: "core", port: core },
     ]);
@@ -133,7 +225,7 @@ describe("createProxy", () => {
 
   it("appends the client's address to X-Forwarded-For, as Traefik does", async () => {
     const core = await listen(echoApp());
-    const proxy = await startProxy([
+    const proxy = await proxyPort([
       { host: "core.localhost", app: "core", port: core },
     ]);
 
@@ -149,7 +241,7 @@ describe("createProxy", () => {
   });
 
   it("answers an unknown host with 404 naming the hosts it serves", async () => {
-    const proxy = await startProxy([
+    const proxy = await proxyPort([
       { host: "hub.localhost", app: "hub", port: 1 },
       { host: "core.localhost", app: "core", port: 2 },
     ]);
@@ -163,7 +255,7 @@ describe("createProxy", () => {
   });
 
   it("answers 502 naming the app when the app refuses the connection", async () => {
-    const proxy = await startProxy([
+    const proxy = await proxyPort([
       { host: "hub.localhost", app: "hub", port: await unusedPort() },
     ]);
 
@@ -171,6 +263,55 @@ describe("createProxy", () => {
 
     expect(reply.status).toBe(502);
     expect(reply.body).toContain("hub");
+  });
+
+  it("ends the request within a second when the app is killed mid-answer", async () => {
+    // An app in its own process, which answers with headers and a first
+    // chunk and then never finishes.
+    const app = spawn(
+      process.execPath,
+      [
+        "-e",
+        `require("node:http").createServer((req, res) => {
+          res.writeHead(200);
+          res.write("first chunk");
+        }).listen(0, "127.0.0.1", function () {
+          console.log(this.address().port);
+        });`,
+      ],
+      { stdio: ["ignore", "pipe", "inherit"] },
+    );
+    onTestFinished(() => {
+      app.kill("SIGKILL");
+    });
+    const [line] = (await once(app.stdout, "data")) as [Buffer];
+    const proxy = await proxyPort([
+      { host: "hub.localhost", app: "hub", port: Number(String(line).trim()) },
+    ]);
+    const req = request({
+      host: "127.0.0.1",
+      port: proxy,
+      headers: { host: "hub.localhost" },
+    });
+    req.on("error", () => {
+      // A request cut off mid-answer may also fail here; the test reads
+      // the answer's close below.
+    });
+    req.end();
+    const [res] = (await once(req, "response")) as [IncomingMessage];
+    // once() would reject on the cut-off answer's error, before its close.
+    const closed = new Promise((resolve) => res.on("close", resolve));
+    res.on("error", () => {
+      // The cut-off answer errors as aborted, which is the point.
+    });
+    await once(res, "data");
+
+    app.kill("SIGKILL");
+    const killed = Date.now();
+    await closed;
+
+    expect(Date.now() - killed).toBeLessThan(1000);
+    expect(res.complete).toBe(false);
   });
 
   it("forwards an upgrade request and then the raw connection", async () => {
@@ -185,7 +326,7 @@ describe("createProxy", () => {
       socket.on("data", (data) => socket.write(data));
       socket.on("end", () => socket.end());
     });
-    const proxy = await startProxy([
+    const proxy = await proxyPort([
       { host: "hub.localhost", app: "hub", port: await listen(app) },
     ]);
 
@@ -214,7 +355,7 @@ describe("createProxy", () => {
   });
 
   it("answers an upgrade with 502 when the app refuses the connection", async () => {
-    const proxy = await startProxy([
+    const proxy = await proxyPort([
       { host: "hub.localhost", app: "hub", port: await unusedPort() },
     ]);
 

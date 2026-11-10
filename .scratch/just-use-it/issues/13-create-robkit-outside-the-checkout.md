@@ -28,7 +28,7 @@
 - [x] `robkit vendor` re-runs cleanly after a failed copy, and works in a folder whose path has a space or a `$`
 - [x] The production test still passes on vendored tarballs
 - [x] v0.1 ticket 31 records the answers and points here
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -81,3 +81,9 @@ For the next tickets:
 - **14 (release):** `packProblems` in `tooling/repo-checks/src/published.ts` now also fails on one of robkit's own tests in a tarball, a missing `LICENSE`, and a manifest without `license` or `repository`. `templateTestProblems` fails on a template test going missing. `packRobkit` and `serveRobkit` in `tooling/e2e/src/registry.ts` pack and serve every package, for a dry run of the release.
 - **15 (init installs):** init's own `pnpm install` must pass the registry to pnpm as `pnpm_config_registry` or `--registry`, since pnpm ignores npm's setting. The registry test runs `pnpm install` itself after `npm create`; once init installs, it can drop that step.
 - **19 (`robkit upgrade`):** `readRobkitRepo()` gives what create-robkit carries: the catalog, each package's version, the lint policy and the Go module. `writeGoModule` in `src/go-module.ts` replaces an install's `vendor/robkit/go` whole.
+
+### Merged
+
+Added by the lead. PR 90 merged into `m3-making-an-install` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `32b9d24`. Its first `production` run timed out on a test this ticket didn't change, which builds four images inside a 300-second limit. That test has 900 seconds now, and ticket 25 has the note.
+
+The release-age bullet above says pnpm refuses a package under a day old. The build found it doesn't by default, and pnpm's docs agree. It holds a young version back while an older one fits, and takes it where nothing else does. It refuses only once the install sets `minimumReleaseAge` or `minimumReleaseAgeStrict`. After the merge I reworded `SECURITY.md` and the comment in the install's `pnpm-workspace.yaml` to say that.

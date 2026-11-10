@@ -3,9 +3,10 @@ import {
   request,
   type IncomingMessage,
   type Server,
+  type ServerResponse,
 } from "node:http";
 import { connect } from "node:net";
-import type { Duplex } from "node:stream";
+import { pipeline, type Duplex } from "node:stream";
 
 /** Sends requests for one host to the app listening on a local port. */
 export interface Route {
@@ -37,18 +38,24 @@ function forwardedFor(req: IncomingMessage): string {
   return [earlier, client].flat().join(", ");
 }
 
+/** What answers each request and upgrade the proxy takes. */
+interface Handlers {
+  onRequest: (req: IncomingMessage, res: ServerResponse) => void;
+  onUpgrade: (req: IncomingMessage, socket: Duplex, head: Buffer) => void;
+}
+
 /**
- * The dev proxy: routes each request by its Host header to the app that owns
- * that host, so local URLs look like production subdomains.
+ * Routes each request by its Host header to the app that owns that host, so
+ * local URLs look like production subdomains.
  */
-export function createProxy(routes: readonly Route[]): Server {
+function proxyHandlers(routes: readonly Route[]): Handlers {
   const byHost = new Map(routes.map((route) => [route.host, route]));
   const routeFor = (host: string | undefined) => {
     const hostname = hostnameOf(host);
     return hostname === undefined ? undefined : byHost.get(hostname);
   };
 
-  const server = createServer((req, res) => {
+  const onRequest = (req: IncomingMessage, res: ServerResponse) => {
     const route = routeFor(req.headers.host);
     if (!route) {
       res.writeHead(404, plainText);
@@ -69,7 +76,13 @@ export function createProxy(routes: readonly Route[]): Server {
       },
       (reply) => {
         res.writeHead(reply.statusCode ?? 502, reply.rawHeaders);
-        reply.pipe(res);
+        // An app that dies or restarts mid-answer cuts its answer off. The
+        // pipeline then ends the browser's request too, rather than leave
+        // it waiting for the rest.
+        pipeline(reply, res, () => {
+          // A cut-off answer is the app's to explain, and the browser sees
+          // its request end.
+        });
       },
     );
     upstream.on("error", (error) => {
@@ -84,11 +97,11 @@ export function createProxy(routes: readonly Route[]): Server {
     });
     res.on("close", () => upstream.destroy());
     req.pipe(upstream);
-  });
+  };
 
   // WebSockets (Vite's HMR among them) arrive as upgrades. Replay the request
   // line and headers to the app, then splice the two sockets together.
-  server.on("upgrade", (req: IncomingMessage, socket: Duplex, head: Buffer) => {
+  const onUpgrade = (req: IncomingMessage, socket: Duplex, head: Buffer) => {
     const route = routeFor(req.headers.host);
     if (!route) {
       socket.end("HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n");
@@ -120,7 +133,86 @@ export function createProxy(routes: readonly Route[]): Server {
     socket.on("error", () => upstream.destroy());
     socket.on("close", () => upstream.destroy());
     upstream.on("close", () => socket.destroy());
-  });
+  };
 
-  return server;
+  return { onRequest, onUpgrade };
+}
+
+/**
+ * Where the proxy listens: loopback alone, since `pnpm dev` serves a local
+ * domain only this machine resolves. A browser may try either address for a
+ * name under `.localhost`, so both, where the machine has IPv6's.
+ */
+export const loopback: readonly string[] = ["127.0.0.1", "::1"];
+
+/** The dev proxy, listening. */
+export interface Proxy {
+  /** The addresses it listens on, in the order asked. */
+  hosts: string[];
+  /** Its port: the one asked for, or the one the first address got for 0. */
+  port: number;
+  /** Stops listening and ends every open request. */
+  close: () => void;
+}
+
+/** Whether a listen failed because the machine lacks the address, as one with IPv6 off lacks `::1`. */
+function isAbsent(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    (error.code === "EADDRNOTAVAIL" || error.code === "EAFNOSUPPORT")
+  );
+}
+
+/** Listens on `host` and `port`, rejecting with the listen's error. */
+function listen(server: Server, port: number, host: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, host, () => {
+      server.off("error", reject);
+      const address = server.address();
+      resolve(typeof address === "object" && address ? address.port : port);
+    });
+  });
+}
+
+/**
+ * Starts the dev proxy for `routes` on `port`, at each of `hosts` the
+ * machine has. A port of 0 takes the one the OS gives the first host, and
+ * the rest listen on it too. One server per host, all with the same routes.
+ *
+ * @throws the listen's error, such as EADDRINUSE, with nothing left
+ *   listening; or when the machine has none of `hosts`
+ */
+export async function startProxy(
+  routes: readonly Route[],
+  port: number,
+  hosts: readonly string[] = loopback,
+): Promise<Proxy> {
+  const { onRequest, onUpgrade } = proxyHandlers(routes);
+  const listening: { host: string; server: Server }[] = [];
+  const close = () => {
+    for (const { server } of listening) {
+      server.closeAllConnections();
+      server.close();
+    }
+  };
+  let bound = port;
+  for (const host of hosts) {
+    const server = createServer(onRequest).on("upgrade", onUpgrade);
+    try {
+      bound = await listen(server, bound, host);
+    } catch (error) {
+      if (isAbsent(error)) continue;
+      close();
+      throw error;
+    }
+    listening.push({ host, server });
+  }
+  if (listening.length === 0) {
+    throw new Error(
+      `The dev proxy found none of ${hosts.join(", ")} on this machine to listen on.`,
+    );
+  }
+  return { hosts: listening.map(({ host }) => host), port: bound, close };
 }

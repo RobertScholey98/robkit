@@ -63,6 +63,12 @@ export const exceptions: Exceptions = {
       why: "Compose's key for its containers.",
     },
     {
+      word: "service",
+      file: "packages/dev/src/checks.db.test.ts",
+      text: "service",
+      why: "Compose's word for a container, in a compose.yaml and in the message Compose prints.",
+    },
+    {
       word: "user",
       file: "packages/create-robkit/templates/base/Dockerfile",
       text: "USER node",

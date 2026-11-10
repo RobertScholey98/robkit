@@ -56,7 +56,8 @@ export function windowsCommandLine(command: string, args: string[]): string {
 
 /**
  * Runs a command to completion. With a slug, its output is prefixed with
- * the slug; without one, it shares this process's output. On Windows the
+ * the slug; quiet, it goes nowhere; otherwise it shares this process's
+ * output. On Windows the
  * shell starts it, so a command that isn't installed exits 1 with the
  * shell's message rather than failing to start.
  *
@@ -66,12 +67,21 @@ export function windowsCommandLine(command: string, args: string[]): string {
 export async function exec(
   command: string,
   args: string[],
-  options: { cwd: string; env: NodeJS.ProcessEnv; slug?: string },
+  options: {
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    slug?: string;
+    quiet?: boolean;
+  },
 ): Promise<void> {
   const spawnOptions = {
     cwd: options.cwd,
     env: options.env,
-    stdio: options.slug ? ["ignore", "pipe", "pipe"] : "inherit",
+    stdio: options.quiet
+      ? "ignore"
+      : options.slug
+        ? ["ignore", "pipe", "pipe"]
+        : "inherit",
   } satisfies SpawnOptions;
   // Windows starts pnpm and npm from .cmd files, which only its shell runs.
   const child =

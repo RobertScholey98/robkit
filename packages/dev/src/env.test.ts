@@ -1,6 +1,9 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { isProblem } from "@robkit/input";
 import { describe, expect, it } from "vitest";
-import { readDevConfig } from "./env.ts";
+import { readDevConfig, withInstallEnv } from "./env.ts";
 
 describe("readDevConfig", () => {
   it("runs on robkit.localhost:3000 with Compose's Postgres by default", () => {
@@ -8,6 +11,7 @@ describe("readDevConfig", () => {
       domain: "robkit.localhost",
       devPort: 3000,
       adminUrl: "postgres://postgres:postgres@127.0.0.1:54320/robkit",
+      postgresPort: 54320,
     });
   });
 
@@ -22,6 +26,7 @@ describe("readDevConfig", () => {
       domain: "dev.robkit.localhost",
       devPort: 4000,
       adminUrl: "postgres://postgres:postgres@127.0.0.1:5433/robkit",
+      postgresPort: 5433,
     });
     expect(
       readDevConfig({ ROBKIT_DATABASE_URL: "postgres://a:b@db:5432/x" }),
@@ -59,5 +64,49 @@ describe("readDevConfig", () => {
       "ROBKIT_DATABASE_URL isn't a postgres:// URL. Set it to one, such as postgres://user:password@host:5432/database.",
       'ROBKIT_POSTGRES_PORT is "x", which isn\'t a port. Set it to a whole number from 1 to 65535, or leave it unset for 54320.',
     ]);
+  });
+});
+
+describe("withInstallEnv", () => {
+  async function installWith(dotEnv?: string): Promise<string> {
+    const root = await mkdtemp(join(tmpdir(), "robkit-env-"));
+    if (dotEnv !== undefined) await writeFile(join(root, ".env"), dotEnv);
+    return root;
+  }
+
+  it("adds the ROBKIT_ names in the install's .env, and nothing else from it", async () => {
+    const root = await installWith(
+      "ROBKIT_POSTGRES_PORT=5433\n# a comment\nROBKIT_DEV_PORT='4000'\nAPI_KEY=secret\n",
+    );
+
+    expect(await withInstallEnv(root, { PATH: "/bin" })).toEqual({
+      PATH: "/bin",
+      ROBKIT_POSTGRES_PORT: "5433",
+      ROBKIT_DEV_PORT: "4000",
+    });
+  });
+
+  it("keeps the shell's value over the file's", async () => {
+    const root = await installWith("ROBKIT_POSTGRES_PORT=5433\n");
+
+    expect(
+      await withInstallEnv(root, { ROBKIT_POSTGRES_PORT: "6543" }),
+    ).toEqual({ ROBKIT_POSTGRES_PORT: "6543" });
+  });
+
+  it("changes nothing in this process's environment", async () => {
+    const root = await installWith("ROBKIT_DOTENV_PROBE=1\n");
+
+    await withInstallEnv(root, {});
+
+    expect(process.env.ROBKIT_DOTENV_PROBE).toBeUndefined();
+  });
+
+  it("is the shell's environment alone in an install with no .env", async () => {
+    const root = await installWith();
+
+    expect(await withInstallEnv(root, { PATH: "/bin" })).toEqual({
+      PATH: "/bin",
+    });
   });
 });

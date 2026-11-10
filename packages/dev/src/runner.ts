@@ -1,23 +1,32 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { once } from "node:events";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { install } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
+import { CommandProblem } from "@robkit/input/command";
+import {
+  appSettings,
+  type InstallFacts,
+  sharedSettings,
+  shellForApps,
+} from "./app-env.ts";
+import { untilAnswering } from "./answering.ts";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
-import { readDevConfig } from "./env.ts";
+import { checkBeforeStart, proxyPortProblem } from "./checks.ts";
+import { readDevConfig, withInstallEnv } from "./env.ts";
 import { exec, prefixLines, startProblem } from "./exec.ts";
 import { failuresOf, throwFailures } from "./failures.ts";
-import { createProxy } from "./proxy.ts";
+import { startProxy, type Proxy } from "./proxy.ts";
 import { stopGroup } from "./process-group.ts";
 import { provisionApps } from "./provision.ts";
 import { requireGo } from "./toolchain.ts";
 
 /**
- * `robkit-dev`: runs the install in `root` for local development. Finds the
- * apps, refusing any folder that isn't a slug, or a Go app without Go, before
+ * `robkit-dev`: runs the install in `root` for local development, refusing a
+ * folder with no `robkit.json`. Finds the apps, refusing any folder that isn't a slug, or a Go app without Go, before
  * it starts anything. Starts Postgres, runs the provision step, starts every
- * app and puts the proxy in front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
+ * app and puts the proxy in front. Stops it all on SIGINT, SIGTERM or
+ * SIGHUP, when its output closes, or as soon as any app exits.
  *
  * @returns the exit code: 0 after a signal, 1 if an app exited
  * @throws what failed while starting or stopping, once everything stopped:
@@ -25,36 +34,35 @@ import { requireGo } from "./toolchain.ts";
  */
 export async function runDev(
   root: string,
-  env: NodeJS.ProcessEnv,
+  shell: NodeJS.ProcessEnv,
 ): Promise<number> {
+  if (!existsSync(join(root, "robkit.json"))) {
+    throw new CommandProblem(
+      `${root} isn't a robkit install: it has no robkit.json. Run pnpm dev in an install's folder.`,
+    );
+  }
+  const env = await withInstallEnv(root, shell);
   const config = readDevConfig(env);
   if (isProblem(config)) {
     console.error(config.error);
     return 1;
   }
-  const { domain, devPort, adminUrl } = config;
+  const { domain, devPort, adminUrl, postgresPort } = config;
   const addresses = install({ domain, port: devPort });
   const apps = await discoverApps(root, devPort + 1);
   // An app with a go.mod runs on Go. Say so before anything starts.
   if (apps.some((app) => existsSync(join(app.dir, "go.mod")))) {
     await requireGo(env);
   }
-  const appEnv: NodeJS.ProcessEnv = {
-    ...env,
-    ROBKIT_DOMAIN: domain,
-    ROBKIT_CORE_URL: addresses.origin("core"),
-    ROBKIT_APPS: catalogOf(apps),
-    // next dev reads it before it loads any config, so a Next app's own
-    // next.config.ts can't turn its telemetry off. Here it works on Windows
-    // too, where a script's VAR=value prefix doesn't.
-    NEXT_TELEMETRY_DISABLED: "1",
+  // Before anything starts, and outside the stop below, so a second pnpm
+  // dev stops nothing the first one runs.
+  await checkBeforeStart({ root, env, devPort, postgresPort, apps });
+  const facts: InstallFacts = {
+    domain,
+    coreUrl: addresses.origin("core"),
+    catalog: catalogOf(apps),
   };
-  delete appEnv.ROBKIT_DATABASE_URL;
-  delete appEnv.DATABASE_URL;
-  // An app pnpm dev runs is no test run, even when a test started pnpm
-  // dev. Under VITEST, robkit() in an app's Vite config sets nothing up,
-  // and the app would listen on the wrong port.
-  delete appEnv.VITEST;
+  const shellEnv = shellForApps(env);
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;
@@ -72,21 +80,28 @@ export async function runDev(
   const onSignal = () => {
     stop("interrupted");
   };
+  // A closed terminal sends SIGHUP and closes this process's output, so a
+  // write to it then fails. With nobody left to read it, the runner stops
+  // as it does on SIGINT, and ignores every failed write, so the stop
+  // still finishes.
+  const output = { gone: false };
+  const onOutputGone = () => {
+    output.gone = true;
+    stop("interrupted");
+  };
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
+  process.on("SIGHUP", onOutputGone);
+  process.stdout.on("error", onOutputGone);
+  process.stderr.on("error", onOutputGone);
 
   const running: { slug: string; child: ChildProcess }[] = [];
-  const proxy = createProxy(routesFor(apps, domain));
+  let proxy: Proxy | undefined;
 
   const start = (app: App, databaseUrl: string | undefined) => {
     const child = spawn("pnpm", ["run", "dev"], {
       cwd: app.dir,
-      env: {
-        ...appEnv,
-        ROBKIT_APP: app.slug,
-        PORT: String(app.port),
-        ...(databaseUrl && { DATABASE_URL: databaseUrl }),
-      },
+      env: { ...shellEnv, ...appSettings(facts, app, databaseUrl) },
       // Its own process group, so stopping it reaches every process it spawns.
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -108,24 +123,45 @@ export async function runDev(
     running.push({ slug: app.slug, child });
   };
 
+  // Whether compose up failed, which then says what is wrong with Docker.
+  let composeUpFailed = false;
   try {
-    await exec("docker", ["compose", "up", "-d", "--wait"], { cwd: root, env });
+    await exec("docker", ["compose", "up", "-d", "--wait"], {
+      cwd: root,
+      env,
+    }).catch((error: unknown) => {
+      composeUpFailed = true;
+      throw error;
+    });
 
     const databaseUrls = await provisionApps(root, {
       adminUrl,
-      env: appEnv,
+      env: { ...shellEnv, ...sharedSettings(facts) },
       signal: stopController.signal,
     });
 
     if (!stopping()) {
+      // The proxy first, so a port taken since the check starts no app.
+      proxy = await startProxy(routesFor(apps, domain), devPort).catch(
+        (error: unknown) => {
+          if (error instanceof Error && "code" in error) {
+            if (error.code === "EADDRINUSE") throw proxyPortProblem(devPort);
+          }
+          throw error;
+        },
+      );
       for (const app of apps) start(app, databaseUrls.get(app.slug));
-      proxy.listen(devPort);
-      await once(proxy, "listening");
-      console.log("\nrobkit is running:");
+      // Each address once its app answers, so the first click doesn't get
+      // the proxy's "is not answering".
       for (const app of apps) {
-        console.log(`  ${addresses.origin(app.slug)}`);
+        void untilAnswering(app.port, stopController.signal).then((up) => {
+          if (up && !stopping()) {
+            console.log(
+              `${app.slug} is ready at ${addresses.origin(app.slug)}`,
+            );
+          }
+        });
       }
-      console.log();
     }
   } catch (error) {
     failures.push(error);
@@ -138,12 +174,19 @@ export async function runDev(
       () =>
         stopGroup(slug, child.pid),
   );
-  const closeProxy = () => {
-    proxy.closeAllConnections();
-    proxy.close();
-  };
+  const closeProxy = () => proxy?.close();
   const stopPostgres = () =>
-    exec("docker", ["compose", "stop"], { cwd: root, env });
+    // With the output gone, Compose prints nowhere: a write to a closed
+    // pipe would end it before it stopped Postgres.
+    exec("docker", ["compose", "stop"], {
+      cwd: root,
+      env,
+      quiet: output.gone,
+    }).catch((error: unknown) => {
+      // A failed compose up has said what is wrong; a stop that fails the
+      // same way would only say it twice.
+      if (!composeUpFailed) throw error;
+    });
   // The apps stop together, then the proxy, then Postgres. Each stage runs
   // even when one before it failed, so nothing is left running.
   for (const stage of [stopApps, [closeProxy], [stopPostgres]]) {
@@ -151,6 +194,13 @@ export async function runDev(
   }
   process.off("SIGINT", onSignal);
   process.off("SIGTERM", onSignal);
+  process.off("SIGHUP", onOutputGone);
+  // Once the output is gone, a line still on its way from an app must not
+  // end the process before it exits.
+  if (!output.gone) {
+    process.stdout.off("error", onOutputGone);
+    process.stderr.off("error", onOutputGone);
+  }
   throwFailures(failures);
   return outcome === "failed" ? 1 : 0;
 }

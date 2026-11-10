@@ -1,6 +1,9 @@
+import { execFile } from "node:child_process";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { CommandProblem } from "@robkit/input/command";
 import { exec, windowsCommandLine } from "./exec.ts";
@@ -27,6 +30,28 @@ describe("exec", () => {
     await expect(running).rejects.toThrow(
       `node -e process.exit(3) exited with 3 in ${cwd}. Its output is above: fix what it says, then try again.`,
     );
+  });
+
+  it("prints nothing of the command's output when quiet", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+    const execTs = pathToFileURL(
+      fileURLToPath(new URL("exec.ts", import.meta.url)),
+    );
+    // exec runs in a process of its own, whose output the test reads.
+    const script = `
+      import { exec } from ${JSON.stringify(execTs.href)};
+      const say = ["-e", "console.log('out'); console.error('err')"];
+      await exec(process.execPath, say, { cwd: process.cwd(), env: process.env, quiet: true });
+      console.log("done");
+    `;
+
+    const { stdout, stderr } = await promisify(execFile)(
+      process.execPath,
+      ["--input-type=module", "-e", script],
+      { cwd },
+    );
+
+    expect({ stdout, stderr }).toEqual({ stdout: "done\n", stderr: "" });
   });
 
   // On Windows the shell starts the command, so a missing one prints the

@@ -124,16 +124,32 @@ Then open http://notes.robkit.localhost:3000.
 
     expect({ code, output }).toEqual({
       code: 1,
-      output: `${dir} has no robkit.json. Run robkit add in an install's folder.\n`,
+      output: `${dir} isn't a robkit install: it has no robkit.json. Run robkit in an install's folder.\n`,
     });
   });
+});
+
+describe("robkit outside an install", () => {
+  it.each([[[]], [["check"]], [["deploy"]], [["vendor", "--nope"]]])(
+    "prints one line saying so for %j",
+    async (args) => {
+      const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+
+      const { code, output } = await drive(bin, dir, args);
+
+      expect({ code, output }).toEqual({
+        code: 1,
+        output: `${dir} isn't a robkit install: it has no robkit.json. Run robkit in an install's folder.\n`,
+      });
+    },
+  );
 });
 
 describe("robkit's failures", () => {
   it.each([["check"], ["add"]])(
     "refuses an option %s doesn't take, printing why and the usage, not a bug",
     async (command) => {
-      const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+      const dir = await readOnlyInstall();
 
       const { code, output } = await drive(bin, dir, [command, "--nope"]);
 
@@ -369,6 +385,33 @@ describe("robkit deploy", () => {
   DATABASE_URL=(shared) EXAMPLE_DATABASE_URL
 `);
   });
+
+  // The stand-in turbo is a shell script, which Windows can't run.
+  it.skipIf(process.platform === "win32")(
+    "prints turbo's own message when turbo ls fails",
+    async () => {
+      const dir = await freshInstall();
+      await writeFile(join(dir, "coolify.json"), coolifyJson);
+      const standIn = await mkdtemp(join(tmpdir(), "turbo-stand-in-"));
+      await writeFile(
+        join(standIn, "turbo"),
+        "#!/bin/sh\necho '  x No git repository found' >&2\nexit 1\n",
+        { mode: 0o755 },
+      );
+
+      const { code, output } = await drive(bin, dir, ["deploy"], [], {
+        COOLIFY_URL: "https://coolify.example",
+        COOLIFY_TOKEN: "t",
+        PATH: `${standIn}:${String(process.env.PATH)}`,
+      });
+
+      expect({ code, output }).toEqual({
+        code: 1,
+        output:
+          "turbo ls --affected couldn't find the apps that changed: x No git repository found. Name the apps to deploy with --apps, or deploy them all with --all.\n",
+      });
+    },
+  );
 
   it("deploys nothing until COOLIFY_URL is set", async () => {
     const dir = await freshInstall();
