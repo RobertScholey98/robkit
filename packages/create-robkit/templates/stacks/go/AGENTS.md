@@ -65,3 +65,7 @@ The app owns its database code: it talks to Postgres with pgx over `DATABASE_URL
 - `visits.go` shows a query. `server.go` connects with `pgxpool` as the server starts.
 
 `migrate.go` applies the migrations that haven't run yet, and records each in the `schema_migrations` table. They are embedded in the binary, so `dist/server migrate` needs no files beside it. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It locks `schema_migrations` while it migrates, so two containers that start together apply each migration once.
+
+## Upgrading robkit
+
+`pnpm robkit upgrade` replaces robkit's Go module in `vendor/robkit/go`, which this app builds against, and the `@robkit/*` packages its page runs on, with a newer version's. It never rewrites a file in this folder. When a new robkit changes what an app should hold, the changelog it prints says what to change here by hand.

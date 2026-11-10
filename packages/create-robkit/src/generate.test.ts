@@ -708,7 +708,7 @@ describe("generateInstall", () => {
     expect(vendored(noGo)).toEqual([]);
   });
 
-  it("has a README whose every pnpm command is one of the install's scripts", async () => {
+  it("has a README whose every pnpm command is pnpm install or one of the install's scripts", async () => {
     const files = await generateInstall(defaultChoices);
     const readme = files.get("README.md") ?? "";
     const { scripts } = json(files, "package.json") as {
@@ -720,9 +720,11 @@ describe("generateInstall", () => {
     );
 
     expect(named).toEqual(
-      expect.arrayContaining(["dev", "robkit", "lint", "test"]),
+      expect.arrayContaining(["dev", "robkit", "lint", "test", "install"]),
     );
-    expect(named.filter((script) => !(script in scripts))).toEqual([]);
+    expect(
+      named.filter((script) => script !== "install" && !(script in scripts)),
+    ).toEqual([]);
     expect(readme).toContain("## Commands\n");
     expect(readme).toContain("docker compose down --volumes\n");
   });
