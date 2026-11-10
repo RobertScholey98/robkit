@@ -2,6 +2,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { setTimeout } from "node:timers/promises";
 import postgres from "postgres";
 import { isProblem, readSlug, type Slug } from "@robkit/input";
+import { lostRace } from "./lost-race.ts";
 
 /** The database secret is too short to derive passwords from. */
 export interface ShortSecret {
@@ -154,29 +155,6 @@ export async function provisionDatabase(
  * finds it there.
  */
 const raceAttempts = 5;
-
-/**
- * Whether `error` is how Postgres tells a transaction that another one,
- * provisioning at the same moment, got there first. Found by test
- * (`provision.db.test.ts`, "several runs start together"):
- *
- * - `23505` on a system catalog's unique index, such as
- *   `pg_authid_rolname_index` when both create the role, or
- *   `pg_namespace_nspname_index` when both create the schema.
- * - `XX000` "tuple concurrently updated", when both alter the same role,
- *   or change the database's grants, even for two different apps.
- *
- * The losing transaction has rolled back by then, so trying again is safe.
- */
-function lostRace(error: unknown): boolean {
-  if (!(error instanceof postgres.PostgresError)) return false;
-  if (error.code === "23505") {
-    return error.constraint_name?.startsWith("pg_") === true;
-  }
-  return (
-    error.code === "XX000" && error.message === "tuple concurrently updated"
-  );
-}
 
 /**
  * One try at an app's role and schema, in one transaction: the check of
