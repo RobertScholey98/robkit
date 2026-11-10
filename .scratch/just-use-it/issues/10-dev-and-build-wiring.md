@@ -29,4 +29,13 @@
 - [ ] No template's Vite or Next config imports `@robkit/input`, the hub's and admin's included
 - [ ] The whole-stack and production tests pass for every stack
 - [ ] The new package, its `/express` entry and `@robkit/next/config` have README sections, API reports, graph entries and changesets
+- [ ] The headers robkit sends are written in `@robkit/input/headers` and nowhere else in TypeScript
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From milestone 1, added by the lead
+
+Ticket 06 put the headers robkit sends in `@robkit/session`, in `packages/session/src/answer-headers.ts`: `securityHeaders(origin, framers)`, `withHeaders`, `isRedirect` and HSTS's value. `securityHeaders(origin, "none")` gives the hub's three headers.
+
+`@robkit/session` depends on the guard, and ticket 11's `@robkit/serve` may depend on nothing from the guard. So this ticket moves that file to a new `@robkit/input/headers` entry, which every package may import, as `@robkit/input/report` and `@robkit/input/addresses` already are. `robkit()` takes the hub's headers from there. `@robkit/session` may keep exporting the functions for the adapters that use them.

@@ -40,3 +40,9 @@
 - [ ] The production test passes for every stack, its extra-packages check included
 - [ ] `@robkit/serve` has its README, API report, graph entry, changeset and thresholds, and the API reports, READMEs and changesets cover the adapters' new entries
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From milestone 1, added by the lead
+
+`servePage()` takes the hub's headers, HSTS included, from `@robkit/input/headers`, where ticket 10 moved what ticket 06 wrote in `@robkit/session`. `securityHeaders(origin, "none")` gives them. Don't write the values again. When this ticket lands, take the hub out of `SECURITY.md`'s "What isn't covered" under framing.
