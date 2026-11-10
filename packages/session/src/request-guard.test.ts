@@ -9,7 +9,11 @@ import {
   cookieCases,
   cookieRequest,
   fakeCore,
+  formPostAnswer,
+  formPostCases,
+  formPostRequest,
   guest,
+  linksIn,
   owner,
   refreshLocation,
   signedOutCookie,
@@ -732,6 +736,173 @@ describe("requestGuard, on a call from the page or a server", () => {
     })(core.page, { headers: { accept: "application/json" } });
 
     expect([res.status, await res.json()]).toEqual([200, { kind: "nobody" }]);
+  });
+});
+
+describe("requestGuard, on a form it can't take", () => {
+  /** A form posted from `core.page`, the way a browser sends one. */
+  const form = (headers: Record<string, string> = {}) => ({
+    method: "POST",
+    headers: {
+      ...navigate,
+      "sec-fetch-site": "same-origin",
+      ...headers,
+    },
+  });
+
+  it.each(formPostCases)("$name", async (asking) => {
+    const check = requestGuard({
+      app: example,
+      access: { kind: "owner" },
+      core: coreOrigin(asking.core),
+    });
+    const { url, ...init } = formPostRequest(asking);
+
+    const decision = await check(new Request(url, init));
+
+    const res = decision.outcome === "answer" ? decision.response : undefined;
+    const body = (await res?.text()) ?? "";
+    expect({
+      status: res?.status,
+      type: res?.headers.get("content-type"),
+      links: linksIn(body),
+    }).toEqual(formPostAnswer(asking));
+    expect(body).not.toMatch(/<script|<img|onerror/);
+  });
+
+  it("answers with a page no cache keeps, saying the form wasn't sent", async () => {
+    const core = await fakeCore();
+
+    const res = await guardedBy(core)(core.page, form({ referer: core.page }));
+
+    expect([res.status, res.headers.get("cache-control")]).toEqual([
+      401,
+      "no-store",
+    ]);
+    expect(await res.text()).toContain("<h1>Your form wasn't sent</h1>");
+  });
+
+  it("sends a viewer whose token lapsed back to the form's page, signed in", async () => {
+    const core = await fakeCore();
+    const open = guardedBy(core);
+    const lapsed = await core.key.token({ ageSeconds: 20 * minute });
+
+    const page = await open(
+      core.page,
+      form({ referer: core.page, ...cookie(lapsed) }),
+    );
+    const [link = ""] = linksIn(await page.text());
+    const away = await open(link, { headers: navigate });
+    const back = await open(
+      callbackFor(core.page, {
+        state: stateIn(away.headers.get("location")),
+        token: await core.key.token(),
+      }),
+      { headers: { ...navigate, cookie: cookiesFrom(away) } },
+    );
+    const signedIn = await open(core.page, {
+      headers: { ...navigate, cookie: cookiesFrom(back) },
+    });
+
+    expect([page.status, back.headers.get("location")]).toEqual([
+      401,
+      core.page,
+    ]);
+    expect([signedIn.status, await signedIn.json()]).toEqual([200, owner]);
+  });
+
+  it("sends a signed-out viewer on a gated app to the hub, with next on the form's page", async () => {
+    const core = await fakeCore();
+    const open = guardedBy(core);
+
+    const page = await open(core.page, form({ referer: core.page }));
+    const [link = ""] = linksIn(await page.text());
+    const away = await open(link, { headers: navigate });
+    const back = await open(
+      callbackFor(core.page, {
+        state: stateIn(away.headers.get("location")),
+      }),
+      { headers: { ...navigate, cookie: cookiesFrom(away) } },
+    );
+    const toHub = await open(core.page, {
+      headers: { ...navigate, cookie: cookiesFrom(back) },
+    });
+
+    expect([page.status, setCookies(page)]).toEqual([
+      401,
+      {
+        robkit_session:
+          "robkit_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+      },
+    ]);
+    expect([
+      back.headers.get("location"),
+      toHub.headers.get("location"),
+    ]).toEqual([
+      core.page,
+      `${core.hub}/?next=${encodeURIComponent(core.page)}`,
+    ]);
+  });
+
+  it.each([
+    ["fresh", 0],
+    ["older than a minute", 2 * minute],
+    ["absent", undefined],
+  ])(
+    "lets a signed-out visitor's form on an open app through as nobody, with core's word %s",
+    async (_, ageSeconds) => {
+      const core = await fakeCore();
+      const said =
+        ageSeconds === undefined
+          ? {}
+          : {
+              cookie: `robkit_session=signed-out.${String(Math.floor(Date.now() / 1000) - ageSeconds)}`,
+            };
+
+      const res = await guardedBy(core, {
+        app: example,
+        access: { kind: "open" },
+      })(core.page, form({ referer: core.page, ...said }));
+
+      expect([res.status, await res.json()]).toEqual([200, { kind: "nobody" }]);
+    },
+  );
+
+  it("answers a fetch in each of those cases as it did before", async () => {
+    const core = await fakeCore();
+    const call = { "sec-fetch-mode": "cors", "sec-fetch-site": "same-origin" };
+    const lapsed = await core.key.token({ ageSeconds: 20 * minute });
+
+    const refresh = await guardedBy(core)(core.page, {
+      method: "POST",
+      headers: { ...call, ...cookie(lapsed) },
+    });
+    const login = await guardedBy(core)(core.page, {
+      method: "POST",
+      headers: call,
+    });
+    const nobody = await guardedBy(core, {
+      app: example,
+      access: { kind: "open" },
+    })(core.page, { method: "POST", headers: call });
+
+    expect([
+      await readSessionLapsed(refresh),
+      await readSessionLapsed(login),
+      await nobody.json(),
+    ]).toEqual([
+      {
+        outcome: "refresh",
+        error: "Your session needs refreshing.",
+        location: new URL("/_robkit/refresh", core.page).href,
+      },
+      {
+        outcome: "login",
+        error: "Sign in to use this app.",
+        location: `${core.hub}/`,
+      },
+      { kind: "nobody" },
+    ]);
   });
 });
 

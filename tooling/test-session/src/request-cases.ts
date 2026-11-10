@@ -4,8 +4,9 @@ import cases from "../request-cases.json" with { type: "json" };
 // request-cases.json holds the cases every port of the request guard must
 // pass, one list per kind, under its own key: "address" for where the
 // guard sends the browser, "cookies" for which cookie it reads,
-// "coreAddress" for which addresses of core each port's reader accepts, and
-// "writes" for which requests from another origin it refuses. A ticket that
+// "coreAddress" for which addresses of core each port's reader accepts,
+// "writes" for which requests from another origin it refuses, and
+// "formPost" for where its page for a form it didn't take links back to. A ticket that
 // adds a kind adds a key, a row type and a reader here, and a reader in
 // go/internal/conformance.
 
@@ -182,6 +183,39 @@ function readWriteCase(value: unknown, index: number): WriteCase {
   };
 }
 
+/**
+ * One row of request-cases.json's `formPost` list: a form posted to
+ * `example`, owner-only, by a browser that holds no cookie, from the page
+ * its `Referer` names, or with none. The guard answers with a page whose
+ * one link goes to the app's refresh path with `next` set to `next`.
+ */
+export interface FormPostCase {
+  name: string;
+  /** Core's origin, as the app's settings name it. */
+  core: string;
+  /** The `Referer` the browser sends, if any. */
+  referer?: string;
+  /** The page the link sends the browser back to. */
+  next: string;
+}
+
+function readFormPostCase(value: unknown, index: number): FormPostCase {
+  const at = `request-cases.json formPost[${String(index)}]`;
+  if (!isRecord(value)) throw new Error(`${at} must be an object.`);
+  const { name, core, referer, next } = value;
+  if (
+    typeof name !== "string" ||
+    typeof core !== "string" ||
+    (referer !== undefined && typeof referer !== "string") ||
+    typeof next !== "string"
+  ) {
+    throw new Error(
+      `${at} needs a name, core and next as strings, and referer as a string or left out.`,
+    );
+  }
+  return { name, core, ...(referer === undefined ? {} : { referer }), next };
+}
+
 /** The list of cases under `kind` in `file`, or a throw that names it. */
 function listIn(file: unknown, kind: keyof RequestCases): unknown[] {
   const list = isRecord(file) ? file[kind] : undefined;
@@ -199,6 +233,7 @@ export interface RequestCases {
   cookies: CookieCase[];
   coreAddress: CoreAddressCase[];
   writes: WriteCase[];
+  formPost: FormPostCase[];
 }
 
 /** The cases in `value`, as request-cases.json holds them. Throws on a bad one. */
@@ -208,6 +243,7 @@ export function readRequestCases(value: unknown): RequestCases {
     cookies: listIn(value, "cookies").map(readCookieCase),
     coreAddress: listIn(value, "coreAddress").map(readCoreAddressCase),
     writes: listIn(value, "writes").map(readWriteCase),
+    formPost: listIn(value, "formPost").map(readFormPostCase),
   };
 }
 
@@ -225,3 +261,6 @@ export const coreAddressCases = requestCases.coreAddress;
 
 /** The requests every port of the guard must refuse or let through alike. */
 export const writeCases = requestCases.writes;
+
+/** Where every port's page for a form it didn't take must link back to. */
+export const formPostCases = requestCases.formPost;

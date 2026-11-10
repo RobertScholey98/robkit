@@ -14,6 +14,8 @@ import {
   type AccessRuleFailure,
 } from "./core-access.ts";
 import {
+  formNotSent,
+  isFormPost,
   isFromAnotherOrigin,
   isNavigation,
   publicUrl,
@@ -173,28 +175,30 @@ export function requestGuard(
         // Core's word that nobody is signed in goes, so once the browser
         // signs in at the hub and comes back, the app asks core again.
         const location = new URL("/", hub);
-        if (!isNavigation(request)) {
-          // A call doesn't know the page it came from. The page adds next.
-          const response = sessionLapsedResponse({
-            outcome: "login",
-            error: errors.login,
-            location: location.href,
-          });
-          response.headers.append("set-cookie", protocol.forget);
-          return response;
+        if (isNavigation(request)) {
+          location.searchParams.set("next", url.href);
+          return redirect(location.href, [["set-cookie", protocol.forget]]);
         }
-        location.searchParams.set("next", url.href);
-        return redirect(location.href, [["set-cookie", protocol.forget]]);
+        // A call doesn't know the page it came from. The page adds next.
+        const response = isFormPost(request)
+          ? formNotSent(request, origin)
+          : sessionLapsedResponse({
+              outcome: "login",
+              error: errors.login,
+              location: location.href,
+            });
+        response.headers.append("set-cookie", protocol.forget);
+        return response;
       }
       case "refresh":
-        if (!isNavigation(request)) {
-          return sessionLapsedResponse({
-            outcome: "refresh",
-            error: errors.refresh,
-            location: new URL(appRefreshPath, url).href,
-          });
-        }
-        return protocol.toCore(request, url.href);
+        if (isNavigation(request)) return protocol.toCore(request, url.href);
+        return isFormPost(request)
+          ? formNotSent(request, origin)
+          : sessionLapsedResponse({
+              outcome: "refresh",
+              error: errors.refresh,
+              location: new URL(appRefreshPath, url).href,
+            });
     }
   };
 

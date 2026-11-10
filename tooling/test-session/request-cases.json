@@ -591,5 +591,72 @@
       },
       "refused": true
     }
+  ],
+  "formPost": [
+    {
+      "name": "links back to the page the form was on",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/notes?x=1",
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "keeps a page whose query holds several values",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/notes?a=1&b=%3Cx%3E",
+      "next": "https://example.robkit.dev/notes?a=1&b=%3Cx%3E"
+    },
+    {
+      "name": "links to the app's front page when the browser sends no Referer",
+      "core": "https://core.robkit.dev",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer on a sibling app",
+      "core": "https://core.robkit.dev",
+      "referer": "https://notes.robkit.dev/notes",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer on the app's host on another port",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev:8443/notes",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer under the guard's own paths",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/_robkit/refresh?next=x",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer with markup in its query",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/notes?q=\"><script>alert(1)</script>",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer with markup in its path",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/<img src=x onerror=alert(1)>",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer with a quote in it",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/it's",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer that isn't a URL",
+      "core": "https://core.robkit.dev",
+      "referer": "not a url",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "links back to the page on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "referer": "http://example.robkit.localhost:3000/notes",
+      "next": "http://example.robkit.localhost:3000/notes"
+    }
   ]
 }

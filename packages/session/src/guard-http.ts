@@ -1,3 +1,4 @@
+import { appRefreshPath } from "./app-session.ts";
 import type { SessionCookies } from "./session-cookies.ts";
 
 /**
@@ -11,6 +12,11 @@ export function publicUrl(request: Request, origin: string): URL {
   return new URL(`${origin}${pathname}${search}`);
 }
 
+/** Whether `target` is a page on the app at `origin`, not under the guard's own paths. */
+function isPageOn(target: URL, origin: string): boolean {
+  return target.origin === origin && !target.pathname.startsWith("/_robkit/");
+}
+
 /**
  * The `next` a request names, if it is a page on the same app. A page under
  * the guard's own paths isn't one.
@@ -19,10 +25,7 @@ export function nextOn(url: URL): string | undefined {
   const next = url.searchParams.get("next");
   if (next === null || !URL.canParse(next)) return undefined;
   const target = new URL(next);
-  return target.origin === url.origin &&
-    !target.pathname.startsWith("/_robkit/")
-    ? target.href
-    : undefined;
+  return isPageOn(target, url.origin) ? target.href : undefined;
 }
 
 /**
@@ -79,6 +82,72 @@ export function isFromAnotherOrigin(request: Request, origin: string): boolean {
   const site = request.headers.get("sec-fetch-site");
   if (site !== null) return site !== "same-origin" && site !== "none";
   return elsewhere;
+}
+
+/**
+ * A form the browser posted as a page load. It can't follow the guard to
+ * core and back with its body, so it gets a page instead.
+ */
+export function isFormPost(request: Request): boolean {
+  return (
+    request.method === "POST" &&
+    request.headers.get("sec-fetch-mode") === "navigate"
+  );
+}
+
+/**
+ * The characters a URL may hold, as a browser writes one, other than a
+ * quote. A `Referer` with any other isn't one a browser sent, and the two
+ * ports would read it differently.
+ */
+const urlCharacters = /^[\w\-.~:/?#[\]@!$&()*+,;=%]+$/;
+
+/** `text` with the characters HTML gives a meaning escaped. */
+function escapeHtml(text: string): string {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&#34;")
+    .replaceAll("'", "&#39;");
+}
+
+/**
+ * The page for a form the guard didn't take because it must first check
+ * who sent it, with the status the guard's 401 for a call has. Its one link
+ * goes through the app's refresh path, which asks core, back to the page
+ * the form was on: the `Referer`, when it is a page on the app at
+ * `origin`, and the app's `/` otherwise.
+ */
+export function formNotSent(request: Request, origin: string): Response {
+  const referer = request.headers.get("referer") ?? "";
+  const from =
+    urlCharacters.test(referer) && URL.canParse(referer)
+      ? new URL(referer)
+      : undefined;
+  const link = new URL(appRefreshPath, origin);
+  link.searchParams.set(
+    "next",
+    from && isPageOn(from, origin) ? from.href : `${origin}/`,
+  );
+  const page = [
+    "<!doctype html>",
+    '<html lang="en">',
+    '<meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    "<title>Your form wasn't sent</title>",
+    "<h1>Your form wasn't sent</h1>",
+    "<p>The app needs to check who you are first. Go back to the page, then send the form again.</p>",
+    `<p><a href="${escapeHtml(link.href)}">Back to the page</a></p>`,
+    "",
+  ].join("\n");
+  return new Response(page, {
+    status: 401,
+    headers: {
+      "content-type": "text/html; charset=UTF-8",
+      "cache-control": "no-store",
+    },
+  });
 }
 
 /** A plain-text answer that no cache keeps. */
