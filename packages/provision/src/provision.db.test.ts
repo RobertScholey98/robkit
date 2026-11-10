@@ -287,7 +287,8 @@ describe("provisionDatabases", () => {
   });
 
   // Two cores can start together, as in a rolling deploy. The one that
-  // loses a race to create a role, a schema or a grant tries that app again.
+  // loses a race to create a role or a schema, or to change who may reach
+  // them, tries that app again.
   it.each([1, 2, 3])(
     "gives every app its database when several runs start together (round %i)",
     async (round) => {

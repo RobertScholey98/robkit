@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, inject, it } from "vitest";
 import { signingKeys } from "./schema.ts";
 import { ensureSigningKey } from "./signing-key.ts";
 import { aCoreOrigin } from "@internal/test-session";
@@ -9,8 +9,9 @@ import { defaultOrigin, freshCore } from "./test/fresh-app.ts";
 
 /** The URL `db` connects with, for a second connection to the same database. */
 function databaseUrlOf(db: Database): string {
-  const { host, port, database, user, pass } = db.$client.options;
-  return `postgres://${user}:${String(pass)}@${host[0] ?? ""}:${String(port[0])}/${database}`;
+  const url = new URL(inject("databaseUrl"));
+  url.pathname = `/${db.$client.options.database}`;
+  return url.href;
 }
 
 describe("ensureSigningKey", () => {
