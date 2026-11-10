@@ -281,6 +281,7 @@ describe("the default install in production", () => {
       "@robkit/guard",
       "@robkit/input",
       "@robkit/next",
+      "@robkit/serve",
       "@robkit/session",
     ]);
   });
