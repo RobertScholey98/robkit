@@ -202,11 +202,14 @@ export function describeJourneys(
       expect(printed).toContain(
         `Added apps/${addedSlug}. pnpm dev started ${addedSlug} at ${dev.addresses().origin(addedSlug)}.`,
       );
-      // The proxy answers 502 only when the example doesn't. Its guard may
+      // Signed out, the example answers 401 every time. Its guard may
       // answer 503 when a loaded machine slows core past its wait;
       // requests.db.test.ts in @robkit/dev shows core answering throughout.
+      // Anything else, such as the proxy's 502, is the example gone.
       expect(exampleAnswered).toContain(401);
-      expect(exampleAnswered).not.toContain(502);
+      expect(
+        [...exampleAnswered].filter((status) => ![401, 503].includes(status)),
+      ).toEqual([]);
       // The example is the owner's alone, so the guest's launcher was empty.
       expect({
         session: before.session,
