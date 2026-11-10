@@ -48,8 +48,13 @@ export const packageGraph = {
     devDependencies: ["@internal/test-session"],
   },
   "@robkit/start": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: ["@internal/test-session", "@robkit/input"],
+    dependencies: [
+      "@robkit/guard",
+      "@robkit/input",
+      "@robkit/serve",
+      "@robkit/session",
+    ],
+    devDependencies: ["@internal/test-session"],
   },
   "@robkit/react": {
     dependencies: ["@robkit/session"],

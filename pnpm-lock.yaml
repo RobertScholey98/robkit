@@ -96,6 +96,9 @@ catalogs:
     serve-static:
       specifier: 2.2.1
       version: 2.2.1
+    srvx:
+      specifier: 1.0.8
+      version: 1.0.8
     turbo:
       specifier: 2.11.10
       version: 2.11.10
@@ -706,9 +709,18 @@ importers:
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
+      srvx:
+        specifier: 'catalog:'
+        version: 1.0.8
     devDependencies:
       '@internal/eslint-config':
         specifier: workspace:*
@@ -719,9 +731,6 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
-      '@robkit/input':
-        specifier: workspace:*
-        version: link:../input
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.169.4(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.15)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))

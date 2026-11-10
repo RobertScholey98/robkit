@@ -37,3 +37,13 @@ export interface GuestOptions {
 export { nobody } from "@robkit/guard/testing";
 export { owner } from "@robkit/guard/testing";
 ```
+
+## @robkit/start/serve
+
+```ts
+export function serve(options?: ServeOptions): Promise<Server>;
+export interface ServeOptions extends ServerOptions {
+  client?: string;
+  server?: string;
+}
+```

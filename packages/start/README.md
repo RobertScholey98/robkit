@@ -38,7 +38,24 @@ Pair it with `sessionFetch` from `@robkit/react` in `src/start.ts`, so a server 
 | `coreOrigin()`             | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                      |
 | `GuardedContext`           | `{ viewer }`, to register as Start's request context                                                                                                                                          |
 | `Viewer`                   | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                     |
+| `@robkit/start/serve`      | `serve(options?)`, which serves the built app in production. See [Serving](#serving)                                                                                                          |
 | `@robkit/start/testing`    | For tests only: `owner()`, `guest({ roles })` and `nobody()`. See [Testing](#testing)                                                                                                         |
+
+## Serving
+
+`@robkit/start/serve` serves the built app in production. An app's `src/serve.ts` is the import and one call:
+
+```ts nocheck
+import { serve } from "@robkit/start/serve";
+
+await serve();
+```
+
+It reads `HOST` and `PORT`, 127.0.0.1 and 3000 unless set, and refuses a malformed one with the reader's message before it loads anything. It loads Start's server entry from `dist/server/server.js`, which is the app's `src/server.ts` with the guard, and exits 1, saying to build the app, when it isn't there. Then it answers the files in `dist/client` at the root, which is what `vite build` writes for the browser with the app's `public` folder copied in, and hands every other request to the entry. Nothing in `dist/server` is ever answered. Both are found from the folder the app runs in, which the container sets. Every answer carries `nosniff`. On SIGTERM it stops as `@robkit/serve` does and exits 0. It resolves with the Node server, so a WebSocket server can attach to it and a test can close it.
+
+Each request reaches the entry as a fetch `Request` through [srvx](https://srvx.h3.dev), which is how Start itself serves on Node and which it already depends on.
+
+`ServeOptions`: `client` and `server` move the client's folder and the entry, and `name` and `onStopped` are `@robkit/serve`'s. Its files go out before the guard, so they are public.
 
 ## Testing
 
