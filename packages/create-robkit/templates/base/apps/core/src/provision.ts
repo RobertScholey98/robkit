@@ -1,4 +1,4 @@
-import { provisionDatabases, readProvisionConfig } from "@robkit/dev";
+import { provisionDatabases, readProvisionConfig } from "@robkit/provision";
 import { orExit } from "@robkit/input";
 
 // The provision step in production. Core's container runs it before core

@@ -22,6 +22,7 @@
     "@robkit/hono": "workspace:*",
     "@robkit/input": "workspace:*",
     "@robkit/next": "workspace:*",
+    "@robkit/provision": "workspace:*",
     "@robkit/react": "workspace:*",
     "@robkit/session": "workspace:*",
     "@robkit/start": "workspace:*",

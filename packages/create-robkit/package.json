@@ -45,6 +45,7 @@
     "@clack/prompts": "catalog:",
     "@robkit/dev": "workspace:*",
     "@robkit/input": "workspace:*",
+    "@robkit/provision": "workspace:*",
     "@robkit/session": "workspace:*",
     "prettier": "catalog:",
     "yaml": "catalog:"

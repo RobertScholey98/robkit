@@ -10,7 +10,7 @@ import {
   databasePassword,
   databaseUrl as appDatabaseUrl,
   provisionDatabases,
-} from "@robkit/dev";
+} from "@robkit/provision";
 import postgres from "postgres";
 import {
   afterAll,

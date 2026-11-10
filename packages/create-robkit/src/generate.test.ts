@@ -444,6 +444,7 @@ describe("generateInstall", () => {
       "@robkit/hono": at("hono"),
       "@robkit/input": at("input"),
       "@robkit/next": at("next"),
+      "@robkit/provision": at("provision"),
       "@robkit/react": at("react"),
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),

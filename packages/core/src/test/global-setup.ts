@@ -1,5 +1,9 @@
 import { startPostgres } from "@internal/test-postgres";
-import { databasePassword, databaseUrl, provisionDatabases } from "@robkit/dev";
+import {
+  databasePassword,
+  databaseUrl,
+  provisionDatabases,
+} from "@robkit/provision";
 import type { TestProject } from "vitest/node";
 
 declare module "vitest" {

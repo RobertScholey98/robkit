@@ -46,7 +46,7 @@
     "@internal/test-postgres": "workspace:*",
     "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
-    "@robkit/dev": "workspace:*",
+    "@robkit/provision": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "drizzle-kit": "catalog:",

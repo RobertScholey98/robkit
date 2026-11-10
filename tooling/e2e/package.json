@@ -17,6 +17,7 @@
     "@internal/tsconfig": "workspace:*",
     "@robkit/dev": "workspace:*",
     "@robkit/input": "workspace:*",
+    "@robkit/provision": "workspace:*",
     "@types/node": "catalog:",
     "create-robkit": "workspace:*",
     "eslint": "catalog:",

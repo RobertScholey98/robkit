@@ -55,23 +55,35 @@ export const packageGraph = {
     dependencies: ["@robkit/session"],
     devDependencies: [],
   },
-  // Core's tests provision their database with the dev runner's step.
+  // Gives each app its schema and role. Below core and the dev runner, so
+  // neither needs the other for it.
+  "@robkit/provision": {
+    dependencies: ["@robkit/input"],
+    devDependencies: ["@internal/test-postgres", "@internal/test-session"],
+  },
+  // Core's tests provision their database with the provision step.
   "@robkit/core": {
     dependencies: ["@robkit/guard", "@robkit/input", "@robkit/session"],
     devDependencies: [
       "@internal/test-postgres",
       "@internal/test-session",
-      "@robkit/dev",
+      "@robkit/provision",
     ],
   },
   "@robkit/dev": {
-    dependencies: ["@robkit/input"],
+    dependencies: ["@robkit/input", "@robkit/provision"],
     devDependencies: ["@internal/test-postgres", "@internal/test-session"],
   },
   // `robkit check` refuses an app that reads the session cookie by its name,
-  // which it takes from session.
+  // which it takes from session. A deploy derives each app's database
+  // password as the provision step does.
   "create-robkit": {
-    dependencies: ["@robkit/dev", "@robkit/input", "@robkit/session"],
+    dependencies: [
+      "@robkit/dev",
+      "@robkit/input",
+      "@robkit/provision",
+      "@robkit/session",
+    ],
     devDependencies: ["@internal/test-session"],
   },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
@@ -92,6 +104,7 @@ export const packageGraph = {
       "@robkit/hono",
       "@robkit/input",
       "@robkit/next",
+      "@robkit/provision",
       "@robkit/react",
       "@robkit/session",
       "@robkit/start",
@@ -106,6 +119,7 @@ export const packageGraph = {
       "@internal/test-session",
       "@robkit/dev",
       "@robkit/input",
+      "@robkit/provision",
       "create-robkit",
     ],
   },

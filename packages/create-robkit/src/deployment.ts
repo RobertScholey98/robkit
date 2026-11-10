@@ -1,9 +1,5 @@
-import {
-  catalogOf,
-  databasePassword,
-  databaseUrl,
-  discoverApps,
-} from "@robkit/dev";
+import { catalogOf, discoverApps } from "@robkit/dev";
+import { databasePassword, databaseUrl } from "@robkit/provision";
 import { type Slug, type Domain } from "@robkit/input";
 import { install } from "@robkit/input/addresses";
 

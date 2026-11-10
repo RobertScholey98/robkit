@@ -88,7 +88,7 @@ export const exceptions: Exceptions = {
     },
     {
       word: "grant",
-      file: "packages/dev/src/provision.ts",
+      file: "packages/provision/src/provision.ts",
       text: "grant",
       why: "Postgres's GRANT.",
     },

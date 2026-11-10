@@ -22,29 +22,7 @@ export function appManifestFileIn(
   folder: string,
 ): Promise<AppManifestFile | undefined>;
 export function catalogOf(apps: readonly App[]): string;
-export function databasePassword(secret: string, slug: Slug): string;
-export function databaseUrl(
-  adminUrl: string,
-  slug: Slug,
-  password: string,
-): string;
 export function discoverApps(root: string, firstPort?: number): Promise<App[]>;
-export interface ProvisionConfig {
-  adminUrl: string;
-  secret: string;
-  slugs: Slug[];
-}
-export function provisionDatabases({
-  adminUrl,
-  secret,
-  slugs,
-}: ProvisionDatabasesOptions): Promise<Map<Slug, string>>;
-export interface ProvisionDatabasesOptions {
-  adminUrl: string;
-  secret: string;
-  slugs: readonly Slug[];
-}
-export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem;
 ```
 
 ## @robkit/dev/cli

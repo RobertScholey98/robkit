@@ -1,0 +1,39 @@
+# @robkit/provision
+
+Gives each app of a robkit install its own Postgres schema and a login role that can touch nothing else, both named after the app's slug.
+
+Core runs it in production before it migrates, and the dev runner runs it before `pnpm dev` starts the apps. create-robkit uses it to work out each app's `DATABASE_URL` for a deploy.
+
+## Example
+
+The provision step in production:
+
+```ts
+import { provisionDatabases, readProvisionConfig } from "@robkit/provision";
+import { isProblem } from "@robkit/input";
+
+// ROBKIT_ADMIN_DATABASE_URL, ROBKIT_DB_SECRET, and ROBKIT_DATABASES, which
+// lists the apps with a database, such as "core,example".
+const config = readProvisionConfig(process.env);
+if (isProblem(config)) {
+  console.error(config.error);
+  process.exit(1);
+}
+
+await provisionDatabases(config);
+console.log(`provisioned ${config.slugs.join(", ")}`);
+```
+
+## Exports
+
+| Export                                          | What it is                                                                                    |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `readProvisionConfig(env)`, `ProvisionConfig`   | The production provision step's environment                                                   |
+| `provisionDatabases(options)`                   | The provision step in production, with each password from `ROBKIT_DB_SECRET`                  |
+| `provisionDatabase(adminUrl, slug, password?)`  | One app's schema and role, with the password given or a fresh one. Returns its `DATABASE_URL` |
+| `databasePassword(secret, slug)`, `databaseUrl` | An app's role password (an HMAC of its slug) and its `DATABASE_URL`                           |
+
+## What it must never do
+
+- Depend on anything but `@robkit/input` and `postgres`. Core's image holds it, so it stays small, and the dev runner and core both sit above it.
+- Give an app's role access to another schema. Each role reaches its own schema and nothing else.
