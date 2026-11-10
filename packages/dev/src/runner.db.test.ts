@@ -531,6 +531,19 @@ describe("an app's own .env", () => {
     expect(beta).not.toHaveProperty("own");
     expect(migratedWith).toMatchObject({ own: "alpha's own" });
   });
+
+  it("stops pnpm dev before it starts anything when the file sets a name robkit decides", async () => {
+    const dev = await startDev({}, async (root) => {
+      await writeFile(join(root, "apps", "beta", ".env"), "PORT=4000\n");
+    });
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toBe(
+      "apps/beta/.env sets PORT, which pnpm dev decides for each app. Remove it from the file.\n",
+    );
+    expect(await startedApps(dev.root)).toEqual([]);
+    expect(await createdContainers(dev.root)).toBe("");
+  });
 });
 
 describe("robkit-dev's checks before it starts", () => {

@@ -1,7 +1,9 @@
 import { join } from "node:path";
 import type { Domain, Slug } from "@robkit/input";
+import { CommandProblem } from "@robkit/input/command";
 import type { App } from "./apps.ts";
 import { readEnvFile } from "./env.ts";
+import { throwFailures } from "./failures.ts";
 
 /** What `robkit-dev` tells every app about the install it runs in. */
 export interface InstallFacts {
@@ -71,19 +73,53 @@ export function appEnv(
 }
 
 /**
+ * Why an app's `.env` can't set `name`, or undefined when it may. A name
+ * the runner decides would lose to it unseen. `NODE_ENV`, like `VITEST`,
+ * decides whether `guardedAs()` serves, so a file that set it would open
+ * the app.
+ */
+function whyRefused(
+  install: InstallFacts,
+  app: Pick<App, "slug" | "port">,
+  name: string,
+): string | undefined {
+  if (Object.hasOwn(appSettings(install, app), name)) {
+    return `which pnpm dev decides for each app. Remove it from the file.`;
+  }
+  if (name.startsWith("ROBKIT_")) {
+    return `and a name that starts ROBKIT_ is robkit's own. Remove it from the file. robkit's settings for pnpm dev go in the .env at the install's root.`;
+  }
+  if (name === "NODE_ENV") {
+    return `which decides whether a test helper such as guardedAs() serves. Remove it from the file.`;
+  }
+  return undefined;
+}
+
+/**
  * Each app's own settings, by slug: what `apps/<slug>/.env` sets, or
  * nothing when it has none. Read once, as `pnpm dev` starts.
+ *
+ * @throws a `CommandProblem` for each name a file sets that robkit
+ *   decides, several in an AggregateError
  */
 export async function ownSettings(
   install: InstallFacts,
   apps: readonly Pick<App, "slug" | "port" | "dir">[],
 ): Promise<Map<Slug, Record<string, string>>> {
-  return new Map(
-    await Promise.all(
-      apps.map(
-        async (app) =>
-          [app.slug, await readEnvFile(join(app.dir, ".env"))] as const,
-      ),
-    ),
-  );
+  const refused: CommandProblem[] = [];
+  const own = new Map<Slug, Record<string, string>>();
+  for (const app of apps) {
+    const settings = await readEnvFile(join(app.dir, ".env"));
+    for (const name of Object.keys(settings)) {
+      const why = whyRefused(install, app, name);
+      if (why !== undefined) {
+        refused.push(
+          new CommandProblem(`apps/${app.slug}/.env sets ${name}, ${why}`),
+        );
+      }
+    }
+    own.set(app.slug, settings);
+  }
+  throwFailures(refused);
+  return own;
 }

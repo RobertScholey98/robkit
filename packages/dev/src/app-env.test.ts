@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { aDomain, slug } from "@internal/test-session";
+import { CommandProblem } from "@robkit/input/command";
 import { appEnv, ownSettings, type InstallFacts } from "./app-env.ts";
 
 const install: InstallFacts = {
@@ -81,5 +82,79 @@ describe("an app's own settings", () => {
     const own = await ownSettings(install, [{ ...notes, dir }]);
 
     expect(own.get(notes.slug)).toEqual({});
+  });
+});
+
+describe("what an app's .env can't set", () => {
+  async function appWith(
+    file: string,
+  ): Promise<typeof notes & { dir: string }> {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-app-env-"));
+    await writeFile(join(dir, ".env"), file);
+    return { ...notes, dir };
+  }
+
+  it.each([
+    "DATABASE_URL",
+    "PORT",
+    "HOST",
+    "VITEST",
+    "ROBKIT_APP",
+    "ROBKIT_CORE_URL",
+  ])("refuses %s, which pnpm dev decides for each app", async (name) => {
+    const app = await appWith(`${name}=mine\n`);
+
+    await expect(ownSettings(install, [app])).rejects.toEqual(
+      new CommandProblem(
+        `apps/notes/.env sets ${name}, which pnpm dev decides for each app. Remove it from the file.`,
+      ),
+    );
+  });
+
+  it.each(["ROBKIT_DEV_PORT", "ROBKIT_SOMETHING_LATER"])(
+    "refuses %s, since every ROBKIT_ name is robkit's",
+    async (name) => {
+      const app = await appWith(`${name}=mine\n`);
+
+      await expect(ownSettings(install, [app])).rejects.toEqual(
+        new CommandProblem(
+          `apps/notes/.env sets ${name}, and a name that starts ROBKIT_ is robkit's own. Remove it from the file. robkit's settings for pnpm dev go in the .env at the install's root.`,
+        ),
+      );
+    },
+  );
+
+  it("refuses NODE_ENV, which decides whether a test helper serves", async () => {
+    const app = await appWith("NODE_ENV=test\n");
+
+    await expect(ownSettings(install, [app])).rejects.toEqual(
+      new CommandProblem(
+        "apps/notes/.env sets NODE_ENV, which decides whether a test helper such as guardedAs() serves. Remove it from the file.",
+      ),
+    );
+  });
+
+  it("names every refused variable in every file, each as a problem", async () => {
+    const notesApp = await appWith("PORT=1\nAPI_KEY=fine\nHOST=0.0.0.0\n");
+    const dir = await mkdtemp(join(tmpdir(), "robkit-app-env-"));
+    await writeFile(join(dir, ".env"), "NODE_ENV=test\n");
+    const ledger = { slug: slug("ledger"), port: 3005, dir };
+
+    const refused = await ownSettings(install, [notesApp, ledger]).catch(
+      (error: unknown) => error,
+    );
+
+    expect(refused).toBeInstanceOf(AggregateError);
+    const problems = (refused as AggregateError).errors;
+    expect(
+      problems.map((problem: CommandProblem) => problem.message).sort(),
+    ).toEqual([
+      expect.stringMatching(/^apps\/ledger\/\.env sets NODE_ENV,/),
+      expect.stringMatching(/^apps\/notes\/\.env sets HOST,/),
+      expect.stringMatching(/^apps\/notes\/\.env sets PORT,/),
+    ]);
+    for (const problem of problems) {
+      expect(problem).toBeInstanceOf(CommandProblem);
+    }
   });
 });
