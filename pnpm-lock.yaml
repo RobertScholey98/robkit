@@ -362,6 +362,9 @@ importers:
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../session

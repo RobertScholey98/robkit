@@ -40,7 +40,7 @@ export const packageGraph = {
     devDependencies: ["@internal/test-session", "@robkit/input"],
   },
   "@robkit/express": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
+    dependencies: ["@robkit/guard", "@robkit/serve", "@robkit/session"],
     devDependencies: ["@internal/test-session", "@robkit/input"],
   },
   "@robkit/next": {

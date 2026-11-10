@@ -446,6 +446,14 @@ describe("generateInstall", () => {
       ],
     ],
     [
+      "stacks/express/src/serve.ts",
+      [
+        'import { serve } from "@robkit/express/serve";',
+        'import server from "./server.tsx";',
+        "serve(server);",
+      ],
+    ],
+    [
       "base/apps/admin/src/serve.ts",
       [
         'import { serve } from "@robkit/hono/serve";',

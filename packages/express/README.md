@@ -37,7 +37,28 @@ The guard reads the path and query on the request line, and the headers, never t
 | `GuardedLocals`           | What `guarded` puts on `res.locals`: `{ viewer }`                                                                                                                                                                                  |
 | `GuardedResponse`         | The response a handler behind `guarded` gets, which types `res.locals.viewer`                                                                                                                                                      |
 | `Viewer`                  | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                                                          |
+| `@robkit/express/serve`   | `serve(app, options?)`, which serves the app in production. See [Serving](#serving)                                                                                                                                                |
 | `@robkit/express/testing` | For tests only: `owner()`, `guest({ roles })` and `nobody()`, and `guardedAs(viewer)`, a stand-in for `guarded()`. See [Testing](#testing)                                                                                         |
+
+## Serving
+
+`@robkit/express/serve` serves the app in production. An app's `src/serve.ts` is the import, the app and one call:
+
+```ts
+import { serve } from "@robkit/express/serve";
+import express from "express";
+
+const app = express();
+app.get("/", (_req, res) => {
+  res.send("hello");
+});
+
+serve(app);
+```
+
+It listens on `HOST` and `PORT`, 127.0.0.1 and 3000 unless set, and refuses a malformed one with the reader's message. It answers the client's built files in `dist/assets` under `/assets`, then the files in the app's own `public` folder at the root, then the app. Nothing else in `dist`, such as the server's own `dist/serve.js`, is ever answered. Both folders are found from the folder the app runs in, which the container sets. Every answer carries `nosniff`. On SIGTERM it stops as `@robkit/serve` does and exits 0. It returns the Node server, so a WebSocket server can attach to it and a test can close it.
+
+`ServeOptions`: `assets` and `public` move the folders, and `name` and `onStopped` are `@robkit/serve`'s. Its files go out before the guard, so they are public.
 
 ## Testing
 
