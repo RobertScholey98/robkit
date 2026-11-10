@@ -36,7 +36,7 @@
 - [x] No Node stack has a `src/migrate.ts`, and each `database.ts` imports only `@robkit/drizzle` and its schema
 - [x] The whole-stack and production tests pass for every stack, with each app migrating through `robkit-migrate`
 - [x] The package has its README, API report, graph entry, changeset and thresholds
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -66,3 +66,7 @@ In a linked install (`create-robkit --link --install --stack react-hono`), `@rob
 - **Ticket 10.** Nothing in `@robkit/drizzle` reads Vite or Next. Next's `next.config.ts` still adds the linked checkout as a Turbopack root, which is how it reaches `@robkit/drizzle` and its `drizzle-orm` in a linked install. Keep that when `withRobkit()` replaces the config.
 - **Ticket 11.** An app's pool is `database().$client`. A `serve()` that stops on SIGTERM can end it there, as core's `onStopped` closes core's database. `@robkit/drizzle` doesn't end it itself. Each stack's `start` script is still `node --run migrate && node <serve>`, and `migrate` is `robkit-migrate`, from the app's `node_modules/.bin`.
 - Every Node stack's `package.json` still names `@robkit/input`, for `serve.ts` and the Vite and Next configs. `postgres` stays in `dependencies` as `@robkit/drizzle`'s peer, though no app file imports it.
+
+### Merged
+
+Added by the lead. PR 86 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `d7cb836`.
