@@ -482,6 +482,20 @@ describe.skipIf(process.platform === "win32")("devRunning", () => {
   });
 });
 
+describe("devRunning on native Windows", () => {
+  it("says no pnpm dev runs, without looking for a socket", async () => {
+    const platform = Object.getOwnPropertyDescriptor(process, "platform");
+    Object.defineProperty(process, "platform", { value: "win32" });
+    onTestFinished(() => {
+      if (platform) Object.defineProperty(process, "platform", platform);
+    });
+    // devSocket would fail on this folder, which doesn't exist.
+    const root = join(await mkdtemp(join(tmpdir(), "robkit-")), "missing");
+
+    expect(await devRunning(root, {})).toBe(false);
+  });
+});
+
 /** Something listening at `path` that isn't pnpm dev, until the test ends. */
 async function impostorAt(
   path: string,
