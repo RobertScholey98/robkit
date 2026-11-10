@@ -60,19 +60,32 @@ export async function withInstallEnv(
   root: string,
   shell: NodeJS.ProcessEnv,
 ): Promise<NodeJS.ProcessEnv> {
-  let text: string;
-  try {
-    text = await readFile(join(root, ".env"), "utf8");
-  } catch (error) {
-    if (isMissing(error)) return shell;
-    throw new Error(`robkit-dev couldn't read ${join(root, ".env")}.`, {
-      cause: error,
-    });
-  }
-  const fromFile = Object.entries(parseEnv(text)).filter(
+  const fromFile = Object.entries(await readEnvFile(join(root, ".env"))).filter(
     ([name]) => name.startsWith("ROBKIT_") && shell[name] === undefined,
   );
   return { ...shell, ...Object.fromEntries(fromFile) };
+}
+
+/**
+ * The variables a `.env` file sets, or none when it isn't there. Node's
+ * parser reads it, so nothing changes in this process's own environment.
+ * It reports no errors: a line it can't read is skipped.
+ */
+export async function readEnvFile(
+  path: string,
+): Promise<Record<string, string>> {
+  let text: string;
+  try {
+    text = await readFile(path, "utf8");
+  } catch (error) {
+    if (isMissing(error)) return {};
+    throw new Error(`robkit-dev couldn't read ${path}.`, { cause: error });
+  }
+  return Object.fromEntries(
+    Object.entries(parseEnv(text)).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
 }
 
 /** The dev runner's settings, or every variable that won't do. */
