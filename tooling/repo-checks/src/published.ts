@@ -12,7 +12,12 @@ import { problemKindInfo } from "@arethetypeswrong/core/problems";
 import { publint, type Message } from "publint";
 import { formatMessage } from "publint/utils";
 import { isProblem, orThrow, parseJson } from "@robkit/input";
-import { readJsonFile, readManifest, readNamedManifest } from "./manifest.ts";
+import {
+  dependencyFields,
+  readJsonFile,
+  readManifest,
+  readNamedManifest,
+} from "./manifest.ts";
 
 const run = promisify(execFile);
 // A shell finds pnpm.cmd on Windows, which execFile won't run.
@@ -34,9 +39,20 @@ export async function publishedPackages(): Promise<string[]> {
   return dirs;
 }
 
+/** A dependency as a packed manifest names it, such as `hono` at `4.13.14`. */
+export interface Specifier {
+  /** `dependencies`, `peerDependencies` and the like. */
+  field: string;
+  name: string;
+  range: string;
+}
+
 /** What a packed package tells Node to load, and which files it holds. */
 export interface Packed {
   name: string;
+  version: string;
+  /** The tarball's file name, as pnpm names it. */
+  file: string;
   /** The package's folder in this repo. */
   dir: string;
   /** Each export and bin target, as the packed manifest names it. */
@@ -47,6 +63,10 @@ export interface Packed {
   license: string | undefined;
   /** The packed manifest's repository URL, if it names one. */
   repository: string | undefined;
+  /** Every dependency the packed manifest lists, in every field. */
+  specifiers: Specifier[];
+  /** create-robkit's `dist/carried.json`, as text, if the tarball holds it. */
+  carried: string | undefined;
   /** The tarball itself, gzipped. */
   tarball: Uint8Array;
 }
@@ -104,17 +124,38 @@ export async function pack(dir: string): Promise<Packed> {
       ),
       ...Object.values(json.bin ?? {}),
     ];
-    const { repository } = json;
+    const { repository, version } = json;
+    if (version === undefined) {
+      throw new Error(`${dir}'s packed package.json has no version.`);
+    }
+    const files = list
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => line.replace(/^package\//, ""));
+    const carried = files.includes("dist/carried.json")
+      ? (
+          await run("tar", ["-xOzf", tarball, "package/dist/carried.json"], {
+            cwd: out,
+          })
+        ).stdout
+      : undefined;
     return {
       name: json.name,
+      version,
+      file: tarball,
       dir,
       targets,
-      files: list
-        .split("\n")
-        .filter((line) => line !== "")
-        .map((line) => line.replace(/^package\//, "")),
+      files,
       license: json.license,
       repository: typeof repository === "string" ? repository : repository?.url,
+      specifiers: dependencyFields.flatMap((field) =>
+        Object.entries(json[field] ?? {}).map(([name, range]) => ({
+          field,
+          name,
+          range,
+        })),
+      ),
+      carried,
       tarball: new Uint8Array(await readFile(join(out, tarball))),
     };
   } finally {

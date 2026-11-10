@@ -64,6 +64,7 @@ describe("readManifest", () => {
     ).toEqual({
       name: "@robkit/session",
       private: true,
+      version: "0.0.0",
       scripts: { test: "vitest run" },
       dependencies: { "@robkit/guard": "workspace:*" },
       devDependencies: { vitest: "catalog:" },
@@ -83,6 +84,7 @@ describe("readManifest", () => {
     [null, "package.json must be a JSON object."],
     [[], "package.json must be a JSON object."],
     [{ name: 1 }, 'package.json\'s "name" must be a string.'],
+    [{ version: 1 }, 'package.json\'s "version" must be a string.'],
     [{ private: "yes" }, 'package.json\'s "private" must be true or false.'],
     [
       { dependencies: { hono: 4 } },
