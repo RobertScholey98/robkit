@@ -51,6 +51,10 @@ export async function runDev(
   };
   delete appEnv.ROBKIT_DATABASE_URL;
   delete appEnv.DATABASE_URL;
+  // An app pnpm dev runs is no test run, even when a test started pnpm
+  // dev. Under VITEST, robkit() in an app's Vite config sets nothing up,
+  // and the app would listen on the wrong port.
+  delete appEnv.VITEST;
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;
