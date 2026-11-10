@@ -5,7 +5,7 @@ import { install } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
 import { CommandProblem } from "@robkit/input/command";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
-import { readDevConfig } from "./env.ts";
+import { readDevConfig, withInstallEnv } from "./env.ts";
 import { exec, prefixLines, startProblem } from "./exec.ts";
 import { failuresOf, throwFailures } from "./failures.ts";
 import { startProxy, type Proxy } from "./proxy.ts";
@@ -25,13 +25,14 @@ import { requireGo } from "./toolchain.ts";
  */
 export async function runDev(
   root: string,
-  env: NodeJS.ProcessEnv,
+  shell: NodeJS.ProcessEnv,
 ): Promise<number> {
   if (!existsSync(join(root, "robkit.json"))) {
     throw new CommandProblem(
       `${root} isn't a robkit install: it has no robkit.json. Run pnpm dev in an install's folder.`,
     );
   }
+  const env = await withInstallEnv(root, shell);
   const config = readDevConfig(env);
   if (isProblem(config)) {
     console.error(config.error);

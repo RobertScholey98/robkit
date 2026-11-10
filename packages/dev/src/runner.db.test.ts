@@ -91,7 +91,7 @@ async function devInstall(
 }
 
 async function startDev(
-  env: Record<string, string> = {},
+  env: NodeJS.ProcessEnv = {},
   prepare: (root: string) => Promise<void> = () => Promise.resolve(),
 ): Promise<Dev> {
   const { root, port, env: devEnv } = await devInstall(prepare);
@@ -305,5 +305,62 @@ describe("robkit-dev", () => {
     expect(await startedApps(dev.root)).toEqual(["alpha", "beta"]);
     expect(await isListening(dev.port + 1)).toBe(false);
     expect(await runningContainers(dev.root)).toBe("");
+  });
+});
+
+/** Where the install's Postgres container listens on this machine. */
+async function publishedPostgres(root: string): Promise<string> {
+  const project = projects.find((p) => p.root === root)?.project ?? "";
+  const { stdout } = await run(
+    "docker",
+    ["compose", "-p", project, "port", "postgres", "5432"],
+    { cwd: root },
+  );
+  return stdout.trim();
+}
+
+describe("robkit-dev's settings in the install's .env", () => {
+  it("moves Postgres and the runner together with ROBKIT_POSTGRES_PORT there", async () => {
+    const port = await freePostgresPort();
+    const dev = await startDev(
+      { ROBKIT_POSTGRES_PORT: undefined },
+      async (root) => {
+        await writeFile(
+          join(root, ".env"),
+          `ROBKIT_POSTGRES_PORT=${String(port)}\n`,
+        );
+      },
+    );
+
+    // alpha has a database, so the runner reached Postgres to provision it.
+    const alpha = await eventually(() =>
+      get(dev.port, "alpha.robkit.localhost"),
+    );
+
+    expect(JSON.parse(alpha)).toMatchObject({ database: true });
+    expect(await publishedPostgres(dev.root)).toBe(`127.0.0.1:${String(port)}`);
+  });
+
+  it("keeps the shell's ROBKIT_POSTGRES_PORT over the file's", async () => {
+    const inFile = await freePostgresPort();
+    const inShell = await freePostgresPort();
+    const dev = await startDev(
+      { ROBKIT_POSTGRES_PORT: String(inShell) },
+      async (root) => {
+        await writeFile(
+          join(root, ".env"),
+          `ROBKIT_POSTGRES_PORT=${String(inFile)}\n`,
+        );
+      },
+    );
+
+    const alpha = await eventually(() =>
+      get(dev.port, "alpha.robkit.localhost"),
+    );
+
+    expect(JSON.parse(alpha)).toMatchObject({ database: true });
+    expect(await publishedPostgres(dev.root)).toBe(
+      `127.0.0.1:${String(inShell)}`,
+    );
   });
 });

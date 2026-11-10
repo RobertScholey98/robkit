@@ -17,7 +17,7 @@ An install's root `package.json`:
 }
 ```
 
-`robkit-dev` reads `ROBKIT_DOMAIN` (default `robkit.localhost`) and `ROBKIT_DEV_PORT` (default `3000`). It serves plain http, so it refuses a domain that isn't `localhost` or a name under it. It tells each app its slug as `ROBKIT_APP` and core's address as `ROBKIT_CORE_URL`, and hands core every app's manifest as `ROBKIT_APPS`.
+`robkit-dev` reads `ROBKIT_DOMAIN` (default `robkit.localhost`), `ROBKIT_DEV_PORT` (default `3000`) and `ROBKIT_POSTGRES_PORT` (default `54320`), from the shell or from the install's root `.env`. Compose reads that file too, and the shell wins over it for both. It serves plain http, so it refuses a domain that isn't `localhost` or a name under it. It tells each app its slug as `ROBKIT_APP` and core's address as `ROBKIT_CORE_URL`, and hands core every app's manifest as `ROBKIT_APPS`.
 
 ## Exports
 
