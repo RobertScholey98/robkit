@@ -27,7 +27,7 @@ The shell's environment still reaches every app, as today. An app run under `pnp
 - [x] A new install's `.gitignore` and `.dockerignore` leave out `.env` and `.env.local` in every folder and keep `.env.example`
 - [x] `robkit deploy` sends the host no request that removes or replaces a variable it didn't set, with a test of the requests it sends
 - [x] `docs/deploy.md` and the `AGENTS.md` files say where an app's settings go, that an edit waits for the next `pnpm dev`, and that a `VITE_*` or `NEXT_PUBLIC_*` value isn't in a production image, with what to do instead
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -76,3 +76,9 @@ Built on branch `93-an-apps-own-settings`.
 **Not proved against a real `next dev`.** The runner test shows `NEXT_TELEMETRY_DISABLED=0` from an app's `.env` reaching the app's process, and `withRobkit()`'s test shows it leaves a set value alone. No test starts `next dev` with the file.
 
 **For 18:** an added app gets its settings the same way as at start. Call `ownSettings(facts, [app])`, which refuses as at start, then `provisionApps([app], { adminUrl, envFor })`, then start it with `envFor(app, databaseUrl)`. `envFor` in `runner.ts` closes over `own`, the map `ownSettings` returned, so add the new app's entry to it. The refused names don't depend on `facts`' values, but the environment does: an added app changes `ROBKIT_APPS`.
+
+### Merged
+
+Added by the lead. PR 93 merged into `m3-making-an-install` on 2026-11-10 as `507d512`, with `gate`, `check`, `pull-request` and `production` green on `03b4c5b`, on the first CI run.
+
+The worker's full gate never passed on the lead's machine: three gates ran side by side and two runs failed on time limits alone, and the production test lost one container to the machine running out of memory. Each test passed alone, and CI passed all of them.
