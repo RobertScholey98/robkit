@@ -5,6 +5,7 @@ import {
   type RoleId,
   type Viewer,
 } from "@robkit/guard";
+import { guest, nobody, owner } from "@robkit/guard/testing";
 import {
   orThrow,
   readCoreUrl,
@@ -61,14 +62,10 @@ export type ViewerOptions =
 export function aViewer(options: ViewerOptions): Viewer {
   switch (options.kind) {
     case "owner":
-      return { kind: "owner", id: options.id ?? "owner-1" };
+      return owner(options.id);
     case "guest":
-      return {
-        kind: "guest",
-        id: aCodeId(options.id),
-        roles: (options.roles ?? []).map(aRoleId),
-      };
+      return guest(options);
     case "nobody":
-      return { kind: "nobody" };
+      return nobody();
   }
 }
