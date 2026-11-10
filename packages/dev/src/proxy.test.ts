@@ -1,12 +1,14 @@
+import { spawn } from "node:child_process";
 import { once } from "node:events";
 import {
   createServer,
   request,
   type IncomingHttpHeaders,
+  type IncomingMessage,
   type Server,
 } from "node:http";
 import type { AddressInfo, Socket } from "node:net";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
 import { createProxy, type Route } from "./proxy.ts";
 
 interface Reply {
@@ -171,6 +173,55 @@ describe("createProxy", () => {
 
     expect(reply.status).toBe(502);
     expect(reply.body).toContain("hub");
+  });
+
+  it("ends the request within a second when the app is killed mid-answer", async () => {
+    // An app in its own process, which answers with headers and a first
+    // chunk and then never finishes.
+    const app = spawn(
+      process.execPath,
+      [
+        "-e",
+        `require("node:http").createServer((req, res) => {
+          res.writeHead(200);
+          res.write("first chunk");
+        }).listen(0, "127.0.0.1", function () {
+          console.log(this.address().port);
+        });`,
+      ],
+      { stdio: ["ignore", "pipe", "inherit"] },
+    );
+    onTestFinished(() => {
+      app.kill("SIGKILL");
+    });
+    const [line] = (await once(app.stdout, "data")) as [Buffer];
+    const proxy = await startProxy([
+      { host: "hub.localhost", app: "hub", port: Number(String(line).trim()) },
+    ]);
+    const req = request({
+      host: "127.0.0.1",
+      port: proxy,
+      headers: { host: "hub.localhost" },
+    });
+    req.on("error", () => {
+      // A request cut off mid-answer may also fail here; the test reads
+      // the answer's close below.
+    });
+    req.end();
+    const [res] = (await once(req, "response")) as [IncomingMessage];
+    // once() would reject on the cut-off answer's error, before its close.
+    const closed = new Promise((resolve) => res.on("close", resolve));
+    res.on("error", () => {
+      // The cut-off answer errors as aborted, which is the point.
+    });
+    await once(res, "data");
+
+    app.kill("SIGKILL");
+    const killed = Date.now();
+    await closed;
+
+    expect(Date.now() - killed).toBeLessThan(1000);
+    expect(res.complete).toBe(false);
   });
 
   it("forwards an upgrade request and then the raw connection", async () => {

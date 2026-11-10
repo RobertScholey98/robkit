@@ -5,7 +5,7 @@ import {
   type Server,
 } from "node:http";
 import { connect } from "node:net";
-import type { Duplex } from "node:stream";
+import { pipeline, type Duplex } from "node:stream";
 
 /** Sends requests for one host to the app listening on a local port. */
 export interface Route {
@@ -69,7 +69,13 @@ export function createProxy(routes: readonly Route[]): Server {
       },
       (reply) => {
         res.writeHead(reply.statusCode ?? 502, reply.rawHeaders);
-        reply.pipe(res);
+        // An app that dies or restarts mid-answer cuts its answer off. The
+        // pipeline then ends the browser's request too, rather than leave
+        // it waiting for the rest.
+        pipeline(reply, res, () => {
+          // A cut-off answer is the app's to explain, and the browser sees
+          // its request end.
+        });
       },
     );
     upstream.on("error", (error) => {
