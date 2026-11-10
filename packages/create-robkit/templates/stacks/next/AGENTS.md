@@ -42,6 +42,14 @@ A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page s
 - The production image runs the `start` script, which migrates and then runs `src/serve.ts`. It serves the build with Next's request handler on `HOST` and `PORT`.
 - `dependencies` are what runs in production: Next, React, and what `src/serve.ts` and `src/migrate.ts` import. The production image installs only those. `next build` bundles everything else the pages and the proxy import, `@robkit/next` and the UI kit among them, so those are dev dependencies.
 
+## Testing
+
+`pnpm test` runs Vitest. The app has no Vite config, so Vitest runs on its defaults, and a test needs no database, no core and no `pnpm dev`. `viewer()` reads the request's headers, which exist only while Next serves a request, so a test can't call a page that calls it. `src/home.test.tsx` shows the pattern instead:
+
+- A page reads the viewer once with `viewer()` and hands it to a plain function, as `src/app/page.tsx` hands it to `Home` in `src/home.tsx`. A server action does the same, as `src/app/actions.ts` calls `visitAgainAs`.
+- The test calls that function with a viewer from `@robkit/next/testing`: `owner()`, `guest({ roles: ["family"] })` or `nobody()`.
+- The function takes what it stores through as an argument, so the test passes a stand-in and nothing reaches Postgres.
+
 ## Calling core
 
 The guard already asks core for what it needs: core's public key and this app's access rule. The owner sets who may open the app in admin. The `robkit` field in `package.json` is only the rule core starts from. If the app needs more from core, call it over HTTP from the server at `process.env.ROBKIT_CORE_URL`. Never import `@robkit/core`.
@@ -54,7 +62,7 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes 
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
-The example's queries are in `src/visits.ts`. `src/app/page.tsx` records a visit as it renders, `src/app/actions.ts` records another from a server action, and `src/app/visits/page.tsx` lists the latest.
+The example's queries are in `src/visits.ts`. `src/app/page.tsx` shows the count through `src/home.tsx` and records nothing, `src/app/actions.ts` records a visit from a server action, and `src/app/visits/page.tsx` lists the latest.
 
 ## The database
 
