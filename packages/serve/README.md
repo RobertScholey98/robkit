@@ -1,6 +1,6 @@
 # @robkit/serve
 
-What every robkit server does the same way, written once: read `HOST` and `PORT`, listen, answer the client's built files, and stop on SIGTERM. Each Node adapter's `/serve` entry is built on it, and core serves through it.
+What every robkit server does the same way, written once: read `HOST` and `PORT`, listen, answer the client's built files, and stop on SIGTERM. Each Node adapter's `/serve` entry is built on it, the hub serves its page with it, and core serves through it.
 
 It depends on `@robkit/input` and `serve-static`, and on nothing from the guard, Vite or any stack.
 
@@ -29,6 +29,20 @@ It listens on `HOST` and `PORT`, 127.0.0.1 and 3000 unless set, and prints `hell
 - **The stop.** On SIGTERM or SIGINT it stops taking new connections, lets the requests already open finish, and closes each connection with its last answer. It runs `onStopped`, prints `<name> stopped` and exits 0. Docker sends SIGTERM to stop a container, and kills it 10 seconds later.
 - **The stop's limit.** Some connections close only when the client lets go: one that has sent nothing yet, one whose answer began before the signal, or an upgraded one such as a WebSocket. So the stop waits 8 seconds at most. Then it closes every connection still open, prints `<name> closed 1 connection still open after 8 seconds`, and stops as usual. `<name> stopped` is always its last line.
 
+## A page with no app behind it
+
+The hub is a page `vite build` writes, with no server code of its own. Its `serve.ts` is one call:
+
+```ts
+import { servePage } from "@robkit/serve";
+
+servePage({ name: "hub" });
+```
+
+`servePage()` answers each file in `dist`, and `dist/index.html` for a GET or HEAD of any other path, so an intro link such as `/i/<code>` loads the same page as `/`. Any other method gets 404. Every answer carries the hub's headers from `@robkit/input/headers`: `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'` and `nosniff`. When `ROBKIT_CORE_URL` is https, as in every container on an https install, it adds `Strict-Transport-Security` too. With the setting absent it sends no HSTS and still serves. It refuses to start, exit code 1, when `dist/index.html` is missing or `ROBKIT_CORE_URL` won't do.
+
+## Core
+
 Core reads its own settings, and resolves with its exit code rather than exiting, so it calls `listenUntilStopped` with a Node handler. Core is a Hono app, so it hands over `getRequestListener(app.fetch)`:
 
 ```ts
@@ -54,6 +68,8 @@ process.exit(
 | Export                             | What it is                                                                                                                                       |
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `serve(app, options?)`             | Serves `app`, a Node request handler, behind `files`, until SIGTERM, then exits 0. Returns the Node server                                       |
+| `servePage(options?)`              | Serves a built page with no app behind it, such as the hub, with the hub's headers. Returns the Node server                                      |
+| `PageOptions`                      | `folder`, `dist` unless set, `address`, and `ServerOptions`                                                                                      |
 | `ServeOptions`                     | `files`, `address` (`{ host, port }`, read from `HOST` and `PORT` when left out), and `ServerOptions`                                            |
 | `ServerOptions`                    | `name`, `server` unless set, for the lines it prints, and `onStopped`, run once it has stopped, such as closing a database. The adapters take it |
 | `Files`                            | `{ at, folder }`: the path the files are answered under, such as `/assets`, and their folder                                                     |

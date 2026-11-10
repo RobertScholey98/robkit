@@ -65,14 +65,15 @@ function filesAt({ at, folder }: Files): Step {
   };
 }
 
-/** `app` behind `files`, with `nosniff` on every answer. */
+/** `app` behind `files`, with `headers` on every answer. */
 function withFiles(
   app: RequestHandler,
   files: readonly Files[],
+  headers: readonly (readonly [string, string])[],
 ): RequestHandler {
   const steps = files.map(filesAt);
   return (request, response) => {
-    response.setHeader(...noSniff);
+    for (const [name, value] of headers) response.setHeader(name, value);
     return new Promise((resolve, reject) => {
       // A file sent settles nothing, as serve-static calls on only to
       // hand the request on, so the answer's end does.
@@ -102,13 +103,22 @@ function withFiles(
  * @returns the server, which has started to listen
  */
 export function serve(app: RequestHandler, options: ServeOptions = {}): Server {
+  return serveWith(app, options, [noSniff]);
+}
+
+/** `serve`, with `headers` on every answer in place of `nosniff` alone. */
+export function serveWith(
+  app: RequestHandler,
+  options: ServeOptions,
+  headers: readonly (readonly [string, string])[],
+): Server {
   const {
     files = [],
     name = "server",
     onStopped = () => Promise.resolve(),
   } = options;
   const { host, port } = options.address ?? orExit(readServeEnv(process.env));
-  const { server, stopped } = start(withFiles(app, files), {
+  const { server, stopped } = start(withFiles(app, files, headers), {
     hostname: host,
     port,
     name,

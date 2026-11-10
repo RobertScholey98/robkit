@@ -19,6 +19,9 @@ export function listenUntilStopped(
   app: RequestHandler,
   options: ListenOptions,
 ): Promise<number>;
+export interface PageOptions extends Omit<ServeOptions, "files"> {
+  folder?: string;
+}
 export type RequestHandler = (
   request: IncomingMessage,
   response: ServerResponse,
@@ -31,6 +34,7 @@ export interface ServeOptions extends ServerOptions {
     port: number;
   };
 }
+export function servePage(options?: PageOptions): Server;
 export interface ServerOptions {
   name?: string;
   onStopped?: () => Promise<void>;
