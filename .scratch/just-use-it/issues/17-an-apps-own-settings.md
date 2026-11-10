@@ -2,8 +2,11 @@
 
 **What to build:** Nothing says where an app's own settings go: an API key, a feature switch, the address of something it calls. `robkit-dev` loads no file, so today the only way is to export the value in the shell before `pnpm dev`, where every app gets it. It is one of the first questions an app's author asks.
 
-- **One file per app.** `robkit-dev` loads `apps/<slug>/.env`, if it exists, into that app's environment and no other's. Node's own parser reads it, so there is no new dependency. That parser is lenient and reports no errors, so robkit promises none: a line it can't read is skipped, as Node skips it.
-- **robkit's settings win.** A `.env` can't set a name that starts `ROBKIT_`, nor `DATABASE_URL`, nor `PORT`. Those are what `robkit-dev` sets for an app, and one rule holds for a setting robkit adds later, where a list would go stale. A file that tries is refused with the name of the variable, so nobody wonders why their value didn't take. `NEXT_TELEMETRY_DISABLED`, which the runner also sets, is a default a `.env` may change.
+- **One file per app.** `robkit-dev` loads `apps/<slug>/.env`, if it exists, into that app's environment and no other's. Node's own parser, `util.parseEnv`, reads it, as it reads the install's root `.env` since ticket 16. So there is no new dependency, and loading a file changes nothing in the runner's own environment. That parser is lenient and reports no errors, so robkit promises none: a line it can't read is skipped, as Node skips it. The file is read when `pnpm dev` starts, so an edit takes effect at the next start. Say so in the docs.
+- **Three sources, in one order.** What the runner sets for an app wins. Then the shell. Then the app's `.env`. The shell beats the file as it does in Next, in Vite and in Compose.
+- **robkit's settings win, and say so.** A `.env` can't set a name that starts `ROBKIT_`, nor a name the runner sets for an app (`DATABASE_URL`, `PORT` and `HOST`), nor `NODE_ENV` or `VITEST`. Those two decide whether `guardedAs()` serves and whether `robkit()` sets the dev server up, so a file that set one would open an app or break it. A file that tries is refused with the name of the variable, so nobody wonders why their value didn't take. The refused names and what the runner sets come from one place in the code, so a setting robkit adds later is covered.
+- **Telemetry is a default.** `NEXT_TELEMETRY_DISABLED` is the one name robkit sets that an owner may change. Today the runner sets it over the shell's value, and `withRobkit()` in `packages/next/src/config.ts` sets it again whatever it holds. Both set it only where nothing has, so the shell or the app's `.env` decides.
+- **A setting the browser reads.** A `VITE_*` or `NEXT_PUBLIC_*` value is written into the client's files when the app is built. Under `pnpm dev`, and in a `pnpm build` on the owner's machine, Vite and Next read it from the app's `.env` themselves. An image is built without that file, and the install's `Dockerfile` takes no build variable but `ROBKIT_APP`, so in production the value is missing. The docs say so, and say what works today: read the setting on the server and hand it to the page. Whether an image should take such values is ticket 32, which waits for R.
 - **The app's `migrate` script gets them too.** The provision step runs each app's `migrate` script before the app starts, and an owner's own script may read a setting.
 - **`.env` is the one file robkit loads.** A stack that loads files of its own, as Next does with `.env.local`, still does; robkit neither loads nor blocks them.
 - **Kept out of git and out of images.** The install's `.gitignore` and `.dockerignore` leave out every `.env*` file in any folder except `.env.example`. An `.env.example` beside the app is the convention for saying what it needs, and is committed.
@@ -17,11 +20,13 @@ The shell's environment still reaches every app, as today. An app run under `pnp
 **Status:** ready-for-agent
 
 - [ ] A variable in `apps/notes/.env` reaches the `notes` app under `pnpm dev` and no other app
-- [ ] A `.env` that sets `DATABASE_URL`, `PORT` or any `ROBKIT_` name stops `pnpm dev` with a message that names the file and the variable
+- [ ] A `.env` that sets `DATABASE_URL`, `PORT`, `HOST`, `NODE_ENV`, `VITEST` or any `ROBKIT_` name stops `pnpm dev` with a message that names the file and the variable
+- [ ] A name set in the shell and in an app's `.env` reaches the app with the shell's value, and loading the file leaves the runner's own environment as it was
 - [ ] A variable in `apps/notes/.env` reaches that app's `migrate` script under `pnpm dev`
+- [ ] `NEXT_TELEMETRY_DISABLED=0` in a Next app's `.env` reaches `next dev`, and `withRobkit()` leaves it as it found it
 - [ ] A new install's `.gitignore` and `.dockerignore` leave out `.env` and `.env.local` in every folder and keep `.env.example`
-- [ ] `robkit deploy` doesn't remove a variable the owner set on the host, with a test that shows it
-- [ ] `docs/deploy.md` and the `AGENTS.md` files say where an app's settings go
+- [ ] `robkit deploy` sends the host no request that removes or replaces a variable it didn't set, with a test of the requests it sends
+- [ ] `docs/deploy.md` and the `AGENTS.md` files say where an app's settings go, that an edit waits for the next `pnpm dev`, and that a `VITE_*` or `NEXT_PUBLIC_*` value isn't in a production image, with what to do instead
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -33,3 +38,13 @@ Checked against the code on 2026-11-10, after milestone 2 merged.
 - **What the runner sets for an app today** (`packages/dev/src/runner.ts`): `ROBKIT_DOMAIN`, `ROBKIT_CORE_URL`, `ROBKIT_APPS`, `ROBKIT_APP`, `PORT`, `NEXT_TELEMETRY_DISABLED`, and `DATABASE_URL` for an app that migrates. The ticket's list lacked `ROBKIT_APPS`. I replaced the list with the rule above, and added the `migrate` bullet and its criterion.
 - **`.dockerignore` leaves out a `.env` at the root only.** The base template's says `.env` and `.env.*`, which Docker matches against the root of the build. So `apps/notes/.env` would be copied into an image today. `**/.env` and `**/.env.*` match every folder. `.gitignore` is right already: git matches a name with no slash in every folder, and it keeps `.env.example`.
 - **A test runs with no `pnpm dev` behind it** (ticket 08), so nothing loads `.env` for it. A test that needs a setting sets it. Say so where each stack's `AGENTS.md` describes tests.
+
+### From the ticket round, 2026-11-10
+
+Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Opus had one must-change here. I checked each point against the code.
+
+- **A setting the browser reads isn't in a production image** (Opus, must-change; Sol as a should). The base template's `Dockerfile` has `ARG ROBKIT_APP` and no other build variable an owner can set, and `.dockerignore` leaves `.env` out. The ticket promised settings "in dev and in production" and didn't say this kind is missing there. I took the half that changes nothing an owner has today: the docs say it. Whether an image should take such values changes what an owner can do, so it is ticket 32 and waits for R.
+- **My line on `NEXT_TELEMETRY_DISABLED` was wrong** (Sol). I wrote that a `.env` may change it. `withRobkit()` sets it to `1` whatever it holds, and the runner sets it over the shell's value. The bullet above now makes both a default.
+- **`NODE_ENV` and `VITEST` are refused too** (Opus). `guardedAs()` serves when `NODE_ENV` is `test`, or when `VITEST` is set and `NODE_ENV` isn't `production` (`packages/hono/src/testing.ts`). `robkit()` sets nothing up under `VITEST` (`packages/vite/src/robkit.ts`), and the runner deletes `VITEST` for that reason.
+- **The order of the three sources is written down** (Sol), and the parser is the one that leaves the runner's environment alone (Sol).
+- **The deploy criterion says what its test can show** (Opus): the requests robkit sends, not what the host does with them.
