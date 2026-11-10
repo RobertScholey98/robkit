@@ -13,6 +13,8 @@ const visit = createServerFn({ method: "POST" }).handler(({ context }) => {
 });
 ```
 
+The `declare module` block in `src/server.ts` tells Start's types that `context` holds the viewer. Start reads it only from that file, so keep it there.
+
 A viewer is `{ kind: "owner", id }`, `{ kind: "guest", id, roles }`, or `{ kind: "nobody" }` in an app open to anyone. Key a viewer's data by `viewer.id`. Never read the session cookie or verify the token yourself. The token is the app's own: core mints it for this app's slug, and no other app or core accepts it. Paths under `/_robkit/` are the guard's, so give no route one.
 
 `src/start.ts` hands server functions `sessionFetch` from `@robkit/react`. A call made after the session lapses goes through core's refresh and comes back to the page, rather than failing.
@@ -36,6 +38,8 @@ Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` fr
 The guard already asks core for what it needs: core's public key and this app's access rule. The owner sets who may open the app in admin. The `robkit` field in `package.json` is only the rule core starts from. If the app needs more from core, call it over HTTP from the server at `process.env.ROBKIT_CORE_URL`. Never import `@robkit/core`.
 
 ## Environment
+
+The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded(entry)` takes no settings. When one is missing or won't do, it prints what to fix and stops the app. Don't read them for the guard yourself.
 
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.

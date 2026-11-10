@@ -12,13 +12,15 @@ describe("@robkit/next's types", () => {
     expectTypeOf(viewer).toEqualTypeOf<() => Promise<Viewer>>();
   });
 
-  it("refuses options the guard can't trust", () => {
-    // @ts-expect-error A plain string hasn't been read as a slug.
-    guarded({ app: "notes", core });
-    // @ts-expect-error The guard needs core's origin.
-    guarded({ app: notes });
-    // @ts-expect-error A plain string hasn't been read as core's origin.
-    guarded({ app: notes, core: "http://core.robkit.localhost:3000" });
+  it("needs no options, and takes the app and core as plain strings", () => {
+    expectTypeOf(guarded()).toExtend<NextProxy>();
+    guarded({ access: { kind: "owner" } });
+    guarded({ app: "notes", core: "http://core.robkit.localhost:3000" });
+  });
+
+  it("refuses options the guard can't use", () => {
+    // @ts-expect-error A slug is text.
+    guarded({ app: 1 });
     const named = { kind: "roles", roleNames: ["Family"] } as const;
     // @ts-expect-error A manifest's rule names roles; the guard's holds ids.
     guarded({ app: notes, core, access: named });

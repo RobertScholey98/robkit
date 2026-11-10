@@ -5,16 +5,21 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/hono
 
 ```ts
-export function guarded(options: GuardedOptions): MiddlewareHandler<GuardedEnv>;
+export function coreOrigin(): CoreOrigin {
+  return orExit(readCoreUrl(process.env));
+}
+export function guarded(
+  options?: GuardedOptions,
+): MiddlewareHandler<GuardedEnv>;
 export interface GuardedEnv {
   Variables: {
     viewer: Viewer;
   };
 }
-export interface GuardedOptions {
-  app: Slug;
+export interface GuardedOptions extends GuardSettings {
+  app?: string | undefined;
   access?: AccessRule | undefined;
-  core: CoreOrigin;
+  core?: string | undefined;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export type Viewer =

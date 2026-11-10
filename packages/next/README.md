@@ -9,12 +9,10 @@ Apps on the Next.js stack use it. It needs Next 16, whose proxy runs on Node: th
 From the Next.js template (`templates/stacks/next/src/proxy.ts`):
 
 ```ts
-import { orExit, readGuardEnv } from "@robkit/input";
 import { guarded } from "@robkit/next";
 
-// The app's slug and core's address, which pnpm dev and robkit deploy set.
 // The rule is the one the owner set for this app in admin.
-export const proxy = guarded(orExit(readGuardEnv(process.env)));
+export const proxy = guarded();
 
 // Every path but Next's own files. Next reads this where it is written, so
 // it stays a literal here.
@@ -32,16 +30,17 @@ export async function GET(): Promise<Response> {
 }
 ```
 
-`pnpm dev` and the production image set `ROBKIT_APP` and `ROBKIT_CORE_URL` for every app.
+`guarded()` reads `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and the production image set for every app. When one is missing or won't do, the app prints the problem and exits 1.
 
 ## Exports
 
-| Export             | What it is                                                                                             |
-| ------------------ | ------------------------------------------------------------------------------------------------------ |
-| `guarded(options)` | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 403, 404) |
-| `viewer()`         | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request               |
-| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                   |
-| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                              |
+| Export              | What it is                                                                                                                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guarded(options?)` | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 403, 404)                                                                                        |
+| `viewer()`          | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request                                                                                                      |
+| `GuardedOptions`    | All optional: `app` (the slug) and `core` (core's public origin), read from `ROBKIT_APP` and `ROBKIT_CORE_URL` when left out and taken as plain strings when given, and a fixed `access` rule |
+| `coreOrigin()`      | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                      |
+| `Viewer`            | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                     |
 
 ## A lapsed session
 

@@ -48,6 +48,8 @@ The guard already asks core for what it needs: core's public key and this app's 
 
 ## Environment
 
+The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes no settings. When one is missing or won't do, it prints what to fix and stops the app. Don't read them for the guard yourself.
+
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.

@@ -5,17 +5,20 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/start
 
 ```ts
+export function coreOrigin(): CoreOrigin {
+  return orExit(readCoreUrl(process.env));
+}
 export function guarded(
   entry: ServerEntry,
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): ServerEntry;
 export interface GuardedContext {
   viewer: Viewer;
 }
-export interface GuardedOptions {
-  app: Slug;
+export interface GuardedOptions extends GuardSettings {
+  app?: string | undefined;
   access?: AccessRule | undefined;
-  core: CoreOrigin;
+  core?: string | undefined;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export type Viewer =

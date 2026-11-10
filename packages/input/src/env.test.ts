@@ -209,6 +209,16 @@ describe("readCoreUrl", () => {
       error: `ROBKIT_CORE_URL is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
     });
   });
+
+  it("names the setting it reads, when that isn't the variable", () => {
+    const env = { core: "http://core.example.com" };
+    expect(readCoreUrl(env, "core")).toEqual({
+      error: `core is "http://core.example.com", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`,
+    });
+    expect(readCoreUrl({ core: "https://hub.robkit.dev" }, "core")).toEqual({
+      error: `core is "https://hub.robkit.dev", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
+    });
+  });
 });
 
 describe("readAppSlug", () => {
@@ -226,6 +236,13 @@ describe("readAppSlug", () => {
   it("says what a slug is", () => {
     expect(readAppSlug({ ROBKIT_APP: "My-App" })).toEqual({
       error: `ROBKIT_APP: "My-App" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+    });
+  });
+
+  it("names the setting it reads, when that isn't the variable", () => {
+    expect(readAppSlug({ app: "notes" }, "app")).toBe("notes");
+    expect(readAppSlug({ app: "My-App" }, "app")).toEqual({
+      error: `app: "My-App" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
     });
   });
 });

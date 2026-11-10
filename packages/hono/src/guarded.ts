@@ -22,9 +22,13 @@ export interface GuardedEnv {
  * Every answer it lets through leaves with `X-Frame-Options: SAMEORIGIN`,
  * `nosniff` and, on an https install, HSTS, where the app set none of the
  * same name.
+ *
+ * It needs no options: it reads the app's slug and core's origin from
+ * `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy`
+ * set, and ends the process with the reader's message when one won't do.
  */
 export function guarded(
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): MiddlewareHandler<GuardedEnv> {
   const check = requestGuard(options);
   return async (c, next) => {

@@ -5,7 +5,7 @@ import {
   type SessionState,
   type Viewer,
 } from "@robkit/guard";
-import type { CoreOrigin, Slug } from "@robkit/input";
+import type { Slug } from "@robkit/input";
 import { coreInstall } from "@robkit/input/addresses";
 import { isRedirect, securityHeaders } from "./answer-headers.ts";
 import { appRefreshPath } from "./app-session.ts";
@@ -23,18 +23,25 @@ import {
   redirect,
   text,
 } from "./guard-http.ts";
+import { readGuardSettings, type GuardSettings } from "./guard-settings.ts";
 import { sessionLapsedResponse } from "./lapsed.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
 import { refreshProtocol } from "./refresh-protocol.ts";
 import { sessionCookies } from "./session-cookies.ts";
 import { reportToConsole } from "@robkit/input/report";
 
-export interface GuardedOptions {
+/**
+ * How the guard runs. Every option may be left out: the guard reads the
+ * app's slug and core's origin from `ROBKIT_APP` and `ROBKIT_CORE_URL`,
+ * which `pnpm dev` and `robkit deploy` set, and ends the process with the
+ * reader's message when one won't do.
+ */
+export interface GuardedOptions extends GuardSettings {
   /**
    * The app's slug, which is also its subdomain. The guard accepts only a
-   * token core minted for this slug.
+   * token core minted for this slug. `ROBKIT_APP` when left out.
    */
-  app: Slug;
+  app?: string | undefined;
   /**
    * A fixed rule, for an app core's catalog doesn't hold, such as admin.
    * Without one, the rule comes from core's catalog and is kept for a
@@ -42,11 +49,13 @@ export interface GuardedOptions {
    */
   access?: AccessRule | undefined;
   /**
-   * Core's public origin, such as `http://core.robkit.localhost:3000`, as
-   * `readCoreUrl` read it. The hub is beside it on `hub.`. Config, never
-   * the request's Host, so a request can't choose whose keys the app trusts.
+   * Core's public origin, such as `https://core.robkit.dev`.
+   * `ROBKIT_CORE_URL` when left out. The hub is beside it on `hub.`.
+   * Config, never the request's Host, so a request can't choose whose keys
+   * the app trusts. It is read as `ROBKIT_CORE_URL` is, so http is refused
+   * on a domain that isn't local.
    */
-  core: CoreOrigin;
+  core?: string | undefined;
   /**
    * Hears why the guard answered 503 because it couldn't check a request.
    * By default it reports the app's slug, what failed and the cause through
@@ -58,12 +67,11 @@ export interface GuardedOptions {
 /**
  * The app's public origin, such as `https://notes.robkit.dev`: core's
  * protocol and port, on `<app>.<domain>`. It comes from the app's
- * settings, never from a request's Host or X-Forwarded-Proto.
+ * settings, read as the guard reads them, never from a request's Host or
+ * X-Forwarded-Proto.
  */
-export function appOrigin({
-  app,
-  core,
-}: Pick<GuardedOptions, "app" | "core">): string {
+export function appOrigin(settings?: GuardSettings): string {
+  const { app, core } = readGuardSettings(settings);
   return coreInstall(core).origin(app);
 }
 
@@ -133,11 +141,13 @@ const errors = {
  * browser for a new one.
  */
 export function requestGuard(
-  options: GuardedOptions,
+  options: GuardedOptions = {},
 ): (request: Request) => Promise<RequestDecision> {
-  const { app, access, onUnavailable = reportFault } = options;
-  const install = coreInstall(options.core);
-  const origin = appOrigin(options);
+  const { access, onUnavailable = reportFault } = options;
+  const settings = readGuardSettings(options);
+  const { app } = settings;
+  const install = coreInstall(settings.core);
+  const origin = install.origin(app);
   const core = install.origin("core");
   const hub = install.origin("hub");
   const ruleOf = access ? () => Promise.resolve(access) : coreAccess(core, app);

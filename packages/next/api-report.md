@@ -5,13 +5,16 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/next
 
 ```ts
+export function coreOrigin(): CoreOrigin {
+  return orExit(readCoreUrl(process.env));
+}
 export function guarded(
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): (request: Request) => Promise<Response>;
-export interface GuardedOptions {
-  app: Slug;
+export interface GuardedOptions extends GuardSettings {
+  app?: string | undefined;
   access?: AccessRule | undefined;
-  core: CoreOrigin;
+  core?: string | undefined;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export function viewer(): Promise<Viewer>;
