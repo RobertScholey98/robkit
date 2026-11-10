@@ -3,7 +3,7 @@
 robkit is a self-hosting kit. `npm create robkit` makes an install, and `robkit add` adds apps with auth, a database schema and a subdomain built in.
 
 - Domain terms are in `GLOSSARY.md`. Use them in code, tests, tickets and commits.
-- The plan is `.scratch/kit/map.md`. Build tickets are in `.scratch/v0.1-build/issues/`, numbered in build order.
+- The plan is `.scratch/kit/map.md`. The current tickets are in `.scratch/just-use-it/issues/`, numbered in build order, with their PRD in `.scratch/just-use-it/PRD.md`. The earlier v0.1 build tickets are in `.scratch/v0.1-build/issues/`.
 - The spec is the Claude Doc "robkit v0.1 spec" (https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5). Where a ticket and the spec disagree, the ticket is newer and wins.
 
 ## Commands
