@@ -9,7 +9,10 @@ export interface ProvisionOptions {
   adminUrl: string;
   /** The environment `app`'s `migrate` script runs in, given its `DATABASE_URL`. */
   envFor: (app: App, databaseUrl: string) => NodeJS.ProcessEnv;
-  /** Once aborted, no further app is provisioned. */
+  /**
+   * Once aborted, the migrate script that is running is stopped and no
+   * further app is provisioned.
+   */
   signal?: AbortSignal;
 }
 
@@ -41,7 +44,10 @@ export async function provisionApps(
       cwd: app.dir,
       env: envFor(app, databaseUrl),
       slug: app.slug,
+      signal,
     });
+    // Stopped part way, the app isn't migrated.
+    if (signal?.aborted) break;
     databaseUrls.set(app.slug, databaseUrl);
   }
   return databaseUrls;

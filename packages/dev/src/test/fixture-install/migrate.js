@@ -19,9 +19,9 @@ if (failFor === "1" || failFor === slug) {
 if (process.env.FIXTURE_REMOVE_APP) {
   rmSync(`../${process.env.FIXTURE_REMOVE_APP}`, { recursive: true });
 }
-// Waits, once it has said so, until a test lets it finish.
+// Waits, once it has said so with its pid, until a test lets it finish.
 if (process.env.FIXTURE_HOLD_MIGRATE === slug) {
-  writeFileSync("migrating", "");
+  writeFileSync("migrating", String(process.pid));
   while (!existsSync("go")) await sleep(50);
 }
 // Applies each migration written by hand in its migrations folder, as a Go

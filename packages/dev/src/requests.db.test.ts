@@ -1,5 +1,12 @@
 import { existsSync } from "node:fs";
-import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -378,6 +385,56 @@ describe("robkit-dev migrating an app while it runs", () => {
     expect(await readAppFile(dev.root, "alpha", "migrated")).toBe(alphaUrl);
     expect(await readAppFile(dev.root, "alpha", "started")).toBe(alphaPid);
     expect(await connects(alphaUrl)).toBe(true);
+  });
+
+  it("stops a migration it is running when it stops, and answers that it stopped", async () => {
+    // Alpha's migration finishes as pnpm dev starts, and waits after that.
+    const dev = await runningDev({ FIXTURE_HOLD_MIGRATE: "alpha" }, (root) =>
+      writeFile(join(root, "apps", "alpha", "go"), ""),
+    );
+    await rm(join(dev.root, "apps", "alpha", "go"));
+    await rm(join(dev.root, "apps", "alpha", "migrating"));
+    const migrating = dev.ask("migrate", "alpha");
+    const pid = Number(
+      await eventually(async () => {
+        const text = await readAppFile(dev.root, "alpha", "migrating");
+        if (text === "") throw new Error("The script hasn't written its pid.");
+        return text;
+      }),
+    );
+
+    // The signal reaches the runner alone, as a process manager's does.
+    process.emit("SIGINT", "SIGINT");
+
+    expect(await dev.running).toBe(0);
+    expect(await migrating).toEqual({
+      outcome: "refused",
+      message:
+        "pnpm dev stopped before it finished. Start it again, which starts every app in apps/.",
+    });
+    expect(isAlive(pid)).toBe(false);
+  });
+
+  it("stops an added app's migration when it stops", async () => {
+    const dev = await runningDev({ FIXTURE_HOLD_MIGRATE: "aardvark" });
+    await writeApp(dev.root, "aardvark");
+    const adding = dev.ask("add", "aardvark");
+    const pid = Number(
+      await eventually(async () => {
+        const text = await readAppFile(dev.root, "aardvark", "migrating");
+        if (text === "") throw new Error("The script hasn't written its pid.");
+        return text;
+      }),
+    );
+
+    process.emit("SIGINT", "SIGINT");
+
+    expect(await dev.running).toBe(0);
+    expect(await adding).toMatchObject({ outcome: "refused" });
+    expect(isAlive(pid)).toBe(false);
+    expect(existsSync(join(dev.root, "apps", "aardvark", "started"))).toBe(
+      false,
+    );
   });
 
   it("refuses an app with no database, and one it isn't running", async () => {

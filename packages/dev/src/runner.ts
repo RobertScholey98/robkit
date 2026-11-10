@@ -298,7 +298,9 @@ export async function runDev(
       cwd: entry.app.dir,
       env: envFor(entry.app, databaseUrl),
       slug,
+      signal,
     });
+    if (stopping()) return stoppingAnswer;
     return { outcome: "done", message: `pnpm dev migrated ${slug}.` };
   };
 
