@@ -24,7 +24,7 @@ import {
   testTag,
 } from "@internal/test-postgres";
 import { afterEach, describe, expect, it, onTestFinished } from "vitest";
-import { reportFaultsAt } from "@robkit/input/command";
+import { CommandProblem, reportFaultsAt } from "@robkit/input/command";
 import { runDev } from "./runner.ts";
 
 const run = promisify(execFile);
@@ -504,5 +504,37 @@ describe("robkit-dev's checks before it starts", () => {
         await eventually(() => get(next.port, "alpha.robkit.localhost")),
       ),
     ).toMatchObject({ slug: "alpha", database: true });
+  });
+});
+
+describe("robkit-dev when Compose fails", () => {
+  it("reports a failed compose up alone, not the compose stop after it", async () => {
+    const { root, env } = await devInstall();
+    // A Docker that answers the checks, then fails every other command,
+    // as one that stops between the check and compose up does.
+    const bin = await mkdtemp(join(tmpdir(), "docker-stand-in-"));
+    await writeFile(
+      join(bin, "docker"),
+      [
+        "#!/bin/sh",
+        'case "$1 $2" in',
+        '  "version "*|"compose ps"|"ps "*) exit 0 ;;',
+        '  *) echo "Docker stopped" >&2; exit 1 ;;',
+        "esac",
+        "",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+
+    const running = runDev(root, {
+      ...env,
+      PATH: `${bin}:${String(env.PATH)}`,
+    });
+
+    await expect(running).rejects.toThrow(
+      new CommandProblem(
+        `docker compose up -d --wait exited with 1 in ${root}. Its output is above: fix what it says, then try again.`,
+      ),
+    );
   });
 });

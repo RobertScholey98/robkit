@@ -118,8 +118,16 @@ export async function runDev(
     running.push({ slug: app.slug, child });
   };
 
+  // Whether compose up failed, which then says what is wrong with Docker.
+  let composeUpFailed = false;
   try {
-    await exec("docker", ["compose", "up", "-d", "--wait"], { cwd: root, env });
+    await exec("docker", ["compose", "up", "-d", "--wait"], {
+      cwd: root,
+      env,
+    }).catch((error: unknown) => {
+      composeUpFailed = true;
+      throw error;
+    });
 
     const databaseUrls = await provisionApps(root, {
       adminUrl,
@@ -157,7 +165,13 @@ export async function runDev(
   );
   const closeProxy = () => proxy?.close();
   const stopPostgres = () =>
-    exec("docker", ["compose", "stop"], { cwd: root, env });
+    exec("docker", ["compose", "stop"], { cwd: root, env }).catch(
+      (error: unknown) => {
+        // A failed compose up has said what is wrong; a stop that fails the
+        // same way would only say it twice.
+        if (!composeUpFailed) throw error;
+      },
+    );
   // The apps stop together, then the proxy, then Postgres. Each stage runs
   // even when one before it failed, so nothing is left running.
   for (const stage of [stopApps, [closeProxy], [stopPostgres]]) {
