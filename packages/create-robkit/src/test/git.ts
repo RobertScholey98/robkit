@@ -34,7 +34,7 @@ export async function gitEnv(identity: boolean): Promise<NodeJS.ProcessEnv> {
           GIT_COMMITTER_EMAIL: "test@robkit.localhost",
         }
       : {
-          // Without it, git makes up an email from the user and host names.
+          // Without it, git makes up an email from the account and host names.
           GIT_CONFIG_COUNT: "1",
           GIT_CONFIG_KEY_0: "user.useConfigOnly",
           GIT_CONFIG_VALUE_0: "true",
