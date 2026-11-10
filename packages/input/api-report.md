@@ -164,6 +164,7 @@ export function readListedApp(
 ```ts
 export type Framers = "same-origin" | "none";
 export function isRedirect(status: number): boolean;
+export const noSniff: readonly [string, string];
 export function securityHeaders(
   origin: string,
   framers: Framers | undefined,

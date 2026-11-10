@@ -10,6 +10,16 @@
  */
 const strictTransportSecurity = "max-age=31536000";
 
+/**
+ * `nosniff`: a browser takes a stylesheet or script only if its
+ * `Content-Type` says it is one. Every answer robkit sends carries it,
+ * the files a server answers before the guard included.
+ */
+export const noSniff: readonly [string, string] = [
+  "x-content-type-options",
+  "nosniff",
+];
+
 /** Who may frame an answer: pages on its own origin, or nobody. */
 export type Framers = "same-origin" | "none";
 
@@ -49,11 +59,7 @@ export function securityHeaders(
     new URL(origin).protocol === "https:"
       ? [["strict-transport-security", strictTransportSecurity]]
       : [];
-  return [
-    ...(framers ? framing[framers] : []),
-    ["x-content-type-options", "nosniff"],
-    ...transport,
-  ];
+  return [...(framers ? framing[framers] : []), [...noSniff], ...transport];
 }
 
 /**
