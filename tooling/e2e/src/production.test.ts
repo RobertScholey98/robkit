@@ -295,6 +295,22 @@ describe("the default install in production", () => {
     });
   });
 
+  it.each([
+    { name: "hub", line: "hub stopped" },
+    { name: "admin", line: "admin stopped" },
+    ...[exampleSlug, ...later.map((app) => app.slug)]
+      .filter((name) => name !== slug("go"))
+      .map((name) => ({ name, line: "server stopped" })),
+  ])(
+    "stops $name's container with code 0 on docker stop, once its server has stopped",
+    async ({ name, line }) => {
+      expect(await stopApp(stack, slug(name))).toEqual({
+        exitCode: 0,
+        lastLine: line,
+      });
+    },
+  );
+
   it("stops a Go app's container with code 0 on docker stop", async () => {
     const go = later.find((app) => app.stack === "go");
 
