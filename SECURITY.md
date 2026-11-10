@@ -93,9 +93,11 @@ It can't:
 
 ### robkit's own packages skip pnpm's one-day wait
 
-pnpm refuses a package published in the last day. That gives the registry and the package's authors a day to notice and pull a version published by someone who took the package over. An install's `pnpm-workspace.yaml` exempts `@robkit/*` and `create-robkit` from that rule, in `minimumReleaseAgeExclude`, so an install made on the day of a release installs. Every other package still waits its day.
+pnpm holds back a version published in the last day while an older one fits. That gives the registry and the package's authors a day to notice and pull a version published by someone who took the package over. Where only the new version fits, pnpm takes it anyway by default, and refuses it once the install sets `minimumReleaseAge` or `minimumReleaseAgeStrict`.
 
-What that gives up: if someone took over robkit's npm packages and published a version, an install made or upgraded before anyone noticed would take it at once, with no day's wait. To keep the wait, delete the two entries from `minimumReleaseAgeExclude`. An install then can't take a robkit release until it is a day old.
+An install's catalog names each of robkit's packages at one exact version, so only that version ever fits. Its `pnpm-workspace.yaml` exempts `@robkit/*` and `create-robkit` from the wait, in `minimumReleaseAgeExclude`. So an install made on the day of a release installs, under the strict setting too. Every other package still waits its day.
+
+What that gives up: if someone took over robkit's npm packages and published a version, an install made or upgraded before anyone noticed would take it at once, with no day's wait. To keep the wait, delete the two entries from `minimumReleaseAgeExclude` and set `minimumReleaseAgeStrict: true`. An install then can't take a robkit release until it is a day old.
 
 ### Known gaps
 
