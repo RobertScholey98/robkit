@@ -17,6 +17,7 @@
     "@internal/tsconfig": "workspace:*",
     "@robkit/core": "workspace:*",
     "@robkit/dev": "workspace:*",
+    "@robkit/drizzle": "workspace:*",
     "@robkit/express": "workspace:*",
     "@robkit/guard": "workspace:*",
     "@robkit/hono": "workspace:*",

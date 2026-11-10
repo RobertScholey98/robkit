@@ -61,6 +61,16 @@ export const packageGraph = {
     dependencies: ["@robkit/input"],
     devDependencies: ["@internal/test-postgres", "@internal/test-session"],
   },
+  // Gives an app its Drizzle database and migrates its schema. Its tests
+  // migrate a schema the provision step made.
+  "@robkit/drizzle": {
+    dependencies: [],
+    devDependencies: [
+      "@internal/test-postgres",
+      "@internal/test-session",
+      "@robkit/provision",
+    ],
+  },
   // robkit-core runs the provision step before it migrates and serves.
   "@robkit/core": {
     dependencies: [
@@ -100,6 +110,7 @@ export const packageGraph = {
     devDependencies: [
       "@robkit/core",
       "@robkit/dev",
+      "@robkit/drizzle",
       "@robkit/express",
       "@robkit/guard",
       "@robkit/hono",
