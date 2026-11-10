@@ -13,15 +13,15 @@
 
 **Blocked by:** 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every item under "Docs that have drifted" is fixed or gone
-- [ ] Every `ts` fence still compiles under the doc-examples check, with no new `nocheck`
-- [ ] The README's package table lists every folder under `packages/`, and every doc that sets out to list the stacks lists all five
-- [ ] Eight new ADRs exist and are listed in `docs/adr/README.md`, and no existing ADR's decision was rewritten
-- [ ] `AGENTS.md` and `CLAUDE.md` point at `.scratch/just-use-it/issues/`
-- [ ] The PR's Proof lists each doc read, with what changed in it
-- [ ] The map's decisions, known gaps and "Not yet specified" are current
+- [x] Every item under "Docs that have drifted" is fixed or gone
+- [x] Every `ts` fence still compiles under the doc-examples check, with no new `nocheck`
+- [x] The README's package table lists every folder under `packages/`, and every doc that sets out to list the stacks lists all five
+- [x] Eight new ADRs exist and are listed in `docs/adr/README.md`, and no existing ADR's decision was rewritten
+- [x] `AGENTS.md` and `CLAUDE.md` point at `.scratch/just-use-it/issues/`
+- [x] The PR's Proof lists each doc read, with what changed in it
+- [x] The map's decisions, known gaps and "Not yet specified" are current
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -42,3 +42,40 @@ Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Neither had a must
 - **ADRs are superseded, not rewritten** (Sol). The ticket listed the ADRs among the docs to bring up to date, which reads as leave to edit them.
 - **Milestone 3's decisions get records too** (Opus). I added the four a newcomer would question. init installing and an app's `.env` are in the map and need no record.
 - **The Proof lists what was read** (Sol), and "every doc that lists stacks" means one that sets out to list them all (Sol).
+
+### From the build, 2026-11-10
+
+**What I chose:**
+
+- **No record is superseded.** Milestones 1 to 3 changed facts in five records, not their decisions. So each got a dated note under the passage, with the record's own words left as they were: 0007 (provisioning and `slugProblem` moved), 0009 (five stacks, and what a new stack needs), 0011 (four adapters, the cross-origin and framing checks, `/serve` and `/testing`), 0012 (the sign-in limit isn't soft since ticket 04) and 0013 (the Go module travels in the install). `docs/adr/README.md` now says how a dated note works.
+- **The eight records are 0014 to 0021.** Each status says which PRD decision and ticket made it, and that the build's choices await R's review. 0019 says accepted, because R answered its questions in v0.1 ticket 31.
+- **Reasons come from the tickets and the PRD.** Where a ticket gave none, the record says what was chosen and doesn't invent one. 0016's "a fix reached only installs made after it" follows from ADR 0008, not from a ticket's words.
+- **`CLAUDE.md`**: only line 8 changed, the pointer to the tickets.
+- **The pull request template** asks for `pnpm check:all`, which CI's `gate` runs. It asked for a command that skipped the format check and knip.
+- **The glossary** gained App's origin, Slug, Runner, Provision step and Linked install.
+- **The map**: removed two gaps that tickets 04 and 33 closed, added seven, and said native Windows waits on ticket 21. Its destination now names the five stacks.
+- **Left alone**: react-hono's `AGENTS.md` says "a `app.get`". A template change needs a changeset, and that typo isn't worth one on its own.
+
+**For the docs site's builder.** The best source for each subject:
+
+| Subject                              | Start from                                                                    |
+| ------------------------------------ | ----------------------------------------------------------------------------- |
+| What robkit is, and the quickstart   | `README.md`                                                                   |
+| Words                                | `GLOSSARY.md`                                                                 |
+| How a request and a token flow       | `docs/architecture.md`                                                        |
+| What robkit protects, and its gaps   | `SECURITY.md`                                                                 |
+| Why it is built this way             | `docs/adr/`, then `.scratch/kit/map.md`                                       |
+| An install, from the owner's side    | `templates/base/README.md` and `AGENTS.md` in `packages/create-robkit`        |
+| Building an app on one stack         | `templates/stacks/<stack>/AGENTS.md`, and the adapter's README                |
+| Deploying                            | `templates/base/docs/deploy.md`                                               |
+| Upgrading                            | the install's README, "Upgrade robkit", and ADR 0021                          |
+| Each package's API                   | its README and `api-report.md`                                                |
+| Contributing, releasing              | `CONTRIBUTING.md`, `docs/testing.md`, and the READMEs in `tooling/`           |
+
+Gaps no doc covers:
+
+- Nothing is on npm. Every doc that says `npm create robkit` describes what will work after R's first release. The site should say so until then.
+- A walk-through for a person building a first app. The stack `AGENTS.md` files cover it, but they are written for a coding agent.
+- Backups, observability and secret rotation for a running install. The map lists them as not yet specified.
+- Native Windows. Docs say to use WSL, and `pnpm dev` runs there. Native Windows waits on ticket 21.
+- The Go version. `CONTRIBUTING.md` and the install's docs say Go 1.26 or later, `go.mod` says 1.26.0, and CI runs 1.27.3. Ticket 25 owns that.
