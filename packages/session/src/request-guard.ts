@@ -7,6 +7,7 @@ import {
 } from "@robkit/guard";
 import type { CoreOrigin, Slug } from "@robkit/input";
 import { coreInstall } from "@robkit/input/addresses";
+import { isRedirect, securityHeaders } from "./answer-headers.ts";
 import { appRefreshPath } from "./app-session.ts";
 import {
   AccessRuleError,
@@ -97,9 +98,19 @@ function reportFault({ app, failed, cause }: GuardFault): void {
   );
 }
 
-/** What the app does with a request: serve it to the viewer, or answer it. */
+/**
+ * What the app does with a request: serve it to the viewer, or answer it.
+ * A served answer carries `headers`, whatever its status, where the app
+ * set none of the same name: `X-Frame-Options: SAMEORIGIN`, `nosniff`,
+ * and HSTS on an https install. The guard's own answer carries them
+ * already, but for a redirect, which gets no framing header.
+ */
 export type RequestDecision =
-  | { outcome: "serve"; viewer: Viewer }
+  | {
+      outcome: "serve";
+      viewer: Viewer;
+      headers: readonly [string, string][];
+    }
   | { outcome: "answer"; response: Response };
 
 const errors = {
@@ -202,15 +213,18 @@ export function requestGuard(
     }
   };
 
-  return async (request) => {
+  const served = securityHeaders(origin, "same-origin");
+
+  /** What the guard does with `request`: its own answer, or the viewer. */
+  const decide = async (request: Request): Promise<Response | Viewer> => {
     // Before anything else, the guard's own paths included, so a page on
     // another origin can't act as the viewer.
     if (isFromAnotherOrigin(request, origin)) {
-      return { outcome: "answer", response: text(errors.elsewhere, 403) };
+      return text(errors.elsewhere, 403);
     }
     const url = publicUrl(request, origin);
     const own = await protocol.answer(request, url);
-    if (own) return { outcome: "answer", response: own };
+    if (own) return own;
 
     let session: SessionState;
     try {
@@ -218,18 +232,29 @@ export function requestGuard(
     } catch (error) {
       // Not knowing who is asking isn't the same as nobody asking, so the
       // browser isn't sent to log in.
-      return { outcome: "answer", response: keyUnavailable(error) };
+      return keyUnavailable(error);
     }
     let rule: AccessRule;
     try {
       rule = await ruleOf();
     } catch (error) {
-      return { outcome: "answer", response: ruleUnavailable(error) };
+      return ruleUnavailable(error);
     }
     const decision = guard(rule, session);
-    if (decision.outcome === "allow") {
-      return { outcome: "serve", viewer: decision.viewer };
+    if (decision.outcome === "allow") return decision.viewer;
+    return respond(decision, request, url);
+  };
+
+  return async (request) => {
+    const decided = await decide(request);
+    if (!(decided instanceof Response)) {
+      return { outcome: "serve", viewer: decided, headers: served };
     }
-    return { outcome: "answer", response: respond(decision, request, url) };
+    // The guard builds every answer itself, so its headers can change.
+    const framers = isRedirect(decided.status) ? undefined : "same-origin";
+    for (const [name, value] of securityHeaders(origin, framers)) {
+      decided.headers.set(name, value);
+    }
+    return { outcome: "answer", response: decided };
   };
 }

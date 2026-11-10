@@ -24,6 +24,7 @@ export function appSessionUrl(
   },
 ): string;
 export const coreAudience: "core";
+export type Framers = "same-origin" | "none";
 export interface GuardedOptions {
   app: Slug;
   access?: AccessRule | undefined;
@@ -42,6 +43,7 @@ export type GuardFault = {
       reason: AccessRuleFailure;
     }
 );
+export function isRedirect(status: number): boolean;
 export function readAppToken(
   key: VerifyKey,
   token: string,
@@ -63,6 +65,7 @@ export type RequestDecision =
   | {
       outcome: "serve";
       viewer: Viewer;
+      headers: readonly [string, string][];
     }
   | {
       outcome: "answer";
@@ -71,6 +74,10 @@ export type RequestDecision =
 export function requestGuard(
   options: GuardedOptions,
 ): (request: Request) => Promise<RequestDecision>;
+export function securityHeaders(
+  origin: string,
+  framers: Framers | undefined,
+): [string, string][];
 export const sessionCookie: "robkit_session";
 export function sessionCookies(origin: string): SessionCookies;
 export interface SessionCookies {
@@ -102,6 +109,10 @@ export type ViewerClaims =
       id: CodeId;
       roles: RoleId[];
     };
+export function withHeaders(
+  response: Response,
+  headers: readonly [string, string][],
+): Response;
 ```
 
 ## @robkit/session/lapsed
