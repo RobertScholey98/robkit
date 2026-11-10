@@ -35,7 +35,7 @@ Add this ticket's cases to `tooling/test-session/request-cases.json`, the shared
 - [x] An https install sends HSTS from core and from guarded apps, and an http one doesn't
 - [x] The whole-stack test loads admin and an app in a frame from a sibling app's page, and the browser refuses both
 - [x] The production test passes over https and asserts HSTS; the PR carries the `production` label
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -61,3 +61,9 @@ Add this ticket's cases to `tooling/test-session/request-cases.json`, the shared
 - HSTS's value lives in two places, `strictTransportSecurity` in `packages/session/src/answer-headers.ts` and in `go/session/http.go`. Change both together.
 - The hub needs core's three headers, with `DENY`. `securityHeaders(origin, "none")` gives them, and `securityHeaders(origin, undefined)` gives a redirect's. Ticket 10 adds them in `robkit()` for dev, and ticket 11 in `servePage()`. When both land, take the hub out of SECURITY.md's "What isn't covered".
 - The Go template's dev proxy, `viteProxy` in `packages/create-robkit/templates/stacks/go/dev.go`, drops Vite's copy of `X-Frame-Options` and `X-Content-Type-Options`. A new guard header that Vite also sends needs the same.
+
+### Merged
+
+Added by the lead. PR 81 merged into `m1-the-subdomain-boundary` on 2026-11-10, with `gate` and the `production` job green on `accb6e3`.
+
+One thing for tickets 10 and 11, also noted on them: `securityHeaders` is in `@robkit/session`, which depends on the guard. Ticket 11 lets `@robkit/serve` depend on nothing from the guard, so the hub's server can't import it from there.
