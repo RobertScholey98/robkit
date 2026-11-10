@@ -24,7 +24,8 @@ export interface ListenOptions {
  * @returns the exit code once it has stopped
  */
 export async function listenUntilStopped({
-  fetch,
+  // Not the global fetch: the app's handler, under a name that says so.
+  fetch: handle,
   hostname,
   port,
   name,
@@ -43,7 +44,7 @@ export async function listenUntilStopped({
   // kills it. So each answer sent while stopping says its connection ends
   // with it, and Node then closes it.
   const answer = async (request: Request): Promise<Response> => {
-    const response = await fetch(request);
+    const response = await handle(request);
     if (!stopping) return response;
     const headers = new Headers(response.headers);
     headers.set("connection", "close");
