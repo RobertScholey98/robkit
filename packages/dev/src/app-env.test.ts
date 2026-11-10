@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { slug } from "@internal/test-session";
-import { readDomain } from "@robkit/input";
+import { aDomain, slug } from "@internal/test-session";
 import { appSettings, shellForApps, type InstallFacts } from "./app-env.ts";
 
-const domain = readDomain({ ROBKIT_DOMAIN: "robkit.localhost" });
-if (typeof domain !== "string") throw new Error(domain.error);
-
 const install: InstallFacts = {
-  domain,
+  domain: aDomain(),
   coreUrl: "http://core.robkit.localhost:3000",
   catalog: "[]",
 };
