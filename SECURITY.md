@@ -52,7 +52,7 @@ A page on a sibling subdomain is same-site, so a frame it puts admin or another 
 - Every answer the guard lets through, and each of its own pages, carries `X-Frame-Options: SAMEORIGIN` and `X-Content-Type-Options: nosniff`.
 - Core's answers carry `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, so nobody can frame core.
 - On an https install, core and every guarded app send `Strict-Transport-Security: max-age=31536000`, a year, with no `includeSubDomains`, since the domain may hold hosts robkit doesn't run.
-- The guard's and core's redirects carry `nosniff` alone. A redirect renders nothing, and an app that lets a framer in renews its token through those redirects inside the frame.
+- The guard's and core's redirects carry no framing header. They keep `nosniff`, and HSTS on an https install. A redirect renders nothing, and an app that lets a framer in renews its token through those redirects inside the frame.
 
 An app lets another origin frame it with its own `Content-Security-Policy: frame-ancestors`, which a browser obeys over `X-Frame-Options`. Each stack's `AGENTS.md` says how. An app's own `X-Frame-Options` isn't supported: on Next the guard's always wins, and on the other stacks the app's may.
 
