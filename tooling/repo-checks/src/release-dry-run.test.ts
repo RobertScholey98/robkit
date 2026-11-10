@@ -2,10 +2,11 @@
 // repo's own packages pass the same checks in published.test.ts, and CI's
 // pull-request job runs the dry run on them.
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readTarball } from "./publish-list.ts";
 
 let dir: string;
 
@@ -78,5 +79,41 @@ describe("release-dry-run.ts", { timeout: 120_000 }, () => {
       "@robkit/one lacks ./gone.js",
       "The packages aren't at one version: @robkit/one@0.1.0, @robkit/two@0.1.1. Every package is in .changeset/config.json's fixed group, so set them back to one version with pnpm release:version.",
     ]);
+  });
+
+  it("writes the tarballs it checked to --out, for the publish job", async () => {
+    const out = join(dir, "out");
+
+    const { status, stdout } = dryRun(
+      "--out",
+      out,
+      await standIn("one", {}),
+      await standIn("two", {}),
+    );
+
+    expect(status).toBe(0);
+    expect(stdout).toContain(`Wrote 2 tarballs to ${out}.`);
+    expect((await readdir(out)).sort()).toEqual([
+      "robkit-one-0.1.0.tgz",
+      "robkit-two-0.1.0.tgz",
+    ]);
+    expect(await readTarball(join(out, "robkit-one-0.1.0.tgz"))).toEqual({
+      file: "robkit-one-0.1.0.tgz",
+      name: "@robkit/one",
+      version: "0.1.0",
+    });
+  });
+
+  it("writes nothing to --out when a check fails", async () => {
+    const out = join(dir, "out");
+
+    const { status } = dryRun(
+      "--out",
+      out,
+      await standIn("one", { exports: { ".": "./gone.js" } }),
+    );
+
+    expect(status).toBe(1);
+    await expect(readdir(out)).rejects.toThrow("ENOENT");
   });
 });
