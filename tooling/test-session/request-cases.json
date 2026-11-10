@@ -658,5 +658,205 @@
       "referer": "http://example.robkit.localhost:3000/notes",
       "next": "http://example.robkit.localhost:3000/notes"
     }
+  ],
+  "headers": [
+    {
+      "name": "lets a call through with both headers, beside the app's own policy",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {},
+      "status": 200,
+      "reached": true,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000",
+        "content-security-policy": "default-src 'self'"
+      }
+    },
+    {
+      "name": "lets the app's own redirect through with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "GET",
+      "target": "/moved",
+      "headers": {},
+      "status": 302,
+      "reached": true,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "sends no HSTS from a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "access": "open",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {},
+      "status": 200,
+      "reached": true,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "content-security-policy": "default-src 'self'"
+      }
+    },
+    {
+      "name": "lets a write from the app's own page through with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-origin"
+      },
+      "status": 200,
+      "reached": true,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000",
+        "content-security-policy": "default-src 'self'"
+      }
+    },
+    {
+      "name": "sends a page load to core with nosniff and no framing header",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "status": 302,
+      "reached": false,
+      "answer": {
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "sends a signed-out page load to the hub with nosniff and no framing header",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "signedOut": true,
+      "status": 302,
+      "reached": false,
+      "answer": {
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "sends the page's refresh to core with nosniff and no framing header",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "GET",
+      "target": "/_robkit/refresh?next=https%3A%2F%2Fexample.robkit.dev%2Fnotes",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "status": 302,
+      "reached": false,
+      "answer": {
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "sends a local install's page load to core with nosniff alone",
+      "core": "http://core.robkit.localhost:3000",
+      "access": "owner",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "status": 302,
+      "reached": false,
+      "answer": {
+        "x-content-type-options": "nosniff"
+      }
+    },
+    {
+      "name": "answers a call whose session lapsed with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "cors"
+      },
+      "status": 401,
+      "reached": false,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "answers a form it can't take with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "same-origin"
+      },
+      "status": 401,
+      "reached": false,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "refuses a write from another origin with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://evil.robkit.dev"
+      },
+      "status": 403,
+      "reached": false,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "answers its callback with no next with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "GET",
+      "target": "/_robkit/session",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "status": 400,
+      "reached": false,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    }
   ]
 }

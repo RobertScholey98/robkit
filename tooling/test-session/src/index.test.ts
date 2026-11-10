@@ -27,6 +27,10 @@ import {
   formPostAnswer,
   formPostCases,
   formPostRequest,
+  answerHeadersOf,
+  headerAnswer,
+  headerCases,
+  headerRequest,
   linksIn,
   writeAnswer,
   writeCases,
@@ -332,6 +336,7 @@ describe("addressCases", () => {
         coreAddress: [],
         writes: [],
         formPost: [],
+        headers: [],
       }),
     ).toEqual({
       address: [{ ...row, signedOut: false }],
@@ -339,6 +344,7 @@ describe("addressCases", () => {
       coreAddress: [],
       writes: [],
       formPost: [],
+      headers: [],
     });
   });
 
@@ -397,6 +403,7 @@ describe("addressCases", () => {
       coreAddress: [],
       writes: [],
       formPost: [],
+      headers: [],
     }).address;
     if (!holdsNothing || !signedOut) throw new Error("Two rows went in.");
 
@@ -437,6 +444,7 @@ describe("cookieCases", () => {
       coreAddress: [],
       writes: [],
       formPost: [],
+      headers: [],
     }).cookies;
 
   it("reads every cookie row of request-cases.json", () => {
@@ -557,6 +565,7 @@ describe("writeCases", () => {
       coreAddress: [],
       writes,
       formPost: [],
+      headers: [],
     }).writes;
 
   it("reads every write row of request-cases.json", () => {
@@ -631,6 +640,7 @@ describe("formPostCases", () => {
       coreAddress: [],
       writes: [],
       formPost,
+      headers: [],
     }).formPost;
 
   it("reads every form-post row of request-cases.json", () => {
@@ -708,5 +718,123 @@ describe("formPostCases", () => {
     expect(
       linksIn('<p><a href="/a?b=1&amp;c=2">One</a> <a href="/x"y">Two</a></p>'),
     ).toEqual(["/a?b=1&c=2"]);
+  });
+});
+
+describe("headerCases", () => {
+  const row = {
+    name: "a case",
+    core: "https://core.robkit.dev",
+    access: "owner",
+    method: "GET",
+    target: "/notes?x=1",
+    headers: { "sec-fetch-mode": "navigate" },
+    status: 302,
+    reached: false,
+    answer: { "x-content-type-options": "nosniff" },
+  };
+  const read = (headers: unknown[]) =>
+    readRequestCases({
+      address: [],
+      cookies: [],
+      coreAddress: [],
+      writes: [],
+      formPost: [],
+      headers,
+    }).headers;
+  const lists = {
+    address: [],
+    cookies: [],
+    coreAddress: [],
+    writes: [],
+    formPost: [],
+  };
+
+  it("reads every header row of request-cases.json", () => {
+    expect(headerCases.length).toBeGreaterThan(0);
+  });
+
+  it("reads a row, taking a left-out signedOut as false", () => {
+    expect(read([row])).toEqual([{ ...row, signedOut: false }]);
+  });
+
+  it.each([
+    ["has no headers list", lists, 'a "headers" list'],
+    [
+      "holds a row that isn't an object",
+      { ...lists, headers: [1] },
+      "headers[0] must be an object.",
+    ],
+    ...[
+      { access: "roles" },
+      { method: 1 },
+      { headers: { origin: 1 } },
+      { signedOut: "yes" },
+      { status: "302" },
+      { status: 302.5 },
+      { reached: 1 },
+      { answer: { "x-frame-options": 1 } },
+      { answer: { "x-powered-by": "robkit" } },
+    ].map((change): [string, unknown, string] => [
+      `holds a row with ${JSON.stringify(change)}`,
+      { ...lists, headers: [{ ...row, ...change }] },
+      'headers[0] needs a name, core, method and target as strings, access as "open" or "owner", headers as an object of strings, signedOut as true, false or left out, status as a whole number, reached as true or false, and answer as an object of strings named from x-frame-options, x-content-type-options, strict-transport-security, content-security-policy.',
+    ]),
+  ])("refuses a file that %s", (_, value, message) => {
+    expect(() => readRequestCases(value)).toThrow(message);
+  });
+
+  it("sends a row's method and headers to its target on example, with core's word when it says", () => {
+    const [holdsNothing, signedOut] = read([row, { ...row, signedOut: true }]);
+    if (!holdsNothing || !signedOut) throw new Error("Two rows went in.");
+
+    expect([headerRequest(holdsNothing), headerRequest(signedOut)]).toEqual([
+      {
+        url: "https://example.robkit.dev/notes?x=1",
+        method: "GET",
+        headers: { "sec-fetch-mode": "navigate" },
+        access: { kind: "owner" },
+      },
+      {
+        url: "https://example.robkit.dev/notes?x=1",
+        method: "GET",
+        headers: {
+          "sec-fetch-mode": "navigate",
+          cookie: signedOutCookie(row.core),
+        },
+        access: { kind: "owner" },
+      },
+    ]);
+  });
+
+  it("expects each header the row names once, and none it leaves out", () => {
+    const [asking] = read([row]);
+    if (!asking) throw new Error("One row went in.");
+
+    expect(headerAnswer(asking)).toEqual({
+      status: 302,
+      reached: false,
+      headers: {
+        "x-frame-options": null,
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": null,
+        "content-security-policy": null,
+      },
+    });
+  });
+
+  it("reads a header sent twice as both values, so a row can't match it", () => {
+    const headers = new Headers([
+      ["x-frame-options", "SAMEORIGIN"],
+      ["x-frame-options", "SAMEORIGIN"],
+      ["x-content-type-options", "nosniff"],
+    ]);
+
+    expect(answerHeadersOf(headers)).toEqual({
+      "x-frame-options": "SAMEORIGIN, SAMEORIGIN",
+      "x-content-type-options": "nosniff",
+      "strict-transport-security": null,
+      "content-security-policy": null,
+    });
   });
 });

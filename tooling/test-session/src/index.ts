@@ -7,8 +7,10 @@ import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
 import type {
   AddressCase,
+  AnswerHeader,
   CookieCase,
   FormPostCase,
+  HeaderCase,
   WriteCase,
 } from "./request-cases.ts";
 import { aViewer } from "./brands.ts";
@@ -19,12 +21,15 @@ export {
   cookieCases,
   coreAddressCases,
   formPostCases,
+  headerCases,
   readRequestCases,
   writeCases,
   type AddressCase,
+  type AnswerHeader,
   type CookieCase,
   type CoreAddressCase,
   type FormPostCase,
+  type HeaderCase,
   type RequestCases,
   type WriteCase,
 } from "./request-cases.ts";
@@ -459,4 +464,72 @@ export function linksIn(html: string): string[] {
   return [...html.matchAll(/<a href="([^"<>]*)">/g)].map(([, href = ""]) =>
     href.replaceAll("&amp;", "&"),
   );
+}
+
+/**
+ * The request a header case sends: its method and headers, with core's
+ * word that nobody is signed in when the row says, to its target on
+ * `example` beside its core, and the rule the app's guard holds.
+ */
+export function headerRequest({
+  core,
+  access,
+  method,
+  target,
+  headers,
+  signedOut,
+}: HeaderCase): {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  access: AccessRule;
+} {
+  return {
+    url: `${core.replace("//core.", `//${app}.`)}${target}`,
+    method,
+    headers: signedOut
+      ? { ...headers, cookie: signedOutCookie(core) }
+      : { ...headers },
+    access: { kind: access },
+  };
+}
+
+/** Each of `answerHeaderNames` an answer carries, or null for one it lacks. */
+export type AnswerHeaders = Record<AnswerHeader, string | null>;
+
+/** Each of `answerHeaderNames`, with the value `read` gives it. */
+function answerHeaders(
+  read: (name: AnswerHeader) => string | null,
+): AnswerHeaders {
+  return {
+    "x-frame-options": read("x-frame-options"),
+    "x-content-type-options": read("x-content-type-options"),
+    "strict-transport-security": read("strict-transport-security"),
+    "content-security-policy": read("content-security-policy"),
+  };
+}
+
+/**
+ * Each of `answerHeaderNames` in `headers`, as `Headers.get` reads it: a
+ * header sent twice reads as both values joined with a comma.
+ */
+export function answerHeadersOf(headers: Headers): AnswerHeaders {
+  return answerHeaders((name) => headers.get(name));
+}
+
+/**
+ * What a header case's request must get: its status, whether the app's
+ * handler answered, and each of `answerHeaderNames` once with the row's
+ * value, or not at all.
+ */
+export function headerAnswer({ status, reached, answer }: HeaderCase): {
+  status: number;
+  reached: boolean;
+  headers: AnswerHeaders;
+} {
+  return {
+    status,
+    reached,
+    headers: answerHeaders((name) => answer[name] ?? null),
+  };
 }
