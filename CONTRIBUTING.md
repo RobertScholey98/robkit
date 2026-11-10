@@ -280,7 +280,7 @@ The first release, 0.1.0, waits for [ticket 19](.scratch/just-use-it/issues/19-r
 
 4. Open the pull request. Read each `CHANGELOG.md` it changes, above all create-robkit's: an owner reads that one. CI's `gate` job runs the dry run on it.
 5. When `gate` passes, merge the pull request.
-6. Optionally, run the dry run yourself, in Linux or WSL. It builds and packs every package as the publish will, prints each one's version and tarball, and makes no call to npm:
+6. Optionally, run the dry run yourself, in Linux or WSL. It builds and packs every package as the release's `pack` job does, prints each one's version and tarball, and makes no call to npm:
 
    ```sh
    git pull
@@ -288,7 +288,7 @@ The first release, 0.1.0, waits for [ticket 19](.scratch/just-use-it/issues/19-r
    ```
 
 7. On GitHub, open **Actions**, then **Release**, then **Run workflow**. Leave **Use workflow from** on `main` and choose **Run workflow**.
-8. The `gate` job runs the full gate. Then the `publish` job waits for you: open the run, choose **Review deployments**, tick `release` and choose **Approve and deploy**.
+8. The `gate` job runs the full gate. The `pack` job then builds, packs and checks every package, and keeps the tarballs. Neither job can see the token. Then the `publish` job waits for you: open the run, choose **Review deployments**, tick `release` and choose **Approve and deploy**. It publishes the `pack` job's tarballs as they are, and installs and builds nothing.
 9. When the run is green, every package is on npm and GitHub has the tag. Check the tag:
 
    ```sh
@@ -301,6 +301,7 @@ The first release, 0.1.0, waits for [ticket 19](.scratch/just-use-it/issues/19-r
 Run it again: **Actions**, **Release**, **Run workflow** from `main`. It publishes only the packages npm lacks at this version, so it carries on from where it stopped, then tags.
 
 - If the publish step says `NPM_TOKEN is missing`, the `release` environment has no token. Nothing was published. Add it as step 6 of [Set up once](#set-up-once) says, then run the release again.
+- If the publish step says a tarball isn't one of main's packages at its version, or that the artifact has no tarball for one, nothing was published. Run the release again from `main`.
 - If npm refuses a version because it is already published, npm hadn't listed it yet when the run asked. Wait five minutes, then run the release again.
 - If you started it from a branch other than `main`, it stopped before it did anything. Run it again from `main`.
 
@@ -322,7 +323,7 @@ Then open <http://hub.robkit.localhost:3000>. On npmjs.com, each package's page 
 npm's trusted publishing lets the workflow publish with no token. npm offers it only for a package that already exists, so the first release uses the token. After it:
 
 1. On npmjs.com, open each of the 15 packages, then **Settings**, then **Trusted Publisher**, then **GitHub Actions**. Enter the owner `RobertScholey98`, the repository `robkit`, the workflow `release.yml` and the environment `release`, and save.
-2. Open a pull request that takes out the token: delete the `NPM_TOKEN` check from `tooling/repo-checks/src/release-publish.ts` and the `NPM_TOKEN` line from `.github/workflows/release.yml`, and change `tooling/repo-checks/src/release-workflow.test.ts` to match. The publish job keeps `id-token: write`, which trusted publishing uses.
+2. Open a pull request that takes out the token. In `tooling/repo-checks/src/release-publish.ts`, delete the `NPM_TOKEN` check and the `authEnv(token)` it hands pnpm. In `.github/workflows/release.yml`, delete the publish step's `NPM_TOKEN` line. Change `release-publish.test.ts` and `release-workflow.test.ts` beside the script to match. The publish job keeps `id-token: write`, which trusted publishing uses, and still publishes the `pack` job's tarballs.
 3. Once it merges and a release has published without the token, delete `NPM_TOKEN` from the `release` environment, and delete the token on npmjs.com.
 
 ## When a test fails
