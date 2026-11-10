@@ -7,7 +7,7 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ```ts
 export function guarded(
   entry: ServerEntry,
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): ServerEntry;
 export interface GuardedContext {
   viewer: Viewer;
