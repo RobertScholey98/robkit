@@ -153,7 +153,9 @@ export async function serveRequests(
     });
   };
 
-  const server = createServer((connection) => {
+  // Half open, so an asker that ends its side after the request still gets
+  // the answer. Every answer ends the connection.
+  const server = createServer({ allowHalfOpen: true }, (connection) => {
     open.add(connection);
     connection.on("close", () => open.delete(connection));
     connection.on("error", () => {

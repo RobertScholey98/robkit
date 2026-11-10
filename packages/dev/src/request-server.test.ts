@@ -153,6 +153,27 @@ describe.skipIf(process.platform === "win32")("serveRequests", () => {
     expect(answer).toEqual({ outcome: "done", message: "add notes" });
   });
 
+  it("takes what was sent before the connection's end as the line", async () => {
+    const { socket } = await place();
+    await serving(socket);
+
+    const answer = await new Promise<string>((resolve, reject) => {
+      let received = "";
+      connect(socket.path)
+        .on("data", (chunk: Buffer) => (received += chunk.toString()))
+        .on("end", () => {
+          resolve(received);
+        })
+        .on("error", reject)
+        .end('{"operation":"add","slug":"notes"}');
+    });
+
+    expect(JSON.parse(answer) as unknown).toEqual({
+      outcome: "done",
+      message: "add notes",
+    });
+  });
+
   it("refuses a line over 1 KB without waiting for the rest of it", async () => {
     const { socket } = await place();
     await serving(socket);
