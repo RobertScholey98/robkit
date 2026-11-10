@@ -31,6 +31,15 @@ const stepRunning = (name: string, command: string) =>
     ({ run }) => typeof run === "string" && run.includes(command),
   );
 
+/** The index of the first step of `job` that uses `action`, at any pin. */
+const stepUsing = (name: string, action: string) =>
+  steps(name).findIndex(
+    ({ uses }) => typeof uses === "string" && uses.startsWith(`${action}@`),
+  );
+
+const publishRun =
+  'node tooling/repo-checks/src/release-publish.ts "$RUNNER_TEMP/tarballs"';
+
 beforeAll(async () => {
   text = await readFile(releaseFile, "utf8");
   workflow = record(parse(text));
@@ -46,23 +55,31 @@ describe(".github/workflows/release.yml", () => {
 
     expect(first).toMatchObject({ if: "github.ref != 'refs/heads/main'" });
     expect(first?.run).toContain("exit 1");
-    expect(job("publish")).toMatchObject({
+    expect(job("pack")).toMatchObject({
       needs: "gate",
+      if: "github.ref == 'refs/heads/main'",
+    });
+    expect(job("publish")).toMatchObject({
+      needs: "pack",
       if: "github.ref == 'refs/heads/main'",
     });
   });
 
   it("publishes only in the release environment", () => {
-    expect(job("publish").environment).toBe("release");
-    expect(Object.keys(record(workflow.jobs)).sort()).toEqual([
+    expect(Object.keys(record(workflow.jobs))).toEqual([
       "gate",
+      "pack",
       "publish",
     ]);
+    expect(job("gate").environment).toBeUndefined();
+    expect(job("pack").environment).toBeUndefined();
+    expect(job("publish").environment).toBe("release");
   });
 
   it("lets no job but the publish job write", () => {
     expect(workflow.permissions).toEqual({ contents: "read" });
     expect(job("gate").permissions).toEqual({ contents: "read" });
+    expect(job("pack").permissions).toEqual({ contents: "read" });
     expect(job("publish").permissions).toEqual({
       contents: "write",
       "id-token": "write",
@@ -79,19 +96,61 @@ describe(".github/workflows/release.yml", () => {
     expect(holders).toEqual(["publish: publish"]);
     expect(steps("publish").find(({ id }) => id === "publish")).toMatchObject({
       env: { NPM_TOKEN: "${{ secrets.NPM_TOKEN }}" },
-      run: "node tooling/repo-checks/src/release-publish.ts",
+      run: publishRun,
     });
     // No secret anywhere else: not in a job's or the workflow's env.
     expect(text.match(/secrets\./g)).toHaveLength(1);
   });
 
-  it("runs the full gate, then the dry run, before it publishes", () => {
+  it("runs the full gate, then packs and checks the tarballs in a job with no token", () => {
     expect(stepRunning("gate", "pnpm check:all")).toBeGreaterThan(0);
-    const dryRun = stepRunning("publish", "pnpm release:dry-run");
-    const publish = stepRunning("publish", "release-publish.ts");
+    const dryRun = stepRunning(
+      "pack",
+      'pnpm release:dry-run --out "$RUNNER_TEMP/tarballs"',
+    );
+    const upload = stepUsing("pack", "actions/upload-artifact");
 
     expect(dryRun).toBeGreaterThan(0);
-    expect(publish).toBeGreaterThan(dryRun);
+    expect(upload).toBe(dryRun + 1);
+    expect(steps("pack")[upload]?.with).toEqual({
+      name: "tarballs",
+      path: "${{ runner.temp }}/tarballs",
+      "if-no-files-found": "error",
+    });
+    expect(steps("pack")).toHaveLength(upload + 1);
+  });
+
+  it("publishes the pack job's tarballs, and installs, builds and packs nothing beside the token", () => {
+    const download = stepUsing("publish", "actions/download-artifact");
+    const publish = stepRunning("publish", "release-publish.ts");
+
+    expect(steps("publish")[download]?.with).toEqual({
+      name: "tarballs",
+      path: "${{ runner.temp }}/tarballs",
+    });
+    expect(publish).toBe(download + 1);
+    // Only these actions and these two commands run in the job, so the only
+    // code that isn't the repo's is the pinned actions, Node and pnpm.
+    expect(
+      steps("publish").map(({ uses, run }) =>
+        typeof uses === "string"
+          ? uses.replace(/@.*$/, "")
+          : String(run).split("\n")[0],
+      ),
+    ).toEqual([
+      "actions/checkout",
+      "pnpm/action-setup",
+      "actions/setup-node",
+      "actions/download-artifact",
+      publishRun,
+      'if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" > /dev/null 2>&1; then',
+    ]);
+    // pnpm's setup can install too. Here it is given nothing to do so.
+    expect(
+      Object.keys(
+        steps("publish")[stepUsing("publish", "pnpm/action-setup")] ?? {},
+      ),
+    ).toEqual(["uses"]);
   });
 
   it("tags once, after the publish, from what the publish step says", () => {
@@ -111,14 +170,14 @@ describe(".github/workflows/release.yml", () => {
   });
 
   it("keeps git credentials out of every checkout", () => {
-    const checkouts = ["gate", "publish"].flatMap((name) =>
+    const checkouts = ["gate", "pack", "publish"].flatMap((name) =>
       steps(name).filter(
         ({ uses }) =>
           typeof uses === "string" && uses.startsWith("actions/checkout@"),
       ),
     );
 
-    expect(checkouts).toHaveLength(2);
+    expect(checkouts).toHaveLength(3);
     for (const checkout of checkouts) {
       expect(checkout.with).toMatchObject({ "persist-credentials": false });
     }

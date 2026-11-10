@@ -4,7 +4,7 @@
 # to what the release needs.
 #
 # Every action is pinned to a commit, with its version beside it, since the
-# publish job holds the npm token.
+# publish job holds the npm token and the pack job makes what it publishes.
 name: Release
 
 on:
@@ -53,11 +53,42 @@ jobs:
       - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
       - run: pnpm check:all
 
-  # Publishes every package whose version on main npm lacks, then tags the
-  # release. It runs in the release environment, which R limits to main and
-  # can make wait for a reviewer.
-  publish:
+  # Builds and packs every package, checks the tarballs, and hands them to
+  # the publish job. It installs and runs every dev dependency's code, so,
+  # like the gate, it holds no secret and can only read.
+  pack:
     needs: gate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      - run: pnpm install --frozen-lockfile
+      # Packs each package through pnpm, which swaps in publishConfig's
+      # exports and bin and turns workspace: and catalog: into versions.
+      # It writes the tarballs only if every check passes. It makes no call
+      # to npm.
+      - run: pnpm release:dry-run --out "$RUNNER_TEMP/tarballs"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: tarballs
+          path: ${{ runner.temp }}/tarballs
+          if-no-files-found: error
+
+  # Publishes each of the pack job's tarballs whose version npm lacks, then
+  # tags the release. It runs in the release environment, which R limits to
+  # main and can make wait for a reviewer. It installs, builds and packs
+  # nothing, so the only code beside the token that isn't this repo's is the
+  # pinned actions, Node and pnpm.
+  publish:
+    needs: pack
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: release
@@ -74,20 +105,21 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
-      - run: pnpm install --frozen-lockfile
-      # Builds every package, packs each one as the publish will, and checks
-      # the tarballs. It makes no call to npm.
-      - run: pnpm release:dry-run
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: tarballs
+          path: ${{ runner.temp }}/tarballs
       # The one step with the npm token. It stops before anything else if
-      # the token is missing. It publishes through pnpm, never npm: only
-      # pnpm swaps in publishConfig's exports and bin, and turns workspace:
-      # and catalog: into versions, as it packs. Each package npm already
-      # has at this version is left out, so a release that stopped halfway
-      # runs again from where it stopped.
+      # the token is missing, and before it asks npm anything if a tarball
+      # isn't one of main's packages at main's version. It runs pnpm publish
+      # on each tarball npm lacks, which sends the tarball as it is. Each
+      # package npm already has at this version is left out, so a release
+      # that stopped halfway runs again from where it stopped. The script
+      # imports only node: modules and its own files.
       - id: publish
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: node tooling/repo-checks/src/release-publish.ts
+        run: node tooling/repo-checks/src/release-publish.ts "$RUNNER_TEMP/tarballs"
       # One tag, v<version>, once npm has every package. GitHub's API makes
       # it on this run's commit, so there is no commit and no git login.
       - if: steps.publish.outputs.tag != ''
