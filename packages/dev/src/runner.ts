@@ -15,7 +15,7 @@ import {
 } from "./apps.ts";
 import { checkBeforeStart, portForNewApp, proxyPortProblem } from "./checks.ts";
 import { readDevConfig, withInstallEnv } from "./env.ts";
-import { exec, prefixLines, startProblem } from "./exec.ts";
+import { CommandFailed, exec, prefixLines, startProblem } from "./exec.ts";
 import { failuresOf, throwFailures } from "./failures.ts";
 import { startProxy, type Proxy } from "./proxy.ts";
 import { stopGroup } from "./process-group.ts";
@@ -357,6 +357,10 @@ export async function runDev(
     try {
       return await (operation === "add" ? add(slug) : migrate(slug));
     } catch (error) {
+      // A migrate script prints in pnpm dev's terminal, not the asker's.
+      if (error instanceof CommandFailed) {
+        return refused(`${error.what} Its output is in pnpm dev's.`);
+      }
       const problem = problemsIn(error);
       if (problem === undefined) throw error;
       return refused(problem);

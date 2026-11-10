@@ -34,6 +34,26 @@ export function startProblem(
   );
 }
 
+const outputIsAbove = " Its output is above: fix what it says, then try again.";
+
+/**
+ * The problem when a command ran and failed. Its message says the
+ * command's output is above, which is so in the terminal that ran it.
+ */
+export class CommandFailed extends CommandProblem {
+  constructor(what: string) {
+    super(`${what}${outputIsAbove}`);
+  }
+
+  /**
+   * What failed, without where its output is, for a caller that reports
+   * the failure in another terminal.
+   */
+  get what(): string {
+    return this.message.slice(0, -outputIsAbove.length);
+  }
+}
+
 /**
  * The command line Windows' shell runs for `command` and `args`, each part
  * in double quotes so the shell reads none of it. A quote can't keep `"`,
@@ -135,8 +155,8 @@ export async function exec(
   }
   const [code, exitSignal] = exited;
   if (code !== 0) {
-    throw new CommandProblem(
-      `${[command, ...args].join(" ")} exited with ${String(code ?? exitSignal)} in ${options.cwd}. Its output is above: fix what it says, then try again.`,
+    throw new CommandFailed(
+      `${[command, ...args].join(" ")} exited with ${String(code ?? exitSignal)} in ${options.cwd}.`,
     );
   }
 }

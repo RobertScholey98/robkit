@@ -241,7 +241,7 @@ describe("robkit-dev adding an app while it runs", () => {
 
     expect(answer).toEqual({
       outcome: "refused",
-      message: `pnpm run migrate exited with 1 in ${join(dev.root, "apps", "aardvark")}. Its output is above: fix what it says, then try again.`,
+      message: `pnpm run migrate exited with 1 in ${join(dev.root, "apps", "aardvark")}. Its output is in pnpm dev's.`,
     });
     expect(
       JSON.parse(await get(dev.port, "alpha.robkit.localhost")),
@@ -467,6 +467,22 @@ describe("robkit-dev migrating an app while it runs", () => {
     expect(await readAppFile(dev.root, "alpha", "migrated")).toBe(alphaUrl);
     expect(await readAppFile(dev.root, "alpha", "started")).toBe(alphaPid);
     expect(await connects(alphaUrl)).toBe(true);
+  });
+
+  it("says a migration failed, and that its output is in pnpm dev's", async () => {
+    const dev = await runningDev();
+    await mkdir(join(dev.root, "apps", "alpha", "migrations"));
+    await writeFile(
+      join(dev.root, "apps", "alpha", "migrations", "0001_broken.sql"),
+      "not sql;",
+    );
+
+    const answer = await dev.ask("migrate", "alpha");
+
+    expect(answer).toEqual({
+      outcome: "refused",
+      message: `pnpm run migrate exited with 1 in ${join(dev.root, "apps", "alpha")}. Its output is in pnpm dev's.`,
+    });
   });
 
   it("stops a migration it is running when it stops, and answers that it stopped", async () => {
