@@ -70,5 +70,5 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 - Every external version lives in the catalog in `pnpm-workspace.yaml`, and manifests say `catalog:`. A test in `tooling/repo-checks` fails on any version pinned elsewhere. Peer dependencies are exempt.
 - Renovate proposes version updates weekly once it is installed (`renovate.json`). Its TypeScript cap moves with the catalog's.
 - TypeScript stays on 6.0 until typescript-eslint supports 7.
-- pnpm 11 refuses packages published in the last day. Pin an older version rather than adding an exemption.
+- pnpm 11 refuses packages published in the last day. Pin an older version rather than adding an exemption. An install exempts only robkit's own packages, and `SECURITY.md` says why.
 - Relative imports use the `.ts` extension, so Node can run source files directly. ESLint enforces it.

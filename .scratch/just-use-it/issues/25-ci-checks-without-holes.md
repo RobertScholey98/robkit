@@ -37,3 +37,7 @@ Found in milestone 2's code review (2026-11-10):
 
 - The two ports also differ on a core address written in code with a trailing slash. TypeScript's `guarded({ core: "https://core.robkit.dev/" })` reads it through `readCoreUrl`, which drops the path. Go's `session.Guarded(session.Options{Core: "https://core.robkit.dev/"})` refuses it, and the comment on `isCoreOrigin` in `go/session/options.go` says an address in code is judged as one from settings, which isn't so. Go is the stricter, so nothing is open. The same `coreAddress` rows would hold this case too.
 - `packages/create-robkit/src/vendor.test.ts` timed out in pull request 89's CI: four tests that write an install and run pnpm's build and pack passed 30 seconds on a slow runner. The lead gave that group 120 seconds. They take 12 to 20 seconds on a usual runner, because seven of them run pnpm side by side. Running them one after another, or sharing one install, would make the work smaller.
+
+Found while milestone 3 was built (2026-11-10):
+
+- The production test's "serves an app on each other stack" timed out at 300 seconds in pull request 90's CI, with no assertion failing. It builds four images, and took 215, 229 and 245 seconds in the three green runs before it. The lead gave it the hooks' 900 seconds. That is the fourth test to fail CI on its time limit alone. A check that fails a test whose usual time is over half its limit would catch the next one before a slow runner does.

@@ -293,7 +293,9 @@ describe("the default install in production", () => {
         ]),
       ),
     );
-  });
+    // It builds four images, which takes 215 to 245 seconds on a usual CI
+    // runner and over 300 on a slow one. So it gets the hooks' limit.
+  }, 900_000);
 
   it.each(later)(
     "builds the $stack app's image with no package production doesn't need",

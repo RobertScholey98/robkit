@@ -2,6 +2,12 @@
   "name": "@robkit/next",
   "version": "0.0.0",
   "description": "robkit's Next.js adapter: runs the guard in proxy.ts and hands the app the viewer.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/next"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
@@ -32,7 +38,9 @@
   "files": [
     "dist",
     "src",
-    "!src/**/*.test.ts"
+    "!src/**/*.test.ts",
+    "!src/**/*.test-d.ts",
+    "!src/test"
   ],
   "engines": {
     "node": ">=24"
