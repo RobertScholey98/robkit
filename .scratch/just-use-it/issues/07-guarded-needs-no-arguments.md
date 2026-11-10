@@ -8,7 +8,7 @@
 - **Options stay, all optional.** `app`, `core`, `access` and `onUnavailable` keep their meaning, for an owner who overrides one. `app` and `core` also take a plain string, read by the same readers, so nobody needs `@robkit/input` to pass one.
 - **Go.** The Go template makes one call to get its guard, with one error to check. Add what `go/session` needs for that.
 - **Core's origin, for an app that shows it.** Admin puts core's origin in its page, and reads it today with `orExit(readCoreUrl(process.env))`. `@robkit/session` exports `coreOrigin()`, which reads `ROBKIT_CORE_URL` as `guarded()` does and fails the same way, and each adapter re-exports it. Admin calls it from `@robkit/hono`.
-- **Start's type block.** Start's `server.ts` also carries a `declare module "@tanstack/react-start"` block that tells TanStack the guard's viewer is in the request's context. It is robkit's wiring, not the app's. Ship it in `@robkit/start`'s own types if it then applies in an app that has no such line, and an app can still add its router to the same interface. If it can't be made to apply from the package, keep the block and say why.
+- **Start's type block.** Start's `server.ts` also carries a `declare module "@tanstack/react-start"` block that tells TanStack the guard's viewer is in the request's context. It is robkit's wiring, not the app's. Ship it in `@robkit/start`'s own types if it then applies in an app that has no such line, and an app can still add its router to the same interface. Prove it in a linked install and in a packed one, not in this workspace: a linked install's `@robkit/start` finds its own copy of `@tanstack/react-start` in the checkout, and the block may then land on a different module than the app's. If it can't be made to apply in both, keep the block and say why.
 - **Templates.** Every stack's server file calls `guarded()` with no argument and drops its `@robkit/input` import. Admin's `server.ts` passes only its access rule and calls `coreOrigin()`. It keeps `isRecord` from `@robkit/input`, which it uses to read Vite's manifest and which reads no setting. Each stack's `AGENTS.md`, each adapter's README and `docs/conventions/errors.md`'s example change to match.
 
 **Blocked by:** 06
@@ -21,7 +21,7 @@
 - [ ] Each adapter's `*.test-d.ts` says the no-argument call compiles
 - [ ] No stack template's server file imports `@robkit/input`, and neither a stack's nor admin's imports a reader of the guard's settings or reads `process.env` for them
 - [ ] `coreOrigin()` gives core's origin from `ROBKIT_CORE_URL`, and exits with the reader's message when it is unset or malformed
-- [ ] Start's `server.ts` is its imports and one call, or the ticket's comments say why the type block had to stay
+- [ ] Start's `server.ts` is its imports and one call, with the viewer typed in a linked and in a packed install, or the ticket's comments say why the type block had to stay
 - [ ] The Go template gets its guard in one call
 - [ ] The API reports, READMEs and each stack's `AGENTS.md` show the new call
 - [ ] The PR's CI `gate` job passes on GitHub
