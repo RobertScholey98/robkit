@@ -95,3 +95,17 @@
 ### Merged
 
 Added by the lead. PR 84 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `91cb3d1`. That head holds tickets 07 and 08 too, and the lead's three fixes: the journal's create race, the stop's busy connections, and the adapters' API reports.
+
+### Changed in the code round, added by the lead
+
+From the round on milestone 2's code (PR 89):
+
+- **Core's stop waited on a query that was still running.** Core closed its database with no time limit, and postgres.js then waits for every query. A query can outlive its request, so core could wait until Docker killed it. It now gives its connections 1 second and closes them. The stop's 8 seconds and this 1 fit inside Docker's 10.
+- **`provisionDatabase` wrote its password argument into DDL between two quotes.** robkit's callers pass hex, but the argument is public. It now goes in as an `E''` string constant with quotes and backslashes escaped.
+- **The README said provisioning changes nothing when it refuses.** `provisionDatabases` stops at the first app it refuses, and the apps before it are already provisioned. The README now says so.
+
+Left as they are:
+
+- **A SIGTERM while `robkit-core start` provisions or migrates is ignored.** Core is the container's first process, which gets no default signal handling, and it listens for the signal only once it serves. Docker kills the container 10 seconds later, and a migration cut off that way rolls back. A signal that arrives before the serving child listens for it ends the child, and the container exits 143.
+- **The lost-race check reads the text `tuple concurrently updated`.** Opus asked whether a server with another `lc_messages` would translate it. Postgres raises it with `elog`, whose messages it doesn't translate. I didn't run a server in another language to see.
+- **Postgres logs a failed statement whole**, so a lost race writes `create role … password '…'` into Postgres's own log. Noted on ticket 30.

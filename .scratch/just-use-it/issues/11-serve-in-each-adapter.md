@@ -80,3 +80,20 @@ For milestone 3:
 ### Merged
 
 Added by the lead. PR 88 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `a0905ba`.
+
+### Changed in the code round, added by the lead
+
+The round on milestone 2's code (PR 89) found four faults in `@robkit/serve`, each fixed with a test that failed first:
+
+- **A handler that threw after a file lookup missed ended the process.** serve-static hands a request on from a file system callback, outside the promise that catches a throw. The app now runs at the start of a promise of its own.
+- **A range the file doesn't have, or a precondition that fails, was a 500 and a fault line.** They now answer 416 and 412.
+- **A second signal while `onStopped` ran ended the process.** The stop keeps its listeners until `onStopped` has finished.
+- **A failing `onStopped` printed "couldn't listen".** It now prints `<name> stopped, but its clean-up failed.` and exits 1.
+
+`SECURITY.md` and the README now say that serve-static follows a link inside a served folder, as `express.static` does. An app can only reach files in its own container that way.
+
+Left as they are:
+
+- **`serve()` doesn't close an app's database pool when it stops.** It exits, and Postgres logs the dropped connections. An owner can pass `onStopped`.
+- **`@robkit/next` depends on `@robkit/serve`**, which brings serve-static into the Next image, though Next serves no folder through it.
+- **`ServerOptions` and `ServeOptions` differ by a letter.** An owner passes an object and never names either.

@@ -20,3 +20,12 @@
 - [ ] Editing `packages/theme/theme.css` and running `pnpm build` rebuilds the hub
 - [ ] axe still passes on every page in the whole-stack test
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From milestone 2's code round, added by the lead
+
+Two things the round on milestone 2's code (PR 89) left for this ticket. Milestone 4's ticket round should decide whether each becomes a bullet above.
+
+- **The build's layout is still in the owner's Vite config.** The react-hono and Express templates' `vite.config.ts` hold `build: { ssr: "src/serve.ts", outDir: "dist", ssrEmitAssets: true }`. The `start` script's `dist/serve.js` and `serve()`'s default `dist/assets` both depend on it, so an owner who edits `build` breaks production with nothing to say why. Opus proposed that `robkit()` set it, as `robkit({ serve: "src/serve.ts" })` or by default. Ticket 10 left `build` with the app on purpose, so this reverses a line of that ticket.
+- **`next/image` can't show a file from `public`.** Next's optimizer fetches the file through its own server with no cookie (`fetchInternalImage` in Next 16.4.5 sends empty headers), the guard turns that request away, and `/_next/image` answers an error. An image the page imports works, since it is built into `/_next/static`. So the guard does cover `public`, as `SECURITY.md` says, but an owner who writes `<Image src="/logo.png">` gets a broken image. I read this in Next's source and didn't run it. Run it, then say in the Next stack's `AGENTS.md` which images work, or serve `public` another way.

@@ -66,3 +66,7 @@ Ticket 09 can swap `database.ts` for `appDatabase(schema)` with no change to `vi
 ### Merged
 
 Added by the lead. PR 85 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `3d4125f`.
+
+### Changed in the code round, added by the lead
+
+`guardedAs(viewer)` now serves only in a test run: when `NODE_ENV` is `test`, or Vitest is running and `NODE_ENV` isn't `production`. Anywhere else it answers the 500. This ticket's rule named production alone, which left a copy in a server open under `pnpm dev`, in a server started by hand, and in an image that doesn't set `NODE_ENV`. Opus raised it in the round on milestone 2's code (PR 89). An owner's tests don't change, since Vitest sets `VITEST`. A test under another runner needs `NODE_ENV=test`, and the refusal says so.
