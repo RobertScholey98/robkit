@@ -29,7 +29,7 @@ export {
   securityHeaders,
   withHeaders,
   type Framers,
-} from "./answer-headers.ts";
+} from "@robkit/input/headers";
 export {
   appRefreshPath,
   appSessionPath,
