@@ -383,8 +383,8 @@ describe("robkit-dev's checks before it starts", () => {
     });
 
     expect(await exitCode(dev.child)).toBe(1);
-    expect(dev.output()).toBe(
-      "Docker isn't answering, and pnpm dev runs Postgres in it. Start Docker, then run pnpm dev again.\n",
+    expect(dev.output()).toMatch(
+      /^Docker isn't answering, and pnpm dev runs Postgres in it\. Start Docker, then run pnpm dev again\. Docker said: [^\n]*nonexistent\/docker\.sock[^\n]*\n$/,
     );
     expect(await startedApps(dev.root)).toEqual([]);
     expect(await createdContainers(dev.root)).toBe("");

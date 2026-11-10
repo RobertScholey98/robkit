@@ -1,8 +1,9 @@
 import { once } from "node:events";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { CommandProblem } from "@robkit/input/command";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkBeforeStart, isTaken, portForNewApp } from "./checks.ts";
 
@@ -75,4 +76,46 @@ describe("checkBeforeStart", () => {
       "Docker isn't installed, or isn't on your PATH, and pnpm dev runs Postgres in it. Install Docker, then run pnpm dev again.",
     );
   });
+
+  /** What the check says with a script in docker's place that fails. */
+  async function withDocker(script: string): Promise<unknown> {
+    const bin = await mkdtemp(join(tmpdir(), "failing-docker-"));
+    await writeFile(join(bin, "docker"), `#!/bin/sh\n${script}\nexit 1\n`, {
+      mode: 0o755,
+    });
+    return checkBeforeStart({
+      root: bin,
+      env: { PATH: `${bin}:/usr/bin:/bin` },
+      devPort: 1,
+      postgresPort: 1,
+      apps: [],
+    }).catch((error: unknown) => error);
+  }
+
+  // A script stands in for docker, which Windows wouldn't run by that name.
+  it.skipIf(process.platform === "win32")(
+    "says what Docker said when it doesn't answer, since Docker may be running and refusing this account",
+    async () => {
+      const said =
+        await withDocker(`echo "permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock." >&2
+echo "A second line." >&2`);
+
+      expect(said).toEqual(
+        new CommandProblem(
+          "Docker isn't answering, and pnpm dev runs Postgres in it. Start Docker, then run pnpm dev again. Docker said: permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock.",
+        ),
+      );
+    },
+  );
+
+  it.skipIf(process.platform === "win32")(
+    "says only to start Docker when Docker said nothing",
+    async () => {
+      expect(await withDocker("")).toEqual(
+        new CommandProblem(
+          "Docker isn't answering, and pnpm dev runs Postgres in it. Start Docker, then run pnpm dev again.",
+        ),
+      );
+    },
+  );
 });

@@ -102,7 +102,9 @@ describe("checkBeforeStart", () => {
     );
 
     expect(said).toEqual([
-      "Docker isn't answering, and pnpm dev runs Postgres in it. Start Docker, then run pnpm dev again.",
+      expect.stringMatching(
+        /^Docker isn't answering, and pnpm dev runs Postgres in it\. Start Docker, then run pnpm dev again\. Docker said: [^\n]*nonexistent\/docker\.sock[^\n]*$/,
+      ),
     ]);
   });
 

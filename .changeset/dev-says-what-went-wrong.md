@@ -10,7 +10,7 @@ The dev proxy listens on `127.0.0.1`, and on `::1` where the machine has it, and
 
 `robkit-dev` reads the `ROBKIT_` names in the install's root `.env`, as Compose does, so `ROBKIT_POSTGRES_PORT` there moves Postgres and the runner together. A value the shell exports wins over the file's.
 
-Before it starts anything, `robkit-dev` checks that Docker answers and that the proxy's, each app's and Postgres's ports are free. Each failure prints one line that says what to do, and a second `pnpm dev` in the same install exits 1 and leaves the first running.
+Before it starts anything, `robkit-dev` checks that Docker answers and that the proxy's, each app's and Postgres's ports are free. Each failure prints one line that says what to do, and a second `pnpm dev` in the same install exits 1 and leaves the first running. When Docker doesn't answer, the line ends with what Docker said, since a Docker that is running can refuse an account that isn't in its group.
 
 A failed `compose up` is reported alone, not with the `compose stop` that follows it.
 

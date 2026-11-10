@@ -121,8 +121,14 @@ async function dockerProblem(
         { cause: error },
       );
     }
+    // Docker's own first line, since a Docker that is running refuses an
+    // account that may not use it, and starting it again changes nothing.
+    const [said] =
+      error instanceof Error && "stderr" in error
+        ? String(error.stderr).trim().split("\n")
+        : [];
     return new CommandProblem(
-      "Docker isn't answering, and pnpm dev runs Postgres in it. Start Docker, then run pnpm dev again.",
+      `Docker isn't answering, and pnpm dev runs Postgres in it. Start Docker, then run pnpm dev again.${said ? ` Docker said: ${said.trim()}` : ""}`,
       { cause: error },
     );
   }
