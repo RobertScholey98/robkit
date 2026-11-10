@@ -82,11 +82,15 @@ export async function devInstall(
   projects.push({ root, project });
   const tag = testTag();
   removeWhenGone({ tagged: tag }, { docker: project });
+  // The runner's socket goes here, apart from every other run's.
+  const runtime = await mkdtemp(join(tmpdir(), "robkit-run-"));
+  removeWhenGone({ path: runtime });
   return {
     root,
     port,
     env: {
       ...process.env,
+      XDG_RUNTIME_DIR: runtime,
       // Each app gets it from robkit-dev, not from the shell.
       NEXT_TELEMETRY_DISABLED: undefined,
       // As a test that starts pnpm dev hands it. No app may see it.

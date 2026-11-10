@@ -34,8 +34,28 @@ if (process.env.FIXTURE_CRASH === slug) {
   }, 50);
 }
 
+// With a database, one connection made as it starts, so a test can see
+// what the app sees without a restart.
+const sql =
+  databaseUrl && process.env.FIXTURE_POSTGRES
+    ? (await import(process.env.FIXTURE_POSTGRES)).default(databaseUrl, {
+        max: 1,
+      })
+    : undefined;
+if (sql) await sql`select 1`;
+
 // It listens on HOST, as core and the Go stack do.
-const server = createServer((_req, res) => {
+const server = createServer(async (req, res) => {
+  if (req.url === "/pid") {
+    res.end(String(process.pid));
+    return;
+  }
+  if (req.url === "/tables" && sql) {
+    const rows =
+      await sql`select table_name from information_schema.tables where table_schema = current_schema() order by table_name`;
+    res.end(JSON.stringify(rows.map((row) => row.table_name)));
+    return;
+  }
   res.end(
     JSON.stringify({
       slug,

@@ -2,19 +2,62 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { install } from "@robkit/input/addresses";
-import { isProblem } from "@robkit/input";
+import { isProblem, type Slug } from "@robkit/input";
 import { CommandProblem } from "@robkit/input/command";
 import { appEnv, type InstallFacts, ownSettings } from "./app-env.ts";
 import { untilAnswering } from "./answering.ts";
-import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
-import { checkBeforeStart, proxyPortProblem } from "./checks.ts";
+import {
+  appManifestFileIn,
+  catalogOf,
+  discoverApps,
+  routesFor,
+  type App,
+} from "./apps.ts";
+import { checkBeforeStart, portForNewApp, proxyPortProblem } from "./checks.ts";
 import { readDevConfig, withInstallEnv } from "./env.ts";
 import { exec, prefixLines, startProblem } from "./exec.ts";
 import { failuresOf, throwFailures } from "./failures.ts";
 import { startProxy, type Proxy } from "./proxy.ts";
 import { stopGroup } from "./process-group.ts";
 import { provisionApps } from "./provision.ts";
+import { serveRequests } from "./request-server.ts";
+import { type Answered, type DevRequest, devSocket } from "./requests.ts";
 import { requireGo } from "./toolchain.ts";
+
+/** An app the runner started, and what its exit means. */
+interface Running {
+  app: App;
+  child: ChildProcess;
+  /**
+   * Whether its exit stops the runner: true once it has answered, or from
+   * the start for the apps found as the runner starts. An app being added,
+   * and core while the runner restarts it, aren't watched.
+   */
+  watched: boolean;
+  /** Settles with why it stopped, if it stops while it isn't watched. */
+  exited: Promise<string>;
+}
+
+/**
+ * How long an added app gets to answer on its port. A Go app compiles
+ * first, and its first build fetches its modules.
+ */
+const addLimitMs = 5 * 60_000;
+
+/**
+ * What `error` says, a line for each failure in it, when the owner can fix
+ * every one of them; otherwise undefined, for a fault.
+ */
+function problemsIn(error: unknown): string | undefined {
+  if (error instanceof CommandProblem) return error.message;
+  if (
+    error instanceof AggregateError &&
+    error.errors.every((each) => each instanceof CommandProblem)
+  ) {
+    return error.errors.map((each: CommandProblem) => each.message).join("\n");
+  }
+  return undefined;
+}
 
 /**
  * `robkit-dev`: runs the install in `root` for local development, refusing a
@@ -22,6 +65,9 @@ import { requireGo } from "./toolchain.ts";
  * it starts anything. Starts Postgres, runs the provision step, starts every
  * app and puts the proxy in front. Stops it all on SIGINT, SIGTERM or
  * SIGHUP, when its output closes, or as soon as any app exits.
+ *
+ * While it runs, it listens on a socket file for requests to add an app,
+ * or to migrate one, from the `robkit` command.
  *
  * @returns the exit code: 0 after a signal, 1 if an app exited
  * @throws what failed while starting or stopping, once everything stopped:
@@ -58,9 +104,10 @@ export async function runDev(
   // Before anything starts, and outside the stop below, so a second pnpm
   // dev stops nothing the first one runs.
   await checkBeforeStart({ root, env, devPort, postgresPort, apps });
-  // An app and its migrate script get the same environment.
-  const envFor = (app: App, databaseUrl?: string) =>
-    appEnv(facts, env, app, { own: own.get(app.slug), databaseUrl });
+  // An app and its migrate script get the same environment. An app being
+  // added gets the install's facts with itself in the catalog.
+  const envFor = (app: App, databaseUrl?: string, about = facts) =>
+    appEnv(about, env, app, { own: own.get(app.slug), databaseUrl });
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;
@@ -69,12 +116,209 @@ export async function runDev(
   const { promise: stopRequested, resolve: wake } =
     Promise.withResolvers<undefined>();
   const stopController = new AbortController();
+  const { signal } = stopController;
   const stop = (why: "interrupted" | "failed") => {
     outcome ??= why;
     stopController.abort();
     wake(undefined);
   };
   const stopping = () => outcome !== undefined;
+
+  const running: Running[] = [];
+  const databaseUrls = new Map<Slug, string>();
+  let proxy: Proxy | undefined;
+  // A request waits until the apps found at start are up, or have failed.
+  const { promise: startedUp, resolve: markStarted } =
+    Promise.withResolvers<undefined>();
+
+  const start = (
+    app: App,
+    { watched, about = facts }: { watched: boolean; about?: InstallFacts },
+  ): Running => {
+    const child = spawn("pnpm", ["run", "dev"], {
+      cwd: app.dir,
+      env: envFor(app, databaseUrls.get(app.slug), about),
+      // Its own process group, so stopping it reaches every process it spawns.
+      detached: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    prefixLines(app.slug, child.stdout, process.stdout);
+    prefixLines(app.slug, child.stderr, process.stderr);
+    const { promise: exited, resolve: unwatchedExit } =
+      Promise.withResolvers<string>();
+    const entry: Running = { app, child, watched, exited };
+    child.on("exit", (code, exitSignal) => {
+      if (stopping()) return;
+      const how = String(exitSignal ?? code);
+      if (!entry.watched) {
+        unwatchedExit(`${app.slug} exited with ${how} before it answered.`);
+        return;
+      }
+      console.error(`${app.slug} exited (${how}), stopping`);
+      stop("failed");
+    });
+    // Emitted instead of exit when the app can't start, such as pnpm
+    // missing or its folder gone.
+    child.on("error", (error) => {
+      const problem = startProblem("pnpm", ["run", "dev"], app.dir, error);
+      if (!entry.watched) {
+        unwatchedExit(problem.message);
+        return;
+      }
+      if (!stopping()) console.error(`${app.slug} couldn't start, stopping`);
+      failures.push(problem);
+      stop("failed");
+    });
+    running.push(entry);
+    return entry;
+  };
+
+  const refused = (message: string): Answered => ({
+    outcome: "refused",
+    message,
+  });
+  const stoppingAnswer = refused(
+    "pnpm dev stopped before it finished. Start it again, which starts every app in apps/.",
+  );
+  const runningApp = (slug: Slug) =>
+    running.find((entry) => entry.app.slug === slug);
+
+  /**
+   * Restarts core with today's catalog, since core reads `ROBKIT_APPS` as
+   * it starts. Sessions are in the database, so nobody is signed out. In a
+   * linked checkout core runs under Node's watch mode, so its whole process
+   * group stops.
+   */
+  const restartCore = async () => {
+    const core = runningApp("core");
+    if (!core) return;
+    core.watched = false;
+    await stopGroup("core", core.child.pid);
+    running.splice(running.indexOf(core), 1);
+    if (stopping()) return;
+    start(core.app, { watched: true });
+    await untilAnswering(core.app.port, signal);
+  };
+
+  const add = async (slug: Slug): Promise<Answered> => {
+    const origin = addresses.origin(slug);
+    if (runningApp(slug)) {
+      return {
+        outcome: "done",
+        message: `${slug} is already running at ${origin}. pnpm dev changed nothing.`,
+      };
+    }
+    const file = await appManifestFileIn(root, slug);
+    if (!file) {
+      return refused(
+        `apps/${slug} has no package.json, so pnpm dev can't start it.`,
+      );
+    }
+    const app: App = {
+      slug,
+      dir: join(root, "apps", slug),
+      port: await portForNewApp(
+        devPort,
+        running.map((entry) => entry.app.port),
+      ),
+      migrates: file.scripts.migrate !== undefined,
+      manifest: file.manifest,
+    };
+    const about = { ...facts, catalog: catalogOf([...apps, app]) };
+    own.set(slug, (await ownSettings(about, [app])).get(slug) ?? {});
+    const provisioned = await provisionApps([app], {
+      adminUrl,
+      envFor: (each, databaseUrl) => envFor(each, databaseUrl, about),
+      signal,
+    });
+    for (const [each, url] of provisioned) databaseUrls.set(each, url);
+    if (stopping()) return stoppingAnswer;
+
+    const entry = start(app, { watched: false, about });
+    const settled = new AbortController();
+    const limit = AbortSignal.timeout(addLimitMs);
+    const answered = await Promise.race([
+      untilAnswering(
+        app.port,
+        AbortSignal.any([signal, settled.signal, limit]),
+      ),
+      entry.exited,
+    ]);
+    settled.abort();
+    if (stopping()) return stoppingAnswer;
+    if (answered !== true) {
+      running.splice(running.indexOf(entry), 1);
+      if (typeof answered === "string") {
+        return refused(`${answered} Its output is in pnpm dev's.`);
+      }
+      await stopGroup(slug, entry.child.pid);
+      return refused(
+        `${slug} didn't answer on port ${String(app.port)} within ${String(addLimitMs / 60_000)} minutes, so pnpm dev stopped it. Check that it listens on PORT.`,
+      );
+    }
+    entry.watched = true;
+    apps.push(app);
+    facts.catalog = about.catalog;
+    await restartCore();
+    if (stopping()) return stoppingAnswer;
+    for (const route of routesFor([app], domain)) proxy?.route(route);
+    console.log(`${slug} is ready at ${origin}`);
+    return {
+      outcome: "done",
+      message: `pnpm dev started ${slug} at ${origin}.`,
+    };
+  };
+
+  const migrate = async (slug: Slug): Promise<Answered> => {
+    const entry = runningApp(slug);
+    if (!entry) {
+      return refused(
+        `pnpm dev isn't running ${slug}. Start pnpm dev again, which starts and migrates every app in apps/.`,
+      );
+    }
+    const databaseUrl = databaseUrls.get(slug);
+    if (databaseUrl === undefined) {
+      return refused(
+        `${slug} has no database: its package.json had no migrate script when pnpm dev started it. Add one, then start pnpm dev again.`,
+      );
+    }
+    // The URL it gave the app at start, so the app's password stays.
+    await exec("pnpm", ["run", "migrate"], {
+      cwd: entry.app.dir,
+      env: envFor(entry.app, databaseUrl),
+      slug,
+    });
+    return { outcome: "done", message: `pnpm dev migrated ${slug}.` };
+  };
+
+  /** Adds or migrates, answering a problem the owner can fix with it. */
+  const answer = async ({ operation, slug }: DevRequest) => {
+    try {
+      return await (operation === "add" ? add(slug) : migrate(slug));
+    } catch (error) {
+      const problem = problemsIn(error);
+      if (problem === undefined) throw error;
+      return refused(problem);
+    }
+  };
+
+  // Before the signals are caught, so a refused socket leaves nothing to
+  // undo.
+  const requests = await serveRequests(
+    await devSocket(root, env),
+    async (request) => {
+      await startedUp;
+      if (stopping()) return stoppingAnswer;
+      const answered = await answer(request);
+      if (answered.outcome === "refused" && answered !== stoppingAnswer) {
+        console.error(
+          `pnpm dev couldn't ${request.operation} ${request.slug}. ${answered.message}`,
+        );
+      }
+      return answered;
+    },
+  );
+
   const onSignal = () => {
     stop("interrupted");
   };
@@ -93,34 +337,6 @@ export async function runDev(
   process.stdout.on("error", onOutputGone);
   process.stderr.on("error", onOutputGone);
 
-  const running: { slug: string; child: ChildProcess }[] = [];
-  let proxy: Proxy | undefined;
-
-  const start = (app: App, databaseUrl: string | undefined) => {
-    const child = spawn("pnpm", ["run", "dev"], {
-      cwd: app.dir,
-      env: envFor(app, databaseUrl),
-      // Its own process group, so stopping it reaches every process it spawns.
-      detached: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    prefixLines(app.slug, child.stdout, process.stdout);
-    prefixLines(app.slug, child.stderr, process.stderr);
-    child.on("exit", (code, signal) => {
-      if (stopping()) return;
-      console.error(`${app.slug} exited (${String(signal ?? code)}), stopping`);
-      stop("failed");
-    });
-    // Emitted instead of exit when the app can't start, such as pnpm
-    // missing or its folder gone.
-    child.on("error", (error) => {
-      if (!stopping()) console.error(`${app.slug} couldn't start, stopping`);
-      failures.push(startProblem("pnpm", ["run", "dev"], app.dir, error));
-      stop("failed");
-    });
-    running.push({ slug: app.slug, child });
-  };
-
   // Whether compose up failed, which then says what is wrong with Docker.
   let composeUpFailed = false;
   try {
@@ -132,11 +348,13 @@ export async function runDev(
       throw error;
     });
 
-    const databaseUrls = await provisionApps(apps, {
+    for (const [slug, url] of await provisionApps(apps, {
       adminUrl,
       envFor,
-      signal: stopController.signal,
-    });
+      signal,
+    })) {
+      databaseUrls.set(slug, url);
+    }
 
     if (!stopping()) {
       // The proxy first, so a port taken since the check starts no app.
@@ -148,11 +366,11 @@ export async function runDev(
           throw error;
         },
       );
-      for (const app of apps) start(app, databaseUrls.get(app.slug));
+      for (const app of apps) start(app, { watched: true });
       // Each address once its app answers, so the first click doesn't get
       // the proxy's "is not answering".
       for (const app of apps) {
-        void untilAnswering(app.port, stopController.signal).then((up) => {
+        void untilAnswering(app.port, signal).then((up) => {
           if (up && !stopping()) {
             console.log(
               `${app.slug} is ready at ${addresses.origin(app.slug)}`,
@@ -164,13 +382,18 @@ export async function runDev(
   } catch (error) {
     failures.push(error);
     stop("failed");
+  } finally {
+    markStarted(undefined);
   }
 
   await stopRequested;
+  // The socket first, after the request in hand, so no app starts once
+  // the apps below are stopped.
+  failures.push(...(await failuresOf([() => requests.close()])));
   const stopApps = running.map(
-    ({ slug, child }) =>
+    ({ app, child }) =>
       () =>
-        stopGroup(slug, child.pid),
+        stopGroup(app.slug, child.pid),
   );
   const closeProxy = () => proxy?.close();
   const stopPostgres = () =>
