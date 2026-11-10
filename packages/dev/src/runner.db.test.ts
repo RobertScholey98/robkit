@@ -500,13 +500,18 @@ async function holding(port: number): Promise<void> {
 }
 
 describe("an app's own .env", () => {
-  it("reaches the app and its migrate script, under the shell's values, and no other app", async () => {
+  it("reaches the app and its migrate script, under the shell's values, and no other app, telemetry included", async () => {
     const dev = await startDev(
       { FIXTURE_SHADOWED: "from the shell" },
       async (root) => {
         await writeFile(
           join(root, "apps", "alpha", ".env"),
-          "FIXTURE_OWN=alpha's own\nFIXTURE_SHADOWED=from the file\n",
+          [
+            "FIXTURE_OWN=alpha's own",
+            "FIXTURE_SHADOWED=from the file",
+            "NEXT_TELEMETRY_DISABLED=0",
+            "",
+          ].join("\n"),
         );
       },
     );
@@ -527,8 +532,10 @@ describe("an app's own .env", () => {
     expect(alpha).toMatchObject({
       own: "alpha's own",
       shadowed: "from the shell",
+      nextTelemetry: "0",
     });
     expect(beta).not.toHaveProperty("own");
+    expect(beta).toMatchObject({ nextTelemetry: "1" });
     expect(migratedWith).toMatchObject({ own: "alpha's own" });
   });
 

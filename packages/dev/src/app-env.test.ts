@@ -158,3 +158,28 @@ describe("what an app's .env can't set", () => {
     }
   });
 });
+
+describe("Next's telemetry", () => {
+  it("is off unless the shell or the app's .env says otherwise", () => {
+    const off = appEnv(install, {}, notes);
+    const fromShell = appEnv(install, { NEXT_TELEMETRY_DISABLED: "0" }, notes);
+    const fromFile = appEnv(install, {}, notes, {
+      own: { NEXT_TELEMETRY_DISABLED: "0" },
+    });
+
+    expect([
+      off.NEXT_TELEMETRY_DISABLED,
+      fromShell.NEXT_TELEMETRY_DISABLED,
+      fromFile.NEXT_TELEMETRY_DISABLED,
+    ]).toEqual(["1", "0", "0"]);
+  });
+
+  it("may be set in an app's .env", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-app-env-"));
+    await writeFile(join(dir, ".env"), "NEXT_TELEMETRY_DISABLED=0\n");
+
+    const own = await ownSettings(install, [{ ...notes, dir }]);
+
+    expect(own.get(notes.slug)).toEqual({ NEXT_TELEMETRY_DISABLED: "0" });
+  });
+});
