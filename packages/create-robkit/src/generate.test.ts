@@ -21,6 +21,7 @@ import {
   stackTemplate,
   type Files,
 } from "./generate.ts";
+import { robkitVersion } from "./test/robkit-version.ts";
 
 const run = promisify(execFile);
 
@@ -586,11 +587,11 @@ describe("generateInstall", () => {
     );
 
     expect(catalog).toMatchObject({
-      "@robkit/core": "0.0.0",
-      "@robkit/dev": "0.0.0",
-      "@robkit/start": "0.0.0",
+      "@robkit/core": robkitVersion,
+      "@robkit/dev": robkitVersion,
+      "@robkit/start": robkitVersion,
       "@tanstack/react-start": "1.169.4",
-      "create-robkit": "0.0.0",
+      "create-robkit": robkitVersion,
       "drizzle-orm": "0.45.4",
       hono: "4.13.14",
       prettier: "3.9.10",
@@ -625,9 +626,9 @@ describe("generateInstall", () => {
     const { catalog } = workspace(await generateInstall(honoExample));
 
     expect(catalog).toMatchObject({
-      "@robkit/express": "0.0.0",
-      "@robkit/next": "0.0.0",
-      "@robkit/start": "0.0.0",
+      "@robkit/express": robkitVersion,
+      "@robkit/next": robkitVersion,
+      "@robkit/start": robkitVersion,
       "@tailwindcss/postcss": "4.3.3",
       "@tanstack/react-start": "1.169.4",
       "@types/express": "5.0.6",

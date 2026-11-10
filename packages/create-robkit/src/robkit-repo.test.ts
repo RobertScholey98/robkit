@@ -4,6 +4,7 @@ import { join, matchesGlob } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { carry, readCarried, readRobkitRepo } from "./robkit-repo.ts";
+import { robkitVersion } from "./test/robkit-version.ts";
 
 const checkout = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -31,7 +32,7 @@ describe("what create-robkit carries", () => {
     const folders = await readdir(join(checkout, "packages"));
 
     expect(packages.get("@robkit/core")).toEqual({
-      version: "0.0.0",
+      version: robkitVersion,
       // An install's manifests don't name it: it arrives behind core.
       dependencies: expect.arrayContaining(["@robkit/provision"]) as unknown,
     });

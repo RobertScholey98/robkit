@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { parse, parseDocument } from "yaml";
 import { defaultChoices } from "./choices.ts";
 import { init } from "./init.ts";
+import { robkitVersion } from "./test/robkit-version.ts";
 import { vendorPackages } from "./vendor.ts";
 
 // Builds and packs every robkit package this checkout links, so it runs in
@@ -35,7 +36,7 @@ describe("vendorPackages", () => {
     expect(overrides["styled-jsx>@babel/core"]).toBe("-");
     for (const name of linked) {
       const spec = overrides[name];
-      const tarball = `vendor/robkit/${name.replace("@", "").replace("/", "-")}-0.0.0.tgz`;
+      const tarball = `vendor/robkit/${name.replace("@", "").replace("/", "-")}-${robkitVersion}.tgz`;
       expect(spec).toBe(`file:${tarball}`);
       await access(join(dir, tarball));
     }
@@ -53,7 +54,7 @@ describe("vendorPackages", () => {
 
     await vendorPackages(dir);
 
-    const tarball = "vendor/robkit/robkit-provision-0.0.0.tgz";
+    const tarball = `vendor/robkit/robkit-provision-${robkitVersion}.tgz`;
     expect((await overridesOf(dir))["@robkit/provision"]).toBe(
       `file:${tarball}`,
     );
