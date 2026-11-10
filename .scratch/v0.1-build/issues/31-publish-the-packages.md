@@ -32,3 +32,9 @@ Notes from ticket 19:
 - An install exempts `@robkit/*` and `create-robkit` from pnpm's one-day rule, so an install made on release day installs.
 
 The work is [just-use-it ticket 13](../../just-use-it/issues/13-create-robkit-outside-the-checkout.md) (create-robkit outside the checkout, an install from a registry) and [ticket 14](../../just-use-it/issues/14-release-workflow.md) (the release workflow). Ticket 14 closes this one.
+
+### From just-use-it ticket 13, 2026-11-10
+
+- The first two criteria are built: create-robkit carries the catalog in its build, and `npm create robkit` with no checkout writes an install that installs, runs `pnpm dev` and builds. `tooling/e2e/src/registry.test.ts` proves it against a local registry.
+- The exemption is built: an install's `pnpm-workspace.yaml` lists `@robkit/*` and `create-robkit` under `minimumReleaseAgeExclude`. pnpm 11.28.9 lets a young package through by default and adds it to that list itself. Only with `minimumReleaseAgeStrict` does it refuse, so the test runs strict.
+- The production e2e stays on vendored tarballs until the first release.
