@@ -8,7 +8,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parse, parseDocument } from "yaml";
 import { defaultChoices } from "./choices.ts";
 import { init } from "./init.ts";
@@ -19,6 +19,11 @@ import { newerVersion, robkitVersion } from "./test/robkit-version.ts";
 import { handOver } from "./upgrade-handover.ts";
 
 const run = promisify(execFile);
+
+// Each test writes and commits an install, and most run robkit and a fake
+// pnpm as child processes: 2 to 6 seconds alone, and several times that
+// under a loaded gate on Windows.
+vi.setConfig({ testTimeout: 120_000 });
 
 /**
  * The sha256 of upgrade-handover.ts, with LF endings. Until 0.1.0 is on

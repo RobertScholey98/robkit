@@ -16,7 +16,7 @@ import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { devSocket } from "@robkit/dev/cli";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { parse, parseDocument } from "yaml";
 import { defaultChoices } from "./choices.ts";
 import { installCatalog } from "./generate.ts";
@@ -35,6 +35,11 @@ import {
 } from "./upgrade.ts";
 
 const run = promisify(execFile);
+
+// Each test writes and commits an install, and most run robkit and a fake
+// pnpm as child processes: 2 to 6 seconds alone, and several times that
+// under a loaded gate on Windows.
+vi.setConfig({ testTimeout: 120_000 });
 
 const bin = fileURLToPath(new URL("robkit-command.ts", import.meta.url));
 
