@@ -19,6 +19,9 @@ export function sharedSettings(install: InstallFacts): Record<string, string> {
     ROBKIT_DOMAIN: install.domain,
     ROBKIT_CORE_URL: install.coreUrl,
     ROBKIT_APPS: install.catalog,
+    // Core and the Go stack listen on HOST, and a HOST the shell exports
+    // would reach them. The proxy reaches every app on loopback.
+    HOST: "127.0.0.1",
     // next dev reads it before it loads any config, so a Next app's own
     // next.config.ts can't turn its telemetry off. Here it works on Windows
     // too, where a script's VAR=value prefix doesn't.

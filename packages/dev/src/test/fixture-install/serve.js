@@ -27,7 +27,8 @@ if (process.env.FIXTURE_CRASH === slug) {
   }, 50);
 }
 
-createServer((_req, res) => {
+// It listens on HOST, as core and the Go stack do.
+const server = createServer((_req, res) => {
   res.end(
     JSON.stringify({
       slug,
@@ -38,9 +39,10 @@ createServer((_req, res) => {
       database: databaseUrl !== undefined,
       nextTelemetry: process.env.NEXT_TELEMETRY_DISABLED,
       vitest: process.env.VITEST,
+      listeningOn: server.address().address,
     }),
   );
-}).listen(Number(process.env.PORT), "127.0.0.1", () => {
+}).listen(Number(process.env.PORT), process.env.HOST, () => {
   writeFileSync("listening", "");
   console.log(`listening on ${process.env.PORT}`);
 });

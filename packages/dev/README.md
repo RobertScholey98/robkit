@@ -17,7 +17,7 @@ An install's root `package.json`:
 }
 ```
 
-`robkit-dev` reads `ROBKIT_DOMAIN` (default `robkit.localhost`), `ROBKIT_DEV_PORT` (default `3000`) and `ROBKIT_POSTGRES_PORT` (default `54320`), from the shell or from the install's root `.env`. Compose reads that file too, and the shell wins over it for both. It serves plain http, so it refuses a domain that isn't `localhost` or a name under it. It tells each app its slug as `ROBKIT_APP` and core's address as `ROBKIT_CORE_URL`, and hands core every app's manifest as `ROBKIT_APPS`.
+`robkit-dev` reads `ROBKIT_DOMAIN` (default `robkit.localhost`), `ROBKIT_DEV_PORT` (default `3000`) and `ROBKIT_POSTGRES_PORT` (default `54320`), from the shell or from the install's root `.env`. Compose reads that file too, and the shell wins over it for both. It serves plain http, so it refuses a domain that isn't `localhost` or a name under it. It tells each app its slug as `ROBKIT_APP` and core's address as `ROBKIT_CORE_URL`, sets `HOST` to `127.0.0.1` so every app listens on loopback, and hands core every app's manifest as `ROBKIT_APPS`.
 
 ## Exports
 
@@ -47,5 +47,6 @@ An install's root `package.json`:
 ## For contributors
 
 - An app with a `migrate` script gets its own schema and role from `provisionApps`, which gives it one with `@robkit/provision` and then runs that script. `pnpm dev` runs the step before it starts the apps. The runner and the step run each app's scripts with pnpm.
+- `src/app-env.ts` holds every variable the runner sets for an app, over the shell's environment.
 - The runner tells each app its slug as `ROBKIT_APP`, and hands core the owner's apps as `ROBKIT_APPS`, a JSON list of each app's slug and what its manifest declares: the `robkit` field of its `package.json`, with who may open it (roles by name) and an emoji for the launcher.
 - `checkBeforeStart` in `src/checks.ts` runs before Compose starts, and outside the runner's stop, so a second `pnpm dev` stops nothing the first runs. It asks Docker for its version, then tries to listen on each port and closes at once. A Postgres port published by this install's own Compose service passes, since `compose up` takes that container over; one published by any other container fails, even where Docker publishes from a VM of its own and the port looks free.

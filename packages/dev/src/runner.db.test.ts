@@ -219,6 +219,7 @@ describe("robkit-dev", () => {
       apps: JSON.stringify([{ slug: "alpha" }, { slug: "beta" }]),
       database: true,
       nextTelemetry: "1",
+      listeningOn: "127.0.0.1",
     });
     expect(beta).toEqual({
       slug: "beta",
@@ -228,6 +229,7 @@ describe("robkit-dev", () => {
       apps: JSON.stringify([{ slug: "alpha" }, { slug: "beta" }]),
       database: false,
       nextTelemetry: "1",
+      listeningOn: "127.0.0.1",
     });
     expect(dev.output()).toMatch(/^\[alpha\] .*listening on \d+$/m);
 
@@ -238,6 +240,18 @@ describe("robkit-dev", () => {
     expect(await isListening(dev.port + 1)).toBe(false);
     expect(await isListening(dev.port + 2)).toBe(false);
     expect(await runningContainers(dev.root)).toBe("");
+  });
+
+  it("has core and every app listen on 127.0.0.1 with HOST exported in the shell", async () => {
+    const dev = await startDev({ HOST: "0.0.0.0" });
+
+    const alpha = await eventually(() =>
+      get(dev.port, "alpha.robkit.localhost"),
+    );
+    const beta = await eventually(() => get(dev.port, "beta.robkit.localhost"));
+
+    expect(JSON.parse(alpha)).toMatchObject({ listeningOn: "127.0.0.1" });
+    expect(JSON.parse(beta)).toMatchObject({ listeningOn: "127.0.0.1" });
   });
 
   // In this process, so the coverage report sees the runner. The test above
