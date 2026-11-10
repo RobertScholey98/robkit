@@ -2,6 +2,7 @@ import type { CoreOrigin, Slug } from "@robkit/input";
 import { Hono, type MiddlewareHandler } from "hono";
 import { describe, expectTypeOf, it } from "vitest";
 import { guarded, type GuardedEnv, type Viewer } from "./index.ts";
+import { guardedAs, guest, owner } from "./testing.ts";
 
 declare const notes: Slug;
 declare const core: CoreOrigin;
@@ -29,5 +30,12 @@ describe("@robkit/hono's types", () => {
     const named = { kind: "roles", roleNames: ["Family"] } as const;
     // @ts-expect-error A manifest's rule names roles; the guard's holds ids.
     guarded({ app: notes, core, access: named });
+  });
+
+  it("has a stand-in for tests that takes a viewer and stands where guarded() does", () => {
+    expectTypeOf(guardedAs(owner())).toEqualTypeOf(guarded());
+    guardedAs(guest({ roles: ["family"] }));
+    // @ts-expect-error A viewer, not its kind.
+    guardedAs("owner");
   });
 });
