@@ -30,7 +30,8 @@ export type Exports = Readonly<Record<string, ExportTarget>>;
 
 type Strings = Readonly<Record<string, string>>;
 
-const dependencyFields = [
+/** Each field of a package.json that lists dependencies. */
+export const dependencyFields = [
   "dependencies",
   "devDependencies",
   "peerDependencies",
@@ -41,6 +42,7 @@ const dependencyFields = [
 export interface Manifest {
   name?: string;
   private?: boolean;
+  version?: string;
   scripts?: Strings;
   dependencies?: Strings;
   devDependencies?: Strings;
@@ -88,6 +90,13 @@ export function readManifest(
     if (typeof name !== "string")
       return fieldProblem("name", "must be a string");
     manifest.name = name;
+  }
+  const { version } = json;
+  if (version !== undefined) {
+    if (typeof version !== "string") {
+      return fieldProblem("version", "must be a string");
+    }
+    manifest.version = version;
   }
   if (isPrivate !== undefined) {
     if (typeof isPrivate !== "boolean") {

@@ -4,12 +4,12 @@
 
 **Blocked by:** 11
 
-**Status:** needs-info
+**Status:** done
 
-- [ ] `npm create robkit` with no checkout writes an install that installs, runs `pnpm dev` and builds
-- [ ] The catalog an install gets ships inside `create-robkit`
-- [ ] A release publishes every package at one version, and an install's Docker build takes them from npm
-- [ ] The production e2e passes on an install from the registry rather than vendored tarballs
+- [x] `npm create robkit` with no checkout writes an install that installs, runs `pnpm dev` and builds
+- [x] The catalog an install gets ships inside `create-robkit`
+- [ ] A release publishes every package at one version, and an install's Docker build takes them from npm (moved to just-use-it ticket 14, which builds the release. The publish itself waits for R.)
+- [ ] The production e2e passes on an install from the registry rather than vendored tarballs (waits for the first release; see the closing note)
 
 **Open:**
 
@@ -38,3 +38,12 @@ The work is [just-use-it ticket 13](../../just-use-it/issues/13-create-robkit-ou
 - The first two criteria are built: create-robkit carries the catalog in its build, and `npm create robkit` with no checkout writes an install that installs, runs `pnpm dev` and builds. `tooling/e2e/src/registry.test.ts` proves it against a local registry.
 - The exemption is built: an install's `pnpm-workspace.yaml` lists `@robkit/*` and `create-robkit` under `minimumReleaseAgeExclude`. pnpm 11.28.9 lets a young package through by default and adds it to that list itself. Only with `minimumReleaseAgeStrict` does it refuse, so the test runs strict.
 - The production e2e stays on vendored tarballs until the first release.
+
+### Closed by just-use-it ticket 14, 2026-11-10
+
+[Ticket 14](../../just-use-it/issues/14-release-workflow.md) builds the release, so this ticket closes.
+
+- Every package releases at one version. `.changeset/config.json` holds them in one fixed group, and the first release is 0.1.0.
+- `pnpm release:version` opens the version pull request, and `.github/workflows/release.yml` publishes what npm lacks when R starts it from `main`. CONTRIBUTING.md's "Releasing" is the runbook.
+- Nothing is published yet. R adds the npm token and starts the first release, after ticket 19 merges.
+- The production e2e still runs on vendored tarballs. Moving it to the registry, and adding a yarn install to it as the note above says, waits for the first release. It needs a ticket of its own then.

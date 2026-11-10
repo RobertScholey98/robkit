@@ -18,19 +18,19 @@
 
 **Blocked by:** 13
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `changeset version` on the current changesets gives every package 0.1.0
+- [x] `changeset version` on the current changesets gives every package 0.1.0
 - [ ] The dry-run script passes in CI on this PR with no call to npm, and its log shows each package's version and tarball
-- [ ] The dry run fails when two packages' versions differ, when a packed manifest still says `workspace:` or `catalog:`, when an `exports` or `bin` target isn't in its tarball, and when a version create-robkit carries isn't the one packed, with a test for each
-- [ ] `pnpm release:version` makes the version commit on a new branch, and the pull request body it writes passes the ticket check
-- [ ] The workflow can start only by hand, stops on any ref but `main`, and its publish job needs the `release` environment; tests read the workflow file for each
-- [ ] No job but the publish job has write permissions, and no step but the publish step has `NPM_TOKEN`, with a test that reads the workflow file
-- [ ] With no `NPM_TOKEN`, the publish job stops before it publishes anything and says what is missing
-- [ ] A test shows the publish list for a release that stopped halfway: the packages already on npm are left out, and the tag waits for the last one
-- [ ] A repo check fails if a published package is missing from the fixed group, and on a `major` changeset while the version is under 1.0.0
-- [ ] `CONTRIBUTING.md` has the releasing runbook and the rule for a change an owner must act on, and `.changeset/README.md` no longer says there is no release
-- [ ] v0.1 ticket 31 is closed with a pointer here
+- [x] The dry run fails when two packages' versions differ, when a packed manifest still says `workspace:` or `catalog:`, when an `exports` or `bin` target isn't in its tarball, and when a version create-robkit carries isn't the one packed, with a test for each
+- [x] `pnpm release:version` makes the version commit on a new branch, and the pull request body it writes passes the ticket check
+- [x] The workflow can start only by hand, stops on any ref but `main`, and its publish job needs the `release` environment; tests read the workflow file for each
+- [x] No job but the publish job has write permissions, and no step but the publish step has `NPM_TOKEN`, with a test that reads the workflow file
+- [x] With no `NPM_TOKEN`, the publish job stops before it publishes anything and says what is missing
+- [x] A test shows the publish list for a release that stopped halfway: the packages already on npm are left out, and the tag waits for the last one
+- [x] A repo check fails if a published package is missing from the fixed group, and on a `major` changeset while the version is under 1.0.0
+- [x] `CONTRIBUTING.md` has the releasing runbook and the rule for a change an owner must act on, and `.changeset/README.md` no longer says there is no release
+- [x] v0.1 ticket 31 is closed with a pointer here
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -55,3 +55,67 @@ Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Each had one must-
 Not taken:
 
 - **Run `pnpm publish --provenance --dry-run` in CI** (Opus). Provenance needs the publish job's identity token, which the gate must not have. The first real publish is the proof, and R runs it.
+
+### From the build, 2026-11-10
+
+Nothing was published and the workflow was never started. Every check of a publish ran against a stand-in.
+
+Chosen in the build:
+
+- **The fixed group is `["create-robkit", "@robkit/*"]`**, so a new package joins it with no edit. The repo check reads `packages/` and matches each name against the group's names and `@scope/*` entries. Without the group, `changeset version` gave `@robkit/react` 0.0.1 and the rest 0.1.0. With it, all 15 get 0.1.0, checked in a throwaway copy in WSL. No extra changeset was needed.
+- **The major check reads `.changeset/*.md`**, each one's front matter, against create-robkit's version.
+- **The release scripts live in `tooling/repo-checks/src`** as `release-version.ts` (`pnpm release:version`), `release-dry-run.ts` (`pnpm release:dry-run`) and `release-publish.ts` (the workflow's publish step). The scripts rule and the coverage exclusion now take the `release-` prefix. Their logic is in `release.ts` and `version-pull-request.ts`, which the tests cover.
+- **The version pull request** is the branch `release-v<version>`, and its commit and title are "Version packages as <version>". `pnpm release:version` refuses, before it changes a file, a clone off main, behind origin's main or with uncommitted changes, no changeset waiting, a branch that already exists, and `gh` not signed in. Its test runs in a throwaway clone that pushes to a bare repo, with a stand-in `gh`.
+- **The publish step doesn't run `changeset publish`.** It runs `pnpm publish --provenance --access public --no-git-checks --ignore-scripts` in each package's folder, in the order `publishPlan` gives, dependencies first. That gives one tag rather than changesets' tag per package, and a list a test can check. It decides a version is there as changesets does: the version is in the registry's `versions`. It reads that from npm with a 30-second timeout. A 404 means never published, and any other answer stops the release.
+- **The token reaches pnpm as `pnpm_config__auth`**, bound to `https://registry.npmjs.org`. A test publishes a stand-in package to a stand-in registry with pnpm 11.28.9 and checks the request carries `Bearer <token>`.
+- **The tag comes from GitHub's API** (`gh api .../git/refs`) on the run's commit, in a step after the publish step that holds only `GH_TOKEN`. A tag that exists is left alone. No checkout keeps git credentials.
+- **The release workflow uses no pnpm or Go cache**, so nothing a pull request's run cached reaches it.
+- **Only `release.yml` pins actions by commit.** No repo check held workflows to pins before, and `ci.yml`, `nightly.yml` and `production.yml` still name tags. `release-workflow.test.ts` holds `release.yml` to it.
+- **The dry run takes folders as arguments**, so its test packs stand-in packages and runs on Windows too. `published.test.ts` runs the same checks on the real packages in the gate, and CI's pull-request job runs `pnpm release:dry-run`.
+- **Moving to trusted publishing is a pull request.** The script refuses to run without `NPM_TOKEN`, so the runbook names the lines to take out.
+
+What the build found about changesets and pnpm:
+
+- **How `changeset publish` publishes in a pnpm workspace.** changesets' docs (changesets.dev/guide/cli) say it checks whether each package's version is on npm and runs the detected package manager's publish command, and tags each package `name@version` unless `--no-git-tag`. The installed 3.0.3 (`dist/getPublishPlan.mjs`) shows the detail. It detects pnpm and runs `pnpm publish --access <access> --tag <tag> --no-git-checks` in each package's folder. It finds what is there with `pnpm info <name> --json` and checks the version is in `versions`. `E404`, `ERR_PNPM_FETCH_404` and `ERR_PNPM_PACKAGE_NOT_FOUND` mean never published. It publishes dependencies first, and treats "cannot publish over the previously published" as already there.
+- **What pnpm rewrites as it packs.** pnpm's docs say `publishConfig` overrides `exports`, `bin` and other fields before packing (pnpm.io/package_json), `workspace:` becomes the version (pnpm.io/workspaces), and `pnpm publish` and `pnpm pack` remove `catalog:` (pnpm.io/catalogs). The dry run of the real packages found no `workspace:` or `catalog:` left. pnpm's docs now describe pnpm 12.
+- **pnpm 11.28.9 publishes by itself**, through the libnpmpublish 11.2.0 it bundles, not by calling npm. It takes `--provenance`, though `pnpm publish --help` doesn't list it.
+- **The token's form.** pnpm 11.10 added `pnpm_config__auth`, because GitHub Actions drops environment variables whose names hold `/` or `:`, as `pnpm_config_//registry.npmjs.org/:_authToken` does (pnpm's changelog). pnpm ignores a token in a project's `.npmrc`.
+- **A pnpm 12 on PATH** fetches the pinned pnpm from whichever registry is set. The token test runs the pnpm that runs the tests, from `npm_execpath`.
+
+Not verified, since only a real release can show them:
+
+- Provenance from the `release` environment's identity token. With `id-token: write` set, pnpm may try npm's trusted-publishing exchange before it uses the token. Its changelog says it falls back to the configured token when the identity token is for another registry. What it does when npm refuses the exchange, the first release will show.
+- The workflow as a whole. Tests read the file, and its scripts ran against stand-ins.
+
+What the code contradicted:
+
+- **The version pull request fails the gate as the code stands.** Four create-robkit tests expect version 0.0.0: in `generate.test.ts`, "pins every catalog dependency at robkit's version" and "catalogs every stack robkit add offers, not only the example's", and in `vendor.pack.test.ts`, the two that name a `-0.0.0.tgz`. In a throwaway copy at 0.1.0 all four fail, and the rest of those two files pass. They should read the version from the package's `package.json`. This ticket's brief kept `packages/create-robkit/src` out of its files, so they are unchanged. Fix them before `pnpm release:version`.
+
+For ticket 19:
+
+- `changeset version` writes create-robkit's `CHANGELOG.md` newest version first. It starts `# create-robkit`, then each version is a `## <version>` heading with `### Major Changes`, `### Minor Changes` and `### Patch Changes` under it, each only when it has entries. An entry is `- <short commit hash>: <the changeset's text>`, and a text of more than one line goes on indented. A version that only follows another package gets `- Updated dependencies [<hash>]` lines, then indented `- @robkit/<name>@<version>` lines. The entries between two versions are everything from `## <newer>` down to `## <older>`.
+- 0.1.0's create-robkit changelog will have 8 minor entries and about 100 patch entries.
+
+For R, before the first release:
+
+1. Merge a fix for the four tests above.
+2. Merge ticket 19.
+3. Do "Set up once" in CONTRIBUTING.md's "Releasing", then follow the rest of it.
+
+### From the lead's review, 2026-11-10
+
+The publish job ran `pnpm install` and the dry run before its token step. Any dev dependency's code could then change the publish script, `node_modules` or pnpm before the token arrived, and the token step loaded `@robkit/input` and `yaml`. So the build moved that work out of the job with the token. This replaces "The publish step doesn't run `changeset publish`" above where they differ.
+
+- **A `pack` job runs after `gate`.** It has read-only permissions, no secret and no environment. It installs, runs `pnpm release:dry-run --out "$RUNNER_TEMP/tarballs"`, and uploads the tarballs the dry run checked as the artifact `tarballs`. The dry run writes them only once every check passes.
+- **The `publish` job has checkout, pnpm and Node setup, the artifact's download and the token step, then the tag step.** It has no install, build or dry run. `release-workflow.test.ts` fails on any other step in it, and on pnpm's setup given anything to install.
+- **The token step publishes tarballs.** `release-publish.ts` takes the tarballs' folder. Before it asks npm anything, it reads each tarball's `package/package.json` and checks it against `packages/*/package.json` on main: one tarball for each package, named as `pnpm pack` names it, holding that name and version, and no others. The publish list still comes from main's versions and what npm has. For each tarball npm lacks it runs `pnpm publish <tarball> --provenance --access public --no-git-checks --ignore-scripts`, from the tarballs' folder.
+- **The script imports only `node:` modules.** `publish-list.ts` lost `@robkit/input` and reads tarballs with `node:zlib`, not a tar package. `release-publish.test.ts` walks the script's imports and fails on anything but `node:` or a relative file that does the same.
+- **The artifact actions are pinned by commit.** `actions/upload-artifact` v7.0.2 is `cf430e030ddbb5b0abf93d22962f4752f3646cd9` and `actions/download-artifact` v8.0.2 is `9000827ccba6bdab643e8b6fd33ac0654aef8333`. Both tags are lightweight, read with `gh api repos/actions/<name>/git/ref/tags/<tag>`.
+- **The artifact keeps GitHub's default retention**, so the publish job can still download it after the `release` environment's reviewer waits.
+
+What the build found about publishing a tarball with pnpm 11.28.9:
+
+- pnpm's docs give `pnpm publish [<tarball|folder>]`, and say pnpm rejects a pre-built tarball's manifest, README or archive metadata over 64 MiB. They don't say whether pnpm changes the tarball.
+- A test packs a stand-in with `pnpm pack`, publishes the tarball to a stand-in registry, and checks the request. The attachment is the tarball byte for byte, the manifest sent is the packed one with `publishConfig` applied, and the token arrives as `Bearer <token>`.
+- pnpm takes `--provenance` with a tarball. Outside CI it fails with "Automatic provenance generation not supported for provider: null" and sends nothing, which a test checks. So the flag reaches the provenance code. Whether provenance works from the `release` environment, only the first release will show.
+- No fallback to npm was needed.

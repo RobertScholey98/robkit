@@ -14,6 +14,7 @@ import {
   templateTests,
   type Packed,
 } from "./published.ts";
+import { dryRunProblems } from "./release.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -160,6 +161,12 @@ describe("every published package, packed", { timeout: 60_000 }, () => {
     expect(
       createRobkit && templateTestProblems(createRobkit, expected),
     ).toEqual([]);
+  });
+
+  // What a release checks: one version, no workspace: or catalog: left,
+  // and create-robkit carrying the versions packed.
+  it("packs as a release would publish", () => {
+    expect(dryRunProblems(packed)).toEqual([]);
   });
 
   it("passes publint", async () => {

@@ -142,6 +142,8 @@ For a typo or a broken link, a ticket can be a few lines.
 - Open the pull request against `main`, or against the branch it builds on if it stacks on another ticket's.
 - Fill in the template, `.github/pull_request_template.md`: the ticket (CI checks that it names the ticket's file under `.scratch/`), what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
 - A change to a published package's `src`, or to create-robkit's `templates` (tests aside), needs a changeset. Run `pnpm changeset`, pick the packages and `patch`, and commit the file it writes.
+- A change an owner must do something about names create-robkit in its changeset too, and says what to do, such as "Add `ROBKIT_CORE_URL` to your install's `.env`". That holds for a change in any package, and in any file an install copies. `robkit upgrade` prints create-robkit's changelog between two versions, and a changeset writes only to the changelogs of the packages it names.
+- Before 1.0.0, a change that breaks an install is `minor`, never `major`. Every package releases at one version, so one `major` changeset would release 1.0.0, and a repo check fails on it.
 - CI's `gate` job passes only when every other job does. It is the one check a pull request needs.
 - R reviews and merges. Don't merge your own.
 
@@ -239,6 +241,90 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
    git push -u origin 43-roles-rule-names-a-role
    gh pr create --base main
    ```
+
+## Releasing
+
+R releases. A release publishes `create-robkit` and every `@robkit/*` package to npm at one new version, and tags it `v<version>`. It takes two steps: a pull request that changes the versions, then a button that publishes them.
+
+The first release, 0.1.0, waits for [ticket 19](.scratch/just-use-it/issues/19-robkit-upgrade.md) (`robkit upgrade`) to merge. 0.1.0's half of `robkit upgrade` can't change once it is on npm.
+
+### Set up once
+
+1. On [npmjs.com](https://www.npmjs.com), sign in, open your avatar's menu and choose **Add Organization**. Name it `robkit` and choose the free plan. The `@robkit` scope is now yours. `create-robkit` has no scope, so it needs nothing.
+2. Open your avatar's menu, then **Access Tokens**, then **Generate New Token**, then **Granular Access Token**. Name it `robkit release`. Give it read and write access to all packages and to the `robkit` organization. Allow it to publish without two-factor authentication, since a workflow can't answer the prompt. Generate it and copy it.
+3. On GitHub, open robkit's **Settings**, then **Environments**, then **New environment**. Name it `release` and choose **Configure environment**.
+4. Under **Deployment branches and tags**, choose **Selected branches and tags**, then **Add deployment branch or tag rule**, and enter `main`.
+5. Tick **Required reviewers**, add yourself, and choose **Save protection rules**.
+6. Under **Environment secrets**, choose **Add environment secret**. Name it `NPM_TOKEN`, paste the token, and choose **Add secret**.
+
+### Release a version
+
+1. Get main up to date in your clone:
+
+   ```sh
+   git switch main
+   git pull
+   ```
+
+2. See what the release holds. This lists each package and the version it goes to:
+
+   ```sh
+   pnpm changeset status --verbose
+   ```
+
+3. Open the version pull request. It cuts a branch, runs `changeset version`, commits, pushes and opens the pull request with `gh`, then prints its address:
+
+   ```sh
+   pnpm release:version
+   ```
+
+4. Open the pull request. Read each `CHANGELOG.md` it changes, above all create-robkit's: an owner reads that one. CI's `gate` job runs the dry run on it.
+5. When `gate` passes, merge the pull request.
+6. Optionally, run the dry run yourself, in Linux or WSL. It builds and packs every package as the release's `pack` job does, prints each one's version and tarball, and makes no call to npm:
+
+   ```sh
+   git pull
+   pnpm release:dry-run
+   ```
+
+7. On GitHub, open **Actions**, then **Release**, then **Run workflow**. Leave **Use workflow from** on `main` and choose **Run workflow**.
+8. The `gate` job runs the full gate. The `pack` job then builds, packs and checks every package, and keeps the tarballs. Neither job can see the token. Then the `publish` job waits for you: open the run, choose **Review deployments**, tick `release` and choose **Approve and deploy**. It publishes the `pack` job's tarballs as they are, and installs and builds nothing.
+9. When the run is green, every package is on npm and GitHub has the tag. Check the tag:
+
+   ```sh
+   git fetch --tags
+   git tag --list "v*"
+   ```
+
+### If the release stops
+
+Run it again: **Actions**, **Release**, **Run workflow** from `main`. It publishes only the packages npm lacks at this version, so it carries on from where it stopped, then tags.
+
+- If the publish step says `NPM_TOKEN is missing`, the `release` environment has no token. Nothing was published. Add it as step 6 of [Set up once](#set-up-once) says, then run the release again.
+- If the publish step says a tarball isn't one of main's packages at its version, or that the artifact has no tarball for one, nothing was published. Run the release again from `main`.
+- If npm refuses a version because it is already published, npm hadn't listed it yet when the run asked. Wait five minutes, then run the release again.
+- If you started it from a branch other than `main`, it stopped before it did anything. Run it again from `main`.
+
+### Check the release
+
+In an empty folder outside any robkit checkout, make an install from npm and start it:
+
+```sh
+npm create robkit@latest my-install -- --stack start
+cd my-install
+pnpm install
+pnpm dev
+```
+
+Then open <http://hub.robkit.localhost:3000>. On npmjs.com, each package's page shows the new version, with a **Provenance** section that links to the run that published it.
+
+### Move to trusted publishing
+
+npm's trusted publishing lets the workflow publish with no token. npm offers it only for a package that already exists, so the first release uses the token. After it:
+
+1. On npmjs.com, open each of the 15 packages, then **Settings**, then **Trusted Publisher**, then **GitHub Actions**. Enter the owner `RobertScholey98`, the repository `robkit`, the workflow `release.yml` and the environment `release`, and save.
+2. Open a pull request that takes out the token. In `tooling/repo-checks/src/release-publish.ts`, delete the `NPM_TOKEN` check and the `authEnv(token)` it hands pnpm. In `.github/workflows/release.yml`, delete the publish step's `NPM_TOKEN` line. Change `release-publish.test.ts` and `release-workflow.test.ts` beside the script to match. The publish job keeps `id-token: write`, which trusted publishing uses, and still publishes the `pack` job's tarballs.
+3. Once it merges and a release has published without the token, delete `NPM_TOKEN` from the `release` environment, and delete the token on npmjs.com.
 
 ## When a test fails
 
