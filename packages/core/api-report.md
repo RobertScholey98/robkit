@@ -19,6 +19,7 @@ export interface CoreOptions {
   now?: () => Date;
   trustedProxy?: TrustedProxy | undefined;
   logError?: Report;
+  signInLimits?: Partial<SignInLimits>;
 }
 export function createApp({
   db,
@@ -26,6 +27,7 @@ export function createApp({
   now,
   trustedProxy,
   logError,
+  signInLimits,
 }: CoreOptions): Hono;
 export function createDatabase(databaseUrl: string): Database;
 export type Database = ReturnType<typeof connect>;
@@ -41,6 +43,16 @@ export interface SigningKey {
   privateKey: CryptoKey;
   publicKey: CryptoKey;
   publicJwk: JWK;
+}
+export interface SignInLimits {
+  passwordsPerClient: number;
+  codesPerClient: number;
+  clientWindowMs: number;
+  codesPerInstall: number;
+  installWindowMs: number;
+  clientsTracked: number;
+  passwordChecksAtOnce: number;
+  passwordChecksWaiting: number;
 }
 export type TrustedProxy = "cloudflare";
 ```
