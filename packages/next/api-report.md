@@ -34,3 +34,9 @@ export interface GuestOptions {
 export { nobody } from "@robkit/guard/testing";
 export { owner } from "@robkit/guard/testing";
 ```
+
+## @robkit/next/config
+
+```ts
+export function withRobkit(config?: NextConfig): (phase: string) => NextConfig;
+```
