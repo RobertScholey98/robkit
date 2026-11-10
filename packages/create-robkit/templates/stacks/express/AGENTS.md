@@ -47,7 +47,7 @@ Set it in the handler, with `res.set("Content-Security-Policy", ...)`, or in mid
 - It passes the routes a stand-in for what they store through, so nothing reaches Postgres. Give a new route what it stores the same way, as an argument to `routes`.
 - It imports `src/routes.tsx`, never `src/server.tsx`. `guarded()` reads its settings as the server loads, and stops the run when one is missing.
 
-`guardedAs` refuses every request when `NODE_ENV` is `production`, which the app's image sets, so it never stands in for the guard in a server.
+`guardedAs` serves only in a test run. In the app's image, under `pnpm dev` and in a server started by hand it refuses every request, so it never stands in for the guard in a server.
 
 ## Calling core
 

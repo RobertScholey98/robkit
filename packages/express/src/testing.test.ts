@@ -62,8 +62,16 @@ describe("@robkit/express/testing", () => {
     ]);
   });
 
-  it("refuses every request when NODE_ENV is production", async () => {
-    vi.stubEnv("NODE_ENV", "production");
+  // A server that isn't a test run: an image, pnpm dev, or one started by
+  // hand. A copy of guardedAs() left in any of them opens nothing.
+  it.each([
+    ["NODE_ENV is production", "production", undefined],
+    ["NODE_ENV is production, under Vitest", "production", "true"],
+    ["NODE_ENV is development", "development", undefined],
+    ["neither NODE_ENV nor VITEST is set", undefined, undefined],
+  ])("refuses every request when %s", async (_, nodeEnv, vitest) => {
+    vi.stubEnv("NODE_ENV", nodeEnv);
+    vi.stubEnv("VITEST", vitest);
     const { ask, reached } = await appAs(owner());
 
     const res = await ask("/");
@@ -76,8 +84,19 @@ describe("@robkit/express/testing", () => {
     }).toEqual({
       status: 500,
       type: "text/plain; charset=utf-8",
-      body: "This app's server uses guardedAs() from @robkit/express/testing, which serves only in tests, and NODE_ENV is production. Use guarded() from @robkit/express.",
+      body: "This app's server uses guardedAs() from @robkit/express/testing, which serves only in a test run: NODE_ENV is test, or Vitest is running and NODE_ENV isn't production. Use guarded() from @robkit/express.",
       reached: false,
     });
+  });
+
+  it.each([
+    ["NODE_ENV is test, with another test runner", "test", undefined],
+    ["Vitest runs with NODE_ENV already set", "development", "true"],
+  ])("serves when %s", async (_, nodeEnv, vitest) => {
+    vi.stubEnv("NODE_ENV", nodeEnv);
+    vi.stubEnv("VITEST", vitest);
+    const { ask } = await appAs(owner());
+
+    expect((await ask("/")).status).toBe(200);
   });
 });

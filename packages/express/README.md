@@ -77,7 +77,7 @@ app.get("/", (_req, res: GuardedResponse) => {
 app.listen(0, "127.0.0.1"); // then send it requests; every one is the owner's
 ```
 
-When `NODE_ENV` is `production`, as in every image robkit builds, `guardedAs` answers every request with a 500 that names it, so test code copied into a server opens nothing. `guarded()` itself has no option, setting or environment variable that skips the check.
+`guardedAs` serves only in a test run: when `NODE_ENV` is `test`, or under Vitest when `NODE_ENV` isn't `production`. Anywhere else it answers every request with a 500 that names it: in an image, under `pnpm dev`, and in a server started by hand. So test code copied into a server opens nothing. Another test runner needs `NODE_ENV=test`. `guarded()` itself has no option, setting or environment variable that skips the check.
 
 ## What it must never do
 
