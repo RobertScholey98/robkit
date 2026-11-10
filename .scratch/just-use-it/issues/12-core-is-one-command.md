@@ -48,7 +48,7 @@
 - [x] `@robkit/provision` has its README, API report, graph entry, changeset and thresholds, and the graph check passes with no cycle
 - [x] The README's own-core example compiles under the doc-examples check
 - [x] The whole-stack and production tests pass
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -91,3 +91,7 @@
 
 - I didn't rerun the production test with the old `CMD` to see the stop tests fail. The measurements above are the evidence that `node --run` would fail them.
 - No test runs a vendored install's `pnpm dev`. `watches()` is tested on paths, and the restart is tested in this checkout.
+
+### Merged
+
+Added by the lead. PR 84 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `91cb3d1`. That head holds tickets 07 and 08 too, and the lead's three fixes: the journal's create race, the stop's busy connections, and the adapters' API reports.
