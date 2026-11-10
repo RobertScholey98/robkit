@@ -379,6 +379,10 @@ async function hasGoApp(root: string): Promise<boolean> {
   return false;
 }
 
+/** Whether `name` is one of robkit's own packages. */
+const isRobkit = (name: string) =>
+  name.startsWith("@robkit/") || name === "create-robkit";
+
 /** A catalog entry as a version to compare, without a leading `^` or `~`. */
 const specVersion = (spec: string) => spec.replace(/^[\^~]/, "");
 
@@ -387,25 +391,26 @@ const specVersion = (spec: string) => spec.replace(/^[\^~]/, "");
  * lacks, and raises each it holds lower. It never lowers or removes one,
  * and keeps the file's comments.
  *
- * @returns the settings' new text and a line for each entry it changed
+ * @returns the settings' new text and, by name, a line for each entry it
+ *   changed
  */
 async function raiseCatalog(
   settings: string,
   wanted: ReadonlyMap<string, string>,
-): Promise<{ text: string; changed: string[] }> {
+): Promise<{ text: string; changed: Map<string, string> }> {
   // Failsafe reads every scalar as a string, so 1.10 stays a version.
   const held: unknown = parse(settings, { schema: "failsafe" });
   const catalog = isRecord(held) ? stringsIn(held.catalog) : {};
   const workspace = parseDocument(settings);
-  const changed: string[] = [];
+  const changed = new Map<string, string>();
   for (const [name, version] of wanted) {
     const spec = catalog[name];
     if (spec === undefined) {
-      changed.push(`added ${name} ${version}`);
+      changed.set(name, `added ${name} ${version}`);
     } else if (
       (compareVersions(specVersion(spec), specVersion(version)) ?? 0) < 0
     ) {
-      changed.push(`raised ${name} from ${spec} to ${version}`);
+      changed.set(name, `raised ${name} from ${spec} to ${version}`);
     } else {
       continue;
     }
@@ -495,10 +500,12 @@ export interface Finishing {
 
 /**
  * The second step of `robkit upgrade`, which the robkit the first step
- * installed runs as `robkit upgrade --finish <from>`. It replaces the
- * install's lint policy, and its Go module when it has a Go app, adds or
- * raises the catalog entries this robkit needs, raises `packageManager`,
- * and installs again if it changed either. A failure puts back every file
+ * installed runs as `robkit upgrade --finish <from>`. The first step moved
+ * create-robkit alone, so this one raises the catalog's entry for each of
+ * robkit's other packages, and adds or raises every other entry this
+ * robkit needs. It replaces the install's lint policy, and its Go module
+ * when it has a Go app, raises `packageManager`, and installs again if it
+ * changed the catalog or `packageManager`. A failure puts back every file
  * the upgrade changed, the first step's too.
  *
  * @returns what to print: what it did, the changelog and what to run next
@@ -562,7 +569,10 @@ Next, read git diff, run pnpm lint, pnpm typecheck and pnpm test, then commit.`;
 
 /** What the second step changed in the catalog and `packageManager`. */
 interface Finished {
-  /** A line for each catalog entry it added or raised. */
+  /**
+   * A line for each catalog entry it added or raised, robkit's own packages
+   * aside, which the summary names as one.
+   */
   catalog: string[];
   /** The `packageManager` it set, if it raised it. */
   packageManager: string | undefined;
@@ -592,11 +602,13 @@ async function finish(
   if (await hasGoApp(root)) {
     await replaceFolder(root, vendoredGoDir, repo.goModule);
   }
-  if (catalog.changed.length > 0 || manifest !== undefined) {
+  if (catalog.changed.size > 0 || manifest !== undefined) {
     await installDependencies(root, env);
   }
   return {
-    catalog: catalog.changed,
+    catalog: [...catalog.changed]
+      .filter(([name]) => !isRobkit(name))
+      .map(([, line]) => line),
     packageManager: manifest === undefined ? undefined : repo.packageManager,
   };
 }

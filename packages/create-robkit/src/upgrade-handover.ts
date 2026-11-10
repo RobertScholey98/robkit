@@ -11,8 +11,12 @@
 // What a later robkit's second step can count on from this one:
 //
 // - It runs as the `robkit` bin, in the install's root, in a tree that was
-//   clean when the upgrade started. The catalog's robkit entries are at
+//   clean when the upgrade started. The catalog's create-robkit entry is at
 //   its own version, that version is installed, and nothing else changed.
+//   Every `@robkit/*` entry is still the old version's, so the second step
+//   raises the ones its robkit has. This step asks the registry for no
+//   package but create-robkit, so a later robkit can drop or rename any
+//   other.
 // - When it exits with anything but 0, this step puts back the five paths
 //   in `ownedPaths` and no others, then says the second step failed. A
 //   second step that writes anywhere else puts that back itself first.
@@ -31,7 +35,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { CommandProblem, exec } from "@robkit/dev/cli";
-import { isMap, isScalar, parseDocument } from "yaml";
+import { parseDocument } from "yaml";
 
 const run = promisify(execFile);
 
@@ -45,9 +49,6 @@ const ownedPaths = [
   "package.json",
   ...ownedFolders,
 ];
-
-const isRobkit = (name: string) =>
-  name.startsWith("@robkit/") || name === "create-robkit";
 
 /**
  * Puts back every path upgrade writes in the install at `root` as the last
@@ -91,10 +92,9 @@ const putBackNote =
 
 /**
  * The first step of `robkit upgrade`, once its checks pass, in the install
- * at `root`: sets the catalog's entries for create-robkit and every
- * `@robkit/*` package to `to`, installs, then runs `pnpm exec robkit
- * upgrade --finish <from>`, which robkit `to` answers. When either command
- * fails, it puts the files back.
+ * at `root`: sets the catalog's entry for create-robkit to `to`, installs,
+ * then runs `pnpm exec robkit upgrade --finish <from>`, which robkit `to`
+ * answers. When either command fails, it puts the files back.
  *
  * @throws a {@link CommandProblem} naming the step that failed
  */
@@ -105,11 +105,7 @@ export async function handOver(
 ): Promise<void> {
   const path = join(root, "pnpm-workspace.yaml");
   const workspace = parseDocument(await readFile(path, "utf8"));
-  const catalog = workspace.get("catalog");
-  for (const { key } of isMap(catalog) ? catalog.items : []) {
-    const name = isScalar(key) ? String(key.value) : "";
-    if (isRobkit(name)) workspace.setIn(["catalog", name], to);
-  }
+  workspace.setIn(["catalog", "create-robkit"], to);
   await writeFile(path, workspace.toString());
 
   console.log(`Installing robkit ${to}.`);

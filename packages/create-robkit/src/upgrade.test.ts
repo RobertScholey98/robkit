@@ -144,13 +144,12 @@ async function written(dir: string): Promise<unknown> {
   };
 }
 
-/** The catalog as step 1 leaves it: robkit's entries at the newer version. */
+/**
+ * The catalog as step 1 leaves it: create-robkit's entry at the newer
+ * version, and every other entry as it was.
+ */
 async function stepOne(dir: string): Promise<void> {
-  const names = (await robkitEntries(dir)).map(([name]) => name);
-  await editCatalog(
-    dir,
-    Object.fromEntries(names.map((name) => [name, newerVersion])),
-  );
+  await editCatalog(dir, { "create-robkit": newerVersion });
 }
 
 /** robkit as this checkout carries it, every package a version newer. */
@@ -166,7 +165,10 @@ async function newerRepo(): Promise<RobkitRepo> {
 }
 
 describe("robkit upgrade", () => {
-  it("moves robkit's catalog entries to the newest, installs, and hands over to the robkit it installed", async () => {
+  // The robkit it hands over to here is this checkout's, which is the
+  // older one, so it raises none of robkit's other entries. The second
+  // step's tests, and the upgrade test in tooling/e2e, have a newer one.
+  it("moves create-robkit's catalog entry alone to the newest, installs, and hands over to the robkit it installed", async () => {
     const { dir, env } = await committedInstall();
     const pnpm = await fakePnpm({ view: published }, env);
 
@@ -175,9 +177,9 @@ describe("robkit upgrade", () => {
     expect(nothing).toBeUndefined();
     const entries = await robkitEntries(dir);
     expect(entries.length).toBeGreaterThan(10);
-    expect(entries.filter(([, version]) => version !== newerVersion)).toEqual(
-      [],
-    );
+    expect(entries.filter(([, version]) => version !== robkitVersion)).toEqual([
+      ["create-robkit", newerVersion],
+    ]);
     expect(await pnpm.calls()).toEqual([
       ["view", "create-robkit", "dist-tags", "versions", "--json"],
       ["install", "--no-frozen-lockfile"],
@@ -201,7 +203,6 @@ describe("robkit upgrade", () => {
 
     expect(await catalogOf(dir)).toMatchObject({
       "create-robkit": newerVersion,
-      "@robkit/core": newerVersion,
     });
   });
 
@@ -582,6 +583,52 @@ describe("robkit upgrade's second step", () => {
     );
   });
 
+  it("raises every one of robkit's packages the first step left at the old version, and installs them", async () => {
+    const repo = await newerRepo();
+    const { dir, env } = await committedInstall();
+    const pnpm = await fakePnpm({ view: published }, env);
+    await stepOne(dir);
+
+    const said = await finishUpgrade(dir, {
+      from: robkitVersion,
+      repo,
+      changelog: undefined,
+      env: pnpm.env,
+    });
+
+    const entries = await robkitEntries(dir);
+    expect(entries.length).toBeGreaterThan(10);
+    expect(entries.filter(([, version]) => version !== newerVersion)).toEqual(
+      [],
+    );
+    expect(await pnpm.calls()).toEqual([["install", "--no-frozen-lockfile"]]);
+    // One line for them all, not one for each.
+    expect(said).toContain(
+      `  pnpm-workspace.yaml: robkit's packages at ${newerVersion}\n`,
+    );
+  });
+
+  it("keeps the entry of a package this robkit no longer has, at the version it was", async () => {
+    const repo = await newerRepo();
+    const { dir, env } = await committedInstall(async (dir) => {
+      await editCatalog(dir, { "@robkit/dropped": robkitVersion });
+    });
+    const pnpm = await fakePnpm({ view: published }, env);
+    await stepOne(dir);
+
+    await finishUpgrade(dir, {
+      from: robkitVersion,
+      repo,
+      changelog: undefined,
+      env: pnpm.env,
+    });
+
+    expect(await catalogOf(dir)).toMatchObject({
+      "@robkit/dropped": robkitVersion,
+      "@robkit/core": newerVersion,
+    });
+  });
+
   it("needs every catalog entry the new version's templates take", async () => {
     const repo = await newerRepo();
     const { dir, env } = await committedInstall();
@@ -740,6 +787,7 @@ describe("robkit upgrade's second step", () => {
     expect(said)
       .toBe(`Upgraded robkit from ${robkitVersion} to ${newerVersion}. It changed:
 
+  pnpm-lock.yaml
   pnpm-workspace.yaml: robkit's packages at ${newerVersion}
 
 create-robkit's changelog from ${robkitVersion} to ${newerVersion}. It says what to change by hand in your apps, the hub and admin, which upgrade never rewrites:

@@ -15,10 +15,13 @@ import { init } from "./init.ts";
 import { readRobkitRepo } from "./robkit-repo.ts";
 import { fakePnpm } from "./test/fake-pnpm.ts";
 import { gitEnv } from "./test/git.ts";
-import { newerVersion, robkitVersion } from "./test/robkit-version.ts";
+import { robkitVersion } from "./test/robkit-version.ts";
 import { handOver } from "./upgrade-handover.ts";
 
 const run = promisify(execFile);
+
+/** A version before this checkout's, which semver orders as a prerelease of it. */
+const older = `${robkitVersion}-0`;
 
 // Each test writes and commits an install, and most run robkit and a fake
 // pnpm as child processes: 2 to 6 seconds alone, and several times that
@@ -31,16 +34,20 @@ vi.setConfig({ testTimeout: 120_000 });
  * the file doesn't change: its first comment says what to do instead.
  */
 const frozenHash =
-  "82c53d5f36234a429bd179e43d60ffc2424a99575744f9001867a9bce65ca872";
+  "e1a5c2c3e7fec0d1e042bb6cf7667a8ea0ed32a7183d840e7951fe040209c088";
 
 describe("robkit upgrade's first step, as 0.1.0 ships it", () => {
   it("hands over to the current second step, which finishes the upgrade", async () => {
     const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
     await init(defaultChoices, dir, { install: false });
     await writeFile(join(dir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
-    // The second step adds the entry back, and replaces the lint policy.
+    // The second step here is this checkout's, so the install it moves is
+    // on a version before it. It raises core's entry, adds express back,
+    // and replaces the lint policy.
     const settingsPath = join(dir, "pnpm-workspace.yaml");
     const workspace = parseDocument(await readFile(settingsPath, "utf8"));
+    workspace.setIn(["catalog", "create-robkit"], older);
+    workspace.setIn(["catalog", "@robkit/core"], older);
     workspace.deleteIn(["catalog", "express"]);
     await writeFile(settingsPath, workspace.toString());
     await writeFile(join(dir, "tooling/eslint/policy.js"), "// Older.\n");
@@ -54,11 +61,11 @@ describe("robkit upgrade's first step, as 0.1.0 ships it", () => {
     }
     const pnpm = await fakePnpm({ view: undefined }, env);
 
-    await handOver(dir, { from: robkitVersion, to: newerVersion }, pnpm.env);
+    await handOver(dir, { from: older, to: robkitVersion }, pnpm.env);
 
     expect(await pnpm.calls()).toEqual([
       ["install", "--no-frozen-lockfile"],
-      ["exec", "robkit", "upgrade", "--finish", robkitVersion],
+      ["exec", "robkit", "upgrade", "--finish", older],
       ["install", "--no-frozen-lockfile"],
     ]);
     const repo = await readRobkitRepo();
@@ -66,8 +73,8 @@ describe("robkit upgrade's first step, as 0.1.0 ships it", () => {
       schema: "failsafe",
     }) as { catalog: Record<string, string> };
     expect(settings.catalog).toMatchObject({
-      "create-robkit": newerVersion,
-      "@robkit/core": newerVersion,
+      "create-robkit": robkitVersion,
+      "@robkit/core": robkitVersion,
       express: repo.catalog.get("express"),
     });
     expect(await readFile(join(dir, "tooling/eslint/policy.js"), "utf8")).toBe(
