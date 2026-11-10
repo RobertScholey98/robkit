@@ -4,7 +4,7 @@ import { createApp } from "./app.ts";
 import { registerApps } from "./apps.ts";
 import { createDatabase } from "./database.ts";
 import { readCoreConfig } from "./env.ts";
-import { listenUntilStopped } from "./listen.ts";
+import { listenUntilStopped } from "@robkit/serve";
 import { ensureSigningKey } from "./signing-key.ts";
 
 /**

@@ -3,7 +3,8 @@ import { once } from "node:events";
 import { Agent, request } from "node:http";
 import { connect, createServer } from "node:net";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { listenUntilStopped } from "./listen.ts";
 
 const slowServer = fileURLToPath(
   new URL("test/slow-server.ts", import.meta.url),
@@ -60,6 +61,100 @@ function answerTo(options: {
 async function printed(lines: string[], text: string): Promise<void> {
   await expect.poll(() => lines.join(""), { timeout: 10_000 }).toContain(text);
 }
+
+/** What `console.log` prints from here to the test's end, one entry per call. */
+function logged(): () => unknown[] {
+  const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+  onTestFinished(() => {
+    log.mockRestore();
+  });
+  return () => log.mock.calls.map(([line]) => line as unknown);
+}
+
+// These run in this process, so the coverage report sees them. Only the
+// server a test starts here listens for SIGTERM; the test runner doesn't.
+describe("listenUntilStopped in this process", () => {
+  it("serves until SIGTERM, then runs onStopped, prints its line and resolves 0", async () => {
+    const port = await freePort();
+    const lines = logged();
+    const onStopped = vi.fn(() => Promise.resolve());
+
+    const served = listenUntilStopped({
+      fetch: () => new Response("hello"),
+      hostname: "127.0.0.1",
+      port,
+      name: "test",
+      onStopped,
+    });
+    const listening = `test listening on 127.0.0.1:${String(port)}`;
+    await expect.poll(lines).toContain(listening);
+    const answer = await fetch(`http://127.0.0.1:${String(port)}/`);
+    process.emit("SIGTERM", "SIGTERM");
+    // A second signal, such as Ctrl+C reaching the whole process group, is
+    // the same request.
+    process.emit("SIGINT", "SIGINT");
+
+    expect(await answer.text()).toBe("hello");
+    expect(await served).toBe(0);
+    expect(onStopped).toHaveBeenCalledOnce();
+    expect(lines()).toEqual([listening, "test stopped"]);
+    expect(process.listenerCount("SIGTERM")).toBe(0);
+  });
+
+  it("answers a request open when SIGTERM arrives, and closes its connection with it", async () => {
+    const port = await freePort();
+    logged();
+    const { promise: released, resolve: release } = Promise.withResolvers();
+    const { promise: opened, resolve: open } = Promise.withResolvers();
+    const served = listenUntilStopped({
+      fetch: async () => {
+        open(undefined);
+        await released;
+        return new Response("finished");
+      },
+      hostname: "127.0.0.1",
+      port,
+      name: "test",
+      onStopped: () => Promise.resolve(),
+    });
+    await expect.poll(() => connects(port)).toBe(true);
+    const agent = new Agent({ keepAlive: true, maxSockets: 1 });
+    onTestFinished(() => {
+      agent.destroy();
+    });
+
+    const slow = answerTo({ port, path: "/", agent });
+    await opened;
+    process.emit("SIGTERM", "SIGTERM");
+    release(undefined);
+
+    expect(await slow).toEqual({ status: 200, connection: "close" });
+    expect(await served).toBe(0);
+  });
+
+  it("runs onStopped and rejects when its port is taken", async () => {
+    const taken = createServer().listen(0, "127.0.0.1");
+    await once(taken, "listening");
+    onTestFinished(() => {
+      taken.close();
+    });
+    const address = taken.address();
+    const port = typeof address === "object" && address ? address.port : 0;
+    const onStopped = vi.fn(() => Promise.resolve());
+
+    await expect(
+      listenUntilStopped({
+        fetch: () => new Response("hello"),
+        hostname: "127.0.0.1",
+        port,
+        name: "test",
+        onStopped,
+      }),
+    ).rejects.toThrow(/EADDRINUSE/);
+    expect(onStopped).toHaveBeenCalledOnce();
+    expect(process.listenerCount("SIGTERM")).toBe(0);
+  });
+});
 
 // Windows has no SIGTERM to send: process.kill there ends the process.
 describe.skipIf(process.platform === "win32")("listenUntilStopped", () => {

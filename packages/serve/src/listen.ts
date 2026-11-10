@@ -19,8 +19,6 @@ export interface ListenOptions {
  * Docker sends SIGTERM to stop a container, and waits 10 seconds before it
  * kills it.
  *
- * Ticket 11 moves this to `@robkit/serve`, which every server will share.
- *
  * @returns the exit code once it has stopped
  */
 export async function listenUntilStopped({

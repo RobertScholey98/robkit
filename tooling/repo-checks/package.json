@@ -25,6 +25,7 @@
     "@robkit/next": "workspace:*",
     "@robkit/provision": "workspace:*",
     "@robkit/react": "workspace:*",
+    "@robkit/serve": "workspace:*",
     "@robkit/session": "workspace:*",
     "@robkit/start": "workspace:*",
     "@robkit/vite": "workspace:*",
