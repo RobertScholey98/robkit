@@ -30,7 +30,7 @@
 - [x] The socket's folder has mode 0700, and the runner refuses one that others can open
 - [x] A socket file left by a killed `pnpm dev` doesn't stop the next one, and `robkit add` then says within a second that no `pnpm dev` is running
 - [x] The whole-stack test adds its second app while the install runs
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -98,3 +98,9 @@ Checked and left as built:
 
 - **The 503 the journey allows.** The example's guard answers 503 when core takes longer than its wait. Under a loaded gate that happened while `pnpm install` ran, before core restarted. The runner's own test asks core through the proxy every 20 ms during an add and gets an answer every time.
 - **Each whole-stack request on a connection of its own.** Node's client was handing out a kept-alive connection the proxy had just closed. A browser sends such a request again by itself.
+
+### Merged
+
+Added by the lead. PR 96 merged into `m3-making-an-install` on 2026-11-10 as `9c50ccef`, with `gate`, `check` and `pull-request` green on `591dcd60`.
+
+That run was the first full gate to pass on the whole branch. The build's five runs in WSL each lost tests to load on the machine. CI's run on the build's last commit, `69343381`, was cancelled when I pushed my commits on top.
