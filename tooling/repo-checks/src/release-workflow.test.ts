@@ -139,3 +139,15 @@ describe(".github/workflows/release.yml", () => {
     ).toEqual([]);
   });
 });
+
+describe(".github/workflows/ci.yml", () => {
+  it("runs the release's dry run on every pull request", async () => {
+    workflow = record(
+      parse(await readFile(join(root, ".github/workflows/ci.yml"), "utf8")),
+    );
+
+    expect(stepRunning("pull-request", "pnpm release:dry-run")).toBeGreaterThan(
+      0,
+    );
+  });
+});
