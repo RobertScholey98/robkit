@@ -1,9 +1,11 @@
-import { readdir, readFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isRecord } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
-import { publishedPackages } from "./published.ts";
+import { pack, publishedPackages } from "./published.ts";
 import {
   dryRunProblems,
   fixedGroupProblems,
@@ -326,4 +328,30 @@ describe("dryRunProblems", () => {
       "create-robkit's tarball lacks dist/carried.json, so an install made from it reads no versions. Build create-robkit before packing it.",
     ]);
   });
+});
+
+describe("create-robkit's tarball", () => {
+  // changeset version writes the changelog only at a release, so this packs
+  // a stand-in with create-robkit's own `files` and a changelog.
+  it("holds the CHANGELOG.md that robkit upgrade reads", async () => {
+    const real: unknown = JSON.parse(
+      await readFile(join(root, "packages/create-robkit/package.json"), "utf8"),
+    );
+    const dir = await mkdtemp(join(tmpdir(), "robkit-changelog-"));
+    try {
+      await writeFile(
+        join(dir, "package.json"),
+        JSON.stringify({
+          name: "create-robkit",
+          version: "0.1.0",
+          files: isRecord(real) ? real.files : undefined,
+        }),
+      );
+      await writeFile(join(dir, "CHANGELOG.md"), "# create-robkit\n");
+
+      expect((await pack(dir)).files).toContain("CHANGELOG.md");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }, 120_000);
 });
