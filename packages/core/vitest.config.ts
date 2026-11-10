@@ -38,7 +38,7 @@ export default defineConfig({
       ],
       // Today's coverage, rounded down. Raise them as it rises; CI fails a
       // pull request that lowers one.
-      thresholds: { statements: 96, branches: 96, functions: 91, lines: 97 },
+      thresholds: { statements: 96, branches: 96, functions: 93, lines: 97 },
     },
   },
 });
