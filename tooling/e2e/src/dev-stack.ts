@@ -143,6 +143,9 @@ export function useDevStack(
           method,
           path,
           headers: { host, ...headers },
+          // A connection of its own: one the proxy closes for idling while
+          // the agent hands it out ends the request with a reset.
+          agent: false,
         },
         (res) => {
           let text = "";
