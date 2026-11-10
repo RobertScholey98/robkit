@@ -18,22 +18,33 @@ import {
  * reach a socket file, so the folder's mode is what keeps others out.
  *
  * @param owner the account that must own it, this process's by default
- * @throws a {@link CommandProblem} for a folder that isn't one, that
- *   another account owns, or that others can open
+ * @throws a {@link CommandProblem} for a folder it can't make, that isn't
+ *   one, that another account owns, or that others can open
  */
 export async function privateFolder(
   { folder, setBy }: Pick<DevSocket, "folder" | "setBy">,
   { owner = process.getuid?.() }: { owner?: number | undefined } = {},
 ): Promise<void> {
+  const where = `pnpm dev keeps its socket in ${folder}`;
   try {
     await mkdir(folder, { mode: 0o700 });
   } catch (error) {
     if (!hasCode(error, "EEXIST")) {
-      throw new Error(`robkit-dev couldn't make ${folder}.`, { cause: error });
+      // The folder it goes in is missing, or isn't this account's to
+      // write in, as XDG_RUNTIME_DIR isn't after `su`.
+      const code =
+        error instanceof Error &&
+        "code" in error &&
+        typeof error.code === "string"
+          ? error.code
+          : "no error code";
+      throw new CommandProblem(
+        `${where}, and couldn't make that folder (${code}). Point ${setBy} at a folder you can write to, then run pnpm dev again.`,
+        { cause: error },
+      );
     }
   }
   const stats = await lstat(folder);
-  const where = `pnpm dev keeps its socket in ${folder}`;
   if (!stats.isDirectory()) {
     throw new CommandProblem(
       `${where}, which isn't a folder. Remove it, then run pnpm dev again.`,

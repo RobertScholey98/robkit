@@ -485,7 +485,11 @@ describe.skipIf(process.platform === "win32")("privateFolder", () => {
 
     const made = privateFolder({ folder, setBy: "TMPDIR" });
 
-    await expect(made).rejects.toThrow(`robkit-dev couldn't make ${folder}.`);
+    await expect(made).rejects.toThrow(
+      new CommandProblem(
+        `pnpm dev keeps its socket in ${folder}, and couldn't make that folder (ENOTDIR). Point TMPDIR at a folder you can write to, then run pnpm dev again.`,
+      ),
+    );
   });
 
   it("refuses a folder others can open", async () => {
