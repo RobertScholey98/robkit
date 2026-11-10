@@ -78,7 +78,9 @@ export function readListedApps(env: Env): ListedApp[] | InputProblem {
  * Adds each app core doesn't know yet, named after its slug, with the rule
  * it declares, or owner-only. A rule's roles are found by name, and created
  * if the owner has none of that name. An app core knows keeps the rule the
- * owner gave it, and takes the icon it declares now.
+ * owner gave it, and takes the icon it declares now. Several cores can run
+ * it at once, as in a rolling deploy: the one whose insert adds an app adds
+ * its roles, and the rest leave that app alone.
  */
 const owner: ManifestAccess = { kind: "owner" };
 
@@ -109,10 +111,15 @@ export async function registerApps(
           .where(eq(apps.slug, slug));
         continue;
       }
-      await tx
+      // Another core starting at the same moment may have just added it.
+      // Then this insert does nothing and returns no row, and that core
+      // adds the rule's roles, so this one leaves them alone.
+      const [added] = await tx
         .insert(apps)
-        .values({ slug, name: slug, access: access.kind, icon: icon ?? null });
-      if (access.kind !== "roles") continue;
+        .values({ slug, name: slug, access: access.kind, icon: icon ?? null })
+        .onConflictDoNothing({ target: apps.slug })
+        .returning({ slug: apps.slug });
+      if (!added || access.kind !== "roles") continue;
       for (const name of new Set(access.roleNames)) {
         await tx
           .insert(roles)
