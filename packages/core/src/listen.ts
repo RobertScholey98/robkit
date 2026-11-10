@@ -14,9 +14,10 @@ export interface ListenOptions {
 /**
  * Serves `fetch` on `hostname` and `port` until SIGTERM or SIGINT. Then it
  * stops taking new connections, lets the requests already open finish,
- * runs `onStopped`, prints `<name> stopped` and resolves with 0, the exit
- * code for a clean stop. Docker sends SIGTERM to stop a container, and
- * waits 10 seconds before it kills it.
+ * closes each connection with its last answer, runs `onStopped`, prints
+ * `<name> stopped` and resolves with 0, the exit code for a clean stop.
+ * Docker sends SIGTERM to stop a container, and waits 10 seconds before it
+ * kills it.
  *
  * Ticket 11 moves this to `@robkit/serve`, which every server will share.
  *
@@ -35,7 +36,24 @@ export async function listenUntilStopped({
     process.off("SIGINT", stop);
     return onStopped();
   };
-  const server = serve({ fetch, hostname, port }, ({ port }) => {
+  let stopping = false;
+  // Node's close() ends only the connections idle at that moment. One that
+  // is busy stays open as keep-alive, and Node goes on answering on it, so
+  // a proxy with requests to send could hold the server open until Docker
+  // kills it. So each answer sent while stopping says its connection ends
+  // with it, and Node then closes it.
+  const answer = async (request: Request): Promise<Response> => {
+    const response = await fetch(request);
+    if (!stopping) return response;
+    const headers = new Headers(response.headers);
+    headers.set("connection", "close");
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  };
+  const server = serve({ fetch: answer, hostname, port }, ({ port }) => {
     console.log(`${name} listening on ${hostname}:${String(port)}`);
   });
   // Such as the port being taken: it never listened, so nothing is open.
@@ -45,14 +63,13 @@ export async function listenUntilStopped({
     }, reject);
   });
 
-  let stopping = false;
   const stop = () => {
     // A second signal, such as Ctrl+C reaching a whole process group, is
     // the same request: the listener stays so it can't end the process.
     if (stopping) return;
     stopping = true;
-    // Node closes idle keep-alive connections at once, and each busy one
-    // once its response is sent.
+    // Node takes no new connection and closes the idle ones at once. Each
+    // busy one closes with its answer, which `answer` marks.
     server.close(() => {
       cleanUp().then(() => {
         console.log(`${name} stopped`);
