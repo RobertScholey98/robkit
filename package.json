@@ -22,6 +22,7 @@
     "knip": "knip",
     "postinstall": "husky || true",
     "changeset": "changeset",
+    "release:version": "node tooling/repo-checks/src/release-version.ts",
     "release:dry-run": "turbo run build --filter=./packages/* && node tooling/repo-checks/src/release-dry-run.ts",
     "new:package": "node tooling/repo-checks/src/new-package.ts"
   },
