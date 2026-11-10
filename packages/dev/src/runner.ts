@@ -38,11 +38,16 @@ interface Running {
   exited: Promise<string>;
 }
 
-/**
- * How long an added app gets to answer on its port. A Go app compiles
- * first, and its first build fetches its modules.
- */
-const addLimitMs = 5 * 60_000;
+/** What a test changes about a run. */
+export interface DevOptions {
+  /**
+   * How long an app started while the runner runs gets to answer on its
+   * port: an added app, and the core started to list it. Five minutes
+   * unless given, since a Go app compiles first, and its first build
+   * fetches its modules.
+   */
+  startLimitMs?: number;
+}
 
 /**
  * What `error` says, a line for each failure in it, when the owner can fix
@@ -76,6 +81,7 @@ function problemsIn(error: unknown): string | undefined {
 export async function runDev(
   root: string,
   shell: NodeJS.ProcessEnv,
+  { startLimitMs = 5 * 60_000 }: DevOptions = {},
 ): Promise<number> {
   if (!existsSync(join(root, "robkit.json"))) {
     throw new CommandProblem(
@@ -183,17 +189,53 @@ export async function runDev(
   const runningApp = (slug: Slug) =>
     running.find((entry) => entry.app.slug === slug);
 
+  const startLimit = `${String(startLimitMs / 60_000)} minutes`;
+
   /**
-   * Starts a new core with today's catalog, since core reads `ROBKIT_APPS`
-   * as it starts. It takes a free port, and once it answers the proxy sends
-   * core's host there and the old core stops. Every app reaches core through
-   * the proxy, so each app's guard finds one answering throughout. Sessions
-   * are in the database, so nobody is signed out. In a linked checkout core
-   * runs under Node's watch mode, so the old one's whole process group stops.
+   * Waits for an app started unwatched to answer on its port. One that
+   * exits first isn't running after, and one that doesn't answer within
+   * the limit is stopped.
+   *
+   * @returns how the wait ended. `entry.exited` says why it exited.
    */
-  const restartCore = async () => {
+  const untilUp = async (
+    entry: Running,
+  ): Promise<"up" | "exited" | "silent" | "stopping"> => {
+    const settled = new AbortController();
+    const limit = AbortSignal.timeout(startLimitMs);
+    const answered = await Promise.race([
+      untilAnswering(
+        entry.app.port,
+        AbortSignal.any([signal, settled.signal, limit]),
+      ),
+      entry.exited,
+    ]);
+    settled.abort();
+    // The stop that follows stops it with every other app.
+    if (stopping()) return "stopping";
+    if (answered === true) return "up";
+    running.splice(running.indexOf(entry), 1);
+    if (answered !== false) return "exited";
+    await stopGroup(entry.app.slug, entry.child.pid);
+    return "silent";
+  };
+
+  /**
+   * Starts a new core with the catalog in `about`, since core reads
+   * `ROBKIT_APPS` as it starts. It takes a free port, and once it answers
+   * the proxy sends core's host there and the old core stops. Every app
+   * reaches core through the proxy, so each app's guard finds one answering
+   * throughout. Sessions are in the database, so nobody is signed out. In a
+   * linked checkout core runs under Node's watch mode, so the old one's
+   * whole process group stops.
+   *
+   * @returns why the new core isn't serving, when the old one still is
+   */
+  const restartCore = async (
+    about: InstallFacts,
+  ): Promise<string | undefined> => {
     const old = runningApp("core");
-    if (!old) return;
+    if (!old) return undefined;
     const core: App = {
       ...old.app,
       port: await portForNewApp(
@@ -201,14 +243,21 @@ export async function runDev(
         running.map((entry) => entry.app.port),
       ),
     };
-    // Its exit stops pnpm dev, as the old one's would.
-    start(core, { watched: true });
-    if (!(await untilAnswering(core.port, signal))) return;
+    const entry = start(core, { watched: false, about });
+    const up = await untilUp(entry);
+    if (up === "stopping") return undefined;
+    if (up === "exited") return await entry.exited;
+    if (up === "silent") {
+      return `core didn't answer on port ${String(core.port)} within ${startLimit}.`;
+    }
+    // From here its exit stops pnpm dev, as the old one's did.
+    entry.watched = true;
     for (const route of routesFor([core], domain)) proxy?.route(route);
     apps[apps.indexOf(old.app)] = core;
     old.watched = false;
     await stopGroup("core", old.child.pid);
     running.splice(running.indexOf(old), 1);
+    return undefined;
   };
 
   const add = async (slug: Slug): Promise<Answered> => {
@@ -246,32 +295,31 @@ export async function runDev(
     if (stopping()) return stoppingAnswer;
 
     const entry = start(app, { watched: false, about });
-    const settled = new AbortController();
-    const limit = AbortSignal.timeout(addLimitMs);
-    const answered = await Promise.race([
-      untilAnswering(
-        app.port,
-        AbortSignal.any([signal, settled.signal, limit]),
-      ),
-      entry.exited,
-    ]);
-    settled.abort();
-    if (stopping()) return stoppingAnswer;
-    if (answered !== true) {
-      running.splice(running.indexOf(entry), 1);
-      if (typeof answered === "string") {
-        return refused(`${answered} Its output is in pnpm dev's.`);
-      }
-      await stopGroup(slug, entry.child.pid);
+    const up = await untilUp(entry);
+    if (up === "stopping") return stoppingAnswer;
+    if (up === "exited") {
+      return refused(`${await entry.exited} Its output is in pnpm dev's.`);
+    }
+    if (up === "silent") {
       return refused(
-        `${slug} didn't answer on port ${String(app.port)} within ${String(addLimitMs / 60_000)} minutes, so pnpm dev stopped it. Check that it listens on PORT.`,
+        `${slug} didn't answer on port ${String(app.port)} within ${startLimit}, so pnpm dev stopped it. Check that it listens on PORT.`,
       );
     }
+    // From here its exit stops pnpm dev, as any running app's does.
     entry.watched = true;
+    const coreProblem = await restartCore(about);
+    if (stopping()) return stoppingAnswer;
+    if (coreProblem !== undefined) {
+      // Core never listed it, so the install runs on as it was.
+      entry.watched = false;
+      running.splice(running.indexOf(entry), 1);
+      await stopGroup(slug, entry.child.pid);
+      return refused(
+        `${coreProblem} That was a new core, started to list ${slug}, so pnpm dev kept the core it had and stopped ${slug}. Core's output is in pnpm dev's.`,
+      );
+    }
     apps.push(app);
     facts.catalog = about.catalog;
-    await restartCore();
-    if (stopping()) return stoppingAnswer;
     for (const route of routesFor([app], domain)) proxy?.route(route);
     console.log(`${slug} is ready at ${origin}`);
     return {

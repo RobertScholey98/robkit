@@ -14,7 +14,7 @@ import { slug } from "@internal/test-session";
 import postgres from "postgres";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { askDev, devSocket, type DevOperation } from "./requests.ts";
-import { runDev } from "./runner.ts";
+import { type DevOptions, runDev } from "./runner.ts";
 import {
   createdContainers,
   devInstall,
@@ -84,10 +84,11 @@ function isAlive(pid: number): boolean {
 async function runningDev(
   env: NodeJS.ProcessEnv = {},
   prepare?: (root: string) => Promise<void>,
+  options?: DevOptions,
 ) {
   const install = await devInstall(prepare);
   const devEnv = { ...install.env, FIXTURE_POSTGRES: fixturePostgres, ...env };
-  const running = runDev(install.root, devEnv);
+  const running = runDev(install.root, devEnv, options);
   // A test that expects it to fail checks how; here it only must stop.
   const stopped = running.catch(() => undefined);
   onTestFinished(async () => {
@@ -263,6 +264,29 @@ describe("robkit-dev adding an app while it runs", () => {
     ).toMatchObject({ slug: "alpha" });
   });
 
+  it("stops an added app that doesn't answer within the limit, and says to check its port", async () => {
+    const dev = await runningDev({}, undefined, { startLimitMs: 6000 });
+    // It runs, and listens nowhere.
+    await writeApp(dev.root, "aardvark", {
+      dev: `node -e "require('node:fs').writeFileSync('started', String(process.pid)); setInterval(() => {}, 1000)"`,
+    });
+
+    const answer = await dev.ask("add", "aardvark");
+
+    expect(answer).toMatchObject({
+      outcome: "refused",
+      message: expect.stringMatching(
+        /^aardvark didn't answer on port \d+ within 0\.1 minutes, so pnpm dev stopped it\. Check that it listens on PORT\.$/,
+      ) as string,
+    });
+    expect(
+      isAlive(Number(await readAppFile(dev.root, "aardvark", "started"))),
+    ).toBe(false);
+    expect(
+      JSON.parse(await get(dev.port, "alpha.robkit.localhost")),
+    ).toMatchObject({ slug: "alpha" });
+  });
+
   it("stops everything once an added app that answered exits", async () => {
     const dev = await runningDev();
     await writeApp(dev.root, "aardvark");
@@ -324,6 +348,64 @@ describe("robkit-dev adding an app while it runs", () => {
     expect(
       JSON.parse(await get(dev.port, "alpha.robkit.localhost")),
     ).toMatchObject({ slug: "alpha" });
+  });
+
+  it("keeps the core it had, and stops the added app, when the new core exits before it answers", async () => {
+    // Core starts once and not again, as one does whose source broke
+    // since it started.
+    const dev = await runningDev({}, (root) =>
+      writeApp(root, "core", {
+        dev: "if [ -e refuse ]; then exit 4; fi; node ../../serve.js",
+      }),
+    );
+    const core = "core.robkit.localhost";
+    const pid = await eventually(() => get(dev.port, core, "/pid"));
+    await writeFile(join(dev.root, "apps", "core", "refuse"), "");
+    await writeApp(dev.root, "aardvark");
+
+    const answer = await dev.ask("add", "aardvark");
+
+    expect(answer).toEqual({
+      outcome: "refused",
+      message:
+        "core exited with 4 before it answered. That was a new core, started to list aardvark, so pnpm dev kept the core it had and stopped aardvark. Core's output is in pnpm dev's.",
+    });
+    expect(await get(dev.port, core, "/pid")).toBe(pid);
+    expect(
+      isAlive(Number(await readAppFile(dev.root, "aardvark", "started"))),
+    ).toBe(false);
+    expect(
+      JSON.parse(await get(dev.port, "alpha.robkit.localhost")),
+    ).toMatchObject({ slug: "alpha" });
+    // It goes on taking requests.
+    expect(await dev.ask("add", "alpha")).toMatchObject({ outcome: "done" });
+  });
+
+  it("gives a new core that never answers a limit, then keeps the core it had", async () => {
+    const dev = await runningDev(
+      {},
+      (root) =>
+        writeApp(root, "core", {
+          dev: "if [ -e hang ]; then sleep 600; fi; node ../../serve.js",
+        }),
+      // Long enough for the added app to answer on a busy machine.
+      { startLimitMs: 15_000 },
+    );
+    const core = "core.robkit.localhost";
+    const pid = await eventually(() => get(dev.port, core, "/pid"));
+    await writeFile(join(dev.root, "apps", "core", "hang"), "");
+    await writeApp(dev.root, "aardvark");
+
+    const answer = await dev.ask("add", "aardvark");
+
+    expect(answer).toMatchObject({
+      outcome: "refused",
+      message: expect.stringMatching(
+        /^core didn't answer on port \d+ within 0\.25 minutes\. That was a new core, started to list aardvark,/,
+      ) as string,
+    });
+    expect(await get(dev.port, core, "/pid")).toBe(pid);
+    expect(await dev.ask("add", "alpha")).toMatchObject({ outcome: "done" });
   });
 });
 
