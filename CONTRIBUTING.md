@@ -246,7 +246,7 @@ Say a ticket asks that an access rule gated to roles must name at least one. Tod
 
 R releases. A release publishes `create-robkit` and every `@robkit/*` package to npm at one new version, and tags it `v<version>`. It takes two steps: a pull request that changes the versions, then a button that publishes them.
 
-The first release, 0.1.0, waits for [ticket 19](.scratch/just-use-it/issues/19-robkit-upgrade.md) (`robkit upgrade`) to merge. 0.1.0's half of `robkit upgrade` can't change once it is on npm.
+Before the first release, 0.1.0, read `packages/create-robkit/src/upgrade-handover.ts` and "The handover, as 0.1.0 will ship it" in [ticket 19](.scratch/just-use-it/issues/19-robkit-upgrade.md)'s comments. That file is 0.1.0's half of `robkit upgrade`. Every later robkit has to answer it, so it can't change once 0.1.0 is on npm, and a test fails if it does.
 
 ### Set up once
 
