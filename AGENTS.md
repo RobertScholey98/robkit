@@ -3,7 +3,7 @@
 robkit is a self-hosting kit. `npm create robkit` makes an install, and `robkit add` adds apps with auth, a database schema and a subdomain built in.
 
 - Domain terms are in `GLOSSARY.md`. Use them in code, tests, tickets and commits.
-- The plan is `.scratch/kit/map.md`. Build tickets are in `.scratch/v0.1-build/issues/`, numbered in build order.
+- The plan is `.scratch/kit/map.md`. The current tickets are in `.scratch/just-use-it/issues/`, numbered in build order, with their PRD in `.scratch/just-use-it/PRD.md`. The earlier v0.1 build tickets are in `.scratch/v0.1-build/issues/`.
 - The spec is the Claude Doc "robkit v0.1 spec" (https://claude.ai/artifact/MrC9JDG3NK2tSw7h6x2VV5). Where a ticket and the spec disagree, the ticket is newer and wins.
 
 ## Commands
@@ -11,7 +11,7 @@ robkit is a self-hosting kit. `npm create robkit` makes an install, and `robkit 
 ```sh
 pnpm install                              # Node 24, pnpm 11
 pnpm create-install                       # asks for a folder and the example's stack, then makes and installs an install linked to this checkout; pnpm dev in it
-pnpm check                                # the fast gate: format check, lint, typecheck and every test that needs no Docker
+pnpm check                                # the fast gate: format check, knip, lint, typecheck and every test that needs no Docker
 pnpm check:all                            # the full gate, what CI runs; needs Docker
 pnpm turbo run lint typecheck test        # lint, typecheck and every test; needs Docker
 pnpm format                               # Prettier
@@ -64,11 +64,11 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 - A cast fails lint outside tests (`no-unsafe-type-assertion`, and `robkit/no-json-cast` for `JSON.parse` and `.json()`). Use a reader or a type guard instead.
 - A cast to a branded type fails lint everywhere, tests included (`robkit/no-brand-cast`). Tests build a `Slug`, `CodeId`, `RoleId` or `Viewer` with `slug`, `aCodeId`, `aRoleId` and `aViewer` from `@internal/test-session`.
 - A failed read is an `InputProblem`, checked with `isProblem`. `robkit/one-problem-type` refuses a `{ error: string }` of your own, `"error" in`, and, outside tests, `throw new Error(x.error)`: use `CommandProblem`, `orExit` or `orThrow`.
-- An adapter-facing package (guard, session, hono, start, react) keeps a `*.test-d.ts` file saying what must and mustn't compile, and its `test` script runs `vitest run --typecheck`.
+- An adapter-facing package (input, guard, session, hono, express, next, start, react) keeps a `*.test-d.ts` file saying what must and mustn't compile, and its `test` script runs `vitest run --typecheck`.
 - The pre-commit hook runs ESLint's fixes and Prettier on staged files. The commit-msg hook, and CI on each commit of a pull request, check the subject with `tooling/repo-checks/src/check-commit-subjects.ts`.
 - A change to a published package's `src`, or to create-robkit's `templates`, tests aside, needs a changeset (`pnpm changeset`). CI's `gate` job is the one required check, and a pull request fills in `.github/pull_request_template.md`. Its Ticket section must name the ticket's file under `.scratch/`; CI checks it. A pull request may add its own `needs-triage` ticket and name that.
-- Every external version lives in the catalog in `pnpm-workspace.yaml`, and manifests say `catalog:`. A test in `tooling/repo-checks` fails on any version pinned elsewhere. Peer dependencies are exempt.
+- Every external version lives in the catalog in `pnpm-workspace.yaml`, as an exact version, and manifests say `catalog:`. A test in `tooling/repo-checks` fails on any version pinned elsewhere. Peer dependencies are exempt. This is robkit's own rule: an install's catalog is its owner's.
 - Renovate proposes version updates weekly once it is installed (`renovate.json`). Its TypeScript cap moves with the catalog's.
 - TypeScript stays on 6.0 until typescript-eslint supports 7.
-- pnpm 11 refuses packages published in the last day. Pin an older version rather than adding an exemption. An install exempts only robkit's own packages, and `SECURITY.md` says why.
+- pnpm 11 holds back a package published in the last day, and refuses one under `minimumReleaseAgeStrict`. Pin an older version rather than adding an exemption. An install exempts only robkit's own packages, and `SECURITY.md` says why.
 - Relative imports use the `.ts` extension, so Node can run source files directly. ESLint enforces it.

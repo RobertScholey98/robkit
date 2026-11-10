@@ -2,7 +2,7 @@
 
 ## Destination
 
-A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffolds a monorepo with the platform (Hono core, a React hub with access-code login, admin, shared Postgres). `robkit add` opens a selector of stack templates (v0.1: TanStack Start, and React with Hono) and drops in an app that already has auth, a database schema and a subdomain. All of it runs locally with one command. Deploys use R's existing Coolify method for now.
+A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffolds a monorepo with the platform (Hono core, a React hub with access-code login, admin, shared Postgres). `robkit add` opens a selector of stack templates (v0.1: TanStack Start, and React with Hono) and drops in an app that already has auth, a database schema and a subdomain. All of it runs locally with one command. Deploys use R's existing Coolify method for now. The [stacks PRD](../stacks/PRD.md) added React + Express, Next.js and React + Go, so every install now offers five stacks.
 
 ## Notes
 
@@ -29,6 +29,15 @@ The settled decisions a newcomer would question each have a short record in `doc
 - [0010 Local dev runs every app on its own subdomain behind one proxy](../../docs/adr/0010-local-dev-on-subdomains.md)
 - [0011 The guard is a pure function, and adapters are thin](../../docs/adr/0011-pure-guard-thin-adapters.md)
 - [0012 Only the proxy may reach core](../../docs/adr/0012-only-the-proxy-reaches-core.md)
+- [0013 The Go guard is a port, tested against the same cases](../../docs/adr/0013-go-guard-is-a-port.md)
+- [0014 The guard knows its own address](../../docs/adr/0014-guard-knows-its-own-address.md)
+- [0015 Sibling subdomains are a boundary](../../docs/adr/0015-sibling-subdomains-are-a-boundary.md)
+- [0016 Platform wiring lives in packages](../../docs/adr/0016-platform-wiring-lives-in-packages.md)
+- [0017 Provisioning is its own package](../../docs/adr/0017-provisioning-is-its-own-package.md)
+- [0018 robkit's Go module travels in the install](../../docs/adr/0018-go-module-travels-in-the-install.md)
+- [0019 One version for every package, released by a pull request and a button](../../docs/adr/0019-one-version-a-pull-request-and-a-button.md)
+- [0020 The runner takes requests on a socket file](../../docs/adr/0020-runner-takes-requests-on-a-socket-file.md)
+- [0021 Upgrade runs in two steps, with a frozen handover](../../docs/adr/0021-upgrade-runs-in-two-steps.md)
 
 Build tickets 01 to 09 were deleted once done (R, 2026-11-03). Their notes for later tickets moved into those tickets, and their open gaps are listed under "Known gaps" below. `git log --diff-filter=D -- .scratch/v0.1-build/issues` finds the originals.
 
@@ -94,19 +103,28 @@ Build tickets 01 to 09 were deleted once done (R, 2026-11-03). Their notes for l
 - **A release is a pull request and a button** (just-use-it ticket 14, R's answers in [v0.1 ticket 31](../v0.1-build/issues/31-publish-the-packages.md); chosen in the build, awaiting R's review): `create-robkit` and every `@robkit/*` package are one fixed changesets group, and a repo check fails on a package the group leaves out and on a `major` changeset before 1.0.0. The first release is 0.1.0. `pnpm release:version` opens the version pull request from a clone of main with `gh`, since GitHub runs no checks on a pull request a workflow opened. `.github/workflows/release.yml` starts only by hand, stops off `main`, runs the gate with no secret, then packs and checks every package in a job with no secret. In the `release` environment, a job that installs and builds nothing publishes with pnpm and provenance each of those tarballs npm lacks at its version, after checking each is main's package at main's version, and tags `v<version>` once npm has them all. Only its publish step holds `NPM_TOKEN`, and that step imports only `node:` modules. `pnpm release:dry-run` packs and checks every package with no call to npm, and CI runs it on each pull request. create-robkit ships its `CHANGELOG.md`, and a change an owner must act on names create-robkit in its changeset. CONTRIBUTING.md's "Releasing" is the runbook. The first release waits for ticket 19. See [the ticket](../just-use-it/issues/14-release-workflow.md).
 - **init installs** (just-use-it ticket 15, [PRD decision 14](../just-use-it/PRD.md); chosen in the build, awaiting R's review): `npm create robkit` installs the install's dependencies and makes its first commit unless told `--no-install`. This reverses [app-sharing ticket 01](../app-sharing/issues/01-one-opinionated-stack.md)'s `--install` flag, since an install that needs a second command isn't one an owner can just use. The checkout's `pnpm create-install` passes only `--link`. Before writing, init checks Node 24 in an entry file with no static import, and a pnpm that runs the install's `packageManager` version. Docker is a warning. A first commit that fails is a one-line note. On success it prints the folder, `cd <folder>`, `pnpm dev` and the hub's address, and nothing else. [Ticket 15](../just-use-it/issues/15-init-installs.md).
 - **Adding an app while `pnpm dev` runs** (just-use-it ticket 18, [PRD decision 16](../just-use-it/PRD.md); chosen in the build, awaiting R's review): `pnpm dev` listens on a socket file in a 0700 `robkit-<uid>` folder, in `XDG_RUNTIME_DIR` or in the temp folder where that isn't set, named from a hash of the install's real path. `devSocket` in `@robkit/dev/cli` works the path out for both sides. `robkit add` asks it to start the new app, which takes the first free port after the proxy's, is provisioned alone, and is routed once core has restarted with it. `pnpm robkit migrate <slug>` runs an app's `migrate` script with the URL the runner holds, and exits 0 with a hint when no `pnpm dev` runs. Removing an app still needs a restart.
+- **The guard knows its own address** (just-use-it ticket 01, [PRD decision 1](../just-use-it/PRD.md); chosen in the build, awaiting R's review): an app's origin is core's origin with the app's slug in place of `core`, and the guard builds every URL from it plus the request's path and query, never from `Host` or `X-Forwarded-Proto`. [ADR 0014](../../docs/adr/0014-guard-knows-its-own-address.md).
+- **Core checks whole origins** (just-use-it ticket 02, [PRD decision 2](../just-use-it/PRD.md); chosen in the build, awaiting R's review): core's one address setting is `ROBKIT_CORE_URL`, and it stops reading `ROBKIT_DOMAIN`. `/refresh` mints only for `next` on the exact origin of admin or an app in the catalog, CORS allows exactly the hub's and admin's origins, and an http origin is refused unless its domain is local. [Ticket 02](../just-use-it/issues/02-core-checks-whole-origins.md).
+- **The sign-in limit holds under load** (just-use-it ticket 04, R, 2026-11-09; chosen in the build, awaiting R's review): codes stay 5 characters. Each attempt takes its place in the limit before its verdict, an IPv6 client is keyed by its /64, and 20 wrong codes in an hour across all clients stop code sign-in for everyone until the hour passes. `SECURITY.md` gives the arithmetic. [Ticket 04](../just-use-it/issues/04-sign-in-limit-holds.md).
+- **Sibling subdomains are a boundary** (just-use-it tickets 03, 05 and 06, [PRD decisions 3 to 5](../just-use-it/PRD.md); chosen in the build, awaiting R's review): `__Host-` session cookies on an https install, the guard refuses a write from another origin, and the guard sends `X-Frame-Options: SAMEORIGIN` and `nosniff`. [ADR 0015](../../docs/adr/0015-sibling-subdomains-are-a-boundary.md).
+- **`guarded()` needs no arguments** (just-use-it ticket 07, [PRD decision 6](../just-use-it/PRD.md); chosen in the build, awaiting R's review): every adapter's `guarded()` reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, and a misconfigured app still refuses to start with the reader's message. [Ticket 07](../just-use-it/issues/07-guarded-needs-no-arguments.md).
+- **A test names its viewer** (just-use-it ticket 08, [PRD decision 7](../just-use-it/PRD.md); chosen in the build, awaiting R's review): each adapter's `/testing` entry builds viewers, with builders written once in `@robkit/guard/testing`, and the examples read on GET and record on POST. The main entry has no way to skip the guard. [Ticket 08](../just-use-it/issues/08-test-a-route-as-a-viewer.md).
+- **Platform wiring lives in packages** (just-use-it tickets 09 to 11, [PRD decisions 8 to 10](../just-use-it/PRD.md); chosen in the build, awaiting R's review): `@robkit/drizzle` and its `robkit-migrate`, `@robkit/vite` and `withRobkit()`, and `@robkit/serve` behind each adapter's `/serve` entry. [ADR 0016](../../docs/adr/0016-platform-wiring-lives-in-packages.md).
+- **Core is one command, and provisioning is its own package** (just-use-it ticket 12, [PRD decision 11](../just-use-it/PRD.md); chosen in the build, awaiting R's review): `robkit-core` provisions, migrates and serves, `apps/core` has no source, and `@robkit/provision` sits below core and the dev runner. [ADR 0017](../../docs/adr/0017-provisioning-is-its-own-package.md).
+- **An app's own settings live in its `.env`** (just-use-it tickets 16 and 17, [PRD decision 15](../just-use-it/PRD.md); chosen in the build, awaiting R's review): `pnpm dev` loads `apps/<slug>/.env` into that app alone, and refuses a file that names one of robkit's settings. The install's root `.env` holds robkit's own dev settings, such as its ports. In production the owner sets an app's settings on the host. A setting the browser reads isn't in an image yet: [ticket 32](../just-use-it/issues/32-browser-settings-in-an-image.md) waits for R. [Ticket 17](../just-use-it/issues/17-an-apps-own-settings.md).
+- **`robkit upgrade` runs in two steps** (just-use-it ticket 19, [PRD decision 17](../just-use-it/PRD.md); chosen in the build, awaiting R's review): the installed robkit moves the catalog and installs, then hands over to the new one, which writes what only it holds. The handover is frozen once 0.1.0 is on npm, and R reads its details before the first release. [ADR 0021](../../docs/adr/0021-upgrade-runs-in-two-steps.md).
+- **`robkit check` is a lint, not a boundary** ([PRD decision 18](../just-use-it/PRD.md)): it catches an app that breaks the layer rule by mistake. What holds an imported app is its database role, its token's audience and its own image. Not built yet: [ticket 23](../just-use-it/issues/23-check-says-what-it-proves.md).
 
 ## Known gaps
 
-Left open by build tickets 02 to 11 and app-sharing ticket 02, with no ticket yet:
+Left open by build tickets 02 to 11, app-sharing ticket 02 and the just-use-it tickets. Each has no ticket yet unless it names one:
 
 - For up to a minute after the owner changes an app's rule, the launcher and the app can disagree. (06)
 - Roles can't be renamed or deleted, and an app's name is its slug. (06)
-- The sign-in limit is soft: two attempts racing in parallel can both get past the check. (03)
 - Local dev doesn't work in Safari, because WebKit doesn't send the cookie on the hub's fetch to core. Tested in Playwright's WebKit only. (03)
 - In dev, React StrictMode sends an intro link's sign-in twice, which leaves one extra session. (05)
 - Vite prints `http://127.0.0.1:<port>`, which shows nothing, since each app answers only on its subdomain. (02)
-- Running `pnpm install` anywhere on the machine touches the hard-linked files under a running core, and `node --watch` restarts it. (08)
-- `pnpm dev`, the runner tests, the whole-stack test, `repo-checks` and one `migrate.test.ts` case need Linux or macOS. The whole suite passes in WSL. (04 to 09)
+- `pnpm dev`, the runner tests, the whole-stack test, `repo-checks` and one `migrate.test.ts` case need Linux or macOS. The whole suite passes in WSL, and `pnpm dev` runs there. Native Windows waits for R on [just-use-it ticket 21](../just-use-it/issues/21-native-windows.md). (04 to 09)
 - In production, apps reach core over its public URL, through Cloudflare and back, not over Coolify's Docker network. (11)
 - Any container on Coolify's network can reach core directly and send its own `X-Forwarded-For` or `CF-Connecting-IP`. Only the owner's apps run there. (30)
 - After sign-out, an app the browser opened in the last 15 minutes still lets it in until that app's token expires, since apps verify tokens locally and core can't clear another host's cookie. Core's session ends at once, so the hub, admin's calls to core and every refresh see the browser signed out. (app-sharing 02)
@@ -116,10 +134,17 @@ Left open by build tickets 02 to 11 and app-sharing ticket 02, with no ticket ye
 - A state the guard keeps for a trip through core, if read from a log, is good until ten minutes after the last trip that renewed it, in the one browser that holds its cookie. Clearing it once a trip ends would break tabs that share it. (just-use-it 03)
 - The hub signs a browser in with whatever access code an intro link carries, without asking, so a sibling app can swap a viewer's session for a guest's. (just-use-it 27 closes it)
 - Any app can send a visiting browser through core's `/refresh` and learn who the visitor is: their id, kind and roles. That is what an app needs to serve them, but an imported app learns it too, for every guest who opens it. (app-sharing 02)
+- Removing an app from a running `pnpm dev` needs a restart of `pnpm dev`. Adding one doesn't. (just-use-it 18)
+- A SIGTERM that arrives while `robkit-core start` provisions or migrates is ignored until Docker kills the container 10 seconds later. A migration cut off that way rolls back. (just-use-it 12)
+- Postgres logs a failed statement whole, so a lost provisioning race writes `create role … password '…'` into Postgres's own log. (just-use-it 12; noted on ticket 30)
+- `serve()` doesn't close an app's database pool when it stops, so Postgres logs the dropped connections. An owner can pass `onStopped`. (just-use-it 11)
+- The runner gives an app 5 seconds to stop and `@robkit/serve` waits up to 8, so the runner can kill core first. Harmless in dev, where sessions are in the database. (just-use-it 16)
+- A setting the browser reads, such as `VITE_…` or `NEXT_PUBLIC_…`, works under `pnpm dev` and is missing from a production image. ([just-use-it ticket 32](../just-use-it/issues/32-browser-settings-in-an-image.md) waits for R)
+- Once 0.1.0 is on npm, upgrade's first step can't gain a check for an install on 0.1.0. Only the new robkit's second step can refuse. (just-use-it 19)
 
 ## Not yet specified
 
-- The robkit.dev website and its docs, including the later deployment cookbook.
+- What the robkit.dev website says, including the later deployment cookbook. Where it lives is decided: under `site/` in this repo, built with Astro, with a PRD of its own (R, 2026-11-09).
 - Backups, observability and secret rotation for a running install.
 
 ## Out of scope

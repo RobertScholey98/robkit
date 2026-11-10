@@ -87,7 +87,7 @@ pnpm --filter @internal/repo-checks api:update    # rewrite the API reports afte
 ```sh
 pnpm --filter @robkit/guard test                                  # one package
 pnpm --filter @robkit/guard exec vitest run src/guard.test.ts     # one file
-pnpm --filter @robkit/hono test -- -t "conformance"               # tests whose name matches
+pnpm --filter @robkit/hono exec vitest run -t "its own settings"  # tests whose name matches
 ```
 
 Every test in `@internal/e2e` and `@internal/test-postgres` needs Docker and Linux, and so do core's and dev's `*.db.test.ts` files. The rest run anywhere, core's and dev's other tests included, and `pnpm check` runs them.

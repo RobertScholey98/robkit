@@ -17,3 +17,5 @@ The two stay one guard by their tests. `go test` runs `packages/guard/conformanc
 - A change to the guard or the request guard lands in both languages, in one pull request, and `conformance.json` gets a case for it. The gate runs `go vet` and `go test`, so contributors need Go.
 - A Go app's image builds the binary with Go and runs it alone; it needs nothing from `node_modules`.
 - The module isn't on a Go module proxy. An app's `go.mod` reaches it with a `replace`, to the checkout under `--link` and to `vendor/robkit/go` after `robkit vendor`. Publishing it needs a version tag, which waits for robkit's release flow.
+
+  > **Note, 2026-11-10:** since [create-robkit runs outside the checkout](../../.scratch/just-use-it/issues/13-create-robkit-outside-the-checkout.md), init and `robkit add` write the module to `vendor/robkit/go` whenever they write a Go app, so an install needs no `robkit vendor`, version tag or module proxy for it. `robkit vendor` is now only for a linked install that deploys. [0018](0018-go-module-travels-in-the-install.md) records the choice.

@@ -15,3 +15,5 @@ Core trusts the last `X-Forwarded-For` entry, or `CF-Connecting-IP` when `ROBKIT
 - In production, set `ROBKIT_TRUSTED_PROXY=cloudflare` only when nothing but the tunnel reaches the host. The install's `docs/deploy.md` says so.
 - Any container on Coolify's network can reach core directly and send its own headers. Only the owner's apps run there. The map lists this as a known gap.
 - The sign-in limit is soft: two attempts racing in parallel can both get past it.
+
+  > **Note, 2026-11-10:** this is no longer true. Since [The sign-in limit holds under load](../../.scratch/just-use-it/issues/04-sign-in-limit-holds.md), each attempt takes its place in the limit before its verdict, so a burst can't get past it. `SECURITY.md`'s known gaps say what the limit still leaves.

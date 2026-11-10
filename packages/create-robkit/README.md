@@ -12,7 +12,7 @@ cd my-install
 pnpm dev
 ```
 
-Init needs Node 24 or later and pnpm, and checks both before it writes anything. It asks for the example app's stack, writes the install, installs its dependencies and makes its first commit, then prints the next commands and the hub's address. `--stack <name>` skips the question. `--no-install` writes the files only. Docker isn't needed until `pnpm dev`, so init only warns when it's missing.
+Init needs Node 24 or later, and pnpm when it installs, and checks both before it writes anything. It asks for the example app's stack, writes the install, installs its dependencies and makes its first commit, then prints the next commands and the hub's address. `--stack <name>` skips the question. `--no-install` writes the files only. Docker isn't needed until `pnpm dev`, so init only warns when it's missing.
 
 The packages aren't on npm yet. Until they are, make an install from a checkout of this repo:
 
@@ -149,10 +149,9 @@ To change one:
    cp ../try/apps/hub/src/launcher.tsx packages/create-robkit/templates/base/apps/hub/src/launcher.tsx
    ```
 
-4. **Update create-robkit's tests.** `generate.test.ts` keeps a digest of every file init writes, so any template change fails it. Check that the files it names are the ones you changed, then update the snapshot and run the package's tests:
+4. **Run create-robkit's tests.** `generate.test.ts` checks what init writes: the catalog, each stack's scripts and wiring, the CI workflow, and that every `pnpm` command the install's README names is one of its scripts. Where a test fails because you meant the change, change the test with it:
 
    ```sh
-   pnpm --filter create-robkit exec vitest run src/generate.test.ts -u
    pnpm --filter create-robkit test
    ```
 
@@ -168,7 +167,8 @@ React + Express went in this way (stacks ticket 01). What a stack knows lives in
    - `guarded(options?)` runs `requestGuard` from `@robkit/session` on a web-standard `Request`, which reads the app's settings itself, and either sends its answer as it is or hands the app's handlers the viewer the way its server library does, typed.
    - `src/guarded.test.ts` runs `conformanceCases` from `@robkit/guard/conformance` against `fakeCore()` from `@internal/test-session`, checks the guard's 401 for a call, and takes a token through the guard's callback.
    - `src/guarded.test-d.ts` says what must and mustn't compile, and `test` and `test:unit` run `vitest run --typecheck --coverage`. Coverage thresholds start at 100.
-   - In `package-graph.js`, `dependencies` are `@robkit/guard` and `@robkit/session`, and `devDependencies` are `@internal/test-session` and `@robkit/input`. Add the package to `tooling/eslint/layers.test.js`'s layer rule cases and to the adapters in `AGENTS.md`'s layer rule.
+   - A Node stack's adapter has a `/serve` entry built on `@robkit/serve`, which serves the built app in production, and a `/testing` entry that gives `@robkit/guard/testing`'s viewer builders, and `guardedAs` where the stack can run a handler without the guard. Model both on Hono's.
+   - In `package-graph.js`, `dependencies` are `@robkit/guard`, `@robkit/serve` and `@robkit/session`, and `devDependencies` are `@internal/test-session` and `@robkit/input`. Add the package to `tooling/eslint/layers.test.js`'s layer rule cases and to the adapters in `AGENTS.md`'s layer rule.
    - The server library, such as `express`, goes in the catalog in `pnpm-workspace.yaml`, in the adapter's `devDependencies`, and as a peer dependency. The README's example compiles from `tooling/repo-checks`, so add it there too, and to `ignoreDependencies` for `tooling/repo-checks` in `knip.jsonc`.
    - Write the README, run `pnpm --filter @internal/repo-checks api:update`, and add a changeset. Where the server library's own words are ones `GLOSSARY.md` avoids, add an exception scoped to the adapter and the template in `tooling/repo-checks/src/glossary.ts`.
 2. **The template**, `templates/stacks/<name>`. Copy the closest stack's folder and keep its shape:

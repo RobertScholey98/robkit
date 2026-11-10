@@ -21,7 +21,7 @@ One robkit deployment: a domain, one Postgres, core, the hub, admin and the owne
 _Avoid_: instance, deployment
 
 **Domain**:
-The name an **Install** answers on, such as `robkit.dev`. Each app is on `<slug>.<domain>`. In code it is `Domain`, which only `readDomain` makes.
+The name an **Install** answers on, such as `robkit.dev`. Each app is on `<slug>.<domain>`. In code it is `Domain`, which only `readDomain` and `isDomain` make.
 
 **Core**:
 The Hono backend, sole owner of the core tables and the signing key.
@@ -35,17 +35,32 @@ The React frontend for login and the launcher.
 _Avoid_: frontend, portal
 
 **Admin**:
-The owner's React frontend for codes, roles, sessions, apps and settings.
+The owner's React frontend for access codes, roles, and who may open each app.
 _Avoid_: dashboard
 
 **Platform apps**:
 Core, the hub and admin together.
+
+**Runner**:
+What `pnpm dev` starts: `robkit-dev` from `@robkit/dev`. It starts Postgres, provisions and migrates each app, starts core and every app, and puts the proxy in front of them. It takes `add` and `migrate` requests on a socket file while it runs.
+
+**Provision step**:
+Giving each app its own Postgres schema and a login role that can touch nothing else, both named after its slug. `@robkit/provision` does it, run by the **Runner** in dev and by `robkit-core start` in production.
+
+**Linked install**:
+An **Install** made with `--link`, whose robkit packages and Go module come from a robkit checkout rather than the registry. Contributors use one to try a change.
 
 ### Apps
 
 **App**:
 An owner's app, created by `robkit add` on its own subdomain.
 _Avoid_: service, project
+
+**Slug**:
+An app's name, and the name of its folder under `apps/`, its subdomain, its Postgres schema and its role: lowercase letters and digits, starting with a letter. `slugProblem` in `@robkit/input` holds the rule.
+
+**App's origin**:
+Where an app answers, such as `https://notes.robkit.dev`: **Core's origin** with the app's slug in place of `core`, on the same protocol and port. The guard works it out from its settings and builds every URL it sends the browser to from it, never from the request. In code it is `appOrigin`.
 
 **Stack**:
 The framework shape an app is built on, such as TanStack Start or React with Hono. Every **Install** offers every stack.
@@ -60,7 +75,7 @@ The shared React component library every **Install** has: shadcn on Base UI, in 
 _Avoid_: design system
 
 **Manifest**:
-What an app says about itself in its `package.json`: its name, icon, access rule and settings.
+What an app says about itself in the `robkit` field of its `package.json`: the access rule core starts it with, and the icon the launcher shows.
 _Avoid_: config, declaration
 
 ### Access
