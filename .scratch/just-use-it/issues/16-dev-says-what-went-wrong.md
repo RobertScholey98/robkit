@@ -33,4 +33,11 @@
 
 In a robkit checkout an install links to, `robkit-core serve` runs core under `node --watch` (`watches()` in `packages/core/src/robkit-core.ts`). Ticket 11's worker saw core's restart test (`robkit-core.db.test.ts`, "restarts core when its source changes, in a checkout") leave a `serving.ts` process behind once in four runs. The test touches a source file and then stops the command, so SIGTERM can reach Node's watcher while it is between the old child and the new one. I haven't reproduced it or found the cause.
 
-It can't happen in an install from npm, which runs no watcher. In a linked checkout a leftover core would hold core's port, and the next `pnpm dev` would fail on it. The port check this ticket adds will name that port. If you see the leftover while you build this, find out whether Node's watcher or `runChild` loses the signal, and say what you found.
+What else milestone 2 changed under this ticket:
+
+- **`runCommand` and `CommandProblem` are in `@robkit/input/command`** (ticket 12). `@robkit/provision` returns a refusal as a value, and `provisionApps` in `packages/dev/src/provision.ts` turns it into a `CommandProblem`.
+- **Two stop limits don't agree.** The runner gives an app 5 seconds after SIGTERM before it kills its group (`stopTimeoutMs` in `packages/dev/src/process-group.ts`). Core under `pnpm dev` serves through `@robkit/serve`, whose stop takes up to 8 seconds when a connection has sent nothing, and core then gives its database 1 more. So the runner can kill core before it would have stopped by itself. A kill is harmless in dev, where sessions are in the database. Leave it and say so in the comments, or make the two agree.
+- **For "it prints an address when the app answers"**, core prints `core listening on <host>:<port>` and each stack's dev server prints its own line. Probing the port works for every stack. Reading lines doesn't.
+- **`guardedAs()` refuses under `pnpm dev`** since milestone 2's code round. An app that left one in its server answers 500 with a message that says so. That is an app's fault to print, not the runner's.
+
+On the leftover watch process: it can't happen in an install from npm, which runs no watcher. In a linked checkout a leftover core would hold core's port, and the next `pnpm dev` would fail on it. The port check this ticket adds will name that port. If you see the leftover while you build this, find out whether Node's watcher or `runChild` loses the signal, and say what you found.

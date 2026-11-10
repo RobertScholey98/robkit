@@ -23,3 +23,15 @@
 - [ ] A state file left by a killed `pnpm dev` doesn't stop the next one, or make `robkit add` wait
 - [ ] The whole-stack test adds its second app while the install runs
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From milestone 2, added by the lead
+
+Checked against the code on 2026-11-10, after milestone 2 merged.
+
+- **Provisioning one app is there already.** `provisionDatabase(adminUrl, slug)` from `@robkit/provision` gives one app its schema and role. The runner's `provisionApps` (`packages/dev/src/provision.ts`) calls it for one app at a time and then runs that app's `migrate` script with its `DATABASE_URL`. Adding an app is that loop's body, for the new app alone.
+- **The proxy takes its routes once**, in `createProxy(routes)` (`packages/dev/src/proxy.ts`). It needs a way to take one more.
+- **Core under `pnpm dev` is `robkit-core serve`**, which adds the apps in `ROBKIT_APPS` it doesn't know, and keeps the access rule of each one it does (`registerApps` in `packages/core/src/apps.ts`). So restarting it with a longer list adds the new app. In a linked checkout it runs under `node --watch`, so stop its whole process group, as the runner does today.
+- **A Node stack's `migrate` script is `robkit-migrate`** (ticket 09). It locks the app's own journal table, so the one command that applies a new migration is safe beside a start-up that is still migrating.
+- **An app's `.env`** (ticket 17) goes to an added app and to its `migrate` script as it does at start.

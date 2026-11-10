@@ -25,3 +25,7 @@
 Found while milestone 1 was built (2026-11-09):
 
 - Ticket 26 leases each block of test ports with a symlink (`tooling/test-postgres/src/index.ts`). Windows makes a symlink only with Developer Mode on or as an administrator. It works on R's machine. On a Windows machine without Developer Mode, test-postgres's own tests would fail in the fast gate. If R says yes to native Windows, the lease needs another atomic file there, such as one made with the `wx` flag.
+
+Found while milestone 2 was built (2026-11-10):
+
+- Ticket 10 took the `VAR=value` prefix out of the Next template's `dev` script, which only a POSIX shell runs. I haven't checked the other template scripts for forms like it. What is known to be left is in the runner: it spawns `pnpm` without a shell (`packages/dev/src/runner.ts`), and `stopGroup` signals a negative pid (`packages/dev/src/process-group.ts`), which Windows doesn't have.

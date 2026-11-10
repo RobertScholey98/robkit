@@ -18,3 +18,13 @@
 - [ ] Four new ADRs exist and are listed in `docs/adr/README.md`
 - [ ] The map's decisions, known gaps and "Not yet specified" are current
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From milestone 2, added by the lead
+
+Checked against the code on 2026-11-10, after milestone 2 merged.
+
+- **`packages/` has 15 folders now.** Four are new: `provision`, `drizzle`, `vite` and `serve`.
+- **The "platform wiring lives in packages" ADR** covers `@robkit/drizzle`, `@robkit/vite`, `@robkit/serve`, each adapter's `/serve` and `/testing` entries, and `robkit-core`. PRD decision 11 has the three placements weighed for provisioning, for its own ADR.
+- **Milestone 2's code round changed three things the docs describe**, each already written into the package's README: `guardedAs()` serves only in a test run, `@robkit/serve` follows a link inside a served folder, and a failed `onStopped` exits 1 with its own line. Check that no other doc says the old thing.

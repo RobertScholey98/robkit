@@ -23,3 +23,12 @@
 - [ ] It prints the changelog entries between the two versions
 - [ ] In a linked install it prints one line and changes nothing
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From milestone 2, added by the lead
+
+Checked against the code on 2026-11-10, after milestone 2 merged.
+
+- **An app's files now call packages by name**: `guarded()`, `appDatabase(schema)`, `robkit-migrate`, `robkit()` or `withRobkit()`, and `serve(app)`. `apps/core` is a `package.json` whose scripts are `robkit-core start`, `migrate` and `serve`. Those names are public, like an export, and a later version keeps them. So upgrade has nothing to rewrite under `apps/`, and the criterion "no file under `apps/` changed" holds for core too.
+- **What an install still holds of robkit's own, outside `apps/`**: the root `Dockerfile`, `compose.yaml`, `turbo.json`, `.github`, `tooling/eslint` and `vendor/robkit/go`. This ticket rewrites the last two. A fix to one of the others reaches an install through the changelog, by hand. Say so in the install's README, so an owner knows which files a version bump doesn't cover.
