@@ -1,6 +1,10 @@
-import { readFile, stat } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { matchesGlob } from "node:path/posix";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import {
@@ -17,6 +21,8 @@ import {
   stackTemplate,
   type Files,
 } from "./generate.ts";
+
+const run = promisify(execFile);
 
 function json(files: Files, path: string): unknown {
   return JSON.parse(files.get(path) ?? "null");
@@ -706,6 +712,51 @@ describe("generateInstall", () => {
 
     expect(files.get(".gitignore")).toContain("node_modules/");
     expect(files.has("gitignore")).toBe(false);
+  });
+
+  /** A `.env` file in every place one goes, and the one that is committed. */
+  const envFiles = [
+    ".env",
+    ".env.local",
+    "apps/notes/.env",
+    "apps/notes/.env.local",
+    "apps/notes/.env.production",
+  ];
+  const examples = [".env.example", "apps/notes/.env.example"];
+
+  it("keeps every .env out of git, in every folder, but .env.example", async () => {
+    const files = await generateInstall(defaultChoices);
+    const repo = await mkdtemp(join(tmpdir(), "robkit-gitignore-"));
+    await run("git", ["init", "-q"], { cwd: repo });
+    await writeFile(join(repo, ".gitignore"), files.get(".gitignore") ?? "");
+
+    // It prints each path git ignores.
+    const { stdout } = await run(
+      "git",
+      ["check-ignore", ...envFiles, ...examples],
+      { cwd: repo },
+    );
+
+    expect(stdout.split("\n").filter(Boolean)).toEqual(envFiles);
+  });
+
+  it("keeps every .env out of an image, in every folder, but .env.example", async () => {
+    const files = await generateInstall(defaultChoices);
+    const patterns = (files.get(".dockerignore") ?? "")
+      .split("\n")
+      .filter((line) => line && !line.startsWith("#"));
+    // Docker's rules: each pattern matches from the build's root, the
+    // last one that matches decides, and a ! pattern keeps the file.
+    const leftOut = (path: string) =>
+      patterns.reduce(
+        (out, pattern) =>
+          matchesGlob(path, pattern.replace(/^!/, ""))
+            ? !pattern.startsWith("!")
+            : out,
+        false,
+      );
+
+    expect([...envFiles, ...examples].filter(leftOut)).toEqual(envFiles);
   });
 
   it("has a template folder for every stack robkit can make", async () => {

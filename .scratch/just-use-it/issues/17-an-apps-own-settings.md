@@ -17,17 +17,17 @@ The shell's environment still reaches every app, as today. An app run under `pnp
 
 **Blocked by:** 16
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A variable in `apps/notes/.env` reaches the `notes` app under `pnpm dev` and no other app
-- [ ] A `.env` that sets `DATABASE_URL`, `PORT`, `HOST`, `NODE_ENV`, `VITEST` or any `ROBKIT_` name stops `pnpm dev` with a message that names the file and the variable
-- [ ] A name set in the shell and in an app's `.env` reaches the app with the shell's value, and loading the file leaves the runner's own environment as it was
-- [ ] A variable in `apps/notes/.env` reaches that app's `migrate` script under `pnpm dev`
-- [ ] `NEXT_TELEMETRY_DISABLED=0` in a Next app's `.env` reaches `next dev`, and `withRobkit()` leaves it as it found it
-- [ ] A new install's `.gitignore` and `.dockerignore` leave out `.env` and `.env.local` in every folder and keep `.env.example`
-- [ ] `robkit deploy` sends the host no request that removes or replaces a variable it didn't set, with a test of the requests it sends
-- [ ] `docs/deploy.md` and the `AGENTS.md` files say where an app's settings go, that an edit waits for the next `pnpm dev`, and that a `VITE_*` or `NEXT_PUBLIC_*` value isn't in a production image, with what to do instead
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] A variable in `apps/notes/.env` reaches the `notes` app under `pnpm dev` and no other app
+- [x] A `.env` that sets `DATABASE_URL`, `PORT`, `HOST`, `NODE_ENV`, `VITEST` or any `ROBKIT_` name stops `pnpm dev` with a message that names the file and the variable
+- [x] A name set in the shell and in an app's `.env` reaches the app with the shell's value, and loading the file leaves the runner's own environment as it was
+- [x] A variable in `apps/notes/.env` reaches that app's `migrate` script under `pnpm dev`
+- [x] `NEXT_TELEMETRY_DISABLED=0` in a Next app's `.env` reaches `next dev`, and `withRobkit()` leaves it as it found it
+- [x] A new install's `.gitignore` and `.dockerignore` leave out `.env` and `.env.local` in every folder and keep `.env.example`
+- [x] `robkit deploy` sends the host no request that removes or replaces a variable it didn't set, with a test of the requests it sends
+- [x] `docs/deploy.md` and the `AGENTS.md` files say where an app's settings go, that an edit waits for the next `pnpm dev`, and that a `VITE_*` or `NEXT_PUBLIC_*` value isn't in a production image, with what to do instead
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -48,3 +48,37 @@ Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Opus had one must-
 - **`NODE_ENV` and `VITEST` are refused too** (Opus). `guardedAs()` serves when `NODE_ENV` is `test`, or when `VITEST` is set and `NODE_ENV` isn't `production` (`packages/hono/src/testing.ts`). `robkit()` sets nothing up under `VITEST` (`packages/vite/src/robkit.ts`), and the runner deletes `VITEST` for that reason.
 - **The order of the three sources is written down** (Sol), and the parser is the one that leaves the runner's environment alone (Sol).
 - **The deploy criterion says what its test can show** (Opus): the requests robkit sends, not what the host does with them.
+
+### From the build, 2026-11-10
+
+Built on branch `93-an-apps-own-settings`.
+
+**How it works** (`packages/dev/src/app-env.ts`).
+
+- `appSettings(install, app, databaseUrl)` is the one list of what the runner decides for an app. `VITEST`, `ROBKIT_DATABASE_URL` and, for an app without a database, `DATABASE_URL` are keys with no value, which the runner removes. So `shellForApps` is gone, and the refused names come from this list's keys.
+- `ownSettings(install, apps)` reads each `apps/<slug>/.env` with `util.parseEnv` and refuses a name that is a key of `appSettings`, starts `ROBKIT_`, or is `NODE_ENV`. It reads every file before refusing, so each refused name prints as its own line.
+- `appEnv(install, shell, app, { own, databaseUrl })` builds an app's environment: `appSettings` wins, then the shell, then the file, then the one default, `NEXT_TELEMETRY_DISABLED=1`. The runner calls it, through `envFor`, for each app it starts and each `migrate` script it runs.
+
+**Chosen in the build:**
+
+- **A `migrate` script gets its app's whole environment**, `ROBKIT_APP` and `PORT` included, not only the shared settings. That is one function for both, and it is what the `start` script in an image already runs with.
+- **`provisionApps` takes the apps the runner found** rather than the install's folder. It found them again with default ports, so a `migrate` script would have seen the wrong `PORT`.
+- **The files are read before the Go and Docker checks**, right after the apps are found, so a refused file stops `pnpm dev` before anything else is asked.
+- **`DATABASE_URL` is refused for every app**, one with no `migrate` script too. The runner removes the shell's for such an app today, so a file's would have been a second way in.
+- **Three messages**, each naming the file and the variable: a name the runner decides ("which pnpm dev decides for each app"), any other `ROBKIT_` name (points at the install's root `.env`), and `NODE_ENV` (names `guardedAs()`). Each ends "Remove it from the file."
+- **`.env.example` stays in an image.** `.dockerignore` has `**/.env`, `**/.env.*` and `!**/.env.example`. The production test writes `.env`, `.env.local` and `.env.example` into the example and checks its image holds only `.env.example`.
+- **`docs/deploy.md` says to redeploy from Coolify after changing a variable**, since `robkit deploy` deploys only the apps whose code changed.
+
+**What `robkit deploy` sends for variables.** One `PATCH /applications/<uuid>/envs/bulk` per app, naming only the variables in deploy.md's table (and core's own). It sends no `DELETE`, and its `PATCH /applications/<uuid>` carries settings only. Coolify v4's bulk route adds or updates each variable it names and leaves the rest, as the fake models it. So an owner's own variable survives, unless it has one of robkit's names. The test shows the requests, not what Coolify does with them. `coolify-deploy.test.ts` now checks the requests: no `DELETE`, no other name in a bulk body, and the owner's variable still there in the fake. Nothing in the deploy changed.
+
+**Why the shell still reaches every app.** An app under `pnpm dev` runs as the owner, with the owner's files and network. Narrowing the shell's environment would add a rule for every app's author to learn and stop nothing the app can't already reach. The refusals protect robkit's own settings, which is a different job.
+
+**Not proved against a real `next dev`.** The runner test shows `NEXT_TELEMETRY_DISABLED=0` from an app's `.env` reaching the app's process, and `withRobkit()`'s test shows it leaves a set value alone. No test starts `next dev` with the file.
+
+**For 18:** an added app gets its settings the same way as at start. Call `ownSettings(facts, [app])`, which refuses as at start, then `provisionApps([app], { adminUrl, envFor })`, then start it with `envFor(app, databaseUrl)`. `envFor` in `runner.ts` closes over `own`, the map `ownSettings` returned, so add the new app's entry to it. The refused names don't depend on `facts`' values, but the environment does: an added app changes `ROBKIT_APPS`.
+
+### Merged
+
+Added by the lead. PR 93 merged into `m3-making-an-install` on 2026-11-10 as `507d512`, with `gate`, `check`, `pull-request` and `production` green on `03b4c5b`, on the first CI run.
+
+The worker's full gate never passed on the lead's machine: three gates ran side by side and two runs failed on time limits alone, and the production test lost one container to the machine running out of memory. Each test passed alone, and CI passed all of them.

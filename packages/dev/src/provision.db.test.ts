@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 import { afterAll, describe, expect, inject, it } from "vitest";
 import { CommandProblem } from "@robkit/input/command";
+import { discoverApps } from "./apps.ts";
 import { provisionApps } from "./provision.ts";
 import { slug } from "@internal/test-session";
 
@@ -36,6 +37,13 @@ const env = {
   FIXTURE_POSTGRES: import.meta.resolve("postgres"),
 };
 
+/** Each migrate script's environment: `shell` with its DATABASE_URL. */
+function envFor(
+  shell: NodeJS.ProcessEnv,
+): (app: unknown, databaseUrl: string) => NodeJS.ProcessEnv {
+  return (_app, databaseUrl) => ({ ...shell, DATABASE_URL: databaseUrl });
+}
+
 /** What provisioning controls: the apps' roles, schemas and tables, and who may connect. */
 async function catalog(): Promise<unknown> {
   const admin = connect(adminUrl);
@@ -60,10 +68,13 @@ async function catalog(): Promise<unknown> {
 
 describe("provisionApps", () => {
   it("gives each app with a migrate script its database, then migrates it", async () => {
-    const databaseUrls = await provisionApps(await install(), {
-      adminUrl,
-      env,
-    });
+    const databaseUrls = await provisionApps(
+      await discoverApps(await install()),
+      {
+        adminUrl,
+        envFor: envFor(env),
+      },
+    );
 
     expect([...databaseUrls.keys()]).toEqual(["ledger"]);
     const ledger = connect(databaseUrls.get(slug("ledger")) ?? "");
@@ -74,29 +85,38 @@ describe("provisionApps", () => {
 
   it("changes nothing when run again", async () => {
     const root = await install();
-    await provisionApps(root, { adminUrl, env });
+    await provisionApps(await discoverApps(root), {
+      adminUrl,
+      envFor: envFor(env),
+    });
     const before = await catalog();
 
-    await provisionApps(root, { adminUrl, env });
+    await provisionApps(await discoverApps(root), {
+      adminUrl,
+      envFor: envFor(env),
+    });
 
     expect(await catalog()).toEqual(before);
   });
 
   it("stops at the first migrate script that fails", async () => {
     await expect(
-      provisionApps(await install(), {
+      provisionApps(await discoverApps(await install()), {
         adminUrl,
-        env: { ...env, FIXTURE_POSTGRES: "no-such-module" },
+        envFor: envFor({ ...env, FIXTURE_POSTGRES: "no-such-module" }),
       }),
     ).rejects.toThrow(/pnpm run migrate exited with 1/);
   });
 
   it("starts no app's provisioning once its signal aborts", async () => {
-    const databaseUrls = await provisionApps(await install(), {
-      adminUrl,
-      env,
-      signal: AbortSignal.abort(),
-    });
+    const databaseUrls = await provisionApps(
+      await discoverApps(await install()),
+      {
+        adminUrl,
+        envFor: envFor(env),
+        signal: AbortSignal.abort(),
+      },
+    );
 
     expect(databaseUrls.size).toBe(0);
   });
@@ -106,7 +126,12 @@ describe("provisionApps", () => {
     await rename(join(root, "apps/ledger"), join(root, "apps/overseer"));
     await connect(adminUrl)`create role overseer superuser`;
 
-    await expect(provisionApps(root, { adminUrl, env })).rejects.toEqual(
+    await expect(
+      provisionApps(await discoverApps(root), {
+        adminUrl,
+        envFor: envFor(env),
+      }),
+    ).rejects.toEqual(
       new CommandProblem(
         `pnpm dev can't give overseer its database. "overseer" is a superuser in the install's database, so the provision step won't make it an app's role. Rename apps/overseer.`,
       ),

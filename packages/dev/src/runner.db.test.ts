@@ -243,6 +243,21 @@ describe("robkit-dev", () => {
     expect(await runningContainers(dev.root)).toBe("");
   });
 
+  it("runs an app's migrate script with the app's own settings", async () => {
+    const dev = await startDev();
+
+    await eventually(() => get(dev.port, "alpha.robkit.localhost"));
+
+    expect(
+      JSON.parse(
+        await readFile(
+          join(dev.root, "apps", "alpha", "migrated-with.json"),
+          "utf8",
+        ),
+      ),
+    ).toEqual({ app: "alpha", port: String(dev.port + 1) });
+  });
+
   it("has core and every app listen on 127.0.0.1 with HOST exported in the shell", async () => {
     const dev = await startDev({ HOST: "0.0.0.0" });
 
@@ -483,6 +498,60 @@ async function holding(port: number): Promise<void> {
     server.close();
   });
 }
+
+describe("an app's own .env", () => {
+  it("reaches the app and its migrate script, under the shell's values, and no other app, telemetry included", async () => {
+    const dev = await startDev(
+      { FIXTURE_SHADOWED: "from the shell" },
+      async (root) => {
+        await writeFile(
+          join(root, "apps", "alpha", ".env"),
+          [
+            "FIXTURE_OWN=alpha's own",
+            "FIXTURE_SHADOWED=from the file",
+            "NEXT_TELEMETRY_DISABLED=0",
+            "",
+          ].join("\n"),
+        );
+      },
+    );
+
+    const alpha: unknown = JSON.parse(
+      await eventually(() => get(dev.port, "alpha.robkit.localhost")),
+    );
+    const beta: unknown = JSON.parse(
+      await eventually(() => get(dev.port, "beta.robkit.localhost")),
+    );
+    const migratedWith: unknown = JSON.parse(
+      await readFile(
+        join(dev.root, "apps", "alpha", "migrated-with.json"),
+        "utf8",
+      ),
+    );
+
+    expect(alpha).toMatchObject({
+      own: "alpha's own",
+      shadowed: "from the shell",
+      nextTelemetry: "0",
+    });
+    expect(beta).not.toHaveProperty("own");
+    expect(beta).toMatchObject({ nextTelemetry: "1" });
+    expect(migratedWith).toMatchObject({ own: "alpha's own" });
+  });
+
+  it("stops pnpm dev before it starts anything when the file sets a name robkit decides", async () => {
+    const dev = await startDev({}, async (root) => {
+      await writeFile(join(root, "apps", "beta", ".env"), "PORT=4000\n");
+    });
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toBe(
+      "apps/beta/.env sets PORT, which pnpm dev decides for each app. Remove it from the file.\n",
+    );
+    expect(await startedApps(dev.root)).toEqual([]);
+    expect(await createdContainers(dev.root)).toBe("");
+  });
+});
 
 describe("robkit-dev's checks before it starts", () => {
   it("says to start Docker, in one line, and starts nothing when Docker doesn't answer", async () => {

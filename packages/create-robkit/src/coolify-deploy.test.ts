@@ -131,6 +131,37 @@ describe("deploy", () => {
     );
   });
 
+  it("sends no request that removes or replaces a variable the owner set on the host", async () => {
+    const ownerSet = {
+      key: "NOTES_API_KEY",
+      value: "the owner's",
+      is_buildtime: false,
+      is_runtime: true,
+    };
+    const state = fakeCoolify({
+      applications: [
+        existing("core", "c"),
+        existing("hub", "h"),
+        existing("notes", "n"),
+      ],
+      envs: new Map([["n", new Map([[ownerSet.key, ownerSet]])]]),
+    });
+
+    await run(state, "all");
+
+    // Only the bulk route sends variables, and it only adds or updates the
+    // ones it names: Coolify's API removes a variable by DELETE alone.
+    expect(state.requests.map(({ method }) => method)).not.toContain("DELETE");
+    const sent = state.requests.flatMap(({ path, body }) =>
+      path.endsWith("/envs/bulk")
+        ? (body as { data: { key: string }[] }).data.map(({ key }) => key)
+        : [],
+    );
+    const robkitSets = new Set(apps.flatMap(({ env }) => Object.keys(env)));
+    expect(sent.filter((key) => !robkitSets.has(key))).toEqual([]);
+    expect(state.envs.get("n")?.get(ownerSet.key)).toEqual(ownerSet);
+  });
+
   it("deploys core first, then each affected app, and skips the rest", async () => {
     const state = fakeCoolify({
       applications: [

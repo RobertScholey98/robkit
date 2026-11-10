@@ -10,4 +10,14 @@ if (process.env.FIXTURE_REMOVE_APP) {
   rmSync(`../${process.env.FIXTURE_REMOVE_APP}`, { recursive: true });
 }
 writeFileSync("migrated", process.env.DATABASE_URL ?? "");
+// What the script ran with, for a test to read.
+writeFileSync(
+  "migrated-with.json",
+  JSON.stringify({
+    app: process.env.ROBKIT_APP,
+    port: process.env.PORT,
+    vitest: process.env.VITEST,
+    own: process.env.FIXTURE_OWN,
+  }),
+);
 console.log("migrated");
