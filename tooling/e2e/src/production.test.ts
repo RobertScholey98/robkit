@@ -167,11 +167,13 @@ describe("the default install in production", () => {
     },
   );
 
-  // The install's manifests don't name @robkit/provision: it arrives
-  // behind core, from the tarball robkit vendor packed, not from npm.
+  // Core's manifest doesn't name @robkit/provision: it arrives behind
+  // core, from the tarball robkit vendor packed, not from npm.
+  // @robkit/drizzle arrives the same way, and the apps name it too.
   it("puts core's robkit packages in its image, and not the dev runner", async () => {
     expect(await robkitPackages(stack, slug("core"))).toEqual([
       "@robkit/core",
+      "@robkit/drizzle",
       "@robkit/guard",
       "@robkit/input",
       "@robkit/provision",

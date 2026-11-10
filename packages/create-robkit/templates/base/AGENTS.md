@@ -34,7 +34,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 
 ## Databases
 
-`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time.
+`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script each time the app starts. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. A Node app's `migrate` script is `robkit-migrate`, and its `src/database.ts` calls `appDatabase(schema)`, both from `@robkit/drizzle`. `robkit-migrate` applies the migrations in the app's `drizzle` folder that haven't run, and records each in the app's schema, so a second run changes nothing. A Go app's migrator does the same in Go.
 
 ## Production
 

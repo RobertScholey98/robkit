@@ -145,6 +145,9 @@ importers:
       '@hono/node-server':
         specifier: 'catalog:'
         version: 2.1.5(hono@4.13.14)
+      '@robkit/drizzle':
+        specifier: workspace:*
+        version: link:../drizzle
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
@@ -283,6 +286,52 @@ importers:
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.0.5(vitest@5.0.5)
+      eslint:
+        specifier: 'catalog:'
+        version: 10.13.0(jiti@2.7.0)
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.9
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/drizzle:
+    dependencies:
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
+    devDependencies:
+      '@internal/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@internal/test-postgres':
+        specifier: workspace:*
+        version: link:../../tooling/test-postgres
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../../tooling/test-session
+      '@internal/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@robkit/provision':
+        specifier: workspace:*
+        version: link:../provision
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.5(vitest@5.0.5)
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.4(postgres@3.4.9)
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)
@@ -754,6 +803,9 @@ importers:
       '@robkit/dev':
         specifier: workspace:*
         version: link:../../packages/dev
+      '@robkit/drizzle':
+        specifier: workspace:*
+        version: link:../../packages/drizzle
       '@robkit/express':
         specifier: workspace:*
         version: link:../../packages/express
@@ -796,6 +848,9 @@ importers:
       create-robkit:
         specifier: workspace:*
         version: link:../../packages/create-robkit
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.4(postgres@3.4.9)
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)
