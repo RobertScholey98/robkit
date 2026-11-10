@@ -3,7 +3,7 @@ import { toolchainOf, type Choices } from "./choices.ts";
 import { generateInstall, type GenerateOptions } from "./generate.ts";
 import { jsonObject, stringsIn } from "./json.ts";
 import { initGit, installDependencies } from "./set-up.ts";
-import { requirePnpm } from "./toolchain.ts";
+import { dockerNote, requirePnpm } from "./toolchain.ts";
 import { writeInstall } from "./write.ts";
 
 export interface InitOptions extends GenerateOptions {
@@ -32,6 +32,7 @@ export interface InitResult {
  *
  * Every check runs before it writes anything: Go for an example on React +
  * Go, and when it installs, a pnpm that can run the install's version.
+ * Docker is only a note, since only `pnpm dev` needs it.
  */
 export async function init(
   choices: Choices,
@@ -47,10 +48,12 @@ export async function init(
       "package.json",
     );
     await requirePnpm(stringsIn(manifest).packageManager ?? "", env);
+    const docker = dockerNote(env);
+    if (docker) notes.push(docker);
   }
   await writeInstall(dir, files);
   if (!install) return { notes };
-  await initGit(dir);
-  await installDependencies(dir);
+  await initGit(dir, env);
+  await installDependencies(dir, env);
   return { notes };
 }

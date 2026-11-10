@@ -122,3 +122,12 @@ export async function requirePnpm(
     await rm(dir, { recursive: true, force: true });
   }
 }
+
+/**
+ * A warning when Docker is missing, which only `pnpm dev` needs, or
+ * `undefined`.
+ */
+export function dockerNote(env: NodeJS.ProcessEnv): string | undefined {
+  if (onPath("docker", env)) return undefined;
+  return "Docker isn't installed, or isn't on your PATH. pnpm dev runs Postgres in it, so install it first: https://docs.docker.com/get-started/get-docker/";
+}

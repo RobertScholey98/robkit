@@ -58,4 +58,16 @@ describe("init", () => {
       expect(await exists(dir)).toBe(false);
     },
   );
+
+  it("notes that pnpm dev needs Docker when it's missing, and carries on", async () => {
+    const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "my-app");
+    const env = await pathWith({ pnpm: "11.28.9", git: "git" });
+
+    const { notes } = await init(defaultChoices, dir, { env });
+
+    expect(notes).toEqual([
+      "Docker isn't installed, or isn't on your PATH. pnpm dev runs Postgres in it, so install it first: https://docs.docker.com/get-started/get-docker/",
+    ]);
+    expect(await exists(join(dir, "robkit.json"))).toBe(true);
+  });
 });

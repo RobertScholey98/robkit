@@ -1,7 +1,7 @@
 import { CommandProblem } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { pathWith } from "./test/path.ts";
-import { requirePnpm } from "./toolchain.ts";
+import { dockerNote, requirePnpm } from "./toolchain.ts";
 
 const packageManager = "pnpm@11.28.9";
 
@@ -43,5 +43,21 @@ describe("requirePnpm", () => {
     await expect(
       requirePnpm(packageManager, process.env),
     ).resolves.toBeUndefined();
+  });
+});
+
+describe("dockerNote", () => {
+  it("warns that pnpm dev needs Docker when it's missing", async () => {
+    const env = await pathWith({});
+
+    expect(dockerNote(env)).toBe(
+      "Docker isn't installed, or isn't on your PATH. pnpm dev runs Postgres in it, so install it first: https://docs.docker.com/get-started/get-docker/",
+    );
+  });
+
+  it("says nothing when Docker is there", async () => {
+    const env = await pathWith({ docker: "Docker version 29.0.0" });
+
+    expect(dockerNote(env)).toBeUndefined();
   });
 });

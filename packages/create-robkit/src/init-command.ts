@@ -44,7 +44,11 @@ process.exitCode = await runCommand(async () => {
       ? await askInit(given)
       : { folder: given ?? fail(usage), stack: stackFrom(values.stack) };
   const dir = resolve(answers.folder);
-  await init({ exampleStack: answers.stack }, dir, { link, install });
+  const { notes } = await init({ exampleStack: answers.stack }, dir, {
+    link,
+    install,
+  });
+  for (const note of notes) console.log(note);
   const steps = [
     `cd ${answers.folder}`,
     ...(install ? [] : ["pnpm install"]),
