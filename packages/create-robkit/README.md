@@ -14,7 +14,9 @@ pnpm create-install                                  # asks for a folder and the
 pnpm create-install ../my-install --stack start      # or asks nothing
 ```
 
-`pnpm create-install` runs `src/create-robkit-command.ts --link --install`: it links the install's `@robkit/*` packages to this checkout, initialises git and installs dependencies. Once the packages are on npm, `npm create robkit my-install -- --stack start --install` will do the same without the checkout.
+`pnpm create-install` runs `src/create-robkit-command.ts --link --install`: it links the install's `@robkit/*` packages to this checkout, initialises git and installs dependencies. Once the packages are on npm, `npm create robkit my-install -- --stack start --install` will do the same without the checkout. robkit's registry test already runs that command, against a local registry.
+
+`pnpm create robkit` works too, unless pnpm's `minimumReleaseAgeStrict` is on: then pnpm refuses a create-robkit released in the last day, and only the install it writes exempts robkit's packages. Use `npm create robkit` on a release day.
 
 Inside an install:
 

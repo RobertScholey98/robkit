@@ -63,7 +63,13 @@
       ]
     },
     "@internal/e2e#test": {
-      "dependsOn": ["^build", "create-robkit#test"],
+      // The registry test packs every published package. The repo checks
+      // depend on each of them, so their typecheck builds them all first.
+      "dependsOn": [
+        "^build",
+        "create-robkit#test",
+        "@internal/repo-checks#typecheck"
+      ],
       "cache": false
     },
     "@internal/repo-checks#test": {
