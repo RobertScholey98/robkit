@@ -1,5 +1,4 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { once } from "node:events";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { install } from "@robkit/input/addresses";
@@ -8,7 +7,7 @@ import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { readDevConfig } from "./env.ts";
 import { exec, prefixLines, startProblem } from "./exec.ts";
 import { failuresOf, throwFailures } from "./failures.ts";
-import { createProxy } from "./proxy.ts";
+import { startProxy, type Proxy } from "./proxy.ts";
 import { stopGroup } from "./process-group.ts";
 import { provisionApps } from "./provision.ts";
 import { requireGo } from "./toolchain.ts";
@@ -76,7 +75,7 @@ export async function runDev(
   process.on("SIGTERM", onSignal);
 
   const running: { slug: string; child: ChildProcess }[] = [];
-  const proxy = createProxy(routesFor(apps, domain));
+  let proxy: Proxy | undefined;
 
   const start = (app: App, databaseUrl: string | undefined) => {
     const child = spawn("pnpm", ["run", "dev"], {
@@ -119,8 +118,7 @@ export async function runDev(
 
     if (!stopping()) {
       for (const app of apps) start(app, databaseUrls.get(app.slug));
-      proxy.listen(devPort);
-      await once(proxy, "listening");
+      proxy = await startProxy(routesFor(apps, domain), devPort);
       console.log("\nrobkit is running:");
       for (const app of apps) {
         console.log(`  ${addresses.origin(app.slug)}`);
@@ -138,10 +136,7 @@ export async function runDev(
       () =>
         stopGroup(slug, child.pid),
   );
-  const closeProxy = () => {
-    proxy.closeAllConnections();
-    proxy.close();
-  };
+  const closeProxy = () => proxy?.close();
   const stopPostgres = () =>
     exec("docker", ["compose", "stop"], { cwd: root, env });
   // The apps stop together, then the proxy, then Postgres. Each stage runs
