@@ -181,6 +181,41 @@ describe.skipIf(process.platform === "win32")("serveRequests", () => {
     });
   });
 
+  it("runs a request whose asker went away, and goes on serving", async () => {
+    const { root, env, socket } = await place();
+    const asked = Promise.withResolvers<undefined>();
+    const gone = Promise.withResolvers<undefined>();
+    const handled: string[] = [];
+    await serving(
+      socket,
+      async (request) => {
+        await gone.promise;
+        handled.push(`${request.operation} ${request.slug}`);
+        return done(request);
+      },
+      () => {
+        asked.resolve(undefined);
+      },
+    );
+
+    const asker = connect(socket.path);
+    asker.write('{"operation":"add","slug":"notes"}\n');
+    await asked.promise;
+    asker.destroy();
+    await once(asker, "close");
+    gone.resolve(undefined);
+    const next = await askDev(
+      root,
+      { operation: "migrate", slug: slug("notes") },
+      env,
+    );
+
+    expect({ handled, next }).toEqual({
+      handled: ["add notes", "migrate notes"],
+      next: { outcome: "done", message: "migrate notes" },
+    });
+  });
+
   it("closes a connection that ends having sent nothing, and goes on serving", async () => {
     const { root, env, socket } = await place();
     await serving(socket);

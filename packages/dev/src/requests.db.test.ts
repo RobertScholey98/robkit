@@ -177,11 +177,11 @@ describe("robkit-dev adding an app while it runs", () => {
     ).toEqual([]);
   });
 
-  it("gives an added app its own .env, and refuses one that sets a name robkit decides", async () => {
+  it("gives an added app its own .env, and refuses one that sets names robkit decides", async () => {
     const dev = await runningDev();
     await writeApp(dev.root, "aardvark");
     const envFile = join(dev.root, "apps", "aardvark", ".env");
-    await writeFile(envFile, "PORT=4000\n");
+    await writeFile(envFile, "PORT=4000\nNODE_ENV=production\n");
 
     const refused = await dev.ask("add", "aardvark");
     await writeFile(envFile, "FIXTURE_OWN=aardvark's own\n");
@@ -189,8 +189,10 @@ describe("robkit-dev adding an app while it runs", () => {
 
     expect(refused).toEqual({
       outcome: "refused",
-      message:
+      message: [
+        "apps/aardvark/.env sets NODE_ENV, which decides whether a test helper such as guardedAs() serves. Remove it from the file.",
         "apps/aardvark/.env sets PORT, which pnpm dev decides for each app. Remove it from the file.",
+      ].join("\n"),
     });
     expect(added).toMatchObject({ outcome: "done" });
     expect(
