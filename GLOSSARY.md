@@ -47,6 +47,9 @@ Core, the hub and admin together.
 An owner's app, created by `robkit add` on its own subdomain.
 _Avoid_: service, project
 
+**App's origin**:
+Where an app answers, such as `https://notes.robkit.dev`: **Core's origin** with the app's slug in place of `core`, on the same protocol and port. The guard works it out from its settings and builds every URL it sends the browser to from it, never from the request. In code it is `appOrigin`.
+
 **Stack**:
 The framework shape an app is built on, such as TanStack Start or React with Hono. Every **Install** offers every stack.
 _Avoid_: framework
