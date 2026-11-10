@@ -183,7 +183,13 @@ export function useDevStack(
     dev = spawn("pnpm", ["run", "dev"], {
       cwd: dir,
       env: {
-        ...process.env,
+        // Not this suite's Vitest variables: robkit() in each app's Vite
+        // config changes nothing under VITEST, and pnpm dev isn't a test run.
+        ...Object.fromEntries(
+          Object.entries(process.env).filter(
+            ([name]) => !name.startsWith("VITEST"),
+          ),
+        ),
         ROBKIT_DEV_PORT: String(devPort),
         ROBKIT_POSTGRES_PORT: String(postgresPort),
         COMPOSE_FILE: testComposeFiles(),
