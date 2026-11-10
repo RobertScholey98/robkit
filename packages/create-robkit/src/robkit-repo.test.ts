@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, matchesGlob } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,9 +9,14 @@ const checkout = fileURLToPath(new URL("../../../", import.meta.url));
 
 /** What create-robkit's build writes, read back as the generator would. */
 async function carried() {
-  const file = join(await mkdtemp(join(tmpdir(), "robkit-carry-")), "c.json");
-  await carry(file);
-  return readCarried(file);
+  const dir = await mkdtemp(join(tmpdir(), "robkit-carry-"));
+  try {
+    const file = join(dir, "c.json");
+    await carry(file);
+    return await readCarried(file);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 }
 
 describe("what create-robkit carries", () => {
