@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aDomain, slug } from "@internal/test-session";
-import { appSettings, shellForApps, type InstallFacts } from "./app-env.ts";
+import { appEnv, type InstallFacts } from "./app-env.ts";
 
 const install: InstallFacts = {
   domain: aDomain(),
@@ -8,18 +8,18 @@ const install: InstallFacts = {
   catalog: "[]",
 };
 
-describe("appSettings", () => {
+const notes = { slug: slug("notes"), port: 3004 };
+
+describe("appEnv", () => {
   it("sets an app's slug, port, database and HOST, over whatever the shell has", () => {
-    const env = {
-      ...shellForApps({ HOST: "0.0.0.0", PATH: "/bin" }),
-      ...appSettings(
+    expect(
+      appEnv(
         install,
-        { slug: slug("notes"), port: 3004 },
+        { HOST: "0.0.0.0", PATH: "/bin" },
+        notes,
         "postgres://notes",
       ),
-    };
-
-    expect(env).toEqual({
+    ).toEqual({
       PATH: "/bin",
       ROBKIT_DOMAIN: "robkit.localhost",
       ROBKIT_CORE_URL: "http://core.robkit.localhost:3000",
@@ -33,17 +33,18 @@ describe("appSettings", () => {
   });
 
   it("gives an app without a database no DATABASE_URL, even one the shell has", () => {
-    const env = {
-      ...shellForApps({
+    const env = appEnv(
+      install,
+      {
         DATABASE_URL: "postgres://elsewhere",
         ROBKIT_DATABASE_URL: "postgres://admin",
         VITEST: "true",
-      }),
-      ...appSettings(install, { slug: slug("notes"), port: 3004 }),
-    };
+      },
+      notes,
+    );
 
-    expect(env).not.toHaveProperty("DATABASE_URL");
-    expect(env).not.toHaveProperty("ROBKIT_DATABASE_URL");
-    expect(env).not.toHaveProperty("VITEST");
+    expect(Object.keys(env)).not.toContain("DATABASE_URL");
+    expect(Object.keys(env)).not.toContain("ROBKIT_DATABASE_URL");
+    expect(Object.keys(env)).not.toContain("VITEST");
   });
 });

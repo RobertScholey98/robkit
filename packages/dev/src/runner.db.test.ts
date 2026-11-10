@@ -243,6 +243,21 @@ describe("robkit-dev", () => {
     expect(await runningContainers(dev.root)).toBe("");
   });
 
+  it("runs an app's migrate script with the app's own settings", async () => {
+    const dev = await startDev();
+
+    await eventually(() => get(dev.port, "alpha.robkit.localhost"));
+
+    expect(
+      JSON.parse(
+        await readFile(
+          join(dev.root, "apps", "alpha", "migrated-with.json"),
+          "utf8",
+        ),
+      ),
+    ).toEqual({ app: "alpha", port: String(dev.port + 1) });
+  });
+
   it("has core and every app listen on 127.0.0.1 with HOST exported in the shell", async () => {
     const dev = await startDev({ HOST: "0.0.0.0" });
 

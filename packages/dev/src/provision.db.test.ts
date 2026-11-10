@@ -37,6 +37,13 @@ const env = {
   FIXTURE_POSTGRES: import.meta.resolve("postgres"),
 };
 
+/** Each migrate script's environment: `shell` with its DATABASE_URL. */
+function envFor(
+  shell: NodeJS.ProcessEnv,
+): (app: unknown, databaseUrl: string) => NodeJS.ProcessEnv {
+  return (_app, databaseUrl) => ({ ...shell, DATABASE_URL: databaseUrl });
+}
+
 /** What provisioning controls: the apps' roles, schemas and tables, and who may connect. */
 async function catalog(): Promise<unknown> {
   const admin = connect(adminUrl);
@@ -65,7 +72,7 @@ describe("provisionApps", () => {
       await discoverApps(await install()),
       {
         adminUrl,
-        env,
+        envFor: envFor(env),
       },
     );
 
@@ -78,10 +85,16 @@ describe("provisionApps", () => {
 
   it("changes nothing when run again", async () => {
     const root = await install();
-    await provisionApps(await discoverApps(root), { adminUrl, env });
+    await provisionApps(await discoverApps(root), {
+      adminUrl,
+      envFor: envFor(env),
+    });
     const before = await catalog();
 
-    await provisionApps(await discoverApps(root), { adminUrl, env });
+    await provisionApps(await discoverApps(root), {
+      adminUrl,
+      envFor: envFor(env),
+    });
 
     expect(await catalog()).toEqual(before);
   });
@@ -90,7 +103,7 @@ describe("provisionApps", () => {
     await expect(
       provisionApps(await discoverApps(await install()), {
         adminUrl,
-        env: { ...env, FIXTURE_POSTGRES: "no-such-module" },
+        envFor: envFor({ ...env, FIXTURE_POSTGRES: "no-such-module" }),
       }),
     ).rejects.toThrow(/pnpm run migrate exited with 1/);
   });
@@ -100,7 +113,7 @@ describe("provisionApps", () => {
       await discoverApps(await install()),
       {
         adminUrl,
-        env,
+        envFor: envFor(env),
         signal: AbortSignal.abort(),
       },
     );
@@ -114,7 +127,10 @@ describe("provisionApps", () => {
     await connect(adminUrl)`create role overseer superuser`;
 
     await expect(
-      provisionApps(await discoverApps(root), { adminUrl, env }),
+      provisionApps(await discoverApps(root), {
+        adminUrl,
+        envFor: envFor(env),
+      }),
     ).rejects.toEqual(
       new CommandProblem(
         `pnpm dev can't give overseer its database. "overseer" is a superuser in the install's database, so the provision step won't make it an app's role. Rename apps/overseer.`,

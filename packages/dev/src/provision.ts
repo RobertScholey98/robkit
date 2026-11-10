@@ -7,8 +7,8 @@ import { exec } from "./exec.ts";
 export interface ProvisionOptions {
   /** A superuser URL for the install's database. */
   adminUrl: string;
-  /** The environment each app's `migrate` script runs in, plus its `DATABASE_URL`. */
-  env?: NodeJS.ProcessEnv;
+  /** The environment `app`'s `migrate` script runs in, given its `DATABASE_URL`. */
+  envFor: (app: App, databaseUrl: string) => NodeJS.ProcessEnv;
   /** Once aborted, no further app is provisioned. */
   signal?: AbortSignal;
 }
@@ -24,7 +24,7 @@ export interface ProvisionOptions {
  */
 export async function provisionApps(
   apps: readonly App[],
-  { adminUrl, env = process.env, signal }: ProvisionOptions,
+  { adminUrl, envFor, signal }: ProvisionOptions,
 ): Promise<Map<Slug, string>> {
   const databaseUrls = new Map<Slug, string>();
   for (const app of apps) {
@@ -39,7 +39,7 @@ export async function provisionApps(
     const { databaseUrl } = provisioned;
     await exec("pnpm", ["run", "migrate"], {
       cwd: app.dir,
-      env: { ...env, DATABASE_URL: databaseUrl },
+      env: envFor(app, databaseUrl),
       slug: app.slug,
     });
     databaseUrls.set(app.slug, databaseUrl);

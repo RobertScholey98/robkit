@@ -4,12 +4,7 @@ import { join } from "node:path";
 import { install } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
 import { CommandProblem } from "@robkit/input/command";
-import {
-  appSettings,
-  type InstallFacts,
-  sharedSettings,
-  shellForApps,
-} from "./app-env.ts";
+import { appEnv, type InstallFacts } from "./app-env.ts";
 import { untilAnswering } from "./answering.ts";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { checkBeforeStart, proxyPortProblem } from "./checks.ts";
@@ -62,7 +57,9 @@ export async function runDev(
     coreUrl: addresses.origin("core"),
     catalog: catalogOf(apps),
   };
-  const shellEnv = shellForApps(env);
+  // An app and its migrate script get the same environment.
+  const envFor = (app: App, databaseUrl?: string) =>
+    appEnv(facts, env, app, databaseUrl);
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;
@@ -101,7 +98,7 @@ export async function runDev(
   const start = (app: App, databaseUrl: string | undefined) => {
     const child = spawn("pnpm", ["run", "dev"], {
       cwd: app.dir,
-      env: { ...shellEnv, ...appSettings(facts, app, databaseUrl) },
+      env: envFor(app, databaseUrl),
       // Its own process group, so stopping it reaches every process it spawns.
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -136,7 +133,7 @@ export async function runDev(
 
     const databaseUrls = await provisionApps(apps, {
       adminUrl,
-      env: { ...shellEnv, ...sharedSettings(facts) },
+      envFor,
       signal: stopController.signal,
     });
 
