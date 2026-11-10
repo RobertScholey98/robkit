@@ -9,6 +9,29 @@ import { docker, network, type Stack } from "./production-stack.ts";
 
 const run = promisify(execFile);
 
+/** The robkit packages in `slug`'s image, by name, such as `@robkit/core`. */
+export async function robkitPackages(
+  stack: Stack,
+  slug: Slug,
+): Promise<string[]> {
+  const store = await docker(
+    "run",
+    "--rm",
+    "--entrypoint",
+    "ls",
+    `${stack.name}/${slug}`,
+    "/install/node_modules/.pnpm",
+  );
+  // pnpm keeps each package in a folder such as `@robkit+core@file+...`.
+  return [
+    ...new Set(
+      [...store.matchAll(/^@robkit\+([a-z-]+)@/gm)].map(
+        ([, name]) => `@robkit/${name ?? ""}`,
+      ),
+    ),
+  ].sort();
+}
+
 /**
  * The packages in `slug`'s image that nothing in production needs, as
  * `name@version`, found by `extraneous-packages.js` running in the image.

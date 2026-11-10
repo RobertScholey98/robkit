@@ -18,6 +18,7 @@ import { buildApp, hostEnv, startApp } from "./production-apps.ts";
 import {
   answers,
   extraneousPackages,
+  robkitPackages,
   stackReport,
   withVisitors,
 } from "./production-checks.ts";
@@ -164,6 +165,18 @@ describe("the default install in production", () => {
       expect(await extraneousPackages(stack, slug(name))).toEqual([]);
     },
   );
+
+  // The install's manifests don't name @robkit/provision: it arrives
+  // behind core, from the tarball robkit vendor packed, not from npm.
+  it("puts core's robkit packages in its image, and not the dev runner", async () => {
+    expect(await robkitPackages(stack, slug("core"))).toEqual([
+      "@robkit/core",
+      "@robkit/guard",
+      "@robkit/input",
+      "@robkit/provision",
+      "@robkit/session",
+    ]);
+  });
 
   it("refuses the test code", async () => {
     expect(await testCodeAnswer(stack.addresses)).toBe(
