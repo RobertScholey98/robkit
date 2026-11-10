@@ -88,7 +88,7 @@ With `PORT=80000` the app prints this and stops:
 PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, or leave it unset for 3000.
 ```
 
-A Vite config can't go on without the values it reads, and Vite prints what it throws, so it uses `orThrow`:
+A Vite dev server can't go on without the values it reads, and Vite prints what its config throws, so `robkit()` in `@robkit/vite` uses `orThrow`:
 
 ```ts
 import { orThrow, readDevServerEnv } from "@robkit/input";
