@@ -3,6 +3,7 @@
 // CONTRIBUTING.md's "Releasing" walks through a release.
 
 import { isRecord } from "@robkit/input";
+import { parse } from "yaml";
 
 /**
  * Whether `name` is in a changesets group entry: the name itself, or a
@@ -40,4 +41,36 @@ export function fixedGroupProblems(
       (name) =>
         `${name} isn't in .changeset/config.json's fixed group, so it could be released at a version the others aren't. Add it to the group, or match it with "@robkit/*".`,
     );
+}
+
+/** A changeset file: its id, the file's name without `.md`, and its text. */
+export interface ChangesetFile {
+  id: string;
+  text: string;
+}
+
+/** Each package a changeset releases, with its bump: patch, minor or major. */
+function releasesIn(text: string): [string, unknown][] {
+  const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1];
+  const releases: unknown = front === undefined ? undefined : parse(front);
+  return isRecord(releases) ? Object.entries(releases) : [];
+}
+
+/**
+ * Each major change in `changesets` while robkit's `version` is under
+ * 1.0.0. With every package in one fixed group, one would release 1.0.0.
+ */
+export function majorChangesetProblems(
+  changesets: readonly ChangesetFile[],
+  version: string,
+): string[] {
+  if (!version.startsWith("0.")) return [];
+  return changesets.flatMap(({ id, text }) =>
+    releasesIn(text)
+      .filter(([, bump]) => bump === "major")
+      .map(
+        ([name]) =>
+          `.changeset/${id}.md makes a major change to ${name} while robkit is at ${version}, which would release 1.0.0. Make it minor: before 1.0.0, a minor release is the one that may break an install.`,
+      ),
+  );
 }

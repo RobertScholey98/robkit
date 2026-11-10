@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 import { publishedPackages } from "./published.ts";
-import { fixedGroupProblems } from "./release.ts";
+import { fixedGroupProblems, majorChangesetProblems } from "./release.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
 
@@ -64,5 +64,65 @@ describe("fixedGroupProblems", () => {
     expect(names).toContain("@robkit/react");
     expect(names).toHaveLength((await readdir(join(root, "packages"))).length);
     expect(fixedGroupProblems(config, names)).toEqual([]);
+  });
+});
+
+describe("majorChangesetProblems", () => {
+  const changeset = (releases: string) =>
+    `---\n${releases}\n---\n\nWhat changed.\n`;
+
+  it("accepts minor and patch changesets before 1.0.0", () => {
+    expect(
+      majorChangesetProblems(
+        [
+          { id: "a", text: changeset('"@robkit/core": minor') },
+          {
+            id: "b",
+            text: changeset('create-robkit: patch\n"@robkit/guard": minor'),
+          },
+        ],
+        "0.1.0",
+      ),
+    ).toEqual([]);
+  });
+
+  it("names a major changeset while the version is under 1.0.0", () => {
+    expect(
+      majorChangesetProblems(
+        [{ id: "big", text: changeset('"@robkit/core": major') }],
+        "0.4.2",
+      ),
+    ).toEqual([
+      ".changeset/big.md makes a major change to @robkit/core while robkit is at 0.4.2, which would release 1.0.0. Make it minor: before 1.0.0, a minor release is the one that may break an install.",
+    ]);
+  });
+
+  it("allows a major changeset from 1.0.0 on", () => {
+    expect(
+      majorChangesetProblems(
+        [{ id: "big", text: changeset('"@robkit/core": major') }],
+        "1.0.0",
+      ),
+    ).toEqual([]);
+  });
+
+  it("finds no major changeset waiting in the repo", async () => {
+    const dir = join(root, ".changeset");
+    const files = (await readdir(dir)).filter(
+      (file) => file.endsWith(".md") && file !== "README.md",
+    );
+    const changesets = await Promise.all(
+      files.map(async (file) => ({
+        id: file.replace(/\.md$/, ""),
+        text: await readFile(join(dir, file), "utf8"),
+      })),
+    );
+    const { version } = await readJsonFile(
+      join(root, "packages/create-robkit/package.json"),
+      readNamedManifest,
+    );
+
+    expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(majorChangesetProblems(changesets, version ?? "")).toEqual([]);
   });
 });
