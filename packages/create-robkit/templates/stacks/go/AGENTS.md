@@ -17,9 +17,9 @@ case guard.Nobody:
 }
 ```
 
-Key a viewer's data by its id. Never read the session cookie or verify the token yourself. The token is the app's own: core mints it for this app's slug, and no other app or core accepts it. Paths under `/_robkit/` are the guard's, so give no route one. To test a handler, hand it a viewer with `session.WithViewer`, as `server_test.go` does.
+Key a viewer's data by its id. Never read the session cookie or verify the token yourself. The token is the app's own: core mints it for this app's slug, and no other app or core accepts it. Paths under `/_robkit/` are the guard's, so give no route one. To test a handler, hand it a viewer with `session.WithViewer`, and a stand-in for what it stores, as `server_test.go` does: `routes` takes a `visitStore`, which the server builds from the database with `visitsIn`, so the test needs no Postgres.
 
-The page is React, in `src/main.tsx`. It asks the server who is asking with `sessionFetch` from `@robkit/react`. A call from the page whose session has lapsed gets a 401 rather than a redirect, and `sessionFetch` sends the browser through core's refresh and back to the page. Make every call from the page to the app with it.
+The page is React, in `src/main.tsx`. It asks the server who is asking with `sessionFetch` from `@robkit/react`: a `GET /api/me` as it loads, which records nothing, and a `POST /api/me` when its button records a visit. A call from the page whose session has lapsed gets a 401 rather than a redirect, and `sessionFetch` sends the browser through core's refresh and back to the page. Make every call from the page to the app with it.
 
 ## Changing state
 

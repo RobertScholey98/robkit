@@ -11,21 +11,50 @@ import (
 	"github.com/RobertScholey98/robkit/go/session"
 )
 
-// answer is what routes answers req, as the guard hands it viewer.
-func answer(t *testing.T, req *http.Request, viewer guard.Viewer) *httptest.ResponseRecorder {
+// visitsInMemory counts visits in a map, in place of the database.
+type visitsInMemory map[string]int64
+
+func (v visitsInMemory) record(_ context.Context, viewerID string) error {
+	v[viewerID]++
+	return nil
+}
+
+func (v visitsInMemory) count(_ context.Context, viewerID string) (int64, error) {
+	return v[viewerID], nil
+}
+
+// answerWith is what routes answers req, as the guard hands it viewer,
+// storing visits in visits.
+func answerWith(t *testing.T, req *http.Request, viewer guard.Viewer, visits visitsInMemory) *httptest.ResponseRecorder {
 	t.Helper()
 	page := builtPage(fstest.MapFS{
 		"index.html":       {Data: []byte("the page")},
 		"assets/style.css": {Data: []byte("the stylesheet")},
 	})
-	visits := map[string]int64{}
-	record := func(_ context.Context, viewerID string) (int64, error) {
-		visits[viewerID]++
-		return visits[viewerID], nil
-	}
 	recorder := httptest.NewRecorder()
-	routes(page, record).ServeHTTP(recorder, req.WithContext(session.WithViewer(req.Context(), viewer)))
+	routes(page, visits).ServeHTTP(recorder, req.WithContext(session.WithViewer(req.Context(), viewer)))
 	return recorder
+}
+
+// answer is what routes answers req, as the guard hands it viewer, with no
+// visits yet.
+func answer(t *testing.T, req *http.Request, viewer guard.Viewer) *httptest.ResponseRecorder {
+	t.Helper()
+	return answerWith(t, req, viewer, visitsInMemory{})
+}
+
+func TestMeSaysWhoIsAskingAndRecordsNothing(t *testing.T) {
+	visits := visitsInMemory{"owner-1": 2}
+
+	got := answerWith(t, httptest.NewRequest("GET", "/api/me", nil), guard.Owner{ID: "owner-1"}, visits)
+
+	want := `{"kind":"owner","viewerId":"owner-1","visits":2}` + "\n"
+	if got.Code != 200 || got.Body.String() != want {
+		t.Errorf("GET /api/me answered %d %q, want 200 %q", got.Code, got.Body, want)
+	}
+	if visits["owner-1"] != 2 {
+		t.Errorf("GET /api/me recorded a visit: the owner has %d, want 2", visits["owner-1"])
+	}
 }
 
 func TestMeRecordsAVisitAndSaysWhoIsAsking(t *testing.T) {
