@@ -60,4 +60,4 @@ The app owns its database code: it talks to Postgres with pgx over `DATABASE_URL
 - `migrations/` holds the migrations, one `.sql` file each, applied in name order. To change the schema, add the next file, such as `0002_add_notes.sql`, and commit it. Never edit a migration that has run.
 - `visits.go` shows a query. `server.go` connects with `pgxpool` as the server starts.
 
-`migrate.go` applies the migrations that haven't run yet, and records each in the `schema_migrations` table. They are embedded in the binary, so `dist/server migrate` needs no files beside it. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves.
+`migrate.go` applies the migrations that haven't run yet, and records each in the `schema_migrations` table. They are embedded in the binary, so `dist/server migrate` needs no files beside it. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It locks `schema_migrations` while it migrates, so two containers that start together apply each migration once.
