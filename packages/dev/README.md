@@ -19,6 +19,8 @@ An install's root `package.json`:
 
 `robkit-dev` reads `ROBKIT_DOMAIN` (default `robkit.localhost`), `ROBKIT_DEV_PORT` (default `3000`) and `ROBKIT_POSTGRES_PORT` (default `54320`), from the shell or from the install's root `.env`. Compose reads that file too, and the shell wins over it for both. It serves plain http, so it refuses a domain that isn't `localhost` or a name under it. It tells each app its slug as `ROBKIT_APP` and core's address as `ROBKIT_CORE_URL`, sets `HOST` to `127.0.0.1` so every app listens on loopback, and hands core every app's manifest as `ROBKIT_APPS`.
 
+An app's own settings go in `apps/<slug>/.env`. `robkit-dev` reads it as it starts, with Node's own parser, and gives it to that app and its `migrate` script alone. Its own settings win, then the shell's, then the file's. A file that sets a name it decides (`DATABASE_URL`, `PORT`, `HOST`, `VITEST` or any `ROBKIT_` name), or `NODE_ENV`, stops it with a line that names the file and the variable. It sets `NEXT_TELEMETRY_DISABLED=1` only where neither the shell nor the file does.
+
 ## Exports
 
 `@robkit/dev` holds what an install and create-robkit use beside the runner:
@@ -47,6 +49,6 @@ An install's root `package.json`:
 ## For contributors
 
 - An app with a `migrate` script gets its own schema and role from `provisionApps`, which gives it one with `@robkit/provision` and then runs that script. `pnpm dev` runs the step before it starts the apps. The runner and the step run each app's scripts with pnpm.
-- `src/app-env.ts` holds every variable the runner sets for an app, over the shell's environment.
+- `src/app-env.ts` holds every variable the runner sets for an app, over the shell's environment. `appSettings` is the one list: an app's `.env` can't set any of its names, so a setting added there is refused in the file too. `appEnv` gives an app and its `migrate` script their environment, and `ownSettings` reads each app's `.env` and refuses what it can't set.
 - The runner tells each app its slug as `ROBKIT_APP`, and hands core the owner's apps as `ROBKIT_APPS`, a JSON list of each app's slug and what its manifest declares: the `robkit` field of its `package.json`, with who may open it (roles by name) and an emoji for the launcher.
 - `checkBeforeStart` in `src/checks.ts` runs before Compose starts, and outside the runner's stop, so a second `pnpm dev` stops nothing the first runs. It asks Docker for its version, then tries to listen on each port and closes at once. A Postgres port published by this install's own Postgres container passes, since `compose up` takes that container over; one published by any other container fails, even where Docker publishes from a VM of its own and the port looks free.
