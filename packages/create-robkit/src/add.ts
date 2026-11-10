@@ -24,9 +24,10 @@ import {
   appFiles,
   overridesIn,
   pnpmSettings,
-  readFolder,
+  readOwnTemplate,
   stackTemplate,
-  type Files,
+  textIn,
+  type AppFiles,
 } from "./generate.ts";
 import {
   goModuleFor,
@@ -118,12 +119,12 @@ export function newSlugProblem(root: string, name: string): string | undefined {
  *   has no `package.json` or one that isn't a JSON object, since the person
  *   owns it and can fix it
  */
-async function templateFor(root: string, stack: Stack): Promise<Files> {
+async function templateFor(root: string, stack: Stack): Promise<AppFiles> {
   const folder = `robkit/templates/${stack}`;
   const own = join(root, folder);
   if (!(await exists(own))) return stackTemplate(stack);
-  const files = await readFolder(own);
-  const text = files.get("package.json");
+  const files = await readOwnTemplate(own);
+  const text = textIn(files, "package.json");
   if (text === undefined) {
     throw new CommandProblem(
       `${folder} has no package.json. Add one, or delete the folder to use robkit's template.`,
@@ -158,7 +159,7 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
     access: choices.access,
     icon: choices.icon,
   });
-  const goMod = files.get("go.mod");
+  const goMod = textIn(files, "go.mod");
   if (goMod !== undefined) {
     const settings = await readFile(join(root, pnpmSettings), "utf8");
     const goModule = goModuleFor(overridesIn(settings));

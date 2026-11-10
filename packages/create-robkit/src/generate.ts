@@ -22,6 +22,19 @@ import {
 /** An install in memory: each file's path from the install root, and its text. */
 export type Files = Map<string, string>;
 
+/**
+ * An app's files, which may come from the owner's own template: each
+ * file's text, or its bytes where they aren't UTF-8 text, such as an
+ * image's.
+ */
+export type AppFiles = Map<string, string | Uint8Array>;
+
+/** The text of the file at `path` in `files`, or undefined if it has none. */
+export function textIn(files: AppFiles, path: string): string | undefined {
+  const content = files.get(path);
+  return typeof content === "string" ? content : undefined;
+}
+
 export interface GenerateOptions {
   /**
    * Link the `@robkit/*` packages to this robkit checkout instead of
@@ -52,25 +65,54 @@ function restored(path: string): string {
 
 type Json = Record<string, unknown>;
 
-/** Every file under `dir`, by its path from `dir`. */
-export async function readFolder(dir: string): Promise<Files> {
+/** Every file under `dir`, as `read` reads it, by its path from `dir`. */
+async function readEach<T>(
+  dir: string,
+  read: (bytes: Buffer) => T,
+): Promise<Map<string, T>> {
   const entries = await readdir(dir, { recursive: true, withFileTypes: true });
-  const files: Files = new Map();
+  const files = new Map<string, T>();
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     const file = join(entry.parentPath, entry.name);
     const path = relative(dir, file).replaceAll("\\", "/");
-    // A Windows checkout may hold the templates with CRLF endings.
-    const text = (await readFile(file, "utf8")).replaceAll("\r\n", "\n");
-    files.set(restored(path), text);
+    files.set(restored(path), read(await readFile(file)));
   }
   return files;
 }
 
+// A Windows checkout may hold text with CRLF endings, which an install
+// doesn't keep.
+const lf = (text: string) => text.replaceAll("\r\n", "\n");
+
+/** Every file under `dir`, robkit's own text, by its path from `dir`. */
+export function readFolder(dir: string): Promise<Files> {
+  return readEach(dir, (bytes) => lf(bytes.toString("utf8")));
+}
+
+// Fails on bytes that aren't UTF-8, and keeps a byte order mark.
+const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+
+/**
+ * Every file under `dir`, a template the owner keeps in their install, by
+ * its path from `dir`. A file that isn't UTF-8 text, such as an image,
+ * keeps its bytes.
+ */
+export function readOwnTemplate(dir: string): Promise<AppFiles> {
+  return readEach(dir, (bytes): string | Uint8Array => {
+    try {
+      return lf(utf8.decode(bytes));
+    } catch {
+      // Not text, so it arrives byte for byte.
+      return bytes;
+    }
+  });
+}
+
 const toJson = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
-function editJson(files: Files, path: string, edit: (json: Json) => Json) {
-  const text = files.get(path);
+function editJson(files: AppFiles, path: string, edit: (json: Json) => Json) {
+  const text = textIn(files, path);
   if (text === undefined) throw new Error(`the install has no ${path}`);
   files.set(path, toJson(edit(jsonObject(text, path))));
 }
@@ -88,12 +130,12 @@ export const defaultIcon = "📦";
  * their path from the app's folder. Its manifest is named after the slug,
  * and carries what the app declares, if anything.
  */
-export function appFiles(
-  template: Files,
+export function appFiles<Content extends string | Uint8Array>(
+  template: Map<string, Content>,
   slug: string,
   manifest: AppManifest = {},
-): Files {
-  const files: Files = new Map(template);
+): Map<string, Content | string> {
+  const files = new Map<string, Content | string>(template);
   editJson(files, "package.json", (json) => ({
     name: `@internal/${slug}-app`,
     ...json,

@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { CommandProblem, isMissing } from "@robkit/dev/cli";
-import type { Files } from "./generate.ts";
+import type { AppFiles, Files } from "./generate.ts";
 
 /** Why init can't write into `dir`, unless it's empty or doesn't exist yet. */
 export function folderInUse(dir: string): string | undefined {
@@ -16,7 +16,7 @@ export function folderInUse(dir: string): string | undefined {
 }
 
 /** Writes each of `files` under `dir`, making its parents. */
-async function writeFiles(dir: string, files: Files): Promise<void> {
+async function writeFiles(dir: string, files: AppFiles): Promise<void> {
   for (const [path, text] of files) {
     const file = join(dir, path);
     await mkdir(dirname(file), { recursive: true });
@@ -47,7 +47,7 @@ export const stagingDir = ".robkit";
 export async function writeApp(
   root: string,
   slug: string,
-  files: Files,
+  files: AppFiles,
 ): Promise<void> {
   const target = join(root, "apps", slug);
   // A rename would replace an empty folder on Linux and fail on Windows.

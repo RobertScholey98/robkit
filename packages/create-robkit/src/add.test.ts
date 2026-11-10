@@ -192,6 +192,27 @@ describe("addApp", () => {
     });
   });
 
+  it("copies a file in the template that isn't UTF-8 text, such as an image, byte for byte", async () => {
+    const dir = await freshInstall();
+    const override = join(dir, "robkit/templates/start");
+    await mkdir(join(override, "public"), { recursive: true });
+    await writeFile(
+      join(override, "package.json"),
+      JSON.stringify({ private: true }),
+    );
+    // A PNG's signature, which holds a CRLF, then bytes UTF-8 can't hold.
+    const image = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0xfe, 0x00, 0x80,
+    ]);
+    await writeFile(join(override, "public/icon.png"), image);
+
+    await addApp(dir, { ...notes, stack: "start" });
+
+    expect(await readFile(join(dir, "apps/notes/public/icon.png"))).toEqual(
+      image,
+    );
+  });
+
   it.each(readyStacks)(
     "adds an app on %s, whatever the example's",
     async (stack) => {
