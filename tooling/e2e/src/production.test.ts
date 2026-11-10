@@ -79,6 +79,16 @@ describe("the default install in production", () => {
     ].sort();
   };
 
+  /**
+   * What an app's page and core's /refresh tell the browser over https:
+   * HSTS on both, nosniff on both, and the guard's framing header on the
+   * page alone, since a redirect renders nothing.
+   */
+  const overHttps = {
+    app: { frame: "SAMEORIGIN", sniff: "nosniff", hsts: "max-age=31536000" },
+    refresh: { frame: null, sniff: "nosniff", hsts: "max-age=31536000" },
+  };
+
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
     removeWhenGone({ path: dir });
@@ -144,6 +154,7 @@ describe("the default install in production", () => {
       heading: "Signed in as a guest",
       stylesheets: [200],
       cookies: hostCookies(exampleSlug),
+      headers: overHttps,
     });
   });
 
@@ -231,6 +242,7 @@ describe("the default install in production", () => {
             heading: "Signed in as a guest",
             stylesheets: [200],
             cookies: hostCookies(app.slug),
+            headers: overHttps,
           },
         ]),
       ),

@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { setTimeout as sleep } from "node:timers/promises";
 import { promisify } from "node:util";
-import type { Browser, Page } from "playwright";
+import type { Browser, Page, Response } from "playwright";
 import { launch as launchChromium } from "./browser.ts";
 import type { Slug } from "@robkit/input";
 import type { Install } from "@robkit/input/addresses";
@@ -119,6 +119,25 @@ export interface GuestVisit {
    * `<host> <name> <attributes>`, sorted.
    */
   cookies: string[];
+  /** What the app's page and core's /refresh on the way told the browser. */
+  headers: { app: AnswerHeaders; refresh: AnswerHeaders };
+}
+
+/** The headers on an answer that say who may frame it and how to read it. */
+export interface AnswerHeaders {
+  frame: string | null;
+  sniff: string | null;
+  hsts: string | null;
+}
+
+async function answerHeaders(
+  res: Response | undefined,
+): Promise<AnswerHeaders> {
+  return {
+    frame: (await res?.headerValue("x-frame-options")) ?? null,
+    sniff: (await res?.headerValue("x-content-type-options")) ?? null,
+    hsts: (await res?.headerValue("strict-transport-security")) ?? null,
+  };
 }
 
 /**
@@ -141,6 +160,14 @@ export async function guestOpens(
     guest.on("requestfinished", (request) => {
       if (request.resourceType() === "stylesheet") {
         stylesheets.push(request.response().then((res) => res?.status()));
+      }
+    });
+    const page = `${install.origin(slug)}/`;
+    const answered: { app?: Response; refresh?: Response } = {};
+    guest.on("response", (res) => {
+      if (res.url() === page && res.status() === 200) answered.app = res;
+      if (res.url().startsWith(`${install.origin("core")}/refresh?`)) {
+        answered.refresh = res;
       }
     });
     await guest.getByRole("main").getByRole("link", { name: slug }).click();
@@ -166,6 +193,10 @@ export async function guestOpens(
       heading: await guest.getByRole("heading").textContent(),
       stylesheets: await Promise.all(stylesheets),
       cookies,
+      headers: {
+        app: await answerHeaders(answered.app),
+        refresh: await answerHeaders(answered.refresh),
+      },
     };
   } finally {
     await browser.close();
