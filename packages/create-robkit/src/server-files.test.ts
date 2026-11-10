@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { readyStacks, type Stack } from "./choices.ts";
 import { stackTemplate } from "./generate.ts";
@@ -29,4 +30,23 @@ describe("the server files", () => {
       expect(file).not.toMatch(readsSettings);
     },
   );
+
+  it("gives admin's guard only its access rule, and core's origin from coreOrigin()", async () => {
+    const server = await readFile(
+      new URL("../templates/base/apps/admin/src/server.ts", import.meta.url),
+      "utf8",
+    );
+
+    expect(server).toContain(
+      'import { coreOrigin, guarded } from "@robkit/hono";',
+    );
+    expect(server).toContain('import { isRecord } from "@robkit/input";');
+    expect(server).toContain(
+      'app.use(guarded({ access: { kind: "owner" } }));',
+    );
+    expect(server).toContain("const core = coreOrigin();");
+    expect(server).not.toMatch(
+      /ROBKIT_APP|ROBKIT_CORE_URL|readCoreUrl|orExit|app: "admin"/,
+    );
+  });
 });
