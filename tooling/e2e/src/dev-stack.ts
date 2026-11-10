@@ -72,7 +72,11 @@ export interface DevStack {
  * and stops it and its Postgres after. A failed journey prints what its
  * browser saw and what the dev runner said meanwhile.
  */
-export function useDevStack(name: InstallName): DevStack {
+export function useDevStack(
+  name: InstallName,
+  /** Changes the install before `pnpm dev` starts in it. */
+  prepare?: (dir: string) => Promise<void>,
+): DevStack {
   const dir = inject("installs")[name];
   const project = `robkit-e2e-${name}-${String(process.pid)}`;
   let dev: ChildProcess | undefined;
@@ -170,6 +174,7 @@ export function useDevStack(name: InstallName): DevStack {
     }));
 
   beforeAll(async () => {
+    await prepare?.(dir);
     devPort = await freePortBlock(1 + (await discoverApps(dir)).length);
     addresses = install({ domain: defaultDomain, port: devPort });
     postgresPort = await freePostgresPort();
