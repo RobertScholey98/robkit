@@ -15,7 +15,7 @@ The whole-stack tests make and remove installs side by side, each with its own c
 - [x] Core keeps serving, with no restart, when a dependency under `node_modules` gains a hard link
 - [x] The folders core watches are the source of each robkit package, and none is under `node_modules`
 - [x] A packed or vendored install still runs no watcher
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -39,3 +39,7 @@ The whole-stack tests make and remove installs side by side, each with its own c
 
 - `packages/core/src/robkit-core.db.test.ts` sets the times of `serve-core.ts` in the checkout itself, which restarts every linked core running on the machine at that moment. Core's tests finish before the whole-stack tests start, so it hasn't bitten.
 - The workers' reports of "core is not answering" under load on 2026-11-10 fit this cause, but I didn't go back and check each one.
+
+### Merged
+
+PR 95 merged into `m3-making-an-install` on 2026-11-10 as `740885d`, with `gate`, `check` and `pull-request` green on `c44827d` at the first run. No reviewer read it before the merge. Milestone 3's code round reads it with the rest.
