@@ -54,12 +54,12 @@ function unclaimed(c: Context): Response {
  * app with the keys that check them.
  */
 export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
-  const { db, install, now, signingKey, trustedProxy } = context;
+  const { db, install, now, signingKey, signInLimits, trustedProxy } = context;
   const origin = install.origin("core");
   const routes = new Hono<CoreEnv>();
   const loginLimiter = createRateLimiter({
-    limit: 5,
-    windowMs: 15 * 60 * 1000,
+    limit: signInLimits.passwordsPerClient,
+    windowMs: signInLimits.clientWindowMs,
     now,
   });
   // Apart from the owner's limit, so a guest guessing codes can't lock the
@@ -67,8 +67,8 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   // the client's failures, or one live code would buy endless guesses at the
   // others.
   const codeLimiter = createRateLimiter({
-    limit: 10,
-    windowMs: 15 * 60 * 1000,
+    limit: signInLimits.codesPerClient,
+    windowMs: signInLimits.clientWindowMs,
     now,
   });
 

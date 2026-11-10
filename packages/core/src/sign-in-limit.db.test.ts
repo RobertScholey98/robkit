@@ -149,3 +149,30 @@ describe("a sign-in that gets no verdict", () => {
     expect(tally(codes)).toEqual({ 409: 25 });
   });
 });
+
+describe("createApp's signInLimits", () => {
+  it("sets each client's limits and their window", async () => {
+    const { app, advance } = await freshCore({
+      signInLimits: {
+        passwordsPerClient: 2,
+        codesPerClient: 3,
+        clientWindowMs: 60_000,
+      },
+    });
+    await liveCode(app);
+
+    const passwords = await inTurn(3, () =>
+      postJson(app, "/login", wrong, from("203.0.113.7")),
+    );
+    const codes = await inTurn(4, () =>
+      postJson(app, "/login/code", { code: "NOPE2" }, from("203.0.113.7")),
+    );
+    advance(60_000);
+    const later = await postJson(app, "/login", rob, from("203.0.113.7"));
+
+    expect(passwords.map(({ status }) => status)).toEqual([401, 401, 429]);
+    expect(passwords[2]?.headers.get("retry-after")).toBe("60");
+    expect(codes.map(({ status }) => status)).toEqual([401, 401, 401, 429]);
+    expect(later.status).toBe(200);
+  });
+});

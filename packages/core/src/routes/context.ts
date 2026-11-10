@@ -4,6 +4,7 @@ import type { Report } from "@robkit/input/report";
 import { sessionCookies, sessionTokensIn } from "@robkit/session";
 import { type InputProblem, isProblem, isRecord, problem } from "@robkit/input";
 import type { TrustedProxy } from "../client.ts";
+import type { SignInLimits } from "../sign-in-limits.ts";
 import { sessionLifetimeSeconds } from "../session-claims.ts";
 import {
   readSession,
@@ -15,6 +16,7 @@ import {
 export interface RouteContext extends SessionContext {
   trustedProxy: TrustedProxy | undefined;
   logError: Report;
+  signInLimits: SignInLimits;
 }
 
 /** What a route that needs the viewer finds in `c.var`. */

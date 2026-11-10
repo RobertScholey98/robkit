@@ -5,6 +5,7 @@ import { sessionCookies } from "@robkit/session";
 import { decodeJwt, SignJWT, type JWTPayload } from "jose";
 import { onTestFinished } from "vitest";
 import { createApp } from "../app.ts";
+import type { SignInLimits } from "../sign-in-limits.ts";
 import { registerApps } from "../apps.ts";
 import type { TrustedProxy } from "../client.ts";
 import { createDatabase, type Database } from "../database.ts";
@@ -36,6 +37,7 @@ export async function freshCore({
   apps = [],
   trustedProxy,
   logError,
+  signInLimits,
 }: {
   /** Core's public origin: a hosted install's unless it says. */
   origin?: string;
@@ -44,6 +46,7 @@ export async function freshCore({
   trustedProxy?: TrustedProxy | undefined;
   /** Where core reports errors; its console unless a test listens. */
   logError?: Report;
+  signInLimits?: Partial<SignInLimits>;
 } = {}): Promise<FreshCore> {
   const databaseUrl = await freshDatabase();
   await migrate(databaseUrl);
@@ -63,6 +66,7 @@ export async function freshCore({
       now: clock,
       trustedProxy,
       ...(logError && { logError }),
+      ...(signInLimits && { signInLimits }),
     }),
     db,
     now: clock,

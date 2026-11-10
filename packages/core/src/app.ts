@@ -13,6 +13,7 @@ import { appRoutes } from "./routes/apps.ts";
 import { accessCodeRoutes } from "./routes/access-codes.ts";
 import { roleRoutes } from "./routes/roles.ts";
 import { sessionRoutes } from "./routes/session.ts";
+import { defaultSignInLimits, type SignInLimits } from "./sign-in-limits.ts";
 import { statusRoutes } from "./routes/status.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 
@@ -37,6 +38,11 @@ export interface CoreOptions {
    * `reportToConsole`.
    */
   logError?: Report;
+  /**
+   * Any sign-in limits to set in place of their defaults. It is there for
+   * tests and tuning; an install leaves it out.
+   */
+  signInLimits?: Partial<SignInLimits>;
 }
 
 function isJson(contentType: string | undefined): boolean {
@@ -64,6 +70,7 @@ export function createApp({
   now = () => new Date(),
   trustedProxy,
   logError = reportToConsole,
+  signInLimits,
 }: CoreOptions): Hono {
   const app = new Hono();
   // Hono's own answer to a route that throws. The cause stays in core's log
@@ -128,6 +135,7 @@ export function createApp({
     signingKey,
     trustedProxy,
     logError,
+    signInLimits: { ...defaultSignInLimits, ...signInLimits },
   };
   app.route("/", statusRoutes(context));
   app.route("/", sessionRoutes(context));
