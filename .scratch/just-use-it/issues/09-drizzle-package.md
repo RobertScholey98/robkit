@@ -12,19 +12,24 @@
   export const database = appDatabase(schema);
   ```
 
-  It takes postgres.js options as a second argument, with today's `max: 2` as the default. A missing or malformed `DATABASE_URL` fails on first call with the reader's message. Under a dev server that reloads modules, it keeps one pool and doesn't open another on each reload.
-- **Migrations.** A `robkit-migrate` command applies the migrations in the app's `drizzle` folder that haven't run. It keeps today's behaviour: the journal table sits in the app's schema, and nothing creates a schema. It takes an advisory lock before it touches the journal, so two containers starting together don't both migrate. Its journal stays the one today's `migrate.ts` writes, so an app that already migrated carries on. An app's `migrate` script becomes `robkit-migrate`.
+  It takes postgres.js options as a second argument, with today's `max: 2` as the default. A missing or malformed `DATABASE_URL` fails on first call with the reader's message, never when the module loads: `next build` imports an app's modules with no database set. Today's `database.ts` exits the process there. Say whether the package exits or throws, following `docs/conventions/errors.md`, and record the choice.
+- **One pool, and the schema as it now is.** Under a dev server that reloads modules, it keeps one pool, the postgres.js client, and doesn't open another on each reload. It builds the Drizzle database again from the schema it is handed, because Drizzle reads the schema when the database is made. So a table the owner adds to `schema.ts` is there on the next request, with no restart.
+- **Migrations.** A `robkit-migrate` command applies the migrations that haven't run. It reads them from the app's `drizzle` folder, or from a folder given as its argument, since `drizzle.config.ts` lets an owner move `out`. It keeps today's behaviour: the journal table sits in the app's schema, and nothing creates a schema. It takes an advisory lock before it touches the journal, so two containers starting together don't both migrate. The lock is the app's own, keyed by its schema, so one app's migration never waits on another's. Its journal stays the one today's `migrate.ts` writes, so an app that already migrated carries on. An app's `migrate` script becomes `robkit-migrate`.
+- **Core uses the same migrator.** Core's `migrateFrom` (`packages/core/src/migrate.ts`) is the same algorithm as the apps' `migrate.ts`, and ticket 12 gives it a lock of its own. Two locking migrators would drift as the four copies did. Core moves onto this package's migrator, with its schema and folder passed in, and keeps the lock ticket 12 takes around provisioning. `@robkit/core` gains a runtime edge to `@robkit/drizzle`, which makes no cycle.
 - **Templates.** The four Node stacks lose `src/migrate.ts`, and their `database.ts` becomes the three lines above. `drizzle.config.ts`, `schema.ts` and `drizzle/` stay the app's own. The Go stack is untouched: it owns its database.
 - **Docs.** Each Node stack's `AGENTS.md` database section, the install's root `AGENTS.md`, and the new README.
 
-**Blocked by:** 08
+**Blocked by:** 08, 12
 
 **Status:** ready-for-agent
 
 - [ ] `appDatabase(schema)` connects on first call as the app's role, and its queries land in the app's schema
-- [ ] Reloading the module that calls `appDatabase` many times leaves one pool open
+- [ ] Importing a module that calls `appDatabase` with no `DATABASE_URL` set doesn't fail; the first call does
+- [ ] Reloading the module that calls `appDatabase` many times leaves one pool open, and a table added to the schema between reloads can be queried after the next one
 - [ ] `robkit-migrate` applies new migrations, changes nothing on a second run, and works on a database the old `migrate.ts` already migrated
+- [ ] `robkit-migrate` given a folder reads its migrations from there
 - [ ] Two `robkit-migrate` runs started together both succeed, and each migration runs once
+- [ ] Core migrates through this package's migrator, and ticket 12's test of two cores starting together still passes
 - [ ] A missing `DATABASE_URL` fails with the reader's message, in both the command and `appDatabase`
 - [ ] No Node stack has a `src/migrate.ts`, and each `database.ts` imports only `@robkit/drizzle` and its schema
 - [ ] The whole-stack and production tests pass for every stack, with each app migrating through `robkit-migrate`

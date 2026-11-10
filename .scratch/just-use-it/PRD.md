@@ -40,7 +40,7 @@ apps/notes/
     serve.ts          serve(app)
     database.ts       export const database = appDatabase(schema)
     schema.ts
-    visits.ts
+    visits.ts         what the routes store through
 ```
 
 ```ts nocheck
@@ -48,10 +48,11 @@ apps/notes/
 import { guarded, type GuardedEnv } from "@robkit/hono";
 import { Hono } from "hono";
 import { routes } from "./routes.tsx";
+import { visits } from "./visits.ts";
 
 const app = new Hono<GuardedEnv>();
 app.use(guarded());
-app.route("/", routes());
+app.route("/", routes(visits));
 export default app;
 ```
 
@@ -81,11 +82,11 @@ Each is built by the ticket named, and that ticket's comments record what the bu
 4. **The guard refuses a cross-origin write.** A request that isn't GET, HEAD or OPTIONS passes only when the browser says it came from the app's own origin or from the viewer directly (`Sec-Fetch-Site` of `same-origin` or `none`), or when the client sends neither `Sec-Fetch-Site` nor `Origin`, as a script does. For a WebSocket handshake `Origin` alone decides. The example apps read on GET and record on POST, so what an owner copies is what the rule protects. (05, 08)
 5. **The guard sends the framing header itself.** Every answer that passes through the guard carries `X-Frame-Options: SAMEORIGIN` and `nosniff`. It is that header and not a `frame-ancestors` policy because an app may send a policy of its own, and two policy headers don't both survive on Express or Next. A browser obeys `X-Frame-Options` unless the app's own policy names `frame-ancestors`, which is how an app allows a framer. So admin and every app are covered by a package that updates, with no option to learn. (06)
 6. **An app's guard reads its own settings.** Every adapter's `guarded()` works with no argument: it reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself. A misconfigured app still refuses to start with the reader's message. Options stay, all optional. (07)
-7. **A test names its viewer, and needs no database.** Each adapter's `/testing` entry builds viewers. For Hono and Express it also gives a stand-in for the guard. For Next and Start, the page reads the viewer once and hands it to a plain function, and the test calls that. An example's routes take what they store through as an argument, so a test passes a stand-in. The main entry has no way to skip the guard. (08)
-8. **Drizzle's wiring is a package.** `@robkit/drizzle` gives an app its database in one call, and its `robkit-migrate` command applies the app's migrations in its own schema under a lock. The app keeps `schema.ts`, `drizzle.config.ts` and its migrations. (09)
-9. **Dev and build wiring is in packages.** `@robkit/vite` is one Vite plugin, `robkit()`, that sets the dev server up behind the proxy. `@robkit/express` ships the dev handoff Vite needs, and `@robkit/next` ships `withRobkit()` for `next.config.ts`. (10)
-10. **Each Node adapter serves in production.** `serve()` from the adapter's `/serve` entry serves the built app on `HOST` and `PORT`. `serve.ts` stays in the app, three lines long, so the owner can put their own code before it. The hub, a built page with no app behind it, uses `servePage()` from `@robkit/vite/serve`. (11)
-11. **Core is one command, and provisioning is its own package.** `@robkit/core` ships `robkit-core`, which provisions, migrates and serves. `apps/core` has no source. The code that gives each app its schema and role moves to `@robkit/provision`, below both core and the dev runner. Three placements were weighed: in core with the dev runner importing it (which pulls core, Hono and Drizzle into `npm create robkit`), core depending on `@robkit/dev` (the dev runner in core's image), or a small package below both. (12)
+7. **A test names its viewer, and needs no database.** Each adapter's `/testing` entry builds viewers, with builders written once in `@robkit/guard`. For Hono and Express it also gives a stand-in for the guard. For Next and Start, the page reads the viewer once and hands it to a plain function, and the test calls that. An example's routes take what they store through as an argument, so a test passes a stand-in. The main entry has no way to skip the guard. (08)
+8. **Drizzle's wiring is a package.** `@robkit/drizzle` gives an app its database in one call, and its `robkit-migrate` command applies the app's migrations in its own schema under a lock. The app keeps `schema.ts`, `drizzle.config.ts` and its migrations. Core migrates through the same migrator, so one exists. (09)
+9. **Dev and build wiring is in packages.** `@robkit/vite` holds everything robkit adds to Vite: `robkit()`, which sets the dev server up behind the proxy, and at `@robkit/vite/express` the handoff an Express app needs. An app lists it under `devDependencies`, and no package an app runs in production names Vite, so no production image holds it. `@robkit/next` ships `withRobkit()` for `next.config.ts`. (10)
+10. **Each Node adapter serves in production.** `serve()` from the adapter's `/serve` entry serves the built app on `HOST` and `PORT`, and returns the server. `serve.ts` stays in the app, three lines long, so the owner can put their own code before it. What every server does the same way is written once, in `@robkit/serve`: read the address, listen, serve the client's files, stop on SIGTERM. The hub, a built page with no app behind it, uses `servePage()` from that package. (11)
+11. **Core is one command, and provisioning is its own package.** `@robkit/core` ships `robkit-core`, which provisions, migrates and serves. `apps/core` has no source. The code that gives each app its schema and role moves to `@robkit/provision`, below both core and the dev runner. It returns a failure its caller can expect as a value, and each command prints its own message for it. Two cores that start together take one lock. The generator and `robkit vendor` cover the packages that an install's named packages depend on, so one that arrives behind core is linked or packed too. Three placements were weighed: in core with the dev runner importing it (which pulls core, Hono and Drizzle into `npm create robkit`), core depending on `@robkit/dev` (the dev runner in core's image), or a small package below both. (12)
 12. **create-robkit carries what it needs.** At build it takes in the catalog, the pnpm version, each package's version, the lint policy and the Go module's source. A linked install still reads the checkout. An install's Go apps reach robkit's Go module in the install's own `vendor/robkit/go`, so robkit's module never waits on a Go proxy or a tag. (13)
 13. **A release is a pull request and a button.** Versions change through a "Version packages" pull request, because `main` takes no direct push. A workflow someone starts by hand then publishes what is on `main` that isn't on npm yet, and pushes tags. (14)
 14. **init installs.** `npm create robkit` installs dependencies and makes the first commit unless told `--no-install`. This reverses app-sharing ticket 01's `--install` flag, since an install that needs a second command isn't "just use it". (15)
