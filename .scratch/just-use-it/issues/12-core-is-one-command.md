@@ -61,7 +61,7 @@
   - So the Dockerfile's `CMD` reads the app's `start` script and hands it to `/bin/sh -c`. The server, or `robkit-core start` for core, becomes PID 1. `PATH` gains the app's and the root's `node_modules/.bin`, as `node --run` gave them. No `package.json` script holds `exec`, and a create-robkit test enforces that. pnpm's bin shim for `robkit-core` uses `exec` itself, so no shell stays between.
 - **The errors that mean a lost race, found by test.**
   - Provisioning (`packages/provision/src/lost-race.ts`): `23505` on any `pg_` catalog index, `42710` "role already exists", and `XX000` "tuple concurrently updated". `42710` showed up only under `check:all`'s load. Each run now reads the database's and the public schema's access first and writes only what is missing, since every app's run shared those two rows. It tries an app up to 10 times.
-  - The journal table (`packages/core/src/migrate.ts`, `createJournal`): `42P07`, or `23505` on a `pg_` index (`pg_type_typname_nsp_index`, `pg_class_relname_nsp_index`).
+  - The journal table (`packages/core/src/migrate.ts`, `createJournal`): `42P07`, or `23505` on a `pg_` index (`pg_type_typname_nsp_index`, `pg_class_relname_nsp_index`). CI then met a third, `42710` "type already exists", on this PR's first full run. So the lead changed `createJournal`: it sorts no error codes. When its create is refused it looks in `pg_tables`, and goes on if the table is there. In WSL, 240 migrators in 40 rounds of six met `42710` once before the change and no error after.
 - **The signing key's advisory lock is gone too.** `ensureSigningKey` took one, so it now takes `lock table core.signing_keys in exclusive mode`. The ticket named three places; this was a fourth.
 - **`start` checks core's own settings before it provisions.** A container missing `ROBKIT_CORE_URL` stops before it touches the database.
 - **`robkit vendor` packs with `--filter-prod "<name>..."`**: each linked package and the packages it runs on, not its dev dependencies. The generator gets the same set from each package's `dependencies` (`withDependencies` in `create-robkit/src/robkit-repo.ts`).
@@ -69,7 +69,7 @@
 
 ### For ticket 09
 
-- Core's migrator is `migrate()` in `packages/core/src/migrate.ts`. `createJournal` makes the journal table, retrying a lost create race. The migrating transaction then takes `lock table core.__drizzle_migrations in exclusive mode`. The test that `pg_locks` shows no advisory lock is in `migrate.db.test.ts`.
+- Core's migrator is `migrate()` in `packages/core/src/migrate.ts`. `createJournal` makes the journal table. When Postgres refuses the create it looks for the table and goes on if another run made it, whatever the error was. Do the same in `@robkit/drizzle`'s migrator: a list of error codes missed one. The Go stack's `migrate.go` has the same race and no answer to it yet. The migrating transaction then takes `lock table core.__drizzle_migrations in exclusive mode`. The test that `pg_locks` shows no advisory lock is in `migrate.db.test.ts`.
 - `runCommand` and `CommandProblem` are in `@robkit/input/command`, for `robkit-migrate`.
 
 ### For ticket 11
