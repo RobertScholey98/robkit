@@ -1,7 +1,11 @@
 import {
+  answerHeadersOf,
   callbackFor,
   conformanceAnswer,
   fakeCore,
+  headerAnswer,
+  headerCases,
+  headerRequest,
   owner,
   stateIn,
   slug,
@@ -59,6 +63,73 @@ describe("guarded", () => {
     const res = await app.request(url, init);
 
     expect({ status: res.status, reached }).toEqual(writeAnswer(asking));
+  });
+
+  it.each(headerCases)("$name", async (asking) => {
+    let reached = false;
+    const { url, access, ...init } = headerRequest(asking);
+    const app = new Hono<GuardedEnv>()
+      .use(
+        guarded({
+          app: example,
+          access,
+          core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+        }),
+      )
+      .all("*", (c) => {
+        reached = true;
+        // Response.redirect() makes headers that can't change.
+        if (c.req.path === "/moved") {
+          return Response.redirect(new URL("/", c.req.url), 302);
+        }
+        return c.text("the app", 200, {
+          "content-security-policy": "default-src 'self'",
+        });
+      });
+
+    const res = await app.request(url, init);
+
+    expect({
+      status: res.status,
+      reached,
+      headers: answerHeadersOf(res.headers),
+    }).toEqual(headerAnswer(asking));
+  });
+
+  it("puts the headers on Hono's own 404 and on the 500 for a handler that throws", async () => {
+    const app = new Hono<GuardedEnv>()
+      .use(
+        guarded({
+          app: example,
+          access: { kind: "open" },
+          core: orThrow(
+            readCoreUrl({ ROBKIT_CORE_URL: "https://core.robkit.dev" }),
+          ),
+        }),
+      )
+      .get("/broken", () => {
+        throw new Error("The handler broke.");
+      });
+
+    const answers = await Promise.all(
+      ["/missing", "/broken"].map(async (path) =>
+        app.request(`https://example.robkit.dev${path}`),
+      ),
+    );
+
+    expect(
+      answers.map((res) => [res.status, answerHeadersOf(res.headers)]),
+    ).toEqual(
+      [404, 500].map((status) => [
+        status,
+        {
+          "x-frame-options": "SAMEORIGIN",
+          "x-content-type-options": "nosniff",
+          "strict-transport-security": "max-age=31536000",
+          "content-security-policy": null,
+        },
+      ]),
+    );
   });
 
   it("answers a call from the page with the guard's 401", async () => {
