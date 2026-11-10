@@ -52,8 +52,24 @@ function accessOf(body: { access?: unknown }): AccessRule | undefined {
 | `AccessRule`                                                   | `{ kind: "open" }`, `{ kind: "roles", roles }` (role ids) or `{ kind: "owner" }`                       |
 | `SessionState`                                                 | What the app knows: `unknown`, `signed-out`, `expired`, or `signed-in` with a viewer                   |
 | `Viewer`, `SignedInViewer`                                     | Who is asking: the owner, a guest with role ids, or `{ kind: "nobody" }`                               |
+| `OwnerViewer`, `GuestViewer`                                   | The owner and a guest, each on its own                                                                 |
 | `Decision`                                                     | `guard`'s answer                                                                                       |
 | `@robkit/guard/conformance`                                    | `conformanceCases`: the cases in `conformance.json`, typed, that the guard and every adapter must pass |
+| `@robkit/guard/testing`                                        | Viewers for tests: `owner(id?)`, `guest({ id?, roles? })` and `nobody()`. See below                    |
+
+## Viewers for tests
+
+`@robkit/guard/testing` builds viewers for an app's tests, with the guard's own readers, so a test never casts a string to a `CodeId` or `RoleId`. It is for tests only. Each adapter's `/testing` entry gives the same builders, so an app imports them from the adapter it already uses:
+
+```ts
+import { guest, nobody, owner } from "@robkit/guard/testing";
+
+owner(); // { kind: "owner", id: "owner-1" }
+guest({ roles: ["family"] }); // { kind: "guest", id: "code-1", roles: ["family"] }
+nobody(); // { kind: "nobody" }
+```
+
+An id that is empty throws the reader's problem.
 
 The whole decision is one table in `src/guard.ts`. `docs/architecture.md` draws it.
 

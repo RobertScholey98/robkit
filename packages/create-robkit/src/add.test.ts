@@ -199,7 +199,7 @@ describe("addApp", () => {
       await readFile(join(dir, "apps/notes/src/styles.css"), "utf8"),
     ).toContain('@import "@internal/ui/styles.css";');
     expect(
-      await readFile(join(dir, "apps/notes/src/server.tsx"), "utf8"),
+      await readFile(join(dir, "apps/notes/src/routes.tsx"), "utf8"),
     ).toContain('from "@internal/ui/components/ui/card"');
   });
 

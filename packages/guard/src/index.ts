@@ -7,6 +7,8 @@ export {
   type AccessRule,
   type CodeId,
   type Decision,
+  type GuestViewer,
+  type OwnerViewer,
   type RoleId,
   type SessionState,
   type SignedInViewer,

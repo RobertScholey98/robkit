@@ -38,6 +38,24 @@ Pair it with `sessionFetch` from `@robkit/react` in `src/start.ts`, so a server 
 | `coreOrigin()`             | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                      |
 | `GuardedContext`           | `{ viewer }`, to register as Start's request context                                                                                                                                          |
 | `Viewer`                   | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                     |
+| `@robkit/start/testing`    | For tests only: `owner()`, `guest({ roles })` and `nobody()`. See [Testing](#testing)                                                                                                         |
+
+## Testing
+
+`@robkit/start/testing` is for tests only. It builds viewers with `owner()`, `guest({ roles })` and `nobody()`, so a test never casts to a branded id. It has no stand-in for the guard: a server function runs only through Start's compiler. So its handler hands `context.viewer` to a plain function, and a test calls that function with a built viewer:
+
+```ts
+import type { Viewer } from "@robkit/start";
+import { guest, owner } from "@robkit/start/testing";
+
+// The server function's handler calls greeting(context.viewer).
+function greeting(asking: Viewer): string {
+  return asking.kind === "owner" ? "Welcome back" : "Hello";
+}
+
+greeting(owner()); // "Welcome back"
+greeting(guest({ roles: ["family"] })); // "Hello"
+```
 
 ## What it must never do
 

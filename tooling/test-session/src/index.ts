@@ -43,6 +43,7 @@ export {
   type ViewerOptions,
 } from "./brands.ts";
 export { printedOnExit } from "./exit.ts";
+export { productionRun, stubRun, testRuns, type RunSettings } from "./runs.ts";
 
 // Written out rather than imported from @robkit/session, whose own tests use
 // this package. If session's cookies, lifetime, callback or word that nobody

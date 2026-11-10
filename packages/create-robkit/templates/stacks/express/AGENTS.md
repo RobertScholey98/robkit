@@ -4,7 +4,7 @@ A React app on an Express server in a robkit install. Its folder name is its slu
 
 ## The viewer
 
-`src/server.tsx` is the Express app, and it renders React to HTML. Its first middleware is `guarded` from `@robkit/express`. Before any handler runs, the guard checks the session and this app's access rule, and sends anyone who may not open the app to sign in. Handlers read who is asking as `res.locals.viewer`, typed by `GuardedResponse`:
+`src/server.tsx` is the Express app. Its first middleware is `guarded` from `@robkit/express`, and then it mounts the app's routes from `src/routes.tsx`, which render React to HTML. Before any handler runs, the guard checks the session and this app's access rule, and sends anyone who may not open the app to sign in. Handlers read who is asking as `res.locals.viewer`, typed by `GuardedResponse`:
 
 ```tsx
 app.get("/", (req, res: GuardedResponse) => {
@@ -37,6 +37,16 @@ Set it in the handler, with `res.set("Content-Security-Policy", ...)`, or in mid
 - `pnpm build` builds `src/serve.ts`, which serves the built stylesheet and then the app, into `dist/serve.js`. The production image runs the `start` script, which migrates and then runs it.
 - `dependencies` are what the server imports when it runs. The production image installs only those, so a package the server needs that sits in `devDependencies` is missing there.
 
+## Testing
+
+`pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does. A test needs no database, no core and no `pnpm dev`. `src/routes.test.tsx` shows the pattern:
+
+- It mounts `routes(...)` behind `guardedAs(viewer)` from `@robkit/express/testing` instead of `guarded()`, so every request is that viewer's. `owner()`, `guest({ roles: ["family"] })` and `nobody()`, from the same entry, build the viewer.
+- It passes the routes a stand-in for what they store through, so nothing reaches Postgres. Give a new route what it stores the same way, as an argument to `routes`.
+- It imports `src/routes.tsx`, never `src/server.tsx`. `guarded()` reads its settings as the server loads, and stops the run when one is missing.
+
+`guardedAs` refuses every request when `NODE_ENV` is `production`, which the app's image sets, so it never stands in for the guard in a server.
+
 ## Calling core
 
 The guard already asks core for what it needs: core's public key and this app's access rule. The owner sets who may open the app in admin. The `robkit` field in `package.json` is only the rule core starts from. If the app needs more from core, call it over HTTP from the server at `process.env.ROBKIT_CORE_URL`. Never import `@robkit/core`.
@@ -49,7 +59,7 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes 
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
-The example's queries are in `src/visits.ts`, and its `/` handler in `src/server.tsx` calls them.
+The example's queries are in `src/visits.ts`. The server hands them to `routes(visits)` in `src/routes.tsx`.
 
 ## The database
 

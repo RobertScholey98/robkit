@@ -5,7 +5,7 @@ import { discoverApps } from "@robkit/dev";
 import { describe, expect, it } from "vitest";
 import { testA11yJourney } from "./a11y-journey.ts";
 import { testAddedAppJourney } from "./added-app-journey.ts";
-import { testCrossOriginJourney } from "./cross-origin-journey.ts";
+import { testCrossOriginJourney, type Posts } from "./cross-origin-journey.ts";
 import { letTheHubFrameNext, testFramingJourneys } from "./framing-journey.ts";
 import { interrupt, owner, useDevStack } from "./dev-stack.ts";
 import { testGuestJourney } from "./guest-journey.ts";
@@ -53,10 +53,11 @@ export interface JourneyOptions {
    */
   lapsedCalls?: boolean;
   /**
-   * Whether the example's page posts to its server, as Go's, Next's and
-   * Start's do, so a sibling app's page can post the same and be refused.
+   * How the example's page posts to its server: `fetch` from a script, as
+   * Go's, Next's and Start's do, or `form`, as React + Hono's and
+   * Express's do. A sibling app's page posts the same and is refused.
    */
-  posts?: boolean;
+  posts?: Posts;
   /**
    * Whether the example's server passes Vite's hot-update socket through
    * the guard under pnpm dev, as Go's does.
@@ -85,7 +86,7 @@ export function describeJourneys(
     roles = true,
     serverFunction = false,
     lapsedCalls = false,
-    posts = false,
+    posts = "fetch",
     viteSocket = false,
     hubFrames = false,
   }: JourneyOptions = {},

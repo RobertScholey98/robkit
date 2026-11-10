@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./conformance": "./src/conformance.ts",
+    "./testing": "./src/testing.ts",
     "./conformance.json": "./conformance.json"
   },
   "publishConfig": {
@@ -17,6 +18,10 @@
       "./conformance": {
         "types": "./dist/src/conformance.d.ts",
         "default": "./dist/src/conformance.js"
+      },
+      "./testing": {
+        "types": "./dist/src/testing.d.ts",
+        "default": "./dist/src/testing.js"
       },
       "./conformance.json": "./conformance.json"
     }

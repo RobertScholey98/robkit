@@ -80,7 +80,7 @@ Then open http://notes.robkit.localhost:3000.
       icon: "🗒️",
     });
     expect(
-      await readFile(join(dir, "apps/notes/src/routes/index.tsx"), "utf8"),
+      await readFile(join(dir, "apps/notes/src/home.tsx"), "utf8"),
     ).toContain("Signed in as");
   });
 
