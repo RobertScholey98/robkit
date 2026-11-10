@@ -1,6 +1,6 @@
 import { exec as execCallback } from "node:child_process";
 import { existsSync } from "node:fs";
-import { cp, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import { CommandProblem, exec, isMissing } from "@robkit/dev/cli";
@@ -9,7 +9,12 @@ import { isProblem, isRecord, parseJson } from "@robkit/input";
 import { parseDocument } from "yaml";
 import { readInstallChoices } from "./add.ts";
 import { pnpmSettings } from "./generate.ts";
-import { vendoredGoModule, withGoModule } from "./go-module.ts";
+import {
+  readGoModule,
+  vendoredGoModule,
+  withGoModule,
+  writeGoModule,
+} from "./go-module.ts";
 import { stringsIn } from "./json.ts";
 
 const shell = promisify(execCallback);
@@ -65,9 +70,6 @@ function tarballsIn(stdout: string, cwd: string): Map<string, string> {
 
 /** Where `vendorPackages` puts the tarballs, from the install's root. */
 export const vendorDir = "vendor/robkit";
-
-/** Where `vendorPackages` copies robkit's Go module, from the install's root. */
-const vendoredGoDir = `${vendorDir}/go`;
 
 /**
  * Packs each robkit package an install links to, and each robkit package
@@ -148,23 +150,20 @@ export async function vendorPackages(root: string): Promise<void> {
 
 /**
  * Copies robkit's Go module from `goDir`, in the checkout, to the install's
- * `vendor/robkit/go`, leaving out its tests and its manifest, and points
- * each Go app's go.mod at the copy. It copies the module whether or not an
- * app needs it yet, so `robkit add --stack go` works after vendoring.
+ * `vendor/robkit/go`, in place of any copy there, leaving out its tests and
+ * its manifest, and points each Go app's go.mod at the copy. It copies the
+ * module whether or not an app needs it yet, so `robkit add --stack go`
+ * works after vendoring.
  */
 async function vendorGoModule(root: string, goDir: string): Promise<void> {
-  await cp(goDir, join(root, vendoredGoDir), {
-    recursive: true,
-    filter: (source) =>
-      !source.endsWith("_test.go") &&
-      !["package.json", "node_modules", ".turbo"].includes(basename(source)),
-  }).catch((error: unknown) => {
+  const goModule = await readGoModule(goDir).catch((error: unknown) => {
     if (!isMissing(error)) throw error;
     throw new CommandProblem(
       `${goDir} doesn't exist, so robkit vendor can't copy robkit's Go module from the checkout. Check that the install's overrides link to a robkit checkout, then try again.`,
       { cause: error },
     );
   });
+  await writeGoModule(root, goModule);
   const apps = join(root, "apps");
   for (const entry of await readdir(apps, { withFileTypes: true })) {
     const goMod = join(apps, entry.name, "go.mod");

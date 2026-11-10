@@ -7,7 +7,12 @@ import { jsonObject, stringsIn } from "./json.ts";
 import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readyStacks, type Choices, type Stack } from "./choices.ts";
-import { goModuleFor, withGoModule } from "./go-module.ts";
+import {
+  goModuleFor,
+  vendoredGoDir,
+  vendoredGoModule,
+  withGoModule,
+} from "./go-module.ts";
 import {
   readRobkitRepo,
   withDependencies,
@@ -191,9 +196,17 @@ export async function generateInstall(
   const repo = await readRobkitRepo(options);
   await renderSettings(files, names, repo);
   const goModule = goModuleFor(overridesIn(files.get(pnpmSettings) ?? ""));
-  for (const [path, text] of files) {
-    if (/^apps\/[^/]+\/go\.mod$/.test(path)) {
-      files.set(path, withGoModule(text, goModule));
+  const goApps = [...files.keys()].filter((path) =>
+    /^apps\/[^/]+\/go\.mod$/.test(path),
+  );
+  for (const path of goApps) {
+    files.set(path, withGoModule(files.get(path) ?? "", goModule));
+  }
+  // An install that isn't linked carries robkit's Go module for its Go
+  // apps, so none waits on a module proxy for it.
+  if (goApps.length > 0 && goModule === vendoredGoModule) {
+    for (const [path, text] of repo.goModule) {
+      files.set(`${vendoredGoDir}/${path}`, text);
     }
   }
   // The install lints with the policy robkit lints itself with.

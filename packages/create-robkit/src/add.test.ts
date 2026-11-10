@@ -91,6 +91,42 @@ describe("addApp", () => {
     ]);
   });
 
+  it("writes robkit's Go module to vendor/robkit/go with the first Go app of an install that had none", async () => {
+    const dir = await freshInstall();
+    const guarded = join(dir, "vendor/robkit/go/session/guarded.go");
+    const hadModule = await readFile(guarded, "utf8").then(
+      () => true,
+      () => false,
+    );
+
+    await addApp(dir, { ...notes, stack: "go" });
+
+    expect(hadModule).toBe(false);
+    expect(await readFile(guarded, "utf8")).toBe(
+      (
+        await readFile(
+          new URL("../../../go/session/guarded.go", import.meta.url),
+          "utf8",
+        )
+      ).replaceAll("\r\n", "\n"),
+    );
+    // Its tests stay in robkit.
+    expect(
+      (await readdir(join(dir, "vendor/robkit/go/session"))).filter((name) =>
+        name.endsWith("_test.go"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("leaves vendor/robkit/go alone in a linked install, whose Go apps reach the checkout", async () => {
+    const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
+    await init(defaultChoices, dir, { link: true });
+
+    await addApp(dir, { ...notes, stack: "go" });
+
+    expect(await readdir(dir)).not.toContain("vendor");
+  });
+
   // It empties PATH for the whole process, so it runs alone rather than
   // beside a test that adds a Go app.
   it(

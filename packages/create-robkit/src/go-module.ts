@@ -1,8 +1,8 @@
 // How a Go app's go.mod reaches robkit's Go module, which isn't on a module
 // proxy: a replace directive, to the checkout's go folder in an install
 // made with --link, and to vendor/robkit/go in any other.
-import { readdir, readFile } from "node:fs/promises";
-import { join, posix, relative } from "node:path";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join, posix, relative } from "node:path";
 
 /** What the checkout's go folder holds that a Go app doesn't build with. */
 const notModule = new Set(["package.json", "node_modules", ".turbo"]);
@@ -28,8 +28,29 @@ export async function readGoModule(dir: string): Promise<Map<string, string>> {
 /** The module path of robkit's guard for Go, in the checkout's `go/`. */
 const goModule = "github.com/RobertScholey98/robkit/go";
 
-/** Where a Go app finds the module `robkit vendor` copies, from its folder. */
-export const vendoredGoModule = "../../vendor/robkit/go";
+/** Where an install keeps robkit's Go module, from its root. */
+export const vendoredGoDir = "vendor/robkit/go";
+
+/** Where a Go app finds the install's copy of robkit's Go module, from its folder. */
+export const vendoredGoModule = `../../${vendoredGoDir}`;
+
+/**
+ * Writes `goModule`, robkit's Go module as {@link readGoModule} reads it,
+ * to the install at `root`, in place of any copy it holds. A Go app that
+ * isn't linked to a checkout builds against it.
+ */
+export async function writeGoModule(
+  root: string,
+  goModule: ReadonlyMap<string, string>,
+): Promise<void> {
+  const dir = join(root, vendoredGoDir);
+  await rm(dir, { recursive: true, force: true });
+  for (const [path, text] of goModule) {
+    const file = join(dir, path);
+    await mkdir(dirname(file), { recursive: true });
+    await writeFile(file, text);
+  }
+}
 
 const replaceLine = /^replace github\.com\/RobertScholey98\/robkit\/go => .*$/m;
 

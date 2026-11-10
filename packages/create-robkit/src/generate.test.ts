@@ -655,6 +655,31 @@ describe("generateInstall", () => {
     );
   });
 
+  it("writes robkit's Go module to vendor/robkit/go with a Go example, but not under --link", async () => {
+    const goExample: Choices = { exampleStack: "go" };
+    const vendored = (files: Files) =>
+      [...files.keys()].filter((path) => path.startsWith("vendor/"));
+
+    const plain = await generateInstall(goExample);
+    const linked = await generateInstall(goExample, { link: true });
+    const noGo = await generateInstall(defaultChoices);
+
+    expect(vendored(plain)).toEqual(
+      expect.arrayContaining([
+        "vendor/robkit/go/go.mod",
+        "vendor/robkit/go/session/guarded.go",
+      ]),
+    );
+    expect(vendored(plain).filter((path) => path.endsWith("_test.go"))).toEqual(
+      [],
+    );
+    expect(plain.get("vendor/robkit/go/go.mod")).toContain(
+      "module github.com/RobertScholey98/robkit/go\n",
+    );
+    expect(vendored(linked)).toEqual([]);
+    expect(vendored(noGo)).toEqual([]);
+  });
+
   it("restores the dotfiles npm would drop", async () => {
     const files = await generateInstall(defaultChoices);
 
