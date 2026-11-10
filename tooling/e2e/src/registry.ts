@@ -19,7 +19,59 @@ import {
   problem,
 } from "@robkit/input";
 
-const run = promisify(execFile);
+const exec = promisify(execFile);
+
+/** Runs a command, and fails with the end of its output if it does. */
+export async function run(
+  command: string,
+  args: string[],
+  { cwd, env }: { cwd: string; env: NodeJS.ProcessEnv },
+): Promise<string> {
+  try {
+    const { stdout } = await exec(command, args, {
+      cwd,
+      env,
+      maxBuffer: 1 << 26,
+    });
+    return stdout;
+  } catch (error) {
+    const { stdout = "", stderr = "" } = isRecord(error) ? error : {};
+    throw new Error(
+      `${command} ${args.join(" ")} failed in ${cwd}:\n${`${String(stdout)}${String(stderr)}`.slice(-6000)}`,
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * This process's environment, for an owner whose npm and pnpm both use
+ * `registry`, with npm's cache in `home` and git a name to commit with.
+ */
+export function registryEnv(
+  registry: LocalRegistry,
+  home: string,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    npm_config_registry: registry.url,
+    // A cache of its own, so npm can't run a create-robkit an earlier run
+    // packed at the same version.
+    npm_config_cache: join(home, ".npm"),
+    // pnpm reads its own settings, not npm's.
+    pnpm_config_registry: registry.url,
+    // pnpm lets a package under a day old through, and exempts it in the
+    // install's settings itself, unless told to be strict. Strict, an
+    // install that didn't exempt robkit's packages would fail.
+    pnpm_config_minimum_release_age_strict: "true",
+    // init makes the install's first commit, which needs a name.
+    GIT_AUTHOR_NAME: "Robkit Test",
+    GIT_AUTHOR_EMAIL: "test@robkit.localhost",
+    GIT_COMMITTER_NAME: "Robkit Test",
+    GIT_COMMITTER_EMAIL: "test@robkit.localhost",
+  };
+  delete env.GOFLAGS;
+  return env;
+}
 
 const npm = "https://registry.npmjs.org";
 
@@ -29,7 +81,7 @@ const checkout = fileURLToPath(new URL("../../../", import.meta.url));
 export interface LocalRegistry {
   /** Its origin, such as `http://127.0.0.1:4873`. */
   readonly url: string;
-  /** The version of each package it serves, by name. */
+  /** The newest version of each package it serves, by name. */
   readonly versions: ReadonlyMap<string, string>;
   close(): Promise<void>;
 }
@@ -58,7 +110,7 @@ export async function packRobkit(out: string): Promise<void> {
       "--pack-destination",
       out,
     ],
-    { cwd: checkout, maxBuffer: 1 << 24 },
+    { cwd: checkout, env: process.env },
   );
 }
 
@@ -72,16 +124,17 @@ function readPackedManifest(json: unknown, source: string) {
   return { ...json, name, version };
 }
 
-async function readPacked(dir: string): Promise<Map<string, Packed>> {
-  const packed = new Map<string, Packed>();
+/** Each tarball in `dir`, with its manifest. */
+async function readPacked(dir: string): Promise<Packed[]> {
+  const packed: Packed[] = [];
   const published = new Date().toISOString();
   for (const file of await readdir(dir)) {
     if (!file.endsWith(".tgz")) continue;
-    const { stdout } = await run("tar", [
-      "-xzOf",
-      join(dir, file),
-      "package/package.json",
-    ]);
+    const stdout = await run(
+      "tar",
+      ["-xzOf", join(dir, file), "package/package.json"],
+      { cwd: dir, env: process.env },
+    );
     const parsed = parseJson(stdout, `${file}'s package.json`);
     const manifest = orThrow(
       isProblem(parsed)
@@ -89,66 +142,90 @@ async function readPacked(dir: string): Promise<Map<string, Packed>> {
         : readPackedManifest(parsed.json, `${file}'s package.json`),
     );
     const tarball = await readFile(join(dir, file));
-    packed.set(manifest.name, { manifest, tarball, published });
+    packed.push({ manifest, tarball, published });
   }
   return packed;
 }
+
+/** Oldest first, by each version's numbers, such as `0.1.0` before `0.1.1`. */
+const byVersion = (a: Packed, b: Packed) =>
+  a.manifest.version.localeCompare(b.manifest.version, "en", {
+    numeric: true,
+  });
 
 /** npm's path to a version's tarball, such as `@robkit/core/-/core-0.0.0.tgz`. */
 function tarballPath({ name, version }: Packed["manifest"]): string {
   return `${name}/-/${name.split("/").pop() ?? name}-${version}.tgz`;
 }
 
-/** The registry's document for one package, as npm's would be. */
-function packument({ manifest, tarball, published }: Packed, url: string) {
+/**
+ * The registry's document for one package, as npm's would be, from each of
+ * its versions, oldest first. The newest is its `latest`.
+ */
+function packument(name: string, versions: Packed[], url: string) {
+  const newest = versions.at(-1);
+  if (newest === undefined) throw new Error(`${name} has no versions.`);
   return {
-    name: manifest.name,
-    "dist-tags": { latest: manifest.version },
-    versions: {
-      [manifest.version]: {
-        ...manifest,
-        dist: {
-          tarball: `${url}/${tarballPath(manifest)}`,
-          integrity: `sha512-${createHash("sha512").update(tarball).digest("base64")}`,
-          shasum: createHash("sha1").update(tarball).digest("hex"),
+    name,
+    "dist-tags": { latest: newest.manifest.version },
+    versions: Object.fromEntries(
+      versions.map(({ manifest, tarball }) => [
+        manifest.version,
+        {
+          ...manifest,
+          dist: {
+            tarball: `${url}/${tarballPath(manifest)}`,
+            integrity: `sha512-${createHash("sha512").update(tarball).digest("base64")}`,
+            shasum: createHash("sha1").update(tarball).digest("hex"),
+          },
         },
-      },
-    },
+      ]),
+    ),
     // Published as it was packed, seconds ago, so pnpm's release-age rule
     // refuses it unless the install exempts it.
     time: {
-      created: published,
-      modified: published,
-      [manifest.version]: published,
+      created: versions[0]?.published ?? newest.published,
+      modified: newest.published,
+      ...Object.fromEntries(
+        versions.map(({ manifest, published }) => [
+          manifest.version,
+          published,
+        ]),
+      ),
     },
   };
 }
 
 /**
- * Serves each tarball in `dir` as the one version of its package, published
- * when this was called. A request for any other package is sent on to npm.
+ * Serves each tarball in `dir` as a version of its package, published when
+ * this was called. A package's newest version is its `latest`. A request
+ * for any other package is sent on to npm.
  */
 export async function serveRobkit(dir: string): Promise<LocalRegistry> {
-  const packed = await readPacked(dir);
+  const packed = (await readPacked(dir)).sort(byVersion);
+  const packages = Map.groupBy(packed, ({ manifest }) => manifest.name);
+  const tarballs = new Map(
+    packed.map((entry) => [tarballPath(entry.manifest), entry]),
+  );
   let url = "";
 
   const server: Server = createServer((request, response) => {
     const path = decodeURIComponent(request.url ?? "/").slice(1);
-    const tarball = /^(.+)\/-\/[^/]+\.tgz$/.exec(path);
-    const entry = packed.get(tarball?.[1] ?? path);
-    if (entry === undefined) {
-      // Not robkit's: npm answers it, as it would for an owner.
-      response.writeHead(302, { location: `${npm}${request.url ?? "/"}` });
-      response.end();
-      return;
-    }
-    if (tarball !== null) {
+    const tarball = tarballs.get(path);
+    const versions = packages.get(path);
+    if (tarball !== undefined) {
       response.writeHead(200, { "content-type": "application/octet-stream" });
-      response.end(entry.tarball);
+      response.end(tarball.tarball);
       return;
     }
-    response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify(packument(entry, url)));
+    if (versions !== undefined) {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify(packument(path, versions, url)));
+      return;
+    }
+    // Not robkit's: npm answers it, as it would for an owner.
+    response.writeHead(302, { location: `${npm}${request.url ?? "/"}` });
+    response.end();
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -162,7 +239,10 @@ export async function serveRobkit(dir: string): Promise<LocalRegistry> {
   return {
     url,
     versions: new Map(
-      [...packed].map(([name, { manifest }]) => [name, manifest.version]),
+      [...packages].map(([name, versions]) => [
+        name,
+        versions.at(-1)?.manifest.version ?? "",
+      ]),
     ),
     close: () =>
       new Promise((resolve, reject) => {

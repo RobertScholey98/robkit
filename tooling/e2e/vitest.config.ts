@@ -16,6 +16,7 @@ export default defineConfig({
           exclude: [
             "src/production.test.ts",
             "src/registry.test.ts",
+            "src/upgrade.test.ts",
             "**/node_modules/**",
           ],
         },
@@ -24,7 +25,10 @@ export default defineConfig({
         extends: true,
         // Makes its own install from a local registry, so it needs none of
         // the global setup's.
-        test: { name: "registry", include: ["src/registry.test.ts"] },
+        test: {
+          name: "registry",
+          include: ["src/registry.test.ts", "src/upgrade.test.ts"],
+        },
       },
     ],
   },

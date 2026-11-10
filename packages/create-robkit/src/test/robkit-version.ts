@@ -11,3 +11,9 @@ const manifest = join(import.meta.dirname, "../../package.json");
  */
 export const robkitVersion =
   stringsIn(jsonObject(readFileSync(manifest, "utf8"), manifest)).version ?? "";
+
+/** A version after {@link robkitVersion}, its patch one higher. */
+export const newerVersion = robkitVersion.replace(
+  /^(\d+\.\d+\.)(\d+)$/,
+  (_, start: string, patch: string) => `${start}${String(Number(patch) + 1)}`,
+);

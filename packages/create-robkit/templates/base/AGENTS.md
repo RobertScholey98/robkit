@@ -8,6 +8,7 @@ This is a robkit install: a monorepo of small apps behind one sign-in. Core hold
 pnpm dev                     # Postgres, core, the hub, admin and every app, on *.robkit.localhost:3000
 pnpm robkit add              # add an app; asks for its stack, name, who can open it and an icon
 pnpm robkit migrate <slug>   # apply an app's new migration in the running pnpm dev
+pnpm robkit upgrade          # move to a newer robkit, with pnpm dev stopped and every change committed
 pnpm lint                    # robkit check, ESLint, then each app's own lint
 pnpm typecheck
 pnpm test
@@ -31,6 +32,13 @@ Before it starts anything, `pnpm dev` checks that Docker answers and that these 
 - `pnpm robkit migrate <slug>` applies an app's new migration while `pnpm dev` runs, as the app's own role, so its password stays the same. With no `pnpm dev` running, start it: it migrates every app as it starts.
 - Removing an app needs a restart. Stop `pnpm dev`, delete `apps/<slug>`, then start `pnpm dev` again.
 - `pnpm dev` hears these commands over a socket file in a folder it makes for you alone: `robkit-<uid>`, in `XDG_RUNTIME_DIR` or in the temp folder where that isn't set. It refuses to start if others can open that folder.
+
+## Upgrading robkit
+
+- `pnpm robkit upgrade` writes only `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `packageManager` in `package.json`, `tooling/eslint` and `vendor/robkit/go`. It replaces the last two whole, so don't edit them.
+- In the catalog it raises an entry robkit needs higher and adds one it lacks. It never lowers or removes one, so an entry of your own stays.
+- It never rewrites an app, the hub, admin, `packages/`, the `Dockerfile`, `compose.yaml`, `turbo.json` or `.github`. When a new robkit changes what those should hold, the changelog it prints says what to change by hand.
+- It refuses while `pnpm dev` runs, without a commit, or with a change not committed, so `git diff` afterwards shows only what it did. `README.md` gives the commands that undo an upgrade stopped partway.
 
 ## An app's own settings
 

@@ -80,6 +80,41 @@ export async function devSocket(
   return { folder, path, setBy };
 }
 
+/** Whether something takes a connection on the socket at `path`. */
+export function answersAt(path: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const probe = connect(path);
+    probe.once("connect", () => {
+      probe.destroy();
+      resolve(true);
+    });
+    probe.once("error", (error) => {
+      probe.destroy();
+      // No file, or one nothing listens on, as a killed run leaves.
+      if (hasCode(error, "ENOENT", "ECONNREFUSED")) resolve(false);
+      else {
+        reject(
+          new Error(`robkit-dev couldn't check ${path}.`, { cause: error }),
+        );
+      }
+    });
+  });
+}
+
+/**
+ * Whether a `pnpm dev` runs in the install at `root`: whether something
+ * takes a connection on its socket. It sends nothing. No socket file, or
+ * one a killed run left, is no, as is native Windows, where pnpm dev
+ * doesn't run.
+ */
+export async function devRunning(
+  root: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<boolean> {
+  if (process.platform === "win32") return false;
+  return answersAt((await devSocket(root, env)).path);
+}
+
 /**
  * What a running `pnpm dev` answered: done or refused, with a line saying
  * which, or that none is running.

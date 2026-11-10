@@ -78,3 +78,7 @@ The app talks to Postgres with Drizzle over `DATABASE_URL`, as its own role. The
 - `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run. With `pnpm dev` running, run `pnpm robkit migrate <slug>` in the install's folder to apply it without a restart. The app keeps its connection and its password.
 
 The `migrate` script runs `robkit-migrate`, from `@robkit/drizzle`, which applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It keeps its journal table in the app's schema, and two containers that start together apply each migration once. If you set `out` in `drizzle.config.ts` to another folder, name it in the script: `robkit-migrate <folder>`.
+
+## Upgrading robkit
+
+`pnpm robkit upgrade` moves the `@robkit/*` packages this app runs on to a newer version, and never rewrites a file in this folder. When a new robkit changes what an app should hold, the changelog it prints says what to change here by hand.

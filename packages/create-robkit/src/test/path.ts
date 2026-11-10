@@ -73,11 +73,15 @@ export async function pathAhead(
   commands: Record<string, FakeCommand>,
   env: NodeJS.ProcessEnv,
 ): Promise<NodeJS.ProcessEnv> {
-  const fakes = await fakeCommands(commands);
-  return {
-    ...withoutPath(env),
-    PATH: [fakes, pathOf(env)].join(delimiter),
-  };
+  return withPathAhead(await fakeCommands(commands), env);
+}
+
+/** `env` with `dir` ahead of everything else on its PATH. */
+export function withPathAhead(
+  dir: string,
+  env: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv {
+  return { ...withoutPath(env), PATH: [dir, pathOf(env)].join(delimiter) };
 }
 
 /**

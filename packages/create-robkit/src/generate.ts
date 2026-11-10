@@ -179,23 +179,31 @@ export function overridesIn(text: string): Record<string, string> {
 }
 
 /**
+ * The catalog an install needs from `repo`, by name: every dependency its
+ * base and every stack robkit add offers take from the catalog, so adding
+ * an app needs no version the install lacks.
+ */
+export async function installCatalog(
+  repo: RobkitRepo,
+): Promise<Map<string, string>> {
+  const base = await readFolder(join(templatesDir, "base"));
+  const stacks = await Promise.all(readyStacks.map(stackTemplate));
+  const names = catalogued([...base, ...stacks.flatMap((stack) => [...stack])]);
+  return new Map(names.map((name) => [name, versionOf(repo, name)]));
+}
+
+/**
  * Writes pnpm's settings: the catalog, and the links to robkit's packages
  * when asked. Then names pnpm's version in
  * the root manifest.
  */
-async function renderSettings(
-  files: Files,
-  names: string[],
-  repo: RobkitRepo,
-): Promise<void> {
+async function renderSettings(files: Files, repo: RobkitRepo): Promise<void> {
   const workspace = parseDocument(files.get(pnpmSettings) ?? "");
-  workspace.set(
-    "catalog",
-    Object.fromEntries(names.map((name) => [name, versionOf(repo, name)])),
-  );
+  const catalog = await installCatalog(repo);
+  workspace.set("catalog", Object.fromEntries(catalog));
   // With --link, every robkit package the install runs on, named or not,
   // so pnpm asks npm for none of them.
-  for (const name of withDependencies(names, repo.packages)) {
+  for (const name of withDependencies(catalog.keys(), repo.packages)) {
     const dir = repo.links.get(name);
     if (dir === undefined) continue;
     workspace.setIn(["overrides", name], `link:${dir.replaceAll("\\", "/")}`);
@@ -228,15 +236,8 @@ export async function generateInstall(
     files.set(`apps/${exampleSlug}/${path}`, text);
   }
 
-  // The catalog covers every stack robkit add offers, so adding an app
-  // needs no version the install lacks.
-  const stacks = await Promise.all(readyStacks.map(stackTemplate));
-  const names = catalogued([
-    ...files,
-    ...stacks.flatMap((stack) => [...stack]),
-  ]);
   const repo = await readRobkitRepo(options);
-  await renderSettings(files, names, repo);
+  await renderSettings(files, repo);
   const goModule = goModuleFor(overridesIn(files.get(pnpmSettings) ?? ""));
   const goApps = [...files.keys()].filter((path) =>
     /^apps\/[^/]+\/go\.mod$/.test(path),

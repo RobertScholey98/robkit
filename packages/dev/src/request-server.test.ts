@@ -18,6 +18,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { privateFolder, serveRequests } from "./request-server.ts";
 import {
   askDev,
+  devRunning,
   devSocket,
   type Answered,
   type DevRequest,
@@ -455,6 +456,44 @@ describe.skipIf(process.platform === "win32")("askDev", () => {
       );
     },
   );
+});
+
+describe.skipIf(process.platform === "win32")("devRunning", () => {
+  it("says pnpm dev runs while a runner answers on the socket, and sends it nothing", async () => {
+    const { root, env, socket } = await place();
+    const asked: DevRequest[] = [];
+    await serving(socket, done, (request) => asked.push(request));
+
+    expect(await devRunning(root, env)).toBe(true);
+    expect(asked).toEqual([]);
+  });
+
+  it("says no pnpm dev runs when there is no socket", async () => {
+    const { root, env } = await place();
+
+    expect(await devRunning(root, env)).toBe(false);
+  });
+
+  it("says no pnpm dev runs when a killed run left its socket", async () => {
+    const { root, env, socket } = await place();
+    await staleSocketAt(socket.path);
+
+    expect(await devRunning(root, env)).toBe(false);
+  });
+});
+
+describe("devRunning on native Windows", () => {
+  it("says no pnpm dev runs, without looking for a socket", async () => {
+    const platform = Object.getOwnPropertyDescriptor(process, "platform");
+    Object.defineProperty(process, "platform", { value: "win32" });
+    onTestFinished(() => {
+      if (platform) Object.defineProperty(process, "platform", platform);
+    });
+    // devSocket would fail on this folder, which doesn't exist.
+    const root = join(await mkdtemp(join(tmpdir(), "robkit-")), "missing");
+
+    expect(await devRunning(root, {})).toBe(false);
+  });
 });
 
 /** Something listening at `path` that isn't pnpm dev, until the test ends. */

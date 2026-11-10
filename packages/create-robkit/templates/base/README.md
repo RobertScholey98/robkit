@@ -10,6 +10,7 @@ This is a robkit install: your own small apps for friends and family, behind one
 pnpm dev                    # Postgres in Docker, then core, the hub, admin and every app
 pnpm robkit add             # add an app, with pnpm dev running or not; asks for its stack, name, who can open it and an icon
 pnpm robkit migrate <slug>  # apply an app's new migration while pnpm dev runs
+pnpm robkit upgrade         # move to the newest robkit; see "Upgrade robkit" below
 pnpm lint                   # the install's layer rule, ESLint, then each app's own lint
 pnpm typecheck
 pnpm test
@@ -34,6 +35,27 @@ pnpm dev
 ```
 
 You claim the install again on the hub.
+
+## Upgrade robkit
+
+Commit your changes and stop `pnpm dev`, then run one of these in the install's folder:
+
+```sh
+pnpm robkit upgrade         # to the newest robkit
+pnpm robkit upgrade 0.2.0   # to the version given
+```
+
+It moves robkit's packages in `pnpm-workspace.yaml` to the new version and installs them. Then the new robkit replaces its lint policy in `tooling/eslint` and, if you have a Go app, its Go module in `vendor/robkit/go`. It adds or raises the catalog entries it needs, and raises `packageManager` in `package.json`. It changes nothing else, and ends by printing what it changed and robkit's changelog between the two versions. Read `git diff`, run `pnpm lint`, `pnpm typecheck` and `pnpm test`, then commit.
+
+An upgrade doesn't reach the files robkit copied into the install for you to own: your apps, the hub, admin, `packages/`, the `Dockerfile`, `compose.yaml`, `turbo.json` and `.github`. When a new robkit changes one of those, the changelog it prints says what to change by hand.
+
+If `pnpm install` fails, `robkit upgrade` puts back every file it changed. Run `pnpm install` to put `node_modules` back too. If an upgrade was stopped partway, put its files back yourself:
+
+```sh
+git restore --source=HEAD --staged --worktree -- .
+git clean -fd -- tooling/eslint vendor/robkit/go
+pnpm install
+```
 
 ## Read more
 
