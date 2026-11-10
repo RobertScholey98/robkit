@@ -22,6 +22,13 @@ function git(cwd: string, ...args: string[]): string {
   return execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
 }
 
+/** Clones the stand-in remote, as someone git lets commit. CI's runner has no identity of its own. */
+function cloneRemote(to: string) {
+  git(dir, "clone", "-q", remote, to);
+  git(to, "config", "user.name", "Test");
+  git(to, "config", "user.email", "test@example.com");
+}
+
 async function write(path: string, text: string) {
   await mkdir(join(clone, path, ".."), { recursive: true });
   await writeFile(join(clone, path), text);
@@ -46,9 +53,7 @@ beforeEach(async () => {
   clone = join(dir, "clone");
   ghCalls = [];
   git(dir, "init", "-q", "--bare", "-b", "main", remote);
-  git(dir, "clone", "-q", remote, clone);
-  git(clone, "config", "user.name", "Test");
-  git(clone, "config", "user.email", "test@example.com");
+  cloneRemote(clone);
   await write("package.json", '{ "name": "robkit", "private": true }\n');
   await write("pnpm-workspace.yaml", "packages:\n  - packages/*\n");
   await write("packages/create-robkit/package.json", manifest("create-robkit"));
@@ -149,7 +154,7 @@ describe("openVersionPullRequest", { timeout: 120_000 }, () => {
 
   it("refuses a main behind origin's", async () => {
     const other = join(dir, "other");
-    git(dir, "clone", "-q", remote, other);
+    cloneRemote(other);
     git(other, "commit", "-q", "--no-verify", "--allow-empty", "-m", "Later");
     git(other, "push", "-q");
 
