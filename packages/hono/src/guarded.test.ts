@@ -3,12 +3,17 @@ import {
   callbackFor,
   conformanceAnswer,
   fakeCore,
+  type FakeCore,
   headerAnswer,
   headerCases,
   headerRequest,
   owner,
   printedOnExit,
+  productionRun,
+  refreshLocation,
   stateIn,
+  stubRun,
+  testRuns,
   slug,
   writeAnswer,
   writeCases,
@@ -259,6 +264,49 @@ describe("guarded(), reading its own settings", () => {
       `guarded()'s core is "http://core.example.com", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`,
     );
   });
+});
+
+describe("guarded(), in a test run", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  /** How guarded() answers a request with no session, as the env stands. */
+  async function noSession(core: FakeCore) {
+    vi.stubEnv("ROBKIT_APP", "example");
+    vi.stubEnv("ROBKIT_CORE_URL", core.origin);
+    let reached = false;
+    const app = new Hono<GuardedEnv>().use(guarded()).all("*", (c) => {
+      reached = true;
+      return c.text("served");
+    });
+    const res = await app.request(core.page, { headers: navigate });
+    return {
+      status: res.status,
+      location: res.headers.get("location"),
+      reached,
+    };
+  }
+
+  it.each(testRuns)(
+    "sends a request with no session to core when $name, as in production",
+    async ({ settings }) => {
+      const core = await fakeCore();
+      core.rules.example = { kind: "open" };
+
+      stubRun(productionRun);
+      const production = await noSession(core);
+      stubRun(settings);
+      const testRun = await noSession(core);
+
+      const sentToCore = {
+        status: 302,
+        location: refreshLocation(core.page, core),
+        reached: false,
+      };
+      expect([production, testRun]).toEqual([sentToCore, sentToCore]);
+    },
+  );
 });
 
 describe("coreOrigin", () => {
