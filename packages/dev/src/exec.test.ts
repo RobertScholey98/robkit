@@ -1,7 +1,9 @@
 import { execFile } from "node:child_process";
-import { mkdtemp } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
@@ -52,6 +54,50 @@ describe("exec", () => {
     );
 
     expect({ stdout, stderr }).toEqual({ stdout: "done\n", stderr: "" });
+  });
+
+  // A process group is how it reaches what the command started.
+  it.skipIf(process.platform === "win32")(
+    "stops the command, and what it started, when its signal aborts, then returns",
+    async () => {
+      const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+      const stop = new AbortController();
+      // The shell starts a process and waits for it, as pnpm does a script.
+      const running = exec(
+        "sh",
+        ["-c", "sleep 599 & echo $! > started; wait"],
+        {
+          cwd,
+          env: process.env,
+          quiet: true,
+          signal: stop.signal,
+        },
+      );
+      let started = "";
+      while (started === "") {
+        await delay(20);
+        if (existsSync(join(cwd, "started"))) {
+          started = await readFile(join(cwd, "started"), "utf8");
+        }
+      }
+
+      stop.abort();
+
+      await expect(running).resolves.toBeUndefined();
+      expect(() => process.kill(Number(started), 0)).toThrow("ESRCH");
+    },
+  );
+
+  it("runs nothing once its signal has aborted", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    await exec(
+      process.execPath,
+      ["-e", "require('node:fs').writeFileSync('ran', '')"],
+      { cwd, env: process.env, signal: AbortSignal.abort() },
+    );
+
+    expect(existsSync(join(cwd, "ran"))).toBe(false);
   });
 
   // On Windows the shell starts the command, so a missing one prints the

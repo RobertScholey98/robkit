@@ -72,6 +72,7 @@ export function exec(
     env: NodeJS.ProcessEnv;
     slug?: string;
     quiet?: boolean;
+    signal?: AbortSignal | undefined;
   },
 ): Promise<void>;
 export function isMissing(error: unknown): boolean;
