@@ -113,15 +113,16 @@ function isRobkitPackage(name: string): boolean {
 
 /**
  * robkit's packages under the checkout at `root`, by name, and the folder
- * each is in.
+ * each is in. A folder with no package.json holds no package.
  */
-async function readPackages(root: string) {
+export async function readPackages(root: string) {
   const packages = new Map<string, RobkitPackage>();
   const folders = new Map<string, string>();
   const packagesDir = join(root, "packages");
   for (const entry of await readdir(packagesDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const dir = join(packagesDir, entry.name);
+    if (!existsSync(join(dir, "package.json"))) continue;
     const manifest = await readManifestJson(dir);
     const { name, version } = stringsIn(manifest);
     if (name === undefined || !isRobkitPackage(name) || !version) continue;

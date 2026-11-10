@@ -43,9 +43,6 @@ const goModule = {
   "guard/guard_test.go": "package guard_test\n",
 };
 
-/** `text` as a pattern that matches it literally. */
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 describe("vendorPackages", () => {
   it("refuses a linked override that isn't a package name, running nothing", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
@@ -72,9 +69,9 @@ describe("vendorPackages", () => {
       async function linkedToBroken(
         scripts?: Record<string, string>,
         choices: Choices = defaultChoices,
-        { withGo = true } = {},
+        { withGo = true, folder = "robkit-vendor-" } = {},
       ) {
-        const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
+        const dir = await mkdtemp(join(tmpdir(), folder));
         await init(choices, dir);
         const root = await mkdtemp(join(tmpdir(), "robkit-checkout-"));
         const checkout = join(root, "packages", "broken");
@@ -108,7 +105,7 @@ describe("vendorPackages", () => {
         );
       });
 
-      it("names the pack that failed, its folder, its exit code and what it printed", async () => {
+      it("names the pack that failed, its folder and its exit code", async () => {
         const { dir, checkout } = await linkedToBroken({
           build: "exit 0",
           prepack: "exit 4",
@@ -118,10 +115,26 @@ describe("vendorPackages", () => {
 
         await expect(vendoring).rejects.toThrow(CommandProblem);
         await expect(vendoring).rejects.toThrow(
-          new RegExp(
-            `^pnpm --recursive --filter-prod @robkit/broken\\.\\.\\. pack --json --pack-destination ".+" exited with 4 in ${escape(checkout)}\\. It printed:\\n[^]*prepack: \`exit 4\`[^]*\\nFix what it says, then try again\\.$`,
-          ),
+          `pnpm --recursive --filter-prod @robkit/broken... pack --pack-destination ${join(dir, "vendor/robkit")} exited with 4 in ${checkout}. Its output is above: fix what it says, then try again.`,
         );
+      });
+
+      it("packs into an install whose folder has a space and a $ in its name", async () => {
+        const { dir } = await linkedToBroken(
+          { build: "exit 0" },
+          defaultChoices,
+          {
+            folder: "robkit vendor $HOME-",
+          },
+        );
+
+        await vendorPackages(dir);
+
+        expect(await overridesOf(dir)).toEqual({
+          "@robkit/broken": "file:vendor/robkit/robkit-broken-0.0.0.tgz",
+          "styled-jsx>@babel/core": "-",
+        });
+        await access(join(dir, "vendor/robkit/robkit-broken-0.0.0.tgz"));
       });
 
       it("runs again cleanly after it couldn't copy the Go module", async () => {

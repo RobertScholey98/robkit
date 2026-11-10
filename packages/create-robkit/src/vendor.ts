@@ -1,11 +1,9 @@
-import { exec as execCallback } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { basename, join } from "node:path";
-import { promisify } from "node:util";
+import { join } from "node:path";
 import { CommandProblem, exec, isMissing } from "@robkit/dev/cli";
 import { format } from "prettier";
-import { isProblem, isRecord, parseJson } from "@robkit/input";
+import { isRecord } from "@robkit/input";
 import { parseDocument } from "yaml";
 import { readInstallChoices } from "./add.ts";
 import { pnpmSettings } from "./generate.ts";
@@ -16,56 +14,18 @@ import {
   writeGoModule,
 } from "./go-module.ts";
 import { stringsIn } from "./json.ts";
-
-const shell = promisify(execCallback);
-
-/**
- * What `command` printed, run through a shell in `cwd`. If it fails, throws
- * a {@link CommandProblem} naming it, the folder, its exit code and what it
- * printed.
- */
-async function printed(command: string, cwd: string): Promise<string> {
-  try {
-    return (await shell(command, { cwd })).stdout;
-  } catch (error) {
-    // A command that couldn't start has a string code; that is a fault.
-    if (!isRecord(error) || typeof error.code !== "number") throw error;
-    const output = [error.stdout, error.stderr]
-      .filter((text) => typeof text === "string")
-      .join("\n")
-      .trim();
-    throw new CommandProblem(
-      `${command} exited with ${String(error.code)} in ${cwd}. It printed:\n${output}\nFix what it says, then try again.`,
-      { cause: error },
-    );
-  }
-}
+import { readPackages, withDependencies } from "./robkit-repo.ts";
 
 /** An npm package's name, such as `@robkit/session`. */
 const packageName = /^(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*$/;
 
 /**
- * Each tarball `pnpm pack --recursive --json` wrote in `cwd`, by package
- * name. It prints a list, one package alone, or nothing if it packed none.
+ * The file `pnpm pack` names a package's tarball, such as
+ * `robkit-core-0.1.0.tgz`, or nothing for a package with no version.
  */
-function tarballsIn(stdout: string, cwd: string): Map<string, string> {
-  if (stdout.trim() === "") return new Map();
-  const parsed = parseJson(stdout, "pnpm pack --json");
-  if (isProblem(parsed)) {
-    throw new CommandProblem(
-      `pnpm pack --json printed something that isn't JSON in ${cwd}, so robkit can't find its tarballs. Check that pnpm there is the version robkit's package.json names, then try again.`,
-    );
-  }
-  const packed: unknown[] = Array.isArray(parsed.json)
-    ? parsed.json
-    : [parsed.json];
-  return new Map(
-    packed
-      .map(stringsIn)
-      .flatMap(({ name, filename }) =>
-        name !== undefined && filename !== undefined ? [[name, filename]] : [],
-      ),
-  );
+function tarballOf(name: string, version: string | undefined) {
+  if (version === undefined) return undefined;
+  return `${name.replace(/^@/, "").replace("/", "-")}-${version}.tgz`;
 }
 
 /** Where `vendorPackages` puts the tarballs, from the install's root. */
@@ -123,25 +83,22 @@ export async function vendorPackages(root: string): Promise<void> {
     cwd,
     env: process.env,
   });
-  // A shell finds pnpm.cmd on Windows; the names are checked above.
-  const tarballs = tarballsIn(
-    await printed(
-      `pnpm --recursive ${filters.join(" ")} pack --json --pack-destination "${out}"`,
-      cwd,
-    ),
-    cwd,
+  await exec(
+    "pnpm",
+    ["--recursive", ...filters, "pack", "--pack-destination", out],
+    { cwd, env: process.env },
   );
-  const missing = names.find((name) => !tarballs.has(name));
-  if (missing !== undefined) {
-    throw new CommandProblem(
-      `pnpm pack wrote no tarball for ${missing} in ${cwd}. Check that the install's overrides link to a robkit checkout with ${missing} in it, then try again.`,
-    );
-  }
-  for (const [name, filename] of tarballs) {
-    workspace.setIn(
-      ["overrides", name],
-      `file:${vendorDir}/${basename(filename)}`,
-    );
+  // pnpm packed what the filters pick: each linked package and the robkit
+  // packages it runs on.
+  const { packages } = await readPackages(join(cwd, "..", ".."));
+  for (const name of withDependencies(names, packages)) {
+    const file = tarballOf(name, packages.get(name)?.version);
+    if (file === undefined || !existsSync(join(out, file))) {
+      throw new CommandProblem(
+        `pnpm pack wrote no tarball for ${name} in ${cwd}. Check that the install's overrides link to a robkit checkout with ${name} in it, then try again.`,
+      );
+    }
+    workspace.setIn(["overrides", name], `file:${vendorDir}/${file}`);
   }
   await writeFile(
     path,
