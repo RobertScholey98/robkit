@@ -21,7 +21,7 @@ One robkit deployment: a domain, one Postgres, core, the hub, admin and the owne
 _Avoid_: instance, deployment
 
 **Domain**:
-The name an **Install** answers on, such as `robkit.dev`. Each app is on `<slug>.<domain>`. In code it is `Domain`, which only `readDomain` makes.
+The name an **Install** answers on, such as `robkit.dev`. Each app is on `<slug>.<domain>`. In code it is `Domain`, which only `readDomain` and `isDomain` make.
 
 **Core**:
 The Hono backend, sole owner of the core tables and the signing key.
@@ -35,7 +35,7 @@ The React frontend for login and the launcher.
 _Avoid_: frontend, portal
 
 **Admin**:
-The owner's React frontend for codes, roles, sessions, apps and settings.
+The owner's React frontend for access codes, roles, and who may open each app.
 _Avoid_: dashboard
 
 **Platform apps**:
@@ -60,7 +60,7 @@ The shared React component library every **Install** has: shadcn on Base UI, in 
 _Avoid_: design system
 
 **Manifest**:
-What an app says about itself in its `package.json`: its name, icon, access rule and settings.
+What an app says about itself in the `robkit` field of its `package.json`: the access rule core starts it with, and the icon the launcher shows.
 _Avoid_: config, declaration
 
 ### Access
