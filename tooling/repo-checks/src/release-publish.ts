@@ -67,7 +67,7 @@ for (const { name, version, tarball } of publish) {
   });
   if (status !== 0) {
     console.error(
-      `pnpm publish failed for ${name}@${version}, and nothing after it was published. Fix what pnpm says above, then run the release again: it starts from ${name}.`,
+      `pnpm publish failed for ${name}@${version}, and nothing after it was published. Fix what pnpm says above, then choose Re-run failed jobs on this run: it starts from ${name}.`,
     );
     process.exit(1);
   }

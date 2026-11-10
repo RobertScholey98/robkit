@@ -298,12 +298,14 @@ Before the first release, 0.1.0, read `packages/create-robkit/src/upgrade-handov
 
 ### If the release stops
 
-Run it again: **Actions**, **Release**, **Run workflow** from `main`. It publishes only the packages npm lacks at this version, so it carries on from where it stopped, then tags.
+Open the run that stopped and choose **Re-run failed jobs**. The `publish` job runs again on the same commit, with the tarballs that run's `pack` job made, and waits for your approval again. It publishes only the packages npm lacks at this version, so it carries on from where it stopped, then tags.
 
-- If the publish step says `NPM_TOKEN is missing`, the `release` environment has no token. Nothing was published. Add it as step 6 of [Set up once](#set-up-once) says, then run the release again.
-- If the publish step says a tarball isn't one of main's packages at its version, or that the artifact has no tarball for one, nothing was published. Run the release again from `main`.
-- If npm refuses a version because it is already published, npm hadn't listed it yet when the run asked. Wait five minutes, then run the release again.
-- If you started it from a branch other than `main`, it stopped before it did anything. Run it again from `main`.
+Once any package is on npm, don't start a new run with **Run workflow**. A new run packs `main` as it is by then. If a pull request merged in between, the rest of the packages would come from a later commit under the same version, and the tag would land on that commit.
+
+- If the publish step says `NPM_TOKEN is missing`, the `release` environment has no token. Nothing was published. Add it as step 6 of [Set up once](#set-up-once) says, then re-run the failed job.
+- If the publish step says a tarball isn't one of main's packages at its version, or that the artifact has no tarball for one, nothing was published. Start a new run from `main`.
+- If npm refuses a version because it is already published, npm hadn't listed it yet when the run asked. Wait five minutes, then re-run the failed job.
+- If you started it from a branch other than `main`, it stopped before it did anything. Start a new run from `main`.
 
 ### Check the release
 
