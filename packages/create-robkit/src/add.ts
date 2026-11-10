@@ -35,7 +35,7 @@ import {
   writeGoModule,
 } from "./go-module.ts";
 import { readRobkitRepo } from "./robkit-repo.ts";
-import { writeInstall } from "./write.ts";
+import { writeApp } from "./write.ts";
 
 /**
  * What robkit add asks: the stack, the app's slug, who may open it and its
@@ -141,7 +141,8 @@ async function templateFor(root: string, stack: Stack): Promise<Files> {
 
 /**
  * Writes a new app at `apps/<slug>` in the install at `root`, on one of
- * robkit's stacks. It writes files only: `pnpm dev`, or the
+ * robkit's stacks, in one move, so an add that fails leaves nothing under
+ * `apps/`. It writes files only: `pnpm dev`, or the
  * provision step before a deploy, gives the app its database, and core adds
  * it to its catalog with the rule it declares. An app on React + Go needs
  * Go, so it checks for Go before it writes anything.
@@ -168,5 +169,5 @@ export async function addApp(root: string, choices: AppChoices): Promise<void> {
       await writeGoModule(root, (await readRobkitRepo()).goModule);
     }
   }
-  await writeInstall(join(root, "apps", choices.slug), files);
+  await writeApp(root, choices.slug, files);
 }

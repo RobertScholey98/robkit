@@ -40,6 +40,18 @@ afterEach(() => {
 });
 
 describe("addApp", () => {
+  it("builds the app in .robkit/, which git ignores, and moves it into apps/", async () => {
+    const dir = await freshInstall();
+
+    await addApp(dir, notes);
+
+    expect(await readdir(join(dir, "apps/notes"))).toContain("package.json");
+    expect(await readdir(join(dir, ".robkit"))).toEqual([]);
+    expect(
+      (await readFile(join(dir, ".gitignore"), "utf8")).split("\n"),
+    ).toContain(".robkit/");
+  });
+
   it("writes apps/<slug> from the stack's template, declaring its rule and icon", async () => {
     const dir = await freshInstall();
 
