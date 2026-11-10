@@ -3,6 +3,7 @@ import { createServer } from "node:net";
 import { promisify } from "node:util";
 import { CommandProblem } from "@robkit/input/command";
 import type { App } from "./apps.ts";
+import { hasCode } from "./files.ts";
 import { loopback } from "./proxy.ts";
 
 const run = promisify(execFile);
@@ -40,16 +41,6 @@ function appPortProblem(app: App): CommandProblem {
 function postgresPortProblem(port: number): CommandProblem {
   return new CommandProblem(
     `Port ${String(port)} is taken, and this install's Postgres needs it. Free it, or set ROBKIT_POSTGRES_PORT in this install's .env to another port.`,
-  );
-}
-
-/** Whether `error` is the system error with one of `codes`. */
-function hasCode(error: unknown, ...codes: string[]): boolean {
-  return (
-    error instanceof Error &&
-    "code" in error &&
-    typeof error.code === "string" &&
-    codes.includes(error.code)
   );
 }
 
