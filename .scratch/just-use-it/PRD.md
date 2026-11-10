@@ -70,7 +70,7 @@ On an https install, an imported app on a sibling subdomain can't post to anothe
 - **Docker stays.** An install is apps on one domain, run with Docker. `pnpm dev` keeps Postgres in Compose. No embedded Postgres.
 - **The docs site lives in this repo**, under `site/`, built with Astro. A separate thread builds it once milestones 1 to 3 are merged. It has its own PRD.
 - **Access codes stay 5 characters.** The sign-in limit gets harder to get around instead. An attacker can then stop new code sign-ins for a while, which R accepts.
-- **The lead merges.** Each ticket is one branch and one PR. A council of Fable 5.2, Sol 6.1 and Opus 5.5 reviews each milestone before it reaches `main`.
+- **The lead merges.** Each ticket is one branch and one PR. A council reviews each milestone before it reaches `main`. "How the work runs" says who sits on it and how often it meets, as R set on 2026-11-10.
 
 ### The seam, decided for this work
 
@@ -154,10 +154,14 @@ Ticket 26 runs first, beside milestone 1, out of its number's order: it steadies
 
 ## How the work runs
 
+R changed the council and the workers' effort on 2026-11-10. This section has the rules as they now stand.
+
 - A worker (Opus 5.5) takes one ticket in its own worktree, builds it with `/tdd`, and opens a PR against the milestone's branch. The lead writes each brief and merges each PR once its `gate` passes.
+- **Worker effort.** A worker runs at high effort on anything that touches security, the session protocol, core or the release path. It runs at medium on the most basic mechanical tickets, such as docs and template tidying in milestone 4.
 - Every ticket updates the docs it changes, in the same PR: the package's README, `SECURITY.md`, the stack's `AGENTS.md`. Ticket 20 is the pass over what is left.
-- When a milestone's tickets are in, the lead runs the full gate, then one council round on the milestone's head. Findings the lead confirms are fixed on the milestone's branch, and a fresh round follows until the council is satisfied. The milestone then merges to `main` with a merge commit.
-- The council reviews each milestone's tickets again before that milestone starts, against the code the milestones before it left.
+- **The council is two reviewers.** Opus 5.5 at high effort and Sol 6.1 at high. Until 2026-11-10 it had a third, Fable 5.2.
+- **Two rounds for each milestone, at most.** One reviews its tickets before it starts, against the code the milestones before it left. One reviews its code before it merges to `main`, after the lead has run the full gate on the milestone's head. There is no further round, whatever the scores: the lead doesn't loop until every reviewer is satisfied. Milestones 1 and 2 had more rounds on their tickets before this rule, and get no more.
+- **What the lead takes from a round.** A must-change counts when both reviewers raise it, or when one raises it and the lead confirms it in the code. The lead checks each against the code, fixes the ones that count on the milestone's branch, and records the rest in the PR's not-taken list with the reason. The milestone then merges to `main` with a merge commit.
 - A decision a ticket leaves open is made in the build and recorded under the ticket's `## Comments` as "chosen in the build", unless it changes what an owner or guest sees in a way this PRD doesn't cover. Those stop and go to R.
 
 ## Out of scope
