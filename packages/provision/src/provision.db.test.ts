@@ -119,6 +119,14 @@ describe("provisionDatabase", () => {
     });
   });
 
+  it("throws what went wrong when it can't reach the database", async () => {
+    const nowhere = "postgres://postgres:postgres@127.0.0.1:1/robkit";
+
+    await expect(provisionDatabase(nowhere, slug("unreached"))).rejects.toThrow(
+      "The provision step couldn't give unreached its database (attempt 1 of 5).",
+    );
+  });
+
   it("refuses an existing superuser's name, and leaves it a superuser", async () => {
     const admin = connect(adminUrl);
     await admin`create role chief superuser`;
@@ -235,4 +243,33 @@ describe("provisionDatabases", () => {
     ).toMatchObject({ outcome: "superuser", slug: "boss" });
     expect(await roles(["afterboss"])).toEqual([]);
   });
+
+  // Two cores can start together, as in a rolling deploy. The one that
+  // loses a race to create a role, a schema or a grant tries that app again.
+  it.each([1, 2, 3])(
+    "gives every app its database when several runs start together (round %i)",
+    async (round) => {
+      const slugs = ["racea", "raceb", "racec"].map((name) =>
+        slug(`${name}${String(round)}`),
+      );
+
+      const results = await Promise.all(
+        Array.from({ length: 6 }, () =>
+          provisionDatabases({ adminUrl, secret, slugs }),
+        ),
+      );
+
+      expect(results.map((result) => result.outcome)).toEqual(
+        Array(6).fill("provisioned"),
+      );
+      for (const name of slugs) {
+        const app = connect(
+          databaseUrl(adminUrl, name, passwordOf(secret, name)),
+        );
+        expect(await app`select current_schema() as schema`).toEqual([
+          { schema: name },
+        ]);
+      }
+    },
+  );
 });

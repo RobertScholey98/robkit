@@ -1,4 +1,5 @@
 import { createHmac, randomBytes } from "node:crypto";
+import { setTimeout } from "node:timers/promises";
 import postgres from "postgres";
 import { isProblem, readSlug, type Slug } from "@robkit/input";
 
@@ -117,44 +118,26 @@ export async function provisionDatabase(
   if (isProblem(read)) {
     return { outcome: "not-a-slug", slug, error: read.error };
   }
-  const role = `"${slug}"`;
   const sql = postgres(adminUrl, { max: 1, onnotice: () => undefined });
   try {
-    const refusal = await sql.begin(async (tx) => {
-      const [self] = await tx<{ name: string }[]>`select current_user as name`;
-      if (self?.name === slug) {
-        return {
-          outcome: "own-role" as const,
-          slug,
-          error: `"${slug}" is the role the provision step connects as, so it can't also be an app's role.`,
-        };
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const refusal = await sql.begin((tx) =>
+          provisionInOne(tx, slug, password),
+        );
+        if (refusal) return refusal;
+        break;
+      } catch (error) {
+        if (!lostRace(error) || attempt === raceAttempts) {
+          throw new Error(
+            `The provision step couldn't give ${slug} its database (attempt ${String(attempt)} of ${String(raceAttempts)}).`,
+            { cause: error },
+          );
+        }
+        // Another run holds the same rows. Let it finish, then look again.
+        await setTimeout(10 + Math.random() * 40 * attempt);
       }
-      const [existing] = await tx<{ superuser: boolean }[]>`
-        select rolsuper as superuser from pg_roles where rolname = ${slug}`;
-      if (existing?.superuser) {
-        return {
-          outcome: "superuser" as const,
-          slug,
-          error: `"${slug}" is a superuser in the install's database, so the provision step won't make it an app's role.`,
-        };
-      }
-      const verb = existing ? "alter" : "create";
-      await tx.unsafe(
-        `${verb} role ${role} with login nosuperuser nocreatedb nocreaterole password '${password}'`,
-      );
-      const [{ database } = { database: "" }] = await tx<
-        { database: string }[]
-      >`select current_database() as database`;
-      await tx.unsafe(
-        `create schema if not exists ${role} authorization ${role}`,
-      );
-      await tx.unsafe(`alter role ${role} set search_path = ${role}`);
-      await tx.unsafe(`revoke all on database "${database}" from public`);
-      await tx.unsafe(`grant connect on database "${database}" to ${role}`);
-      await tx.unsafe(`revoke all on schema public from public`);
-      return undefined;
-    });
-    if (refusal) return refusal;
+    }
   } finally {
     await sql.end();
   }
@@ -163,4 +146,79 @@ export async function provisionDatabase(
     outcome: "provisioned",
     databaseUrl: databaseUrl(adminUrl, slug, password),
   };
+}
+
+/**
+ * How many times the step tries one app before it gives up. Each lost race
+ * means another run just made what this one was making, so the next try
+ * finds it there.
+ */
+const raceAttempts = 5;
+
+/**
+ * Whether `error` is how Postgres tells a transaction that another one,
+ * provisioning at the same moment, got there first. Found by test
+ * (`provision.db.test.ts`, "several runs start together"):
+ *
+ * - `23505` on a system catalog's unique index, such as
+ *   `pg_authid_rolname_index` when both create the role, or
+ *   `pg_namespace_nspname_index` when both create the schema.
+ * - `XX000` "tuple concurrently updated", when both alter the same role,
+ *   or change the database's grants, even for two different apps.
+ *
+ * The losing transaction has rolled back by then, so trying again is safe.
+ */
+function lostRace(error: unknown): boolean {
+  if (!(error instanceof postgres.PostgresError)) return false;
+  if (error.code === "23505") {
+    return error.constraint_name?.startsWith("pg_") === true;
+  }
+  return (
+    error.code === "XX000" && error.message === "tuple concurrently updated"
+  );
+}
+
+/**
+ * One try at an app's role and schema, in one transaction: the check of
+ * `pg_roles` and what it decides go together, so a race shows up as an
+ * error rather than a role made twice.
+ *
+ * @returns why it refused, or `undefined` once it is done
+ */
+async function provisionInOne(
+  tx: postgres.TransactionSql,
+  slug: Slug,
+  password: string,
+): Promise<RefusedApp | undefined> {
+  const role = `"${slug}"`;
+  const [self] = await tx<{ name: string }[]>`select current_user as name`;
+  if (self?.name === slug) {
+    return {
+      outcome: "own-role" as const,
+      slug,
+      error: `"${slug}" is the role the provision step connects as, so it can't also be an app's role.`,
+    };
+  }
+  const [existing] = await tx<{ superuser: boolean }[]>`
+      select rolsuper as superuser from pg_roles where rolname = ${slug}`;
+  if (existing?.superuser) {
+    return {
+      outcome: "superuser" as const,
+      slug,
+      error: `"${slug}" is a superuser in the install's database, so the provision step won't make it an app's role.`,
+    };
+  }
+  const verb = existing ? "alter" : "create";
+  await tx.unsafe(
+    `${verb} role ${role} with login nosuperuser nocreatedb nocreaterole password '${password}'`,
+  );
+  const [{ database } = { database: "" }] = await tx<
+    { database: string }[]
+  >`select current_database() as database`;
+  await tx.unsafe(`create schema if not exists ${role} authorization ${role}`);
+  await tx.unsafe(`alter role ${role} set search_path = ${role}`);
+  await tx.unsafe(`revoke all on database "${database}" from public`);
+  await tx.unsafe(`grant connect on database "${database}" to ${role}`);
+  await tx.unsafe(`revoke all on schema public from public`);
+  return undefined;
 }
