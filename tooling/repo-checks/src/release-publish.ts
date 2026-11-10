@@ -12,7 +12,7 @@ import {
   publishPlan,
   registryVersions,
   releasePackages,
-} from "./release.ts";
+} from "./publish-list.ts";
 
 const token = process.env.NPM_TOKEN;
 if (!token) {

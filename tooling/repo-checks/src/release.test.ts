@@ -10,8 +10,6 @@ import {
   dryRunProblems,
   fixedGroupProblems,
   majorChangesetProblems,
-  publishPlan,
-  releasePackages,
 } from "./release.ts";
 
 const root = fileURLToPath(new URL("../../../", import.meta.url));
@@ -132,88 +130,6 @@ describe("majorChangesetProblems", () => {
 
     expect(version).toMatch(/^\d+\.\d+\.\d+$/);
     expect(majorChangesetProblems(changesets, version ?? "")).toEqual([]);
-  });
-});
-
-describe("publishPlan", () => {
-  // Three packages at 0.2.0, as the fixed group releases them: input
-  // underneath, guard on input, and create-robkit on both.
-  const input = { name: "@robkit/input", version: "0.2.0", dependsOn: [] };
-  const guard = {
-    name: "@robkit/guard",
-    version: "0.2.0",
-    dependsOn: ["@robkit/input"],
-  };
-  const createRobkit = {
-    name: "create-robkit",
-    version: "0.2.0",
-    dependsOn: ["@robkit/guard", "@robkit/input"],
-  };
-  const packages = [createRobkit, guard, input];
-
-  it("publishes every package npm lacks, dependencies first, and tags nothing yet", () => {
-    const published = new Map([
-      ["@robkit/input", ["0.1.0"]],
-      ["@robkit/guard", ["0.1.0"]],
-      ["create-robkit", ["0.1.0"]],
-    ]);
-
-    expect(publishPlan(packages, published)).toEqual({
-      publish: [input, guard, createRobkit],
-      tag: undefined,
-    });
-  });
-
-  it("publishes a package npm has never seen", () => {
-    expect(publishPlan([input], new Map())).toEqual({
-      publish: [input],
-      tag: undefined,
-    });
-  });
-
-  it("leaves out what a release that stopped halfway published, and waits to tag", () => {
-    const halfway = new Map([
-      ["@robkit/input", ["0.1.0", "0.2.0"]],
-      ["@robkit/guard", ["0.1.0", "0.2.0"]],
-      ["create-robkit", ["0.1.0"]],
-    ]);
-
-    expect(publishPlan(packages, halfway)).toEqual({
-      publish: [createRobkit],
-      tag: undefined,
-    });
-  });
-
-  it("tags the version once the last package is on npm", () => {
-    const all = new Map([
-      ["@robkit/input", ["0.1.0", "0.2.0"]],
-      ["@robkit/guard", ["0.1.0", "0.2.0"]],
-      ["create-robkit", ["0.1.0", "0.2.0"]],
-    ]);
-
-    expect(publishPlan(packages, all)).toEqual({ publish: [], tag: "v0.2.0" });
-  });
-
-  it("refuses packages at different versions", () => {
-    expect(() =>
-      publishPlan([input, { ...guard, version: "0.1.1" }], new Map()),
-    ).toThrow(
-      "The packages aren't at one version (@robkit/input@0.2.0, @robkit/guard@0.1.1), so there is no one release to publish. Merge the version pull request that pnpm release:version opens.",
-    );
-  });
-});
-
-describe("releasePackages", () => {
-  it("reads each published package's version and the packages it depends on", async () => {
-    const packages = await releasePackages();
-    const createRobkit = packages.find(({ name }) => name === "create-robkit");
-    const names = await publishedNames();
-
-    expect(packages.map(({ name }) => name).sort()).toEqual(names.sort());
-    expect(createRobkit?.dependsOn).toContain("@robkit/input");
-    expect(createRobkit?.dependsOn).not.toContain("prettier");
-    expect(createRobkit?.dir).toBe(join(root, "packages", "create-robkit"));
-    expect(new Set(packages.map(({ version }) => version)).size).toBe(1);
   });
 });
 
