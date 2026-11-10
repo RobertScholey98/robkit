@@ -56,6 +56,15 @@ const server = createServer(async (req, res) => {
     res.end(JSON.stringify(rows.map((row) => row.table_name)));
     return;
   }
+  // A write, on the connection it made as it started: how many visits the
+  // table holds once this one is in.
+  if (req.url === "/visit" && sql) {
+    await sql`create table if not exists visits (id serial primary key)`;
+    await sql`insert into visits default values`;
+    const [{ count }] = await sql`select count(*)::int as count from visits`;
+    res.end(String(count));
+    return;
+  }
   res.end(
     JSON.stringify({
       slug,

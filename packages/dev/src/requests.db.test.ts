@@ -131,7 +131,7 @@ describe("robkit-dev adding an app while it runs", () => {
     });
   });
 
-  it("keeps a running app answering, with its password, while an add migrates", async () => {
+  it("keeps a running app answering, with its password, while an add migrates, and writing after", async () => {
     const dev = await runningDev({ FIXTURE_HOLD_MIGRATE: "aardvark" });
     const alphaUrl = await readAppFile(dev.root, "alpha", "migrated");
     await writeApp(dev.root, "aardvark");
@@ -154,6 +154,7 @@ describe("robkit-dev adding an app while it runs", () => {
       connectsMidway: true,
     });
     expect(await connects(alphaUrl)).toBe(true);
+    expect(await get(dev.port, "alpha.robkit.localhost", "/visit")).toBe("1");
   });
 
   it("changes nothing on a second add for a running app", async () => {
