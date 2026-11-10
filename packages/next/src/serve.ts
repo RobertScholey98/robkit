@@ -1,17 +1,32 @@
 import type { Server } from "node:http";
 import { orExit, readServeEnv } from "@robkit/input";
-import { serve as serveNode, type ServerOptions } from "@robkit/serve";
+import {
+  serve as serveNode,
+  type RequestHandler,
+  type ServerOptions,
+} from "@robkit/serve";
 import * as nextModule from "next";
 
 export type ServeOptions = ServerOptions;
 
+/** What `serve()` uses of the server Next makes. */
+interface NextApp {
+  prepare: () => Promise<void>;
+  getRequestHandler: () => RequestHandler;
+}
+
 /** The function `next` exports, which makes Next's server. */
-type CreateNext = typeof nextModule.default.default;
+type CreateNext = (options: {
+  dev: false;
+  hostname: string;
+  port: number;
+}) => NextApp;
 
 /**
  * Next is CommonJS, and its function is all it exports, so Node gives it
- * as the default. Next's types call it the default's default, as a bundler
- * would. This checks what Node gave instead of trusting either.
+ * as the default. Next's types call it the default under a bundler's
+ * resolution and the default's default under Node's, so an app and this
+ * package would read it two ways. This checks what Node gave instead.
  */
 function isCreateNext(value: unknown): value is CreateNext {
   return typeof value === "function";
