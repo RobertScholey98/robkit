@@ -145,6 +145,9 @@ importers:
       '@hono/node-server':
         specifier: 'catalog:'
         version: 2.1.5(hono@4.13.14)
+      '@robkit/drizzle':
+        specifier: workspace:*
+        version: link:../drizzle
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard

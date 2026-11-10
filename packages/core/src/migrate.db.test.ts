@@ -1,6 +1,6 @@
 import postgres from "postgres";
 import { describe, expect, inject, it } from "vitest";
-import { migrate, migrateFrom } from "./migrate.ts";
+import { migrate } from "./migrate.ts";
 import { freshDatabase } from "./test/fresh-database.ts";
 
 async function query<Row extends object>(
@@ -46,18 +46,6 @@ describe("migrate", () => {
     await migrate(databaseUrl);
 
     await expect(migrate(databaseUrl)).resolves.toBeUndefined();
-  });
-
-  it("applies each migration once, inside core's schema", async () => {
-    const databaseUrl = await freshDatabase();
-    const folder = new URL("test/fixture-migrations", import.meta.url).pathname;
-
-    await migrateFrom(folder, databaseUrl);
-    await migrateFrom(folder, databaseUrl);
-
-    expect(await query(databaseUrl, "select id from core.probe")).toEqual([
-      { id: 1 },
-    ]);
   });
 
   it("applies each migration once when several runs start together on an empty schema", async () => {

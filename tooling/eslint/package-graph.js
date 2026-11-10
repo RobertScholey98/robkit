@@ -71,9 +71,11 @@ export const packageGraph = {
       "@robkit/provision",
     ],
   },
-  // robkit-core runs the provision step before it migrates and serves.
+  // robkit-core runs the provision step before it migrates and serves, and
+  // migrates through the apps' migrator.
   "@robkit/core": {
     dependencies: [
+      "@robkit/drizzle",
       "@robkit/guard",
       "@robkit/input",
       "@robkit/provision",
