@@ -11,7 +11,7 @@
     "check:all: what CI runs. The same, with every test (each package's test), including the ones that start Postgres and the whole-stack test. Needs Docker and Linux."
   ],
   "scripts": {
-    "create-install": "node packages/create-robkit/src/create-robkit-command.ts --link --install",
+    "create-install": "node packages/create-robkit/src/create-robkit-command.ts --link",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",

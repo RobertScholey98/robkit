@@ -7,15 +7,15 @@ import { writeInstall } from "./write.ts";
 export interface InitOptions extends GenerateOptions {
   /**
    * Initialise git and install the dependencies once the install is written.
-   * Off by default, as on the command line without `--install`.
+   * On by default, as on the command line without `--no-install`.
    */
   install?: boolean;
 }
 
 /**
  * Takes init's choices to a finished install in `dir`, which must be empty
- * or not exist yet. It generates the install, writes it, and with `install`
- * initialises git and installs its dependencies, in that order, so an
+ * or not exist yet. It generates the install, writes it, and unless told not
+ * to install, initialises git and installs its dependencies, in that order, so an
  * install script that sets up git hooks, as Husky's does, finds the
  * repository. The command line and the whole-stack test both make their
  * installs with it. An example on React + Go needs Go, so it checks for Go
@@ -24,7 +24,7 @@ export interface InitOptions extends GenerateOptions {
 export async function init(
   choices: Choices,
   dir: string,
-  { install = false, ...options }: InitOptions = {},
+  { install = true, ...options }: InitOptions = {},
 ): Promise<void> {
   if (toolchainOf(choices.exampleStack) === "go") await requireGo();
   await writeInstall(dir, await generateInstall(choices, options));

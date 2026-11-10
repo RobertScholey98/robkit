@@ -122,9 +122,9 @@ describe("commandFor", () => {
     );
   });
 
-  it("keeps --install and --link", () => {
-    expect(commandFor(answers, { install: true, link: true })).toBe(
-      "npm create robkit@latest family-apps -- --stack react-hono --install --link",
+  it("keeps --no-install and --link", () => {
+    expect(commandFor(answers, { install: false, link: true })).toBe(
+      "npm create robkit@latest family-apps -- --stack react-hono --no-install --link",
     );
   });
 

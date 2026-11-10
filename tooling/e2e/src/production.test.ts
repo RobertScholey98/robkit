@@ -97,7 +97,7 @@ describe("the default install in production", () => {
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
     removeWhenGone({ path: dir });
-    await init(defaultChoices, dir, { link: true, install: true });
+    await init(defaultChoices, dir, { link: true });
     // The example's own settings, as its author keeps them for pnpm dev.
     for (const name of [".env", ".env.local", ".env.example"]) {
       await writeFile(

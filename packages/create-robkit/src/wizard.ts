@@ -92,12 +92,12 @@ export async function askInit(
 /** The command that makes the same install without asking. */
 export function commandFor(
   { folder, stack }: Answers,
-  { install = false, link = false } = {},
+  { install = true, link = false } = {},
 ): string {
   return [
     `npm create robkit@latest ${shellWord(folder) ?? folder} --`,
     `--stack ${stack}`,
-    ...(install ? ["--install"] : []),
+    ...(install ? [] : ["--no-install"]),
     ...(link ? ["--link"] : []),
   ].join(" ");
 }

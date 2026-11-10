@@ -23,7 +23,7 @@ describe("the installs these checks run in", () => {
 });
 
 describe("the default install", () => {
-  it("is its own git repository, as init with --install leaves it", async () => {
+  it("is its own git repository, as init leaves it", async () => {
     const dir = inject("checkInstalls").start;
 
     const { stdout } = await run("git", ["rev-parse", "--show-toplevel"], {

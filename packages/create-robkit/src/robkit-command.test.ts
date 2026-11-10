@@ -14,7 +14,7 @@ const bin = fileURLToPath(new URL("robkit-command.ts", import.meta.url));
 /** A written install, without its dependencies, so add installs nothing. */
 async function freshInstall(choices: Choices = defaultChoices) {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
-  await init(choices, dir);
+  await init(choices, dir, { install: false });
   return dir;
 }
 

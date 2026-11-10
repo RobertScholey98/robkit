@@ -27,14 +27,15 @@ process.exitCode = await runCommand(async () => {
       allowPositionals: true,
       options: {
         stack: { type: "string" },
-        install: { type: "boolean", default: false },
+        "no-install": { type: "boolean", default: false },
         link: { type: "boolean", default: false },
       },
     },
     usage,
   );
   if (positionals.length > 1) throw new CommandProblem(usage);
-  const { install, link } = values;
+  const { link } = values;
+  const install = !values["no-install"];
   const [given] = positionals;
   // --stack answers init's questions, so it needs the folder too.
   const asked = values.stack === undefined;
@@ -46,8 +47,7 @@ process.exitCode = await runCommand(async () => {
   await init({ exampleStack: answers.stack }, dir, { link, install });
   const steps = [
     `cd ${answers.folder}`,
-    // Husky sets its hook up on install, and only in a git repository.
-    ...(install ? [] : ["git init", "pnpm install"]),
+    ...(install ? [] : ["pnpm install"]),
     "pnpm dev",
   ];
   console.log(`Wrote a robkit install in ${dir}. Next:

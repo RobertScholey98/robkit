@@ -16,10 +16,10 @@ afterEach(() => {
 });
 
 describe("init", () => {
-  it("writes the install from the choices, leaving install and git to the owner", async () => {
+  it("writes only the install from the choices when told not to install", async () => {
     const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "my-app");
 
-    await init({ exampleStack: "react-hono" }, dir);
+    await init({ exampleStack: "react-hono" }, dir, { install: false });
 
     expect(
       JSON.parse(await readFile(join(dir, "robkit.json"), "utf8")),

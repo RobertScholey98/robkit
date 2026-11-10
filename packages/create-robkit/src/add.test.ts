@@ -10,7 +10,7 @@ import { slug } from "@internal/test-session";
 
 async function freshInstall(choices: Choices = defaultChoices) {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
-  await init(choices, dir);
+  await init(choices, dir, { install: false });
   return dir;
 }
 
@@ -70,7 +70,7 @@ describe("addApp", () => {
 
   it("points a Go app at the checkout's Go module in a linked install, and at vendor/robkit/go in any other", async () => {
     const linked = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
-    await init(defaultChoices, linked, { link: true });
+    await init(defaultChoices, linked, { link: true, install: false });
     const plain = await freshInstall();
     const checkout = fileURLToPath(
       new URL("../../../", import.meta.url),
@@ -120,7 +120,7 @@ describe("addApp", () => {
 
   it("leaves vendor/robkit/go alone in a linked install, whose Go apps reach the checkout", async () => {
     const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
-    await init(defaultChoices, dir, { link: true });
+    await init(defaultChoices, dir, { link: true, install: false });
 
     await addApp(dir, { ...notes, stack: "go" });
 

@@ -77,7 +77,7 @@ describe("init with no flags", () => {
 
     const { code, output } = await init(
       asked,
-      [],
+      ["--no-install"],
       [
         ["Where should robkit create the install?", `my-app${keys.enter}`],
         ["Which stack should the example app use?", keys.down + keys.enter],
@@ -89,7 +89,8 @@ describe("init with no flags", () => {
       "Where should robkit create the install?",
       "Which stack should the example app use?",
     ]);
-    const command = "npm create robkit@latest my-app -- --stack react-hono";
+    const command =
+      "npm create robkit@latest my-app -- --stack react-hono --no-install";
     expect(output).toContain(command);
 
     // npm hands create-robkit the arguments after the --.
@@ -112,7 +113,7 @@ describe("init with no flags", () => {
 
     const { code, output } = await init(
       cwd,
-      ["my-app", "--link"],
+      ["my-app", "--link", "--no-install"],
       defaultAnswers,
     );
 
@@ -121,19 +122,26 @@ describe("init with no flags", () => {
       "Which stack should the example app use?",
     ]);
     expect(output).toContain(
-      "npm create robkit@latest my-app -- --stack start --link",
+      "npm create robkit@latest my-app -- --stack start --no-install --link",
     );
   });
 
-  it("tells the owner to initialise git before installing", async () => {
+  it("with --no-install, writes only and prints the install command first", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
 
-    const { code, output } = await init(cwd, ["my-app"], defaultAnswers);
+    const { code, output } = await init(
+      cwd,
+      ["my-app", "--no-install"],
+      defaultAnswers,
+    );
 
     expect(code).toBe(0);
     expect(output).toContain(
-      "Next:\n\n  cd my-app\n  git init\n  pnpm install\n  pnpm dev\n",
+      "Next:\n\n  cd my-app\n  pnpm install\n  pnpm dev\n",
     );
+    const written = await readdir(join(cwd, "my-app"));
+    expect(written).not.toContain("node_modules");
+    expect(written).not.toContain(".git");
   });
 
   it("prints a known problem alone, without a stack", async () => {
@@ -173,6 +181,7 @@ describe("init with no flags", () => {
       "notes.txt/install",
       "--stack",
       "start",
+      "--no-install",
     ]);
 
     expect(code).toBe(1);
@@ -238,6 +247,7 @@ describe("init with --stack", () => {
       "my-app",
       "--stack",
       "react-hono",
+      "--no-install",
     ]);
 
     expect(code).toBe(0);

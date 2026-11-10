@@ -22,7 +22,7 @@ const viewerFromAdapter =
 /** A written install, without its dependencies: the check reads files only. */
 async function freshInstall(): Promise<string> {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-check-")), "install");
-  await init(defaultChoices, dir);
+  await init(defaultChoices, dir, { install: false });
   return dir;
 }
 
@@ -49,7 +49,7 @@ describe("checkInstall", () => {
 
   it("finds nothing in a fresh install whose example is on React + Go", async () => {
     const dir = join(await mkdtemp(join(tmpdir(), "robkit-check-")), "go");
-    await init({ exampleStack: "go" }, dir);
+    await init({ exampleStack: "go" }, dir, { install: false });
 
     expect(await checkInstall(dir)).toEqual([]);
   });
