@@ -2,46 +2,23 @@
 // registry, in a folder with no robkit checkout in reach. Nothing is on npm
 // yet, so a local registry serves robkit's packed packages, published
 // seconds ago, and sends every other request on to npm.
-import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { removeWhenGone } from "@internal/test-postgres";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { useDevStack } from "./dev-stack.ts";
 import { addedSlug, exampleSlug } from "./install.ts";
 import { ownerJourney } from "./owner-journey.ts";
-import { packRobkit, serveRobkit, type LocalRegistry } from "./registry.ts";
-
-const exec = promisify(execFile);
-
-/** Runs a command, and fails with the end of its output if it does. */
-async function run(
-  command: string,
-  args: string[],
-  { cwd, env }: { cwd: string; env: NodeJS.ProcessEnv },
-): Promise<string> {
-  try {
-    const { stdout } = await exec(command, args, {
-      cwd,
-      env,
-      maxBuffer: 1 << 26,
-    });
-    return stdout;
-  } catch (error) {
-    const { stdout = "", stderr = "" } = error as {
-      stdout?: string;
-      stderr?: string;
-    };
-    throw new Error(
-      `${command} ${args.join(" ")} failed in ${cwd}:\n${`${stdout}${stderr}`.slice(-6000)}`,
-      { cause: error },
-    );
-  }
-}
+import {
+  packRobkit,
+  registryEnv,
+  run,
+  serveRobkit,
+  type LocalRegistry,
+} from "./registry.ts";
 
 /** The apps robkit add gives the install, one on each other stack. */
 const added = [
@@ -70,25 +47,7 @@ describe("an install from a registry", () => {
     const packed = join(home, "packed");
     await packRobkit(packed);
     registry = await serveRobkit(packed);
-    env = {
-      ...process.env,
-      npm_config_registry: registry.url,
-      // A cache of its own, so npm can't run a create-robkit an earlier
-      // run packed at the same version.
-      npm_config_cache: join(home, ".npm"),
-      // pnpm reads its own settings, not npm's.
-      pnpm_config_registry: registry.url,
-      // pnpm lets a package under a day old through, and exempts it in the
-      // install's settings itself, unless told to be strict. Strict, an
-      // install that didn't exempt robkit's packages would fail.
-      pnpm_config_minimum_release_age_strict: "true",
-      // init makes the install's first commit, which needs a name.
-      GIT_AUTHOR_NAME: "Robkit Test",
-      GIT_AUTHOR_EMAIL: "test@robkit.localhost",
-      GIT_COMMITTER_NAME: "Robkit Test",
-      GIT_COMMITTER_EMAIL: "test@robkit.localhost",
-    };
-    delete env.GOFLAGS;
+    env = registryEnv(registry, home);
     // npm passes create-robkit its registry as npm's setting only, so this
     // proves init hands it on to its own pnpm install.
     const npmCreateEnv = { ...env };

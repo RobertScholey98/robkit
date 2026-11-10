@@ -19,7 +19,59 @@ import {
   problem,
 } from "@robkit/input";
 
-const run = promisify(execFile);
+const exec = promisify(execFile);
+
+/** Runs a command, and fails with the end of its output if it does. */
+export async function run(
+  command: string,
+  args: string[],
+  { cwd, env }: { cwd: string; env: NodeJS.ProcessEnv },
+): Promise<string> {
+  try {
+    const { stdout } = await exec(command, args, {
+      cwd,
+      env,
+      maxBuffer: 1 << 26,
+    });
+    return stdout;
+  } catch (error) {
+    const { stdout = "", stderr = "" } = isRecord(error) ? error : {};
+    throw new Error(
+      `${command} ${args.join(" ")} failed in ${cwd}:\n${`${String(stdout)}${String(stderr)}`.slice(-6000)}`,
+      { cause: error },
+    );
+  }
+}
+
+/**
+ * This process's environment, for an owner whose npm and pnpm both use
+ * `registry`, with npm's cache in `home` and git a name to commit with.
+ */
+export function registryEnv(
+  registry: LocalRegistry,
+  home: string,
+): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    npm_config_registry: registry.url,
+    // A cache of its own, so npm can't run a create-robkit an earlier run
+    // packed at the same version.
+    npm_config_cache: join(home, ".npm"),
+    // pnpm reads its own settings, not npm's.
+    pnpm_config_registry: registry.url,
+    // pnpm lets a package under a day old through, and exempts it in the
+    // install's settings itself, unless told to be strict. Strict, an
+    // install that didn't exempt robkit's packages would fail.
+    pnpm_config_minimum_release_age_strict: "true",
+    // init makes the install's first commit, which needs a name.
+    GIT_AUTHOR_NAME: "Robkit Test",
+    GIT_AUTHOR_EMAIL: "test@robkit.localhost",
+    GIT_COMMITTER_NAME: "Robkit Test",
+    GIT_COMMITTER_EMAIL: "test@robkit.localhost",
+  };
+  delete env.GOFLAGS;
+  return env;
+}
 
 const npm = "https://registry.npmjs.org";
 
@@ -58,7 +110,7 @@ export async function packRobkit(out: string): Promise<void> {
       "--pack-destination",
       out,
     ],
-    { cwd: checkout, maxBuffer: 1 << 24 },
+    { cwd: checkout, env: process.env },
   );
 }
 
@@ -77,11 +129,11 @@ async function readPacked(dir: string): Promise<Map<string, Packed>> {
   const published = new Date().toISOString();
   for (const file of await readdir(dir)) {
     if (!file.endsWith(".tgz")) continue;
-    const { stdout } = await run("tar", [
-      "-xzOf",
-      join(dir, file),
-      "package/package.json",
-    ]);
+    const stdout = await run(
+      "tar",
+      ["-xzOf", join(dir, file), "package/package.json"],
+      { cwd: dir, env: process.env },
+    );
     const parsed = parseJson(stdout, `${file}'s package.json`);
     const manifest = orThrow(
       isProblem(parsed)
