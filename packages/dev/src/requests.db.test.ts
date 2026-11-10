@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { slug } from "@internal/test-session";
 import postgres from "postgres";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -236,7 +237,7 @@ describe("robkit-dev adding an app while it runs", () => {
     expect(await isListening(dev.port + 1)).toBe(false);
   });
 
-  it("restarts core with the longer list, stopping its whole process group, and goes on running", async () => {
+  it("restarts core with the longer list, answering throughout, stopping its whole process group, and goes on running", async () => {
     const dev = await runningDev({}, (root) =>
       writeApp(root, "core", { dev: "node --watch ../../serve.js" }),
     );
@@ -251,9 +252,26 @@ describe("robkit-dev adding an app while it runs", () => {
     };
     await writeApp(dev.root, "aardvark");
 
-    const answer = await dev.ask("add", "aardvark");
+    // Core is asked through the proxy all through the add, as each app's
+    // guard asks it for the app's rule.
+    const adding = dev.ask("add", "aardvark");
+    const finished = adding.then(
+      () => true,
+      () => true,
+    );
+    const coreAnswered = new Set<string>();
+    do {
+      coreAnswered.add(
+        await get(dev.port, core, "/pid").then(
+          () => "200",
+          (error: unknown) => String(error),
+        ),
+      );
+    } while (!(await Promise.race([finished, delay(20, false)])));
+    const answer = await adding;
 
     expect(answer).toMatchObject({ outcome: "done" });
+    expect(coreAnswered).toEqual(new Set(["200"]));
     expect(before.apps).toBe(
       JSON.stringify([{ slug: "alpha" }, { slug: "beta" }]),
     );

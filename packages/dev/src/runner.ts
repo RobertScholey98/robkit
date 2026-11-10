@@ -184,20 +184,31 @@ export async function runDev(
     running.find((entry) => entry.app.slug === slug);
 
   /**
-   * Restarts core with today's catalog, since core reads `ROBKIT_APPS` as
-   * it starts. Sessions are in the database, so nobody is signed out. In a
-   * linked checkout core runs under Node's watch mode, so its whole
-   * process group stops.
+   * Starts a new core with today's catalog, since core reads `ROBKIT_APPS`
+   * as it starts. It takes a free port, and once it answers the proxy sends
+   * core's host there and the old core stops. Every app reaches core through
+   * the proxy, so each app's guard finds one answering throughout. Sessions
+   * are in the database, so nobody is signed out. In a linked checkout core
+   * runs under Node's watch mode, so the old one's whole process group stops.
    */
   const restartCore = async () => {
-    const core = runningApp("core");
-    if (!core) return;
-    core.watched = false;
-    await stopGroup("core", core.child.pid);
-    running.splice(running.indexOf(core), 1);
-    if (stopping()) return;
-    start(core.app, { watched: true });
-    await untilAnswering(core.app.port, signal);
+    const old = runningApp("core");
+    if (!old) return;
+    const core: App = {
+      ...old.app,
+      port: await portForNewApp(
+        devPort,
+        running.map((entry) => entry.app.port),
+      ),
+    };
+    // Its exit stops pnpm dev, as the old one's would.
+    start(core, { watched: true });
+    if (!(await untilAnswering(core.port, signal))) return;
+    for (const route of routesFor([core], domain)) proxy?.route(route);
+    apps[apps.indexOf(old.app)] = core;
+    old.watched = false;
+    await stopGroup("core", old.child.pid);
+    running.splice(running.indexOf(old), 1);
   };
 
   const add = async (slug: Slug): Promise<Answered> => {
