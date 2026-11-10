@@ -94,6 +94,12 @@ describe("newPackage, and new-package.ts", () => {
 
     expect(manifest).toMatchObject({
       name: "@robkit/widgets",
+      license: "MIT",
+      repository: {
+        type: "git",
+        url: "git+https://github.com/RobertScholey98/robkit.git",
+        directory: "packages/widgets",
+      },
       type: "module",
       exports: { ".": "./src/index.ts" },
       // robkit's own tests stay out of the tarball.

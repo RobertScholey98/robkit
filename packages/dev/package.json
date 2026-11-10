@@ -2,6 +2,12 @@
   "name": "@robkit/dev",
   "version": "0.0.0",
   "description": "robkit's local dev runner and proxy.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/dev"
+  },
   "type": "module",
   "bin": {
     "robkit-dev": "./src/robkit-dev-command.ts"

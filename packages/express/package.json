@@ -2,6 +2,12 @@
   "name": "@robkit/express",
   "version": "0.0.0",
   "description": "robkit's Express adapter: runs the guard and hands handlers the viewer.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/express"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

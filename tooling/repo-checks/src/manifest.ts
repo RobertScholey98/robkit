@@ -49,6 +49,9 @@ export interface Manifest {
   exports?: Exports;
   publishConfig?: { exports?: Exports };
   bin?: Strings;
+  license?: string;
+  /** A URL, or npm's object form, which names it as `url`. */
+  repository?: string | Strings;
 }
 
 /** Whether `value` maps names to strings, as `dependencies` does. */
@@ -105,6 +108,22 @@ export function readManifest(
   if (exports !== undefined) {
     if (!isExports(exports)) return fieldProblem("exports", exportsRule);
     manifest.exports = exports;
+  }
+  const { license, repository } = json;
+  if (license !== undefined) {
+    if (typeof license !== "string") {
+      return fieldProblem("license", "must be a string");
+    }
+    manifest.license = license;
+  }
+  if (repository !== undefined) {
+    if (typeof repository !== "string" && !isStrings(repository)) {
+      return fieldProblem(
+        "repository",
+        "must be a URL or an object of strings",
+      );
+    }
+    manifest.repository = repository;
   }
   const { publishConfig } = json;
   if (publishConfig !== undefined) {

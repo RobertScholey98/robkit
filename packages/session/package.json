@@ -2,6 +2,12 @@
   "name": "@robkit/session",
   "version": "0.0.0",
   "description": "robkit's session token: its claims, its cookie and how apps verify it.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/session"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

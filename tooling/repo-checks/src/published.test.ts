@@ -21,7 +21,9 @@ const root = fileURLToPath(new URL("../../../", import.meta.url));
 const sound = {
   name: "@robkit/x",
   targets: ["./dist/index.js"],
-  files: ["package.json", "dist/index.js", "src/index.ts"],
+  files: ["LICENSE", "package.json", "dist/index.js", "src/index.ts"],
+  license: "MIT",
+  repository: "git+https://github.com/RobertScholey98/robkit.git",
 };
 
 describe("packProblems", () => {
@@ -34,7 +36,7 @@ describe("packProblems", () => {
       packProblems({
         ...sound,
         targets: ["./src/index.ts", "./dist/index.d.ts", "./dist/gone.js"],
-        files: ["package.json", "src/index.ts", "dist/index.d.ts"],
+        files: ["LICENSE", "package.json", "src/index.ts", "dist/index.d.ts"],
       }),
     ).toEqual([
       "@robkit/x points at TypeScript source: ./src/index.ts",
@@ -71,6 +73,21 @@ describe("packProblems", () => {
     ];
 
     expect(packProblems({ ...sound, files })).toEqual([]);
+  });
+
+  it("names a missing LICENSE, license or repository", () => {
+    expect(
+      packProblems({
+        ...sound,
+        files: sound.files.filter((file) => file !== "LICENSE"),
+        license: undefined,
+        repository: undefined,
+      }),
+    ).toEqual([
+      "@robkit/x lacks LICENSE",
+      "@robkit/x's package.json has no license",
+      "@robkit/x's package.json has no repository",
+    ]);
   });
 });
 

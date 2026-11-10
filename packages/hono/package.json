@@ -2,6 +2,12 @@
   "name": "@robkit/hono",
   "version": "0.0.0",
   "description": "robkit's Hono adapter: runs the guard and hands handlers the viewer.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/hono"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

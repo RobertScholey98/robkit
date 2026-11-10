@@ -43,6 +43,10 @@ export interface Packed {
   targets: string[];
   /** Every file in the tarball, relative to the package root. */
   files: string[];
+  /** The packed manifest's `license`, if it has one. */
+  license: string | undefined;
+  /** The packed manifest's repository URL, if it names one. */
+  repository: string | undefined;
   /** The tarball itself, gzipped. */
   tarball: Uint8Array;
 }
@@ -100,6 +104,7 @@ export async function pack(dir: string): Promise<Packed> {
       ),
       ...Object.values(json.bin ?? {}),
     ];
+    const { repository } = json;
     return {
       name: json.name,
       dir,
@@ -108,6 +113,8 @@ export async function pack(dir: string): Promise<Packed> {
         .split("\n")
         .filter((line) => line !== "")
         .map((line) => line.replace(/^package\//, "")),
+      license: json.license,
+      repository: typeof repository === "string" ? repository : repository?.url,
       tarball: new Uint8Array(await readFile(join(out, tarball))),
     };
   } finally {
@@ -119,13 +126,19 @@ export async function pack(dir: string): Promise<Packed> {
  * What's wrong with a packed package. A target that is TypeScript source or
  * that the tarball lacks won't run from `node_modules`, where Node doesn't
  * strip types. robkit's own tests don't ship, though a template's do, since
- * they are an install's.
+ * they are an install's. Every package carries the licence, and says where
+ * its source is.
  */
 export function packProblems({
   name,
   targets,
   files,
-}: Pick<Packed, "name" | "targets" | "files">): string[] {
+  license,
+  repository,
+}: Pick<
+  Packed,
+  "name" | "targets" | "files" | "license" | "repository"
+>): string[] {
   const problems = targets.flatMap((target) => {
     const file = target.replace(/^\.\//, "");
     if (file.endsWith(".ts") && !file.endsWith(".d.ts")) {
@@ -139,6 +152,9 @@ export function packProblems({
       problems.push(`${name} ships robkit's own test ${file}`);
     }
   }
+  if (!files.includes("LICENSE")) problems.push(`${name} lacks LICENSE`);
+  if (!license) problems.push(`${name}'s package.json has no license`);
+  if (!repository) problems.push(`${name}'s package.json has no repository`);
   return problems;
 }
 

@@ -2,6 +2,12 @@
   "name": "@robkit/serve",
   "version": "0.0.0",
   "description": "What every robkit server does the same way: listen on HOST and PORT, serve the client's files, and stop on SIGTERM.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RobertScholey98/robkit.git",
+    "directory": "packages/serve"
+  },
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
