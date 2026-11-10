@@ -7,6 +7,7 @@ import {
   headerCases,
   headerRequest,
   owner,
+  printedOnExit,
   stateIn,
   slug,
   writeAnswer,
@@ -16,7 +17,7 @@ import {
 import { orThrow, readCoreUrl } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { Hono } from "hono";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { guarded, type GuardedEnv } from "./index.ts";
 
 const example = slug("example");
@@ -186,5 +187,76 @@ describe("guarded", () => {
       core.page,
     ]);
     expect(await res.json()).toEqual(owner);
+  });
+});
+
+describe("guarded(), reading its own settings", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("guards with ROBKIT_APP and ROBKIT_CORE_URL as it does when given them", async () => {
+    const core = await fakeCore();
+    core.rules.example = { kind: "owner" };
+    vi.stubEnv("ROBKIT_APP", "example");
+    vi.stubEnv("ROBKIT_CORE_URL", core.origin);
+    const app = new Hono<GuardedEnv>()
+      .use(guarded())
+      .get("*", (c) => c.json(c.var.viewer));
+
+    const signedIn = await app.request(core.page, {
+      headers: {
+        ...navigate,
+        cookie: `robkit_session=${await core.key.token()}`,
+      },
+    });
+    const away = await app.request(core.page, { headers: navigate });
+
+    expect([signedIn.status, await signedIn.json(), away.status]).toEqual([
+      200,
+      owner,
+      302,
+    ]);
+  });
+
+  it("exits with the reader's message when a setting is unset or won't do", () => {
+    vi.stubEnv("ROBKIT_APP", undefined);
+    vi.stubEnv("ROBKIT_CORE_URL", "http://core.example.com");
+
+    expect(printedOnExit(() => guarded())).toBe(
+      [
+        "ROBKIT_APP is not set. Run the app with pnpm dev, which sets it to the app's slug.",
+        `ROBKIT_CORE_URL is "http://core.example.com", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`,
+      ].join("\n"),
+    );
+  });
+
+  it("takes the app and core as plain strings, and refuses a bad one the same way", async () => {
+    const core = await fakeCore();
+    const app = new Hono<GuardedEnv>()
+      .use(
+        guarded({
+          app: "example",
+          core: String(core.origin),
+          access: { kind: "owner" },
+        }),
+      )
+      .get("*", (c) => c.json(c.var.viewer));
+
+    const res = await app.request(core.page, {
+      headers: {
+        ...navigate,
+        cookie: `robkit_session=${await core.key.token()}`,
+      },
+    });
+
+    expect(await res.json()).toEqual(owner);
+    expect(
+      printedOnExit(() =>
+        guarded({ app: "example", core: "http://core.example.com" }),
+      ),
+    ).toBe(
+      `guarded()'s core is "http://core.example.com", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`,
+    );
   });
 });
