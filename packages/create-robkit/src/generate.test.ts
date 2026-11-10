@@ -434,6 +434,26 @@ describe("generateInstall", () => {
     expect(next.devDependencies).not.toHaveProperty("@robkit/next");
   });
 
+  // The hub is a built page, so its image holds @robkit/serve and what it
+  // runs on: no build tool, and nothing from the guard.
+  it("serves the hub with servePage() alone", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+    const manifest = JSON.parse(
+      files.get("base/apps/hub/package.json") ?? "{}",
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+
+    expect(files.get("base/apps/hub/serve.ts")).toBe(
+      'import { servePage } from "@robkit/serve";\n\nservePage({ name: "hub" });\n',
+    );
+    expect(manifest.dependencies).toEqual({ "@robkit/serve": "catalog:" });
+    // The page imports @robkit/input/addresses, which Vite bundles.
+    expect(manifest.devDependencies?.["@robkit/input"]).toBe("catalog:");
+  });
+
   it("tells the root AGENTS.md about each dev tool", async () => {
     const files = await generateInstall(defaultChoices);
     const agents = files.get("AGENTS.md") ?? "";
@@ -545,6 +565,7 @@ describe("generateInstall", () => {
       // No manifest names it: it arrives behind @robkit/core.
       "@robkit/provision": at("provision"),
       "@robkit/react": at("react"),
+      "@robkit/serve": at("serve"),
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),
       "@robkit/vite": at("vite"),
