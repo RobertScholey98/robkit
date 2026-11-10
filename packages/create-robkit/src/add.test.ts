@@ -91,15 +91,21 @@ describe("addApp", () => {
     ]);
   });
 
-  it("says how to install Go, writing nothing, for a React + Go app when go isn't on the PATH", async () => {
-    const dir = await freshInstall();
-    vi.stubEnv("PATH", await mkdtemp(join(tmpdir(), "no-go-")));
+  // It empties PATH for the whole process, so it runs alone rather than
+  // beside a test that adds a Go app.
+  it(
+    "says how to install Go, writing nothing, for a React + Go app when go isn't on the PATH",
+    { concurrent: false },
+    async () => {
+      const dir = await freshInstall();
+      vi.stubEnv("PATH", await mkdtemp(join(tmpdir(), "no-go-")));
 
-    await expect(addApp(dir, { ...notes, stack: "go" })).rejects.toThrow(
-      "Go isn't installed, or isn't on your PATH",
-    );
-    expect(await readdir(join(dir, "apps"))).not.toContain("notes");
-  });
+      await expect(addApp(dir, { ...notes, stack: "go" })).rejects.toThrow(
+        "Go isn't installed, or isn't on your PATH",
+      );
+      expect(await readdir(join(dir, "apps"))).not.toContain("notes");
+    },
+  );
 
   it("names a rule's roles, as core finds them", async () => {
     const dir = await freshInstall();
