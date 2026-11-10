@@ -176,3 +176,107 @@ describe("createApp's signInLimits", () => {
     expect(later.status).toBe(200);
   });
 });
+
+describe("the install's budget for wrong codes", () => {
+  const hour = 60 * 60_000;
+
+  /** Spends the budget with wrong codes, ten from each of two clients. */
+  async function spendBudget(app: Hono): Promise<void> {
+    const wrongs = await inTurn(20, (i) =>
+      postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from(`198.51.100.${String(i % 2)}`),
+      ),
+    );
+    expect(tally(wrongs)).toEqual({ 401: 20 });
+  }
+
+  it("gives a burst of wrong codes from many clients no more verdicts than the budget", async () => {
+    const { app } = await freshCore();
+    await liveCode(app);
+
+    const responses = await burst(100, (i) =>
+      postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from(`203.0.113.${String(i)}`),
+      ),
+    );
+
+    expect(tally(responses)).toEqual({ 401: 20, 429: 80 });
+  });
+
+  it("refuses a right code from a fresh client once spent, until the window passes", async () => {
+    const { app, advance } = await freshCore();
+    const code = await liveCode(app);
+    await spendBudget(app);
+
+    const refused = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.7"),
+    );
+    advance(hour - 1000);
+    const lastSecond = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.7"),
+    );
+    advance(1000);
+    const later = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.7"),
+    );
+
+    expect(refused.status).toBe(429);
+    expect(refused.headers.get("retry-after")).toBe("3600");
+    expect(await refused.json()).toEqual({
+      error: "Too many attempts. Try again in 60 minutes.",
+    });
+    expect(lastSecond.headers.get("retry-after")).toBe("1");
+    expect(later.status).toBe(200);
+  });
+
+  it("leaves the owner's password sign-in alone", async () => {
+    const { app } = await freshCore();
+    await liveCode(app);
+    await spendBudget(app);
+
+    const res = await postJson(app, "/login", rob, from("203.0.113.7"));
+
+    expect(res.status).toBe(200);
+  });
+
+  it("leaves the limit of a client that held a place but found the budget spent as it was", async () => {
+    const { app, advance } = await freshCore({
+      signInLimits: { installWindowMs: 60_000 },
+    });
+    await liveCode(app);
+    await inTurn(3, () =>
+      postJson(app, "/login/code", { code: "NOPE2" }, from("203.0.113.7")),
+    );
+    await inTurn(17, (i) =>
+      postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from(`198.51.100.${String(i)}`),
+      ),
+    );
+
+    const refused = await inTurn(12, () =>
+      postJson(app, "/login/code", { code: "NOPE2" }, from("203.0.113.7")),
+    );
+    advance(60_000);
+
+    expect(tally(refused)).toEqual({ 429: 12 });
+    expect(await codePlacesLeft(app, "203.0.113.7")).toBe(7);
+  });
+});

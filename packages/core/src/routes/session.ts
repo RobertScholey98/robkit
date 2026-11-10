@@ -6,7 +6,7 @@ import { parseAccessCode } from "../access-codes.ts";
 import { accessOf } from "../apps.ts";
 import { clientOf } from "../client.ts";
 import { claimInstall, readCredentials, readNewOwner } from "../owner.ts";
-import { createRateLimiter } from "../rate-limit.ts";
+import { createRateLimiter, type Place } from "../rate-limit.ts";
 import { mintAppToken } from "../mint-token.ts";
 import {
   signIn,
@@ -69,6 +69,14 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   const codeLimiter = createRateLimiter({
     limit: signInLimits.codesPerClient,
     windowMs: signInLimits.clientWindowMs,
+    now,
+  });
+  // Holds wrong codes from every client together, so rotating addresses
+  // buys no more guesses. Once spent, it stops code sign-in for everyone
+  // until its window passes: R accepted that trade on 2026-11-09.
+  const codeBudget = createRateLimiter({
+    limit: signInLimits.codesPerInstall,
+    windowMs: signInLimits.installWindowMs,
     now,
   });
 
@@ -192,24 +200,45 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     }
     const { place } = reservation;
     try {
-      const code = parseAccessCode(fields.code);
-      const result = code
-        ? await signInWithCode(context, code)
-        : { outcome: "refused" as const };
-      if (result.outcome === "unclaimed") return unclaimed(c);
-      if (result.outcome === "refused") {
-        place.fail();
-        return c.json({ error: "That code doesn't work." }, 401);
+      const budget = codeBudget.reserve("install");
+      if (budget.outcome === "refused") {
+        return tooManyAttempts(c, budget.retryAfter);
       }
-      setSessionCookie(c, origin, result.sessionToken);
-      return c.json<SessionAnswer>({
-        state: "signed-in",
-        profile: result.profile,
-      });
+      try {
+        return await checkCode(c, fields.code, [place, budget.place]);
+      } finally {
+        budget.place.release();
+      }
     } finally {
       place.release();
     }
   });
+
+  /**
+   * Signs a guest in with `typed`, recording a wrong code in each of
+   * `places`. A right code leaves them to be released, and never clears
+   * the client's failures.
+   */
+  async function checkCode(
+    c: Context,
+    typed: string,
+    places: Place[],
+  ): Promise<Response> {
+    const code = parseAccessCode(typed);
+    const result = code
+      ? await signInWithCode(context, code)
+      : { outcome: "refused" as const };
+    if (result.outcome === "unclaimed") return unclaimed(c);
+    if (result.outcome === "refused") {
+      for (const place of places) place.fail();
+      return c.json({ error: "That code doesn't work." }, 401);
+    }
+    setSessionCookie(c, origin, result.sessionToken);
+    return c.json<SessionAnswer>({
+      state: "signed-in",
+      profile: result.profile,
+    });
+  }
 
   // The hub sends no body here, so none is read.
   routes.post("/logout", async (c) => {
