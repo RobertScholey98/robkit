@@ -715,7 +715,7 @@ describe("generateInstall", () => {
     };
 
     const named = [...readme.matchAll(/^pnpm ([\w:-]+)/gm)].map(
-      ([, script]) => script,
+      ([, script]) => script ?? "",
     );
 
     expect(named).toEqual(
