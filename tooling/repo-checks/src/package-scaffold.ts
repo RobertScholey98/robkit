@@ -52,6 +52,12 @@ function packageFiles(name: string): Record<string, string> {
     "package.json": json({
       name: full,
       version: "0.0.0",
+      license: "MIT",
+      repository: {
+        type: "git",
+        url: "git+https://github.com/RobertScholey98/robkit.git",
+        directory: `packages/${name}`,
+      },
       type: "module",
       exports: { ".": "./src/index.ts" },
       publishConfig: {
@@ -59,7 +65,14 @@ function packageFiles(name: string): Record<string, string> {
           ".": { types: "./dist/index.d.ts", default: "./dist/index.js" },
         },
       },
-      files: ["dist", "src", "!src/**/*.test.ts"],
+      // robkit's own tests stay out of the tarball.
+      files: [
+        "dist",
+        "src",
+        "!src/**/*.test.ts",
+        "!src/**/*.test-d.ts",
+        "!src/test",
+      ],
       engines: { node: ">=24" },
       scripts: {
         build: "tsc -p tsconfig.build.json",

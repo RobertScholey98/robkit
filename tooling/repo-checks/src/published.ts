@@ -37,12 +37,39 @@ export async function publishedPackages(): Promise<string[]> {
 /** What a packed package tells Node to load, and which files it holds. */
 export interface Packed {
   name: string;
+  /** The package's folder in this repo. */
+  dir: string;
   /** Each export and bin target, as the packed manifest names it. */
   targets: string[];
   /** Every file in the tarball, relative to the package root. */
   files: string[];
   /** The tarball itself, gzipped. */
   tarball: Uint8Array;
+}
+
+/**
+ * A test file, as robkit's packages and their templates name them: a
+ * Vitest test or type test, a Go test, or a helper under `src/test`.
+ */
+function isTestFile(path: string): boolean {
+  return (
+    /\.test(-d)?\.tsx?$|_test\.go$/.test(path) || path.startsWith("src/test/")
+  );
+}
+
+/** create-robkit's templates, which hold an install's own tests. */
+const templatesDir = join(packagesDir, "create-robkit", "templates");
+
+/**
+ * Each test file in create-robkit's templates, by its path in the package,
+ * such as `templates/stacks/go/server_test.go`.
+ */
+export async function templateTests(): Promise<string[]> {
+  const paths = await readdir(templatesDir, { recursive: true });
+  return paths
+    .map((path) => `templates/${path.replaceAll("\\", "/")}`)
+    .filter(isTestFile)
+    .sort();
 }
 
 /**
@@ -75,6 +102,7 @@ export async function pack(dir: string): Promise<Packed> {
     ];
     return {
       name: json.name,
+      dir,
       targets,
       files: list
         .split("\n")
@@ -88,15 +116,17 @@ export async function pack(dir: string): Promise<Packed> {
 }
 
 /**
- * Why a packed package won't run from `node_modules`, where Node doesn't
- * strip types: a target that is TypeScript source, or one the tarball lacks.
+ * What's wrong with a packed package. A target that is TypeScript source or
+ * that the tarball lacks won't run from `node_modules`, where Node doesn't
+ * strip types. robkit's own tests don't ship, though a template's do, since
+ * they are an install's.
  */
 export function packProblems({
   name,
   targets,
   files,
 }: Pick<Packed, "name" | "targets" | "files">): string[] {
-  return targets.flatMap((target) => {
+  const problems = targets.flatMap((target) => {
     const file = target.replace(/^\.\//, "");
     if (file.endsWith(".ts") && !file.endsWith(".d.ts")) {
       return [`${name} points at TypeScript source: ${target}`];
@@ -104,6 +134,22 @@ export function packProblems({
     if (!files.includes(file)) return [`${name} lacks ${target}`];
     return [];
   });
+  for (const file of files) {
+    if (isTestFile(file) && !file.startsWith("templates/")) {
+      problems.push(`${name} ships robkit's own test ${file}`);
+    }
+  }
+  return problems;
+}
+
+/** Each of `expected`, create-robkit's template tests, that its tarball lacks. */
+export function templateTestProblems(
+  { name, files }: Pick<Packed, "name" | "files">,
+  expected: readonly string[],
+): string[] {
+  return expected
+    .filter((test) => !files.includes(test))
+    .map((test) => `${name} lacks its template's test ${test}`);
 }
 
 /**

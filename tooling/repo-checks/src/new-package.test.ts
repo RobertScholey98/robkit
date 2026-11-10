@@ -96,6 +96,14 @@ describe("newPackage, and new-package.ts", () => {
       name: "@robkit/widgets",
       type: "module",
       exports: { ".": "./src/index.ts" },
+      // robkit's own tests stay out of the tarball.
+      files: [
+        "dist",
+        "src",
+        "!src/**/*.test.ts",
+        "!src/**/*.test-d.ts",
+        "!src/test",
+      ],
     });
     for (const file of [
       "README.md",
