@@ -30,7 +30,7 @@
 - [x] The whole-stack and production tests pass for every stack
 - [x] The new package, its `/express` entry and `@robkit/next/config` have README sections, API reports, graph entries and changesets
 - [x] The headers robkit sends are written in `@robkit/input/headers` and nowhere else in TypeScript
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -67,3 +67,7 @@ Ticket 06 put the headers robkit sends in `@robkit/session`, in `packages/sessio
 - The hub's `dependencies` still name `@robkit/input`, `hono` and `@hono/node-server`, for `serve.ts`. Each Node stack's still name `@robkit/input`, for `serve.ts` alone now: no config imports it.
 - `@robkit/next` is in the Next template's `dependencies`. `@robkit/next/serve` can go beside it with no manifest change.
 - Every Vite app lists `@robkit/vite` and `vite` under `devDependencies`, and no published package but `@robkit/vite` names `vite`, so ticket 11's by-name check should find no `vite` in the hub's or the Express app's image.
+
+### Merged
+
+Added by the lead. PR 87 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `3e0374f`.
