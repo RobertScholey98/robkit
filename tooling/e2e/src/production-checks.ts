@@ -9,8 +9,11 @@ import { docker, network, type Stack } from "./production-stack.ts";
 
 const run = promisify(execFile);
 
-/** The robkit packages in `slug`'s image, by name, such as `@robkit/core`. */
-export async function robkitPackages(
+/**
+ * Every package in `slug`'s image, by name, such as `vite` or
+ * `@robkit/core`, each once.
+ */
+export async function imagePackages(
   stack: Stack,
   slug: Slug,
 ): Promise<string[]> {
@@ -22,14 +25,25 @@ export async function robkitPackages(
     `${stack.name}/${slug}`,
     "/install/node_modules/.pnpm",
   );
-  // pnpm keeps each package in a folder such as `@robkit+core@file+...`.
+  // pnpm keeps each package in a folder such as `vite@8.0.5_...` or
+  // `@robkit+core@file+...`, with a scope's slash as a plus.
   return [
     ...new Set(
-      [...store.matchAll(/^@robkit\+([a-z-]+)@/gm)].map(
-        ([, name]) => `@robkit/${name ?? ""}`,
+      [...store.matchAll(/^(@[^+@\s]+\+[^@\s]+|[^@\s]+)@/gm)].map(([, name]) =>
+        (name ?? "").replace("+", "/"),
       ),
     ),
   ].sort();
+}
+
+/** The robkit packages in `slug`'s image, by name, such as `@robkit/core`. */
+export async function robkitPackages(
+  stack: Stack,
+  slug: Slug,
+): Promise<string[]> {
+  return (await imagePackages(stack, slug)).filter((name) =>
+    name.startsWith("@robkit/"),
+  );
 }
 
 /**
