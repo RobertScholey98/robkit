@@ -17,19 +17,19 @@
 
 **Blocked by:** 15, 17
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] With `pnpm dev` running, `pnpm robkit add notes` brings `notes.<domain>` up with no restart, guarded, with its database migrated, and prints its address
-- [ ] The launcher shows the new app, and a guest signed in before the add is still signed in after it
-- [ ] An app that was running before the add answers while the add installs, and still reads and writes its database after it
-- [ ] Adding an app whose slug sorts before every running app's leaves each running app on its port
-- [ ] A second `add` for a running app provisions nothing, and the app still reads its database
-- [ ] An added app whose start fails prints the problem, and every other app keeps answering
-- [ ] `pnpm robkit migrate notes` applies a migration added while `pnpm dev` runs, and the app sees the new table without a restart and with its password unchanged
-- [ ] The runner refuses an operation it doesn't know, a slug that fails the slug rule, a line that isn't JSON and a line over 1 KB, each with a reason, and goes on serving
-- [ ] The socket's folder has mode 0700, and the runner refuses one that others can open
-- [ ] A socket file left by a killed `pnpm dev` doesn't stop the next one, and `robkit add` then says within a second that no `pnpm dev` is running
-- [ ] The whole-stack test adds its second app while the install runs
+- [x] With `pnpm dev` running, `pnpm robkit add notes` brings `notes.<domain>` up with no restart, guarded, with its database migrated, and prints its address
+- [x] The launcher shows the new app, and a guest signed in before the add is still signed in after it
+- [x] An app that was running before the add answers while the add installs, and still reads and writes its database after it
+- [x] Adding an app whose slug sorts before every running app's leaves each running app on its port
+- [x] A second `add` for a running app provisions nothing, and the app still reads its database
+- [x] An added app whose start fails prints the problem, and every other app keeps answering
+- [x] `pnpm robkit migrate notes` applies a migration added while `pnpm dev` runs, and the app sees the new table without a restart and with its password unchanged
+- [x] The runner refuses an operation it doesn't know, a slug that fails the slug rule, a line that isn't JSON and a line over 1 KB, each with a reason, and goes on serving
+- [x] The socket's folder has mode 0700, and the runner refuses one that others can open
+- [x] A socket file left by a killed `pnpm dev` doesn't stop the next one, and `robkit add` then says within a second that no `pnpm dev` is running
+- [x] The whole-stack test adds its second app while the install runs
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -61,3 +61,26 @@ Not taken:
 - **Stable dev passwords, so `robkit add` provisions and migrates by itself** (Opus). Each app's dev password would come from a fixed secret and its slug. It would take migrations off the channel, but the channel is still needed to start and route the app, and it reverses a clause of PRD decision 16 for a saving the owner never sees.
 - **A command that starts an added app again after its start failed** (Sol). Starting `pnpm dev` again does that. One more command isn't worth a failure path.
 - **A named pipe on native Windows.** Node listens on one with the same call. That belongs to ticket 21, which waits for R, and has a note there.
+
+### From the build
+
+**Chosen in the build, awaiting R's review:**
+
+- **Where the socket is.** `devSocket(root, env)` in `packages/dev/src/requests.ts`, exported from `@robkit/dev/cli`, works it out for the runner and for `askDev`, which `robkit add` and `robkit migrate` call. create-robkit already depends on `@robkit/dev`, so neither side reaches across the layer rule. The folder is `XDG_RUNTIME_DIR`, or `robkit-<uid>` under `os.tmpdir()`. The name is `robkit-<16 hex>.sock`, the first 16 characters of the sha256 of the install's real path. A path of 100 bytes or more stops `pnpm dev` before it starts, with a line that names the variable to point at a shorter folder.
+- **Only the runner checks the folder.** It makes it with mode 0700 and refuses one that isn't a folder, that another account owns, or that others can open, each with a line saying what to run. `askDev` just connects, since it sends nothing secret. The tmp folder has the account's uid in its name, so two accounts never share one.
+- **A second `pnpm dev` in the same install is refused by its socket**, after ticket 16's checks: "pnpm dev is already running in this install." A socket nothing answers on is removed first.
+- **A request with any key beyond `operation` and `slug` is refused**, with the key named. An answer is `{"outcome":"done" | "refused","message":"..."}`.
+- **Time limits.** The runner waits 10 seconds for a connection's line. `askDev` waits 10 minutes for the answer, which covers a slow first migration. An added app gets 5 minutes to answer on its port, then the runner stops it and says so.
+- **Requests wait for start-up.** One sent while `pnpm dev` is still migrating is answered once every app has started. One sent while it stops is refused.
+- **An added app's port** is the first after the proxy's that no running app holds and nothing on `127.0.0.1` listens on.
+- **Order of an add:** check the app's `.env`, provision it alone, run its `migrate`, start it, wait for it to answer, restart core, then route it. Until it answers, its exit stops nothing else. After, it counts like any app.
+- **A fault while handling a request** prints as a bug, with where to report it, and answers "pnpm dev hit a bug in robkit." It doesn't stop the runner.
+- **`robkit add` asks only when the install has `node_modules`.** Without them no app can start, so it prints the old "Next:" lines.
+- **`robkit migrate` with no `pnpm dev` running exits 0**, since starting `pnpm dev` migrates every app. A refusal exits 1.
+
+**Tests.** `packages/dev/src/requests.test.ts` and `request-server.test.ts` cover the reader, the folder checks and the server, including a socket left by a SIGKILLed run. `requests.db.test.ts` runs the runner on the fixture install for every add and migrate criterion. `packages/create-robkit/src/dev-requests.test.ts` runs `robkit add` and `robkit migrate` against a stand-in runner on the socket. In the whole-stack test, the global setup makes each journey install without its second app, and `useDevStack` adds it with `pnpm robkit add` once `pnpm dev` is up. A new journey signs a guest in, runs the add while asking the example every 250 ms, then checks the guest's session, the launcher and every app through the proxy. The socket tests skip on native Windows (ticket 21).
+
+**For the next tickets:**
+
+- **19 (robkit upgrade)**: an upgrade that changes a running install should stop `pnpm dev` first, or say to. `askDev(root, request)` answers `not-running` at once when none is, so the upgrade can tell. The request reader refuses any operation but `add` and `migrate`; adding one means a new case in `readDevRequest` and in the runner's `handle`.
+- **20 (docs)**: the root README's quickstart, the install's `AGENTS.md` ("Adding and removing apps") and each stack's `AGENTS.md` now say to leave `pnpm dev` running for `robkit add`, and name `pnpm robkit migrate <slug>`. Removing an app still needs a restart. The socket's folder and its refusals are in `packages/dev/README.md`.
