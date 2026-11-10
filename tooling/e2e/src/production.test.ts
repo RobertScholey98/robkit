@@ -16,6 +16,7 @@ import {
 } from "./production-journey.ts";
 import { buildApp, hostEnv, startApp } from "./production-apps.ts";
 import {
+  answerOf,
   answers,
   extraneousPackages,
   robkitPackages,
@@ -179,6 +180,32 @@ describe("the default install in production", () => {
       "@robkit/provision",
       "@robkit/session",
     ]);
+  });
+
+  // The hub is a built page, served by servePage(), so its image holds
+  // @robkit/serve and the input it reads, and nothing from the guard.
+  it("puts @robkit/serve and what it runs on in the hub's image", async () => {
+    expect(await robkitPackages(stack, slug("hub"))).toEqual([
+      "@robkit/input",
+      "@robkit/serve",
+    ]);
+  });
+
+  // No page can frame the hub, which takes the owner's password.
+  it("sends the hub's page with headers that refuse every framer, over https", async () => {
+    const { headers } = await answerOf(stack, slug("hub"));
+
+    expect({
+      frame: headers["x-frame-options"],
+      policy: headers["content-security-policy"],
+      sniff: headers["x-content-type-options"],
+      hsts: headers["strict-transport-security"],
+    }).toEqual({
+      frame: "DENY",
+      policy: "frame-ancestors 'none'",
+      sniff: "nosniff",
+      hsts: "max-age=31536000",
+    });
   });
 
   it("refuses the test code", async () => {
