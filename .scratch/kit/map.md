@@ -2,7 +2,7 @@
 
 ## Destination
 
-A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffolds a monorepo with the platform (Hono core, a React hub with access-code login, admin, shared Postgres). `robkit add` opens a selector of stack templates (v0.1: TanStack Start, and React with Hono) and drops in an app that already has auth, a database schema and a subdomain. All of it runs locally with one command. Deploys use R's existing Coolify method for now.
+A decided spec and ordered PR list for robkit v0.1. `npm create robkit` scaffolds a monorepo with the platform (Hono core, a React hub with access-code login, admin, shared Postgres). `robkit add` opens a selector of stack templates (v0.1: TanStack Start, and React with Hono) and drops in an app that already has auth, a database schema and a subdomain. All of it runs locally with one command. Deploys use R's existing Coolify method for now. The [stacks PRD](../stacks/PRD.md) added React + Express, Next.js and React + Go, so every install now offers five stacks.
 
 ## Notes
 
