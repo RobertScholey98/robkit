@@ -51,6 +51,10 @@ export interface DevRequest {
   operation: DevOperation;
   slug: Slug;
 }
+export function devRunning(
+  root: string,
+  env?: NodeJS.ProcessEnv,
+): Promise<boolean>;
 export function devSocket(
   root: string,
   env: NodeJS.ProcessEnv,

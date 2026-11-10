@@ -12,6 +12,7 @@ export {
 } from "@robkit/input/command";
 export {
   askDev,
+  devRunning,
   devSocket,
   type DevAnswer,
   type DevOperation,

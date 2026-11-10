@@ -18,6 +18,7 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { privateFolder, serveRequests } from "./request-server.ts";
 import {
   askDev,
+  devRunning,
   devSocket,
   type Answered,
   type DevRequest,
@@ -455,6 +456,30 @@ describe.skipIf(process.platform === "win32")("askDev", () => {
       );
     },
   );
+});
+
+describe.skipIf(process.platform === "win32")("devRunning", () => {
+  it("says pnpm dev runs while a runner answers on the socket, and sends it nothing", async () => {
+    const { root, env, socket } = await place();
+    const asked: DevRequest[] = [];
+    await serving(socket, done, (request) => asked.push(request));
+
+    expect(await devRunning(root, env)).toBe(true);
+    expect(asked).toEqual([]);
+  });
+
+  it("says no pnpm dev runs when there is no socket", async () => {
+    const { root, env } = await place();
+
+    expect(await devRunning(root, env)).toBe(false);
+  });
+
+  it("says no pnpm dev runs when a killed run left its socket", async () => {
+    const { root, env, socket } = await place();
+    await staleSocketAt(socket.path);
+
+    expect(await devRunning(root, env)).toBe(false);
+  });
 });
 
 /** Something listening at `path` that isn't pnpm dev, until the test ends. */

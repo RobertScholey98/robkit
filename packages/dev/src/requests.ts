@@ -102,6 +102,20 @@ export function answersAt(path: string): Promise<boolean> {
 }
 
 /**
+ * Whether a `pnpm dev` runs in the install at `root`: whether something
+ * takes a connection on its socket. It sends nothing. No socket file, or
+ * one a killed run left, is no, as is native Windows, where pnpm dev
+ * doesn't run.
+ */
+export async function devRunning(
+  root: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<boolean> {
+  if (process.platform === "win32") return false;
+  return answersAt((await devSocket(root, env)).path);
+}
+
+/**
  * What a running `pnpm dev` answered: done or refused, with a line saying
  * which, or that none is running.
  */
