@@ -2,8 +2,10 @@ import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { signingKeys } from "./schema.ts";
 import { ensureSigningKey } from "./signing-key.ts";
+import { aCoreOrigin } from "@internal/test-session";
+import { createApp } from "./app.ts";
 import { createDatabase, type Database } from "./database.ts";
-import { freshCore } from "./test/fresh-app.ts";
+import { defaultOrigin, freshCore } from "./test/fresh-app.ts";
 
 /** The URL `db` connects with, for a second connection to the same database. */
 function databaseUrlOf(db: Database): string {
@@ -80,6 +82,25 @@ describe("ensureSigningKey", () => {
 });
 
 describe("GET /.well-known/jwks.json", () => {
+  it("publishes the key core was handed, so a sign-in needn't load one", async () => {
+    const { db } = await freshCore();
+    const elsewhere = await freshCore();
+    const signingKey = await ensureSigningKey(elsewhere.db);
+    const app = createApp({
+      db,
+      origin: aCoreOrigin(defaultOrigin),
+      signingKey,
+    });
+
+    const res = await app.request("/.well-known/jwks.json");
+    const { keys } = (await res.json()) as { keys: { kid: string }[] };
+
+    expect(keys.map((key) => key.kid)).toEqual([signingKey.kid]);
+    expect(
+      await db.execute(sql`select count(*)::int as n from core.signing_keys`),
+    ).toEqual([{ n: 0 }]);
+  });
+
   it("publishes the public half of core's signing key", async () => {
     const { app, db } = await freshCore();
     const { kid } = await ensureSigningKey(db);

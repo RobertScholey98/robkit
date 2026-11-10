@@ -41,6 +41,12 @@ export interface CoreOptions {
    */
   logError?: Report;
   /**
+   * Core's signing key, loaded before core listens with `ensureSigningKey`,
+   * so the first sign-ins after a start don't load it inside their
+   * transaction. Without it core loads the key on first use.
+   */
+  signingKey?: SigningKey;
+  /**
    * Any sign-in limits to set in place of their defaults. It is there for
    * tests and tuning; an install leaves it out.
    */
@@ -72,6 +78,7 @@ export function createApp({
   now = () => new Date(),
   trustedProxy,
   logError = reportToConsole,
+  signingKey: loaded,
   signInLimits,
 }: CoreOptions): Hono {
   const app = new Hono();
@@ -137,9 +144,9 @@ export function createApp({
     }),
   );
 
-  const signingKey: () => Promise<SigningKey> = memoize(() =>
-    ensureSigningKey(db),
-  );
+  const signingKey: () => Promise<SigningKey> = loaded
+    ? () => Promise.resolve(loaded)
+    : memoize(() => ensureSigningKey(db));
   const limits = { ...defaultSignInLimits, ...signInLimits };
   const context: RouteContext = {
     db,
