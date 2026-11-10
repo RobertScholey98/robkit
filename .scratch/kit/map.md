@@ -29,6 +29,15 @@ The settled decisions a newcomer would question each have a short record in `doc
 - [0010 Local dev runs every app on its own subdomain behind one proxy](../../docs/adr/0010-local-dev-on-subdomains.md)
 - [0011 The guard is a pure function, and adapters are thin](../../docs/adr/0011-pure-guard-thin-adapters.md)
 - [0012 Only the proxy may reach core](../../docs/adr/0012-only-the-proxy-reaches-core.md)
+- [0013 The Go guard is a port, tested against the same cases](../../docs/adr/0013-go-guard-is-a-port.md)
+- [0014 The guard knows its own address](../../docs/adr/0014-guard-knows-its-own-address.md)
+- [0015 Sibling subdomains are a boundary](../../docs/adr/0015-sibling-subdomains-are-a-boundary.md)
+- [0016 Platform wiring lives in packages](../../docs/adr/0016-platform-wiring-lives-in-packages.md)
+- [0017 Provisioning is its own package](../../docs/adr/0017-provisioning-is-its-own-package.md)
+- [0018 robkit's Go module travels in the install](../../docs/adr/0018-go-module-travels-in-the-install.md)
+- [0019 One version for every package, released by a pull request and a button](../../docs/adr/0019-one-version-a-pull-request-and-a-button.md)
+- [0020 The runner takes requests on a socket file](../../docs/adr/0020-runner-takes-requests-on-a-socket-file.md)
+- [0021 Upgrade runs in two steps, with a frozen handover](../../docs/adr/0021-upgrade-runs-in-two-steps.md)
 
 Build tickets 01 to 09 were deleted once done (R, 2026-11-03). Their notes for later tickets moved into those tickets, and their open gaps are listed under "Known gaps" below. `git log --diff-filter=D -- .scratch/v0.1-build/issues` finds the originals.
 
