@@ -1,7 +1,32 @@
 // The release workflow's publish step refuses to start without the token.
 // publish-list.test.ts covers what it decides and how it publishes.
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
+import { dirname, join, relative } from "node:path";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
+
+/**
+ * Each import of `file` and of every file it imports in turn, as
+ * `<file>: <specifier>`, that isn't a `node:` module or a relative file.
+ */
+async function packageImports(file: string, seen = new Set<string>()) {
+  if (seen.has(file)) return [];
+  seen.add(file);
+  const { importedFiles } = ts.preProcessFile(await readFile(file, "utf8"));
+  const found: string[] = [];
+  for (const { fileName } of importedFiles) {
+    if (fileName.startsWith("node:")) continue;
+    if (fileName.startsWith("./") || fileName.startsWith("../")) {
+      found.push(
+        ...(await packageImports(join(dirname(file), fileName), seen)),
+      );
+      continue;
+    }
+    found.push(`${relative(import.meta.dirname, file)}: ${fileName}`);
+  }
+  return found;
+}
 
 describe("release-publish.ts", () => {
   it.each([undefined, ""])(
@@ -22,4 +47,15 @@ describe("release-publish.ts", () => {
       );
     },
   );
+
+  // It runs beside the npm token, so no package's code runs with it.
+  it("imports only node: modules and files that do the same", async () => {
+    const script = join(import.meta.dirname, "release-publish.ts");
+
+    expect(await packageImports(script)).toEqual([]);
+    // The walk finds a package import: release.ts reads YAML.
+    expect(
+      await packageImports(join(import.meta.dirname, "release.ts")),
+    ).toContain("release.ts: yaml");
+  });
 });
