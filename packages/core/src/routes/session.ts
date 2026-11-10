@@ -154,6 +154,7 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
       credentials.username,
       credentials.password,
     );
+    if (claim.outcome === "busy") return tooManyAttempts(c, 1);
     if (claim.outcome === "taken") {
       return c.json({ error: "This install already has an owner." }, 409);
     }
@@ -183,6 +184,9 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
         credentials.password,
       );
       if (result.outcome === "unclaimed") return unclaimed(c);
+      // Every place to check a password is taken. The client's place is
+      // released, so this costs it nothing.
+      if (result.outcome === "busy") return tooManyAttempts(c, 1);
       if (result.outcome === "wrong") {
         place.fail();
         return c.json({ error: "Wrong username or password." }, 401);

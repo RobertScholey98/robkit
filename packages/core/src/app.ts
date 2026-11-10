@@ -16,6 +16,7 @@ import { sessionRoutes } from "./routes/session.ts";
 import { defaultSignInLimits, type SignInLimits } from "./sign-in-limits.ts";
 import { statusRoutes } from "./routes/status.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
+import { createPasswordChecker } from "./password.ts";
 
 export interface CoreOptions {
   db: Database;
@@ -128,14 +129,19 @@ export function createApp({
   const signingKey: () => Promise<SigningKey> = memoize(() =>
     ensureSigningKey(db),
   );
+  const limits = { ...defaultSignInLimits, ...signInLimits };
   const context: RouteContext = {
     db,
     install,
     now,
     signingKey,
+    passwords: createPasswordChecker({
+      atOnce: limits.passwordChecksAtOnce,
+      waiting: limits.passwordChecksWaiting,
+    }),
     trustedProxy,
     logError,
-    signInLimits: { ...defaultSignInLimits, ...signInLimits },
+    signInLimits: limits,
   };
   app.route("/", statusRoutes(context));
   app.route("/", sessionRoutes(context));

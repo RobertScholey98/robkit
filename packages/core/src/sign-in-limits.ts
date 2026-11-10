@@ -24,6 +24,16 @@ export interface SignInLimits {
    * holds a place or a failure in the window, and never dropped before.
    */
   clientsTracked: number;
+  /**
+   * The most password hashes and checks that run at once, `/setup`'s
+   * included. Keep it under 4, Node's pool of scrypt threads.
+   */
+  passwordChecksAtOnce: number;
+  /**
+   * How many more wait their turn. One that finds them all waiting gets
+   * 429.
+   */
+  passwordChecksWaiting: number;
 }
 
 export const defaultSignInLimits: SignInLimits = {
@@ -46,4 +56,6 @@ export const defaultSignInLimits: SignInLimits = {
   // window there holds fewer. /login/code's limit fills only if something else is
   // wrong: the install's budget holds wrong codes to 20 an hour.
   clientsTracked: 100_000,
+  passwordChecksAtOnce: 2,
+  passwordChecksWaiting: 8,
 };
