@@ -38,6 +38,9 @@ export interface InitOptions extends GenerateOptions {
   install?: boolean;
   env?: NodeJS.ProcessEnv;
 }
+export interface InitResult {
+  notes: string[];
+}
 export const readyStacks: Stack[];
 export type Stack = Ready["value"];
 export function stackFrom(value: string): Stack;
