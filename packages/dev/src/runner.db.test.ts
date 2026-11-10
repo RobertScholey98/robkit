@@ -1,8 +1,16 @@
 import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
-import { cp, mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { request } from "node:http";
-import { connect } from "node:net";
+import { connect, createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -27,6 +35,8 @@ interface Dev {
   child: ChildProcess;
   root: string;
   port: number;
+  /** The environment it runs with, for a second run in the same install. */
+  env: NodeJS.ProcessEnv;
   output: () => string;
 }
 
@@ -95,16 +105,21 @@ async function startDev(
   prepare: (root: string) => Promise<void> = () => Promise.resolve(),
 ): Promise<Dev> {
   const { root, port, env: devEnv } = await devInstall(prepare);
+  return startIn(root, port, { ...devEnv, ...env });
+}
+
+/** robkit-dev, run in the install at `root` with `env`. */
+function startIn(root: string, port: number, env: NodeJS.ProcessEnv): Dev {
   const child = spawn(process.execPath, [bin], {
     cwd: root,
-    env: { ...devEnv, ...env },
+    env,
     stdio: ["ignore", "pipe", "pipe"],
   });
   children.push(child);
   let output = "";
   child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
   child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
-  return { child, root, port, output: () => output };
+  return { child, root, port, env, output: () => output };
 }
 
 function get(port: number, host: string): Promise<string> {
@@ -362,5 +377,132 @@ describe("robkit-dev's settings in the install's .env", () => {
     expect(await publishedPostgres(dev.root)).toBe(
       `127.0.0.1:${String(inShell)}`,
     );
+  });
+});
+
+/** Holds `port` on 127.0.0.1 until the test ends, as another program would. */
+async function holding(port: number): Promise<void> {
+  const server = createServer();
+  server.listen(port, "127.0.0.1");
+  await once(server, "listening");
+  onTestFinished(() => {
+    server.close();
+  });
+}
+
+describe("robkit-dev's checks before it starts", () => {
+  it("says to start Docker, in one line, and starts nothing when Docker doesn't answer", async () => {
+    // A Docker that doesn't answer, rather than stopping this machine's.
+    const dev = await startDev({
+      DOCKER_HOST: "unix:///nonexistent/docker.sock",
+    });
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toBe(
+      "Docker isn't answering, and pnpm dev runs Postgres in it. Start Docker, then run pnpm dev again.\n",
+    );
+    expect(await startedApps(dev.root)).toEqual([]);
+    expect(await createdContainers(dev.root)).toBe("");
+  });
+
+  it("names the proxy's port and ROBKIT_DEV_PORT when it's taken, and starts nothing", async () => {
+    const { root, port, env } = await devInstall();
+    await holding(port);
+
+    const dev = startIn(root, port, env);
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toBe(
+      `Port ${String(port)} is taken, and pnpm dev's proxy needs it. If pnpm dev is already running in this install, use that one or stop it. Otherwise free the port, or set ROBKIT_DEV_PORT in this install's .env to another port.\n`,
+    );
+    expect(await startedApps(root)).toEqual([]);
+    expect(await createdContainers(root)).toBe("");
+  });
+
+  it("names an app's port, the app and ROBKIT_DEV_PORT when the app's port is taken", async () => {
+    const { root, port, env } = await devInstall();
+    await holding(port + 2);
+
+    const dev = startIn(root, port, env);
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toBe(
+      `Port ${String(port + 2)} is taken, and beta needs it under pnpm dev. Free it, or set ROBKIT_DEV_PORT in this install's .env to move every app's port: they follow the proxy's.\n`,
+    );
+    expect(await startedApps(root)).toEqual([]);
+    expect(await createdContainers(root)).toBe("");
+  });
+
+  it("names Postgres's port and ROBKIT_POSTGRES_PORT when something else holds it", async () => {
+    const { root, port, env } = await devInstall();
+    const postgresPort = Number(env.ROBKIT_POSTGRES_PORT);
+    await holding(postgresPort);
+
+    const dev = startIn(root, port, env);
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toBe(
+      `Port ${String(postgresPort)} is taken, and this install's Postgres needs it. Free it, or set ROBKIT_POSTGRES_PORT in this install's .env to another port.\n`,
+    );
+    expect(await startedApps(root)).toEqual([]);
+    expect(await createdContainers(root)).toBe("");
+  });
+
+  it("prints each taken port as a problem, with no bug line", async () => {
+    const { root, port, env } = await devInstall();
+    await holding(port + 1);
+    await holding(Number(env.ROBKIT_POSTGRES_PORT));
+
+    const dev = startIn(root, port, env);
+
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output().split("\n")).toEqual([
+      expect.stringMatching(/^Port \d+ is taken, and alpha needs it/),
+      expect.stringMatching(/^Port \d+ is taken, and this install's Postgres/),
+      "",
+    ]);
+  });
+
+  it("refuses a second pnpm dev in the same install in one line, and the first keeps answering", async () => {
+    const first = await startDev();
+    await eventually(() => get(first.port, "alpha.robkit.localhost"));
+
+    const second = startIn(first.root, first.port, first.env);
+
+    expect(await exitCode(second.child)).toBe(1);
+    expect(second.output()).toBe(
+      `Port ${String(first.port)} is taken, and pnpm dev's proxy needs it. If pnpm dev is already running in this install, use that one or stop it. Otherwise free the port, or set ROBKIT_DEV_PORT in this install's .env to another port.\n`,
+    );
+    expect(
+      JSON.parse(await get(first.port, "alpha.robkit.localhost")),
+    ).toMatchObject({ slug: "alpha", database: true });
+    expect(await runningContainers(first.root)).not.toBe("");
+  });
+
+  it("starts with no change to any setting after pnpm dev and its apps were killed", async () => {
+    const first = await startDev();
+    await eventually(() => get(first.port, "alpha.robkit.localhost"));
+
+    first.child.kill("SIGKILL");
+    await exitCode(first.child);
+    for (const slug of ["alpha", "beta"]) {
+      const pid = Number(
+        await readFile(join(first.root, "apps", slug, "started"), "utf8"),
+      );
+      process.kill(pid, "SIGKILL");
+    }
+    await eventually(async () => {
+      if (await isListening(first.port + 1)) throw new Error("alpha is up");
+    });
+    // This install's Postgres is still up from the killed run.
+    expect(await runningContainers(first.root)).not.toBe("");
+
+    const next = startIn(first.root, first.port, first.env);
+
+    expect(
+      JSON.parse(
+        await eventually(() => get(next.port, "alpha.robkit.localhost")),
+      ),
+    ).toMatchObject({ slug: "alpha", database: true });
   });
 });

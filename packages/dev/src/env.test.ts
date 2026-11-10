@@ -11,6 +11,7 @@ describe("readDevConfig", () => {
       domain: "robkit.localhost",
       devPort: 3000,
       adminUrl: "postgres://postgres:postgres@127.0.0.1:54320/robkit",
+      postgresPort: 54320,
     });
   });
 
@@ -25,6 +26,7 @@ describe("readDevConfig", () => {
       domain: "dev.robkit.localhost",
       devPort: 4000,
       adminUrl: "postgres://postgres:postgres@127.0.0.1:5433/robkit",
+      postgresPort: 5433,
     });
     expect(
       readDevConfig({ ROBKIT_DATABASE_URL: "postgres://a:b@db:5432/x" }),

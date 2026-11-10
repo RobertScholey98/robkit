@@ -8,7 +8,8 @@ const databaseUrl = process.env.DATABASE_URL;
 if (process.env.FIXTURE_SLOW_START === slug) {
   await new Promise((resolve) => setTimeout(resolve, 2000));
 }
-writeFileSync("started", "");
+// Its pid, so a test can kill it as a crash would.
+writeFileSync("started", String(process.pid));
 
 // An app with a database must find its migration already run.
 if (databaseUrl && readFileSync("migrated", "utf8") !== databaseUrl) {

@@ -33,6 +33,8 @@ export interface DevConfig {
    * Compose's on `ROBKIT_POSTGRES_PORT`.
    */
   adminUrl: string;
+  /** `ROBKIT_POSTGRES_PORT`: where Compose publishes the install's Postgres. */
+  postgresPort: number;
 }
 
 /**
@@ -95,5 +97,6 @@ export function readDevConfig(env: Env): DevConfig | InputProblem {
     adminUrl:
       databaseUrl ??
       `postgres://postgres:postgres@127.0.0.1:${String(postgresPort)}/robkit`,
+    postgresPort,
   };
 }

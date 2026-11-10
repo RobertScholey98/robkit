@@ -9,3 +9,5 @@ The dev proxy listens on `127.0.0.1`, and on `::1` where the machine has it, and
 `robkit-dev` run in a folder with no `robkit.json` says in one line that it isn't an install.
 
 `robkit-dev` reads the `ROBKIT_` names in the install's root `.env`, as Compose does, so `ROBKIT_POSTGRES_PORT` there moves Postgres and the runner together. A value the shell exports wins over the file's.
+
+Before it starts anything, `robkit-dev` checks that Docker answers and that the proxy's, each app's and Postgres's ports are free. Each failure prints one line that says what to do, and a second `pnpm dev` in the same install exits 1 and leaves the first running.

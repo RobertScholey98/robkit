@@ -5,6 +5,7 @@ import { install } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
 import { CommandProblem } from "@robkit/input/command";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
+import { checkBeforeStart, proxyPortProblem } from "./checks.ts";
 import { readDevConfig, withInstallEnv } from "./env.ts";
 import { exec, prefixLines, startProblem } from "./exec.ts";
 import { failuresOf, throwFailures } from "./failures.ts";
@@ -38,13 +39,16 @@ export async function runDev(
     console.error(config.error);
     return 1;
   }
-  const { domain, devPort, adminUrl } = config;
+  const { domain, devPort, adminUrl, postgresPort } = config;
   const addresses = install({ domain, port: devPort });
   const apps = await discoverApps(root, devPort + 1);
   // An app with a go.mod runs on Go. Say so before anything starts.
   if (apps.some((app) => existsSync(join(app.dir, "go.mod")))) {
     await requireGo(env);
   }
+  // Before anything starts, and outside the stop below, so a second pnpm
+  // dev stops nothing the first one runs.
+  await checkBeforeStart({ root, env, devPort, postgresPort, apps });
   const appEnv: NodeJS.ProcessEnv = {
     ...env,
     ROBKIT_DOMAIN: domain,
@@ -124,8 +128,16 @@ export async function runDev(
     });
 
     if (!stopping()) {
+      // The proxy first, so a port taken since the check starts no app.
+      proxy = await startProxy(routesFor(apps, domain), devPort).catch(
+        (error: unknown) => {
+          if (error instanceof Error && "code" in error) {
+            if (error.code === "EADDRINUSE") throw proxyPortProblem(devPort);
+          }
+          throw error;
+        },
+      );
       for (const app of apps) start(app, databaseUrls.get(app.slug));
-      proxy = await startProxy(routesFor(apps, domain), devPort);
       console.log("\nrobkit is running:");
       for (const app of apps) {
         console.log(`  ${addresses.origin(app.slug)}`);
