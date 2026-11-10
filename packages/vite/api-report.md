@@ -10,3 +10,9 @@ export interface RobkitOptions {
   guarded?: boolean;
 }
 ```
+
+## @robkit/vite/express
+
+```ts
+export function expressApp(entry: string): Plugin;
+```

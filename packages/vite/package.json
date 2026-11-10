@@ -4,13 +4,18 @@
   "description": "Everything robkit adds to Vite: robkit(), which sets an app's dev server up behind pnpm dev's proxy, and the handoff an Express app needs.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./express": "./src/express.ts"
   },
   "publishConfig": {
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./express": {
+        "types": "./dist/express.d.ts",
+        "default": "./dist/express.js"
       }
     }
   },

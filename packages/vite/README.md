@@ -35,6 +35,27 @@ For `vite build`, and under Vitest, it changes nothing. Vitest loads an app's `v
 | `robkit(options?)` | The Vite plugin above                                                                        |
 | `RobkitOptions`    | `guarded`, `true` unless set. `false` is for the hub: no check, and the hub's headers in dev |
 
+### `@robkit/vite/express`
+
+An Express app's handoff. Vite's dev server has no Express in it, so this plugin loads the app from its entry and hands it each request. Vite answers its own requests, such as the stylesheet, and the app every other one, so the guard sees each page load. Vite loads the entry again after an edit, so a change to the server needs no restart.
+
+```ts
+import { robkit } from "@robkit/vite";
+import { expressApp } from "@robkit/vite/express";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [robkit(), expressApp("/src/server.tsx")],
+  build: { ssr: "src/serve.ts", outDir: "dist", ssrEmitAssets: true },
+});
+```
+
+| Export              | What it is                                                                                                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `expressApp(entry)` | Serves the app `entry` exports as default. Sets `appType: "custom"`, since otherwise Vite answers a page with an `index.html` first. A default that isn't a function gets a 500 naming the entry |
+
+It lives here, not in `@robkit/express`, so that no package an app runs in production names `vite`. It imports nothing from Express: the app is a function it calls.
+
 ## What it must never do
 
 - Be a dependency of anything an app runs in production. Apps take it under `devDependencies`, and no other robkit package names `vite`.
