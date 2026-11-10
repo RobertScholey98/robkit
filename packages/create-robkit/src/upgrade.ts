@@ -13,17 +13,24 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
-import { CommandProblem, isMissing } from "@robkit/dev/cli";
-import { isProblem, isRecord, parseJson } from "@robkit/input";
+import { CommandProblem, devRunning, isMissing } from "@robkit/dev/cli";
+import {
+  type InputProblem,
+  isProblem,
+  isRecord,
+  orThrow,
+  parseJson,
+  problem,
+} from "@robkit/input";
 import { format } from "prettier";
 import { parse, parseDocument } from "yaml";
-import { installCatalog, pnpmSettings } from "./generate.ts";
+import { installCatalog, overridesIn, pnpmSettings } from "./generate.ts";
 import { vendoredGoDir } from "./go-module.ts";
 import { stringsIn } from "./json.ts";
 import type { RobkitRepo } from "./robkit-repo.ts";
 import { installDependencies } from "./set-up.ts";
-import { run } from "./toolchain.ts";
-import { putBack } from "./upgrade-handover.ts";
+import { onPath, run } from "./toolchain.ts";
+import { handOver, putBack } from "./upgrade-handover.ts";
 
 /** Where an install keeps robkit's lint policy, from its root. */
 const lintPolicyDir = "tooling/eslint";
@@ -67,6 +74,219 @@ export function compareVersions(a: string, b: string): number | undefined {
   const [parsedA, parsedB] = [versionPattern.exec(a), versionPattern.exec(b)];
   if (parsedA === null || parsedB === null) return undefined;
   return compareParsed(parsedA, parsedB);
+}
+
+/** The version robkit is at here, from create-robkit's own manifest. */
+async function installedVersion(): Promise<string> {
+  const path = new URL("../package.json", import.meta.url);
+  const parsed = parseJson(await readFile(path, "utf8"), "package.json");
+  const version = isProblem(parsed)
+    ? undefined
+    : stringsIn(parsed.json).version;
+  if (version === undefined) {
+    throw new Error(
+      `create-robkit's own package.json, at ${path.href}, has no version.`,
+    );
+  }
+  return version;
+}
+
+/** What the registry has of create-robkit. */
+interface Published {
+  latest: string;
+  versions: string[];
+}
+
+/** `pnpm view`'s JSON for create-robkit's `dist-tags` and `versions`. */
+export function readPublished(json: unknown): Published | InputProblem {
+  const shape = problem(
+    "pnpm view answered without create-robkit's dist-tags and versions.",
+  );
+  if (!isRecord(json)) return shape;
+  const latest = stringsIn(json["dist-tags"]).latest;
+  // pnpm gives a package with one version as a string.
+  const versions =
+    typeof json.versions === "string" ? [json.versions] : json.versions;
+  if (latest === undefined || !Array.isArray(versions)) return shape;
+  return {
+    latest,
+    versions: versions.filter((v): v is string => typeof v === "string"),
+  };
+}
+
+/**
+ * What the registry the install's pnpm uses has of create-robkit. pnpm
+ * reads its own settings, such as `pnpm_config_registry` or an `.npmrc`,
+ * so a mirror works as it does for `pnpm install`.
+ *
+ * @throws a {@link CommandProblem} when pnpm can't ask it
+ */
+async function published(
+  root: string,
+  env: NodeJS.ProcessEnv,
+): Promise<Published> {
+  const args = ["view", "create-robkit", "dist-tags", "versions", "--json"];
+  const ran = await run("pnpm", args, { cwd: root, env });
+  const parsed = parseJson(ran.stdout, "pnpm view's answer");
+  if (ran.code !== 0) {
+    const error = isProblem(parsed) ? undefined : parsed.json;
+    const said = isRecord(error) ? stringsIn(error.error).message : undefined;
+    const why =
+      said ??
+      ((ran.stderr || ran.stdout).trim() ||
+        `pnpm view exited with ${String(ran.code)}`);
+    throw new CommandProblem(
+      `robkit upgrade couldn't ask the registry which versions of create-robkit it has: ${why.replace(/\.$/, "")}. Check your network and the registry pnpm uses (pnpm config get registry), then run pnpm robkit upgrade again.`,
+    );
+  }
+  return orThrow(isProblem(parsed) ? parsed : readPublished(parsed.json));
+}
+
+/**
+ * A line saying why an install that links to robkit's checkout, or runs
+ * the tarballs `robkit vendor` packed, has nothing to upgrade, or
+ * `undefined` for one that takes robkit's packages from a registry.
+ */
+function notFromRegistry(settings: string): string | undefined {
+  const specs = Object.entries(overridesIn(settings))
+    .filter(([name]) => name.startsWith("@robkit/") || name === "create-robkit")
+    .map(([, spec]) => spec);
+  if (specs.some((spec) => spec.startsWith("link:"))) {
+    return "This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.";
+  }
+  if (specs.some((spec) => spec.startsWith("file:"))) {
+    return "This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. Vendor again from a newer robkit checkout to update them.";
+  }
+  return undefined;
+}
+
+const commitCommands = `  git init
+  git add --all
+  git commit -m "Make a robkit install"`;
+
+/**
+ * Refuses an install git can't show the upgrade's changes in: git isn't
+ * installed, the install has no commit, or it has a change or a file not
+ * committed.
+ */
+async function requireCleanGit(
+  root: string,
+  env: NodeJS.ProcessEnv,
+): Promise<void> {
+  if (!onPath("git", env)) {
+    throw new CommandProblem(
+      "robkit upgrade needs git, so git diff shows what it changes and git can undo it, and git isn't installed. Install git, commit the install, then run pnpm robkit upgrade again.",
+    );
+  }
+  const options = { cwd: root, env };
+  const head = await run(
+    "git",
+    ["rev-parse", "--verify", "--quiet", "HEAD"],
+    options,
+  );
+  if (head.code !== 0) {
+    throw new CommandProblem(
+      `robkit upgrade needs the install committed in git, so git diff shows what it changes and git can undo it, and this install has no commit. Make one, then run pnpm robkit upgrade again:\n\n${commitCommands}`,
+    );
+  }
+  const status = await run(
+    "git",
+    ["status", "--porcelain", "--untracked-files=all", "--", "."],
+    options,
+  );
+  const lines = status.stdout.split("\n").filter(Boolean);
+  if (lines.length > 0) {
+    const listed = lines.map((line) => {
+      const what = line.startsWith("??") ? "untracked" : "not committed";
+      return `  ${line.slice(3)} (${what})`;
+    });
+    throw new CommandProblem(
+      `robkit upgrade needs every change committed, so git diff shows only what it changes. Commit or remove these, then run pnpm robkit upgrade again:\n\n${listed.join("\n")}`,
+    );
+  }
+}
+
+/** Refuses either folder upgrade replaces whole when it is a link. */
+async function refuseLinks(root: string): Promise<void> {
+  for (const folder of ownedFolders) {
+    const stats = await lstat(join(root, folder)).catch((error: unknown) => {
+      if (isMissing(error)) return undefined;
+      throw error;
+    });
+    if (stats?.isSymbolicLink()) {
+      throw new CommandProblem(
+        `${folder} is a link. robkit upgrade replaces that folder whole and follows no link. Put a folder of its own in its place and commit it, then run pnpm robkit upgrade again.`,
+      );
+    }
+  }
+}
+
+/** The version to move to: `given`, or the registry's newest. */
+function target(
+  from: string,
+  given: string | undefined,
+  { latest, versions }: Published,
+): string | { nothing: string } {
+  if (given === undefined) {
+    if ((compareVersions(latest, from) ?? 0) <= 0) {
+      return { nothing: `This install is on robkit ${from}, the newest.` };
+    }
+    return latest;
+  }
+  if (!versions.includes(given)) {
+    throw new CommandProblem(
+      `The registry has no create-robkit ${given}. Its newest is ${latest}. Run pnpm robkit upgrade with a version it has, or with none for the newest.`,
+    );
+  }
+  const order = compareVersions(given, from) ?? 0;
+  if (order === 0) {
+    throw new CommandProblem(
+      `This install is on robkit ${from} already. robkit upgrade moves forward only: give a newer version, or none for the newest.`,
+    );
+  }
+  if (order < 0) {
+    throw new CommandProblem(
+      `${given} is older than robkit ${from}, which this install is on. robkit upgrade moves forward only. To go back, revert the commit that moved the install to ${from}.`,
+    );
+  }
+  return given;
+}
+
+/**
+ * `robkit upgrade [version]` in the install at `root`: checks everything,
+ * then hands over to the robkit it installs, which finishes the upgrade.
+ *
+ * @returns a line to print when there is nothing to upgrade, or
+ *   `undefined` once the upgrade is done
+ * @throws a {@link CommandProblem} saying what to do, for each check that
+ *   fails, before it changes anything
+ */
+export async function upgrade(
+  root: string,
+  given: string | undefined,
+  env: NodeJS.ProcessEnv,
+): Promise<string | undefined> {
+  const nothing = notFromRegistry(
+    await readFile(join(root, pnpmSettings), "utf8"),
+  );
+  if (nothing !== undefined) return nothing;
+  if (given !== undefined && compareVersions(given, given) === undefined) {
+    throw new CommandProblem(
+      `"${given}" isn't a version. Give one such as 0.2.0, or none for the newest.`,
+    );
+  }
+  await requireCleanGit(root, env);
+  await refuseLinks(root);
+  if (await devRunning(root, env)) {
+    throw new CommandProblem(
+      "pnpm dev is running in this install. An upgrade replaces the packages under every running app, so stop pnpm dev, then run pnpm robkit upgrade again.",
+    );
+  }
+  const from = await installedVersion();
+  const to = target(from, given, await published(root, env));
+  if (typeof to !== "string") return to.nothing;
+  await handOver(root, { from, to }, env);
+  return undefined;
 }
 
 /** Every file under `dir`, by its path from there, or none if it's missing. */

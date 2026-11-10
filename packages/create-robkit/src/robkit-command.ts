@@ -25,7 +25,7 @@ import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { readAppList, readCoolify, readDatabaseUrlsConfig } from "./env.ts";
 import { readRobkitRepo } from "./robkit-repo.ts";
 import { finishInstall, installDependencies } from "./set-up.ts";
-import { finishUpgrade } from "./upgrade.ts";
+import { finishUpgrade, upgrade } from "./upgrade.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
 /** Where an install's apps answer under pnpm dev. */
@@ -37,9 +37,18 @@ Asks the pnpm dev running in this install to run the app's migrate script,
 with the database URL it gave the app, so a new migration applies without
 a restart.`;
 
+const upgradeUsage = `Usage: robkit upgrade [version]
+
+Moves the install to a newer robkit: the newest, or the version given. It
+updates the catalog, the lint policy in tooling/eslint and the Go module in
+vendor/robkit/go, and never your apps. It needs every change committed and
+pnpm dev stopped.`;
+
 const usage = `${addUsage}
 
 ${migrateUsage}
+
+${upgradeUsage}
 
 Usage: robkit check
 
@@ -263,13 +272,20 @@ async function upgradeInstall(): Promise<undefined> {
       // robkit it installs. An owner never types it.
       options: { finish: { type: "string" } },
     },
-    usage,
+    upgradeUsage,
   );
+  const [, given, ...rest] = positionals;
   const finishing = values.finish;
-  if (positionals.length > 1) throw new CommandProblem(usage);
+  if (rest.length > 0 || (finishing !== undefined && given !== undefined)) {
+    throw new CommandProblem(upgradeUsage);
+  }
   const root = process.cwd();
   await readInstallChoices(root);
-  if (finishing === undefined) throw new CommandProblem(usage);
+  if (finishing === undefined) {
+    const nothing = await upgrade(root, given, process.env);
+    if (nothing !== undefined) console.log(nothing);
+    return;
+  }
   const changelog = await readFile(
     new URL("../CHANGELOG.md", import.meta.url),
     "utf8",
