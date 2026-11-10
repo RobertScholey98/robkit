@@ -2,7 +2,7 @@
 // token, short of publishing: a stand-in registry answers.
 import { execFile } from "node:child_process";
 import { once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -11,10 +11,13 @@ import { isRecord } from "@robkit/input";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   authEnv,
+  matchTarballs,
   publishArgs,
   publishPlan,
+  readTarball,
   registryVersions,
   releasePackages,
+  tarballName,
 } from "./publish-list.ts";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 import { publishedPackages } from "./published.ts";
@@ -164,6 +167,101 @@ describe("publishing through pnpm", () => {
       "public",
       "--no-git-checks",
       "--ignore-scripts",
+    ]);
+  });
+});
+
+describe("tarballName", () => {
+  it("names a tarball as pnpm pack does", () => {
+    expect(tarballName("@robkit/core", "0.1.0")).toBe("robkit-core-0.1.0.tgz");
+    expect(tarballName("create-robkit", "0.1.0")).toBe(
+      "create-robkit-0.1.0.tgz",
+    );
+  });
+});
+
+describe("readTarball", () => {
+  it("reads the name and version a tarball's manifest gives", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-tarball-"));
+    try {
+      await mkdir(join(dir, "package"));
+      await writeFile(
+        join(dir, "package/package.json"),
+        JSON.stringify({ name: "@robkit/core", version: "0.1.0" }),
+      );
+      await run("tar", ["-czf", "robkit-core-0.1.0.tgz", "package"], {
+        cwd: dir,
+      });
+
+      expect(await readTarball(join(dir, "robkit-core-0.1.0.tgz"))).toEqual({
+        file: "robkit-core-0.1.0.tgz",
+        name: "@robkit/core",
+        version: "0.1.0",
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("matchTarballs", () => {
+  const core = { name: "@robkit/core", version: "0.1.0", dependsOn: [] };
+  const createRobkit = {
+    name: "create-robkit",
+    version: "0.1.0",
+    dependsOn: ["@robkit/core"],
+  };
+  const tarball = (file: string, name: string, version: string) => ({
+    file,
+    name,
+    version,
+  });
+  const sound = [
+    tarball("robkit-core-0.1.0.tgz", "@robkit/core", "0.1.0"),
+    tarball("create-robkit-0.1.0.tgz", "create-robkit", "0.1.0"),
+  ];
+
+  it("pairs each of main's packages with its tarball", () => {
+    expect(matchTarballs([core, createRobkit], sound)).toEqual({
+      matched: [
+        { ...core, tarball: "robkit-core-0.1.0.tgz" },
+        { ...createRobkit, tarball: "create-robkit-0.1.0.tgz" },
+      ],
+      problems: [],
+    });
+  });
+
+  it("names a package the artifact has no tarball for", () => {
+    expect(
+      matchTarballs([core, createRobkit], sound.slice(1)).problems,
+    ).toEqual([
+      "The pack job's artifact has no robkit-core-0.1.0.tgz for @robkit/core@0.1.0, which main holds. Run the release again from main.",
+    ]);
+  });
+
+  it("refuses a tarball that holds another package or version than its name says", () => {
+    expect(
+      matchTarballs(
+        [core, createRobkit],
+        [
+          tarball("robkit-core-0.1.0.tgz", "@robkit/core", "0.0.9"),
+          tarball("create-robkit-0.1.0.tgz", "@robkit/other", "0.1.0"),
+        ],
+      ).problems,
+    ).toEqual([
+      "robkit-core-0.1.0.tgz holds @robkit/core@0.0.9, not @robkit/core@0.1.0 as main has it, so nothing was published. Run the release again from main.",
+      "create-robkit-0.1.0.tgz holds @robkit/other@0.1.0, not create-robkit@0.1.0 as main has it, so nothing was published. Run the release again from main.",
+    ]);
+  });
+
+  it("refuses a tarball that isn't one of main's packages at its version", () => {
+    expect(
+      matchTarballs(
+        [core, createRobkit],
+        [...sound, tarball("robkit-core-0.0.9.tgz", "@robkit/core", "0.0.9")],
+      ).problems,
+    ).toEqual([
+      "robkit-core-0.0.9.tgz isn't one of main's packages at its version, so nothing was published. Run the release again from main.",
     ]);
   });
 });

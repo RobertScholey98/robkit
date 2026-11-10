@@ -1,12 +1,13 @@
-// What the release workflow's publish step decides and does: which
-// packages npm lacks, in what order, and how pnpm gets the token. That step
-// holds the npm token, so this file and release-publish.ts import only
-// node: modules and each other, never a package. release-publish.test.ts
-// fails on one that does.
+// What the release workflow's publish step decides and does: whether the
+// pack job's tarballs are main's packages, which of them npm lacks, in what
+// order, and how pnpm gets the token. That step holds the npm token, so this
+// file and release-publish.ts import only node: modules and each other,
+// never a package. release-publish.test.ts fails on one that does.
 
 import { readdir, readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gunzipSync } from "node:zlib";
 
 const packagesDir = fileURLToPath(
   new URL("../../../packages", import.meta.url),
@@ -135,6 +136,97 @@ export async function registryVersions(
     );
   }
   return Object.keys(versions);
+}
+
+/**
+ * The file `pnpm pack` writes for `name` at `version`: `@robkit/core` at
+ * 0.1.0 packs to `robkit-core-0.1.0.tgz`.
+ */
+export function tarballName(name: string, version: string): string {
+  return `${name.replace(/^@/, "").replace("/", "-")}-${version}.tgz`;
+}
+
+/** A tarball, and the name and version its own manifest gives. */
+export interface Tarball {
+  /** Its file name. */
+  file: string;
+  name: string;
+  version: string;
+}
+
+/** The text of the file at `path` inside the gzipped tar `gz`, if any. */
+function tarEntry(gz: Uint8Array, path: string): string | undefined {
+  const tar = gunzipSync(gz);
+  const field = (at: number, length: number) =>
+    tar
+      .subarray(at, at + length)
+      .toString("utf8")
+      .replace(/\0.*$/s, "");
+  for (let at = 0; at + 512 <= tar.length;) {
+    const name = field(at, 100);
+    if (name === "") return undefined;
+    const prefix = field(at + 345, 155);
+    const size = Number.parseInt(field(at + 124, 12).trim() || "0", 8);
+    const body = at + 512;
+    if ((prefix === "" ? name : `${prefix}/${name}`) === path) {
+      return tar.subarray(body, body + size).toString("utf8");
+    }
+    at = body + Math.ceil(size / 512) * 512;
+  }
+  return undefined;
+}
+
+/** The name and version in the manifest of the tarball at `path`. */
+export async function readTarball(path: string): Promise<Tarball> {
+  const file = basename(path);
+  const text = tarEntry(await readFile(path), "package/package.json");
+  const json = asObject(text === undefined ? undefined : JSON.parse(text));
+  const { name, version } = json ?? {};
+  if (typeof name !== "string" || typeof version !== "string") {
+    throw new Error(
+      `${file} has no package.json with a name and version, so nothing was published. Run the release again from main.`,
+    );
+  }
+  return { file, name, version };
+}
+
+/**
+ * Pairs each of main's packages with the tarball the pack job made of it,
+ * and names each tarball that is missing, holds another package or version
+ * than main has, or isn't one of main's packages. The release publishes
+ * nothing while there is a problem.
+ */
+export function matchTarballs<P extends ReleasePackage>(
+  packages: readonly P[],
+  tarballs: readonly Tarball[],
+): { matched: (P & { tarball: string })[]; problems: string[] } {
+  const matched: (P & { tarball: string })[] = [];
+  const problems: string[] = [];
+  const expected = new Set<string>();
+  for (const pkg of packages) {
+    const file = tarballName(pkg.name, pkg.version);
+    expected.add(file);
+    const tarball = tarballs.find((each) => each.file === file);
+    if (tarball === undefined) {
+      problems.push(
+        `The pack job's artifact has no ${file} for ${pkg.name}@${pkg.version}, which main holds. Run the release again from main.`,
+      );
+    } else if (tarball.name !== pkg.name || tarball.version !== pkg.version) {
+      problems.push(
+        `${file} holds ${tarball.name}@${tarball.version}, not ${pkg.name}@${pkg.version} as main has it, so nothing was published. Run the release again from main.`,
+      );
+    } else {
+      matched.push({ ...pkg, tarball: file });
+    }
+  }
+  for (const { file } of tarballs) {
+    if (!expected.has(file)) {
+      problems.push(
+        `${file} isn't one of main's packages at its version, so nothing was published. Run the release again from main.`,
+      );
+    }
+  }
+  return { matched, problems };
 }
 
 /**
