@@ -10,16 +10,12 @@ From the React with Express template (`templates/stacks/express/src/server.tsx`)
 
 ```ts
 import { guarded, type GuardedResponse } from "@robkit/express";
-import { orExit, readGuardEnv } from "@robkit/input";
 import express from "express";
 
 const app = express();
 
-// The app's slug and core's address, which pnpm dev and robkit deploy set.
-const guard = orExit(readGuardEnv(process.env));
-
 // The rule is the one the owner set for this app in admin.
-app.use(guarded(guard));
+app.use(guarded());
 
 app.get("/", (_req, res: GuardedResponse) => {
   const { viewer } = res.locals;
@@ -27,19 +23,20 @@ app.get("/", (_req, res: GuardedResponse) => {
 });
 ```
 
-`pnpm dev` and the production image set `ROBKIT_APP` and `ROBKIT_CORE_URL` for every app.
+`guarded()` reads `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and the production image set for every app. When one is missing or won't do, the app prints the problem and exits 1.
 
 The guard reads the path and query on the request line, and the headers, never the body, so a body parser such as `express.json()` can sit after it. It puts the path on the app's own origin, from `ROBKIT_CORE_URL`, and never reads `Host`. A request line such as `//evil.com/x` stays a path on the app, and a request with no `Host` is guarded like any other.
 
 ## Exports
 
-| Export             | What it is                                                                                                                                                                                                                         |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `guarded(options)` | Express middleware. Lets the request through with `res.locals.viewer` set, and `X-Frame-Options: SAMEORIGIN`, `nosniff` and, over https, HSTS set on the response before the handlers run, or answers it (redirect, 401, 403, 404) |
-| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                                                                                                                                               |
-| `GuardedLocals`    | What `guarded` puts on `res.locals`: `{ viewer }`                                                                                                                                                                                  |
-| `GuardedResponse`  | The response a handler behind `guarded` gets, which types `res.locals.viewer`                                                                                                                                                      |
-| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                                                          |
+| Export              | What it is                                                                                                                                                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guarded(options?)` | Express middleware. Lets the request through with `res.locals.viewer` set, and `X-Frame-Options: SAMEORIGIN`, `nosniff` and, over https, HSTS set on the response before the handlers run, or answers it (redirect, 401, 403, 404) |
+| `GuardedOptions`    | All optional: `app` (the slug) and `core` (core's public origin), read from `ROBKIT_APP` and `ROBKIT_CORE_URL` when left out and taken as plain strings when given, and a fixed `access` rule                                      |
+| `coreOrigin()`      | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                                                           |
+| `GuardedLocals`     | What `guarded` puts on `res.locals`: `{ viewer }`                                                                                                                                                                                  |
+| `GuardedResponse`   | The response a handler behind `guarded` gets, which types `res.locals.viewer`                                                                                                                                                      |
+| `Viewer`            | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                                                          |
 
 ## What it must never do
 

@@ -5,8 +5,11 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/express
 
 ```ts
+export function coreOrigin(): CoreOrigin {
+  return orExit(readCoreUrl(process.env));
+}
 export function guarded(
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): (
   req: ExpressRequest,
   res: GuardedResponse,
@@ -15,10 +18,10 @@ export function guarded(
 export interface GuardedLocals {
   viewer: Viewer;
 }
-export interface GuardedOptions {
-  app: Slug;
+export interface GuardedOptions extends GuardSettings {
+  app?: string | undefined;
   access?: AccessRule | undefined;
-  core: CoreOrigin;
+  core?: string | undefined;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export type GuardedResponse = ExpressResponse<unknown, GuardedLocals>;

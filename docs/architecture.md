@@ -61,7 +61,7 @@ sequenceDiagram
   end
 ```
 
-The guard knows the app's own address from its settings, not from the request. The app's origin is core's origin, from `ROBKIT_CORE_URL`, with the app's slug in place of `core`: the same protocol and port, on `<slug>.<domain>`. `appOrigin` in `@robkit/session` works it out, and Go's `Guarded` the same way. Every URL the guard sends the browser to, the `next` it gives core and the hub, its callback and its refresh path, is that origin plus the request's path and query. Neither port reads `Host`, `X-Forwarded-Host` or `X-Forwarded-Proto` for it, so a proxy hop that rewrites one changes nothing, and a request with no `Host` is guarded like any other.
+The guard knows the app's own address from its settings, not from the request. The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so an app calls `guarded()` with no settings. The app's origin is core's origin, from `ROBKIT_CORE_URL`, with the app's slug in place of `core`: the same protocol and port, on `<slug>.<domain>`. `appOrigin` in `@robkit/session` works it out, and Go's `Guarded` the same way. Every URL the guard sends the browser to, the `next` it gives core and the hub, its callback and its refresh path, is that origin plus the request's path and query. Neither port reads `Host`, `X-Forwarded-Host` or `X-Forwarded-Proto` for it, so a proxy hop that rewrites one changes nothing, and a request with no `Host` is guarded like any other.
 
 The guard's four outcomes come from one table in `packages/guard/src/guard.ts`:
 

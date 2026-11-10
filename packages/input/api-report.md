@@ -34,8 +34,8 @@ export function parseJson(
 export type PlatformApp = (typeof platformApps)[number];
 export const platformApps: readonly ["core", "hub", "admin"];
 export function problem(message: string): InputProblem;
-export function readAppSlug(env: Env): Slug | InputProblem;
-export function readCoreUrl(env: Env): CoreOrigin | InputProblem;
+export function readAppSlug(env: Env, name?: string): Slug | InputProblem;
+export function readCoreUrl(env: Env, name?: string): CoreOrigin | InputProblem;
 export function readDatabaseUrl(
   env: Env,
   name?: string,

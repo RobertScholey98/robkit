@@ -1,6 +1,5 @@
 import { Card, CardContent, CardHeader } from "@internal/ui/components/ui/card";
 import { guarded, type GuardedResponse, type Viewer } from "@robkit/express";
-import { orExit, readGuardEnv } from "@robkit/input";
 import express from "express";
 import { renderToString } from "react-dom/server";
 import styles from "./styles.css?url";
@@ -8,11 +7,10 @@ import { recordVisit } from "./visits.ts";
 
 const app = express();
 
-// The app's slug and core's address, which pnpm dev and robkit deploy set.
-const guard = orExit(readGuardEnv(process.env));
-
-// The rule is the one the owner set for this app in admin.
-app.use(guarded(guard));
+// The guard reads the app's slug and core's address, which pnpm dev and
+// robkit deploy set. The rule is the one the owner set for this app in
+// admin.
+app.use(guarded());
 
 app.get("/", async (_req, res: GuardedResponse) => {
   const { viewer } = res.locals;

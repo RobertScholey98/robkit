@@ -9,11 +9,8 @@ An install reaches it with a `replace` directive in the app's `go.mod`: to this 
 From the template, `packages/create-robkit/templates/stacks/go/server.go`, cut down:
 
 ```go
-options, err := session.ReadGuardEnv(os.Getenv)
-if err != nil {
-	return err
-}
-guarded, err := session.Guarded(options)
+// Reads ROBKIT_APP and ROBKIT_CORE_URL, which pnpm dev and robkit deploy set.
+guarded, err := session.Guarded(session.Options{})
 if err != nil {
 	return err
 }
@@ -35,14 +32,14 @@ return http.ListenAndServe("127.0.0.1:3000", guarded(mux))
 
 `session`:
 
-| Name                                   | What it is                                                                                                                                                                                                                                                                                     |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Guarded(options)`                     | The guard, as a `func(http.Handler) http.Handler`. It answers `/_robkit/session` and `/_robkit/refresh` itself, refuses a write from another origin, and refuses options that won't do. Before the handler runs it sets `X-Frame-Options: SAMEORIGIN`, `nosniff`, and HSTS on an https install |
-| `Options`                              | `App` (the slug), `Core` (core's public origin), an optional fixed `Access` rule, an optional `OnUnavailable`, and `Now`, the clock                                                                                                                                                            |
-| `ReadGuardEnv(getenv)`                 | `Options` from `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy` set. Its error says how to fix each variable                                                                                                                                                           |
-| `ViewerFrom(ctx)`                      | Who is asking, a `guard.Viewer`. It panics for a request that didn't come through `Guarded`                                                                                                                                                                                                    |
-| `WithViewer(ctx, viewer)`              | A context carrying a viewer, for testing a handler                                                                                                                                                                                                                                             |
-| `Fault`, `Failed`, `AccessRuleFailure` | What `OnUnavailable` hears when the guard answers 503: what failed (`core-key`, `access-rule` or `network`), how core's answer for the rule failed, and the cause                                                                                                                              |
+| Name                                   | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Guarded(options)`                     | The guard, as a `func(http.Handler) http.Handler`. It answers `/_robkit/session` and `/_robkit/refresh` itself, refuses a write from another origin, and refuses options that won't do. It reads `App` and `Core` from `ROBKIT_APP` and `ROBKIT_CORE_URL` where `options` leaves them empty, and its error then says how to fix each variable. Before the handler runs it sets `X-Frame-Options: SAMEORIGIN`, `nosniff`, and HSTS on an https install |
+| `Options`                              | All optional: `App` (the slug), `Core` (core's public origin), a fixed `Access` rule, `OnUnavailable`, and `Now`, the clock                                                                                                                                                                                                                                                                                                                           |
+| `ReadGuardEnv(getenv)`                 | `Options` from `ROBKIT_APP` and `ROBKIT_CORE_URL`, read as `Guarded` reads them. Its error says how to fix each variable                                                                                                                                                                                                                                                                                                                              |
+| `ViewerFrom(ctx)`                      | Who is asking, a `guard.Viewer`. It panics for a request that didn't come through `Guarded`                                                                                                                                                                                                                                                                                                                                                           |
+| `WithViewer(ctx, viewer)`              | A context carrying a viewer, for testing a handler                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `Fault`, `Failed`, `AccessRuleFailure` | What `OnUnavailable` hears when the guard answers 503: what failed (`core-key`, `access-rule` or `network`), how core's answer for the rule failed, and the cause                                                                                                                                                                                                                                                                                     |
 
 `guard`:
 

@@ -9,7 +9,6 @@ Apps on the TanStack Start stack use it.
 From the Start template (`templates/stacks/start/src/server.ts`):
 
 ```ts
-import { orExit, readGuardEnv } from "@robkit/input";
 import { guarded, type GuardedContext } from "@robkit/start";
 import entry from "@tanstack/react-start/server-entry";
 
@@ -20,23 +19,25 @@ declare module "@tanstack/react-start" {
   }
 }
 
-// The app's slug and core's address, which pnpm dev and robkit deploy set.
-const guard = orExit(readGuardEnv(process.env));
-
 // The rule is the one the owner set for this app in admin.
-export default guarded(entry, guard);
+export default guarded(entry);
 ```
+
+`guarded(entry)` reads `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and the production image set for every app. When one is missing or won't do, the app prints the problem and exits 1.
+
+The `declare module` block stays in the app's `src/server.ts`. Start's types read it only from there: the same block in this package's types, or in any other file of the app, doesn't reach a server function's `context`.
 
 Pair it with `sessionFetch` from `@robkit/react` in `src/start.ts`, so a server function called after the app's token lapsed sends the browser for a new one instead of failing.
 
 ## Exports
 
-| Export                    | What it is                                                                                                                                                                 |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `guarded(entry, options)` | Start's server entry with the guard in front. It adds `X-Frame-Options: SAMEORIGIN`, `nosniff` and, over https, HSTS to every answer it lets through, where Start set none |
-| `GuardedOptions`          | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                                                                                       |
-| `GuardedContext`          | `{ viewer }`, to register as Start's request context                                                                                                                       |
-| `Viewer`                  | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                  |
+| Export                     | What it is                                                                                                                                                                                    |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guarded(entry, options?)` | Start's server entry with the guard in front. It adds `X-Frame-Options: SAMEORIGIN`, `nosniff` and, over https, HSTS to every answer it lets through, where Start set none                    |
+| `GuardedOptions`           | All optional: `app` (the slug) and `core` (core's public origin), read from `ROBKIT_APP` and `ROBKIT_CORE_URL` when left out and taken as plain strings when given, and a fixed `access` rule |
+| `coreOrigin()`             | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                      |
+| `GuardedContext`           | `{ viewer }`, to register as Start's request context                                                                                                                                          |
+| `Viewer`                   | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                     |
 
 ## What it must never do
 

@@ -161,16 +161,19 @@ function isCoreOrigin(value: string): value is CoreOrigin {
 }
 
 /**
- * Core's public origin, `ROBKIT_CORE_URL`, which an app's guard asks. A
- * path after the origin is dropped, and the URL parser lower-cases the
- * host. It is https unless the install is local, since tokens travel in
- * the URLs of an install's redirects.
+ * Core's public origin, `ROBKIT_CORE_URL` or `name`, which an app's guard
+ * asks. A path after the origin is dropped, and the URL parser lower-cases
+ * the host. It is https unless the install is local, since tokens travel
+ * in the URLs of an install's redirects.
  */
-export function readCoreUrl(env: Env): CoreOrigin | InputProblem {
-  const value = valueOf(env, "ROBKIT_CORE_URL");
+export function readCoreUrl(
+  env: Env,
+  name = "ROBKIT_CORE_URL",
+): CoreOrigin | InputProblem {
+  const value = valueOf(env, name);
   if (value === undefined) {
     return notSet(
-      "ROBKIT_CORE_URL",
+      name,
       "Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.",
     );
   }
@@ -179,25 +182,28 @@ export function readCoreUrl(env: Env): CoreOrigin | InputProblem {
     const { protocol, hostname } = new URL(origin);
     if (protocol === "https:" || isLocal(hostname)) return origin;
     return problem(
-      `ROBKIT_CORE_URL is "${value}", which is http on a domain that isn't local. Serve the install over https and set it to ${origin.replace(/^http:/, "https:")}.`,
+      `${name} is "${value}", which is http on a domain that isn't local. Serve the install over https and set it to ${origin.replace(/^http:/, "https:")}.`,
     );
   }
   return problem(
-    `ROBKIT_CORE_URL is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
+    `${name} is "${value}", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
   );
 }
 
-/** The app's own slug, `ROBKIT_APP`. */
-export function readAppSlug(env: Env): Slug | InputProblem {
-  const value = valueOf(env, "ROBKIT_APP");
+/** The app's own slug, `ROBKIT_APP` or `name`. */
+export function readAppSlug(
+  env: Env,
+  name = "ROBKIT_APP",
+): Slug | InputProblem {
+  const value = valueOf(env, name);
   if (value === undefined) {
     return notSet(
-      "ROBKIT_APP",
+      name,
       "Run the app with pnpm dev, which sets it to the app's slug.",
     );
   }
   const slug = readSlug(value);
-  return isProblem(slug) ? problem(`ROBKIT_APP: ${slug.error}`) : slug;
+  return isProblem(slug) ? problem(`${name}: ${slug.error}`) : slug;
 }
 
 /**

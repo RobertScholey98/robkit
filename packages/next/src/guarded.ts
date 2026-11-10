@@ -47,9 +47,13 @@ async function forServerAction(
  * lets the request through with the viewer for `viewer()`, sends the
  * browser to log in or for a token from core, or answers 404. The guard
  * answers `/_robkit/*` itself. Export it as `proxy` from `src/proxy.ts`.
+ *
+ * It needs no options: it reads the app's slug and core's origin from
+ * `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy`
+ * set, and ends the process with the reader's message when one won't do.
  */
 export function guarded(
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): (request: Request) => Promise<Response> {
   const check = requestGuard(options);
   const origin = appOrigin(options);

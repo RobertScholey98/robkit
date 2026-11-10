@@ -35,12 +35,16 @@ export interface GuardedContext {
  * `nosniff` and, on an https install, HSTS, where Start set none of the
  * same name.
  *
+ * It needs no options: it reads the app's slug and core's origin from
+ * `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy`
+ * set, and ends the process with the reader's message when one won't do.
+ *
  * It wraps the server entry rather than sitting in `src/start.ts`, because
  * Start loads that file in the browser too, and the guard is server code.
  */
 export function guarded(
   entry: ServerEntry,
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): ServerEntry {
   const check = requestGuard(options);
   return {
