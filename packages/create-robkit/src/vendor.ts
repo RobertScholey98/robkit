@@ -76,10 +76,11 @@ export const vendorDir = "vendor/robkit";
  * those run on, into its `vendor/robkit` folder, as `pnpm publish` would
  * pack it, and points the install's overrides at those tarballs. An install
  * made before a package arrived behind another, as `@robkit/provision`
- * did behind `@robkit/core`, then asks npm for neither. It copies robkit's Go module too. The
- * install then builds without the checkout, as a Docker build on a host
- * must, before the packages are on npm. Run `pnpm install` afterwards to
- * take them in.
+ * did behind `@robkit/core`, then asks npm for neither. It copies robkit's
+ * Go module too. The install then builds without the checkout, as a Docker
+ * build on a host must, before the packages are on npm. Run `pnpm install`
+ * afterwards to take them in. It changes the install's settings last, so a
+ * run that fails before then can run again.
  */
 export async function vendorPackages(root: string): Promise<void> {
   // Refuses a folder that isn't an install.
@@ -113,6 +114,7 @@ export async function vendorPackages(root: string): Promise<void> {
   // them finds the rest by name. One pnpm builds them all, in dependency
   // order, and one packs them, rather than two pnpm processes a package.
   const cwd = first[1].slice(protocol.length);
+  await copyGoModule(root, join(cwd, "..", "..", "go"));
   // `name...` picks the package and what it depends on, and
   // --filter-prod leaves out its dev dependencies.
   const filters = names.flatMap((name) => ["--filter-prod", `${name}...`]);
@@ -145,17 +147,16 @@ export async function vendorPackages(root: string): Promise<void> {
     path,
     await format(workspace.toString(), { filepath: pnpmSettings }),
   );
-  await vendorGoModule(root, join(cwd, "..", "..", "go"));
+  await pointGoAppsAtCopy(root);
 }
 
 /**
  * Copies robkit's Go module from `goDir`, in the checkout, to the install's
  * `vendor/robkit/go`, in place of any copy there, leaving out its tests and
- * its manifest, and points each Go app's go.mod at the copy. It copies the
- * module whether or not an app needs it yet, so `robkit add --stack go`
- * works after vendoring.
+ * its manifest. It copies the module whether or not an app needs it yet, so
+ * `robkit add --stack go` works after vendoring.
  */
-async function vendorGoModule(root: string, goDir: string): Promise<void> {
+async function copyGoModule(root: string, goDir: string): Promise<void> {
   const goModule = await readGoModule(goDir).catch((error: unknown) => {
     if (!isMissing(error)) throw error;
     throw new CommandProblem(
@@ -164,6 +165,10 @@ async function vendorGoModule(root: string, goDir: string): Promise<void> {
     );
   });
   await writeGoModule(root, goModule);
+}
+
+/** Points each Go app's go.mod at the install's copy of robkit's Go module. */
+async function pointGoAppsAtCopy(root: string): Promise<void> {
   const apps = join(root, "apps");
   for (const entry of await readdir(apps, { withFileTypes: true })) {
     const goMod = join(apps, entry.name, "go.mod");

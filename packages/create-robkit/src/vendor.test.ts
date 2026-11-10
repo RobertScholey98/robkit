@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { CommandProblem } from "@robkit/dev/cli";
@@ -115,6 +122,29 @@ describe("vendorPackages", () => {
             `^pnpm --recursive --filter-prod @robkit/broken\\.\\.\\. pack --json --pack-destination ".+" exited with 4 in ${escape(checkout)}\\. It printed:\\n[^]*prepack: \`exit 4\`[^]*\\nFix what it says, then try again\\.$`,
           ),
         );
+      });
+
+      it("runs again cleanly after it couldn't copy the Go module", async () => {
+        const { dir, root } = await linkedToBroken(
+          { build: "exit 0" },
+          defaultChoices,
+          { withGo: false },
+        );
+        await expect(vendorPackages(dir)).rejects.toThrow(
+          "can't copy robkit's Go module",
+        );
+        for (const [path, text] of Object.entries(goModule)) {
+          await mkdir(join(root, "go", path, ".."), { recursive: true });
+          await writeFile(join(root, "go", path), text);
+        }
+
+        await vendorPackages(dir);
+
+        expect(await overridesOf(dir)).toEqual({
+          "@robkit/broken": "file:vendor/robkit/robkit-broken-0.0.0.tgz",
+          "styled-jsx>@babel/core": "-",
+        });
+        await access(join(dir, "vendor/robkit/go/guard/guard.go"));
       });
 
       it("says which package pnpm didn't pack, and where to look", async () => {
