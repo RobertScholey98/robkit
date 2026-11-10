@@ -22,7 +22,7 @@
 - [x] `AGENTS.md` and `CLAUDE.md` point at `.scratch/just-use-it/issues/`
 - [x] The PR's Proof lists each doc read, with what changed in it
 - [x] The map's decisions, known gaps and "Not yet specified" are current
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -79,3 +79,11 @@ Gaps no doc covers:
 - Backups, observability and secret rotation for a running install. The map lists them as not yet specified.
 - Native Windows. Docs say to use WSL, and `pnpm dev` runs there. Native Windows waits on ticket 21.
 - The Go version. `CONTRIBUTING.md` and the install's docs say Go 1.26 or later, `go.mod` says 1.26.0, and CI runs 1.27.3. Ticket 25 owns that.
+
+### Merged
+
+Added by the lead. PR 99 merged into `m3-making-an-install` on 2026-11-10 as `8f83804a`, with `gate`, `check` and `pull-request` green on `bf852788`.
+
+I read the whole diff and checked ten of its claims against the code: what `pnpm check` runs, which packages keep a `*.test-d.ts`, where `Report`, the addresses and `isDomain` live, the three repo checks its README gained, and the test name `CONTRIBUTING.md` filters on. Each held.
+
+The code round's fixes landed after the build wrote records 0020 and 0021, so I brought both up to the code as it merged, in commits of their own. Neither had reached `main`, so I changed their text and added no dated note. I did the same for `packages/dev/README.md`, create-robkit's README, `docs/conventions/errors.md`, and one line each in the install's `README.md` and `AGENTS.md`.
