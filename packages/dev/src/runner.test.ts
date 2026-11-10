@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { runDev } from "./runner.ts";
 
 const bin = fileURLToPath(new URL("robkit-dev-command.ts", import.meta.url));
@@ -34,6 +34,28 @@ describe("runDev", () => {
     await expect(running).rejects.toThrow(
       "Go isn't installed, or isn't on your PATH",
     );
+  });
+
+  it("refuses a folder with no robkit.json, in this process too", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "not-an-install-"));
+
+    await expect(runDev(folder, process.env)).rejects.toThrow(
+      `${folder} isn't a robkit install: it has no robkit.json. Run pnpm dev in an install's folder.`,
+    );
+  });
+
+  it("exits 1, starting nothing, when a setting won't do", async () => {
+    const root = await emptyInstall();
+    const printed: unknown[] = [];
+    const error = vi.spyOn(console, "error").mockImplementation((line) => {
+      printed.push(line);
+    });
+    onTestFinished(() => {
+      error.mockRestore();
+    });
+
+    expect(await runDev(root, { ROBKIT_DEV_PORT: "nope" })).toBe(1);
+    expect(printed).toEqual([expect.stringContaining("ROBKIT_DEV_PORT")]);
   });
 
   it("prints one line saying so when run outside an install", async () => {

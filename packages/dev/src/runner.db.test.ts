@@ -318,6 +318,48 @@ describe("robkit-dev", () => {
     expect(await runningContainers(root)).toBe("");
   });
 
+  // In this process too, so the coverage report sees the runner's other
+  // ways to stop. The tests that run the command prove what it prints.
+  it("stops it all on SIGHUP in this process", async () => {
+    const { root, port, env } = await devInstall();
+    onTestFinished(() => {
+      process.emit("SIGHUP", "SIGHUP");
+    });
+
+    const running = runDev(root, env);
+    await eventually(() => get(port, "alpha.robkit.localhost"));
+    process.emit("SIGHUP", "SIGHUP");
+
+    expect(await running).toBe(0);
+    expect(await isListening(port + 1)).toBe(false);
+    expect(await runningContainers(root)).toBe("");
+  });
+
+  it("stops it all and returns 1 when an app exits, in this process", async () => {
+    const { root, port, env } = await devInstall();
+
+    const running = runDev(root, {
+      ...env,
+      FIXTURE_CRASH: "beta",
+      FIXTURE_SLOW_START: "alpha",
+    });
+
+    expect(await running).toBe(1);
+    expect(await isListening(port + 1)).toBe(false);
+    expect(await runningContainers(root)).toBe("");
+  });
+
+  it("throws why when an app can't start, in this process", async () => {
+    const { root, env } = await devInstall();
+
+    const running = runDev(root, { ...env, FIXTURE_REMOVE_APP: "beta" });
+
+    await expect(running).rejects.toThrow(
+      /^pnpm run dev couldn't start in \S+\/apps\/beta/,
+    );
+    expect(await runningContainers(root)).toBe("");
+  });
+
   it("starts nothing when a migration fails", async () => {
     const dev = await startDev({ FIXTURE_FAIL_MIGRATE: "1" });
 
