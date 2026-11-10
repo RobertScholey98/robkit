@@ -19,3 +19,4 @@ To change one of these, open a ticket that argues against it. If R accepts it, w
 | [0011](0011-pure-guard-thin-adapters.md)       | The guard is a pure function, and adapters are thin                                |
 | [0012](0012-only-the-proxy-reaches-core.md)    | Only the proxy may reach core                                                      |
 | [0013](0013-go-guard-is-a-port.md)             | The Go guard is a port, tested against the same cases                              |
+| [0014](0014-guard-knows-its-own-address.md)    | The guard works out the app's address from its settings, never from the request    |
