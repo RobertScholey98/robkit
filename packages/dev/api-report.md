@@ -50,9 +50,7 @@ export function readProvisionConfig(env: Env): ProvisionConfig | InputProblem;
 ## @robkit/dev/cli
 
 ```ts
-export class CommandProblem extends Error {
-  name: string;
-}
+export { CommandProblem } from "@robkit/input/command";
 export function exec(
   command: string,
   args: string[],
@@ -63,10 +61,7 @@ export function exec(
   },
 ): Promise<void>;
 export function isMissing(error: unknown): boolean;
-export const reportFaultsAt: "https://github.com/RobertScholey98/robkit/issues";
+export { reportFaultsAt } from "@robkit/input/command";
 export function requireGo(env?: NodeJS.ProcessEnv): Promise<void>;
-export function runCommand(
-  main: () => Promise<number | undefined>,
-  report?: Report,
-): Promise<number>;
+export { runCommand } from "@robkit/input/command";
 ```

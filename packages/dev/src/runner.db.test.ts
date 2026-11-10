@@ -16,7 +16,7 @@ import {
   testTag,
 } from "@internal/test-postgres";
 import { afterEach, describe, expect, it } from "vitest";
-import { reportFaultsAt } from "./run-command.ts";
+import { reportFaultsAt } from "@robkit/input/command";
 
 const run = promisify(execFile);
 const bin = fileURLToPath(new URL("robkit-dev-command.ts", import.meta.url));

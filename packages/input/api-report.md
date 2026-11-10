@@ -111,6 +111,19 @@ export type Report = (message: string, cause?: unknown) => void;
 export const reportToConsole: Report;
 ```
 
+## @robkit/input/command
+
+```ts
+export class CommandProblem extends Error {
+  name: string;
+}
+export const reportFaultsAt: "https://github.com/RobertScholey98/robkit/issues";
+export function runCommand(
+  main: () => Promise<number | undefined>,
+  report?: Report,
+): Promise<number>;
+```
+
 ## @robkit/input/manifest
 
 ```ts

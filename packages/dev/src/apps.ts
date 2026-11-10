@@ -19,7 +19,7 @@ import {
 import { install } from "@robkit/input/addresses";
 import { isMissing } from "./files.ts";
 import type { Route } from "./proxy.ts";
-import { CommandProblem } from "./run-command.ts";
+import { CommandProblem } from "@robkit/input/command";
 
 /**
  * One folder under `apps/`. Its folder name is its slug, which is also its

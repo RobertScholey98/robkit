@@ -2,7 +2,7 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CommandProblem } from "./run-command.ts";
+import { CommandProblem } from "@robkit/input/command";
 import { exec, windowsCommandLine } from "./exec.ts";
 
 describe("exec", () => {
