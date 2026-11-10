@@ -21,7 +21,7 @@ type Decision =
   | { outcome: "not-found" };
 ```
 
-So does `requestGuard`, which an adapter switches on:
+So does `requestGuard`, which an adapter switches on. An answer it serves carries the guard's headers, which say who may frame it:
 
 ```ts
 import { requestGuard } from "@robkit/session";
@@ -35,7 +35,9 @@ async function handle(request: Request): Promise<Response> {
     case "answer":
       return decision.response;
     case "serve":
-      return new Response(`Hello, ${decision.viewer.kind}`);
+      return new Response(`Hello, ${decision.viewer.kind}`, {
+        headers: [...decision.headers],
+      });
   }
 }
 ```
