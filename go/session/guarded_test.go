@@ -1352,3 +1352,94 @@ func TestDefaultOnUnavailableReportsTheAppWhatFailedAndTheCause(t *testing.T) {
 		t.Errorf("logged %q", log.String())
 	}
 }
+
+// answerHeaders is each of conformance.AnswerHeaders an answer carries,
+// every value it sends joined with a comma, so a header sent twice can't
+// match a row.
+func answerHeaders(header http.Header) map[string]string {
+	got := map[string]string{}
+	for _, name := range conformance.AnswerHeaders {
+		if values := header.Values(name); len(values) > 0 {
+			got[name] = strings.Join(values, ", ")
+		}
+	}
+	return got
+}
+
+func TestGuardOnWhatAnAnswerTellsTheBrowser(t *testing.T) {
+	for _, c := range conformance.HeaderCases(t) {
+		t.Run(c.Name, func(t *testing.T) {
+			var rule guard.AccessRule = guard.OpenRule{}
+			if c.Access == "owner" {
+				rule = guard.OwnerRule{}
+			}
+			wrap, err := session.Guarded(session.Options{App: fakecore.App, Access: rule, Core: c.Core})
+			if err != nil {
+				t.Fatal(err)
+			}
+			reached := false
+			handler := wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				reached = true
+				if r.URL.Path == "/moved" {
+					http.Redirect(w, r, "/", http.StatusFound)
+					return
+				}
+				w.Header().Set("content-security-policy", "default-src 'self'")
+				_, _ = io.WriteString(w, "the app")
+			}))
+			page := strings.Replace(c.Core, "//core.", "//"+fakecore.App+".", 1) + c.Target
+			r := httptest.NewRequest(c.Method, page, nil)
+			for name, value := range c.Headers {
+				r.Header.Set(name, value)
+			}
+			if c.SignedOut {
+				r.Header.Set("cookie", fakecore.SignedOutCookie(c.Core))
+			}
+			w := httptest.NewRecorder()
+
+			handler.ServeHTTP(w, r)
+
+			if got := answerHeaders(w.Result().Header); w.Code != c.Status || reached != c.Reached || !reflect.DeepEqual(got, c.Answer) {
+				t.Errorf("got %d, reached %v, %v; want %d, reached %v, %v", w.Code, reached, got, c.Status, c.Reached, c.Answer)
+			}
+		})
+	}
+}
+
+func TestGuardAnswers404WithBothHeaders(t *testing.T) {
+	core := fakecore.Start(t)
+
+	res := ownerOnly(t, core).get(core.Page, navigate, cookie(core.Key.Token(fakecore.TokenOptions{Holder: fakecore.Guest()})))
+
+	want := map[string]string{"x-frame-options": "SAMEORIGIN", "x-content-type-options": "nosniff"}
+	if got := answerHeaders(res.header); res.status != 404 || !reflect.DeepEqual(got, want) {
+		t.Errorf("got %d %v", res.status, got)
+	}
+}
+
+func TestGuardAnswers503WithBothHeadersWhenItCantCheckTheSession(t *testing.T) {
+	core := fakecore.Start(t)
+	core.SetStatus(503)
+
+	res := guarded(t, core, session.Options{Access: guard.OwnerRule{}, OnUnavailable: func(session.Fault) {}}).
+		get(core.Page, cookie(core.Key.Token(fakecore.TokenOptions{})))
+
+	want := map[string]string{"x-frame-options": "SAMEORIGIN", "x-content-type-options": "nosniff"}
+	if got := answerHeaders(res.header); res.status != 503 || !reflect.DeepEqual(got, want) {
+		t.Errorf("got %d %v", res.status, got)
+	}
+}
+
+func TestGuardSendsNosniffAndNoFramingHeaderOnItsCallbacksRedirect(t *testing.T) {
+	core := fakecore.Start(t)
+	open := ownerOnly(t, core)
+	away := open.get(core.Page, navigate)
+	token := core.Key.Token(fakecore.TokenOptions{})
+
+	back := open.get(callbackFor(core.Page, stateIn(away.location()), &token), navigate, cookiesFrom(away))
+
+	want := map[string]string{"x-content-type-options": "nosniff"}
+	if got := answerHeaders(back.header); back.status != 302 || !reflect.DeepEqual(got, want) {
+		t.Errorf("got %d %v", back.status, got)
+	}
+}

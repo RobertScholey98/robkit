@@ -26,6 +26,21 @@ func (r response) write(w http.ResponseWriter) {
 	_, _ = w.Write(r.body)
 }
 
+// strictTransportSecurity is HSTS's value on an https install: a year, for
+// the host that sends it alone. robkit refuses plain http off a local
+// domain, so an https install stays https. No includeSubDomains, since the
+// domain may hold hosts robkit doesn't run. @robkit/session sends the same.
+const strictTransportSecurity = "max-age=31536000"
+
+// isRedirect says whether status sends the browser on to another address.
+func isRedirect(status int) bool {
+	switch status {
+	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+		return true
+	}
+	return false
+}
+
 // text is a plain-text answer that no cache keeps.
 func text(body string, status int) response {
 	header := http.Header{}
