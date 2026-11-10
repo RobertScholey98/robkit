@@ -48,7 +48,7 @@ This ticket also removes the gap `SECURITY.md` lists today, "The sign-in limit i
 - [x] With a small map set and full, the right password from a new client signs in on `/login`
 - [x] A limit that trips writes one log line, and the refusals that follow write none until it clears and trips again
 - [x] `SECURITY.md`'s known gaps give the arithmetic with the number of live codes, what the limit costs, and the three things it leaves, and no longer say the limit is soft
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -88,3 +88,7 @@ Chosen in the build.
 - **Ticket 29:** a code's length is checked nowhere near the limit. The budget holds all codes to 20 wrong an hour, short ones included.
 - **Ticket 31:** the queue is `createPasswordChecker` in `password.ts`, made once in `createApp` and handed on as `context.passwords`. A second queue for a cookie-bearing `/login` would be a second checker sharing the same thread budget, so its `atOnce` plus the first's must stay under 4.
 - **`docs/adr/0012-only-the-proxy-reaches-core.md`** still says the limit is soft, among its consequences. I left the ADR as written, since it records the decision of its day.
+
+### Merged
+
+Added by the lead. PR 79 merged into `m1-the-subdomain-boundary` on 2026-11-10, with `gate` green on `25a21cc`. The `production` job didn't run: the PR changes no image.
