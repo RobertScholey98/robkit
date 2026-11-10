@@ -108,6 +108,18 @@ describe("provisionDatabase", () => {
     ]);
   });
 
+  // The password goes into DDL, which takes no parameter. robkit's own
+  // callers pass hex, but the argument is anyone's to give.
+  it("takes a password with a quote and a backslash in it, as written", async () => {
+    const password = `it's \\' "odd"; drop role postgres --`;
+
+    const app = connect(await provisioned(slug("quoted"), password));
+
+    expect(await app`select current_user as name`).toEqual([
+      { name: "quoted" },
+    ]);
+  });
+
   it("refuses a name that can't be a slug", async () => {
     expect(
       // @ts-expect-error Only readSlug makes a Slug.

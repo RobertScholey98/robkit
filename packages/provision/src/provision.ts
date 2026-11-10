@@ -157,6 +157,16 @@ export async function provisionDatabase(
 const raceAttempts = 10;
 
 /**
+ * `text` as a string constant in SQL. A statement that makes or alters a
+ * role takes no parameter, so the password is written into it. The `E`
+ * form reads a backslash the same way whatever the server's
+ * `standard_conforming_strings` says.
+ */
+function literal(text: string): string {
+  return `E'${text.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
+}
+
+/**
  * One try at an app's role and schema, in one transaction: the check of
  * `pg_roles` and what it decides go together, so a race shows up as an
  * error rather than a role made twice.
@@ -188,7 +198,7 @@ async function provisionInOne(
   }
   const verb = existing ? "alter" : "create";
   await tx.unsafe(
-    `${verb} role ${role} with login nosuperuser nocreatedb nocreaterole password '${password}'`,
+    `${verb} role ${role} with login nosuperuser nocreatedb nocreaterole password ${literal(password)}`,
   );
   const [{ database } = { database: "" }] = await tx<
     { database: string }[]
