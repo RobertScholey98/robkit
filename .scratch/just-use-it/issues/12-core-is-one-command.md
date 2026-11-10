@@ -74,7 +74,7 @@
 
 ### For ticket 11
 
-- Core listens and stops in `listenUntilStopped` (`packages/core/src/listen.ts`), called from `serveCore` (`serve-core.ts`). On SIGTERM or SIGINT it closes the server, lets open requests finish, runs `onStopped` (core closes its database), prints `<name> stopped` and resolves 0. If it can't listen, such as a taken port, it runs `onStopped` and rejects. Its doc comment says ticket 11 moves it to `@robkit/serve`.
+- Core listens and stops in `listenUntilStopped` (`packages/core/src/listen.ts`), called from `serveCore` (`serve-core.ts`). On SIGTERM or SIGINT it closes the server, lets open requests finish, runs `onStopped` (core closes its database), prints `<name> stopped` and resolves 0. The lead added one thing after CI failed its test: an answer sent while stopping says `Connection: close`, because Node's `close()` leaves a connection that was busy open as keep-alive and goes on answering on it. Ticket 11's comments hold what was measured, and what the stop still lacks: a limit. If it can't listen, such as a taken port, it runs `onStopped` and rejects. Its doc comment says ticket 11 moves it to `@robkit/serve`.
 - In an image, Docker's SIGTERM goes straight to the `start` script's last command, so each stack's server must handle SIGTERM and exit 0 itself. The production test proves it for core and Go (`stopApp` in `tooling/e2e/src/production-checks.ts`). Add a Node stack there once its server handles the signal.
 
 ### Proof

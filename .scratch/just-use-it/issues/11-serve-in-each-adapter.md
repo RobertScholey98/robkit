@@ -46,3 +46,13 @@
 ### From milestone 1, added by the lead
 
 `servePage()` takes the hub's headers, HSTS included, from `@robkit/input/headers`, where ticket 10 moved what ticket 06 wrote in `@robkit/session`. `securityHeaders(origin, "none")` gives them. Don't write the values again. When this ticket lands, take the hub out of `SECURITY.md`'s "What isn't covered" under framing.
+
+### From ticket 12's build, added by the lead
+
+Node's `server.close()` doesn't do all that "The stop" asks. I measured it on Node 24 with a plain `http` server:
+
+- **A connection busy when `close()` runs stays open as keep-alive.** Node goes on answering new requests on it, and the server never finishes closing while the client keeps it. A proxy with requests to send could hold a server open until Docker kills it. Core's `listenUntilStopped` (`packages/core/src/listen.ts`) now answers with `Connection: close` while it is stopping, and Node then closes the connection with that answer. Its test holds a keep-alive connection open through the signal. Keep both when the code moves to `@robkit/serve`.
+- **A connection that has sent nothing holds the server open too.** `closeIdleConnections()` doesn't count it as idle, and `close()` stops the timer that would have timed it out. Nothing in core answers this yet.
+- **An answer whose headers went out before the signal can't be marked.** Its connection closes when Node's keep-alive timeout runs out, 5 seconds after the answer ends.
+
+So give the stop a limit, shorter than Docker's 10 seconds. When it runs out, close every connection that is left with `closeAllConnections()`, then stop as usual. Say in the line the server prints, or in a second line, when it had to do that. Add a test that holds a silent connection open through the signal and expects the process to exit with code 0 inside the limit.
