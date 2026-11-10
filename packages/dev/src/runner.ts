@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { install } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
+import { CommandProblem } from "@robkit/input/command";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { readDevConfig } from "./env.ts";
 import { exec, prefixLines, startProblem } from "./exec.ts";
@@ -13,8 +14,8 @@ import { provisionApps } from "./provision.ts";
 import { requireGo } from "./toolchain.ts";
 
 /**
- * `robkit-dev`: runs the install in `root` for local development. Finds the
- * apps, refusing any folder that isn't a slug, or a Go app without Go, before
+ * `robkit-dev`: runs the install in `root` for local development, refusing a
+ * folder with no `robkit.json`. Finds the apps, refusing any folder that isn't a slug, or a Go app without Go, before
  * it starts anything. Starts Postgres, runs the provision step, starts every
  * app and puts the proxy in front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
  *
@@ -26,6 +27,11 @@ export async function runDev(
   root: string,
   env: NodeJS.ProcessEnv,
 ): Promise<number> {
+  if (!existsSync(join(root, "robkit.json"))) {
+    throw new CommandProblem(
+      `${root} isn't a robkit install: it has no robkit.json. Run pnpm dev in an install's folder.`,
+    );
+  }
   const config = readDevConfig(env);
   if (isProblem(config)) {
     console.error(config.error);
