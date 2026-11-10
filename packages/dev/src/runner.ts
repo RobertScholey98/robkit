@@ -134,7 +134,7 @@ export async function runDev(
       throw error;
     });
 
-    const databaseUrls = await provisionApps(root, {
+    const databaseUrls = await provisionApps(apps, {
       adminUrl,
       env: { ...shellEnv, ...sharedSettings(facts) },
       signal: stopController.signal,
