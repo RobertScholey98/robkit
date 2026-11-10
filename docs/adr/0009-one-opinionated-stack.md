@@ -10,8 +10,12 @@ robkit once offered a choice of package manager, ORM, UI kit and dev tools at in
 
 Every install has pnpm, Drizzle, shadcn on Base UI, ESLint with Prettier, Husky with lint-staged, and Vitest. Init asks only for the folder and the example app's stack. Every install offers every stack: TanStack Start, and React with Hono. The templates are plain folders, `base` and one per stack.
 
+> **Note, 2026-11-10:** there are five stacks now: TanStack Start, React + Hono, React + Express, Next.js and React + Go. Every install still offers every one.
+
 ## Consequences
 
 - Every install of one robkit version has the same `packages/ui`, `packages/theme`, `packages/core-client` and catalog, so an app written for one install fits another.
 - The other options were deleted outright, not hidden.
 - A new stack is one entry in `packages/create-robkit/src/choices.ts` plus its folder in `templates/stacks/`.
+
+  > **Note, 2026-11-10:** a new stack also needs its adapter, unless one that exists fits, and its own whole-stack test file. "Add a stack" in `packages/create-robkit/README.md` lists each step.
