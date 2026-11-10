@@ -44,3 +44,13 @@ export interface GuestOptions {
 export { nobody } from "@robkit/guard/testing";
 export { owner } from "@robkit/guard/testing";
 ```
+
+## @robkit/express/serve
+
+```ts
+export function serve(app: RequestHandler, options?: ServeOptions): Server;
+export interface ServeOptions extends ServerOptions {
+  assets?: string;
+  public?: string;
+}
+```

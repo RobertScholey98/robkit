@@ -44,6 +44,7 @@
     "@robkit/guard": "workspace:*",
     "@robkit/input": "workspace:*",
     "@robkit/provision": "workspace:*",
+    "@robkit/serve": "workspace:*",
     "@robkit/session": "workspace:*",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",

@@ -40,7 +40,9 @@ A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page s
 - `next.config.ts` is one call, `withRobkit()` from `@robkit/next/config`. It puts the build in `dist`, lets the dev proxy's host reach Next's dev server, and under `pnpm dev` stops the app as it starts, with the guard's message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. Put the app's own Next settings in its argument, such as `withRobkit({ images: { ... } })`.
 - `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. Telemetry is off: `pnpm dev` sets `NEXT_TELEMETRY_DISABLED` for every app, because `next dev`'s own process never loads `next.config.ts`, and `withRobkit()` sets it for `next build`. Next's production server sends none.
 - `pnpm build` runs `next build`, which writes the build to `dist`.
-- The production image runs the `start` script, which migrates and then runs `src/serve.ts`. It serves the build with Next's request handler on `HOST` and `PORT`.
+- The production image runs the `start` script, which migrates and then runs `src/serve.ts`.
+- `src/serve.ts` calls `serve()` from `@robkit/next/serve`. It listens on `HOST` and `PORT`, hands every request to Next, and stops on SIGTERM. Next answers its built files under `/_next/static` and this app's `public` folder itself. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
+- Built files are public. Next answers `/_next/static` without the guard, since the matcher in `src/proxy.ts` leaves `/_next/` out, so put nothing in the client's code that a viewer shouldn't see. Files in `public` go through the guard.
 - `dependencies` are what runs in production: Next, React, and what `src/serve.ts` imports, `@robkit/next`, since Next loads `next.config.ts` in production too, and `@robkit/drizzle` with `drizzle-orm` and `postgres`, which the `migrate` script runs. The production image installs only those. `next build` bundles everything else the pages and the proxy import, the UI kit among them, so those are dev dependencies.
 
 ## Testing

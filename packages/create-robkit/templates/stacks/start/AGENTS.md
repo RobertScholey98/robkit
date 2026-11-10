@@ -33,6 +33,14 @@ The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through,
 
 Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` from `@tanstack/react-start/server`. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack.
 
+## Serving
+
+- `pnpm dev` runs Vite, and `tanstackStart()` in `vite.config.ts` serves the app through `src/server.ts` and its guard.
+- `pnpm build` runs `vite build`, which writes the client's files to `dist/client`, with this app's `public` folder copied in, and Start's server entry to `dist/server`.
+- The production image runs the `start` script, which migrates and then runs `src/serve.ts`. It calls `serve()` from `@robkit/start/serve`, which listens on `HOST` and `PORT`, answers the files in `dist/client` at the root, hands every other request to Start's server entry, and stops on SIGTERM. It never answers anything in `dist/server`. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
+- Built files are public. `serve` answers `dist/client`, `public`'s copy included, before the guard runs, so put nothing in `public` that a viewer shouldn't see.
+- `dependencies` are what the server imports when it runs. The production image installs only those, so a package the server needs that sits in `devDependencies` is missing there.
+
 ## Testing
 
 `pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does, and needs no database, no core and no `pnpm dev`. A server function runs only through Start's compiler and request handler, so a test calls what its handler calls instead. `src/home.test.tsx` shows the pattern:

@@ -33,8 +33,10 @@ Set it in the handler, with `res.set("Content-Security-Policy", ...)`, or in mid
 
 ## Serving
 
-- `pnpm dev` runs Vite. `expressApp()` from `@robkit/vite/express`, in `vite.config.ts`, hands every request Vite doesn't answer itself to the Express app in `src/server.tsx`, which it loads afresh after each change. Don't call `app.listen` in `src/server.tsx`.
-- `pnpm build` builds `src/serve.ts`, which serves the built stylesheet and then the app, into `dist/serve.js`. The production image runs the `start` script, which migrates and then runs it.
+- `pnpm dev` runs Vite. `expressApp()` from `@robkit/vite/express`, in `vite.config.ts`, hands every request Vite doesn't answer itself to the Express app in `src/server.tsx`, which it loads afresh after each change. Don't listen in `src/server.tsx`.
+- `pnpm build` builds `src/serve.ts` into `dist/serve.js`, and the stylesheet the page links into `dist/assets`. The production image runs the `start` script, which migrates and then runs it.
+- `src/serve.ts` calls `serve(server)` from `@robkit/express/serve`. It listens on `HOST` and `PORT`, answers `dist/assets` under `/assets` and this app's `public` folder at the root, hands every other request to the app, and stops on SIGTERM. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
+- Built files are public. `serve` answers `dist/assets`, and every file in `public`, before the guard runs, so put nothing there that a viewer shouldn't see.
 - `dependencies` are what the server imports when it runs. The production image installs only those, so a package the server needs that sits in `devDependencies` is missing there.
 
 ## Testing

@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { isRedirect, securityHeaders, withHeaders } from "./headers.ts";
+import {
+  isRedirect,
+  noSniff,
+  securityHeaders,
+  withHeaders,
+} from "./headers.ts";
+
+describe("noSniff", () => {
+  it("is the header that stops a browser guessing an answer's type", () => {
+    expect(noSniff).toEqual(["x-content-type-options", "nosniff"]);
+  });
+});
 
 describe("securityHeaders", () => {
   it("lets pages on the same origin frame an answer, over http", () => {

@@ -14,7 +14,6 @@
     "@internal/ui": "workspace:*",
     "@robkit/drizzle": "catalog:",
     "@robkit/express": "catalog:",
-    "@robkit/input": "catalog:",
     "drizzle-orm": "catalog:",
     "express": "catalog:",
     "postgres": "catalog:",

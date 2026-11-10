@@ -29,10 +29,10 @@ Core loads its signing key before it listens. On SIGTERM it stops taking new req
 
 ### Your own core
 
-To change how core starts, write your own `main.ts` from the same parts, and point `apps/core`'s scripts at it. It needs `@hono/node-server` and `@robkit/input` in `apps/core`'s dependencies:
+To change how core starts, write your own `main.ts` from the same parts, and point `apps/core`'s scripts at it. It needs `@hono/node-server`, `@robkit/input` and `@robkit/serve` in `apps/core`'s dependencies:
 
 ```ts
-import { serve } from "@hono/node-server";
+import { getRequestListener } from "@hono/node-server";
 import {
   createApp,
   createDatabase,
@@ -42,6 +42,7 @@ import {
   registerApps,
 } from "@robkit/core";
 import { orExit } from "@robkit/input";
+import { serve } from "@robkit/serve";
 
 const config = orExit(readCoreConfig(process.env));
 
@@ -62,12 +63,12 @@ const app = createApp({
 });
 
 // Core trusts the proxy's X-Forwarded-For, so only the proxy may reach it.
-// A container sets HOST to listen beyond loopback.
-const { host: hostname, port } = config;
-const server = serve({ fetch: app.fetch, hostname, port });
-
-process.on("SIGTERM", () => {
-  server.close(() => void db.$client.end());
+// A container sets HOST to listen beyond loopback. On SIGTERM it lets open
+// requests finish, then closes the database and exits 0.
+serve(getRequestListener(app.fetch), {
+  name: "core",
+  address: { host: config.host, port: config.port },
+  onStopped: () => db.$client.end(),
 });
 ```
 
@@ -102,6 +103,6 @@ Core's routes are in `src/routes/`, one Hono app each for status, the session, c
 - `session-claims.ts` holds the session logic that needs no database: when a session expires, the holder's claims and guard viewer, and when a live session's token renews. `session-store.ts` calls it, and its unit tests need no Postgres.
 - The sign-in limit is in `rate-limit.ts`, keyed by `clientOf` in `client.ts`, with its defaults in `sign-in-limits.ts`. `/login` and `/login/code` reserve a place before they check, and release it in a `finally` unless the verdict is wrong. `/login/code` also reserves one in the install's budget of wrong codes. Every password hash and check runs through the one `PasswordChecker` from `password.ts` that `createApp` puts in the context, which runs 2 at once. When a limit trips, core writes one line to `logError`.
 - Each 500 carries a fresh request id, in the `X-Request-Id` header and the body's `requestId`. The log line names the same id, such as `GET /path failed (request <id>).`, so a 500 a person reports leads to its cause in core's log.
-- `robkit-core` is `src/robkit-core.ts`. `start` and `serve` in a checkout run `src/serving.ts` as a child, passing SIGTERM and SIGINT on and waiting; `serve` elsewhere runs it in its own process. `src/listen.ts` listens and stops; ticket 11 moves it to `@robkit/serve`.
+- `robkit-core` is `src/robkit-core.ts`. `start` and `serve` in a checkout run `src/serving.ts` as a child, passing SIGTERM and SIGINT on and waiting; `serve` elsewhere runs it in its own process. It listens and stops through `listenUntilStopped` from `@robkit/serve`.
 - Two cores can start together, as in a rolling deploy, with no advisory lock: any role in the shared database can take any advisory key. The provision step tries an app again when it loses a race, `migrate` and `ensureSigningKey` lock core's own tables, which only core's role can, and `registerApps` adds an app's roles only in the core whose insert added it.
 - Core adds a new app with the rule it declares, or owner-only, and creates any role it names that the owner lacks. After that admin sets who may open it, and core keeps the owner's rule.

@@ -391,7 +391,7 @@ describe("robkit-core serve", () => {
 
     const now = new Date();
     await utimes(
-      fileURLToPath(new URL("listen.ts", import.meta.url)),
+      fileURLToPath(new URL("serve-core.ts", import.meta.url)),
       now,
       now,
     );

@@ -43,6 +43,7 @@ export async function GET(): Promise<Response> {
 | `Viewer`               | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                     |
 | `@robkit/next/testing` | For tests only: `owner()`, `guest({ roles })` and `nobody()`. See [Testing](#testing)                                                                                                         |
 | `@robkit/next/config`  | `withRobkit(config?)`, for `next.config.ts`. See [The config](#the-config)                                                                                                                    |
+| `@robkit/next/serve`   | `serve(options?)`, which serves the built app in production. See [Serving](#serving)                                                                                                          |
 
 ## A lapsed session
 
@@ -111,6 +112,20 @@ Next loads `next.config.ts` in production as well, so an app lists `@robkit/next
 | Export                | What it is                                                                                                              |
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `withRobkit(config?)` | The function Next calls with its phase. `distDir` and `agentRules` are robkit's; the app's other settings stay as given |
+
+## Serving
+
+`@robkit/next/serve` serves the built app in production. An app's `src/serve.ts` is the import and one call:
+
+```ts nocheck
+import { serve } from "@robkit/next/serve";
+
+await serve();
+```
+
+It reads `HOST` and `PORT`, 127.0.0.1 and 3000 unless set, and refuses a malformed one with the reader's message before Next loads. Then it makes Next's server in production mode from the folder the app runs in, waits for it to be ready, and hands it every request. Next answers its own built files under `/_next/static`, from `dist/static`, and the files in the app's `public` folder, and runs `proxy.ts`, the guard, before its pages. Nothing else in `dist` is answered. Every answer carries `nosniff`. On SIGTERM it stops as `@robkit/serve` does and exits 0. It resolves with the Node server, so a WebSocket server can attach to it and a test can close it.
+
+`ServeOptions` are `@robkit/serve`'s `name` and `onStopped`.
 
 ## What it must never do
 

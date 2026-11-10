@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./testing": "./src/testing.ts",
-    "./config": "./src/config.ts"
+    "./config": "./src/config.ts",
+    "./serve": "./src/serve.ts"
   },
   "publishConfig": {
     "exports": {
@@ -21,6 +22,10 @@
       "./config": {
         "types": "./dist/config.d.ts",
         "default": "./dist/config.js"
+      },
+      "./serve": {
+        "types": "./dist/serve.d.ts",
+        "default": "./dist/serve.js"
       }
     }
   },
@@ -55,6 +60,7 @@
   "dependencies": {
     "@robkit/guard": "workspace:*",
     "@robkit/input": "workspace:*",
+    "@robkit/serve": "workspace:*",
     "@robkit/session": "workspace:*"
   },
   "peerDependencies": {

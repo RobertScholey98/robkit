@@ -69,20 +69,19 @@ export function readServeEnv(
 }
 ```
 
-An app's `serve.ts` calls it once, at start:
+`serve()` in `@robkit/serve` calls it once, before it listens, so an app's `serve.ts` never does. A server of your own calls it the same way:
 
 ```ts
-import { serve } from "@hono/node-server";
+import { createServer } from "node:http";
 import { orExit, readServeEnv } from "@robkit/input";
-import { Hono } from "hono";
 
-const app = new Hono(); // the app's routes go here
-
-const { host: hostname, port } = orExit(readServeEnv(process.env));
-serve({ fetch: app.fetch, hostname, port });
+const { host, port } = orExit(readServeEnv(process.env));
+createServer((request, response) => {
+  response.end("hello");
+}).listen(port, host);
 ```
 
-With `PORT=80000` the app prints this and stops:
+With `PORT=80000` the server prints this and stops:
 
 ```text
 PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, or leave it unset for 3000.

@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@robkit/drizzle": "catalog:",
-    "@robkit/input": "catalog:",
     "@robkit/next": "catalog:",
     "drizzle-orm": "catalog:",
     "next": "catalog:",

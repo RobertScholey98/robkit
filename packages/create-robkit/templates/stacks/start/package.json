@@ -11,16 +11,13 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@hono/node-server": "catalog:",
     "@internal/ui": "workspace:*",
     "@robkit/drizzle": "catalog:",
-    "@robkit/input": "catalog:",
     "@robkit/react": "catalog:",
     "@robkit/start": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
     "drizzle-orm": "catalog:",
-    "hono": "catalog:",
     "postgres": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"

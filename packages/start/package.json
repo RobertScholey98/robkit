@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./serve": "./src/serve.ts"
   },
   "publishConfig": {
     "exports": {
@@ -16,6 +17,10 @@
       "./testing": {
         "types": "./dist/testing.d.ts",
         "default": "./dist/testing.js"
+      },
+      "./serve": {
+        "types": "./dist/serve.d.ts",
+        "default": "./dist/serve.js"
       }
     }
   },
@@ -36,7 +41,10 @@
   },
   "dependencies": {
     "@robkit/guard": "workspace:*",
-    "@robkit/session": "workspace:*"
+    "@robkit/input": "workspace:*",
+    "@robkit/serve": "workspace:*",
+    "@robkit/session": "workspace:*",
+    "srvx": "catalog:"
   },
   "peerDependencies": {
     "@tanstack/react-start": "^1.169.4"
@@ -45,7 +53,6 @@
     "@internal/eslint-config": "workspace:*",
     "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
-    "@robkit/input": "workspace:*",
     "@tanstack/react-start": "catalog:",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",

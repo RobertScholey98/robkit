@@ -36,20 +36,30 @@ export const packageGraph = {
   },
   // Adapters take session and guard, never core.
   "@robkit/hono": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
+    dependencies: ["@robkit/guard", "@robkit/serve", "@robkit/session"],
     devDependencies: ["@internal/test-session", "@robkit/input"],
   },
   "@robkit/express": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
+    dependencies: ["@robkit/guard", "@robkit/serve", "@robkit/session"],
     devDependencies: ["@internal/test-session", "@robkit/input"],
   },
   "@robkit/next": {
-    dependencies: ["@robkit/guard", "@robkit/input", "@robkit/session"],
+    dependencies: [
+      "@robkit/guard",
+      "@robkit/input",
+      "@robkit/serve",
+      "@robkit/session",
+    ],
     devDependencies: ["@internal/test-session"],
   },
   "@robkit/start": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: ["@internal/test-session", "@robkit/input"],
+    dependencies: [
+      "@robkit/guard",
+      "@robkit/input",
+      "@robkit/serve",
+      "@robkit/session",
+    ],
+    devDependencies: ["@internal/test-session"],
   },
   "@robkit/react": {
     dependencies: ["@robkit/session"],
@@ -71,14 +81,15 @@ export const packageGraph = {
       "@robkit/provision",
     ],
   },
-  // robkit-core runs the provision step before it migrates and serves, and
-  // migrates through the apps' migrator.
+  // robkit-core runs the provision step before it migrates and serves,
+  // migrates through the apps' migrator, and listens as every server does.
   "@robkit/core": {
     dependencies: [
       "@robkit/drizzle",
       "@robkit/guard",
       "@robkit/input",
       "@robkit/provision",
+      "@robkit/serve",
       "@robkit/session",
     ],
     devDependencies: ["@internal/test-postgres", "@internal/test-session"],
@@ -102,6 +113,10 @@ export const packageGraph = {
   // Everything robkit adds to Vite. Apps list it under devDependencies, and
   // it is the one published package that names vite, so no image holds it.
   "@robkit/vite": { dependencies: ["@robkit/input"], devDependencies: [] },
+  // What every server does the same way: listen, serve the client's files
+  // and stop. Nothing from the guard, Vite or a stack, so the hub's image
+  // holds none of them.
+  "@robkit/serve": { dependencies: ["@robkit/input"], devDependencies: [] },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
   "@internal/tsconfig": { dependencies: [], devDependencies: [] },
   "@internal/test-postgres": { dependencies: [], devDependencies: [] },
@@ -123,6 +138,7 @@ export const packageGraph = {
       "@robkit/next",
       "@robkit/provision",
       "@robkit/react",
+      "@robkit/serve",
       "@robkit/session",
       "@robkit/start",
       "@robkit/vite",

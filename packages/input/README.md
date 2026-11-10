@@ -6,7 +6,7 @@ Every robkit package and every app can import it. It imports nothing, so the bro
 
 ## Example
 
-An app's `serve.ts` reads where to listen once, at start. `orExit` gives back the value, or prints the problem alone and exits 1:
+A server reads where to listen once, at start, as `@robkit/serve` does. `orExit` gives back the value, or prints the problem alone and exits 1:
 
 ```ts
 import { orExit, readServeEnv } from "@robkit/input";
@@ -71,13 +71,14 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 
 ### `@robkit/input/headers`
 
-The headers robkit sends with an answer, written here and nowhere else in TypeScript. The guard, core, `robkit()` for the hub in dev, and the hub's server all take them from here. `@robkit/session` re-exports them for the adapters. Go's port writes the same values in `go/session`; change both together.
+The headers robkit sends with an answer, written here and nowhere else in TypeScript. The guard, core, `robkit()` for the hub in dev, and `@robkit/serve` all take them from here. `@robkit/session` re-exports them for the adapters. Go's port writes the same values in `go/session`; change both together.
 
 | Export                                        | What it is                                                                                                                                               |
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `securityHeaders(origin, framers)`, `Framers` | `nosniff`, HSTS when `origin` is https, and who may frame the answer: `same-origin`, `none`, or `undefined` for a redirect, which gets no framing header |
 | `withHeaders(response, headers)`              | `response` with each of `headers` it lacks, copied first when its headers can't change                                                                   |
 | `isRedirect(status)`                          | Whether `status` sends the browser on                                                                                                                    |
+| `noSniff`                                     | The `X-Content-Type-Options: nosniff` pair alone, which a server sends with the files it answers before the guard                                        |
 
 ### `@robkit/input/report`
 

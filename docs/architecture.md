@@ -195,7 +195,7 @@ flowchart TD
 | An app's dev server and build config            | `packages/vite/src/robkit.ts` and `express.ts` (`@robkit/vite`), `packages/next/src/config.ts` (`@robkit/next/config`) |
 | The headers robkit sends                        | `packages/input/src/headers.ts` (`@robkit/input/headers`), and `go/session/` for Go                                    |
 | Each app's schema and role                      | `packages/provision/src/provision.ts` (`@robkit/provision`)                                                            |
-| How core starts and stops                       | `packages/core/src/robkit-core.ts`, `serve-core.ts`, `listen.ts`                                                       |
+| How core starts and stops                       | `packages/core/src/robkit-core.ts`, `serve-core.ts`, and `packages/serve/src/listen.ts`                                |
 | What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/`                             |
 | `robkit add`                                    | `packages/create-robkit/src/add.ts`, `add-wizard.ts`                                                                   |
 | The install's layer rule                        | `packages/create-robkit/src/check.ts`                                                                                  |

@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./serve": "./src/serve.ts"
   },
   "publishConfig": {
     "exports": {
@@ -16,6 +17,10 @@
       "./testing": {
         "types": "./dist/testing.d.ts",
         "default": "./dist/testing.js"
+      },
+      "./serve": {
+        "types": "./dist/serve.d.ts",
+        "default": "./dist/serve.js"
       }
     }
   },
@@ -35,7 +40,9 @@
     "test:unit": "vitest run --typecheck --coverage"
   },
   "dependencies": {
+    "@hono/node-server": "catalog:",
     "@robkit/guard": "workspace:*",
+    "@robkit/serve": "workspace:*",
     "@robkit/session": "workspace:*"
   },
   "peerDependencies": {

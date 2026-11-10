@@ -16,8 +16,10 @@ import {
 } from "./production-journey.ts";
 import { buildApp, hostEnv, startApp } from "./production-apps.ts";
 import {
+  answerOf,
   answers,
   extraneousPackages,
+  imagePackages,
   robkitPackages,
   stackReport,
   stopApp,
@@ -170,6 +172,7 @@ describe("the default install in production", () => {
   // Core's manifest doesn't name @robkit/provision: it arrives behind
   // core, from the tarball robkit vendor packed, not from npm.
   // @robkit/drizzle arrives the same way, and the apps name it too.
+  // @robkit/serve arrives behind core as well.
   it("puts core's robkit packages in its image, and not the dev runner", async () => {
     expect(await robkitPackages(stack, slug("core"))).toEqual([
       "@robkit/core",
@@ -177,8 +180,35 @@ describe("the default install in production", () => {
       "@robkit/guard",
       "@robkit/input",
       "@robkit/provision",
+      "@robkit/serve",
       "@robkit/session",
     ]);
+  });
+
+  // The hub is a built page, served by servePage(), so its image holds
+  // @robkit/serve and the input it reads, and nothing from the guard.
+  it("puts @robkit/serve and what it runs on in the hub's image", async () => {
+    expect(await robkitPackages(stack, slug("hub"))).toEqual([
+      "@robkit/input",
+      "@robkit/serve",
+    ]);
+  });
+
+  // No page can frame the hub, which takes the owner's password.
+  it("sends the hub's page with headers that refuse every framer, over https", async () => {
+    const { headers } = await answerOf(stack, slug("hub"));
+
+    expect({
+      frame: headers["x-frame-options"],
+      policy: headers["content-security-policy"],
+      sniff: headers["x-content-type-options"],
+      hsts: headers["strict-transport-security"],
+    }).toEqual({
+      frame: "DENY",
+      policy: "frame-ancestors 'none'",
+      sniff: "nosniff",
+      hsts: "max-age=31536000",
+    });
   });
 
   it("refuses the test code", async () => {
@@ -272,6 +302,15 @@ describe("the default install in production", () => {
     },
   );
 
+  // The extra-packages check counts a peer as needed, so it can't see a
+  // build tool that arrives as one. These two would get Vite that way.
+  it.each(["hub", "express"])(
+    "builds %s's image without vite",
+    async (name) => {
+      expect(await imagePackages(stack, slug(name))).not.toContain("vite");
+    },
+  );
+
   // Next loads next.config.ts, and withRobkit() from @robkit/next/config,
   // as its server starts, so the Next app's image holds @robkit/next and
   // the robkit packages it runs on.
@@ -281,6 +320,7 @@ describe("the default install in production", () => {
       "@robkit/guard",
       "@robkit/input",
       "@robkit/next",
+      "@robkit/serve",
       "@robkit/session",
     ]);
   });
@@ -294,6 +334,22 @@ describe("the default install in production", () => {
       lastLine: "core stopped",
     });
   });
+
+  it.each([
+    { name: "hub", line: "hub stopped" },
+    { name: "admin", line: "admin stopped" },
+    ...[exampleSlug, ...later.map((app) => app.slug)]
+      .filter((name) => name !== slug("go"))
+      .map((name) => ({ name, line: "server stopped" })),
+  ])(
+    "stops $name's container with code 0 on docker stop, once its server has stopped",
+    async ({ name, line }) => {
+      expect(await stopApp(stack, slug(name))).toEqual({
+        exitCode: 0,
+        lastLine: line,
+      });
+    },
+  );
 
   it("stops a Go app's container with code 0 on docker stop", async () => {
     const go = later.find((app) => app.stack === "go");

@@ -434,6 +434,90 @@ describe("generateInstall", () => {
     expect(next.devDependencies).not.toHaveProperty("@robkit/next");
   });
 
+  // What every server does is in the adapter, so serve.ts holds only what
+  // the owner might change: what it serves, and code before the call.
+  it.each([
+    [
+      "stacks/react-hono/src/serve.ts",
+      [
+        'import { serve } from "@robkit/hono/serve";',
+        'import server from "./server.tsx";',
+        "serve(server);",
+      ],
+    ],
+    [
+      "stacks/express/src/serve.ts",
+      [
+        'import { serve } from "@robkit/express/serve";',
+        'import server from "./server.tsx";',
+        "serve(server);",
+      ],
+    ],
+    [
+      "stacks/start/src/serve.ts",
+      ['import { serve } from "@robkit/start/serve";', "await serve();"],
+    ],
+    [
+      "stacks/next/src/serve.ts",
+      ['import { serve } from "@robkit/next/serve";', "await serve();"],
+    ],
+    [
+      "base/apps/admin/src/serve.ts",
+      [
+        'import { serve } from "@robkit/hono/serve";',
+        'import admin from "./server.ts";',
+        'serve(admin, { assets: "dist/client/assets", name: "admin" });',
+      ],
+    ],
+  ])(
+    "gives %s one import of a serve function, the app, and one call",
+    async (path, code) => {
+      const templates = fileURLToPath(
+        new URL("../templates/", import.meta.url),
+      );
+      const text = (await readFolder(templates)).get(path) ?? "";
+
+      expect(
+        text.split("\n").filter((line) => line && !line.startsWith("//")),
+      ).toEqual(code);
+    },
+  );
+
+  // The adapters read HOST and PORT, so a stack's own files never do.
+  it("gives no stack a file that imports @robkit/input, or a manifest that lists it", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+
+    expect(
+      [...files]
+        .filter(
+          ([path, text]) =>
+            path.startsWith("stacks/") && text.includes("@robkit/input"),
+        )
+        .map(([path]) => path),
+    ).toEqual([]);
+  });
+
+  // The hub is a built page, so its image holds @robkit/serve and what it
+  // runs on: no build tool, and nothing from the guard.
+  it("serves the hub with servePage() alone", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+    const manifest = JSON.parse(
+      files.get("base/apps/hub/package.json") ?? "{}",
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+
+    expect(files.get("base/apps/hub/serve.ts")).toBe(
+      'import { servePage } from "@robkit/serve";\n\nservePage({ name: "hub" });\n',
+    );
+    expect(manifest.dependencies).toEqual({ "@robkit/serve": "catalog:" });
+    // The page imports @robkit/input/addresses, which Vite bundles.
+    expect(manifest.devDependencies?.["@robkit/input"]).toBe("catalog:");
+  });
+
   it("tells the root AGENTS.md about each dev tool", async () => {
     const files = await generateInstall(defaultChoices);
     const agents = files.get("AGENTS.md") ?? "";
@@ -545,6 +629,7 @@ describe("generateInstall", () => {
       // No manifest names it: it arrives behind @robkit/core.
       "@robkit/provision": at("provision"),
       "@robkit/react": at("react"),
+      "@robkit/serve": at("serve"),
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),
       "@robkit/vite": at("vite"),

@@ -1,5 +1,6 @@
 import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
+import type { IncomingHttpHeaders } from "node:http";
 import { readFile } from "node:fs/promises";
 import { request } from "node:https";
 import { join } from "node:path";
@@ -9,8 +10,11 @@ import { docker, network, type Stack } from "./production-stack.ts";
 
 const run = promisify(execFile);
 
-/** The robkit packages in `slug`'s image, by name, such as `@robkit/core`. */
-export async function robkitPackages(
+/**
+ * Every package in `slug`'s image, by name, such as `vite` or
+ * `@robkit/core`, each once.
+ */
+export async function imagePackages(
   stack: Stack,
   slug: Slug,
 ): Promise<string[]> {
@@ -22,14 +26,25 @@ export async function robkitPackages(
     `${stack.name}/${slug}`,
     "/install/node_modules/.pnpm",
   );
-  // pnpm keeps each package in a folder such as `@robkit+core@file+...`.
+  // pnpm keeps each package in a folder such as `vite@8.0.5_...` or
+  // `@robkit+core@file+...`, with a scope's slash as a plus.
   return [
     ...new Set(
-      [...store.matchAll(/^@robkit\+([a-z-]+)@/gm)].map(
-        ([, name]) => `@robkit/${name ?? ""}`,
+      [...store.matchAll(/^(@[^+@\s]+\+[^@\s]+|[^@\s]+)@/gm)].map(([, name]) =>
+        (name ?? "").replace("+", "/"),
       ),
     ),
   ].sort();
+}
+
+/** The robkit packages in `slug`'s image, by name, such as `@robkit/core`. */
+export async function robkitPackages(
+  stack: Stack,
+  slug: Slug,
+): Promise<string[]> {
+  return (await imagePackages(stack, slug)).filter((name) =>
+    name.startsWith("@robkit/"),
+  );
 }
 
 /**
@@ -87,7 +102,11 @@ export async function extraneousPackages(
 }
 
 /** What `slug` answers at `path` over https through Caddy. */
-function status(stack: Stack, slug: Slug, path: string): Promise<number> {
+export function answerOf(
+  stack: Stack,
+  slug: Slug,
+  path = "/",
+): Promise<{ status: number; headers: IncomingHttpHeaders }> {
   const host = stack.addresses.host(slug);
   return new Promise((resolve, reject) => {
     request(
@@ -101,7 +120,7 @@ function status(stack: Stack, slug: Slug, path: string): Promise<number> {
       },
       (res) => {
         res.resume();
-        resolve(res.statusCode ?? 0);
+        resolve({ status: res.statusCode ?? 0, headers: res.headers });
       },
     )
       .on("error", reject)
@@ -148,8 +167,9 @@ export async function answers(
   const deadline = Date.now() + 120_000;
   let last: number | string;
   for (;;) {
-    last = await status(stack, slug, path).catch((error: unknown) =>
-      String(error),
+    last = await answerOf(stack, slug, path).then(
+      ({ status }) => status,
+      (error: unknown) => String(error),
     );
     if (last === expected) return;
     if (Date.now() > deadline) {

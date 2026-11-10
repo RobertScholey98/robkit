@@ -10,7 +10,6 @@
     "start": "node src/serve.ts"
   },
   "dependencies": {
-    "@hono/node-server": "catalog:",
     "@robkit/hono": "catalog:",
     "@robkit/input": "catalog:",
     "hono": "catalog:"
