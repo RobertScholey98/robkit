@@ -17,8 +17,8 @@ export function readTrustedProxy(
   );
 }
 
-/** An IPv6 address's eight 16-bit groups, if `address` is one. */
-function groupsOf(address: string): number[] | undefined {
+/** An IPv6 address's eight 16-bit hextets, if `address` is one. */
+function hextetsOf(address: string): number[] | undefined {
   if (!isIPv6(address)) return undefined;
   const [head = "", tail] = address.split("::");
   const words = (part: string | undefined) =>
@@ -45,15 +45,15 @@ function groupsOf(address: string): number[] | undefined {
  * doesn't know, such as `ip:port`, doesn't put every visitor in one limit.
  */
 function networkOf(address: string): string {
-  const groups = groupsOf(address);
-  if (!groups) return address;
-  const [a, b, c, d, e, mapped, high = 0, low = 0] = groups;
+  const hextets = hextetsOf(address);
+  if (!hextets) return address;
+  const [a, b, c, d, e, mapped, high = 0, low = 0] = hextets;
   if (a === 0 && b === 0 && c === 0 && d === 0 && e === 0) {
     if (mapped === 0xffff) {
       return [high >> 8, high & 0xff, low >> 8, low & 0xff].join(".");
     }
   }
-  const prefix = groups.slice(0, 4).map((group) => group.toString(16));
+  const prefix = hextets.slice(0, 4).map((hextet) => hextet.toString(16));
   return `${prefix.join(":")}::/64`;
 }
 
