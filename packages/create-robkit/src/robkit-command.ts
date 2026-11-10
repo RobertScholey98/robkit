@@ -1,22 +1,16 @@
 #!/usr/bin/env node
-import { exec } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import { CommandProblem, runCommand } from "@robkit/dev/cli";
-import {
-  type InputProblem,
-  isProblem,
-  parseJson,
-  type Slug,
-} from "@robkit/input";
+import { isProblem, parseJson } from "@robkit/input";
 import {
   defaultDevPort,
   defaultDomain,
   install as addresses,
 } from "@robkit/input/addresses";
 import { addApp, readInstallChoices } from "./add.ts";
+import { affectedApps } from "./affected-apps.ts";
 import { readArgs } from "./args.ts";
 import {
   addCommandFor,
@@ -27,12 +21,7 @@ import {
 import { readCoolifyConfig } from "./coolify-config.ts";
 import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
-import {
-  readAffectedApps,
-  readAppList,
-  readCoolify,
-  readDatabaseUrlsConfig,
-} from "./env.ts";
+import { readAppList, readCoolify, readDatabaseUrlsConfig } from "./env.ts";
 import { installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
@@ -188,27 +177,6 @@ async function deployInstall(): Promise<number | undefined> {
     affected,
   });
   return ok ? 0 : 1;
-}
-
-/** The apps turbo finds changed since TURBO_SCM_BASE, by slug. */
-async function affectedApps(root: string): Promise<Slug[] | InputProblem> {
-  let stdout: string;
-  try {
-    ({ stdout } = await promisify(exec)("turbo ls --affected --output json", {
-      cwd: root,
-    }));
-  } catch (error) {
-    const said =
-      error instanceof Error && "stderr" in error
-        ? String(error.stderr).trim()
-        : String(error);
-    throw new CommandProblem(
-      `turbo ls --affected couldn't find the apps that changed: ${said.replace(/\.$/, "")}. Name the apps to deploy with --apps, or deploy them all with --all.`,
-      { cause: error },
-    );
-  }
-  const parsed = parseJson(stdout, "turbo ls --affected's output");
-  return isProblem(parsed) ? parsed : readAffectedApps(parsed.json);
 }
 
 async function add(): Promise<undefined> {
