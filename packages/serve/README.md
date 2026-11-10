@@ -23,7 +23,7 @@ It listens on `HOST` and `PORT`, 127.0.0.1 and 3000 unless set, and prints `hell
 
 ## What every server does
 
-- **Files.** It answers a GET or HEAD for a file in each of `files`, in order, before the app, with its `Content-Type`, an `ETag` and `Last-Modified`. A request for an unchanged file answers 304. A path that climbs out of the folder, encoded or not, a dotfile and a folder get no file, and go on to the app. A relative folder is found from the folder the server runs in, which the container sets. Files go out before the guard, so anything in these folders is public.
+- **Files.** It answers a GET or HEAD for a file in each of `files`, in order, before the app, with its `Content-Type`, an `ETag` and `Last-Modified`. A request for an unchanged file answers 304, one for a range the file doesn't have answers 416, and one whose `If-Match` fails answers 412. A URL that climbs out of the folder, encoded or not, a dotfile and a folder get no file, and go on to the app. A link inside the folder is followed, so the file it points at is served too. A relative folder is found from the folder the server runs in, which the container sets. Files go out before the guard, so anything in these folders is public.
 - **`nosniff`.** Every answer carries `X-Content-Type-Options: nosniff`, from `@robkit/input/headers`, so a browser takes a stylesheet or script only with the right type.
 - **Faults.** A handler that throws or rejects gets a 500, and the server prints `<name> couldn't answer <method> <path>.` with the error.
 - **The stop.** On SIGTERM or SIGINT it stops taking new connections, lets the requests already open finish, and closes each connection with its last answer. It runs `onStopped`, prints `<name> stopped` and exits 0. If `onStopped` rejects, it prints `<name> stopped, but its clean-up failed.` with the error, and exits 1. A signal that arrives while it stops is the same request. Docker sends SIGTERM to stop a container, and kills it 10 seconds later.
@@ -79,7 +79,7 @@ process.exit(
 
 ## Serving files
 
-It uses [serve-static](https://github.com/expressjs/serve-static), Express's own, and nothing written by hand. It is maintained by the Express team, sends the content type, `ETag` and `Last-Modified`, answers conditional requests with 304, and refuses a path that climbs out of its folder. An Express app's image already holds it.
+It uses [serve-static](https://github.com/expressjs/serve-static), Express's own, and nothing written by hand. It is maintained by the Express team, sends the content type, `ETag` and `Last-Modified`, answers conditional requests with 304, and refuses a URL that climbs out of its folder. It follows links, as `express.static` does. An Express app's image already holds it.
 
 ## What it must never do
 
