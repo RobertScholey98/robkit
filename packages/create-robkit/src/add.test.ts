@@ -47,7 +47,7 @@ describe("addApp", () => {
 
     expect(await manifest(dir, "notes")).toMatchObject({
       name: "@internal/notes-app",
-      scripts: { migrate: "node src/migrate.ts" },
+      scripts: { migrate: "robkit-migrate" },
       dependencies: { "@robkit/hono": "catalog:" },
       robkit: { access: { kind: "open" }, icon: "📝" },
     });
