@@ -64,6 +64,9 @@ export function guarded(
       return;
     }
     res.locals.viewer = decision.viewer;
+    // Set before the handlers run, so every answer they send carries them,
+    // redirects included. A handler that sets one of its own replaces it.
+    for (const [name, value] of decision.headers) res.setHeader(name, value);
     next();
   };
 }

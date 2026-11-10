@@ -5,9 +5,13 @@ import {
   addressAnswer,
   addressCases,
   addressCookie,
+  answerHeadersOf,
   callbackFor,
   conformanceAnswer,
   fakeCore,
+  headerAnswer,
+  headerCases,
+  headerRequest,
   owner,
   stateIn,
   slug,
@@ -254,6 +258,37 @@ describe("guarded", () => {
     );
 
     expect({ status, reached }).toEqual(writeAnswer(asking));
+  });
+
+  it.each(headerCases)("$name", async (asking) => {
+    let reached = false;
+    const { url, method, headers, access } = headerRequest(asking);
+    const app = express()
+      .use(
+        guarded({
+          app: example,
+          access,
+          core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+        }),
+      )
+      .all("/{*path}", (req, res: GuardedResponse) => {
+        reached = true;
+        if (req.path === "/moved") {
+          res.redirect(302, "/");
+          return;
+        }
+        res
+          .set("content-security-policy", "default-src 'self'")
+          .send("the app");
+      });
+
+    const res = await ask(app, url, { method, headers });
+
+    expect({
+      status: res.status,
+      reached,
+      headers: answerHeadersOf(res.headers),
+    }).toEqual(headerAnswer(asking));
   });
 
   it("leaves the request's body for the app's handlers", async () => {
