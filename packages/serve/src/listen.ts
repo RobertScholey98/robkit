@@ -41,8 +41,9 @@ function connections(count: number): string {
 interface Started {
   server: Server;
   /**
-   * 0 once SIGTERM or SIGINT has stopped the server. It rejects when the
-   * server can't listen, and never settles if something else closes it.
+   * 0 once SIGTERM or SIGINT has stopped the server, or 1 if `onStopped`
+   * then failed. It rejects when the server can't listen, and never
+   * settles if something else closes it.
    */
   stopped: Promise<number>;
 }
@@ -113,10 +114,18 @@ export function start(
       clearTimeout(timer);
       onStopped()
         .finally(unlisten)
-        .then(() => {
-          console.log(`${name} stopped`);
-          resolve(0);
-        }, reject);
+        .then(
+          () => {
+            console.log(`${name} stopped`);
+            resolve(0);
+          },
+          (error: unknown) => {
+            // The server listened and has stopped, so this is no failure
+            // to listen, which is what a rejection means to the caller.
+            console.error(`${name} stopped, but its clean-up failed.`, error);
+            resolve(1);
+          },
+        );
     });
   };
   const unlisten = () => {
@@ -149,7 +158,9 @@ export function start(
  * closes each connection with its last answer, runs `onStopped`, prints
  * `<name> stopped` and resolves with 0, the exit code for a clean stop.
  * Connections still open 8 seconds after the signal are closed, and a line
- * before `<name> stopped` says how many.
+ * before `<name> stopped` says how many. If `onStopped` rejects it prints
+ * `<name> stopped, but its clean-up failed.` with the error, and resolves
+ * with 1.
  * Docker sends SIGTERM to stop a container, and waits 10 seconds before it
  * kills it.
  *

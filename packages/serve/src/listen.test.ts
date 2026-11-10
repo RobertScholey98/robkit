@@ -225,6 +225,34 @@ describe("listenUntilStopped in this process", () => {
     expect(await served).toBe(0);
   });
 
+  // The server did listen, so this must not read as a failure to.
+  it("says its clean-up failed, and resolves 1, when onStopped rejects", async () => {
+    const port = await freePort();
+    const lines = logged();
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    onTestFinished(() => {
+      errors.mockRestore();
+    });
+    const failed = new Error("The database wouldn't close.");
+
+    const served = listenUntilStopped((_request, response) => response.end(), {
+      ...on(port),
+      onStopped: () => Promise.reject(failed),
+    });
+    const listening = `test listening on 127.0.0.1:${String(port)}`;
+    await expect.poll(lines).toContain(listening);
+    process.emit("SIGTERM", "SIGTERM");
+
+    expect(await served).toBe(1);
+    expect(errors.mock.calls).toEqual([
+      ["test stopped, but its clean-up failed.", failed],
+    ]);
+    expect(lines()).toEqual([listening]);
+    expect(process.listenerCount("SIGTERM")).toBe(0);
+  });
+
   it("runs onStopped and rejects when its port is taken", async () => {
     const taken = createServer().listen(0, "127.0.0.1");
     await once(taken, "listening");
