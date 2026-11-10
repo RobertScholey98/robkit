@@ -10,5 +10,5 @@
 
 <!-- The commands you ran and what they printed: tests, lint, a run of the app. Say what you couldn't check. -->
 
-- [ ] `pnpm turbo run lint typecheck test` passes
+- [ ] `pnpm check:all` passes
 - [ ] A change to a published package's source has a changeset (`pnpm changeset`)
