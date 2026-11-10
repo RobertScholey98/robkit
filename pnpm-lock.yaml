@@ -436,9 +436,15 @@ importers:
 
   packages/hono:
     dependencies:
+      '@hono/node-server':
+        specifier: 'catalog:'
+        version: 2.1.5(hono@4.13.14)
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../session

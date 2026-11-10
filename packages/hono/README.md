@@ -49,7 +49,28 @@ app.get("*", (c) => c.html(`<meta name="robkit-core" content="${core}" />`));
 | `coreOrigin()`         | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                                                 |
 | `GuardedEnv`           | The Hono env that types `c.var.viewer`                                                                                                                                                                                   |
 | `Viewer`               | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                                                |
+| `@robkit/hono/serve`   | `serve(app, options?)`, which serves the app in production. See [Serving](#serving)                                                                                                                                      |
 | `@robkit/hono/testing` | For tests only: `owner()`, `guest({ roles })` and `nobody()`, and `guardedAs(viewer)`, a stand-in for `guarded()`. See [Testing](#testing)                                                                               |
+
+## Serving
+
+`@robkit/hono/serve` serves the app in production. An app's `src/serve.ts` is the import, the app and one call:
+
+```ts
+import { serve } from "@robkit/hono/serve";
+import { Hono } from "hono";
+
+const app = new Hono();
+app.get("/", (c) => c.text("hello"));
+
+serve(app);
+```
+
+It listens on `HOST` and `PORT`, 127.0.0.1 and 3000 unless set, and refuses a malformed one with the reader's message. It answers the client's built files in `dist/assets` under `/assets`, then the files in the app's own `public` folder at the root, then the app. Nothing else in `dist`, such as the server's own `dist/serve.js`, is ever answered. Both folders are found from the folder the app runs in, which the container sets. Every answer carries `nosniff`. On SIGTERM it stops as `@robkit/serve` does and exits 0. It returns the Node server, so a WebSocket server can attach to it and a test can close it.
+
+`ServeOptions`: `assets` and `public` move the folders, and `name` and `onStopped` are `@robkit/serve`'s. Admin's client build is in `dist/client`, so it calls `serve(admin, { assets: "dist/client/assets", name: "admin" })`, and Vite's manifest beside it is never answered.
+
+Its files go out before the guard, so they are public.
 
 ## Testing
 

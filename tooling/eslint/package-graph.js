@@ -36,7 +36,7 @@ export const packageGraph = {
   },
   // Adapters take session and guard, never core.
   "@robkit/hono": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
+    dependencies: ["@robkit/guard", "@robkit/serve", "@robkit/session"],
     devDependencies: ["@internal/test-session", "@robkit/input"],
   },
   "@robkit/express": {

@@ -29,6 +29,14 @@ The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through,
 
 Set it in the handler, with `c.header("Content-Security-Policy", ...)`, or in middleware after `guarded`. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack.
 
+## Serving
+
+- `pnpm dev` runs Vite. `devServer()` in `vite.config.ts` hands every request Vite doesn't answer itself to the Hono app in `src/server.tsx`. Don't listen in `src/server.tsx`.
+- `pnpm build` builds `src/serve.ts` into `dist/serve.js`, and the stylesheet the page links into `dist/assets`. The production image runs the `start` script, which migrates and then runs it.
+- `src/serve.ts` calls `serve(server)` from `@robkit/hono/serve`. It listens on `HOST` and `PORT`, answers `dist/assets` under `/assets` and this app's `public` folder at the root, hands every other request to the app, and stops on SIGTERM. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
+- Built files are public. `serve` answers `dist/assets`, and every file in `public`, before the guard runs, so put nothing there that a viewer shouldn't see.
+- `dependencies` are what the server imports when it runs. The production image installs only those, so a package the server needs that sits in `devDependencies` is missing there.
+
 ## Testing
 
 `pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does. A test needs no database, no core and no `pnpm dev`. `src/routes.test.tsx` shows the pattern:

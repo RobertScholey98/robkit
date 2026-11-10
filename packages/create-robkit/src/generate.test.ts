@@ -434,6 +434,39 @@ describe("generateInstall", () => {
     expect(next.devDependencies).not.toHaveProperty("@robkit/next");
   });
 
+  // What every server does is in the adapter, so serve.ts holds only what
+  // the owner might change: what it serves, and code before the call.
+  it.each([
+    [
+      "stacks/react-hono/src/serve.ts",
+      [
+        'import { serve } from "@robkit/hono/serve";',
+        'import server from "./server.tsx";',
+        "serve(server);",
+      ],
+    ],
+    [
+      "base/apps/admin/src/serve.ts",
+      [
+        'import { serve } from "@robkit/hono/serve";',
+        'import admin from "./server.ts";',
+        'serve(admin, { assets: "dist/client/assets", name: "admin" });',
+      ],
+    ],
+  ])(
+    "gives %s one import of a serve function, the app, and one call",
+    async (path, code) => {
+      const templates = fileURLToPath(
+        new URL("../templates/", import.meta.url),
+      );
+      const text = (await readFolder(templates)).get(path) ?? "";
+
+      expect(
+        text.split("\n").filter((line) => line && !line.startsWith("//")),
+      ).toEqual(code);
+    },
+  );
+
   // The hub is a built page, so its image holds @robkit/serve and what it
   // runs on: no build tool, and nothing from the guard.
   it("serves the hub with servePage() alone", async () => {

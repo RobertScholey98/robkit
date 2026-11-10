@@ -11,11 +11,9 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@hono/node-server": "catalog:",
     "@internal/ui": "workspace:*",
     "@robkit/drizzle": "catalog:",
     "@robkit/hono": "catalog:",
-    "@robkit/input": "catalog:",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",
     "postgres": "catalog:",
