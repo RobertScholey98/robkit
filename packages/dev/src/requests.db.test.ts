@@ -81,13 +81,25 @@ async function runningDev(
   const install = await devInstall(prepare);
   const devEnv = { ...install.env, FIXTURE_POSTGRES: fixturePostgres, ...env };
   const running = runDev(install.root, devEnv);
+  // A test that expects it to fail checks how; here it only must stop.
+  const stopped = running.catch(() => undefined);
   onTestFinished(async () => {
     process.emit("SIGINT", "SIGINT");
-    // A test that expects it to fail checks how; here it only must stop.
-    await running.catch(() => undefined);
+    await stopped;
   });
-  await eventually(() => get(install.port, "alpha.robkit.localhost"));
-  await eventually(() => get(install.port, "beta.robkit.localhost"));
+  // A runner that stops before both apps answer, as when Compose fails,
+  // fails the test with its own reason.
+  await Promise.race([
+    (async () => {
+      await eventually(() => get(install.port, "alpha.robkit.localhost"));
+      await eventually(() => get(install.port, "beta.robkit.localhost"));
+    })(),
+    running.then((code) => {
+      throw new Error(
+        `robkit-dev stopped with ${String(code)} before alpha and beta answered.`,
+      );
+    }),
+  ]);
   const ask = (operation: DevOperation, name: string) =>
     askDev(install.root, { operation, slug: slug(name) }, devEnv);
   return { ...install, env: devEnv, running, ask };
