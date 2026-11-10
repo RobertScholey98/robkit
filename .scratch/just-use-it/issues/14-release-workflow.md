@@ -21,7 +21,7 @@
 **Status:** done
 
 - [x] `changeset version` on the current changesets gives every package 0.1.0
-- [ ] The dry-run script passes in CI on this PR with no call to npm, and its log shows each package's version and tarball
+- [x] The dry-run script passes in CI on this PR with no call to npm, and its log shows each package's version and tarball
 - [x] The dry run fails when two packages' versions differ, when a packed manifest still says `workspace:` or `catalog:`, when an `exports` or `bin` target isn't in its tarball, and when a version create-robkit carries isn't the one packed, with a test for each
 - [x] `pnpm release:version` makes the version commit on a new branch, and the pull request body it writes passes the ticket check
 - [x] The workflow can start only by hand, stops on any ref but `main`, and its publish job needs the `release` environment; tests read the workflow file for each
@@ -130,8 +130,10 @@ Its first two CI runs failed, and I fixed each on the branch:
 - **The branch was behind the milestone branch**, so the coverage check read `packages/dev`'s raised thresholds as lowered. I merged the milestone branch in.
 - **An API report test passed its 30 seconds.** Each report takes 3 to 25 seconds on a CI runner. I gave them 120 seconds on the milestone branch. Ticket 25 has the note.
 
+The dry run passed in CI's `pull-request` job on `8d8821d`. Its log has one line for each of the 15 packages, such as `@robkit/core@0.0.0 robkit-core-0.0.0.tgz 67992 B`, and ends `15 packages pack at 0.0.0. Nothing was published.` The script runs `pnpm pack` and nothing that calls npm.
+
 Before the first release:
 
-- Four create-robkit tests expect version 0.0.0, so the version pull request would fail `gate`. The lead fixes them once ticket 15 merges.
+- Six tests named robkit's version as 0.0.0, so the version pull request would have failed `gate`. They read it from `package.json` since `10d49e9` and `109f1a9`. Ticket 15's Merged note has the detail.
 - Ticket 19 must merge first: 0.1.0's first upgrade step can't change once it is published.
 - R does "Set up once" in `CONTRIBUTING.md`'s "Releasing": the `robkit` organisation and a token on npm, then the `release` environment on GitHub, limited to `main`, with R as its reviewer and the token as its `NPM_TOKEN` secret.
