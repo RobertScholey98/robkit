@@ -238,6 +238,25 @@ describe("freePortBlock", () => {
     await eventually(async () => (await readdir(leases)).length === 0);
   });
 
+  it("sets one watcher on a leases folder, however many ask at once", async () => {
+    const leases = await mkdtemp(join(tmpdir(), "robkit-test-leases-"));
+    onTestFinished(() => rm(leases, { recursive: true, force: true }));
+
+    await Promise.all([
+      freePortBlock(3, { leases }),
+      freePortBlock(3, { leases }),
+    ]);
+
+    // A watcher's command line holds the folder it watches.
+    const { stdout } = await run("ps", ["axww", "-o", "command="], {
+      maxBuffer: 256 * 1024 * 1024,
+    });
+    const watchers = stdout
+      .split("\n")
+      .filter((line) => line.includes("watcher.ts") && line.includes(leases));
+    expect(watchers).toHaveLength(1);
+  });
+
   it("finds consecutive ports that can all be listened on", async () => {
     const first = await freePortBlock(3);
     const servers = [first, first + 1, first + 2].map((port) =>

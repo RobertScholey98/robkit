@@ -100,16 +100,29 @@ export interface PortBlockOptions {
   pick?: () => number;
 }
 
-/** The leases folders this process has a watcher for. */
-const watched = new Set<string>();
+/** Each leases folder this process uses, once it is made and watched. */
+const watching = new Map<string, Promise<void>>();
+
+/**
+ * Makes the leases folder and sets the watcher that removes this process's
+ * leases once it is gone. It does so once for each folder, however many
+ * ask at the same time: a second watcher would race the first to remove
+ * the same leases, and one of them would stop on a lease already gone.
+ */
+function watch(leases: string): Promise<void> {
+  let ready = watching.get(leases);
+  if (!ready) {
+    ready = mkdir(leases, { recursive: true }).then(() => {
+      removeWhenGone({ leases, owner: process.pid });
+    });
+    watching.set(leases, ready);
+  }
+  return ready;
+}
 
 /** Takes the lease on the block starting at `first`, or says it's taken. */
 async function lease(leases: string, first: number): Promise<boolean> {
-  if (!watched.has(leases)) {
-    await mkdir(leases, { recursive: true });
-    removeWhenGone({ leases, owner: process.pid });
-    watched.add(leases);
-  }
+  await watch(leases);
   try {
     // Making a symlink is atomic, so of two processes that ask at once only
     // one gets it.
