@@ -35,8 +35,11 @@ import { handOver, putBack } from "./upgrade-handover.ts";
 /** Where an install keeps robkit's lint policy, from its root. */
 const lintPolicyDir = "tooling/eslint";
 
-/** The folders upgrade replaces whole, which it refuses as links. */
+/** The folders upgrade replaces whole. */
 const ownedFolders = [lintPolicyDir, vendoredGoDir];
+
+/** The files upgrade writes, or pnpm writes for it. */
+const ownedFiles = [pnpmSettings, "pnpm-lock.yaml", "package.json"];
 
 const versionPattern =
   /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
@@ -206,17 +209,37 @@ async function requireCleanGit(
   }
 }
 
-/** Refuses either folder upgrade replaces whole when it is a link. */
+/** Whether `path` is a link. A path that isn't there is none. */
+async function isLink(path: string): Promise<boolean> {
+  const stats = await lstat(path).catch((error: unknown) => {
+    if (isMissing(error)) return undefined;
+    throw error;
+  });
+  return stats?.isSymbolicLink() ?? false;
+}
+
+/**
+ * Refuses a link at a file upgrade writes, at a folder it replaces whole,
+ * or at any folder above one. Through a link it would write or remove
+ * files outside the install, which git can't put back.
+ */
 async function refuseLinks(root: string): Promise<void> {
-  for (const folder of ownedFolders) {
-    const stats = await lstat(join(root, folder)).catch((error: unknown) => {
-      if (isMissing(error)) return undefined;
-      throw error;
-    });
-    if (stats?.isSymbolicLink()) {
+  for (const file of ownedFiles) {
+    if (await isLink(join(root, file))) {
       throw new CommandProblem(
-        `${folder} is a link. robkit upgrade replaces that folder whole and follows no link. Put a folder of its own in its place and commit it, then run pnpm robkit upgrade again.`,
+        `${file} is a link. robkit upgrade writes that file and follows no link. Put a file of its own in its place and commit it, then run pnpm robkit upgrade again.`,
       );
+    }
+  }
+  for (const folder of ownedFolders) {
+    const names = folder.split("/");
+    for (const depth of names.keys()) {
+      const link = names.slice(0, depth + 1).join("/");
+      if (await isLink(join(root, link))) {
+        throw new CommandProblem(
+          `${link} is a link. robkit upgrade replaces ${folder} whole and follows no link. Put a folder of its own in its place and commit it, then run pnpm robkit upgrade again.`,
+        );
+      }
     }
   }
 }
@@ -551,6 +574,8 @@ async function finish(
   repo: RobkitRepo,
   env: NodeJS.ProcessEnv,
 ): Promise<Finished> {
+  // The first step checked, but this one can be run by hand.
+  await refuseLinks(root);
   const settingsPath = join(root, pnpmSettings);
   const settings = await readFile(settingsPath, "utf8");
   const catalog = await raiseCatalog(settings, await installCatalog(repo));

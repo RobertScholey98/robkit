@@ -6,6 +6,7 @@ import {
   mkdtemp,
   readdir,
   readFile,
+  rename,
   rm,
   symlink,
   writeFile,
@@ -360,28 +361,57 @@ describe("robkit upgrade's checks", () => {
   });
 
   // A link in git needs core.symlinks, which Windows' git leaves off.
+  it.skipIf(process.platform === "win32").each([
+    ["tooling/eslint", "tooling/eslint"],
+    ["tooling", "tooling/eslint"],
+    ["vendor/robkit/go", "vendor/robkit/go"],
+    ["vendor/robkit", "vendor/robkit/go"],
+    ["vendor", "vendor/robkit/go"],
+  ])("refuses %s as a link, and changes nothing", async (link, folder) => {
+    // What the link points to holds the folder upgrade would replace.
+    const elsewhere = await mkdtemp(join(tmpdir(), "robkit-elsewhere-"));
+    const kept = join(relative(link, folder), "policy.js");
+    await mkdir(dirname(join(elsewhere, kept)), { recursive: true });
+    await writeFile(join(elsewhere, kept), "export default [];\n");
+    const { dir, env } = await committedInstall(async (dir) => {
+      await rm(join(dir, link), { recursive: true, force: true });
+      await mkdir(dirname(join(dir, link)), { recursive: true });
+      await symlink(elsewhere, join(dir, link));
+    });
+    const pnpm = await fakePnpm({ view: published }, env);
+    const before = await written(dir);
+
+    await expect(upgrade(dir, undefined, pnpm.env)).rejects.toThrow(
+      `${link} is a link. robkit upgrade replaces ${folder} whole and follows no link. Put a folder of its own in its place and commit it, then run pnpm robkit upgrade again.`,
+    );
+    expect(await written(dir)).toEqual(before);
+    expect(await filesUnder(elsewhere)).toEqual(
+      new Map([[kept, "export default [];\n"]]),
+    );
+  });
+
   it
     .skipIf(process.platform === "win32")
-    .each(["tooling/eslint", "vendor/robkit/go"])(
+    .each(["pnpm-workspace.yaml", "pnpm-lock.yaml", "package.json"])(
     "refuses %s as a link, and changes nothing",
-    async (folder) => {
-      const elsewhere = await mkdtemp(join(tmpdir(), "robkit-elsewhere-"));
-      await writeFile(join(elsewhere, "policy.js"), "export default [];\n");
+    async (file) => {
+      const elsewhere = join(
+        await mkdtemp(join(tmpdir(), "robkit-elsewhere-")),
+        file,
+      );
       const { dir, env } = await committedInstall(async (dir) => {
-        await rm(join(dir, folder), { recursive: true, force: true });
-        await mkdir(join(dir, folder, ".."), { recursive: true });
-        await symlink(elsewhere, join(dir, folder));
+        await rename(join(dir, file), elsewhere);
+        await symlink(elsewhere, join(dir, file));
       });
       const pnpm = await fakePnpm({ view: published }, env);
       const before = await written(dir);
 
       await expect(upgrade(dir, undefined, pnpm.env)).rejects.toThrow(
-        `${folder} is a link. robkit upgrade replaces that folder whole and follows no link. Put a folder of its own in its place and commit it, then run pnpm robkit upgrade again.`,
+        `${file} is a link. robkit upgrade writes that file and follows no link. Put a file of its own in its place and commit it, then run pnpm robkit upgrade again.`,
       );
+      // It reads each file through its link, so this is what the link
+      // points to as well.
       expect(await written(dir)).toEqual(before);
-      expect(await filesUnder(elsewhere)).toEqual(
-        new Map([["policy.js", "export default [];\n"]]),
-      );
     },
   );
 
@@ -614,6 +644,37 @@ describe("robkit upgrade's second step", () => {
       `  tooling/eslint: robkit ${newerVersion}'s lint policy\n  vendor/robkit/go: robkit ${newerVersion}'s Go module\n`,
     );
   });
+
+  // Run by hand, the second step has no first step's checks before it.
+  it.skipIf(process.platform === "win32")(
+    "replaces no folder through a link, and leaves what the link points to",
+    async () => {
+      const repo = await newerRepo();
+      const elsewhere = await mkdtemp(join(tmpdir(), "robkit-elsewhere-"));
+      await mkdir(join(elsewhere, "eslint"));
+      await writeFile(join(elsewhere, "eslint/kept.js"), "// Not robkit's.\n");
+      const { dir, env } = await committedInstall(async (dir) => {
+        await rm(join(dir, "tooling"), { recursive: true, force: true });
+        await symlink(elsewhere, join(dir, "tooling"));
+      });
+      const pnpm = await fakePnpm({ view: published }, env);
+      await stepOne(dir);
+
+      await expect(
+        finishUpgrade(dir, {
+          from: robkitVersion,
+          repo,
+          changelog: undefined,
+          env: pnpm.env,
+        }),
+      ).rejects.toThrow(
+        "tooling is a link. robkit upgrade replaces tooling/eslint whole and follows no link.",
+      );
+      expect(await filesUnder(elsewhere)).toEqual(
+        new Map([["eslint/kept.js", "// Not robkit's.\n"]]),
+      );
+    },
+  );
 
   it("writes no Go module in an install with no Go app", async () => {
     const { dir, env } = await committedInstall();
