@@ -95,3 +95,17 @@ Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Both raised the sa
 - The map's ADR list names "upgrade's two steps, with the handover that can't change (19)". The record should cite `src/upgrade-handover.ts`, its hash test, and the choices under "The handover, as 0.1.0 will ship it" above.
 - The install's README has an "Upgrade robkit" section with the undo commands, the install's `AGENTS.md` an "Upgrading robkit" one, each stack's `AGENTS.md` a short one, and create-robkit's README an "Upgrade" section for contributors. `docs/testing.md` describes the upgrade test.
 - Before 0.1.0 is released, ticket 14's runbook should read the frozen file once more. After it, the hash in `upgrade-handover.test.ts` is never updated.
+
+### From the lead's read of the pull request, 2026-11-10
+
+I read all of PR 97 and checked two of its claims against the tools.
+
+- **`pnpm view` asks the registry pnpm installs from.** In pnpm 11.28.9 it is pnpm's own command. With `pnpm_config_registry` set to a port nothing listens on, it tried that port. With `npm_config_registry` set the same way, it asked npm's registry.
+- **Replacing `tooling/eslint` whole leaves nothing to install.** In an install the folder holds `policy.js` and the files it imports, with no `package.json`, so pnpm keeps no `node_modules` in it.
+
+I changed two things on the branch before it merged:
+
+- **Upgrade says it is asking the registry before it asks.** pnpm tries a registry it can't reach for over a minute before it fails, and upgrade printed nothing meanwhile.
+- **The frozen file says what a later second step can count on.** The first step puts back its five paths when the second fails, and no others. A later version whose second step writes anywhere else has to put that back itself. That is in the file's first comment now, and the hash in its test moved with it.
+
+Left as built, for R to read before the first release: the choices under "The handover, as 0.1.0 will ship it" above. I agree with each. `pnpm exec robkit` is the one that differs from this ticket's text, which said `pnpm robkit`.
