@@ -1,6 +1,8 @@
+import { existsSync } from "node:fs";
 import { chmod, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { withPathAhead } from "./path.ts";
 
@@ -10,6 +12,8 @@ export interface FakePnpmSettings {
   view: unknown;
   /** Which `pnpm install`, counting from 1, fails, if any. */
   failInstall?: number;
+  /** Whether `pnpm install` waits, once it has started, until it is killed. */
+  holdInstall?: boolean;
   /** The robkit command `pnpm exec robkit` runs, with node. */
   robkit?: string;
 }
@@ -23,7 +27,7 @@ const robkitBin = fileURLToPath(
 // pnpm-lock.yaml on each install, so a test sees the lockfile change, and
 // runs the robkit command for `exec robkit`.
 const fake = `import { spawnSync } from "node:child_process";
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 const here = (name) => new URL(name, import.meta.url);
 const settings = JSON.parse(readFileSync(here("settings.json"), "utf8"));
 const args = process.argv.slice(2);
@@ -39,7 +43,10 @@ if (command === "view") {
   const installs = readFileSync(here("calls.jsonl"), "utf8")
     .split("\\n").filter((line) => line.startsWith('["install"')).length;
   appendFileSync("pnpm-lock.yaml", "# install " + installs + "\\n");
-  if (settings.failInstall === installs) {
+  if (settings.holdInstall) {
+    writeFileSync(here("holding"), String(process.pid));
+    setInterval(() => {}, 1000);
+  } else if (settings.failInstall === installs) {
     console.error("it failed");
     process.exit(1);
   }
@@ -60,6 +67,8 @@ export interface FakePnpm {
   set(settings: FakePnpmSettings): Promise<void>;
   /** The arguments of each call it took, in order. */
   calls(): Promise<string[][]>;
+  /** The pid of the `pnpm install` that `holdInstall` has waiting. */
+  held(): Promise<number>;
 }
 
 /** A fake pnpm, first on `env`'s PATH, doing what `settings` say. */
@@ -98,5 +107,13 @@ export async function fakePnpm(
         .split("\n")
         .filter(Boolean)
         .map((line) => JSON.parse(line) as string[]),
+    held: async () => {
+      const holding = join(dir, "holding");
+      for (;;) {
+        const pid = existsSync(holding) ? await readFile(holding, "utf8") : "";
+        if (pid !== "") return Number(pid);
+        await delay(20);
+      }
+    },
   };
 }

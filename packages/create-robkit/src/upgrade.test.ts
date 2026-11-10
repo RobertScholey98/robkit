@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { once } from "node:events";
 import { existsSync } from "node:fs";
 import {
@@ -859,6 +859,40 @@ describe("robkit upgrade on the command line", () => {
       "robkit upgrade couldn't ask the registry which versions of create-robkit it has",
     );
   });
+
+  // Ctrl+C in a terminal reaches robkit and the pnpm it is running. Windows
+  // has no SIGINT for a test to send.
+  it.skipIf(process.platform === "win32")(
+    "puts every file back when Ctrl+C stops pnpm install",
+    async ({ onTestFinished }) => {
+      const { dir, env } = await committedInstall();
+      const pnpm = await fakePnpm({ view: published, holdInstall: true }, env);
+      const robkit = spawn(process.execPath, [bin, "upgrade"], {
+        cwd: dir,
+        env: { ...process.env, ...pnpm.env },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let output = "";
+      robkit.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
+      robkit.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
+      const installing = await pnpm.held();
+      onTestFinished(() => {
+        robkit.kill("SIGKILL");
+      });
+
+      robkit.kill("SIGINT");
+      process.kill(installing, "SIGINT");
+      const [code] = (await once(robkit, "exit")) as [number | null];
+
+      expect(output).toContain(
+        `Step 1 of robkit upgrade failed: pnpm install couldn't install robkit ${newerVersion}. robkit upgrade put back every file it changed`,
+      );
+      expect(code).toBe(1);
+      expect(
+        await git(dir, env, "status", "--porcelain", "--untracked-files=all"),
+      ).toBe("");
+    },
+  );
 
   it("names step 2 when it fails there, and says why", async () => {
     const { dir, env } = await committedInstall(async (dir) => {

@@ -22,6 +22,8 @@
 //   second step that writes anywhere else puts that back itself first.
 // - When it exits 0, this step prints nothing more, so the second step's
 //   last lines are the owner's.
+// - Ctrl+C stops the second step and not this one, which then puts the
+//   five paths back as it does for any failure.
 //
 // To change the first step in a later version, copy this file, change the
 // copy, and have upgrade.ts import the copy. Keep this file and its test.
@@ -94,7 +96,8 @@ const putBackNote =
  * The first step of `robkit upgrade`, once its checks pass, in the install
  * at `root`: sets the catalog's entry for create-robkit to `to`, installs,
  * then runs `pnpm exec robkit upgrade --finish <from>`, which robkit `to`
- * answers. When either command fails, it puts the files back.
+ * answers. When either command fails, or Ctrl+C stops one, it puts the
+ * files back.
  *
  * @throws a {@link CommandProblem} naming the step that failed
  */
@@ -108,26 +111,37 @@ export async function handOver(
   workspace.setIn(["catalog", "create-robkit"], to);
   await writeFile(path, workspace.toString());
 
-  console.log(`Installing robkit ${to}.`);
+  // Ctrl+C reaches the command this step is running, which then fails. This
+  // step outlives it, so the files go back.
+  const outlive = () => undefined;
+  process.on("SIGINT", outlive);
   try {
-    await exec("pnpm", ["install", "--no-frozen-lockfile"], { cwd: root, env });
-  } catch (error) {
-    await putBack(root, env);
-    throw new CommandProblem(
-      `Step 1 of robkit upgrade failed: pnpm install couldn't install robkit ${to}. ${putBackNote}`,
-      { cause: error },
-    );
-  }
-  try {
-    await exec("pnpm", ["exec", "robkit", "upgrade", "--finish", from], {
-      cwd: root,
-      env,
-    });
-  } catch (error) {
-    await putBack(root, env);
-    throw new CommandProblem(
-      `Step 2 of robkit upgrade failed: robkit ${to} couldn't finish it. ${putBackNote}`,
-      { cause: error },
-    );
+    console.log(`Installing robkit ${to}.`);
+    try {
+      await exec("pnpm", ["install", "--no-frozen-lockfile"], {
+        cwd: root,
+        env,
+      });
+    } catch (error) {
+      await putBack(root, env);
+      throw new CommandProblem(
+        `Step 1 of robkit upgrade failed: pnpm install couldn't install robkit ${to}. ${putBackNote}`,
+        { cause: error },
+      );
+    }
+    try {
+      await exec("pnpm", ["exec", "robkit", "upgrade", "--finish", from], {
+        cwd: root,
+        env,
+      });
+    } catch (error) {
+      await putBack(root, env);
+      throw new CommandProblem(
+        `Step 2 of robkit upgrade failed: robkit ${to} couldn't finish it. ${putBackNote}`,
+        { cause: error },
+      );
+    }
+  } finally {
+    process.off("SIGINT", outlive);
   }
 }

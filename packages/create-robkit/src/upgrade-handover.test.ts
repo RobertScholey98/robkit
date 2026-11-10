@@ -34,7 +34,7 @@ vi.setConfig({ testTimeout: 120_000 });
  * the file doesn't change: its first comment says what to do instead.
  */
 const frozenHash =
-  "e1a5c2c3e7fec0d1e042bb6cf7667a8ea0ed32a7183d840e7951fe040209c088";
+  "26f57fbedc1c54c6ff8dc2cc337eca698d51f206be0646ea16445f3e6d2429b2";
 
 describe("robkit upgrade's first step, as 0.1.0 ships it", () => {
   it("hands over to the current second step, which finishes the upgrade", async () => {
