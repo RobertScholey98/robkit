@@ -341,6 +341,8 @@ describe("robkit-core start", () => {
       robkitCore(["start"], {
         ...provisioning(database.admin, "core,overlord"),
         DATABASE_URL: database.core,
+        ROBKIT_CORE_URL: coreUrl,
+        PORT: "3000",
       }),
     ).rejects.toEqual(
       new CommandProblem(
@@ -357,6 +359,8 @@ describe("robkit-core start", () => {
         ...provisioning(database.admin, "shortsecret"),
         ROBKIT_DB_SECRET: "short",
         DATABASE_URL: database.core,
+        ROBKIT_CORE_URL: coreUrl,
+        PORT: "3000",
       }),
     ).rejects.toEqual(
       new CommandProblem(

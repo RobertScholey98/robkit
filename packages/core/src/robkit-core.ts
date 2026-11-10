@@ -9,6 +9,7 @@ import {
   readProvisionConfig,
   type ProvisionRefusal,
 } from "@robkit/provision";
+import { readCoreConfig } from "./env.ts";
 import { migrate } from "./migrate.ts";
 import { serveCore } from "./serve-core.ts";
 
@@ -45,10 +46,15 @@ export async function robkitCore(
     throw new CommandProblem(usage);
   }
   switch (command) {
-    case "start":
+    case "start": {
+      // A setting the serving process would refuse stops start before it
+      // touches the database.
+      const config = readCoreConfig(env);
+      if (isProblem(config)) throw new CommandProblem(config.error);
       await provision(env);
       await migrateCore(env);
       return serveWithoutSecrets(env);
+    }
     case "migrate":
       await migrateCore(env);
       return 0;
