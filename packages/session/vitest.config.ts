@@ -8,7 +8,7 @@ export default defineConfig({
       exclude: ["src/**/*.test-d.ts", "src/test/**"],
       // Today's coverage, rounded down. Raise them as it rises; CI fails a
       // pull request that lowers one.
-      thresholds: { statements: 98, branches: 93, functions: 100, lines: 99 },
+      thresholds: { statements: 98, branches: 95, functions: 100, lines: 99 },
     },
   },
 });
