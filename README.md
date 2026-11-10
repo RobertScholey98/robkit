@@ -6,9 +6,17 @@ Guests sign in with an access code you give them. You decide which roles may ope
 
 ## Quickstart
 
-You need Node 24, Docker, and Linux or macOS. On Windows, run everything in WSL (see [CONTRIBUTING](CONTRIBUTING.md#on-windows-use-wsl)).
+You need Node 24, pnpm, Docker, and Linux or macOS. On Windows, run everything in WSL (see [CONTRIBUTING](CONTRIBUTING.md#on-windows-use-wsl)).
 
-robkit's packages aren't on npm yet, so make an install from a clone of this repo. The install links to the clone.
+```sh
+npm create robkit my-install
+cd my-install
+pnpm dev
+```
+
+`npm create robkit` asks which stack the example app should use, then writes the install, installs its dependencies and makes its first commit. It says how to get pnpm if you don't have it.
+
+robkit's packages aren't on npm until its first release. Until then, or to work on robkit itself, make an install from a clone of this repo. The install links to the clone:
 
 ```sh
 git clone https://github.com/RobertScholey98/robkit.git

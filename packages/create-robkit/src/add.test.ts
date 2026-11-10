@@ -10,7 +10,7 @@ import { slug } from "@internal/test-session";
 
 async function freshInstall(choices: Choices = defaultChoices) {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
-  await init(choices, dir);
+  await init(choices, dir, { install: false });
   return dir;
 }
 
@@ -40,6 +40,18 @@ afterEach(() => {
 });
 
 describe("addApp", () => {
+  it("builds the app in .robkit/, which git ignores, and moves it into apps/", async () => {
+    const dir = await freshInstall();
+
+    await addApp(dir, notes);
+
+    expect(await readdir(join(dir, "apps/notes"))).toContain("package.json");
+    expect(await readdir(join(dir, ".robkit"))).toEqual([]);
+    expect(
+      (await readFile(join(dir, ".gitignore"), "utf8")).split("\n"),
+    ).toContain(".robkit/");
+  });
+
   it("writes apps/<slug> from the stack's template, declaring its rule and icon", async () => {
     const dir = await freshInstall();
 
@@ -70,7 +82,7 @@ describe("addApp", () => {
 
   it("points a Go app at the checkout's Go module in a linked install, and at vendor/robkit/go in any other", async () => {
     const linked = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
-    await init(defaultChoices, linked, { link: true });
+    await init(defaultChoices, linked, { link: true, install: false });
     const plain = await freshInstall();
     const checkout = fileURLToPath(
       new URL("../../../", import.meta.url),
@@ -120,7 +132,7 @@ describe("addApp", () => {
 
   it("leaves vendor/robkit/go alone in a linked install, whose Go apps reach the checkout", async () => {
     const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
-    await init(defaultChoices, dir, { link: true });
+    await init(defaultChoices, dir, { link: true, install: false });
 
     await addApp(dir, { ...notes, stack: "go" });
 
@@ -178,6 +190,27 @@ describe("addApp", () => {
       scripts: { dev: "vite dev" },
       robkit: { access: { kind: "open" }, icon: "📝" },
     });
+  });
+
+  it("copies a file in the template that isn't UTF-8 text, such as an image, byte for byte", async () => {
+    const dir = await freshInstall();
+    const override = join(dir, "robkit/templates/start");
+    await mkdir(join(override, "public"), { recursive: true });
+    await writeFile(
+      join(override, "package.json"),
+      JSON.stringify({ private: true }),
+    );
+    // A PNG's signature, which holds a CRLF, then bytes UTF-8 can't hold.
+    const image = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0xfe, 0x00, 0x80,
+    ]);
+    await writeFile(join(override, "public/icon.png"), image);
+
+    await addApp(dir, { ...notes, stack: "start" });
+
+    expect(await readFile(join(dir, "apps/notes/public/icon.png"))).toEqual(
+      image,
+    );
   });
 
   it.each(readyStacks)(

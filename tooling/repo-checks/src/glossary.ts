@@ -70,6 +70,12 @@ export const exceptions: Exceptions = {
     },
     {
       word: "user",
+      file: "packages/create-robkit/src/{set-up,set-up.test,create-robkit-command.test,test/git}.ts",
+      text: "user.",
+      why: "git's settings for who makes a commit: user.name, user.email and user.useConfigOnly.",
+    },
+    {
+      word: "user",
       file: "packages/create-robkit/templates/base/Dockerfile",
       text: "USER node",
       why: "Docker's instruction for the user a container runs as.",

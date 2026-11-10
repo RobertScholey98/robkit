@@ -60,8 +60,6 @@ describe("an install from a registry", () => {
   let home: string;
   /** The install, with its example on Start and an app on every other stack. */
   let dir: string;
-  /** pnpm's settings as init wrote them, before any install ran. */
-  let settingsAsWritten: string;
   /** Whether the install had vendor/robkit/go before its first Go app. */
   let hadGoModule: boolean;
   let env: NodeJS.ProcessEnv;
@@ -84,8 +82,17 @@ describe("an install from a registry", () => {
       // install's settings itself, unless told to be strict. Strict, an
       // install that didn't exempt robkit's packages would fail.
       pnpm_config_minimum_release_age_strict: "true",
+      // init makes the install's first commit, which needs a name.
+      GIT_AUTHOR_NAME: "Robkit Test",
+      GIT_AUTHOR_EMAIL: "test@robkit.localhost",
+      GIT_COMMITTER_NAME: "Robkit Test",
+      GIT_COMMITTER_EMAIL: "test@robkit.localhost",
     };
     delete env.GOFLAGS;
+    // npm passes create-robkit its registry as npm's setting only, so this
+    // proves init hands it on to its own pnpm install.
+    const npmCreateEnv = { ...env };
+    delete npmCreateEnv.pnpm_config_registry;
 
     const version = registry.versions.get("create-robkit");
     await run(
@@ -98,14 +105,9 @@ describe("an install from a registry", () => {
         "--stack",
         "start",
       ],
-      { cwd: home, env },
+      { cwd: home, env: npmCreateEnv },
     );
     dir = join(home, "install");
-    settingsAsWritten = await readFile(
-      join(dir, "pnpm-workspace.yaml"),
-      "utf8",
-    );
-    await run("pnpm", ["install"], { cwd: dir, env });
     hadGoModule = existsSync(join(dir, "vendor/robkit/go"));
     for (const { slug, stack } of added) {
       await run(
@@ -126,6 +128,12 @@ describe("an install from a registry", () => {
       maxRetries: 10,
       retryDelay: 500,
     });
+  });
+
+  it("is installed and committed by npm create alone", async () => {
+    expect(existsSync(join(dir, "node_modules/.bin/robkit"))).toBe(true);
+    const log = await run("git", ["log", "--format=%s"], { cwd: dir, env });
+    expect(log.trim()).toBe("Make a robkit install");
   });
 
   it("names robkit's packages at the versions packed, with no overrides for them", async () => {
@@ -167,9 +175,13 @@ describe("an install from a registry", () => {
       "ERR_PNPM_NO_MATURE_MATCHING_VERSION",
     );
     // The install's own exemption covered every package, so pnpm added none.
-    expect(await readFile(join(dir, "pnpm-workspace.yaml"), "utf8")).toBe(
-      settingsAsWritten,
-    );
+    const settings = parse(
+      await readFile(join(dir, "pnpm-workspace.yaml"), "utf8"),
+    ) as { minimumReleaseAgeExclude: unknown };
+    expect(settings.minimumReleaseAgeExclude).toEqual([
+      "@robkit/*",
+      "create-robkit",
+    ]);
     expect(existsSync(join(dir, "node_modules/.pnpm/@robkit+core@0.0.0"))).toBe(
       true,
     );
@@ -221,6 +233,7 @@ describe("an install from a registry", () => {
         "--",
         "--stack",
         "go",
+        "--no-install",
       ],
       { cwd: home, env },
     );

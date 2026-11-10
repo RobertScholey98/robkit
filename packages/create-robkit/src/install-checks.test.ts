@@ -67,7 +67,7 @@ describe("a new install", { concurrent: false }, () => {
 
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-install-checks-"));
-    await init(defaultChoices, dir, { link: true });
+    await init(defaultChoices, dir, { link: true, install: false });
     // pnpm needs no registry for what its store already holds, and the
     // checks need none of the packages' install scripts, such as Husky's.
     await inInstall(

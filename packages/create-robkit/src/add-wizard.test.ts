@@ -93,6 +93,22 @@ describe("askAdd", () => {
     });
   });
 
+  it("asks again for an icon the manifest would refuse", async () => {
+    const root = await installWithNotes();
+    const { prompts, refused } = answering([
+      "start",
+      "recipes",
+      "owner",
+      "memo",
+      "🍲",
+    ]);
+
+    expect(await askAdd(root, undefined, prompts)).toMatchObject({
+      icon: "🍲",
+    });
+    expect(refused).toEqual(['robkit.icon must be one emoji, such as "📝".']);
+  });
+
   it("asks again for a name that's taken, a platform app's or not a slug", async () => {
     const root = await installWithNotes();
     const { prompts, refused } = answering([
@@ -194,6 +210,8 @@ describe("appChoicesFromFlags", () => {
       { access: "anyone" },
       "--access anyone isn't an option. Choose from: owner, open, roles.",
     ],
+    [{ icon: "memo" }, 'robkit.icon must be one emoji, such as "📝".'],
+    [{ icon: "📝📝" }, 'robkit.icon must be one emoji, such as "📝".'],
   ])("refuses %o", (flags, message) => {
     expect(() => appChoicesFromFlags("recipes", flags)).toThrow(
       new CommandProblem(message),

@@ -9,7 +9,8 @@ With no --stack, init asks for the folder and the example app's stack.
 
   --stack <name>          the example app's stack: start, react-hono, express,
                           next, go
-  --install               install dependencies and initialise git
+  --no-install            write the files only: skip pnpm install and the
+                          first commit
   --link                  link the @robkit packages to the robkit checkout
                           this runs from, instead of installing them from npm`);
   });

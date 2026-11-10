@@ -55,7 +55,7 @@ declare module "vitest" {
 
 /**
  * Makes an install for `choices` in a temp folder, as init with
- * `--install --link` does: linked to this checkout's `@robkit/*` packages,
+ * `--link` does: linked to this checkout's `@robkit/*` packages,
  * with its dependencies installed and git initialised. Then adds an app on
  * the next stack, as the owner would with robkit add's flags.
  */
@@ -63,7 +63,7 @@ export async function createInstall(choices: Choices): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "robkit-install-"));
   // Its teardown removes it too, but not when the run is killed.
   removeWhenGone({ path: dir });
-  await init(choices, dir, { link: true, install: true });
+  await init(choices, dir, { link: true });
   const other = addedStackFor(choices.exampleStack);
   await run(
     "pnpm",

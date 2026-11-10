@@ -19,7 +19,8 @@ export interface Run {
 /**
  * Runs the command line at `bin` in `cwd` with `args`. For each question in
  * `answers`, waits for it to show, then types its keys. Kills it if a
- * question doesn't show. `env` adds to its environment.
+ * question doesn't show, or if it hasn't finished after `timeoutMs`. `env`
+ * adds to its environment.
  */
 export function drive(
   bin: string,
@@ -27,6 +28,7 @@ export function drive(
   args: string[],
   answers: [question: string, keys: string][] = [],
   env: NodeJS.ProcessEnv = {},
+  timeoutMs = 20_000,
 ): Promise<Run> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [bin, ...args], {
@@ -46,7 +48,7 @@ export function drive(
         new Error(`${problem}:
 ${output}`),
       );
-    }, 20_000);
+    }, timeoutMs);
     if (pending.length === 0) child.stdin.end();
     child.stdout.on("data", (chunk: Buffer) => {
       output += chunk.toString();

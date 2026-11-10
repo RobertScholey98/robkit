@@ -312,7 +312,6 @@ In an empty folder outside any robkit checkout, make an install from npm and sta
 ```sh
 npm create robkit@latest my-install -- --stack start
 cd my-install
-pnpm install
 pnpm dev
 ```
 

@@ -22,7 +22,7 @@ import { readCoolifyConfig } from "./coolify-config.ts";
 import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { readAppList, readCoolify, readDatabaseUrlsConfig } from "./env.ts";
-import { installDependencies } from "./set-up.ts";
+import { finishInstall, installDependencies } from "./set-up.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
 /** Where an install's apps answer under pnpm dev. */
@@ -205,7 +205,10 @@ async function add(): Promise<undefined> {
   // An install whose dependencies are in keeps them in, new app included.
   const hasDependencies = existsSync(join(root, "node_modules"));
   if (hasDependencies) {
-    await installDependencies(root);
+    await finishInstall(
+      root,
+      `apps/${choices.slug} has its files but the install doesn't have its dependencies`,
+    );
   }
   console.log(`Added apps/${choices.slug}. Next:
 ${hasDependencies ? "" : "\n  pnpm install"}

@@ -46,7 +46,7 @@ const goModule = {
 describe("vendorPackages", () => {
   it("refuses a linked override that isn't a package name, running nothing", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
-    await init(defaultChoices, dir);
+    await init(defaultChoices, dir, { install: false });
     await override(dir, "x; echo hi", "link:../x");
 
     await expect(vendorPackages(dir)).rejects.toThrow(
@@ -72,7 +72,7 @@ describe("vendorPackages", () => {
         { withGo = true, folder = "robkit-vendor-" } = {},
       ) {
         const dir = await mkdtemp(join(tmpdir(), folder));
-        await init(choices, dir);
+        await init(choices, dir, { install: false });
         const root = await mkdtemp(join(tmpdir(), "robkit-checkout-"));
         const checkout = join(root, "packages", "broken");
         await mkdir(checkout, { recursive: true });
@@ -266,7 +266,7 @@ describe("vendorPackages", () => {
 
   it("refuses an install that isn't linked to a robkit checkout", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
-    await init(defaultChoices, dir);
+    await init(defaultChoices, dir, { install: false });
 
     await expect(vendorPackages(dir)).rejects.toThrow(
       "This install doesn't link to a robkit checkout, so there is nothing to vendor. Make it with --link.",

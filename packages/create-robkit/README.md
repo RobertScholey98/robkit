@@ -6,7 +6,15 @@ People making an install run init once. Every install takes `create-robkit` as a
 
 ## Example
 
-The packages aren't on npm yet, so make an install from a checkout of this repo:
+```sh
+npm create robkit my-install
+cd my-install
+pnpm dev
+```
+
+Init needs Node 24 or later and pnpm, and checks both before it writes anything. It asks for the example app's stack, writes the install, installs its dependencies and makes its first commit, then prints the next commands and the hub's address. `--stack <name>` skips the question. `--no-install` writes the files only. Docker isn't needed until `pnpm dev`, so init only warns when it's missing.
+
+The packages aren't on npm yet. Until they are, make an install from a checkout of this repo:
 
 ```sh
 pnpm install
@@ -14,7 +22,7 @@ pnpm create-install                                  # asks for a folder and the
 pnpm create-install ../my-install --stack start      # or asks nothing
 ```
 
-`pnpm create-install` runs `src/create-robkit-command.ts --link --install`: it links the install's `@robkit/*` packages to this checkout, initialises git and installs dependencies. Once the packages are on npm, `npm create robkit my-install -- --stack start --install` will do the same without the checkout. robkit's registry test already runs that command, against a local registry.
+`pnpm create-install` runs `src/create-robkit-command.ts --link`: it links the install's `@robkit/*` packages to this checkout, then installs and commits as init always does. robkit's registry test runs `npm create robkit` against a local registry.
 
 `pnpm create robkit` works too, unless pnpm's `minimumReleaseAgeStrict` is on: then pnpm refuses a create-robkit released in the last day, and only the install it writes exempts robkit's packages. Use `npm create robkit` on a release day.
 
@@ -34,19 +42,19 @@ From code, as the whole-stack test does (`tooling/e2e/src/install.ts`):
 ```ts
 import { init } from "create-robkit";
 
-await init({ exampleStack: "start" }, "/tmp/my-install", {
+const { notes } = await init({ exampleStack: "start" }, "/tmp/my-install", {
   link: true,
-  install: true,
 });
+for (const note of notes) console.log(note);
 ```
 
 ## Exports
 
 | Export                                                                       | What it is                                                                                                                                               |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create-robkit` (bin)                                                        | Init. Flags: `--stack <name>`, `--install`, `--link`                                                                                                     |
+| `create-robkit` (bin)                                                        | Init. Flags: `--stack <name>`, `--no-install`, `--link`                                                                                                  |
 | `robkit` (bin)                                                               | `add`, `check`, `vendor`, `database-urls` and `deploy`, run inside an install                                                                            |
-| `init(choices, dir, options)`                                                | Generates and writes an install, then with `install` initialises git and installs dependencies                                                           |
+| `init(choices, dir, options)`, `InitOptions`, `InitResult`                   | Checks what init needs, generates and writes an install, then unless `install` is false, installs it and makes its first commit. Returns notes to print  |
 | `Choices`, `defaultChoices`                                                  | What init asks: `{ exampleStack }`. The default is `start`                                                                                               |
 | `stacks`, `readyStacks`, `stackFrom`, `Stack`                                | The stacks: `start` (TanStack Start), `react-hono` (React with Hono), `express` (React with Express), `next` (Next.js) and `go` (React with a Go server) |
 | `deploymentOf(...)`, `AppDeployment`, `DeploymentOptions`, `DeploymentValue` | Each app's Coolify variables, as `robkit deploy` sets them                                                                                               |
@@ -54,7 +62,7 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 ## What it must never do
 
 - Ask for more than the folder and the example's stack. Every install has the same tooling ([ADR 0009](../../docs/adr/0009-one-opinionated-stack.md)).
-- Touch the network at init. The UI kit is committed shadcn output, which `pnpm --filter create-robkit shadcn-kit` regenerates.
+- Touch the network while it writes an install. The UI kit is committed shadcn output, which `pnpm --filter create-robkit shadcn-kit` regenerates. Only `pnpm install` fetches, once every file is written.
 - Do more than write files in `robkit add`. The next `pnpm dev` provisions and starts the app.
 - Lint or typecheck the templates as robkit's own code. They are an install's files, and the whole-stack test checks them in a generated install.
 
@@ -63,8 +71,13 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 ### Init
 
 - Every install gets the same tooling: pnpm, Drizzle, shadcn on Base UI, ESLint with Prettier, Husky with lint-staged, and Vitest.
-- Init asks only for the folder and the example app's stack. It ends by printing the flags that make the same install: `--stack`, and `--install` and `--link` when it was given them.
-- `init` in `src/init.ts` is the one operation from choices to a finished install: generate, write, then with `install` initialise git and install dependencies, in that order, so Husky's postinstall finds the repository. The command line and the whole-stack test both call it.
+- Init asks only for the folder and the example app's stack. Before the install starts, it prints the flags that make the same install: `--stack`, and `--no-install` and `--link` when it was given them.
+- `src/create-robkit-command.ts` has no static import: it checks Node's version, then loads `src/init-command.ts` with `import()`. A static import would load first, and an older Node would print a syntax error instead of the message. `create-robkit-command.test.ts` reads the file for one.
+- `init` in `src/init.ts` is the one operation from choices to a finished install: check, generate, write, then unless told not to install, start git, install dependencies and commit, in that order, so Husky's postinstall finds the repository. The command line and the whole-stack test both call it.
+- Every check runs before init writes anything (`src/toolchain.ts`). Go for a Go example. pnpm when it installs: it asks `pnpm --version` in a folder whose `packageManager` names the install's version, since Corepack's pnpm and pnpm 10 or later switch to it there and pnpm 9 doesn't. Docker is a note, not a stop.
+- The first commit (`firstCommit` in `src/set-up.ts`) skips the install's pre-commit hook. When git is missing, has no name or email, or fails, init returns a one-line note and carries on.
+- A failed `pnpm install`, after init or `robkit add` wrote its files, names the folder and says to run `pnpm install` there (`finishInstall`). "Try again" would hit a folder that isn't empty.
+- npm passes its registry to create-robkit as `npm_config_registry`, which pnpm doesn't read, so `installDependencies` hands it on as `pnpm_config_registry`.
 - The generator reads `base` in memory, mounts the example's stack at `apps/example`, writes the catalog from robkit's own, covering every stack, and records the example's stack in `robkit.json`.
 - `readRobkitRepo` in `src/robkit-repo.ts` is where the generator gets what an install takes from robkit: the catalog, pnpm's version, each package's version, the lint policy and the Go module. The build writes them to `dist/carried.json` with `scripts/carry.ts`, and the built package reads that, so it needs no checkout. The source, and any run with `--link`, reads the checkout. `turbo.json` names each file the build reads as an input to `create-robkit#build`, and `src/robkit-repo.test.ts` fails if one is missing.
 - Every install of one robkit version has the same `packages/ui`, `packages/theme`, `packages/core-client` and catalog.
@@ -168,7 +181,9 @@ React + Go (stacks ticket 03) is the stack whose server isn't Node, and it diffe
 The package's second command, `robkit`, runs in an install, which takes create-robkit as a dev dependency.
 
 - `robkit check` is the install's layer rule, and the install's `lint` script runs it.
-- `pnpm robkit add` adds an app. `addApp` in `src/add.ts` writes `apps/<slug>` on any ready stack, through the same `appFiles` the generator mounts the example with, or from the install's own `robkit/templates/<stack>` folder, which replaces robkit's template whole. It writes files only. The generator catalogs every stack's dependencies, so an added app needs no new versions.
+- `pnpm robkit add` adds an app. `addApp` in `src/add.ts` writes `apps/<slug>` on any ready stack, through the same `appFiles` the generator mounts the example with, or from the install's own `robkit/templates/<stack>` folder, which replaces robkit's template whole and whose files that aren't UTF-8 text keep their bytes. It writes files only. The generator catalogs every stack's dependencies, so an added app needs no new versions.
+- `writeApp` in `src/write.ts` builds the app's folder in the install's `.robkit/`, which its `.gitignore` names, and renames it into `apps/` once every file is written. The runner and pnpm both read every folder in `apps/`, so a failed add leaves nothing there. In an install with its dependencies in, add then runs `pnpm install`.
+- `--icon` and the wizard's icon question check the icon with `readAppManifest`, so a bad one fails at once with the manifest's message.
 - `robkit vendor` packs the packages a linked install uses, and the robkit packages those run on, into its `vendor/robkit`, and copies robkit's Go module to `vendor/robkit/go`, so it builds without the checkout until the packages are on npm.
 - `robkit database-urls` prints each app's production `DATABASE_URL`.
 - `robkit deploy` deploys the install to Coolify. `src/coolify-config.ts` reads `coolify.json`, `src/coolify-api.ts` makes each request to Coolify, `src/coolify-deploy.ts` syncs the apps and deploys them in order, and `deploymentOf` in `src/deployment.ts` works out each app's variables.

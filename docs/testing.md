@@ -30,7 +30,7 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 
 `src/registry.test.ts` in `@internal/e2e`, its own Vitest project beside the whole-stack test, which `test` runs too.
 
-- It makes an install the way a new owner does: `npm create robkit@<version>` in a temp folder with no checkout above it, then `pnpm install`. So create-robkit runs from its packed bin and reads what its build carried, not the checkout.
+- It makes an install the way a new owner does: `npm create robkit@<version>` in a temp folder with no checkout above it, which installs and commits by itself, with npm's registry setting only. So create-robkit runs from its packed bin and reads what its build carried, not the checkout.
 - Nothing is on npm yet, so `src/registry.ts` packs every package under `packages/` and serves them from a registry on 127.0.0.1, each published the moment it was packed. It answers only robkit's packages. Any other request it redirects to npm, which serves it as it would an owner.
 - pnpm runs with `minimumReleaseAgeStrict` on, so a package under a day old fails the install unless the install exempts it. robkit's packages are seconds old, so the install passing proves its exemption, and a project without one fails.
 - It adds an app on every other stack with `robkit add`, then runs the install's own `lint`, `typecheck`, `test` and `build`. The first Go app writes `vendor/robkit/go`, and the Go app builds against it with `GOPROXY=off`. A second install, with its example on Go, builds the same way.
