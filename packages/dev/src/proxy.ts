@@ -42,7 +42,7 @@ function forwardedFor(req: IncomingMessage): string {
 interface Handlers {
   onRequest: (req: IncomingMessage, res: ServerResponse) => void;
   onUpgrade: (req: IncomingMessage, socket: Duplex, head: Buffer) => void;
-  /** Routes one more host, from the next request on. */
+  /** Routes one more host, or a host to a new port, from the next request on. */
   route: (route: Route) => void;
 }
 
@@ -51,8 +51,7 @@ interface Handlers {
  * local URLs look like production subdomains.
  */
 function proxyHandlers(first: readonly Route[]): Handlers {
-  const routes = [...first];
-  const byHost = new Map(routes.map((route) => [route.host, route]));
+  const byHost = new Map(first.map((route) => [route.host, route]));
   const routeFor = (host: string | undefined) => {
     const hostname = hostnameOf(host);
     return hostname === undefined ? undefined : byHost.get(hostname);
@@ -64,7 +63,7 @@ function proxyHandlers(first: readonly Route[]): Handlers {
       res.writeHead(404, plainText);
       res.end(
         `No app answers ${String(req.headers.host)}. This proxy serves:\n` +
-          routes.map((r) => `  ${r.host}\n`).join(""),
+          [...byHost.keys()].map((host) => `  ${host}\n`).join(""),
       );
       return;
     }
@@ -139,7 +138,6 @@ function proxyHandlers(first: readonly Route[]): Handlers {
   };
 
   const route = (added: Route) => {
-    routes.push(added);
     byHost.set(added.host, added);
   };
 
@@ -159,7 +157,10 @@ export interface Proxy {
   hosts: string[];
   /** Its port: the one asked for, or the one the first address got for 0. */
   port: number;
-  /** Routes one more host on every address, from the next request on. */
+  /**
+   * Routes one more host, or a host to a new port, on every address, from
+   * the next request on.
+   */
   route: (route: Route) => void;
   /** Stops listening and ends every open request. */
   close: () => void;

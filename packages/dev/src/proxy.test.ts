@@ -229,6 +229,30 @@ describe("a proxy's routes", () => {
       "No app answers nope.robkit.localhost. This proxy serves:\n  hub.robkit.localhost\n  notes.robkit.localhost\n",
     );
   });
+
+  it("sends a host's requests to the port of its latest route", async () => {
+    const before = await listen(echoApp());
+    const after = await listen(
+      createServer((_req, res) => {
+        res.writeHead(202).end();
+      }),
+    );
+    const proxy = await start(
+      [{ host: "core.robkit.localhost", app: "core", port: before }],
+      loopback,
+    );
+
+    proxy.route({ host: "core.robkit.localhost", app: "core", port: after });
+
+    expect({
+      core: (await send(proxy.port, "core.robkit.localhost")).status,
+      serves: (await send(proxy.port, "nope.robkit.localhost")).body,
+    }).toEqual({
+      core: 202,
+      serves:
+        "No app answers nope.robkit.localhost. This proxy serves:\n  core.robkit.localhost\n",
+    });
+  });
 });
 
 describe("startProxy", () => {
