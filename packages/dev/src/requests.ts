@@ -80,6 +80,27 @@ export async function devSocket(
   return { folder, path, setBy };
 }
 
+/** Whether something takes a connection on the socket at `path`. */
+export function answersAt(path: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const probe = connect(path);
+    probe.once("connect", () => {
+      probe.destroy();
+      resolve(true);
+    });
+    probe.once("error", (error) => {
+      probe.destroy();
+      // No file, or one nothing listens on, as a killed run leaves.
+      if (hasCode(error, "ENOENT", "ECONNREFUSED")) resolve(false);
+      else {
+        reject(
+          new Error(`robkit-dev couldn't check ${path}.`, { cause: error }),
+        );
+      }
+    });
+  });
+}
+
 /**
  * What a running `pnpm dev` answered: done or refused, with a line saying
  * which, or that none is running.

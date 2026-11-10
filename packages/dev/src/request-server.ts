@@ -1,10 +1,11 @@
 import { lstat, mkdir, rm } from "node:fs/promises";
-import { connect, createServer, type Socket } from "node:net";
+import { createServer, type Socket } from "node:net";
 import { isProblem } from "@robkit/input";
 import { CommandProblem, reportFaultsAt } from "@robkit/input/command";
 import { type Report, reportToConsole } from "@robkit/input/report";
 import { hasCode } from "./files.ts";
 import {
+  answersAt,
   type Answered,
   type DevRequest,
   type DevSocket,
@@ -61,27 +62,6 @@ export async function privateFolder(
       `${where}, which others can open (mode ${mode}). Run chmod 700 ${folder}, then run pnpm dev again.`,
     );
   }
-}
-
-/** Whether something takes a connection on the socket at `path`. */
-function answersAt(path: string): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    const probe = connect(path);
-    probe.once("connect", () => {
-      probe.destroy();
-      resolve(true);
-    });
-    probe.once("error", (error) => {
-      probe.destroy();
-      // No file, or one nothing listens on, as a killed run leaves.
-      if (hasCode(error, "ENOENT", "ECONNREFUSED")) resolve(false);
-      else {
-        reject(
-          new Error(`robkit-dev couldn't check ${path}.`, { cause: error }),
-        );
-      }
-    });
-  });
 }
 
 /** How long a connection gets to send its request before it is closed. */
