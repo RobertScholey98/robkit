@@ -39,15 +39,19 @@ func dev(ctx context.Context) error {
 	if err := waitForListener(ctx, address, exited); err != nil {
 		return err
 	}
-	target := &url.URL{Scheme: "http", Host: address}
-	page := &httputil.ReverseProxy{
+	return serve(ctx, viteProxy(&url.URL{Scheme: "http", Host: address}), exited)
+}
+
+// viteProxy passes each request to the Vite dev server at target, its
+// hot-update WebSocket included.
+func viteProxy(target *url.URL) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.SetURL(target)
 			// Vite answers <slug>.<domain>, the host the browser asked for.
 			r.Out.Host = r.In.Host
 		},
 	}
-	return serve(ctx, page, exited)
 }
 
 // freePort is a port nothing listens on now, for Vite.
