@@ -2,6 +2,8 @@ import { guarded, type GuardedContext } from "@robkit/start";
 import entry from "@tanstack/react-start/server-entry";
 
 // Routes and server functions read the guard's viewer as context.viewer.
+// Start's types take this from src/server.ts alone, so it stays here
+// rather than in @robkit/start.
 declare module "@tanstack/react-start" {
   interface Register {
     server: { requestContext: GuardedContext };

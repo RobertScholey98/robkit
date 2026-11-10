@@ -31,6 +31,18 @@ describe("the server files", () => {
     },
   );
 
+  it("gives Start's server file its imports, the viewer's type and one call", async () => {
+    const file = (await stackTemplate("start")).get("src/server.ts") ?? "";
+
+    expect(file.split("\n").filter((line) => /^[^/\s]/.test(line))).toEqual([
+      'import { guarded, type GuardedContext } from "@robkit/start";',
+      'import entry from "@tanstack/react-start/server-entry";',
+      'declare module "@tanstack/react-start" {',
+      "}",
+      "export default guarded(entry);",
+    ]);
+  });
+
   it("gives admin's guard only its access rule, and core's origin from coreOrigin()", async () => {
     const server = await readFile(
       new URL("../templates/base/apps/admin/src/server.ts", import.meta.url),
