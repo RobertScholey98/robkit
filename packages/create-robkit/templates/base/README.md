@@ -49,7 +49,7 @@ It moves robkit's packages in `pnpm-workspace.yaml` to the new version and insta
 
 An upgrade doesn't reach the files robkit copied into the install for you to own: your apps, the hub, admin, `packages/`, the `Dockerfile`, `compose.yaml`, `turbo.json` and `.github`. When a new robkit changes one of those, the changelog it prints says what to change by hand.
 
-If `pnpm install` fails, `robkit upgrade` puts back every file it changed. Run `pnpm install` to put `node_modules` back too. If an upgrade was stopped partway, put its files back yourself:
+If `pnpm install` fails, or you stop it with Ctrl+C, `robkit upgrade` puts back every file it changed. Run `pnpm install` to put `node_modules` back too. If an upgrade was stopped any other way, such as a closed terminal, put its files back yourself:
 
 ```sh
 git restore --source=HEAD --staged --worktree -- .
