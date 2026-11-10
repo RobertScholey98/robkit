@@ -1,4 +1,5 @@
 export { createApp, type CoreOptions } from "./app.ts";
+export type { SignInLimits } from "./sign-in-limits.ts";
 export type { TrustedProxy } from "./client.ts";
 export { registerApps } from "./apps.ts";
 export { readCoreConfig, type CoreConfig } from "./env.ts";

@@ -8,7 +8,11 @@ import {
 } from "@robkit/session";
 import { standingOf, type AccessCode } from "./access-codes.ts";
 import { storedRow, type Database } from "./database.ts";
-import { dummyPasswordHash, verifyPassword } from "./password.ts";
+import {
+  dummyPasswordHash,
+  type Busy,
+  type PasswordChecker,
+} from "./password.ts";
 import { accessCodes, owner, sessions } from "./schema.ts";
 import { mintSessionToken } from "./mint-token.ts";
 import { rolesOf } from "./roles.ts";
@@ -27,6 +31,8 @@ export interface SessionContext {
   install: Install;
   now: () => Date;
   signingKey: () => Promise<SigningKey>;
+  /** The one checker every password hash and check runs through. */
+  passwords: PasswordChecker;
 }
 
 export interface OwnerProfile {
@@ -58,7 +64,8 @@ export interface SignedIn {
 export type SignIn =
   | ({ outcome: "signed-in" } & SignedIn)
   | { outcome: "wrong" }
-  | { outcome: "unclaimed" };
+  | { outcome: "unclaimed" }
+  | Busy;
 
 export interface SessionRead {
   answer: SessionAnswer;
@@ -119,11 +126,12 @@ export async function signIn(
   if (!found) return { outcome: "unclaimed" };
   // An unknown username still costs one scrypt, so timing can't tell it apart.
   const isOwner = found.username === username;
-  const matches = await verifyPassword(
+  const verdict = await ctx.passwords.verify(
     password,
     isOwner ? found.passwordHash : dummyPasswordHash,
   );
-  if (!isOwner || !matches) return { outcome: "wrong" };
+  if (verdict.outcome === "busy") return verdict;
+  if (!isOwner || verdict.outcome === "wrong") return { outcome: "wrong" };
   return {
     outcome: "signed-in",
     ...(await ctx.db.transaction((tx) =>

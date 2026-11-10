@@ -1,5 +1,5 @@
 import { type InputProblem, isProblem, problem } from "@robkit/input";
-import { hashPassword } from "./password.ts";
+import type { Busy } from "./password.ts";
 import { storedRow } from "./database.ts";
 import { owner } from "./schema.ts";
 import {
@@ -41,7 +41,8 @@ export function readNewOwner(
   return credentials;
 }
 
-export type Claim = ({ outcome: "claimed" } & SignedIn) | { outcome: "taken" };
+export type Claim =
+  ({ outcome: "claimed" } & SignedIn) | { outcome: "taken" } | Busy;
 
 function isUniqueViolation(error: unknown): boolean {
   for (let e = error; e instanceof Error; e = e.cause) {
@@ -62,7 +63,9 @@ export async function claimInstall(
   if ((await ctx.db.select({ id: owner.id }).from(owner)).length > 0) {
     return { outcome: "taken" };
   }
-  const passwordHash = await hashPassword(password);
+  const hashed = await ctx.passwords.hash(password);
+  if (hashed.outcome === "busy") return hashed;
+  const passwordHash = hashed.hash;
   try {
     return await ctx.db.transaction(async (tx) => {
       const [inserted] = await tx

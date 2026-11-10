@@ -269,6 +269,69 @@ describe("POST /login/code's rate limit", () => {
     expect([blocked.status, other.status]).toEqual([429, 200]);
   });
 
+  it("counts every address in one IPv6 /64 as one client", async () => {
+    const { app } = await freshCore();
+    const { code } = await ownerMints(app);
+    for (let i = 0; i < 10; i++) {
+      const wrong = await postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from(`2001:db8:1:2::${String(i + 1)}`),
+      );
+      expect(wrong.status).toBe(401);
+    }
+
+    const sameNetwork = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("2001:db8:1:2:abcd::99"),
+    );
+    const nextNetwork = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("2001:db8:1:3::1"),
+    );
+
+    expect([sameNetwork.status, nextNetwork.status]).toEqual([429, 200]);
+  });
+
+  it("counts an IPv4-mapped address, in either spelling, as its IPv4 address", async () => {
+    const { app } = await freshCore();
+    const { code } = await ownerMints(app);
+    for (let i = 0; i < 5; i++) {
+      await postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from("::ffff:203.0.113.7"),
+      );
+      await postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from("::ffff:cb00:7107"),
+      );
+    }
+
+    const plain = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.7"),
+    );
+    const neighbour = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.8"),
+    );
+
+    expect([plain.status, neighbour.status]).toEqual([429, 200]);
+  });
+
   it("counts apart from the owner's password limit", async () => {
     const { app } = await freshCore();
     await ownerMints(app);
