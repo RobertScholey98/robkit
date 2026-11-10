@@ -4,7 +4,7 @@ A React app on a Hono server in a robkit install. Its folder name is its slug: i
 
 ## The viewer
 
-`src/server.tsx` is the Hono server, and it renders React to HTML. Its first middleware is `guarded` from `@robkit/hono`. Before any handler runs, the guard checks the session and this app's access rule, and sends anyone who may not open the app to sign in. Handlers read who is asking as `c.var.viewer`:
+`src/server.tsx` is the Hono server. Its first middleware is `guarded` from `@robkit/hono`, and then it mounts the app's routes from `src/routes.tsx`, which render React to HTML. Before any handler runs, the guard checks the session and this app's access rule, and sends anyone who may not open the app to sign in. Handlers read who is asking as `c.var.viewer`:
 
 ```tsx
 app.get("/", (c) => {
@@ -29,6 +29,16 @@ The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through,
 
 Set it in the handler, with `c.header("Content-Security-Policy", ...)`, or in middleware after `guarded`. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack.
 
+## Testing
+
+`pnpm test` runs Vitest, which loads `vite.config.ts`, so a test sees the app's own plugins. A test needs no database, no core and no `pnpm dev`. `src/routes.test.tsx` shows the pattern:
+
+- It mounts `routes(...)` behind `guardedAs(viewer)` from `@robkit/hono/testing` instead of `guarded()`, so every request is that viewer's. `owner()`, `guest({ roles: ["family"] })` and `nobody()`, from the same entry, build the viewer.
+- It passes the routes a stand-in for what they store through, so nothing reaches Postgres. Give a new route what it stores the same way, as an argument to `routes`.
+- It imports `src/routes.tsx`, never `src/server.tsx`. `guarded()` reads its settings as the server loads, and stops the run when one is missing.
+
+`guardedAs` refuses every request when `NODE_ENV` is `production`, which the app's image sets, so it never stands in for the guard in a server.
+
 ## Calling core
 
 The guard already asks core for what it needs: core's public key and this app's access rule. The owner sets who may open the app in admin. The `robkit` field in `package.json` is only the rule core starts from. If the app needs more from core, call it over HTTP from the server at `process.env.ROBKIT_CORE_URL`. Never import `@robkit/core`.
@@ -41,7 +51,7 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes 
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
-The example's queries are in `src/visits.ts`, and its `/` handler in `src/server.tsx` calls them.
+The example's queries are in `src/visits.ts`. The server hands them to `routes(visits)` in `src/routes.tsx`.
 
 ## The database
 

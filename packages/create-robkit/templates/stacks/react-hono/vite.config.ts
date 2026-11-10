@@ -10,7 +10,9 @@ const { port, domain } = orThrow(readDevServerEnv(process.env));
 // guard sees page loads.
 export default defineConfig(({ command }) => {
   // Vite loads the server on the first request, so check its config now.
-  if (command === "serve") {
+  // Vitest runs the serve command too, with no pnpm dev behind it, and sets
+  // VITEST before it loads this file.
+  if (command === "serve" && !process.env.VITEST) {
     orThrow(readCoreUrl(process.env));
   }
   return {

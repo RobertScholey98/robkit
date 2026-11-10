@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc",
+    "test": "vitest run",
     "build": "vite build",
     "start": "node --run migrate && node dist/serve.js",
     "migrate": "node src/migrate.ts",
@@ -30,6 +31,7 @@
     "drizzle-kit": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }
