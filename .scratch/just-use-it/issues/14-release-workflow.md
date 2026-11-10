@@ -135,5 +135,5 @@ The dry run passed in CI's `pull-request` job on `8d8821d`. Its log has one line
 Before the first release:
 
 - Six tests named robkit's version as 0.0.0, so the version pull request would have failed `gate`. They read it from `package.json` since `10d49e9` and `109f1a9`. Ticket 15's Merged note has the detail.
-- Ticket 19 must merge first: 0.1.0's first upgrade step can't change once it is published.
+- Ticket 19 had to merge first, and has (PR 97, 2026-11-10): 0.1.0's first upgrade step can't change once it is published. R reads "The handover, as 0.1.0 will ship it" in ticket 19's comments before the release, since that is the last chance to change it.
 - R does "Set up once" in `CONTRIBUTING.md`'s "Releasing": the `robkit` organisation and a token on npm, then the `release` environment on GitHub, limited to `main`, with R as its reviewer and the token as its `NPM_TOKEN` secret.

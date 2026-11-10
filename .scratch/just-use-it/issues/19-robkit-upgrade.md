@@ -34,7 +34,7 @@
 - [x] `vendor/robkit/go` and the lint policy match the new version afterwards, and no file under `apps/` changed
 - [x] It prints the changelog entries between the two versions
 - [x] In a linked install, and in a vendored one, it prints one line and changes nothing
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -109,3 +109,9 @@ I changed two things on the branch before it merged:
 - **The frozen file says what a later second step can count on.** The first step puts back its five paths when the second fails, and no others. A later version whose second step writes anywhere else has to put that back itself. That is in the file's first comment now, and the hash in its test moved with it.
 
 Left as built, for R to read before the first release: the choices under "The handover, as 0.1.0 will ship it" above. I agree with each. `pnpm exec robkit` is the one that differs from this ticket's text, which said `pnpm robkit`.
+
+### Merged
+
+Added by the lead. PR 97 merged into `m3-making-an-install` on 2026-11-10 as `5e8a5510`, with `gate`, `check` and `pull-request` green on `f29ff9aa`, at the first full run on the branch.
+
+`packages/create-robkit/src/upgrade-handover.ts` can still change until 0.1.0 is on npm, and its test's hash moves with it. Milestone 3's code round reads it, and so should R, before the first release.
