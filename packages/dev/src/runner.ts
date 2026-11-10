@@ -10,6 +10,7 @@ import {
   sharedSettings,
   shellForApps,
 } from "./app-env.ts";
+import { untilAnswering } from "./answering.ts";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { checkBeforeStart, proxyPortProblem } from "./checks.ts";
 import { readDevConfig, withInstallEnv } from "./env.ts";
@@ -137,11 +138,17 @@ export async function runDev(
         },
       );
       for (const app of apps) start(app, databaseUrls.get(app.slug));
-      console.log("\nrobkit is running:");
+      // Each address once its app answers, so the first click doesn't get
+      // the proxy's "is not answering".
       for (const app of apps) {
-        console.log(`  ${addresses.origin(app.slug)}`);
+        void untilAnswering(app.port, stopController.signal).then((up) => {
+          if (up && !stopping()) {
+            console.log(
+              `${app.slug} is ready at ${addresses.origin(app.slug)}`,
+            );
+          }
+        });
       }
-      console.log();
     }
   } catch (error) {
     failures.push(error);

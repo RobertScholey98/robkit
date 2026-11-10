@@ -254,6 +254,27 @@ describe("robkit-dev", () => {
     expect(JSON.parse(beta)).toMatchObject({ listeningOn: "127.0.0.1" });
   });
 
+  it("prints an app's address once it answers, so a request made then gets the app", async () => {
+    // alpha listens 2 seconds after it starts, long after the proxy does.
+    const dev = await startDev({ FIXTURE_SLOW_START: "alpha" });
+    const address = `alpha is ready at http://alpha.robkit.localhost:${String(dev.port)}`;
+
+    const answer = await new Promise<string>((resolve, reject) => {
+      const onData = () => {
+        if (!dev.output().includes(address)) return;
+        dev.child.stdout?.off("data", onData);
+        // The moment the line is printed, before anything else happens.
+        get(dev.port, "alpha.robkit.localhost").then(resolve, reject);
+      };
+      dev.child.stdout?.on("data", onData);
+      dev.child.on("exit", () => {
+        reject(new Error(`robkit-dev exited first:\n${dev.output()}`));
+      });
+    });
+
+    expect(JSON.parse(answer)).toMatchObject({ slug: "alpha" });
+  });
+
   // In this process, so the coverage report sees the runner. The test above
   // proves the command's own signal handling.
   it("runs the install in this process until SIGINT, then stops it all", async () => {

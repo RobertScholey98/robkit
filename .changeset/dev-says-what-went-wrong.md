@@ -15,3 +15,5 @@ Before it starts anything, `robkit-dev` checks that Docker answers and that the 
 A failed `compose up` is reported alone, not with the `compose stop` that follows it.
 
 `robkit-dev` sets `HOST` to `127.0.0.1` for core and every app, so a `HOST` the shell exports no longer moves them off loopback.
+
+`robkit-dev` prints each app's address once that app answers, rather than all of them as soon as it starts the apps, so the first request gets the app and not the proxy's "is not answering".
