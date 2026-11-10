@@ -291,6 +291,38 @@ describe("guarded", () => {
     }).toEqual(headerAnswer(asking));
   });
 
+  it("sends each header of the guard's own answer once, after middleware that set the same ones", async () => {
+    const core = await fakeCore();
+    const app = express()
+      // As helmet does, when an app puts it before the guard.
+      .use((_req, res, next) => {
+        res.set("x-frame-options", "DENY");
+        res.set("x-content-type-options", "nosniff");
+        next();
+      })
+      .use(
+        guarded({
+          app: example,
+          access: { kind: "owner" },
+          core: core.origin,
+        }),
+      )
+      .post("/{*path}", (_req, res: GuardedResponse) => {
+        res.json(res.locals.viewer);
+      });
+
+    const res = await ask(app, core.page, {
+      method: "POST",
+      headers: { "sec-fetch-mode": "cors" },
+    });
+
+    expect({
+      status: res.status,
+      framing: res.headers.get("x-frame-options"),
+      sniffing: res.headers.get("x-content-type-options"),
+    }).toEqual({ status: 401, framing: "SAMEORIGIN", sniffing: "nosniff" });
+  });
+
   it("leaves the request's body for the app's handlers", async () => {
     const core = await fakeCore();
     const token = await core.key.token();

@@ -37,8 +37,13 @@ function webRequest(req: ExpressRequest, origin: string): Request {
 /** Sends the guard's answer as it is: status, every header and the body. */
 async function send(answer: Response, res: ExpressResponse): Promise<void> {
   res.status(answer.status);
-  // Iterating keeps each Set-Cookie apart, and append keeps them all.
-  for (const [name, value] of answer.headers) res.append(name, value);
+  for (const [name, value] of answer.headers) {
+    // Iterating keeps each Set-Cookie apart, and append keeps them all.
+    // Any other header replaces one that middleware before the guard set,
+    // such as helmet's X-Frame-Options, so none goes out twice.
+    if (name === "set-cookie") res.append(name, value);
+    else res.setHeader(name, value);
+  }
   res.end(Buffer.from(await answer.arrayBuffer()));
 }
 
