@@ -215,3 +215,30 @@ describe("password attempts still being checked", () => {
     expect(after[4]?.headers.get("retry-after")).toBe("900");
   });
 });
+
+describe("the log when the queue of password checks is full", () => {
+  it("says so once, and again only after it has cleared", async () => {
+    const lines: string[] = [];
+    const { app } = await freshCore({
+      signInLimits: { passwordChecksAtOnce: 1, passwordChecksWaiting: 0 },
+      logError: (message) => lines.push(message),
+    });
+    await claim(app);
+
+    for (let round = 0; round < 2; round++) {
+      const release = hold();
+      const running = postJson(app, "/login", wrong, from("198.51.100.1"));
+      await checksRunning(1);
+      for (let i = 0; i < 3; i++) {
+        await postJson(app, "/login", wrong, from(`203.0.113.${String(i)}`));
+      }
+      release();
+      await running;
+    }
+
+    expect(lines).toEqual([
+      "Password checks: 1 running and 0 waiting, the most core allows. Core answers more 429 until one finishes.",
+      "Password checks: 1 running and 0 waiting, the most core allows. Core answers more 429 until one finishes.",
+    ]);
+  });
+});

@@ -86,22 +86,33 @@ export interface PasswordChecker {
 export function createPasswordChecker({
   atOnce,
   waiting,
+  onFull = () => undefined,
 }: {
   atOnce: number;
   waiting: number;
+  /**
+   * Called when a call first finds the queue full. Later ones call nothing
+   * until a call has got in again, so a flood writes one log line.
+   */
+  onFull?: () => void;
 }): PasswordChecker {
   let running = 0;
+  let full = false;
   const queue: (() => void)[] = [];
 
   async function bounded<T>(work: () => Promise<T>): Promise<T | Busy> {
     if (running < atOnce) {
       running += 1;
     } else if (queue.length < waiting) {
+      full = false;
       // The call that finishes hands its place straight on.
       await new Promise<void>((resolve) => queue.push(resolve));
     } else {
+      if (!full) onFull();
+      full = true;
       return busy;
     }
+    full = false;
     try {
       return await work();
     } finally {

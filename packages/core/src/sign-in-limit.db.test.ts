@@ -331,3 +331,90 @@ describe("a full limit", () => {
     expect(right.status).toBe(200);
   });
 });
+
+describe("the log when a limit trips", () => {
+  /** A core whose log the test reads, one message a line. */
+  async function listened(signInLimits: Parameters<typeof freshCore>[0] = {}) {
+    const lines: string[] = [];
+    const core = await freshCore({
+      ...signInLimits,
+      logError: (message) => lines.push(message),
+    });
+    return { ...core, lines };
+  }
+
+  it("says once that a client reached its limit, never with the code it tried, until it clears and trips again", async () => {
+    const { app, advance, lines } = await listened();
+    const code = await liveCode(app);
+    const attempt = (value: string) =>
+      postJson(app, "/login/code", { code: value }, from("203.0.113.7"));
+
+    await inTurn(10, () => attempt("WRNG7"));
+    const refused = await inTurn(3, () => attempt(code));
+    expect(lines).toEqual([
+      "POST /login/code: 203.0.113.7 reached its limit of 10 attempts in 15 minutes. Core answers it 429 until a place frees.",
+    ]);
+
+    advance(15 * 60_000);
+    await inTurn(10, () => attempt("WRNG7"));
+    await attempt(code);
+
+    expect(tally(refused)).toEqual({ 429: 3 });
+    expect(lines).toHaveLength(2);
+    expect(lines.join("\n")).not.toContain("WRNG7");
+    expect(lines.join("\n")).not.toContain(code);
+  });
+
+  it("says once that a client reached its limit on /login", async () => {
+    const { app, lines } = await listened();
+    await claim(app);
+
+    await inTurn(8, () => postJson(app, "/login", wrong, from("203.0.113.7")));
+
+    expect(lines).toEqual([
+      "POST /login: 203.0.113.7 reached its limit of 5 attempts in 15 minutes. Core answers it 429 until a place frees.",
+    ]);
+  });
+
+  it("says once that the install's budget is spent", async () => {
+    const { app, lines } = await listened();
+    await liveCode(app);
+
+    await inTurn(24, (i) =>
+      postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from(`203.0.113.${String(i)}`),
+      ),
+    );
+
+    expect(lines).toEqual([
+      "POST /login/code: the install reached its budget of 20 wrong codes in 60 minutes. Core answers every code sign-in 429 until a place frees.",
+    ]);
+  });
+
+  it("says once that a limit holds all the clients it can", async () => {
+    const { app, lines } = await listened({
+      signInLimits: { clientsTracked: 1 },
+    });
+    await liveCode(app);
+
+    await inTurn(4, (i) =>
+      postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from(`203.0.113.${String(i)}`),
+      ),
+    );
+    await inTurn(4, (i) =>
+      postJson(app, "/login", wrong, from(`203.0.113.${String(i)}`)),
+    );
+
+    expect(lines).toEqual([
+      "POST /login/code: the limit holds 1 client, the most it keeps. Core answers a new client 429 until one expires.",
+      "POST /login: the limit holds 1 client, the most it keeps. Core lets a new client try, uncounted, until one expires.",
+    ]);
+  });
+});

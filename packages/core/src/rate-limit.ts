@@ -32,7 +32,12 @@ interface Client {
   failures: number[];
   /** Places held by checks still running. */
   checking: number;
+  /** Whether it has been refused since it last got a place. */
+  refused: boolean;
 }
+
+/** A limit that just started refusing: one client's, or a full limiter's. */
+export type Trip = { limit: "client"; client: string } | { limit: "full" };
 
 export interface LimiterOptions {
   /** Attempts each client may make in `windowMs`. */
@@ -46,6 +51,12 @@ export interface LimiterOptions {
    */
   whenFull: "refuse" | "admit";
   now: () => Date;
+  /**
+   * Called when a client is first refused, or a new client first finds
+   * the limiter full. The refusals after it call nothing until that limit
+   * has let someone in again, so a flood writes one log line.
+   */
+  onTrip?: (trip: Trip) => void;
 }
 
 /** The place of a client a full limiter lets try without counting it. */
@@ -63,7 +74,9 @@ export function createRateLimiter({
   maxClients,
   whenFull,
   now,
+  onTrip = () => undefined,
 }: LimiterOptions): RateLimiter {
+  let full = false;
   // In order of each client's latest failure, or of its first place if it
   // has none yet, so the clients whose failures expired first come first.
   const clients = new Map<string, Client>();
@@ -137,20 +150,26 @@ export function createRateLimiter({
       if (!client) {
         prune(at);
         if (clients.size >= maxClients) {
+          if (!full) onTrip({ limit: "full" });
+          full = true;
           return whenFull === "admit"
             ? { outcome: "reserved", place: uncounted }
             : { outcome: "refused", retryAfter: 1 };
         }
-        client = { failures: [], checking: 0 };
+        full = false;
+        client = { failures: [], checking: 0, refused: false };
         clients.set(key, client);
       }
       client.failures = recent(client, at);
       if (client.failures.length + client.checking >= limit) {
+        if (!client.refused) onTrip({ limit: "client", client: key });
+        client.refused = true;
         return {
           outcome: "refused",
           retryAfter: waitFor(client.failures, client.checking, at),
         };
       }
+      client.refused = false;
       client.checking += 1;
       return { outcome: "reserved", place: placeFor(key, client) };
     },

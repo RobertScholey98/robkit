@@ -138,6 +138,11 @@ export function createApp({
     passwords: createPasswordChecker({
       atOnce: limits.passwordChecksAtOnce,
       waiting: limits.passwordChecksWaiting,
+      onFull: () => {
+        logError(
+          `Password checks: ${String(limits.passwordChecksAtOnce)} running and ${String(limits.passwordChecksWaiting)} waiting, the most core allows. Core answers more 429 until one finishes.`,
+        );
+      },
     }),
     trustedProxy,
     logError,

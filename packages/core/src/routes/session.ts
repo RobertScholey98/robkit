@@ -6,7 +6,7 @@ import { parseAccessCode } from "../access-codes.ts";
 import { accessOf } from "../apps.ts";
 import { clientOf } from "../client.ts";
 import { claimInstall, readCredentials, readNewOwner } from "../owner.ts";
-import { createRateLimiter, type Place } from "../rate-limit.ts";
+import { createRateLimiter, type Place, type Trip } from "../rate-limit.ts";
 import { mintAppToken } from "../mint-token.ts";
 import {
   signIn,
@@ -55,6 +55,17 @@ function unclaimed(c: Context): Response {
  */
 export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   const { db, install, now, signingKey, signInLimits, trustedProxy } = context;
+  const minutes = (ms: number) => plural(Math.round(ms / 60_000), "minute");
+
+  /** Writes one log line when one of `route`'s limits trips. */
+  const logTrips =
+    (route: string, limit: number, whenFull: string) => (trip: Trip) => {
+      context.logError(
+        trip.limit === "client"
+          ? `${route}: ${trip.client} reached its limit of ${String(limit)} attempts in ${minutes(signInLimits.clientWindowMs)}. Core answers it 429 until a place frees.`
+          : `${route}: the limit holds ${plural(signInLimits.clientsTracked, "client")}, the most it keeps. ${whenFull}`,
+      );
+    };
   const origin = install.origin("core");
   const routes = new Hono<CoreEnv>();
   // When full, a new client may still try its password, uncounted:
@@ -67,6 +78,11 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     maxClients: signInLimits.clientsTracked,
     whenFull: "admit",
     now,
+    onTrip: logTrips(
+      "POST /login",
+      signInLimits.passwordsPerClient,
+      "Core lets a new client try, uncounted, until one expires.",
+    ),
   });
   // Apart from the owner's limit, so a guest guessing codes can't lock the
   // owner out. A guest's sign-in frees only its own place and never clears
@@ -78,6 +94,11 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     maxClients: signInLimits.clientsTracked,
     whenFull: "refuse",
     now,
+    onTrip: logTrips(
+      "POST /login/code",
+      signInLimits.codesPerClient,
+      "Core answers a new client 429 until one expires.",
+    ),
   });
   // Holds wrong codes from every client together, so rotating addresses
   // buys no more guesses. Once spent, it stops code sign-in for everyone
@@ -88,6 +109,11 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     maxClients: 1,
     whenFull: "refuse",
     now,
+    onTrip: () => {
+      context.logError(
+        `POST /login/code: the install reached its budget of ${String(signInLimits.codesPerInstall)} wrong codes in ${minutes(signInLimits.installWindowMs)}. Core answers every code sign-in 429 until a place frees.`,
+      );
+    },
   });
 
   /**
