@@ -26,3 +26,8 @@
 Found while milestone 1 was built (2026-11-09):
 
 - Two of repo-checks' own tests hit Vitest's 30-second limit on a busy GitHub runner, once each, and passed on a rerun: the `beforeAll` in `tooling/repo-checks/src/new-package.test.ts` (PR 78, run 42719625052) and `doc-examples.test.ts` (PR 75). Each does real work in a hook or a test: it copies the repo, or builds. Give them a limit that fits the work, or make the work smaller. Don't add a retry.
+
+Found in milestone 1's code review (2026-11-10):
+
+- A port lease whose holder and watcher were both killed is never taken back (`freePortBlock` in `tooling/test-postgres/src/index.ts`). A reboot or `wsl --shutdown` leaves every lease of that moment behind. With enough of them, 50 random tries over 500 blocks start to fail. It doesn't reach CI, where each run gets a fresh machine. Taking a stale lease over isn't a small fix: removing a lease after reading that its holder is dead can remove one a live process has just taken in its place. A lease named for both its block and its holder's pid needs no removal to be ignored, and needs no symlink, which ticket 21 also wants gone.
+- The two ports read a core address with letters outside ASCII differently: TypeScript takes `https://core.bücher.de` as its punycode form, and Go refuses it. robkit's own tools never write one, since `readDomain` refuses such a domain. A `coreAddress` row in `tooling/test-session/request-cases.json` would hold the two to one answer.

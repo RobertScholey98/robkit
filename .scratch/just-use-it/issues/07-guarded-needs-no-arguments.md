@@ -24,4 +24,13 @@
 - [ ] Start's `server.ts` is its imports and one call, with the viewer typed in a linked and in a packed install, or the ticket's comments say why the type block had to stay
 - [ ] The Go template gets its guard in one call
 - [ ] The API reports, READMEs and each stack's `AGENTS.md` show the new call
+- [ ] A `core` that is http on a domain that isn't local is refused by `requestGuard` itself, however it was typed
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From milestone 1's code review, added by the lead
+
+`requestGuard` in TypeScript trusts the `CoreOrigin` type and never looks at the value again. Go's `Guarded` checks it again when it runs (`go/session/guarded.go`). So a plain JavaScript app, or a cast, can hand the TypeScript guard an http origin on a domain that isn't local, and nothing refuses it. Every template reads the setting through `readGuardEnv`, so no install is exposed today.
+
+This ticket makes `requestGuard` read its own settings and take `core` as a plain string. Run every `core` it is given through the reader, a typed one included, so the two ports refuse the same values.
