@@ -1,7 +1,8 @@
-import { join } from "node:path";
+import { join, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CommandProblem } from "@robkit/input/command";
 import { describe, expect, it } from "vitest";
-import { robkitCore, watches } from "./robkit-core.ts";
+import { robkitCore, watches, watchFlags } from "./robkit-core.ts";
 
 const usage = `Usage: robkit-core <command>
 
@@ -90,5 +91,28 @@ describe("watches", () => {
         ),
       ),
     ).toBe(false);
+  });
+});
+
+describe("watchFlags", () => {
+  it("has Node watch the source of each robkit package in the checkout, and nothing under node_modules", async () => {
+    const packages = fileURLToPath(new URL("../..", import.meta.url));
+    const watching = (name: string) =>
+      `--watch-path=${join(packages, name, "src")}`;
+
+    const flags = await watchFlags(
+      fileURLToPath(new URL("robkit-core.ts", import.meta.url)),
+    );
+
+    expect(flags).toContain(watching("core"));
+    // A package core imports, and one it doesn't.
+    expect(flags).toContain(watching("session"));
+    expect(flags).toContain(watching("create-robkit"));
+    expect(
+      flags.filter((flag) => flag.split(sep).includes("node_modules")),
+    ).toEqual([]);
+    expect(flags.filter((flag) => !flag.startsWith("--watch-path="))).toEqual(
+      [],
+    );
   });
 });
