@@ -44,8 +44,14 @@ describe.each(readyStacks)("the %s install", (name) => {
     expect(runs).toContainEqual(expect.stringMatching(/^pnpm build$/));
     // A failing step rejects with its output. Its scripts find only the
     // bins the install's own manifests give it, as on the owner's machine.
+    // No robkit setting is set, as on CI: each app's tests, which load its
+    // Vite config, need none.
     await runOwnCi(dir, steps, {
-      ...process.env,
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(
+          ([name]) => !name.startsWith("ROBKIT_"),
+        ),
+      ),
       PATH: await cleanPath(),
     });
   });

@@ -47,6 +47,8 @@ The guard already asks core for what it needs: core's public key and this app's 
 
 The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes no settings. When one is missing or won't do, it prints what to fix and stops the app. Don't read them for the guard yourself.
 
+`vite.config.ts` calls `robkit()` from `@robkit/vite` first, which sets the dev server up for `pnpm dev`: it listens on `PORT`, answers `<slug>.<domain>`, and stops the dev server as it starts, with the same message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. It changes nothing under Vitest or for a build. The rest of the config, such as Tailwind and `build`, is the app's own.
+
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.

@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
+    "@robkit/vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

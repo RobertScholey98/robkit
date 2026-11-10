@@ -362,6 +362,71 @@ describe("generateInstall", () => {
     expect(withExec).toEqual([]);
   });
 
+  // What robkit adds to Vite is in @robkit/vite, so a config holds only
+  // the app's own settings.
+  it("sets every Vite app's dev server up with robkit(), reading no setting itself", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+    const configs = [...files].filter(([path]) =>
+      /(^|\/)(vite|vitest)\.config\.ts$/.test(path),
+    );
+    const call = (path: string) =>
+      path.endsWith("hub/vite.config.ts")
+        ? "robkit({ guarded: false })"
+        : "robkit()";
+
+    expect(configs.map(([path]) => path).sort()).toEqual([
+      "base/apps/admin/vite.config.ts",
+      "base/apps/hub/vite.config.ts",
+      "base/apps/hub/vitest.config.ts",
+      "stacks/express/vite.config.ts",
+      "stacks/go/vite.config.ts",
+      "stacks/react-hono/vite.config.ts",
+      "stacks/start/vite.config.ts",
+    ]);
+    expect(
+      configs.flatMap(([path, text]) =>
+        text.includes("@robkit/input") || text.includes("process.env")
+          ? [path]
+          : [],
+      ),
+    ).toEqual([]);
+    expect(
+      configs.flatMap(([path, text]) =>
+        path.endsWith("vitest.config.ts") || text.includes(call(path))
+          ? []
+          : [path],
+      ),
+    ).toEqual([]);
+  });
+
+  it("lists robkit's dev wiring where each app's image leaves Vite out", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+    const manifest = (path: string) =>
+      JSON.parse(files.get(path) ?? "{}") as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+    const viteApps = [
+      "base/apps/admin",
+      "base/apps/hub",
+      "stacks/express",
+      "stacks/go",
+      "stacks/react-hono",
+      "stacks/start",
+    ];
+
+    for (const app of viteApps) {
+      const { dependencies = {}, devDependencies = {} } = manifest(
+        `${app}/package.json`,
+      );
+      expect(devDependencies["@robkit/vite"], app).toBe("catalog:");
+      expect(dependencies, app).not.toHaveProperty("@robkit/vite");
+      expect(dependencies, app).not.toHaveProperty("vite");
+    }
+  });
+
   it("tells the root AGENTS.md about each dev tool", async () => {
     const files = await generateInstall(defaultChoices);
     const agents = files.get("AGENTS.md") ?? "";
@@ -405,7 +470,7 @@ describe("generateInstall", () => {
 
     expect([...files.keys()].filter(isTestFile)).toEqual(
       expect.arrayContaining([
-        "apps/admin/vitest.config.ts",
+        "apps/hub/vitest.config.ts",
         "apps/hub/src/core-api.test.ts",
         "packages/core-client/src/call-core.test.ts",
       ]),
@@ -475,6 +540,7 @@ describe("generateInstall", () => {
       "@robkit/react": at("react"),
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),
+      "@robkit/vite": at("vite"),
       "create-robkit": at("create-robkit"),
       "styled-jsx>@babel/core": "-",
     });

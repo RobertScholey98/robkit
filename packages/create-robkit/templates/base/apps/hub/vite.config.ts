@@ -1,16 +1,10 @@
-import { readDevServerEnv, orThrow } from "@robkit/input";
+import { robkit } from "@robkit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-const { port, domain } = orThrow(readDevServerEnv(process.env));
-
-// robkit-dev assigns PORT and serves the hub on hub.<domain> through its proxy.
+// robkit() sets the dev server up behind pnpm dev's proxy. The hub has no
+// guard, so it checks no guard settings and sends the hub's own headers.
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: {
-    host: "127.0.0.1",
-    ...(port && { port, strictPort: true }),
-    ...(domain && { allowedHosts: [`.${domain}`] }),
-  },
+  plugins: [robkit({ guarded: false }), react(), tailwindcss()],
 });
