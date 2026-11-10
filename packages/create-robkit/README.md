@@ -32,6 +32,7 @@ Inside an install:
 pnpm robkit add                                       # asks for the name, stack, who may open it and an icon
 pnpm robkit add notes --stack react-hono --access roles --roles Family --icon 📝
 pnpm robkit migrate notes                             # applies a new migration in the running pnpm dev
+pnpm robkit upgrade                                   # moves the install to the newest robkit, or to the version given
 pnpm robkit check                                     # the install's layer rule; pnpm lint runs it
 pnpm robkit vendor                                    # packs the linked packages, and what they run on, into vendor/robkit
 ```
@@ -54,7 +55,7 @@ for (const note of notes) console.log(note);
 | Export                                                                       | What it is                                                                                                                                               |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `create-robkit` (bin)                                                        | Init. Flags: `--stack <name>`, `--no-install`, `--link`                                                                                                  |
-| `robkit` (bin)                                                               | `add`, `check`, `vendor`, `database-urls` and `deploy`, run inside an install                                                                            |
+| `robkit` (bin)                                                               | `add`, `migrate`, `upgrade`, `check`, `vendor`, `database-urls` and `deploy`, run inside an install                                                      |
 | `init(choices, dir, options)`, `InitOptions`, `InitResult`                   | Checks what init needs, generates and writes an install, then unless `install` is false, installs it and makes its first commit. Returns notes to print  |
 | `Choices`, `defaultChoices`                                                  | What init asks: `{ exampleStack }`. The default is `start`                                                                                               |
 | `stacks`, `readyStacks`, `stackFrom`, `Stack`                                | The stacks: `start` (TanStack Start), `react-hono` (React with Hono), `express` (React with Express), `next` (Next.js) and `go` (React with a Go server) |
@@ -82,6 +83,17 @@ for (const note of notes) console.log(note);
 - The generator reads `base` in memory, mounts the example's stack at `apps/example`, writes the catalog from robkit's own, covering every stack, and records the example's stack in `robkit.json`.
 - `readRobkitRepo` in `src/robkit-repo.ts` is where the generator gets what an install takes from robkit: the catalog, pnpm's version, each package's version, the lint policy and the Go module. The build writes them to `dist/carried.json` with `scripts/carry.ts`, and the built package reads that, so it needs no checkout. The source, and any run with `--link`, reads the checkout. `turbo.json` names each file the build reads as an input to `create-robkit#build`, and `src/robkit-repo.test.ts` fails if one is missing.
 - Every install of one robkit version has the same `packages/ui`, `packages/theme`, `packages/core-client` and catalog.
+
+### Upgrade
+
+`robkit upgrade` runs in two steps, because the robkit an install has can't know what a newer one needs.
+
+1. The installed robkit checks everything, in `src/upgrade.ts`: git, a commit, a clean tree, no link where it replaces a folder, no `pnpm dev` running (`devRunning` from `@robkit/dev/cli`), and a newer version on the registry the install's pnpm uses (`pnpm view`). Then `handOver` in `src/upgrade-handover.ts` sets the catalog's create-robkit and `@robkit/*` entries to the new version, runs `pnpm install`, and runs `pnpm exec robkit upgrade --finish <old version>`.
+2. The robkit that install brought answers it with `finishUpgrade` in `src/upgrade.ts`. It replaces `tooling/eslint` and, in an install with a Go app, `vendor/robkit/go` with what it carries, adds or raises the catalog entries `installCatalog` gives, raises `packageManager`, and installs again if it changed either. Then it prints what changed and create-robkit's `CHANGELOG.md` between the two versions.
+
+A failure in either step puts back the five paths upgrade writes, from the last commit (`putBack`). The tree was clean when it started, so what changed there is upgrade's own.
+
+`src/upgrade-handover.ts` is frozen once 0.1.0 is on npm: 0.1.0's first step hands every later upgrade over with it. So the call, its one argument and the state it leaves are public, like an export, and every later `finishUpgrade` must answer them. `src/upgrade-handover.test.ts` runs that file, then the current second step, and holds the file to a hash. To change the first step in a later version, copy the file, change the copy, and import the copy from `src/upgrade.ts`. Keep the frozen file and its test. Put anything that can live in the second step there, since it can change in any version.
 
 ### The templates
 
