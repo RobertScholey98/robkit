@@ -371,6 +371,45 @@ describe.skipIf(process.platform === "win32")("serveRequests", () => {
     ).toEqual({ outcome: "done", message: "add notes" });
   });
 
+  it("gives the socket to one of two runners that start together, and refuses the other", async () => {
+    const { root, env, socket } = await place();
+
+    const started = await Promise.allSettled([
+      serveRequests(socket, done),
+      serveRequests(socket, done),
+    ]);
+    for (const each of started) {
+      if (each.status === "fulfilled") onTestFinished(() => each.value.close());
+    }
+
+    expect(started.map((each) => each.status).sort()).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+    expect(started.find((each) => each.status === "rejected")).toMatchObject({
+      reason: new CommandProblem(
+        "pnpm dev is already running in this install. Use that one, or stop it before you start another.",
+      ),
+    });
+    expect(
+      await askDev(root, { operation: "add", slug: slug("notes") }, env),
+    ).toEqual({ outcome: "done", message: "add notes" });
+  });
+
+  // Root writes in any folder.
+  it.skipIf(process.getuid?.() === 0)(
+    "fails with the system's own error when it can't make the socket file",
+    async () => {
+      const { socket } = await place();
+      await chmod(socket.folder, 0o500);
+      onTestFinished(() => chmod(socket.folder, 0o700));
+
+      await expect(serveRequests(socket, done)).rejects.toMatchObject({
+        code: "EACCES",
+      });
+    },
+  );
+
   it("removes its socket file when it stops", async () => {
     const { root, env, socket } = await place();
     const server = await serveRequests(socket, done);

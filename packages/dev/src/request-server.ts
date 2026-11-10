@@ -85,8 +85,8 @@ export interface ServeOptions {
 
 /**
  * Listens for requests on `socket`'s file, in a folder only this account
- * can open. A file a killed run left is removed first; one a running
- * `pnpm dev` answers on is left to it. Each connection sends one line of
+ * can open. A file a killed run left is removed; one a running `pnpm dev`
+ * answers on is left to it. Each connection sends one line of
  * at most {@link maxRequestBytes} bytes, and gets one line back. A line
  * that isn't a request is refused at once with the reason, and reading
  * stops at the limit. Requests go to `handle` one at a time, in the order
@@ -101,12 +101,6 @@ export async function serveRequests(
   { report = reportToConsole, received }: ServeOptions = {},
 ): Promise<RequestServer> {
   await privateFolder(socket);
-  if (await answersAt(socket.path)) {
-    throw new CommandProblem(
-      "pnpm dev is already running in this install. Use that one, or stop it before you start another.",
-    );
-  }
-  await rm(socket.path, { force: true });
 
   let queue = Promise.resolve();
   const open = new Set<Socket>();
@@ -190,13 +184,29 @@ export async function serveRequests(
     connection.on("end", onEnd);
   });
 
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(socket.path, () => {
-      server.off("error", reject);
-      resolve();
+  const listen = () =>
+    new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(socket.path, () => {
+        server.off("error", reject);
+        resolve();
+      });
     });
-  });
+  // Listening on the name is what takes it, so of two runners that start
+  // together one gets it. A name that is taken, with nobody answering on
+  // it, is a file a killed run left.
+  try {
+    await listen();
+  } catch (error) {
+    if (!hasCode(error, "EADDRINUSE")) throw error;
+    if (await answersAt(socket.path)) {
+      throw new CommandProblem(
+        "pnpm dev is already running in this install. Use that one, or stop it before you start another.",
+      );
+    }
+    await rm(socket.path, { force: true });
+    await listen();
+  }
 
   return {
     close: async () => {
