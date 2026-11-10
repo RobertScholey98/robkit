@@ -121,7 +121,7 @@ When an app token expires, a page load goes back through core's `/refresh` as ab
 
 ## The package map
 
-Arrows point from a package to what it imports. Adapters never import core: code reaches core over HTTP only. `tooling/eslint` enforces each arrow that is a rule (see [`AGENTS.md`](../AGENTS.md#the-layer-rule)). Every package here except `@robkit/react` and the Go module, which imports only Go's standard library, also imports `@robkit/input`, which imports nothing; the map draws only the guard's and session's arrows to it.
+Arrows point from a package to what it imports when it runs. Adapters never import core: code reaches core over HTTP only. `tooling/eslint/package-graph.js` lists every edge, tests' included, and `tooling/eslint` enforces each arrow that is a rule (see [`AGENTS.md`](../AGENTS.md#the-layer-rule)). Every package here but `@robkit/react`, `@robkit/hono`, `@robkit/express` and the Go module, which imports only Go's standard library, also imports `@robkit/input`, which imports nothing. Hono and Express take it in their tests only. The map draws only the guard's and session's arrows to it.
 
 ```mermaid
 flowchart TD
@@ -134,8 +134,11 @@ flowchart TD
   start["@robkit/start<br/>adapter"]
   react["@robkit/react<br/>sessionFetch"]
   gomodule["go/ (Go module)<br/>guard and request guard, ported"]
-  core["@robkit/core<br/>the backend"]
-  dev["@robkit/dev<br/>robkit-dev, provision step"]
+  core["@robkit/core<br/>the backend, robkit-core"]
+  dev["@robkit/dev<br/>robkit-dev, the runner and proxy"]
+  provision["@robkit/provision<br/>each app's schema and role"]
+  drizzle["@robkit/drizzle<br/>an app's database, robkit-migrate"]
+  serve["@robkit/serve<br/>listen, files, stop"]
   vite["@robkit/vite<br/>dev server setup, dev only"]
   create["create-robkit<br/>init and the robkit command"]
 
@@ -144,19 +147,27 @@ flowchart TD
   session --> input
   hono --> session
   hono --> guard
+  hono --> serve
   express --> session
   express --> guard
+  express --> serve
   next --> session
   next --> guard
+  next --> serve
   start --> session
   start --> guard
+  start --> serve
   react --> session
   gomodule -. same conformance cases .-> guard
   core --> session
   core --> guard
-  dev --> session
+  core --> drizzle
+  core --> provision
+  core --> serve
+  dev --> provision
   create --> session
   create --> dev
+  create --> provision
 ```
 
 In an install, the app side has its own layer rule, which `robkit check` enforces:
@@ -177,29 +188,35 @@ flowchart TD
 
 ## Where to look
 
-| Concern                                         | Where                                                                                                                  |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Who may open an app                             | `packages/guard/src/guard.ts`, and the cases in `packages/guard/conformance.json`                                      |
-| Reading cookies, verifying tokens, `/_robkit/*` | `packages/session/src/request-guard.ts`                                                                                |
-| The same, for a Go app                          | `go/session/guarded.go` and `go/guard/guard.go` (see `go/README.md`)                                                   |
-| Token claims and cookies                        | `packages/session/src/session-token.ts`                                                                                |
-| Reading env, JSON, slugs and the manifest       | `packages/input/src/` (`@robkit/input`), and `docs/conventions/input.md`                                               |
-| An install's addresses                          | `packages/session/src/addresses.ts` (`@robkit/session/addresses`)                                                      |
-| What an app declares in its manifest            | `packages/input/src/manifest.ts` (`@robkit/input`)                                                                     |
-| Core's routes                                   | `packages/core/src/routes/`, mounted in `app.ts`                                                                       |
-| Core's tables                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                                                  |
-| Sessions, refresh and minting app tokens        | `packages/core/src/session-store.ts`, `packages/core/src/mint-token.ts`                                                |
-| Access codes, roles and the app catalog         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                                             |
-| The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`, `sign-in-limits.ts`, `password.ts`                                     |
-| `pnpm dev`: finding apps, the proxy, the runner | `packages/dev/src/apps.ts`, `proxy.ts`, `runner.ts`                                                                    |
-| An app's dev server and build config            | `packages/vite/src/robkit.ts` and `express.ts` (`@robkit/vite`), `packages/next/src/config.ts` (`@robkit/next/config`) |
-| The headers robkit sends                        | `packages/input/src/headers.ts` (`@robkit/input/headers`), and `go/session/` for Go                                    |
-| Each app's schema and role                      | `packages/provision/src/provision.ts` (`@robkit/provision`)                                                            |
-| How core starts and stops                       | `packages/core/src/robkit-core.ts`, `serve-core.ts`, and `packages/serve/src/listen.ts`                                |
-| What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/`                             |
-| `robkit add`                                    | `packages/create-robkit/src/add.ts`, `add-wizard.ts`                                                                   |
-| The install's layer rule                        | `packages/create-robkit/src/check.ts`                                                                                  |
-| Deploying to Coolify                            | `packages/create-robkit/src/coolify-*.ts`, `deployment.ts`                                                             |
-| The hub and admin                               | `packages/create-robkit/templates/base/apps/hub`, `apps/admin`                                                         |
-| robkit's own layer rule                         | `tooling/eslint/layers.js`, `core-schema.js`                                                                           |
-| The whole-stack test                            | `tooling/e2e/src/`                                                                                                     |
+| Concern                                                         | Where                                                                                                                  |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Who may open an app                                             | `packages/guard/src/guard.ts`, and the cases in `packages/guard/conformance.json`                                      |
+| Reading cookies, verifying tokens, `/_robkit/*`                 | `packages/session/src/request-guard.ts`                                                                                |
+| The same, for a Go app                                          | `go/session/guarded.go` and `go/guard/guard.go` (see `go/README.md`)                                                   |
+| Token claims and cookies                                        | `packages/session/src/session-token.ts`, `session-cookies.ts`                                                          |
+| Reading env, JSON, slugs and the manifest                       | `packages/input/src/` (`@robkit/input`), and `docs/conventions/input.md`                                               |
+| An install's addresses                                          | `packages/input/src/addresses.ts` (`@robkit/input/addresses`)                                                          |
+| What an app declares in its manifest                            | `packages/input/src/manifest.ts` (`@robkit/input`)                                                                     |
+| Core's routes                                                   | `packages/core/src/routes/`, mounted in `app.ts`                                                                       |
+| Core's tables                                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                                                  |
+| Sessions, refresh and minting app tokens                        | `packages/core/src/session-store.ts`, `packages/core/src/mint-token.ts`                                                |
+| Access codes, roles and the app catalog                         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                                             |
+| The sign-in limit                                               | `packages/core/src/rate-limit.ts`, `client.ts`, `sign-in-limits.ts`, `password.ts`                                     |
+| `pnpm dev`: finding apps, the proxy, the runner                 | `packages/dev/src/apps.ts`, `proxy.ts`, `runner.ts`                                                                    |
+| `pnpm dev`: its checks before it starts, and each app's `.env`  | `packages/dev/src/checks.ts`, `app-env.ts`                                                                             |
+| `robkit add` and `robkit migrate` reaching a running `pnpm dev` | `packages/dev/src/requests.ts`, `request-server.ts`                                                                    |
+| An app's dev server and build config                            | `packages/vite/src/robkit.ts` and `express.ts` (`@robkit/vite`), `packages/next/src/config.ts` (`@robkit/next/config`) |
+| The headers robkit sends                                        | `packages/input/src/headers.ts` (`@robkit/input/headers`), and `go/session/` for Go                                    |
+| Each app's schema and role                                      | `packages/provision/src/provision.ts` (`@robkit/provision`)                                                            |
+| An app's database and migrations                                | `packages/drizzle/src/app-database.ts`, `migrate.ts` (`@robkit/drizzle`)                                               |
+| Serving an app in production                                    | `packages/serve/src/` (`@robkit/serve`), and each adapter's `src/serve.ts`                                             |
+| How core starts and stops                                       | `packages/core/src/robkit-core.ts`, `serve-core.ts`, and `packages/serve/src/listen.ts`                                |
+| What init writes                                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/`                             |
+| `robkit add`                                                    | `packages/create-robkit/src/add.ts`, `add-wizard.ts`                                                                   |
+| `robkit upgrade`                                                | `packages/create-robkit/src/upgrade.ts`, and `upgrade-handover.ts`, frozen once 0.1.0 is on npm                        |
+| Releasing robkit                                                | `.github/workflows/release.yml`, `tooling/repo-checks/src/release*.ts`                                                 |
+| The install's layer rule                                        | `packages/create-robkit/src/check.ts`                                                                                  |
+| Deploying to Coolify                                            | `packages/create-robkit/src/coolify-*.ts`, `deployment.ts`                                                             |
+| The hub and admin                                               | `packages/create-robkit/templates/base/apps/hub`, `apps/admin`                                                         |
+| robkit's own layer rule                                         | `tooling/eslint/layers.js`, `core-schema.js`                                                                           |
+| The whole-stack test                                            | `tooling/e2e/src/`                                                                                                     |
