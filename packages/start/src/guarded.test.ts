@@ -1,11 +1,20 @@
 import {
+  answerHeadersOf,
   callbackFor,
   conformanceAnswer,
   fakeCore,
+  headerAnswer,
+  headerCases,
+  headerRequest,
   owner,
+  type FakeCore,
   stateIn,
   slug,
+  writeAnswer,
+  writeCases,
+  writeRequest,
 } from "@internal/test-session";
+import { orThrow, readCoreUrl } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
 import { describe, expect, it } from "vitest";
 import { guarded, type GuardedOptions } from "./index.ts";
@@ -13,10 +22,16 @@ import { guarded, type GuardedOptions } from "./index.ts";
 // requestGuard's own tests cover the guard. These cover the Start glue: the
 // guard's answer goes out as is, and Start gets the viewer as context.
 
-const page = "http://start.robkit.localhost:3000/notes?x=1";
-const serverFn = "http://start.robkit.localhost:3000/_serverFn/abc";
 const navigate = { "sec-fetch-mode": "navigate" };
 const minute = 60;
+
+/** `path` on the app the tests guard, beside `core` on its port. */
+function on(core: FakeCore, path = "/notes?x=1"): string {
+  return new URL(
+    path,
+    `http://start.robkit.localhost:${new URL(core.origin).port}`,
+  ).href;
+}
 
 /**
  * Asks the guarded entry for `url`. Start behind it answers with the context
@@ -33,6 +48,7 @@ function open(options: GuardedOptions, url: string, init: RequestInit = {}) {
 describe("guarded", () => {
   it.each(conformanceCases)("$name", async (asking) => {
     const core = await fakeCore();
+    const page = on(core);
 
     const res = await open(
       { app: slug("start"), access: asking.rule, core: core.origin },
@@ -40,7 +56,7 @@ describe("guarded", () => {
       {
         headers: {
           ...navigate,
-          ...(await core.key.cookieFor(asking, "start")),
+          ...(await core.cookieFor(asking, "start")),
         },
       },
     );
@@ -56,6 +72,56 @@ describe("guarded", () => {
     }).toEqual(conformanceAnswer(asking, page, core));
   });
 
+  it.each(writeCases)("$name", async (asking) => {
+    let reached = false;
+    const start = {
+      fetch: () => {
+        reached = true;
+        return Response.json({});
+      },
+    };
+    const entry = guarded(start, {
+      app: slug("example"),
+      access: { kind: "open" },
+      core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+    });
+    const { url, ...init } = writeRequest(asking);
+
+    const res = await entry.fetch(new Request(url, init));
+
+    expect({ status: res.status, reached }).toEqual(writeAnswer(asking));
+  });
+
+  it.each(headerCases)("$name", async (asking) => {
+    let reached = false;
+    const { url, access, ...init } = headerRequest(asking);
+    const start = {
+      fetch: (request: Request) => {
+        reached = true;
+        // Response.redirect() makes headers that can't change.
+        if (new URL(request.url).pathname === "/moved") {
+          return Response.redirect(new URL("/", request.url), 302);
+        }
+        return new Response("the app", {
+          headers: { "content-security-policy": "default-src 'self'" },
+        });
+      },
+    };
+    const entry = guarded(start, {
+      app: slug("example"),
+      access,
+      core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+    });
+
+    const res = await entry.fetch(new Request(url, init));
+
+    expect({
+      status: res.status,
+      reached,
+      headers: answerHeadersOf(res.headers),
+    }).toEqual(headerAnswer(asking));
+  });
+
   it("answers a server function call with an expired session with the guard's 401", async () => {
     const core = await fakeCore();
     const token = await core.key.token({
@@ -65,7 +131,7 @@ describe("guarded", () => {
 
     const res = await open(
       { app: slug("start"), access: { kind: "owner" }, core: core.origin },
-      serverFn,
+      on(core, "/_serverFn/abc"),
       {
         method: "POST",
         headers: {
@@ -88,7 +154,7 @@ describe("guarded", () => {
 
     const res = await open(
       { app: slug("start"), access: { kind: "owner" }, core: core.origin },
-      serverFn,
+      on(core, "/_serverFn/abc"),
       {
         method: "POST",
         headers: {
@@ -110,6 +176,7 @@ describe("guarded", () => {
       access: { kind: "owner" },
       core: core.origin,
     } as const;
+    const page = on(core);
     const away = await open(options, page, { headers: navigate });
     const [state] = away.headers.getSetCookie();
 

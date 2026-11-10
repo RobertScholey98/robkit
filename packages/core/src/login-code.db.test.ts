@@ -7,6 +7,7 @@ import {
   freshCore,
   postJson,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
@@ -26,7 +27,7 @@ async function ownerMints(
     app,
     "/codes",
     { name: "Grandma", ...request },
-    { cookie: `robkit_session=${owner}` },
+    withSession(owner),
   );
   return { owner, ...((await res.json()) as Minted) };
 }
@@ -38,7 +39,7 @@ function signInWith(app: Hono, code: unknown) {
 function sessionOf(app: Hono, sessionToken: string) {
   return Promise.resolve(
     app.request("/session", {
-      headers: { cookie: `robkit_session=${sessionToken}` },
+      headers: withSession(sessionToken),
     }),
   );
 }
@@ -97,8 +98,10 @@ describe("POST /login/code", () => {
   });
 
   it("signs a guest in with the test code on a local domain", async () => {
-    const { app } = await freshCore({ domain: "robkit.localhost" });
-    await claim(app);
+    const { app } = await freshCore({
+      origin: "http://core.robkit.localhost:3000",
+    });
+    await claim(app, "http://core.robkit.localhost:3000");
 
     const res = await signInWith(app, "test");
 
@@ -127,12 +130,7 @@ describe("POST /login/code", () => {
   it("refuses a revoked code with 401", async () => {
     const { app } = await freshCore();
     const { owner, id, code } = await ownerMints(app);
-    await postJson(
-      app,
-      `/codes/${id}/revoke`,
-      {},
-      { cookie: `robkit_session=${owner}` },
-    );
+    await postJson(app, `/codes/${id}/revoke`, {}, withSession(owner));
 
     const res = await signInWith(app, code);
 
@@ -158,8 +156,10 @@ describe("POST /login/code", () => {
   it.each([{}, { code: 12345 }, "TEST"])(
     "refuses %j with 400",
     async (body) => {
-      const { app } = await freshCore({ domain: "robkit.localhost" });
-      await claim(app);
+      const { app } = await freshCore({
+        origin: "http://core.robkit.localhost:3000",
+      });
+      await claim(app, "http://core.robkit.localhost:3000");
 
       const res = await postJson(app, "/login/code", body);
 
@@ -169,7 +169,9 @@ describe("POST /login/code", () => {
   );
 
   it("refuses with 409 before anyone has set up the install", async () => {
-    const { app } = await freshCore({ domain: "robkit.localhost" });
+    const { app } = await freshCore({
+      origin: "http://core.robkit.localhost:3000",
+    });
 
     const res = await signInWith(app, "TEST");
 
@@ -265,6 +267,69 @@ describe("POST /login/code's rate limit", () => {
     );
 
     expect([blocked.status, other.status]).toEqual([429, 200]);
+  });
+
+  it("counts every address in one IPv6 /64 as one client", async () => {
+    const { app } = await freshCore();
+    const { code } = await ownerMints(app);
+    for (let i = 0; i < 10; i++) {
+      const wrong = await postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from(`2001:db8:1:2::${String(i + 1)}`),
+      );
+      expect(wrong.status).toBe(401);
+    }
+
+    const sameNetwork = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("2001:db8:1:2:abcd::99"),
+    );
+    const nextNetwork = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("2001:db8:1:3::1"),
+    );
+
+    expect([sameNetwork.status, nextNetwork.status]).toEqual([429, 200]);
+  });
+
+  it("counts an IPv4-mapped address, in either spelling, as its IPv4 address", async () => {
+    const { app } = await freshCore();
+    const { code } = await ownerMints(app);
+    for (let i = 0; i < 5; i++) {
+      await postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from("::ffff:203.0.113.7"),
+      );
+      await postJson(
+        app,
+        "/login/code",
+        { code: "NOPE2" },
+        from("::ffff:cb00:7107"),
+      );
+    }
+
+    const plain = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.7"),
+    );
+    const neighbour = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.8"),
+    );
+
+    expect([plain.status, neighbour.status]).toEqual([429, 200]);
   });
 
   it("counts apart from the owner's password limit", async () => {

@@ -1,16 +1,10 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { setCookie } from "hono/cookie";
 import type { Report } from "@robkit/input/report";
-import { sessionCookie, sessionTokensIn } from "@robkit/session";
-import { isLocal } from "@robkit/input/addresses";
-import {
-  type InputProblem,
-  isProblem,
-  isRecord,
-  problem,
-  type Domain,
-} from "@robkit/input";
+import { sessionCookies, sessionTokensIn } from "@robkit/session";
+import { type InputProblem, isProblem, isRecord, problem } from "@robkit/input";
 import type { TrustedProxy } from "../client.ts";
+import type { SignInLimits } from "../sign-in-limits.ts";
 import { sessionLifetimeSeconds } from "../session-claims.ts";
 import {
   readSession,
@@ -22,6 +16,7 @@ import {
 export interface RouteContext extends SessionContext {
   trustedProxy: TrustedProxy | undefined;
   logError: Report;
+  signInLimits: SignInLimits;
 }
 
 /** What a route that needs the viewer finds in `c.var`. */
@@ -52,22 +47,21 @@ export async function readBody<T>(
   return isProblem(fields) ? fields : read(fields);
 }
 
-/** Puts `sessionToken` on core's cookie, or clears it with a `maxAge` of 0. */
+/**
+ * Puts `sessionToken` on the cookie of the core at `origin`, or clears it
+ * with a `maxAge` of 0.
+ */
 export function setSessionCookie(
   c: Context,
-  domain: Domain,
+  origin: string,
   sessionToken: string,
   maxAge = sessionLifetimeSeconds,
 ): void {
-  // Host-only, with no Domain, so only core's host ever receives it. The
-  // hub and admin call core from the browser, so it goes with those calls.
-  setCookie(c, sessionCookie, sessionToken, {
-    httpOnly: true,
-    path: "/",
-    sameSite: "Lax",
-    maxAge,
-    secure: !isLocal(domain),
-  });
+  // Host-only, with no Domain, so only core's host ever receives it, and
+  // __Host- over https, so no sibling can plant one. The hub and admin call
+  // core from the browser, so it goes with those calls.
+  const { session, attributes } = sessionCookies(origin);
+  setCookie(c, session, sessionToken, { ...attributes, maxAge });
 }
 
 /**
@@ -85,20 +79,21 @@ export function viewer(
   { renew = false, ownerOnly = false } = {},
 ): MiddlewareHandler<CoreEnv> {
   return async function readViewer(c, next) {
-    const sessionTokens = sessionTokensIn(c.req.header("cookie"));
+    const origin = context.install.origin("core");
+    const sessionTokens = sessionTokensIn(c.req.header("cookie"), origin);
     const session = await readSession(context, sessionTokens, { renew });
     const { answer, freshSessionToken } = session;
     const isOwner =
       answer.state === "signed-in" && answer.profile.kind === "owner";
     if (ownerOnly && !isOwner) return c.json({ error: "Not found" }, 404);
     if (freshSessionToken) {
-      setSessionCookie(c, context.domain, freshSessionToken);
+      setSessionCookie(c, origin, freshSessionToken);
     } else if (
       renew &&
       sessionTokens.length > 0 &&
       answer.state !== "signed-in"
     ) {
-      setSessionCookie(c, context.domain, "", 0);
+      setSessionCookie(c, origin, "", 0);
     }
     c.set("session", session);
     await next();

@@ -1,6 +1,7 @@
 import type { AccessRule, RoleId, Viewer } from "@robkit/guard";
 import { describe, expectTypeOf, it } from "vitest";
 import {
+  appOrigin,
   requestGuard,
   type AccessRuleFailure,
   type GuardedOptions,
@@ -30,9 +31,21 @@ describe("session's types", () => {
       (request: Request) => Promise<RequestDecision>
     >();
     expectTypeOf<RequestDecision>().toEqualTypeOf<
-      | { outcome: "serve"; viewer: Viewer }
+      | {
+          outcome: "serve";
+          viewer: Viewer;
+          headers: readonly [string, string][];
+        }
       | { outcome: "answer"; response: Response }
     >();
+  });
+
+  it("works out the app's origin from its slug and core's origin alone", () => {
+    expectTypeOf(appOrigin({ app: notes, core })).toBeString();
+    // @ts-expect-error -- a string nobody read as a slug won't do
+    appOrigin({ app: "notes", core });
+    // @ts-expect-error -- nor a string nobody read as core's origin
+    appOrigin({ app: notes, core: "https://core.robkit.dev" });
   });
 
   it("takes the app as a Slug, which only readSlug makes", () => {

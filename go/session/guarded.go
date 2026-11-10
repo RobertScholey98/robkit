@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/RobertScholey98/robkit/go/guard"
+	"github.com/RobertScholey98/robkit/go/internal/sessioncookies"
 )
 
 type viewerKey struct{}
@@ -43,15 +44,20 @@ func ViewerFrom(ctx context.Context) guard.Viewer {
 }
 
 const (
-	errLogin   = "Sign in to use this app."
-	errRefresh = "Your session needs refreshing."
-	errKeys    = "Can't reach core to check your session."
-	errRule    = "Can't reach core to check who may open this app."
+	errLogin     = "Sign in to use this app."
+	errRefresh   = "Your session needs refreshing."
+	errKeys      = "Can't reach core to check your session."
+	errRule      = "Can't reach core to check who may open this app."
+	errElsewhere = "This app only accepts changes from its own pages, and this request came from another origin."
 )
 
 // requestGuard decides what the app does with each request.
 type requestGuard struct {
-	app           string
+	app string
+	// origin is the app's public origin, from its options: core's scheme
+	// and port, on <app>.<domain>. Every URL the guard builds starts with
+	// it.
+	origin        *url.URL
 	hub           string
 	rule          func() (guard.AccessRule, error)
 	onUnavailable func(Fault)
@@ -67,19 +73,16 @@ func Guarded(options Options) (func(http.Handler) http.Handler, error) {
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Go refuses an HTTP/1.1 request without a Host, but not an
-			// HTTP/1.0 one. Without it the guard can't tell which page
-			// was asked for.
-			if r.Host == "" {
-				answer := text("Send a Host header.", http.StatusBadRequest)
-				answer.write(w)
-				return
-			}
 			viewer, answer := g.check(r)
 			if answer != nil {
+				g.secure(answer.header, isRedirect(answer.status))
 				answer.write(w)
 				return
 			}
+			// Before the handler, which may set its own or redirect. An
+			// app's own redirect carries the framing header too, and so
+			// may the 101 a WebSocket handshake gets, which does no harm.
+			g.secure(w.Header(), false)
 			next.ServeHTTP(w, r.WithContext(WithViewer(r.Context(), viewer)))
 		})
 	}, nil
@@ -90,7 +93,7 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 		return nil, errors.New("session: App: " + err.Error())
 	}
 	if !isCoreOrigin(options.Core) {
-		return nil, errors.New("session: Core is " + shown(options.Core) + ", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.")
+		return nil, errors.New(notCoreOrigin("session: Core is", options.Core))
 	}
 	now := options.Now
 	if now == nil {
@@ -101,12 +104,13 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 		onUnavailable = reportFault
 	}
 	core, _ := url.Parse(options.Core)
-	domain := strings.TrimPrefix(core.Hostname(), "core.")
-	hub := *core
+	hub, origin := *core, *core
 	hub.Host = strings.Replace(core.Host, "core.", "hub.", 1)
+	origin.Host = strings.Replace(core.Host, "core.", options.App+".", 1)
 	client := coreClient()
 	g := &requestGuard{
 		app:           options.App,
+		origin:        &origin,
 		hub:           hub.String(),
 		onUnavailable: onUnavailable,
 	}
@@ -117,9 +121,9 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 		g.rule = newCoreAccess(options.Core, options.App, client, now).rule
 	}
 	g.protocol = &refreshProtocol{
-		app:    options.App,
-		core:   options.Core,
-		secure: domain != "localhost" && !strings.HasSuffix(domain, ".localhost"),
+		app:     options.App,
+		core:    options.Core,
+		cookies: sessioncookies.For(options.Core),
 		keys: &keySet{
 			url:    options.Core + "/.well-known/jwks.json",
 			client: client,
@@ -129,6 +133,22 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 		keyUnavailable: g.keyUnavailable,
 	}
 	return g, nil
+}
+
+// secure sets on header what every answer carries: nosniff, HSTS on an
+// https install, and, unless the answer is a redirect, which renders
+// nothing, X-Frame-Options: SAMEORIGIN. An app changes who may frame it
+// with its own Content-Security-Policy: frame-ancestors, which a browser
+// obeys over X-Frame-Options. A redirect with no framing header lets an
+// app that allows a framer renew its token inside the frame.
+func (g *requestGuard) secure(header http.Header, redirect bool) {
+	if !redirect {
+		header.Set("X-Frame-Options", "SAMEORIGIN")
+	}
+	header.Set("X-Content-Type-Options", "nosniff")
+	if g.origin.Scheme == "https" {
+		header.Set("Strict-Transport-Security", strictTransportSecurity)
+	}
 }
 
 // unavailable is a 503 for a check that failed, after telling
@@ -158,7 +178,13 @@ func (g *requestGuard) ruleUnavailable(cause error) response {
 
 // check is the viewer the guard lets r through to, or its own answer.
 func (g *requestGuard) check(r *http.Request) (guard.Viewer, *response) {
-	u := publicURL(r)
+	// Before anything else, the guard's own paths included, so a page on
+	// another origin can't act as the viewer.
+	if isFromAnotherOrigin(r, origin(g.origin)) {
+		answer := text(errElsewhere, http.StatusForbidden)
+		return nil, &answer
+	}
+	u := publicURL(r, g.origin)
 	if own, ok := g.protocol.answer(r, u); ok {
 		return nil, &own
 	}
@@ -183,19 +209,26 @@ func (g *requestGuard) check(r *http.Request) (guard.Viewer, *response) {
 	case guard.Login:
 		// Core's word that nobody is signed in goes, so once the browser
 		// signs in at the hub and comes back, the app asks core again.
-		if !isNavigation(r) {
+		switch {
+		case isNavigation(r):
+			answer = redirect(withQuery(g.hub+"/", "next", u.String()), "set-cookie", g.protocol.forget())
+		case isFormPost(r):
+			answer = formNotSent(r, origin(g.origin))
+			answer.header.Add("set-cookie", g.protocol.forget())
+		default:
 			// A call doesn't know the page it came from. The page adds
 			// next.
 			answer = sessionLapsed("login", errLogin, g.hub+"/")
 			answer.header.Add("set-cookie", g.protocol.forget())
-		} else {
-			answer = redirect(withQuery(g.hub+"/", "next", u.String()), "set-cookie", g.protocol.forget())
 		}
 	default:
-		if !isNavigation(r) {
-			answer = sessionLapsed("refresh", errRefresh, origin(u)+appRefreshPath)
-		} else {
+		switch {
+		case isNavigation(r):
 			answer = g.protocol.toCore(r, u.String())
+		case isFormPost(r):
+			answer = formNotSent(r, origin(g.origin))
+		default:
+			answer = sessionLapsed("refresh", errRefresh, origin(u)+appRefreshPath)
 		}
 	}
 	return nil, &answer

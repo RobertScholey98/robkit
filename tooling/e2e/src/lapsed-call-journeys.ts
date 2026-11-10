@@ -1,7 +1,7 @@
 import type { BrowserContext, Page } from "playwright";
 import { expect, it } from "vitest";
 import { handedBack, refreshing } from "./bounces.ts";
-import { launch } from "./browser.ts";
+import { launch, networkIdle } from "./browser.ts";
 import type { DevStack } from "./dev-stack.ts";
 import { exampleSlug } from "./install.ts";
 import {
@@ -32,7 +32,7 @@ async function signIn(
 }
 
 /** Opens the example signed in as the owner, once React has hydrated it. */
-async function openSignedIn(
+export async function openSignedIn(
   context: BrowserContext,
   options: JourneyOptions,
 ): Promise<Page> {
@@ -42,7 +42,7 @@ async function openSignedIn(
   await signIn(page, options);
   await page.waitForURL(app);
   // Links and buttons work once React has hydrated the page.
-  await page.waitForLoadState("networkidle");
+  await networkIdle(page);
   return page;
 }
 

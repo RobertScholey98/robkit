@@ -22,17 +22,21 @@ function rolesIn(sessionToken: string): unknown {
   return decodeJwt(sessionToken).roles;
 }
 
-/** The token /refresh hands back for `sessionToken` on an install's domain. */
+/** The token /refresh hands back for `sessionToken`, for notes at `notes`. */
 async function refreshed(
   app: Hono,
   sessionToken: string,
-  domain = "robkit.test",
+  notes = "https://notes.robkit.test",
 ): Promise<string> {
-  return sessionCookieOf(await refresh(app, sessionToken, domain))?.value ?? "";
+  return sessionCookieOf(await refresh(app, sessionToken, notes))?.value ?? "";
 }
 
-function refresh(app: Hono, sessionToken: string, domain = "robkit.test") {
-  const next = encodeURIComponent(`https://notes.${domain}/`);
+function refresh(
+  app: Hono,
+  sessionToken: string,
+  notes = "https://notes.robkit.test",
+) {
+  const next = encodeURIComponent(`${notes}/`);
   return Promise.resolve(
     app.request(`/refresh?next=${next}`, {
       headers: withSession(sessionToken),
@@ -42,7 +46,7 @@ function refresh(app: Hono, sessionToken: string, domain = "robkit.test") {
 
 describe("a guest's session token", () => {
   it("carries the roles their code holds", async () => {
-    const { app } = await freshCore();
+    const { app } = await freshCore({ apps: ["notes"] });
     const owner = await claim(app);
     const minted = await postJson(
       app,
@@ -65,7 +69,7 @@ describe("a guest's session token", () => {
   });
 
   it("picks up a role change at the next refresh", async () => {
-    const { app, advance } = await freshCore();
+    const { app, advance } = await freshCore({ apps: ["notes"] });
     const owner = await claim(app);
     const minted = await postJson(
       app,
@@ -90,7 +94,7 @@ describe("a guest's session token", () => {
   });
 
   it("goes to the app with the roles the guest holds now", async () => {
-    const { app } = await freshCore();
+    const { app } = await freshCore({ apps: ["notes"] });
     const owner = await claim(app);
     const minted = await postJson(
       app,
@@ -121,7 +125,7 @@ describe("a guest's session token", () => {
   });
 
   it("is reissued as soon as core sees the roles changed, so the launcher and apps agree", async () => {
-    const { app } = await freshCore();
+    const { app } = await freshCore({ apps: ["notes"] });
     const owner = await claim(app);
     const minted = await postJson(
       app,
@@ -153,7 +157,12 @@ describe("a guest's session token", () => {
   });
 
   it("gives the test code every role, even one made after sign-in", async () => {
-    const { app } = await freshCore({ domain: "robkit.localhost" });
+    const { app } = await freshCore({
+      apps: ["notes"],
+      // The test code needs a local domain, not http, so the helpers'
+      // https cookie name still works.
+      origin: "https://core.robkit.localhost:3443",
+    });
     const owner = await claim(app);
     const guest = await signIn(app, "test");
     const created = await postJson(
@@ -166,10 +175,10 @@ describe("a guest's session token", () => {
     const { Family, Friends } = await roleIdsByName(app, owner);
 
     expect(rolesIn(guest)).toEqual([Family, Friends]);
-    expect(rolesIn(await refreshed(app, guest, "robkit.localhost"))).toEqual([
-      bookClub,
-      Family,
-      Friends,
-    ]);
+    expect(
+      rolesIn(
+        await refreshed(app, guest, "https://notes.robkit.localhost:3443"),
+      ),
+    ).toEqual([bookClub, Family, Friends]);
   });
 });

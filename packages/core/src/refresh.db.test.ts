@@ -12,7 +12,9 @@ import {
   clockStart,
   freshCore,
   resigned,
+  defaultOrigin,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
@@ -23,20 +25,21 @@ function refresh(
   app: Hono,
   next: string | undefined,
   sessionToken?: string,
+  origin = defaultOrigin,
   query = `&state=${state}`,
 ) {
   const nextQuery =
     next === undefined ? "" : `next=${encodeURIComponent(next)}`;
   return Promise.resolve(
     app.request(`/refresh?${nextQuery}${query}`, {
-      headers: sessionToken ? { cookie: `robkit_session=${sessionToken}` } : {},
+      headers: sessionToken ? withSession(sessionToken, origin) : {},
     }),
   );
 }
 
 async function stateOf(app: Hono, sessionToken: string) {
   const res = await app.request("/session", {
-    headers: { cookie: `robkit_session=${sessionToken}` },
+    headers: withSession(sessionToken),
   });
   return ((await res.json()) as { state: string }).state;
 }
@@ -55,7 +58,7 @@ function callbackOf(res: Response) {
 
 describe("GET /refresh", () => {
   it("sends the browser to the app's callback with a token minted for that app alone", async () => {
-    const { app, advance } = await freshCore();
+    const { app, advance } = await freshCore({ apps: ["notes"] });
     const sessionToken = await claim(app);
     const ownerId = decodeJwt(sessionToken).sub;
     advance(16 * minute);
@@ -93,7 +96,7 @@ describe("GET /refresh", () => {
   });
 
   it("refuses the app's token it minted, at /session and at /refresh", async () => {
-    const { app } = await freshCore();
+    const { app } = await freshCore({ apps: ["notes"] });
     const sessionToken = await claim(app);
     const { token } = callbackOf(await refresh(app, back, sessionToken));
 
@@ -105,7 +108,7 @@ describe("GET /refresh", () => {
   });
 
   it("reissues an expired token of core's own while its session lives", async () => {
-    const { app, advance } = await freshCore();
+    const { app, advance } = await freshCore({ apps: ["notes"] });
     const sessionToken = await claim(app);
     advance(16 * minute);
 
@@ -124,7 +127,7 @@ describe("GET /refresh", () => {
   });
 
   it("reissues a token core still thinks live, since the app's clock may run ahead", async () => {
-    const { app, advance } = await freshCore();
+    const { app, advance } = await freshCore({ apps: ["notes"] });
     const sessionToken = await claim(app);
     advance(14 * minute);
 
@@ -137,7 +140,7 @@ describe("GET /refresh", () => {
   });
 
   it("clears the cookie of a revoked session and sends the app no token", async () => {
-    const { app, db, advance } = await freshCore();
+    const { app, db, advance } = await freshCore({ apps: ["notes"] });
     const sessionToken = await claim(app);
     await db.execute(sql`update core.sessions set revoked_at = now()`);
     advance(16 * minute);
@@ -164,7 +167,7 @@ describe("GET /refresh", () => {
   });
 
   it("never renews from an app's token, though core signed it for a live session", async () => {
-    const { app, db, advance } = await freshCore();
+    const { app, db, advance } = await freshCore({ apps: ["notes"] });
     const appToken = await resigned(db, await claim(app), { aud: "notes" });
     advance(16 * minute);
 
@@ -175,7 +178,7 @@ describe("GET /refresh", () => {
   });
 
   it("sends a browser without a cookie back with no token, setting no cookie", async () => {
-    const { app } = await freshCore();
+    const { app } = await freshCore({ apps: ["notes"] });
     await claim(app);
 
     const res = await refresh(app, back);
@@ -186,17 +189,102 @@ describe("GET /refresh", () => {
   });
 
   it("hands a token over plain http on a local install", async () => {
-    const { app } = await freshCore({ domain: "robkit.localhost" });
-    const sessionToken = await claim(app);
+    const { app } = await freshCore({
+      apps: ["notes"],
+      origin: "http://core.robkit.localhost:3000",
+    });
+    const core = "http://core.robkit.localhost:3000";
+    const sessionToken = await claim(app, core);
     const local = "http://notes.robkit.localhost:3000/";
 
-    const res = await refresh(app, local, sessionToken);
+    const res = await refresh(app, local, sessionToken, core);
 
     expect(callbackOf(res)).toMatchObject({
       callback: "http://notes.robkit.localhost:3000/_robkit/session",
       next: local,
     });
     expect(callbackOf(res).token).not.toBeNull();
+  });
+
+  it.each([
+    [
+      "admin on a hosted install",
+      "https://core.robkit.test",
+      "https://admin.robkit.test/codes",
+    ],
+    [
+      "admin on a local one",
+      "http://core.robkit.localhost:3000",
+      "http://admin.robkit.localhost:3000/",
+    ],
+    [
+      "notes on a hosted install's own port",
+      "https://core.robkit.test:8443",
+      "https://notes.robkit.test:8443/",
+    ],
+  ])("mints a token for %s", async (_, origin, next) => {
+    const { app } = await freshCore({ apps: ["notes"], origin });
+    const sessionToken = await claim(app, origin);
+
+    const res = await refresh(app, next, sessionToken, origin);
+
+    expect(res.status).toBe(302);
+    expect(callbackOf(res).next).toBe(next);
+    expect(callbackOf(res).token).not.toBeNull();
+  });
+
+  it.each([
+    [
+      "an app core doesn't know",
+      "https://core.robkit.test",
+      "https://other.robkit.test/",
+    ],
+    [
+      "a known app on another port",
+      "https://core.robkit.test",
+      "https://notes.robkit.test:8443/",
+    ],
+    [
+      "a known app on the default port of an install on its own",
+      "https://core.robkit.test:8443",
+      "https://notes.robkit.test/",
+    ],
+    [
+      "http when core is https",
+      "https://core.robkit.test",
+      "http://notes.robkit.test/",
+    ],
+    [
+      "admin over http when core is https",
+      "https://core.robkit.test",
+      "http://admin.robkit.test/",
+    ],
+    [
+      "https when a local core is http",
+      "http://core.robkit.localhost:3000",
+      "https://notes.robkit.localhost:3000/",
+    ],
+    [
+      "a local app without the install's port",
+      "http://core.robkit.localhost:3000",
+      "http://notes.robkit.localhost/",
+    ],
+    [
+      "the hub on a local install",
+      "http://core.robkit.localhost:3000",
+      "http://hub.robkit.localhost:3000/",
+    ],
+  ])("refuses %s with 400 and no cookie", async (_, origin, next) => {
+    const { app } = await freshCore({ apps: ["notes"], origin });
+    const sessionToken = await claim(app, origin);
+
+    const res = await refresh(app, next, sessionToken, origin);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Send next, a URL on one of this install's apps.",
+    });
+    expect(res.headers.getSetCookie()).toEqual([]);
   });
 
   it.each([
@@ -212,7 +300,7 @@ describe("GET /refresh", () => {
     ["core itself", "https://core.robkit.test/"],
     ["the hub", "https://hub.robkit.test/"],
   ])("refuses %s with 400 and no cookie", async (_, next) => {
-    const { app, advance } = await freshCore();
+    const { app, advance } = await freshCore({ apps: ["notes"] });
     const sessionToken = await claim(app);
     advance(16 * minute);
 

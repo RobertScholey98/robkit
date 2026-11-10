@@ -17,7 +17,7 @@ await ensureSigningKey(db);
 await registerApps(db, config.apps);
 const app = createApp({
   db,
-  domain: config.domain,
+  origin: config.origin,
   // Set to cloudflare behind a Cloudflare tunnel, so the sign-in limits
   // count each visitor. Only when nothing but the tunnel reaches the host.
   trustedProxy: config.trustedProxy,

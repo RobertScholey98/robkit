@@ -1,6 +1,6 @@
 import { generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { describe, expect, it } from "vitest";
-import { readAppToken, readSessionToken, sessionTokensIn } from "./index.ts";
+import { readAppToken, readSessionToken } from "./index.ts";
 import { slug } from "@internal/test-session";
 
 const notes = slug("notes");
@@ -246,19 +246,20 @@ describe("readAppToken", () => {
   });
 });
 
-describe("sessionTokensIn", () => {
-  it("lists every session cookie a request sends, in order", () => {
-    expect(
-      sessionTokensIn(
-        "theme=dark; robkit_session=a.b.c; other=1;robkit_session = d.e.f",
-      ),
-    ).toEqual(["a.b.c", "d.e.f"]);
-  });
+describe("a token with no exp", () => {
+  it("is refused as core's token and as an app's", async () => {
+    const { privateKey, publicKey } = await keyPair();
+    const forever = (aud: string) =>
+      new SignJWT({ aud, sid: "session-1", kind: "owner" })
+        .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
+        .setSubject("owner-1")
+        .setIssuedAt(Math.floor(issuedAt.getTime() / 1000))
+        .sign(privateKey);
+    const now = new Date(issuedAt.getTime() + minute);
 
-  it("lists none without a cookie header", () => {
-    expect([sessionTokensIn(null), sessionTokensIn("theme=dark")]).toEqual([
-      [],
-      [],
-    ]);
+    expect([
+      await readSessionToken(publicKey, await forever("core"), now),
+      await readAppToken(publicKey, await forever("notes"), now, notes),
+    ]).toEqual([undefined, undefined]);
   });
 });

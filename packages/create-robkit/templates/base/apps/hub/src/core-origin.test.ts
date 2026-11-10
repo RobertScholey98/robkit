@@ -42,6 +42,22 @@ describe("returnTo", () => {
       "https://hub.example.com/?next=javascript%3Aalert(1)%2F%2F.example.com",
     ],
     ["a relative path", "https://hub.example.com/?next=%2Fsomewhere"],
+    [
+      "an app over http when the hub is https",
+      "https://hub.example.com/?next=http%3A%2F%2Fadmin.example.com%2F",
+    ],
+    [
+      "an app on another port",
+      "https://hub.example.com/?next=https%3A%2F%2Fadmin.example.com%3A8443%2F",
+    ],
+    [
+      "userinfo that names an app before another host",
+      "https://hub.example.com/?next=https%3A%2F%2Fnotes.example.com%40evil.com%2F",
+    ],
+    [
+      "a page two labels deep",
+      "https://hub.example.com/?next=https%3A%2F%2Fa.b.example.com%2F",
+    ],
   ])("stays on the hub for %s", (_, page) => {
     expect(returnTo(page)).toBeUndefined();
     expect(
@@ -49,6 +65,17 @@ describe("returnTo", () => {
         `${page.split("?")[0] ?? ""}?next=https%3A%2F%2Fa.example.com%2F`,
       ),
     ).toBe("https://a.example.com/");
+  });
+
+  it("stays on a local hub for an app without the install's port", () => {
+    const hub = "http://hub.robkit.localhost:3000/";
+
+    expect(
+      returnTo(`${hub}?next=http%3A%2F%2Fexample.robkit.localhost%2F`),
+    ).toBeUndefined();
+    expect(
+      returnTo(`${hub}?next=http%3A%2F%2Fexample.robkit.localhost%3A3001%2F`),
+    ).toBeUndefined();
   });
 });
 

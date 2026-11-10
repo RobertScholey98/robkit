@@ -1,11 +1,11 @@
 import {
   allProblems,
-  type Domain,
+  type CoreOrigin,
   type Env,
   type InputProblem,
   isProblem,
+  readCoreUrl,
   readDatabaseUrl,
-  readDomain,
   readHost,
   readPort,
 } from "@robkit/input";
@@ -17,8 +17,12 @@ import { readTrustedProxy, type TrustedProxy } from "./client.ts";
 export interface CoreConfig {
   /** `DATABASE_URL`: core's own database. */
   databaseUrl: string;
-  /** `ROBKIT_DOMAIN`: the install's domain, such as `robkit.dev`. */
-  domain: Domain;
+  /**
+   * `ROBKIT_CORE_URL`: core's public origin, such as
+   * `https://core.robkit.dev`. The install's domain, protocol and port come
+   * from it alone: core doesn't read `ROBKIT_DOMAIN`.
+   */
+  origin: CoreOrigin;
   /** `ROBKIT_APPS`: the owner's apps, as each declares itself. */
   apps: ListedApp[];
   /** `ROBKIT_TRUSTED_PROXY`: a proxy further out that names each visitor. */
@@ -35,24 +39,24 @@ export interface CoreConfig {
  */
 export function readCoreConfig(env: Env): CoreConfig | InputProblem {
   const databaseUrl = readDatabaseUrl(env);
-  const domain = readDomain(env);
+  const origin = readCoreUrl(env);
   const apps = readListedApps(env);
   const trustedProxy = readTrustedProxy(env);
   const host = readHost(env);
   const port = readPort(env);
   if (
     isProblem(databaseUrl) ||
-    isProblem(domain) ||
+    isProblem(origin) ||
     isProblem(apps) ||
     isProblem(trustedProxy) ||
     isProblem(host) ||
     isProblem(port)
   ) {
-    return allProblems(databaseUrl, domain, apps, trustedProxy, host, port);
+    return allProblems(databaseUrl, origin, apps, trustedProxy, host, port);
   }
   return {
     databaseUrl,
-    domain,
+    origin,
     apps,
     ...(trustedProxy && { trustedProxy }),
     host,

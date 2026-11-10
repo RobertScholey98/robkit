@@ -25,20 +25,20 @@ PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, o
 
 `@robkit/input`, the reading primitives:
 
-| Export                                                                                           | What it is                                                                                                                                  |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `InputProblem`, `problem(message)`, `isProblem`                                                  | The one type for a failed read, `{ error }`, its one maker, and the one check for it                                                        |
-| `allProblems(...reads)`                                                                          | Every problem among several reads as one, a line each                                                                                       |
-| `orExit(read)`                                                                                   | The value, or its problem printed alone and the process ended with 1, for an app's server or script as it starts                            |
-| `orThrow(read)`                                                                                  | The value, or its problem thrown as an `Error`, for a place that can't go on without it and prints what it throws, such as a Vite config    |
-| `isRecord(value)`                                                                                | Whether a value is a plain object                                                                                                           |
-| `parseJson(text, source)`                                                                        | `{ json }`, typed `unknown`, or a problem naming `source`                                                                                   |
-| `Env`                                                                                            | A process's environment, such as `process.env`                                                                                              |
-| `readSet`, `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl` | One variable each. An empty variable counts as unset                                                                                        |
-| `isDomain(value)`                                                                                | Whether a string is a domain alone. With `readDomain`, the only maker of a `Domain`                                                         |
-| `readServeEnv`, `readDevServerEnv`, `readGuardEnv`                                               | What an app's server reads, each read whole: where it listens, what its Vite dev server needs, and its slug and core's origin for the guard |
-| `readSlug(value)`, `Slug`, `slugProblem(name)`                                                   | An app's slug: lowercase letters and digits, starting with a letter. Only `readSlug` makes a `Slug`                                         |
-| `platformApps`, `isPlatformApp`, `PlatformApp`                                                   | Core, the hub and admin, whose names are slugs as they stand                                                                                |
+| Export                                                                                           | What it is                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `InputProblem`, `problem(message)`, `isProblem`                                                  | The one type for a failed read, `{ error }`, its one maker, and the one check for it                                                                  |
+| `allProblems(...reads)`                                                                          | Every problem among several reads as one, a line each                                                                                                 |
+| `orExit(read)`                                                                                   | The value, or its problem printed alone and the process ended with 1, for an app's server or script as it starts                                      |
+| `orThrow(read)`                                                                                  | The value, or its problem thrown as an `Error`, for a place that can't go on without it and prints what it throws, such as a Vite config              |
+| `isRecord(value)`                                                                                | Whether a value is a plain object                                                                                                                     |
+| `parseJson(text, source)`                                                                        | `{ json }`, typed `unknown`, or a problem naming `source`                                                                                             |
+| `Env`                                                                                            | A process's environment, such as `process.env`                                                                                                        |
+| `readSet`, `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl` | One variable each. An empty variable counts as unset. `readDomain` lower-cases the domain, and `readCoreUrl` refuses http unless the install is local |
+| `isDomain(value)`                                                                                | Whether a string is a domain alone. With `readDomain`, the only maker of a `Domain`                                                                   |
+| `readServeEnv`, `readDevServerEnv`, `readGuardEnv`                                               | What an app's server reads, each read whole: where it listens, what its Vite dev server needs, and its slug and core's origin for the guard           |
+| `readSlug(value)`, `Slug`, `slugProblem(name)`                                                   | An app's slug: lowercase letters and digits, starting with a letter. Only `readSlug` makes a `Slug`                                                   |
+| `platformApps`, `isPlatformApp`, `PlatformApp`                                                   | Core, the hub and admin, whose names are slugs as they stand                                                                                          |
 
 ### `@robkit/input/manifest`
 
@@ -61,13 +61,13 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 // "http://core.robkit.localhost:3000"
 ```
 
-| Export                                | What it is                                                                                                                   |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `install({ domain, protocol, port })` | An install's addresses, from a `Domain`: each app's `host` and `origin`, which take a `Slug`, `onInstall(url)`, `appOf(url)` |
-| `installAt(url, app)`                 | The install `url` is on, given that it is `app`'s address                                                                    |
-| `isLocal(domain)`                     | Whether the domain is `localhost` or under it                                                                                |
-| `defaultDomain`, `defaultDevPort`     | `robkit.localhost` and `3000`                                                                                                |
-| `coreInstall(core)`                   | The install core's origin is on. Takes a `CoreOrigin` from `readCoreUrl`                                                     |
+| Export                                | What it is                                                                                                                                                                                                         |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `install({ domain, protocol, port })` | An install's addresses, from a `Domain`: each app's `host` and `origin`, which take a `Slug`, `onInstall(url)`, `appOf(url)`, and `appAt(url)`, the app whose exact origin `url` is on, protocol and port included |
+| `installAt(url, app)`                 | The install `url` is on, given that it is `app`'s address                                                                                                                                                          |
+| `isLocal(domain)`                     | Whether the domain is `localhost` or under it, the only kind of install that may run over plain http                                                                                                               |
+| `defaultDomain`, `defaultDevPort`     | `robkit.localhost` and `3000`                                                                                                                                                                                      |
+| `coreInstall(core)`                   | The install core's origin is on. Takes a `CoreOrigin` from `readCoreUrl`                                                                                                                                           |
 
 ### `@robkit/input/report`
 

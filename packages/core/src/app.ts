@@ -4,8 +4,9 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { reportToConsole, type Report } from "@robkit/input/report";
-import { platformApps, type Domain } from "@robkit/input";
-import { install } from "@robkit/input/addresses";
+import type { CoreOrigin } from "@robkit/input";
+import { coreInstall } from "@robkit/input/addresses";
+import { isRedirect, securityHeaders, withHeaders } from "@robkit/session";
 import type { TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
 import type { RouteContext } from "./routes/context.ts";
@@ -13,13 +14,19 @@ import { appRoutes } from "./routes/apps.ts";
 import { accessCodeRoutes } from "./routes/access-codes.ts";
 import { roleRoutes } from "./routes/roles.ts";
 import { sessionRoutes } from "./routes/session.ts";
+import { defaultSignInLimits, type SignInLimits } from "./sign-in-limits.ts";
 import { statusRoutes } from "./routes/status.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
+import { createPasswordChecker } from "./password.ts";
 
 export interface CoreOptions {
   db: Database;
-  /** The install's domain, such as `robkit.localhost` in development. */
-  domain: Domain;
+  /**
+   * Core's public origin, as `readCoreUrl` read it, such as
+   * `http://core.robkit.localhost:3000` in development. Every other address
+   * of the install comes from it.
+   */
+  origin: CoreOrigin;
   /** Core's clock, for token times, session expiry and rate limits. */
   now?: () => Date;
   /**
@@ -33,18 +40,11 @@ export interface CoreOptions {
    * `reportToConsole`.
    */
   logError?: Report;
-}
-
-/** The platform apps that call core from the browser with the session cookie. */
-const trustedApps = platformApps.filter((slug) => slug !== "core");
-
-function hostnameOf(origin: string): string | undefined {
-  try {
-    return new URL(origin).hostname;
-  } catch {
-    // An Origin that isn't a URL names no host, so CORS refuses it.
-    return undefined;
-  }
+  /**
+   * Any sign-in limits to set in place of their defaults. It is there for
+   * tests and tuning; an install leaves it out.
+   */
+  signInLimits?: Partial<SignInLimits>;
 }
 
 function isJson(contentType: string | undefined): boolean {
@@ -68,10 +68,11 @@ function memoize<T>(load: () => Promise<T>): () => Promise<T> {
  */
 export function createApp({
   db,
-  domain,
+  origin,
   now = () => new Date(),
   trustedProxy,
   logError = reportToConsole,
+  signInLimits,
 }: CoreOptions): Hono {
   const app = new Hono();
   // Hono's own answer to a route that throws. The cause stays in core's log
@@ -94,16 +95,27 @@ export function createApp({
     );
   });
 
-  const addresses = install({ domain });
-  const trustedHosts = new Set(trustedApps.map((slug) => addresses.host(slug)));
+  // No page of core's may be framed, and a browser reads each as the type
+  // it says. A redirect renders nothing, so it gets no framing header: an
+  // app that lets a framer in renews its token through /refresh inside the
+  // frame. Registered before cors(), so a preflight's answer gets them.
+  app.use(async (c, next) => {
+    await next();
+    const framers = isRedirect(c.res.status) ? undefined : "none";
+    c.res = withHeaders(c.res, securityHeaders(origin, framers));
+  });
+
+  const install = coreInstall(origin);
+  // The hub and admin call core from the browser with the session cookie.
+  // A browser's Origin header is serialized as URL.origin is, so each must
+  // match one exactly: protocol, host and port.
+  const trustedOrigins = new Set([
+    install.origin("hub"),
+    install.origin("admin"),
+  ]);
   app.use(
     cors({
-      origin: (origin) => {
-        const hostname = hostnameOf(origin);
-        return hostname !== undefined && trustedHosts.has(hostname)
-          ? origin
-          : null;
-      },
+      origin: (origin) => (trustedOrigins.has(origin) ? origin : null),
       credentials: true,
     }),
   );
@@ -128,13 +140,24 @@ export function createApp({
   const signingKey: () => Promise<SigningKey> = memoize(() =>
     ensureSigningKey(db),
   );
+  const limits = { ...defaultSignInLimits, ...signInLimits };
   const context: RouteContext = {
     db,
-    domain,
+    install,
     now,
     signingKey,
+    passwords: createPasswordChecker({
+      atOnce: limits.passwordChecksAtOnce,
+      waiting: limits.passwordChecksWaiting,
+      onFull: () => {
+        logError(
+          `Password checks: ${String(limits.passwordChecksAtOnce)} running and ${String(limits.passwordChecksWaiting)} waiting, the most core allows. Core answers more 429 until one finishes.`,
+        );
+      },
+    }),
     trustedProxy,
     logError,
+    signInLimits: limits,
   };
   app.route("/", statusRoutes(context));
   app.route("/", sessionRoutes(context));

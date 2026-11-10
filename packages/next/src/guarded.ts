@@ -1,4 +1,4 @@
-import { requestGuard, type GuardedOptions } from "@robkit/session";
+import { appOrigin, requestGuard, type GuardedOptions } from "@robkit/session";
 import { readSessionLapsed } from "@robkit/session/lapsed";
 import { NextResponse } from "next/server.js";
 import { viewerHeader, viewerValue } from "./viewer.ts";
@@ -6,18 +6,15 @@ import { viewerHeader, viewerValue } from "./viewer.ts";
 export type { GuardedOptions };
 
 /**
- * The request as the guard reads it: the URL the browser asked for, by the
- * Host header the dev proxy or Traefik sent, and the headers. Next hands the
- * proxy a URL on its own host and port instead. The protocol is the one the
- * proxy in front forwarded, as the guard reads it, so a server action comes
- * back to the page it was called from.
+ * The request as the guard reads it: the page the browser asked for, on the
+ * app's own origin, and the headers. Next hands the proxy a URL on its own
+ * host and port, so only its path and query count. The origin comes from
+ * the app's settings, as the guard's does, so a server action comes back to
+ * the page it was called from whatever Host the proxy sent.
  */
-function publicRequest(request: Request, host: string): Request {
+function publicRequest(request: Request, origin: string): Request {
   const { pathname, search } = new URL(request.url);
-  const forwarded = request.headers.get("x-forwarded-proto");
-  const protocol =
-    forwarded?.split(",")[0]?.trim() === "https" ? "https" : "http";
-  return new Request(new URL(`${pathname}${search}`, `${protocol}://${host}`), {
+  return new Request(`${origin}${pathname}${search}`, {
     method: request.method,
     headers: request.headers,
   });
@@ -45,16 +42,6 @@ async function forServerAction(
 }
 
 /**
- * Node refuses an HTTP/1.1 request without a Host header, but not an
- * HTTP/1.0 one. Without it the guard can't tell which page was asked for.
- */
-const noHost = () =>
-  new Response("Send a Host header.", {
-    status: 400,
-    headers: { "content-type": "text/plain; charset=UTF-8" },
-  });
-
-/**
  * Runs robkit's guard on every request the proxy's matcher covers: checks
  * the app's own token against core's public key and the app's slug, then
  * lets the request through with the viewer for `viewer()`, sends the
@@ -65,10 +52,9 @@ export function guarded(
   options: GuardedOptions,
 ): (request: Request) => Promise<Response> {
   const check = requestGuard(options);
+  const origin = appOrigin(options);
   return async (request) => {
-    const host = request.headers.get("host");
-    if (host === null) return noHost();
-    const asked = publicRequest(request, host);
+    const asked = publicRequest(request, origin);
     const decision = await check(asked);
     if (decision.outcome === "answer") {
       return forServerAction(request, decision.response, asked.url);
@@ -76,6 +62,11 @@ export function guarded(
     // set replaces any viewer the request came with.
     const forwarded = new Headers(request.headers);
     forwarded.set(viewerHeader, viewerValue(decision.viewer));
-    return NextResponse.next({ request: { headers: forwarded } });
+    const next = NextResponse.next({ request: { headers: forwarded } });
+    // The guard answers before the page exists, so its headers go on what
+    // it passes on. Next sends them with the page's answer, and drops the
+    // page's own header of the same name.
+    for (const [name, value] of decision.headers) next.headers.set(name, value);
+    return next;
   };
 }

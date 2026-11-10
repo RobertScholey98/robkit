@@ -2,7 +2,7 @@
 // takes the proxy's answer and either sends it, or serves the request with
 // the request headers the proxy set, which `headers()` from `next/headers`
 // then reads. The tests mock `next/headers` with `requestHeaders`. The
-// package's next-app tests check the same against a real Next server.
+// whole-stack test checks the same against a real Next server.
 
 let current: Headers | undefined;
 
@@ -16,10 +16,38 @@ export function requestHeaders(): Promise<Headers> {
   return Promise.resolve(current);
 }
 
+/** Headers Next lets a page send more than once. */
+const repeatable = new Set([
+  "set-cookie",
+  "www-authenticate",
+  "proxy-authenticate",
+  "vary",
+]);
+
+/**
+ * The answer Next sends for `page` behind a proxy that went on with
+ * `proxied`: the proxy's own headers first, then each of the page's that
+ * the proxy didn't set, as Next's `send-response.js` does.
+ */
+function sentAfter(proxied: Response, page: Response): Response {
+  const headers = new Headers();
+  for (const [name, value] of proxied.headers) {
+    if (!name.startsWith("x-middleware-")) headers.append(name, value);
+  }
+  for (const [name, value] of page.headers) {
+    if (repeatable.has(name) || !headers.has(name)) headers.append(name, value);
+  }
+  return new Response(page.body, {
+    status: page.status,
+    statusText: page.statusText,
+    headers,
+  });
+}
+
 /**
  * Asks `proxy` about `request`, as Next does. When it says go on, serves
- * `page` with the headers the proxy passed on. Otherwise answers with what
- * the proxy said.
+ * `page` with the headers the proxy passed on, and sends it with the
+ * proxy's own headers. Otherwise answers with what the proxy said.
  */
 export async function throughProxy(
   proxy: (request: Request) => Promise<Response>,
@@ -34,7 +62,7 @@ export async function throughProxy(
     const value = answer.headers.get(`x-middleware-request-${name}`);
     if (value !== null) forwarded.set(name, value);
   }
-  return servedWith(forwarded, page);
+  return sentAfter(answer, await servedWith(forwarded, page));
 }
 
 /** Serves `page` as if the request came with `headers`. */

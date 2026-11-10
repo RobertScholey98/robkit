@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { defaultChoices, init, readyStacks } from "create-robkit";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { removeWhenGone } from "@internal/test-postgres";
 import type { Slug } from "@robkit/input";
 import { takeBrowserLog } from "./browser.ts";
 import {
@@ -63,8 +64,34 @@ describe("the default install in production", () => {
   let stack: Stack;
   let setUp: OwnerSetUp;
 
+  /**
+   * The cookies a guest holds once `app` opens, as the journey lists them:
+   * core's session and the app's session and state, each host-only under
+   * its __Host- name.
+   */
+  const hostCookies = (app: Slug): string[] => {
+    const host = (name: Slug) => new URL(stack.addresses.origin(name)).hostname;
+    const attributes = "Path=/ Secure HttpOnly Lax";
+    return [
+      `${host(slug("core"))} __Host-robkit_session ${attributes}`,
+      `${host(app)} __Host-robkit_session ${attributes}`,
+      `${host(app)} __Host-robkit_state ${attributes}`,
+    ].sort();
+  };
+
+  /**
+   * What an app's page and core's /refresh tell the browser over https:
+   * HSTS on both, nosniff on both, and the guard's framing header on the
+   * page alone, since a redirect renders nothing.
+   */
+  const overHttps = {
+    app: { frame: "SAMEORIGIN", sniff: "nosniff", hsts: "max-age=31536000" },
+    refresh: { frame: null, sniff: "nosniff", hsts: "max-age=31536000" },
+  };
+
   beforeAll(async () => {
     dir = await mkdtemp(join(tmpdir(), "robkit-production-"));
+    removeWhenGone({ path: dir });
     await init(defaultChoices, dir, { link: true, install: true });
     // A host can't reach this checkout, so the install takes tarballs.
     await run("pnpm", ["run", "robkit", "vendor"], {
@@ -114,7 +141,7 @@ describe("the default install in production", () => {
     });
   });
 
-  it("lets a guest sign in with the owner's code and open the app over https", async () => {
+  it("lets a guest sign in with the owner's code and open the app over https, in __Host- cookies", async () => {
     const visit = await guestOpens(
       stack.addresses,
       setUp.code ?? "",
@@ -126,6 +153,8 @@ describe("the default install in production", () => {
       openedAt: `${stack.addresses.origin(exampleSlug)}/`,
       heading: "Signed in as a guest",
       stylesheets: [200],
+      cookies: hostCookies(exampleSlug),
+      headers: overHttps,
     });
   });
 
@@ -168,7 +197,7 @@ describe("the default install in production", () => {
     });
   });
 
-  it("serves an app on each other stack, added with robkit add, after its next deploy", async () => {
+  it("serves an app on each other stack, added with robkit add, after its next deploy, in __Host- cookies", async () => {
     for (const app of later) {
       await run(
         "pnpm",
@@ -212,6 +241,8 @@ describe("the default install in production", () => {
             openedAt: `${stack.addresses.origin(app.slug)}/`,
             heading: "Signed in as a guest",
             stylesheets: [200],
+            cookies: hostCookies(app.slug),
+            headers: overHttps,
           },
         ]),
       ),

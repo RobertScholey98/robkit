@@ -6,17 +6,27 @@ import {
   type Viewer,
 } from "@robkit/guard";
 import type { CoreOrigin, Slug } from "@robkit/input";
-import { coreInstall, isLocal } from "@robkit/input/addresses";
+import { coreInstall } from "@robkit/input/addresses";
+import { isRedirect, securityHeaders } from "./answer-headers.ts";
 import { appRefreshPath } from "./app-session.ts";
 import {
   AccessRuleError,
   coreAccess,
   type AccessRuleFailure,
 } from "./core-access.ts";
-import { isNavigation, publicUrl, redirect, text } from "./guard-http.ts";
+import {
+  formNotSent,
+  isFormPost,
+  isFromAnotherOrigin,
+  isNavigation,
+  publicUrl,
+  redirect,
+  text,
+} from "./guard-http.ts";
 import { sessionLapsedResponse } from "./lapsed.ts";
 import { CoreUnreachableError } from "./loopback-fetch.ts";
 import { refreshProtocol } from "./refresh-protocol.ts";
+import { sessionCookies } from "./session-cookies.ts";
 import { reportToConsole } from "@robkit/input/report";
 
 export interface GuardedOptions {
@@ -43,6 +53,18 @@ export interface GuardedOptions {
    * `reportToConsole`.
    */
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
+}
+
+/**
+ * The app's public origin, such as `https://notes.robkit.dev`: core's
+ * protocol and port, on `<app>.<domain>`. It comes from the app's
+ * settings, never from a request's Host or X-Forwarded-Proto.
+ */
+export function appOrigin({
+  app,
+  core,
+}: Pick<GuardedOptions, "app" | "core">): string {
+  return coreInstall(core).origin(app);
 }
 
 /**
@@ -76,9 +98,19 @@ function reportFault({ app, failed, cause }: GuardFault): void {
   );
 }
 
-/** What the app does with a request: serve it to the viewer, or answer it. */
+/**
+ * What the app does with a request: serve it to the viewer, or answer it.
+ * A served answer carries `headers`, whatever its status, where the app
+ * set none of the same name: `X-Frame-Options: SAMEORIGIN`, `nosniff`,
+ * and HSTS on an https install. The guard's own answer carries them
+ * already, but for a redirect, which gets no framing header.
+ */
 export type RequestDecision =
-  | { outcome: "serve"; viewer: Viewer }
+  | {
+      outcome: "serve";
+      viewer: Viewer;
+      headers: readonly [string, string][];
+    }
   | { outcome: "answer"; response: Response };
 
 const errors = {
@@ -86,6 +118,8 @@ const errors = {
   refresh: "Your session needs refreshing.",
   keys: "Can't reach core to check your session.",
   rule: "Can't reach core to check who may open this app.",
+  elsewhere:
+    "This app only accepts changes from its own pages, and this request came from another origin.",
 } as const;
 
 /**
@@ -103,6 +137,7 @@ export function requestGuard(
 ): (request: Request) => Promise<RequestDecision> {
   const { app, access, onUnavailable = reportFault } = options;
   const install = coreInstall(options.core);
+  const origin = appOrigin(options);
   const core = install.origin("core");
   const hub = install.origin("hub");
   const ruleOf = access ? () => Promise.resolve(access) : coreAccess(core, app);
@@ -134,7 +169,7 @@ export function requestGuard(
   const protocol = refreshProtocol({
     app,
     core,
-    secure: !isLocal(install.domain),
+    cookies: sessionCookies(origin),
     keyUnavailable,
   });
 
@@ -151,35 +186,45 @@ export function requestGuard(
         // Core's word that nobody is signed in goes, so once the browser
         // signs in at the hub and comes back, the app asks core again.
         const location = new URL("/", hub);
-        if (!isNavigation(request)) {
-          // A call doesn't know the page it came from. The page adds next.
-          const response = sessionLapsedResponse({
-            outcome: "login",
-            error: errors.login,
-            location: location.href,
-          });
-          response.headers.append("set-cookie", protocol.forget);
-          return response;
+        if (isNavigation(request)) {
+          location.searchParams.set("next", url.href);
+          return redirect(location.href, [["set-cookie", protocol.forget]]);
         }
-        location.searchParams.set("next", url.href);
-        return redirect(location.href, [["set-cookie", protocol.forget]]);
+        // A call doesn't know the page it came from. The page adds next.
+        const response = isFormPost(request)
+          ? formNotSent(request, origin)
+          : sessionLapsedResponse({
+              outcome: "login",
+              error: errors.login,
+              location: location.href,
+            });
+        response.headers.append("set-cookie", protocol.forget);
+        return response;
       }
       case "refresh":
-        if (!isNavigation(request)) {
-          return sessionLapsedResponse({
-            outcome: "refresh",
-            error: errors.refresh,
-            location: new URL(appRefreshPath, url).href,
-          });
-        }
-        return protocol.toCore(request, url.href);
+        if (isNavigation(request)) return protocol.toCore(request, url.href);
+        return isFormPost(request)
+          ? formNotSent(request, origin)
+          : sessionLapsedResponse({
+              outcome: "refresh",
+              error: errors.refresh,
+              location: new URL(appRefreshPath, url).href,
+            });
     }
   };
 
-  return async (request) => {
-    const url = publicUrl(request);
+  const served = securityHeaders(origin, "same-origin");
+
+  /** What the guard does with `request`: its own answer, or the viewer. */
+  const decide = async (request: Request): Promise<Response | Viewer> => {
+    // Before anything else, the guard's own paths included, so a page on
+    // another origin can't act as the viewer.
+    if (isFromAnotherOrigin(request, origin)) {
+      return text(errors.elsewhere, 403);
+    }
+    const url = publicUrl(request, origin);
     const own = await protocol.answer(request, url);
-    if (own) return { outcome: "answer", response: own };
+    if (own) return own;
 
     let session: SessionState;
     try {
@@ -187,18 +232,29 @@ export function requestGuard(
     } catch (error) {
       // Not knowing who is asking isn't the same as nobody asking, so the
       // browser isn't sent to log in.
-      return { outcome: "answer", response: keyUnavailable(error) };
+      return keyUnavailable(error);
     }
     let rule: AccessRule;
     try {
       rule = await ruleOf();
     } catch (error) {
-      return { outcome: "answer", response: ruleUnavailable(error) };
+      return ruleUnavailable(error);
     }
     const decision = guard(rule, session);
-    if (decision.outcome === "allow") {
-      return { outcome: "serve", viewer: decision.viewer };
+    if (decision.outcome === "allow") return decision.viewer;
+    return respond(decision, request, url);
+  };
+
+  return async (request) => {
+    const decided = await decide(request);
+    if (!(decided instanceof Response)) {
+      return { outcome: "serve", viewer: decided, headers: served };
     }
-    return { outcome: "answer", response: respond(decision, request, url) };
+    // The guard builds every answer itself, so its headers can change.
+    const framers = isRedirect(decided.status) ? undefined : "same-origin";
+    for (const [name, value] of securityHeaders(origin, framers)) {
+      decided.headers.set(name, value);
+    }
+    return { outcome: "answer", response: decided };
   };
 }

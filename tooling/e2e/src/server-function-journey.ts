@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { handedBack, refreshing } from "./bounces.ts";
 import type { DevStack } from "./dev-stack.ts";
 import type { Page } from "playwright";
-import { launch } from "./browser.ts";
+import { launch, networkIdle } from "./browser.ts";
 import {
   expiredTwin,
   mainFrameRequests,
@@ -54,7 +54,7 @@ export async function serverFunctionJourney({
     await page.getByRole("button", { name: "Sign in" }).click();
     await page.waitForURL(app);
     // The button works once React has hydrated the page.
-    await page.waitForLoadState("networkidle");
+    await networkIdle(page);
 
     const first = await visitsOn(page);
     await page.getByRole("button", { name: "Visit again" }).click();

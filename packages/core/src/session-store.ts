@@ -1,4 +1,4 @@
-import { type Domain } from "@robkit/input";
+import type { Install } from "@robkit/input/addresses";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import type { CodeId, RoleId, SessionState } from "@robkit/guard";
 import {
@@ -8,7 +8,11 @@ import {
 } from "@robkit/session";
 import { standingOf, type AccessCode } from "./access-codes.ts";
 import { storedRow, type Database } from "./database.ts";
-import { dummyPasswordHash, verifyPassword } from "./password.ts";
+import {
+  dummyPasswordHash,
+  type Busy,
+  type PasswordChecker,
+} from "./password.ts";
 import { accessCodes, owner, sessions } from "./schema.ts";
 import { mintSessionToken } from "./mint-token.ts";
 import { rolesOf } from "./roles.ts";
@@ -23,10 +27,12 @@ import type { SigningKey } from "./signing-key.ts";
 /** What core needs to start and read sessions. */
 export interface SessionContext {
   db: Database;
-  /** The install's domain, which decides whether the test code works. */
-  domain: Domain;
+  /** The install's addresses. Its domain decides whether the test code works. */
+  install: Install;
   now: () => Date;
   signingKey: () => Promise<SigningKey>;
+  /** The one checker every password hash and check runs through. */
+  passwords: PasswordChecker;
 }
 
 export interface OwnerProfile {
@@ -58,7 +64,8 @@ export interface SignedIn {
 export type SignIn =
   | ({ outcome: "signed-in" } & SignedIn)
   | { outcome: "wrong" }
-  | { outcome: "unclaimed" };
+  | { outcome: "unclaimed" }
+  | Busy;
 
 export interface SessionRead {
   answer: SessionAnswer;
@@ -119,11 +126,12 @@ export async function signIn(
   if (!found) return { outcome: "unclaimed" };
   // An unknown username still costs one scrypt, so timing can't tell it apart.
   const isOwner = found.username === username;
-  const matches = await verifyPassword(
+  const verdict = await ctx.passwords.verify(
     password,
     isOwner ? found.passwordHash : dummyPasswordHash,
   );
-  if (!isOwner || !matches) return { outcome: "wrong" };
+  if (verdict.outcome === "busy") return verdict;
+  if (!isOwner || verdict.outcome === "wrong") return { outcome: "wrong" };
   return {
     outcome: "signed-in",
     ...(await ctx.db.transaction((tx) =>
@@ -151,7 +159,7 @@ export async function signInWithCode(
     .select()
     .from(accessCodes)
     .where(eq(accessCodes.code, code));
-  if (!found || standingOf(found, ctx.now(), ctx.domain) !== "live") {
+  if (!found || standingOf(found, ctx.now(), ctx.install.domain) !== "live") {
     return { outcome: "refused" };
   }
   return {
@@ -204,7 +212,10 @@ async function holderOf(
         .from(sessions)
         .innerJoin(accessCodes, eq(sessions.codeId, accessCodes.id))
         .where(and(live, eq(sessions.codeId, claims.id)));
-      if (!found || standingOf(found.code, now, ctx.domain) !== "live") {
+      if (
+        !found ||
+        standingOf(found.code, now, ctx.install.domain) !== "live"
+      ) {
         return undefined;
       }
       return {

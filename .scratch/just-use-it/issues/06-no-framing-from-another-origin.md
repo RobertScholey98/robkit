@@ -20,19 +20,50 @@ Add this ticket's cases to `tooling/test-session/request-cases.json`, the shared
 
 **Blocked by:** 04, 05
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every answer the guard lets through, on every stack and from admin, carries both headers, and so does each of the guard's own pages
-- [ ] The guard's own redirects, and core's, carry `nosniff` and no `X-Frame-Options` or `frame-ancestors`
-- [ ] On every stack, an app that sends its own `Content-Security-Policy` with no `frame-ancestors` gets the guard's `X-Frame-Options` beside it, and its policy arrives unchanged
-- [ ] An app that sends `frame-ancestors` naming the hub can be framed by the hub, shown in a browser test on one stack, and a lapsed token renews inside that frame
-- [ ] A Next route handler that sets its own `X-Frame-Options` arrives with one such header, the guard's, and one that sends `frame-ancestors` arrives with its policy unchanged
-- [ ] A Next page whose `next.config.ts` sends `frame-ancestors` through `headers()` arrives with that policy beside the guard's header
-- [ ] No answer on any stack carries `X-Frame-Options` or `nosniff` twice: the guard's own answers on Express, and a Vite error page through the Go stack's dev server, included
-- [ ] Under `pnpm dev`, a WebSocket handshake to the Go example's own address still gets Vite's 101
-- [ ] An app's answer with unchangeable headers, a redirect it made with `Response.redirect()`, still gets both headers and doesn't throw
-- [ ] Core sends its three headers on every answer that isn't a redirect, a CORS preflight's included
-- [ ] An https install sends HSTS from core and from guarded apps, and an http one doesn't
-- [ ] The whole-stack test loads admin and an app in a frame from a sibling app's page, and the browser refuses both
-- [ ] The production test passes over https and asserts HSTS; the PR carries the `production` label
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] Every answer the guard lets through, on every stack and from admin, carries both headers, and so does each of the guard's own pages
+- [x] The guard's own redirects, and core's, carry `nosniff` and no `X-Frame-Options` or `frame-ancestors`
+- [x] On every stack, an app that sends its own `Content-Security-Policy` with no `frame-ancestors` gets the guard's `X-Frame-Options` beside it, and its policy arrives unchanged
+- [x] An app that sends `frame-ancestors` naming the hub can be framed by the hub, shown in a browser test on one stack, and a lapsed token renews inside that frame
+- [x] A Next route handler that sets its own `X-Frame-Options` arrives with one such header, the guard's, and one that sends `frame-ancestors` arrives with its policy unchanged
+- [x] A Next page whose `next.config.ts` sends `frame-ancestors` through `headers()` arrives with that policy beside the guard's header
+- [x] No answer on any stack carries `X-Frame-Options` or `nosniff` twice: the guard's own answers on Express, and a Vite error page through the Go stack's dev server, included
+- [x] Under `pnpm dev`, a WebSocket handshake to the Go example's own address still gets Vite's 101
+- [x] An app's answer with unchangeable headers, a redirect it made with `Response.redirect()`, still gets both headers and doesn't throw
+- [x] Core sends its three headers on every answer that isn't a redirect, a CORS preflight's included
+- [x] An https install sends HSTS from core and from guarded apps, and an http one doesn't
+- [x] The whole-stack test loads admin and an app in a frame from a sibling app's page, and the browser refuses both
+- [x] The production test passes over https and asserts HSTS; the PR carries the `production` label
+- [x] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### Chosen in the build
+
+- HSTS is `max-age=31536000`, one year. It's the common value and the shortest the preload list accepts, so an owner can preload later without changing it. It has no `includeSubDomains`.
+- HSTS goes on the guard's and core's redirects too. Only the framing header is left off a redirect, so "`nosniff` alone" reads as no framing header. On an https install HSTS sits beside `nosniff`.
+- The serve decision from `requestGuard` now carries `headers`, the pairs an adapter sets on the app's answer. Adapters read them there and don't know the values.
+- `@robkit/session` exports `securityHeaders(origin, framers)`, `withHeaders(response, headers)` and `isRedirect(status)`. Core uses them too.
+- The shared cases are the `headers` kind in `tooling/test-session/request-cases.json`. Every adapter and the Go port run them.
+- Next's unit test can't run Next's own merge, so `packages/next/src/test/next-request.ts` models it: the proxy's headers first, then a route's header of the same name dropped. The whole-stack test proves the real merge.
+- The whole-stack test changes the Next example before `pnpm dev` starts, through a new `prepare` hook on `useDevStack`. It adds `headers()` for `/visits` to `next.config.ts`, and two route handlers under `/framing/`.
+
+### For tickets 07, 10 and 11
+
+- Where each stack sets the headers:
+  - Express: `packages/express/src/guarded.ts`, with `res.setHeader` before `next()`.
+  - Hono: `packages/hono/src/guarded.ts`, with `withHeaders` on `c.res` after `next()`.
+  - Start: `packages/start/src/guarded.ts`, with `withHeaders` on the entry's answer.
+  - Next: `packages/next/src/guarded.ts`, on the `NextResponse.next()` it returns.
+  - Go: `secure` in `go/session/guarded.go`, on `w.Header()` before the handler.
+  - Core: the first middleware in `packages/core/src/app.ts`, before `cors()`.
+- HSTS's value lives in two places, `strictTransportSecurity` in `packages/session/src/answer-headers.ts` and in `go/session/http.go`. Change both together.
+- The hub needs core's three headers, with `DENY`. `securityHeaders(origin, "none")` gives them, and `securityHeaders(origin, undefined)` gives a redirect's. Ticket 10 adds them in `robkit()` for dev, and ticket 11 in `servePage()`. When both land, take the hub out of SECURITY.md's "What isn't covered".
+- The Go template's dev proxy, `viteProxy` in `packages/create-robkit/templates/stacks/go/dev.go`, drops Vite's copy of `X-Frame-Options` and `X-Content-Type-Options`. A new guard header that Vite also sends needs the same.
+
+### Merged
+
+Added by the lead. PR 81 merged into `m1-the-subdomain-boundary` on 2026-11-10, with `gate` and the `production` job green on `accb6e3`.
+
+One thing for tickets 10 and 11, also noted on them: `securityHeaders` is in `@robkit/session`, which depends on the guard. Ticket 11 lets `@robkit/serve` depend on nothing from the guard, so the hub's server can't import it from there.

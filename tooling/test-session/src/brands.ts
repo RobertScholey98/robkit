@@ -7,8 +7,10 @@ import {
 } from "@robkit/guard";
 import {
   orThrow,
+  readCoreUrl,
   readDomain,
   readSlug,
+  type CoreOrigin,
   type Domain,
   type Slug,
 } from "@robkit/input";
@@ -27,6 +29,16 @@ export function slug(name: string): Slug {
  */
 export function aDomain(name = "robkit.localhost"): Domain {
   return orThrow(readDomain({ ROBKIT_DOMAIN: name }));
+}
+
+/**
+ * `url` as core's public origin, `http://core.robkit.localhost:3000`
+ * unless it says. Throws the reader's problem if it isn't one.
+ */
+export function aCoreOrigin(
+  url = "http://core.robkit.localhost:3000",
+): CoreOrigin {
+  return orThrow(readCoreUrl({ ROBKIT_CORE_URL: url }));
 }
 
 /** `id` as a code id. Throws the guard's problem if it isn't one. */

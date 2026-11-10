@@ -36,12 +36,12 @@ export async function GET(): Promise<Response> {
 
 ## Exports
 
-| Export             | What it is                                                                                        |
-| ------------------ | ------------------------------------------------------------------------------------------------- |
-| `guarded(options)` | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 404) |
-| `viewer()`         | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request          |
-| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule              |
-| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                         |
+| Export             | What it is                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `guarded(options)` | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 403, 404) |
+| `viewer()`         | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request               |
+| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                   |
+| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                              |
 
 ## A lapsed session
 
@@ -50,7 +50,13 @@ A page load that finds the session lapsed follows the guard's redirect to the hu
 - **A client navigation** fetches the next page's RSC payload. Next's client loads the page in full when that fetch gets an answer that isn't RSC, so the 401 becomes a page load, which the guard redirects. The adapter adds nothing.
 - **A server action** posts to the page. Next's client fails the action on an answer that isn't RSC, unless it carries `x-action-redirect`, which makes it load that address in full. So the adapter adds `x-action-redirect` to the guard's 401 for a server action: the 401's address with `next` set to the page, as `sessionFetch` from `@robkit/react` does. The 401 is otherwise unchanged.
 
+Next hands the proxy a URL on its own host and port. The adapter keeps only its path and query, and puts them on the app's own origin, from `ROBKIT_CORE_URL`, as the guard does. So the page a server action comes back to is on the app's origin, whatever `Host` or `X-Forwarded-Proto` the proxy in front sent.
+
 A route handler the page calls with `fetch` gets the 401 as it is. Call it with `sessionFetch` from `@robkit/react`.
+
+## Who may frame a page
+
+The proxy sets `X-Frame-Options: SAMEORIGIN`, `nosniff` and, on an https install, HSTS on what it passes on. Next sends them with the page's or route handler's answer, and drops that answer's own header of the same name, so an app's own `X-Frame-Options` never arrives. To let another origin frame the app, send `Content-Security-Policy: frame-ancestors` instead, which a browser obeys over `X-Frame-Options`: a page through `headers()` in `next.config.ts`, and a route handler on its own answer.
 
 ## The viewer header
 

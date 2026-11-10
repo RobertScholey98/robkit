@@ -57,9 +57,11 @@ sequenceDiagram
     H-->>B: the page
   else login, refresh or not-found
     R-->>A: { response }
-    A-->>B: redirect to the hub or core, 401 for a call, or 404
+    A-->>B: redirect, 401 for a call, 403 for a write from elsewhere, or 404
   end
 ```
+
+The guard knows the app's own address from its settings, not from the request. The app's origin is core's origin, from `ROBKIT_CORE_URL`, with the app's slug in place of `core`: the same protocol and port, on `<slug>.<domain>`. `appOrigin` in `@robkit/session` works it out, and Go's `Guarded` the same way. Every URL the guard sends the browser to, the `next` it gives core and the hub, its callback and its refresh path, is that origin plus the request's path and query. Neither port reads `Host`, `X-Forwarded-Host` or `X-Forwarded-Proto` for it, so a proxy hop that rewrites one changes nothing, and a request with no `Host` is guarded like any other.
 
 The guard's four outcomes come from one table in `packages/guard/src/guard.ts`:
 
@@ -72,11 +74,13 @@ The guard's four outcomes come from one table in `packages/guard/src/guard.ts`:
 | A guest with a role    | allow   | allow          | not-found  |
 | A guest without one    | allow   | not-found      | not-found  |
 
-A page load that gets `login` or `refresh` is redirected. A call from the page (a `fetch`, or a Start server function) gets a 401 with a `Robkit-Session` header instead, and `sessionFetch` from `@robkit/react` sends the browser on. `not-found` is a real 404, so a guest can't tell an app they may not open from one that doesn't exist.
+A page load that gets `login` or `refresh` is redirected. A call from the page (a `fetch`, or a Start server function) gets a 401 with a `Robkit-Session` header instead, and `sessionFetch` from `@robkit/react` sends the browser on. A form posted as a page load gets the same status with a small HTML page, whose one link goes through `/_robkit/refresh` back to the form's page. `not-found` is a real 404, so a guest can't tell an app they may not open from one that doesn't exist.
+
+Before it reads the session, the guard refuses a write from another origin with a 403, since a browser sends an app's cookie with a form posted from a sibling app. [SECURITY.md](../SECURITY.md#no-sibling-app-can-write-as-the-viewer) has the rule.
 
 ## How tokens flow
 
-Core keeps each session. Core's own session token, with the audience `core`, sits in a host-only cookie on `core.<domain>`. Each app, admin included, holds its own app token, with its slug as the audience, in a host-only cookie on its own host. No cookie goes on the parent domain ([ADR 0004](adr/0004-per-app-tokens.md)). Tokens last 15 minutes; a session lasts 30 days.
+Core keeps each session. Core's own session token, with the audience `core`, sits in a host-only cookie on `core.<domain>`. Each app, admin included, holds its own app token, with its slug as the audience, in a host-only cookie on its own host. No cookie goes on the parent domain ([ADR 0004](adr/0004-per-app-tokens.md)). On an https install each cookie is named with the `__Host-` prefix, `__Host-robkit_session` and `__Host-robkit_state`, which a browser refuses to set with a `Domain`, so no app can plant one for another host. A local http install keeps `robkit_session` and `robkit_state`. `sessionCookies(origin)` in `@robkit/session` gives the names. Tokens last 15 minutes; a session lasts 30 days.
 
 ### Signing in and getting an app token
 
@@ -106,6 +110,8 @@ sequenceDiagram
   B->>A: GET /_robkit/session
   A-->>B: checks the state, sets the app token cookie, 302 to next
 ```
+
+Core mints a token at `/refresh` only when `next` is on the exact origin of admin or an app in its catalog: protocol, host and port, which core works out from its own origin, `ROBKIT_CORE_URL`. The hub sends the browser back after sign-in only to an app's exact origin too.
 
 If the app is open to anyone and nobody is signed in, the guard keeps core's word that nobody is signed in for a minute and lets the visitor in as nobody.
 
@@ -183,7 +189,7 @@ flowchart TD
 | Core's tables                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                      |
 | Sessions, refresh and minting app tokens        | `packages/core/src/session-store.ts`, `packages/core/src/mint-token.ts`                    |
 | Access codes, roles and the app catalog         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                 |
-| The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`                                             |
+| The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`, `sign-in-limits.ts`, `password.ts`         |
 | `pnpm dev`: finding apps, the proxy, the runner | `packages/dev/src/apps.ts`, `proxy.ts`, `runner.ts`                                        |
 | Each app's schema and role                      | `packages/dev/src/provision.ts`                                                            |
 | What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/` |

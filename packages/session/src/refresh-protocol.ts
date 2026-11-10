@@ -10,15 +10,8 @@ import {
   redirect,
   text,
 } from "./guard-http.ts";
-import {
-  cookieValues,
-  readAppToken,
-  sessionCookie,
-  sessionTokensIn,
-} from "./session-token.ts";
-
-/** The cookie holding the state the guard sent core, until core comes back. */
-const stateCookie = "robkit_state";
+import type { SessionCookies } from "./session-cookies.ts";
+import { cookieValues, readAppToken } from "./session-token.ts";
 
 /** How long a trip through core may take before its state is forgotten. */
 const stateMaxAgeSeconds = 10 * 60;
@@ -46,13 +39,6 @@ function signedOutAt(value: string): number | undefined {
   return Number.isSafeInteger(at) ? at : undefined;
 }
 
-/** The state this browser holds for a trip through core, if any. */
-function stateIn(request: Request): string | undefined {
-  return cookieValues(request.headers.get("cookie"), stateCookie).find(
-    (value) => /^[\w-]{43}$/.test(value),
-  );
-}
-
 function sameState(sent: string | null, held: string): boolean {
   if (sent === null) return false;
   const [a, b] = [Buffer.from(sent), Buffer.from(held)];
@@ -64,8 +50,12 @@ export interface RefreshProtocolOptions {
   app: Slug;
   /** Core's origin, where the browser goes for the app's token. */
   core: string;
-  /** Whether the app's cookies need https, which they do off localhost. */
-  secure: boolean;
+  /**
+   * The app's cookies: the session cookie that holds its token, or core's
+   * word that nobody is signed in, and the state cookie that holds the
+   * state it sent core until core comes back.
+   */
+  cookies: SessionCookies;
   /** The guard's 503 for a token it couldn't check against core's key. */
   keyUnavailable: (cause: unknown) => Response;
 }
@@ -79,13 +69,19 @@ export interface RefreshProtocolOptions {
 export function refreshProtocol({
   app,
   core,
-  secure,
+  cookies,
   keyUnavailable,
 }: RefreshProtocolOptions) {
   const verifyKey = coreKeys(core);
 
   const cookie = (name: string, value: string, maxAge: number) =>
-    hostOnlyCookie(name, value, maxAge, secure);
+    hostOnlyCookie(name, value, maxAge, cookies.attributes);
+
+  /** The state this browser holds for a trip through core, if any. */
+  const stateIn = (request: Request): string | undefined =>
+    cookieValues(request.headers.get("cookie"), cookies.state).find((value) =>
+      /^[\w-]{43}$/.test(value),
+    );
 
   /**
    * Sends the browser to core's `/refresh`, which comes back to the app's
@@ -99,9 +95,17 @@ export function refreshProtocol({
     location.searchParams.set("next", next);
     location.searchParams.set("state", state);
     return redirect(location.href, [
-      ["set-cookie", cookie(stateCookie, state, stateMaxAgeSeconds)],
+      ["set-cookie", cookie(cookies.state, state, stateMaxAgeSeconds)],
     ]);
   };
+
+  /**
+   * Sends the browser on to `next`, a page on the app, with any cookie.
+   * The URL it leaves carries a token or a state, so no page it goes to
+   * learns that URL as the referrer.
+   */
+  const toNext = (next: string, set: [string, string][] = []): Response =>
+    redirect(next, [...set, ["referrer-policy", "no-referrer"]]);
 
   /**
    * Core sent the browser back with the app's token, or none if nobody is
@@ -109,6 +113,12 @@ export function refreshProtocol({
    * sends the browser on to `next`. Each refusal is a page rather than a
    * redirect, so a browser that can't keep the cookie stops here instead of
    * going round again.
+   *
+   * A state that isn't the one the browser holds is a trip another page
+   * load superseded: two tabs that start together each get a state, and
+   * the browser keeps the last. The guard stores nothing from it and sends
+   * the browser on to `next`, which goes round again with the state it
+   * holds.
    */
   const arrive = async (request: Request, url: URL): Promise<Response> => {
     const next = nextOn(url);
@@ -120,12 +130,7 @@ export function refreshProtocol({
         400,
       );
     }
-    if (!sameState(url.searchParams.get("state"), held)) {
-      return text(
-        "This sign-in didn't start in this browser. Open the app again.",
-        400,
-      );
-    }
+    if (!sameState(url.searchParams.get("state"), held)) return toNext(next);
     const token = url.searchParams.get("token");
     let value = `${signedOutPrefix}${String(nowSeconds())}`;
     if (token !== null) {
@@ -146,9 +151,8 @@ export function refreshProtocol({
       }
       value = token;
     }
-    return redirect(next, [
-      ["set-cookie", cookie(sessionCookie, value, appCookieMaxAgeSeconds)],
-      ["referrer-policy", "no-referrer"],
+    return toNext(next, [
+      ["set-cookie", cookie(cookies.session, value, appCookieMaxAgeSeconds)],
     ]);
   };
 
@@ -156,7 +160,7 @@ export function refreshProtocol({
     toCore,
 
     /** A `Set-Cookie` that forgets core's word that nobody is signed in. */
-    forget: cookie(sessionCookie, "", 0),
+    forget: cookie(cookies.session, "", 0),
 
     /**
      * The answer to a request for one of the guard's own paths: the
@@ -173,7 +177,10 @@ export function refreshProtocol({
     /** What the app's own cookie says about who is asking. */
     async sessionOf(request: Request): Promise<SessionState> {
       let saidSignedOut: number | undefined;
-      for (const value of sessionTokensIn(request.headers.get("cookie"))) {
+      for (const value of cookieValues(
+        request.headers.get("cookie"),
+        cookies.session,
+      )) {
         const at = signedOutAt(value);
         if (at !== undefined) {
           saidSignedOut = Math.max(at, saidSignedOut ?? at);

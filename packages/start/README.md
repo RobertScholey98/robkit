@@ -31,12 +31,12 @@ Pair it with `sessionFetch` from `@robkit/react` in `src/start.ts`, so a server 
 
 ## Exports
 
-| Export                    | What it is                                                                           |
-| ------------------------- | ------------------------------------------------------------------------------------ |
-| `guarded(entry, options)` | Start's server entry with the guard in front                                         |
-| `GuardedOptions`          | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule |
-| `GuardedContext`          | `{ viewer }`, to register as Start's request context                                 |
-| `Viewer`                  | The owner, a guest with role ids, or `{ kind: "nobody" }`                            |
+| Export                    | What it is                                                                                                                                                                 |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guarded(entry, options)` | Start's server entry with the guard in front. It adds `X-Frame-Options: SAMEORIGIN`, `nosniff` and, over https, HSTS to every answer it lets through, where Start set none |
+| `GuardedOptions`          | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                                                                                       |
+| `GuardedContext`          | `{ viewer }`, to register as Start's request context                                                                                                                       |
+| `Viewer`                  | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                  |
 
 ## What it must never do
 

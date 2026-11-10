@@ -29,17 +29,17 @@ app.get("/", (_req, res: GuardedResponse) => {
 
 `pnpm dev` and the production image set `ROBKIT_APP` and `ROBKIT_CORE_URL` for every app.
 
-The guard reads the request's URL and headers, never its body, so a body parser such as `express.json()` can sit after it.
+The guard reads the path and query on the request line, and the headers, never the body, so a body parser such as `express.json()` can sit after it. It puts the path on the app's own origin, from `ROBKIT_CORE_URL`, and never reads `Host`. A request line such as `//evil.com/x` stays a path on the app, and a request with no `Host` is guarded like any other.
 
 ## Exports
 
-| Export             | What it is                                                                                                    |
-| ------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `guarded(options)` | Express middleware. Lets the request through with `res.locals.viewer` set, or answers it (redirect, 401, 404) |
-| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                          |
-| `GuardedLocals`    | What `guarded` puts on `res.locals`: `{ viewer }`                                                             |
-| `GuardedResponse`  | The response a handler behind `guarded` gets, which types `res.locals.viewer`                                 |
-| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                     |
+| Export             | What it is                                                                                                                                                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guarded(options)` | Express middleware. Lets the request through with `res.locals.viewer` set, and `X-Frame-Options: SAMEORIGIN`, `nosniff` and, over https, HSTS set on the response before the handlers run, or answers it (redirect, 401, 403, 404) |
+| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                                                                                                                                               |
+| `GuardedLocals`    | What `guarded` puts on `res.locals`: `{ viewer }`                                                                                                                                                                                  |
+| `GuardedResponse`  | The response a handler behind `guarded` gets, which types `res.locals.viewer`                                                                                                                                                      |
+| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                                                          |
 
 ## What it must never do
 

@@ -93,6 +93,7 @@ export interface Install {
   origin(slug: Slug): string;
   onInstall(url: string | undefined): string | undefined;
   appOf(url: string | URL): Slug | undefined;
+  appAt(url: string | URL): Slug | undefined;
 }
 export function installAt(url: string | URL, app: string): Install | undefined;
 export interface InstallOptions {

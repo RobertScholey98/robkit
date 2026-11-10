@@ -16,7 +16,8 @@ import {
 
 /** The owner's access codes: listing, minting and revoking them. */
 export function accessCodeRoutes(context: RouteContext): Hono<CoreEnv> {
-  const { db, domain, now } = context;
+  const { db, install, now } = context;
+  const { domain } = install;
   const routes = new Hono<CoreEnv>();
   const owner = viewer(context, { ownerOnly: true });
 

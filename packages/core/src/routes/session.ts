@@ -1,12 +1,12 @@
 import { Hono, type Context } from "hono";
 import { validator } from "hono/validator";
 import { appSessionUrl, sessionTokensIn } from "@robkit/session";
-import { install, isLocal } from "@robkit/input/addresses";
-import { isProblem } from "@robkit/input";
+import { isPlatformApp, isProblem, type Slug } from "@robkit/input";
 import { parseAccessCode } from "../access-codes.ts";
+import { accessOf } from "../apps.ts";
 import { clientOf } from "../client.ts";
 import { claimInstall, readCredentials, readNewOwner } from "../owner.ts";
-import { createRateLimiter } from "../rate-limit.ts";
+import { createRateLimiter, type Place, type Trip } from "../rate-limit.ts";
 import { mintAppToken } from "../mint-token.ts";
 import {
   signIn,
@@ -23,11 +23,30 @@ import {
   type RouteContext,
 } from "./context.ts";
 
+/** `count` of `unit`, as a person reads it: "1 second", "15 minutes". */
+function plural(count: number, unit: string): string {
+  return count === 1 ? `1 ${unit}` : `${String(count)} ${unit}s`;
+}
+
+/**
+ * A 429 that says when to come back, in at least 1 second. A wait under a
+ * minute reads in seconds, so a 1-second wait doesn't say "1 minute".
+ */
 function tooManyAttempts(c: Context, retryAfter: number): Response {
-  const minutes = Math.ceil(retryAfter / 60);
-  const wait = minutes === 1 ? "1 minute" : `${String(minutes)} minutes`;
-  c.header("Retry-After", String(retryAfter));
+  const seconds = Math.max(1, retryAfter);
+  const wait =
+    seconds < 60
+      ? plural(seconds, "second")
+      : plural(Math.ceil(seconds / 60), "minute");
+  c.header("Retry-After", String(seconds));
   return c.json({ error: `Too many attempts. Try again in ${wait}.` }, 429);
+}
+
+function unclaimed(c: Context): Response {
+  return c.json(
+    { error: "This install has no owner yet. Set it up first." },
+    409,
+  );
 }
 
 /**
@@ -35,22 +54,77 @@ function tooManyAttempts(c: Context, retryAfter: number): Response {
  * app with the keys that check them.
  */
 export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
-  const { domain, now, signingKey, trustedProxy } = context;
+  const { db, install, now, signingKey, signInLimits, trustedProxy } = context;
+  const origin = install.origin("core");
   const routes = new Hono<CoreEnv>();
-  const addresses = install({ domain });
+  const minutes = (ms: number) => plural(Math.round(ms / 60_000), "minute");
+
+  /** Writes one log line when one of `route`'s limits trips. */
+  const logTrips =
+    (route: string, limit: number, whenFull: string) => (trip: Trip) => {
+      context.logError(
+        trip.limit === "client"
+          ? `${route}: ${trip.client} reached its limit of ${String(limit)} attempts in ${minutes(signInLimits.clientWindowMs)}. Core answers it 429 until a place frees.`
+          : `${route}: the limit holds ${plural(signInLimits.clientsTracked, "client")}, the most it keeps. ${whenFull}`,
+      );
+    };
+
+  // When full, a new client may still try its password, uncounted:
+  // refusing it would let someone with many addresses fill the limit once
+  // and shut the owner out for the whole window. The cap on password
+  // checks is the brake then.
   const loginLimiter = createRateLimiter({
-    limit: 5,
-    windowMs: 15 * 60 * 1000,
+    limit: signInLimits.passwordsPerClient,
+    windowMs: signInLimits.clientWindowMs,
+    maxClients: signInLimits.clientsTracked,
+    whenFull: "admit",
     now,
+    onTrip: logTrips(
+      "POST /login",
+      signInLimits.passwordsPerClient,
+      "Core lets a new client try, uncounted, until one expires.",
+    ),
   });
   // Apart from the owner's limit, so a guest guessing codes can't lock the
-  // owner out. A guest's sign-in never clears it, or one live code would buy
-  // endless guesses at the others.
+  // owner out. A guest's sign-in frees only its own place and never clears
+  // the client's failures, or one live code would buy endless guesses at the
+  // others.
   const codeLimiter = createRateLimiter({
-    limit: 10,
-    windowMs: 15 * 60 * 1000,
+    limit: signInLimits.codesPerClient,
+    windowMs: signInLimits.clientWindowMs,
+    maxClients: signInLimits.clientsTracked,
+    whenFull: "refuse",
     now,
+    onTrip: logTrips(
+      "POST /login/code",
+      signInLimits.codesPerClient,
+      "Core answers a new client 429 until one expires.",
+    ),
   });
+  // Holds wrong codes from every client together, so rotating addresses
+  // buys no more guesses. Once spent, it stops code sign-in for everyone
+  // until its window passes. That trade is chosen: SECURITY.md says why.
+  const codeBudget = createRateLimiter({
+    limit: signInLimits.codesPerInstall,
+    windowMs: signInLimits.installWindowMs,
+    maxClients: 1,
+    whenFull: "refuse",
+    now,
+    onTrip: () => {
+      context.logError(
+        `POST /login/code: the install reached its budget of ${String(signInLimits.codesPerInstall)} wrong codes in ${minutes(signInLimits.installWindowMs)}. Core answers every code sign-in 429 until a place frees.`,
+      );
+    },
+  });
+
+  /**
+   * Whether core mints `slug` a token: admin, or an app in core's catalog.
+   * Never the hub or core, which take none.
+   */
+  async function mintsFor(slug: Slug): Promise<boolean> {
+    if (isPlatformApp(slug)) return slug === "admin";
+    return (await accessOf(db, slug)) !== undefined;
+  }
 
   routes.get("/.well-known/jwks.json", async (c) => {
     const { kid, publicJwk } = await signingKey();
@@ -67,20 +141,22 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   // minted for that app alone, or none if nobody is signed in. The app's
   // guard then decides whether to send the browser to log in. Core's own
   // token is reissued too, even if core thinks it live.
+  //
+  // `next` must be on the exact origin of an app core mints for, protocol
+  // and port included. Core's origin is https unless the install is local,
+  // so a token in a URL goes only over https, but on a local install.
   routes.get(
     "/refresh",
-    validator("query", (_, c) => {
-      const next = addresses.onInstall(c.req.query("next"));
-      const slug = next && addresses.appOf(next);
-      // A token in a URL goes only over https, but on a local install.
-      const safe = isLocal(domain) || next?.startsWith("https:");
-      if (!next || !slug || !safe || slug === "core" || slug === "hub") {
+    validator("query", async (_, c) => {
+      const next = c.req.query("next");
+      const slug = next === undefined ? undefined : install.appAt(next);
+      if (!next || !slug || !(await mintsFor(slug))) {
         return c.json(
           { error: "Send next, a URL on one of this install's apps." },
           400,
         );
       }
-      return { next, slug, state: c.req.query("state") };
+      return { next: new URL(next).href, slug, state: c.req.query("state") };
     }),
     viewer(context, { renew: true }),
     async (c) => {
@@ -105,10 +181,11 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
       credentials.username,
       credentials.password,
     );
+    if (claim.outcome === "busy") return tooManyAttempts(c, 1);
     if (claim.outcome === "taken") {
       return c.json({ error: "This install already has an owner." }, 409);
     }
-    setSessionCookie(c, domain, claim.sessionToken);
+    setSessionCookie(c, origin, claim.sessionToken);
     return c.json<SessionAnswer>(
       { state: "signed-in", profile: claim.profile },
       201,
@@ -120,30 +197,36 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
     if (isProblem(credentials)) return c.json(credentials, 400);
 
     const client = clientOf(c, trustedProxy);
-    const retryAfter = loginLimiter.retryAfter(client);
-    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
-
-    const result = await signIn(
-      context,
-      credentials.username,
-      credentials.password,
-    );
-    if (result.outcome === "unclaimed") {
-      return c.json(
-        { error: "This install has no owner yet. Set it up first." },
-        409,
+    const reservation = loginLimiter.reserve(client);
+    if (reservation.outcome === "refused") {
+      return tooManyAttempts(c, reservation.retryAfter);
+    }
+    const { place } = reservation;
+    // Released on every path but a wrong password, which records it, so a
+    // check that throws leaks no place.
+    try {
+      const result = await signIn(
+        context,
+        credentials.username,
+        credentials.password,
       );
+      if (result.outcome === "unclaimed") return unclaimed(c);
+      // Every place to check a password is taken. The client's place is
+      // released, so this costs it nothing.
+      if (result.outcome === "busy") return tooManyAttempts(c, 1);
+      if (result.outcome === "wrong") {
+        place.fail();
+        return c.json({ error: "Wrong username or password." }, 401);
+      }
+      loginLimiter.clear(client);
+      setSessionCookie(c, origin, result.sessionToken);
+      return c.json<SessionAnswer>({
+        state: "signed-in",
+        profile: result.profile,
+      });
+    } finally {
+      place.release();
     }
-    if (result.outcome === "wrong") {
-      loginLimiter.fail(client);
-      return c.json({ error: "Wrong username or password." }, 401);
-    }
-    loginLimiter.clear(client);
-    setSessionCookie(c, domain, result.sessionToken);
-    return c.json<SessionAnswer>({
-      state: "signed-in",
-      profile: result.profile,
-    });
   });
 
   routes.post("/login/code", async (c) => {
@@ -152,34 +235,56 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
       return c.json({ error: "Send a code." }, 400);
     }
     const client = clientOf(c, trustedProxy);
-    const retryAfter = codeLimiter.retryAfter(client);
-    if (retryAfter > 0) return tooManyAttempts(c, retryAfter);
+    const reservation = codeLimiter.reserve(client);
+    if (reservation.outcome === "refused") {
+      return tooManyAttempts(c, reservation.retryAfter);
+    }
+    const { place } = reservation;
+    try {
+      const budget = codeBudget.reserve("install");
+      if (budget.outcome === "refused") {
+        return tooManyAttempts(c, budget.retryAfter);
+      }
+      try {
+        return await checkCode(c, fields.code, [place, budget.place]);
+      } finally {
+        budget.place.release();
+      }
+    } finally {
+      place.release();
+    }
+  });
 
-    const code = parseAccessCode(fields.code);
+  /**
+   * Signs a guest in with `typed`, recording a wrong code in each of
+   * `places`. A right code leaves them to be released, and never clears
+   * the client's failures.
+   */
+  async function checkCode(
+    c: Context,
+    typed: string,
+    places: Place[],
+  ): Promise<Response> {
+    const code = parseAccessCode(typed);
     const result = code
       ? await signInWithCode(context, code)
       : { outcome: "refused" as const };
-    if (result.outcome === "unclaimed") {
-      return c.json(
-        { error: "This install has no owner yet. Set it up first." },
-        409,
-      );
-    }
+    if (result.outcome === "unclaimed") return unclaimed(c);
     if (result.outcome === "refused") {
-      codeLimiter.fail(client);
+      for (const place of places) place.fail();
       return c.json({ error: "That code doesn't work." }, 401);
     }
-    setSessionCookie(c, domain, result.sessionToken);
+    setSessionCookie(c, origin, result.sessionToken);
     return c.json<SessionAnswer>({
       state: "signed-in",
       profile: result.profile,
     });
-  });
+  }
 
   // The hub sends no body here, so none is read.
   routes.post("/logout", async (c) => {
-    await signOut(context, sessionTokensIn(c.req.header("cookie")));
-    setSessionCookie(c, domain, "", 0);
+    await signOut(context, sessionTokensIn(c.req.header("cookie"), origin));
+    setSessionCookie(c, origin, "", 0);
     return c.body(null, 204);
   });
 

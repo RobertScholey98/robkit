@@ -20,8 +20,8 @@ The deploy sets these on each app:
 | Variable          | Value                                                                     |
 | ----------------- | ------------------------------------------------------------------------- |
 | `ROBKIT_APP`      | the app's slug, also a build argument                                     |
-| `ROBKIT_DOMAIN`   | the domain in `coolify.json`                                              |
-| `ROBKIT_CORE_URL` | `https://core.<domain>`                                                   |
+| `ROBKIT_DOMAIN`   | the domain in `coolify.json`. Core doesn't read it                        |
+| `ROBKIT_CORE_URL` | `https://core.<domain>`. Core takes the install's domain from it          |
 | `PORT`            | `3000`                                                                    |
 | `DATABASE_URL`    | `{{environment.<SLUG>_DATABASE_URL}}`, for an app with a `migrate` script |
 
@@ -64,11 +64,11 @@ Core also gets `ROBKIT_APPS` (the app catalog), `ROBKIT_DATABASES` (the apps to 
 
 ## Behind a Cloudflare tunnel
 
-Core limits failed sign-ins per visitor: 5 wrong passwords, or 10 wrong codes, in 15 minutes. It needs to know who each visitor is. By default it takes the last `X-Forwarded-For` entry, the address Traefik saw. Behind a tunnel, Traefik sees the tunnel for every visitor, so they all share one limit, and anyone can lock the owner out by failing on purpose.
+Core limits failed sign-ins per visitor: 5 wrong passwords, or 10 wrong codes, in 15 minutes. It also allows 20 wrong codes an hour across the whole install. It needs to know who each visitor is. By default it takes the last `X-Forwarded-For` entry, the address Traefik saw. Behind a tunnel, Traefik sees the tunnel for every visitor, so they all share one limit, and anyone can lock the owner out by failing on purpose.
 
 With `"trustedProxy": "cloudflare"` in `coolify.json`, core names each visitor by Cloudflare's `CF-Connecting-IP` header instead. Cloudflare sets that header itself and replaces any value a visitor sends, and Traefik passes it to core unchanged. A request without it didn't come through Cloudflare, and all such requests share one limit.
 
-Set it only when nothing but the tunnel reaches the host. If Traefik also answers on the server's public address, anyone can go around Cloudflare and send their own `CF-Connecting-IP`. They then get endless guesses by naming a new address each time, and can lock out a real visitor by naming theirs. Close ports 80 and 443 to the internet, or leave `trustedProxy` out and accept the shared limit.
+Set it only when nothing but the tunnel reaches the host. If Traefik also answers on the server's public address, anyone can go around Cloudflare and send their own `CF-Connecting-IP`. They then get a fresh limit for each address they name, and can lock out a real visitor by naming theirs. Close ports 80 and 443 to the internet, or leave `trustedProxy` out and accept the shared limit.
 
 Two things the setting doesn't cover:
 

@@ -1,7 +1,9 @@
 import { execFile } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { mkdir, symlink } from "node:fs/promises";
 import { createServer } from "node:net";
-import { dirname } from "node:path";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { removeWhenGone } from "./clean-up.ts";
@@ -79,21 +81,96 @@ export async function freePostgresPort(): Promise<number> {
 }
 
 /**
+ * Where every test process on the machine leases its port blocks: one
+ * symlink per block, named for its first port, pointing at the pid that
+ * holds it.
+ */
+export const portLeases = join(tmpdir(), "robkit-port-leases");
+
+// Blocks start every `blockSpan` ports from 20000, so two blocks overlap
+// only when they share a first port, and one lease covers a whole block.
+const blockSpan = 20;
+const blocks = 500;
+const attempts = 50;
+
+export interface PortBlockOptions {
+  /** The leases folder: `portLeases` unless a test keeps its own. */
+  leases?: string;
+  /** Which block to try next, from 0 to 499: one at random unless a test says. */
+  pick?: () => number;
+}
+
+/** Each leases folder this process uses, once it is made and watched. */
+const watching = new Map<string, Promise<void>>();
+
+/**
+ * Makes the leases folder and sets the watcher that removes this process's
+ * leases once it is gone. It does so once for each folder, however many
+ * ask at the same time: a second watcher would race the first to remove
+ * the same leases, and one of them would stop on a lease already gone.
+ */
+function watch(leases: string): Promise<void> {
+  let ready = watching.get(leases);
+  if (!ready) {
+    ready = mkdir(leases, { recursive: true }).then(() => {
+      removeWhenGone({ leases, owner: process.pid });
+    });
+    watching.set(leases, ready);
+  }
+  return ready;
+}
+
+/** Takes the lease on the block starting at `first`, or says it's taken. */
+async function lease(leases: string, first: number): Promise<boolean> {
+  await watch(leases);
+  try {
+    // Making a symlink is atomic, so of two processes that ask at once only
+    // one gets it.
+    await symlink(String(process.pid), join(leases, String(first)));
+    return true;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "EEXIST") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+/**
  * Finds `size` consecutive free ports, for robkit-dev's proxy port and the
- * app ports that follow it. The block sits below the OS's ephemeral range,
+ * app ports that follow it, and leases them until this process
+ * exits, so no other test process on the machine gets them in the meantime.
+ * Their probe sockets close before this returns, so the caller's servers
+ * can bind them later. The block sits below the OS's ephemeral range,
  * since the OS hands out ephemeral ports in sequence and would soon give a
  * neighbour of `freePort()` to someone else.
  */
-export async function freePortBlock(size: number): Promise<number> {
-  for (;;) {
-    const first = 20_000 + Math.floor(Math.random() * 10_000);
+export async function freePortBlock(
+  size: number,
+  {
+    leases = portLeases,
+    pick = () => Math.floor(Math.random() * blocks),
+  }: PortBlockOptions = {},
+): Promise<number> {
+  if (size > blockSpan) {
+    throw new Error(
+      `A port block holds at most ${String(blockSpan)} ports, not ${String(size)}.`,
+    );
+  }
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const first = 20_000 + blockSpan * pick();
+    if (!(await lease(leases, first))) continue;
     try {
       for (let port = first; port < first + size; port++) await listenOn(port);
       return first;
     } catch {
-      // Taken; try another block.
+      // Something outside the tests has one of its ports. The lease stays,
+      // so no one tries this block again until this process exits.
     }
   }
+  throw new Error(
+    `No free block of ${String(size)} ports in ${String(attempts)} tries. Check what is listening between 20000 and 30000, and the leases in ${leases}.`,
+  );
 }
 
 /**

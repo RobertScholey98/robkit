@@ -148,17 +148,22 @@ describe("GET /apps/:slug/access", () => {
   });
 
   it("answers a guest and the owner as it answers anyone", async () => {
-    const { app, db } = await freshCore({ domain: "robkit.localhost" });
-    const owner = await claim(app);
+    const local = "http://core.robkit.localhost:3000";
+    const { app, db } = await freshCore({
+      origin: local,
+    });
+    const owner = await claim(app, local);
     await registerApps(db, [{ slug: slug("example") }]);
     const signIn = await postJson(app, "/login/code", { code: "test" });
-    const guest = sessionCookieOf(signIn)?.value ?? "";
+    const guest = sessionCookieOf(signIn, local)?.value ?? "";
 
     const answers = await Promise.all(
-      [{}, withSession(guest), withSession(owner)].map(async (headers) => {
-        const res = await app.request("/apps/example/access", { headers });
-        return { status: res.status, body: await res.json() };
-      }),
+      [{}, withSession(guest, local), withSession(owner, local)].map(
+        async (headers) => {
+          const res = await app.request("/apps/example/access", { headers });
+          return { status: res.status, body: await res.json() };
+        },
+      ),
     );
 
     expect(answers).toEqual([
@@ -239,11 +244,17 @@ describe("POST /apps/:slug/access", () => {
   });
 
   it("answers anyone but the owner with 404", async () => {
-    const { app, db } = await freshCore({ domain: "robkit.localhost" });
-    await claim(app);
+    const local = "http://core.robkit.localhost:3000";
+    const { app, db } = await freshCore({
+      origin: local,
+    });
+    await claim(app, local);
     await registerApps(db, [{ slug: slug("example") }]);
     const signIn = await postJson(app, "/login/code", { code: "test" });
-    const guest = withSession(sessionCookieOf(signIn)?.value ?? "");
+    const guest = withSession(
+      sessionCookieOf(signIn, local)?.value ?? "",
+      local,
+    );
 
     const answers = [
       await postJson(app, "/apps/example/access", { kind: "open" }),
@@ -256,13 +267,17 @@ describe("POST /apps/:slug/access", () => {
   });
 
   it("renews no cookie for a guest it refuses", async () => {
+    const local = "http://core.robkit.localhost:3000";
     const { app, db, advance } = await freshCore({
-      domain: "robkit.localhost",
+      origin: local,
     });
-    await claim(app);
+    await claim(app, local);
     await registerApps(db, [{ slug: slug("example") }]);
     const signIn = await postJson(app, "/login/code", { code: "test" });
-    const guest = withSession(sessionCookieOf(signIn)?.value ?? "");
+    const guest = withSession(
+      sessionCookieOf(signIn, local)?.value ?? "",
+      local,
+    );
     advance(16 * minute);
 
     const res = await postJson(
@@ -273,7 +288,7 @@ describe("POST /apps/:slug/access", () => {
     );
 
     expect(res.status).toBe(404);
-    expect(sessionCookieOf(res)).toBeUndefined();
+    expect(sessionCookieOf(res, local)).toBeUndefined();
   });
 });
 

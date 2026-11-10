@@ -1,4 +1,4 @@
-import { aDomain } from "@internal/test-session";
+import { aCoreOrigin } from "@internal/test-session";
 import type { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app.ts";
@@ -8,6 +8,7 @@ import {
   freshCore,
   postJson,
   sessionCookieOf,
+  withSession,
 } from "./test/fresh-app.ts";
 
 const minute = 60_000;
@@ -19,7 +20,7 @@ async function guestSignsIn(app: Hono, request: Record<string, unknown> = {}) {
     app,
     "/codes",
     { name: "Grandma", ...request },
-    { cookie: `robkit_session=${owner}` },
+    withSession(owner),
   );
   const { id, code } = (await minted.json()) as { id: string; code: string };
   const signIn = await postJson(app, "/login/code", { code });
@@ -28,7 +29,7 @@ async function guestSignsIn(app: Hono, request: Record<string, unknown> = {}) {
 
 async function stateOf(app: Hono, sessionToken: string) {
   const res = await app.request("/session", {
-    headers: { cookie: `robkit_session=${sessionToken}` },
+    headers: withSession(sessionToken),
   });
   return ((await res.json()) as { state: string }).state;
 }
@@ -39,7 +40,7 @@ async function stateOf(app: Hono, sessionToken: string) {
  */
 async function refresh(app: Hono, sessionToken: string) {
   const res = await app.request(`/refresh?next=${encodeURIComponent(back)}`, {
-    headers: { cookie: `robkit_session=${sessionToken}` },
+    headers: withSession(sessionToken),
   });
   const cookie = sessionCookieOf(res);
   return {
@@ -53,7 +54,7 @@ async function refresh(app: Hono, sessionToken: string) {
 
 describe("a guest's session", () => {
   it("refreshes while the code works", async () => {
-    const { app, advance } = await freshCore();
+    const { app, advance } = await freshCore({ apps: ["notes"] });
     const { guest } = await guestSignsIn(app);
     advance(16 * minute);
 
@@ -65,15 +66,10 @@ describe("a guest's session", () => {
   });
 
   it("ends at the next refresh once the owner revokes the code", async () => {
-    const { app } = await freshCore();
+    const { app } = await freshCore({ apps: ["notes"] });
     const { owner, id, guest } = await guestSignsIn(app);
 
-    await postJson(
-      app,
-      `/codes/${id}/revoke`,
-      {},
-      { cookie: `robkit_session=${owner}` },
-    );
+    await postJson(app, `/codes/${id}/revoke`, {}, withSession(owner));
 
     expect(await stateOf(app, guest)).toBe("signed-out");
     expect(await refresh(app, guest)).toEqual({
@@ -84,7 +80,7 @@ describe("a guest's session", () => {
   });
 
   it("ends at the next refresh once the code expires", async () => {
-    const { app, advance } = await freshCore();
+    const { app, advance } = await freshCore({ apps: ["notes"] });
     const { guest } = await guestSignsIn(app, {
       expiresAt: new Date(clockStart.getTime() + 60 * minute).toISOString(),
     });
@@ -103,13 +99,16 @@ describe("a guest's session", () => {
   });
 
   it("on the test code ends once the install leaves its local domain", async () => {
-    const local = await freshCore({ domain: "robkit.localhost" });
+    const local = await freshCore({
+      apps: ["notes"],
+      origin: "https://core.robkit.localhost:3443",
+    });
     await claim(local.app);
     const signIn = await postJson(local.app, "/login/code", { code: "TEST" });
     const guest = sessionCookieOf(signIn)?.value ?? "";
     const moved = createApp({
       db: local.db,
-      domain: aDomain("robkit.test"),
+      origin: aCoreOrigin("https://core.robkit.test"),
       now: local.now,
     });
 

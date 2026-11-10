@@ -1,0 +1,881 @@
+{
+  "address": [
+    {
+      "name": "sends the browser back to the app's origin, worked out from core's",
+      "core": "https://core.robkit.dev",
+      "target": "/notes?x=1",
+      "headers": { "host": "example.robkit.dev" },
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "keeps https when the last proxy hop is plain http",
+      "core": "https://core.robkit.dev",
+      "target": "/notes?x=1",
+      "headers": { "host": "example.robkit.dev", "x-forwarded-proto": "http" },
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "keeps http when a request says https",
+      "core": "http://core.robkit.localhost:3000",
+      "target": "/notes?x=1",
+      "headers": {
+        "host": "example.robkit.localhost:3000",
+        "x-forwarded-proto": "https"
+      },
+      "next": "http://example.robkit.localhost:3000/notes?x=1"
+    },
+    {
+      "name": "ignores a forged Host",
+      "core": "https://core.robkit.dev",
+      "target": "/notes?x=1",
+      "headers": { "host": "evil.com" },
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "ignores a Host that names another port",
+      "core": "http://core.robkit.localhost:3000",
+      "target": "/notes?x=1",
+      "headers": { "host": "example.robkit.localhost:4000" },
+      "next": "http://example.robkit.localhost:3000/notes?x=1"
+    },
+    {
+      "name": "ignores a forged X-Forwarded-Host",
+      "core": "https://core.robkit.dev",
+      "target": "/notes?x=1",
+      "headers": {
+        "host": "example.robkit.dev",
+        "x-forwarded-host": "evil.com"
+      },
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "sends a signed-out visitor to the hub with next on the app's origin, whatever the headers say",
+      "core": "https://core.robkit.dev",
+      "target": "/notes?x=1",
+      "headers": {
+        "host": "evil.com",
+        "x-forwarded-host": "evil.com",
+        "x-forwarded-proto": "http"
+      },
+      "signedOut": true,
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "takes a next on the app's origin at its refresh path, whatever the headers say",
+      "core": "https://core.robkit.dev",
+      "target": "/_robkit/refresh?next=https%3A%2F%2Fexample.robkit.dev%2Fnotes",
+      "headers": { "host": "evil.com", "x-forwarded-proto": "http" },
+      "next": "https://example.robkit.dev/notes"
+    },
+    {
+      "name": "reads a target that starts with two slashes as a path on the app",
+      "core": "https://core.robkit.dev",
+      "target": "//evil.com/_robkit/refresh?next=https%3A%2F%2Fevil.com%2F",
+      "headers": { "host": "example.robkit.dev" },
+      "next": "https://example.robkit.dev//evil.com/_robkit/refresh?next=https%3A%2F%2Fevil.com%2F"
+    },
+    {
+      "name": "guards a request that sends no Host",
+      "core": "https://core.robkit.dev",
+      "target": "/notes?x=1",
+      "headers": {},
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "guards a request whose Host is empty",
+      "core": "https://core.robkit.dev",
+      "target": "/notes?x=1",
+      "headers": { "host": "" },
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "reads %2e in a path as the dot a browser reads",
+      "core": "https://core.robkit.dev",
+      "target": "/a/%2e/x/%2e%2E/notes?x=1",
+      "headers": { "host": "example.robkit.dev" },
+      "next": "https://example.robkit.dev/a/notes?x=1"
+    }
+  ],
+  "cookies": [
+    {
+      "name": "reads the __Host- session cookie on an https install",
+      "core": "https://core.robkit.dev",
+      "cookie": "5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": true
+    },
+    {
+      "name": "ignores the plain name on an https install",
+      "core": "https://core.robkit.dev",
+      "cookie": "726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "reads the plain name on an http install",
+      "core": "http://core.robkit.localhost:3000",
+      "cookie": "726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": true
+    },
+    {
+      "name": "ignores the __Host- name on an http install",
+      "core": "http://core.robkit.localhost:3000",
+      "cookie": "5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "ignores the name in another case",
+      "core": "https://core.robkit.dev",
+      "cookie": "5f5f484f53542d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "ignores the name after a lone A0 byte",
+      "core": "https://core.robkit.dev",
+      "cookie": "a0 5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "ignores the name after a no-break space in UTF-8, C2 A0",
+      "core": "https://core.robkit.dev",
+      "cookie": "c2a0 5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "ignores the name after an en quad in UTF-8, E2 80 80",
+      "core": "https://core.robkit.dev",
+      "cookie": "e28080 5f5f486f73742d726f626b69745f73657373696f6e 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": false
+    },
+    {
+      "name": "trims only spaces and tabs around the name",
+      "core": "https://core.robkit.dev",
+      "cookie": "7468656d653d6461726b3b 2009 5f5f486f73742d726f626b69745f73657373696f6e 0920 3d 7369676e65642d6f75742e31373938373631363030",
+      "now": 1798761600,
+      "reads": true
+    }
+  ],
+  "coreAddress": [
+    { "origin": "https://core.robkit.dev", "accepted": true },
+    { "origin": "https://core.example.com", "accepted": true },
+    { "origin": "https://core.robkit.localhost:3443", "accepted": true },
+    { "origin": "http://core.robkit.localhost:3000", "accepted": true },
+    { "origin": "http://core.localhost:3000", "accepted": true },
+    { "origin": "http://core.localhost", "accepted": true },
+    { "origin": "http://core.example.com", "accepted": false },
+    { "origin": "http://core.robkit.dev", "accepted": false },
+    { "origin": "http://core.notlocalhost:3000", "accepted": false },
+    { "origin": "http://core.localhost.example.com", "accepted": false }
+  ],
+  "writes": [
+    {
+      "name": "passes a POST the browser says came from the app's own origin, whatever Origin says",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-origin",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a POST the viewer made directly",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "sec-fetch-site": "none" },
+      "refused": false
+    },
+    {
+      "name": "passes a same-origin POST that sends no Origin",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "sec-fetch-site": "same-origin" },
+      "refused": false
+    },
+    {
+      "name": "refuses a POST from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a POST from a sibling app, whatever Origin says",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a POST from another site",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "cross-site",
+        "origin": "https://evil.com"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a Sec-Fetch-Site that is a list",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-origin, same-origin",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a Sec-Fetch-Site in another case",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "Same-Origin",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a Sec-Fetch-Site it doesn't know",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-app",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses an empty Sec-Fetch-Site",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "passes a POST with neither header, as a script sends",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {},
+      "refused": false
+    },
+    {
+      "name": "passes a POST from the app's own origin in a browser without fetch metadata",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://example.robkit.dev" },
+      "refused": false
+    },
+    {
+      "name": "refuses a POST from a sibling app in a browser without fetch metadata",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://notes.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "refuses an Origin of null",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "null" },
+      "refused": true
+    },
+    {
+      "name": "refuses an Origin that isn't one",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "not an origin" },
+      "refused": true
+    },
+    {
+      "name": "refuses an empty Origin",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "" },
+      "refused": true
+    },
+    {
+      "name": "refuses the app's host on another port",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://example.robkit.dev:8443" },
+      "refused": true
+    },
+    {
+      "name": "refuses the app's host over another protocol",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "http://example.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "refuses the app's origin with a path",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://example.robkit.dev/" },
+      "refused": true
+    },
+    {
+      "name": "refuses the app's origin in another case",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "https://EXAMPLE.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "refuses a PUT from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "PUT",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a PATCH from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "PATCH",
+      "target": "/notes",
+      "headers": { "origin": "https://notes.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "refuses a DELETE from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "DELETE",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "passes a DELETE from the app's own origin",
+      "core": "https://core.robkit.dev",
+      "method": "DELETE",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-origin",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "judges a method it doesn't know as a write",
+      "core": "https://core.robkit.dev",
+      "method": "PURGE",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "passes a GET from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a HEAD from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "HEAD",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes an OPTIONS from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "OPTIONS",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "refuses a POST to the guard's callback from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/_robkit/session?next=https%3A%2F%2Fexample.robkit.dev%2F&state=x",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a POST to the guard's refresh path from a sibling app",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/_robkit/refresh?next=https%3A%2F%2Fexample.robkit.dev%2F",
+      "headers": { "origin": "https://notes.robkit.dev" },
+      "refused": true
+    },
+    {
+      "name": "judges a POST that asks for a WebSocket as a write",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "sec-fetch-site": "same-site",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "passes a same-origin POST that asks for a WebSocket, whatever Origin says",
+      "core": "https://core.robkit.dev",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "sec-fetch-site": "same-origin",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a WebSocket handshake from the app's own origin, whatever Sec-Fetch-Site says",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "sec-fetch-site": "same-site",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a WebSocket handshake from the app's own origin without fetch metadata",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "origin": "https://example.robkit.dev"
+      },
+      "refused": false
+    },
+    {
+      "name": "passes a WebSocket handshake with no Origin, as a script sends",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": { "upgrade": "websocket" },
+      "refused": false
+    },
+    {
+      "name": "refuses a WebSocket handshake from a sibling app, whatever Sec-Fetch-Site says",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "sec-fetch-site": "same-origin",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a WebSocket handshake from a sibling app without fetch metadata",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "websocket",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a WebSocket handshake whose Upgrade is in another case",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "upgrade": "WebSocket",
+        "sec-fetch-site": "same-origin",
+        "origin": "https://notes.robkit.dev"
+      },
+      "refused": true
+    },
+    {
+      "name": "refuses a WebSocket handshake with an Origin of null",
+      "core": "https://core.robkit.dev",
+      "method": "GET",
+      "target": "/notes",
+      "headers": { "upgrade": "websocket", "origin": "null" },
+      "refused": true
+    },
+    {
+      "name": "passes a POST from the app's own origin on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "http://example.robkit.localhost:3000" },
+      "refused": false
+    },
+    {
+      "name": "refuses a POST from the app's host on another port on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "method": "POST",
+      "target": "/notes",
+      "headers": { "origin": "http://example.robkit.localhost:5173" },
+      "refused": true
+    },
+    {
+      "name": "passes a WebSocket handshake from the app's own origin on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "method": "GET",
+      "target": "/",
+      "headers": {
+        "upgrade": "websocket",
+        "origin": "http://example.robkit.localhost:3000"
+      },
+      "refused": false
+    },
+    {
+      "name": "refuses a WebSocket handshake from a sibling app on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "method": "GET",
+      "target": "/",
+      "headers": {
+        "upgrade": "websocket",
+        "origin": "http://notes.robkit.localhost:3000"
+      },
+      "refused": true
+    }
+  ],
+  "formPost": [
+    {
+      "name": "links back to the page the form was on",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/notes?x=1",
+      "next": "https://example.robkit.dev/notes?x=1"
+    },
+    {
+      "name": "keeps a page whose query holds several values",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/notes?a=1&b=%3Cx%3E",
+      "next": "https://example.robkit.dev/notes?a=1&b=%3Cx%3E"
+    },
+    {
+      "name": "links to the app's front page when the browser sends no Referer",
+      "core": "https://core.robkit.dev",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer on a sibling app",
+      "core": "https://core.robkit.dev",
+      "referer": "https://notes.robkit.dev/notes",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer on the app's host on another port",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev:8443/notes",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer under the guard's own paths",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/_robkit/refresh?next=x",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer with markup in its query",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/notes?q=\"><script>alert(1)</script>",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer with markup in its path",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/<img src=x onerror=alert(1)>",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer with a quote in it",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/it's",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "ignores a Referer that isn't a URL",
+      "core": "https://core.robkit.dev",
+      "referer": "not a url",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "links back to the page on a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "referer": "http://example.robkit.localhost:3000/notes",
+      "next": "http://example.robkit.localhost:3000/notes"
+    },
+    {
+      "name": "ignores a Referer a browser reads as under the guard's own paths",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/x/%2e%2e/_robkit/refresh?next=x",
+      "next": "https://example.robkit.dev/"
+    },
+    {
+      "name": "links back to a page whose path holds %2e, as a browser reads it",
+      "core": "https://core.robkit.dev",
+      "referer": "https://example.robkit.dev/a/%2E/notes",
+      "next": "https://example.robkit.dev/a/notes"
+    }
+  ],
+  "headers": [
+    {
+      "name": "lets a call through with both headers, beside the app's own policy",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {},
+      "status": 200,
+      "reached": true,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000",
+        "content-security-policy": "default-src 'self'"
+      }
+    },
+    {
+      "name": "lets the app's own redirect through with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "GET",
+      "target": "/moved",
+      "headers": {},
+      "status": 302,
+      "reached": true,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "sends no HSTS from a local install",
+      "core": "http://core.robkit.localhost:3000",
+      "access": "open",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {},
+      "status": 200,
+      "reached": true,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "content-security-policy": "default-src 'self'"
+      }
+    },
+    {
+      "name": "lets a write from the app's own page through with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-origin"
+      },
+      "status": 200,
+      "reached": true,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000",
+        "content-security-policy": "default-src 'self'"
+      }
+    },
+    {
+      "name": "sends a page load to core with nosniff and no framing header",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "status": 302,
+      "reached": false,
+      "answer": {
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "sends a signed-out page load to the hub with nosniff and no framing header",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "signedOut": true,
+      "status": 302,
+      "reached": false,
+      "answer": {
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "sends the page's refresh to core with nosniff and no framing header",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "GET",
+      "target": "/_robkit/refresh?next=https%3A%2F%2Fexample.robkit.dev%2Fnotes",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "status": 302,
+      "reached": false,
+      "answer": {
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "sends a local install's page load to core with nosniff alone",
+      "core": "http://core.robkit.localhost:3000",
+      "access": "owner",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "status": 302,
+      "reached": false,
+      "answer": {
+        "x-content-type-options": "nosniff"
+      }
+    },
+    {
+      "name": "answers a call whose session lapsed with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "GET",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "cors"
+      },
+      "status": 401,
+      "reached": false,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "answers a form it can't take with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "owner",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "same-origin"
+      },
+      "status": 401,
+      "reached": false,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "refuses a write from another origin with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "POST",
+      "target": "/notes",
+      "headers": {
+        "sec-fetch-site": "same-site",
+        "origin": "https://evil.robkit.dev"
+      },
+      "status": 403,
+      "reached": false,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    },
+    {
+      "name": "answers its callback with no next with both headers",
+      "core": "https://core.robkit.dev",
+      "access": "open",
+      "method": "GET",
+      "target": "/_robkit/session",
+      "headers": {
+        "sec-fetch-mode": "navigate"
+      },
+      "status": 400,
+      "reached": false,
+      "answer": {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": "max-age=31536000"
+      }
+    }
+  ]
+}

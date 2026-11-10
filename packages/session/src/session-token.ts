@@ -14,8 +14,9 @@ import {
 import { isProblem, type Slug } from "@robkit/input";
 
 /**
- * The cookie that carries a session token: core's own on core's host, and
- * each app's own on the app's host. None is set on the parent domain.
+ * The session cookie's name before any prefix, as an http install names it.
+ * An https install's carries `__Host-`. `sessionCookies` gives the names
+ * for an origin.
  */
 export const sessionCookie = "robkit_session";
 
@@ -94,7 +95,13 @@ async function verified(
   token: string,
   now: Date,
 ): Promise<{ payload: JWTPayload; expired: boolean } | undefined> {
-  const options = { algorithms: ["EdDSA"], currentDate: now };
+  // A token must expire: one with no exp would let a leaked token in for
+  // good.
+  const options = {
+    algorithms: ["EdDSA"],
+    currentDate: now,
+    requiredClaims: ["exp"],
+  };
   try {
     const { payload } =
       typeof key === "function"
@@ -149,17 +156,18 @@ export async function readAppToken(
 }
 
 /**
- * Every session cookie's value a request's `Cookie` header carries, in the
- * order it sends them. A browser can hold more than one: a host-only cookie,
- * and one an older robkit set on the parent domain.
+ * Spaces and tabs, the only whitespace a `Cookie` header puts around a
+ * name or a value.
  */
-export function sessionTokensIn(
-  cookieHeader: string | null | undefined,
-): string[] {
-  return cookieValues(cookieHeader, sessionCookie);
-}
+const spacesAndTabs = /^[ \t]+|[ \t]+$/g;
 
-/** Every value of the cookie `name` a `Cookie` header carries, in order. */
+/**
+ * Every value of the cookie `name` a `Cookie` header carries, in order. A
+ * name matches only when it is `name` exactly once spaces and tabs around it
+ * are trimmed. Trimming more would let a sibling app plant a cookie whose
+ * name starts with another space, which a browser doesn't read as
+ * `__Host-` and so lets it set with a `Domain`.
+ */
 export function cookieValues(
   cookieHeader: string | null | undefined,
   name: string,
@@ -167,7 +175,9 @@ export function cookieValues(
   const values: string[] = [];
   for (const pair of cookieHeader?.split(";") ?? []) {
     const [key, ...value] = pair.split("=");
-    if (key?.trim() === name) values.push(value.join("=").trim());
+    if (key?.replace(spacesAndTabs, "") === name) {
+      values.push(value.join("=").replace(spacesAndTabs, ""));
+    }
   }
   return values;
 }

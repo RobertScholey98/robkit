@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -22,6 +24,21 @@ func (r response) write(w http.ResponseWriter) {
 	}
 	w.WriteHeader(r.status)
 	_, _ = w.Write(r.body)
+}
+
+// strictTransportSecurity is HSTS's value on an https install: a year, for
+// the host that sends it alone. robkit refuses plain http off a local
+// domain, so an https install stays https. No includeSubDomains, since the
+// domain may hold hosts robkit doesn't run. @robkit/session sends the same.
+const strictTransportSecurity = "max-age=31536000"
+
+// isRedirect says whether status sends the browser on to another address.
+func isRedirect(status int) bool {
+	switch status {
+	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+		return true
+	}
+	return false
 }
 
 // text is a plain-text answer that no cache keeps.
@@ -66,27 +83,44 @@ func sessionLapsed(outcome, message, location string) response {
 	return response{status: http.StatusUnauthorized, header: header, body: bytes.TrimSuffix(body.Bytes(), []byte("\n"))}
 }
 
-// publicURL is the URL the browser asked for, as it saw it in front of the
-// proxy.
-func publicURL(r *http.Request) *url.URL {
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	proto := strings.TrimSpace(strings.Split(r.Header.Get("x-forwarded-proto"), ",")[0])
-	if proto == "https" || proto == "http" {
-		scheme = proto
-	}
-	u := &url.URL{Scheme: scheme, Host: r.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
+// publicURL is the page the browser asked for: the app's own origin, from
+// its options, plus r's path and query. Nothing in r decides the origin, so
+// a proxy hop that rewrites Host or X-Forwarded-Proto changes nothing.
+func publicURL(r *http.Request, origin *url.URL) *url.URL {
+	u := &url.URL{Scheme: origin.Scheme, Host: origin.Host, Path: r.URL.Path, RawPath: r.URL.RawPath, RawQuery: r.URL.RawQuery}
 	return normalized(u)
+}
+
+// plainDots is an escaped path with each segment a browser reads as "." or
+// ".." written that way. A browser reads %2e in such a segment as a dot,
+// in either case, so /x/%2e%2e/y is /y to it.
+func plainDots(escaped string) string {
+	segments := strings.Split(escaped, "/")
+	for i, segment := range segments {
+		switch strings.ToLower(segment) {
+		case "%2e":
+			segments[i] = "."
+		case ".%2e", "%2e.", "%2e%2e":
+			segments[i] = ".."
+		}
+	}
+	return strings.Join(segments, "/")
 }
 
 // normalized is u as a browser writes it: the scheme and host in
 // lowercase, no port where it is the scheme's own, a path with no dot
-// segments, at least "/".
+// segments, escaped ones included, at least "/". @robkit/session reads a
+// URL with the browser's own parser, so the two ports name the same page.
 func normalized(u *url.URL) *url.URL {
 	host := strings.TrimPrefix(origin(u), strings.ToLower(u.Scheme)+"://")
-	clean := u.ResolveReference(&url.URL{})
+	plain := *u
+	if escaped := plainDots(u.EscapedPath()); escaped != u.EscapedPath() {
+		// The escapes were valid before, and a dot needs none.
+		if path, err := url.PathUnescape(escaped); err == nil {
+			plain.Path, plain.RawPath = path, escaped
+		}
+	}
+	clean := plain.ResolveReference(&url.URL{})
 	clean.Scheme, clean.Host = strings.ToLower(u.Scheme), host
 	clean.Fragment, clean.RawFragment = u.Fragment, u.RawFragment
 	if clean.Path == "" {
@@ -98,16 +132,95 @@ func normalized(u *url.URL) *url.URL {
 // nextOn is the next u names, if it is a page on the same app. A page
 // under the guard's own paths isn't one.
 func nextOn(u *url.URL) (string, bool) {
-	next := u.Query().Get("next")
-	target, err := url.Parse(next)
+	return pageOn(u.Query().Get("next"), origin(u))
+}
+
+// pageOn is page as a browser writes it, if it is a page on the app at
+// appOrigin and not under the guard's own paths.
+func pageOn(page, appOrigin string) (string, bool) {
+	target, err := url.Parse(page)
 	if err != nil || (target.Scheme != "http" && target.Scheme != "https") || target.Host == "" || target.User != nil {
 		return "", false
 	}
 	target = normalized(target)
-	if origin(target) != origin(u) || strings.HasPrefix(target.EscapedPath(), "/_robkit/") {
+	if origin(target) != appOrigin || strings.HasPrefix(target.EscapedPath(), "/_robkit/") {
 		return "", false
 	}
 	return target.String(), true
+}
+
+// isFormPost says whether r is a form the browser posted as a page load.
+// It can't follow the guard to core and back with its body, so it gets a
+// page instead.
+func isFormPost(r *http.Request) bool {
+	return r.Method == http.MethodPost && strings.Join(r.Header.Values("sec-fetch-mode"), ", ") == "navigate"
+}
+
+// urlCharacters are the characters a URL may hold, as a browser writes
+// one, other than a quote. A Referer with any other isn't one a browser
+// sent, and the two ports would read it differently.
+var urlCharacters = regexp.MustCompile(`^[\w\-.~:/?#\[\]@!$&()*+,;=%]+$`)
+
+// formNotSent is the page for a form the guard didn't take because it must
+// first check who sent it, with the status the guard's 401 for a call has.
+// Its one link goes through the app's refresh path, which asks core, back
+// to the page the form was on: the Referer, when it is a page on the app at
+// appOrigin, and the app's / otherwise.
+func formNotSent(r *http.Request, appOrigin string) response {
+	next := appOrigin + "/"
+	if referer := strings.Join(r.Header.Values("referer"), ", "); urlCharacters.MatchString(referer) {
+		if page, ok := pageOn(referer, appOrigin); ok {
+			next = page
+		}
+	}
+	page := strings.Join([]string{
+		"<!doctype html>",
+		`<html lang="en">`,
+		`<meta charset="utf-8">`,
+		`<meta name="viewport" content="width=device-width, initial-scale=1">`,
+		"<title>Your form wasn't sent</title>",
+		"<h1>Your form wasn't sent</h1>",
+		"<p>The app needs to check who you are first. Go back to the page, then send the form again.</p>",
+		`<p><a href="` + html.EscapeString(withQuery(appOrigin+appRefreshPath, "next", next)) + `">Back to the page</a></p>`,
+		"",
+	}, "\n")
+	header := http.Header{}
+	header.Set("content-type", "text/html; charset=UTF-8")
+	header.Set("cache-control", "no-store")
+	return response{status: http.StatusUnauthorized, header: header, body: []byte(page)}
+}
+
+// isWebSocketHandshake says whether r is a GET whose Upgrade is websocket,
+// in any case.
+func isWebSocketHandshake(r *http.Request) bool {
+	return r.Method == http.MethodGet && strings.EqualFold(strings.Join(r.Header.Values("upgrade"), ", "), "websocket")
+}
+
+// isFromAnotherOrigin says whether the guard refuses r as coming from
+// another origin than the app's own, appOrigin. A browser sends an app's
+// cookie with a form posted from a sibling subdomain, so the cookie alone
+// doesn't say the viewer meant it.
+//
+// GET, HEAD and OPTIONS pass. Every other method is a write. A browser
+// can't forge Sec-Fetch-Site, so when a write carries it, only same-origin
+// and none pass, whatever Origin says. Without it, Origin decides: absent
+// or the app's own passes. A WebSocket handshake is judged by Origin alone,
+// because browsers disagree on the fetch metadata they send with one.
+func isFromAnotherOrigin(r *http.Request, appOrigin string) bool {
+	from := r.Header.Values("origin")
+	elsewhere := len(from) > 0 && strings.Join(from, ", ") != appOrigin
+	if isWebSocketHandshake(r) {
+		return elsewhere
+	}
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return false
+	}
+	if site := r.Header.Values("sec-fetch-site"); len(site) > 0 {
+		joined := strings.Join(site, ", ")
+		return joined != "same-origin" && joined != "none"
+	}
+	return elsewhere
 }
 
 // isNavigation says whether r is a page load, which can follow a redirect
@@ -144,14 +257,16 @@ func hostOnlyCookie(name, value string, maxAge int, secure bool) string {
 }
 
 // cookieValues is every value of the cookie name the request's Cookie
-// headers carry, in order. A browser can hold more than one: a host-only
-// cookie, and one an older robkit set on the parent domain.
+// headers carry, in order. A name matches only when it is name exactly
+// once spaces and tabs around it are trimmed. strings.TrimSpace would also
+// strip a no-break space, and a sibling app can set a cookie whose name
+// starts with one, since a browser doesn't read that name as __Host-.
 func cookieValues(r *http.Request, name string) []string {
 	var values []string
 	for _, pair := range strings.Split(strings.Join(r.Header.Values("cookie"), "; "), ";") {
 		key, value, _ := strings.Cut(pair, "=")
-		if strings.TrimSpace(key) == name {
-			values = append(values, strings.TrimSpace(value))
+		if strings.Trim(key, " \t") == name {
+			values = append(values, strings.Trim(value, " \t"))
 		}
 	}
 	return values

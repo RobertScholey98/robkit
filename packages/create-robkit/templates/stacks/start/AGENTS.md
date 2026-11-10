@@ -17,6 +17,20 @@ A viewer is `{ kind: "owner", id }`, `{ kind: "guest", id, roles }`, or `{ kind:
 
 `src/start.ts` hands server functions `sessionFetch` from `@robkit/react`. A call made after the session lapses goes through core's refresh and comes back to the page, rather than failing.
 
+## Changing state
+
+A browser sends this app's cookie with a form posted from any app beside it, since they share a domain. So the guard refuses a write from another origin with a 403 before any handler runs. A write is any request but a GET, HEAD or OPTIONS. The guard can't protect a GET, which a link or an image on another app can send, so change state only on POST, PUT, PATCH or DELETE.
+
+`createServerFn()` is a GET unless told otherwise, so every server function that changes state must say `method: "POST"`. A route's loader runs on the server during the page's GET, whatever method the server function it calls declares, so never change state from a loader.
+
+The guard wraps Start's `fetch`, and a WebSocket the server upgrades outside it never reaches the guard. If you add one, check its `Origin` against this app's own origin before you accept it.
+
+## Who may frame it
+
+The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through, so only this app's own pages can put it in a frame. A frame from any app beside it would carry the viewer's cookies. To let another origin frame a page, such as the hub, send `Content-Security-Policy: frame-ancestors 'self' https://hub.<domain>` with it, and a browser follows that instead. To refuse every framer, this app included, send `frame-ancestors 'none'`.
+
+Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` from `@tanstack/react-start/server`. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack.
+
 ## Calling core
 
 The guard already asks core for what it needs: core's public key and this app's access rule. The owner sets who may open the app in admin. The `robkit` field in `package.json` is only the rule core starts from. If the app needs more from core, call it over HTTP from the server at `process.env.ROBKIT_CORE_URL`. Never import `@robkit/core`.

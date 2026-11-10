@@ -29,23 +29,66 @@ This ticket also removes the gap `SECURITY.md` lists today, "The sign-in limit i
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A burst of 100 concurrent wrong sign-ins from one client gets at most the limit's worth of verdicts, for both routes
-- [ ] A burst of wrong codes from many clients at once never gets more verdicts than the install's budget
-- [ ] In a burst that mixes right and wrong codes, each right one that got a place signs in and releases only its own place
-- [ ] A check that throws leaves the client's limit and the install's budget as they were, and so does a sign-in on an unclaimed install
-- [ ] A right password clears the client's failures; a right code doesn't
-- [ ] A right password that lands while the same client's wrong attempts are still being checked leaves those in their places, and each is recorded when its verdict arrives
-- [ ] A place reserved before a window ends and judged wrong after it counts as one failure, recorded when the verdict arrives
-- [ ] Wrong codes from many addresses in one IPv6 /64 share one limit, and `::ffff:203.0.113.7` and `::ffff:cb00:7107` share one with `203.0.113.7` and not with other IPv4 clients
-- [ ] After the budget is spent, a right code from a fresh client gets 429 with `Retry-After`, and works again once the window passes
-- [ ] A client that holds a place but finds the budget spent gets 429, and its limit is as it was
-- [ ] Every 429 carries a `Retry-After` of at least 1 second, the three refusals with no failure to count from included, and its message gives seconds when the wait is under a minute
-- [ ] An address that won't parse is its own key, and a missing one is `unknown`
-- [ ] No more than 2 password checks run at the same time, `/setup`'s included, and a request that finds the queue full gets 429 and leaves the client's limit as it was
-- [ ] With a small map set and full, a new client is refused on `/login/code`, and an existing client's unexpired failures are still counted
-- [ ] With a small map set and full, the right password from a new client signs in on `/login`
-- [ ] A limit that trips writes one log line, and the refusals that follow write none until it clears and trips again
-- [ ] `SECURITY.md`'s known gaps give the arithmetic with the number of live codes, what the limit costs, and the three things it leaves, and no longer say the limit is soft
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] A burst of 100 concurrent wrong sign-ins from one client gets at most the limit's worth of verdicts, for both routes
+- [x] A burst of wrong codes from many clients at once never gets more verdicts than the install's budget
+- [x] In a burst that mixes right and wrong codes, each right one that got a place signs in and releases only its own place
+- [x] A check that throws leaves the client's limit and the install's budget as they were, and so does a sign-in on an unclaimed install
+- [x] A right password clears the client's failures; a right code doesn't
+- [x] A right password that lands while the same client's wrong attempts are still being checked leaves those in their places, and each is recorded when its verdict arrives
+- [x] A place reserved before a window ends and judged wrong after it counts as one failure, recorded when the verdict arrives
+- [x] Wrong codes from many addresses in one IPv6 /64 share one limit, and `::ffff:203.0.113.7` and `::ffff:cb00:7107` share one with `203.0.113.7` and not with other IPv4 clients
+- [x] After the budget is spent, a right code from a fresh client gets 429 with `Retry-After`, and works again once the window passes
+- [x] A client that holds a place but finds the budget spent gets 429, and its limit is as it was
+- [x] Every 429 carries a `Retry-After` of at least 1 second, the three refusals with no failure to count from included, and its message gives seconds when the wait is under a minute
+- [x] An address that won't parse is its own key, and a missing one is `unknown`
+- [x] No more than 2 password checks run at the same time, `/setup`'s included, and a request that finds the queue full gets 429 and leaves the client's limit as it was
+- [x] With a small map set and full, a new client is refused on `/login/code`, and an existing client's unexpired failures are still counted
+- [x] With a small map set and full, the right password from a new client signs in on `/login`
+- [x] A limit that trips writes one log line, and the refusals that follow write none until it clears and trips again
+- [x] `SECURITY.md`'s known gaps give the arithmetic with the number of live codes, what the limit costs, and the three things it leaves, and no longer say the limit is soft
+- [x] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### What I chose, and why
+
+Chosen in the build.
+
+- **One limiter type does all three limits.** `createRateLimiter` in `rate-limit.ts` gives `reserve(client)`, which answers a `Place` or a refusal with `retryAfter`, and `clear(client)`. A place ends once, by `fail()` or `release()`. The install's budget is the same limiter with one key, `install`, and room for one client.
+- **The routes release in a `finally`.** `/login/code` takes the client's place first, then the budget's. A wrong code fails both. Every other ending releases both.
+- **A malformed code still counts as wrong**, against the client and the budget, as it counted against the client before. It reaches the same 401.
+- **The budget's 429 reads like any other**: "Too many attempts. Try again in 60 minutes." A guest isn't told the install is under attack.
+- **The 3 refusals with no failure to count from wait 1 second**: a client whose places are all being checked, a full limit, a full queue.
+- **The limiter keeps clients in order of their latest failure.** Pruning walks from the oldest and stops at the first failure still in the window, skipping clients that still hold a place. A client with no place and no failure in the window is dropped at once.
+- **`clientOf` keys an IPv6 address as `2001:db8:1:2::/64`**, its first four hextets in lower-case hex, and an IPv4-mapped one as its dotted IPv4 address. `node:net`'s `isIPv6` decides what parses, so `ip:port` and a bracketed address stay their own keys.
+- **The checker is `createPasswordChecker({ atOnce, waiting, onFull })` in `password.ts`.** It has `hash` and `verify`, which answer `{ outcome: "busy" }` when the queue is full. `hashPassword` and `verifyPassword` are gone; `signIn` and `claimInstall` use `ctx.passwords`, and both can now answer `busy`. A stored hash it can't read is refused without taking a place.
+- **8 checks wait.** At 2 at once and 63 to 87 ms a check, the last one waits about 350 ms.
+- **`signInLimits` fields:** `passwordsPerClient` (5), `codesPerClient` (10), `clientWindowMs` (15 minutes), `codesPerInstall` (20), `installWindowMs` (1 hour), `clientsTracked` (100,000), `passwordChecksAtOnce` (2), `passwordChecksWaiting` (8). `SignInLimits` is exported.
+- **A limit trips when it first refuses**, and is clear again once it lets someone in. The log line goes to `logError`, since core has no other log, and names the client's key. For example: `POST /login/code: 203.0.113.7 reached its limit of 10 attempts in 15 minutes. Core answers it 429 until a place frees.`
+- **A check took 63 ms on Windows and 87 ms in WSL** on this machine (median of 20, Node 24, N = 2^15). The comment on `clientsTracked` gives the ticket's 30 ms sum and these numbers.
+- **The deploy doc in create-robkit's templates** now gives the install-wide limit, and no longer says forged addresses give endless guesses.
+
+### Proof
+
+- Red first, through the routes: before the reservation, a burst of 100 wrong sign-ins got 100 verdicts on each route, and the mixed burst got 20. The new `clientOf` tests failed 9 of 19 before the change.
+- Core: 416 tests pass in WSL, 165 of them unit. The concurrency tests are in `sign-in-limit.db.test.ts` and `password-checks.db.test.ts`; the second puts a slow fake in scrypt's place (`src/test/scrypt-gate.ts`) to hold checks and count how many run at once.
+- `pnpm check:all` in WSL: 61 of 61 tasks. `@internal/e2e` 81 passed and 11 skipped of 92.
+- `check-coverage-ratchet.ts` after the gate, in the same checkout: passes.
+- `pnpm check` on Windows failed only where this branch didn't: create-robkit's `vendor.test.ts` (3 tests). Its first run also caught "groups" in `client.ts`, which the glossary bans; d6cb028 renames it.
+
+### Not verified
+
+- The production test. This branch changes no Dockerfile or image, and its one production check of the limit (two visitors counted apart) asks for nothing this changes.
+- A real flood from many addresses. The tests use small limits instead.
+
+### For other tickets
+
+- **Ticket 29:** a code's length is checked nowhere near the limit. The budget holds all codes to 20 wrong an hour, short ones included.
+- **Ticket 31:** the queue is `createPasswordChecker` in `password.ts`, made once in `createApp` and handed on as `context.passwords`. A second queue for a cookie-bearing `/login` would be a second checker sharing the same thread budget, so its `atOnce` plus the first's must stay under 4.
+- **`docs/adr/0012-only-the-proxy-reaches-core.md`** still says the limit is soft, among its consequences. I left the ADR as written, since it records the decision of its day.
+
+### Merged
+
+Added by the lead. PR 79 merged into `m1-the-subdomain-boundary` on 2026-11-10, with `gate` green on `25a21cc`. The `production` job didn't run: the PR changes no image.

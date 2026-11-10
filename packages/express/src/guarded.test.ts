@@ -2,14 +2,25 @@ import { once } from "node:events";
 import { request, type OutgoingHttpHeaders } from "node:http";
 import { connect, type AddressInfo } from "node:net";
 import {
+  addressAnswer,
+  addressCases,
+  addressCookie,
+  answerHeadersOf,
   callbackFor,
   conformanceAnswer,
   fakeCore,
+  headerAnswer,
+  headerCases,
+  headerRequest,
   owner,
   stateIn,
   slug,
+  writeAnswer,
+  writeCases,
+  writeRequest,
 } from "@internal/test-session";
 import { conformanceCases } from "@robkit/guard/conformance";
+import { orThrow, readCoreUrl } from "@robkit/input";
 import { readSessionLapsed } from "@robkit/session/lapsed";
 import express, { type Express } from "express";
 import { describe, expect, it, onTestFinished } from "vitest";
@@ -21,7 +32,6 @@ const example = slug("example");
 // the guard's answer goes out as is, and handlers behind it read
 // res.locals.viewer.
 
-const page = "http://example.robkit.localhost:3000/notes?x=1";
 const navigate = { "sec-fetch-mode": "navigate" };
 
 /**
@@ -72,6 +82,51 @@ async function ask(
   });
 }
 
+/**
+ * Sends `method` and `target` on the request line to `app` over a plain
+ * socket, with exactly `headers`, so a test can send what Node's client
+ * won't: a target that starts with two slashes, no Host, or an Upgrade
+ * without asking to switch protocols. A request with no Host is
+ * HTTP/1.0, since Node refuses an HTTP/1.1 one without it. Answers with the
+ * status and the Location header.
+ */
+async function sendRaw(
+  app: Express,
+  target: string,
+  headers: Record<string, string>,
+  method = "GET",
+): Promise<{ status: number; location: string | null }> {
+  const server = app.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  onTestFinished(async () => {
+    server.close();
+    await once(server, "close");
+  });
+  const socket = connect((server.address() as AddressInfo).port, "127.0.0.1");
+  const version = "host" in headers ? "1.1" : "1.0";
+  socket.end(
+    [
+      `${method} ${target} HTTP/${version}`,
+      ...Object.entries(headers).map(([name, value]) => `${name}: ${value}`),
+      "connection: close",
+      "",
+      "",
+    ].join("\r\n"),
+  );
+  let reply = "";
+  for await (const chunk of socket) reply += String(chunk);
+  const [head = ""] = reply.split("\r\n\r\n");
+  const [statusLine = "", ...lines] = head.split("\r\n");
+  const location = lines.find((line) => /^location:/i.test(line));
+  return {
+    status: Number(statusLine.split(" ")[1]),
+    location:
+      location === undefined
+        ? null
+        : location.slice(location.indexOf(":") + 1).trim(),
+  };
+}
+
 /** The value of each cookie `res` sets, as a `Cookie` header sends it. */
 function cookieFrom(res: Response): string {
   return res.headers
@@ -89,15 +144,15 @@ describe("guarded", () => {
         res.json(res.locals.viewer);
       });
 
-    const res = await ask(app, page, {
-      headers: { ...navigate, ...(await core.key.cookieFor(asking)) },
+    const res = await ask(app, core.page, {
+      headers: { ...navigate, ...(await core.cookieFor(asking)) },
     });
 
     expect({
       status: res.status,
       location: res.headers.get("location"),
       viewer: res.status === 200 ? await res.json() : undefined,
-    }).toEqual(conformanceAnswer(asking, page, core));
+    }).toEqual(conformanceAnswer(asking, core.page, core));
   });
 
   it("answers a call from the page with the guard's 401, body and all", async () => {
@@ -114,7 +169,7 @@ describe("guarded", () => {
         res.json(res.locals.viewer);
       });
 
-    const res = await ask(app, page, {
+    const res = await ask(app, core.page, {
       method: "POST",
       headers: { "sec-fetch-mode": "cors" },
     });
@@ -139,43 +194,133 @@ describe("guarded", () => {
       .get("/notes", (_req, res: GuardedResponse) => {
         res.json(res.locals.viewer);
       });
-    const away = await ask(app, page, { headers: navigate });
+    const away = await ask(app, core.page, { headers: navigate });
 
     const back = await ask(
       app,
-      callbackFor(page, {
+      callbackFor(core.page, {
         state: stateIn(away.headers.get("location")),
         token: await core.key.token(),
       }),
       { headers: { ...navigate, cookie: cookieFrom(away) } },
     );
-    const res = await ask(app, page, {
+    const res = await ask(app, core.page, {
       headers: { ...navigate, cookie: cookieFrom(back) },
     });
 
-    expect([back.status, back.headers.get("location")]).toEqual([302, page]);
+    expect([back.status, back.headers.get("location")]).toEqual([
+      302,
+      core.page,
+    ]);
     expect(await res.json()).toEqual(owner);
   });
 
-  it("refuses an HTTP/1.0 request that names no host", async () => {
-    const core = await fakeCore();
-    const server = express()
-      .use(guarded({ app: example, core: core.origin }))
-      .listen(0, "127.0.0.1");
-    await once(server, "listening");
-    onTestFinished(async () => {
-      server.close();
-      await once(server, "close");
-    });
-    const socket = connect((server.address() as AddressInfo).port, "127.0.0.1");
-    socket.end("GET / HTTP/1.0\r\n\r\n");
-    let reply = "";
-    for await (const chunk of socket) reply += String(chunk);
+  it.each(addressCases)("$name", async (asking) => {
+    const app = express().use(
+      guarded({
+        app: example,
+        access: { kind: "owner" },
+        core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+      }),
+    );
 
-    expect([reply.split("\r\n")[0], reply.split("\r\n\r\n")[1]]).toEqual([
-      "HTTP/1.1 400 Bad Request",
-      "Send a Host header.",
-    ]);
+    const res = await sendRaw(app, asking.target, {
+      ...navigate,
+      ...asking.headers,
+      ...addressCookie(asking),
+    });
+
+    expect(res).toEqual(addressAnswer(asking));
+  });
+
+  it.each(writeCases)("$name", async (asking) => {
+    let reached = false;
+    const app = express()
+      .use(
+        guarded({
+          app: example,
+          access: { kind: "open" },
+          core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+        }),
+      )
+      .all("/{*path}", (_req, res: GuardedResponse) => {
+        reached = true;
+        res.json(res.locals.viewer);
+      });
+    const { url, method, headers } = writeRequest(asking);
+    const { host, pathname, search } = new URL(url);
+
+    const { status } = await sendRaw(
+      app,
+      `${pathname}${search}`,
+      { host, ...headers },
+      method,
+    );
+
+    expect({ status, reached }).toEqual(writeAnswer(asking));
+  });
+
+  it.each(headerCases)("$name", async (asking) => {
+    let reached = false;
+    const { url, method, headers, access } = headerRequest(asking);
+    const app = express()
+      .use(
+        guarded({
+          app: example,
+          access,
+          core: orThrow(readCoreUrl({ ROBKIT_CORE_URL: asking.core })),
+        }),
+      )
+      .all("/{*path}", (req, res: GuardedResponse) => {
+        reached = true;
+        if (req.path === "/moved") {
+          res.redirect(302, "/");
+          return;
+        }
+        res
+          .set("content-security-policy", "default-src 'self'")
+          .send("the app");
+      });
+
+    const res = await ask(app, url, { method, headers });
+
+    expect({
+      status: res.status,
+      reached,
+      headers: answerHeadersOf(res.headers),
+    }).toEqual(headerAnswer(asking));
+  });
+
+  it("sends each header of the guard's own answer once, after middleware that set the same ones", async () => {
+    const core = await fakeCore();
+    const app = express()
+      // As helmet does, when an app puts it before the guard.
+      .use((_req, res, next) => {
+        res.set("x-frame-options", "DENY");
+        res.set("x-content-type-options", "nosniff");
+        next();
+      })
+      .use(
+        guarded({
+          app: example,
+          access: { kind: "owner" },
+          core: core.origin,
+        }),
+      )
+      .post("/{*path}", (_req, res: GuardedResponse) => {
+        res.json(res.locals.viewer);
+      });
+
+    const res = await ask(app, core.page, {
+      method: "POST",
+      headers: { "sec-fetch-mode": "cors" },
+    });
+
+    expect({
+      status: res.status,
+      framing: res.headers.get("x-frame-options"),
+      sniffing: res.headers.get("x-content-type-options"),
+    }).toEqual({ status: 401, framing: "SAMEORIGIN", sniffing: "nosniff" });
   });
 
   it("leaves the request's body for the app's handlers", async () => {
@@ -194,7 +339,7 @@ describe("guarded", () => {
         res.json({ body: req.body as unknown, viewer: res.locals.viewer });
       });
 
-    const res = await ask(app, page.replace("?x=1", ""), {
+    const res = await ask(app, core.page.replace("?x=1", ""), {
       method: "POST",
       headers: {
         "content-type": "application/json",

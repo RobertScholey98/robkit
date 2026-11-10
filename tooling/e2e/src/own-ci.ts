@@ -12,7 +12,11 @@ export interface Step {
   run?: string;
 }
 
-/** The `run` steps of the install's own CI workflow, in order. */
+/**
+ * The `run` steps of the install's own CI workflow, in order, from each job
+ * a pull request runs. A job with an `if`, such as deploy on a push to
+ * main, is left out, so a COOLIFY_URL in the environment deploys nothing.
+ */
 export async function ownCiSteps(dir: string): Promise<Step[]> {
   const path = join(dir, ".github/workflows/ci.yml");
   const workflow: unknown = parse(await readFile(path, "utf8"));
@@ -21,6 +25,7 @@ export async function ownCiSteps(dir: string): Promise<Step[]> {
     throw new Error(`${path} has no jobs.`);
   }
   return Object.entries(jobs).flatMap(([name, job]) => {
+    if (isRecord(job) && job.if !== undefined) return [];
     const steps = isRecord(job) ? job.steps : undefined;
     if (!Array.isArray(steps)) {
       throw new Error(`${path}'s job ${name} has no steps.`);

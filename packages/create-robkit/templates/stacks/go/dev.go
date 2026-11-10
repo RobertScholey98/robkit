@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
@@ -39,15 +40,27 @@ func dev(ctx context.Context) error {
 	if err := waitForListener(ctx, address, exited); err != nil {
 		return err
 	}
-	target := &url.URL{Scheme: "http", Host: address}
-	page := &httputil.ReverseProxy{
+	return serve(ctx, viteProxy(&url.URL{Scheme: "http", Host: address}), exited)
+}
+
+// viteProxy passes each request to the Vite dev server at target, its
+// hot-update WebSocket included. The guard sets X-Frame-Options and
+// X-Content-Type-Options before the proxy runs, and the proxy adds
+// Vite's headers to those, so it drops Vite's copy of both. Vite's error
+// pages send nosniff.
+func viteProxy(target *url.URL) *httputil.ReverseProxy {
+	return &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.SetURL(target)
 			// Vite answers <slug>.<domain>, the host the browser asked for.
 			r.Out.Host = r.In.Host
 		},
+		ModifyResponse: func(res *http.Response) error {
+			res.Header.Del("X-Frame-Options")
+			res.Header.Del("X-Content-Type-Options")
+			return nil
+		},
 	}
-	return serve(ctx, page, exited)
 }
 
 // freePort is a port nothing listens on now, for Vite.

@@ -27,3 +27,9 @@
 - [ ] The template's workflow cancels in-progress runs for pull requests and never for `main`
 - [ ] `docs/deploy.md` states the TLS requirement
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+Found while milestone 1 was built (2026-11-09):
+
+- After ticket 02 core reads only `ROBKIT_CORE_URL`. `robkit deploy` still sets `ROBKIT_DOMAIN` on core, and core ignores it. `docs/deploy.md` says so. Stop setting it on core here, since this ticket already works out which settings each app needs.

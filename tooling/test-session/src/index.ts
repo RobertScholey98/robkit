@@ -5,11 +5,37 @@ import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { expect, onTestFinished } from "vitest";
+import type {
+  AddressCase,
+  AnswerHeader,
+  CookieCase,
+  FormPostCase,
+  HeaderCase,
+  WriteCase,
+} from "./request-cases.ts";
 import { aViewer } from "./brands.ts";
 import { listeningPort } from "./known.ts";
 
 export {
+  addressCases,
+  cookieCases,
+  coreAddressCases,
+  formPostCases,
+  headerCases,
+  readRequestCases,
+  writeCases,
+  type AddressCase,
+  type AnswerHeader,
+  type CookieCase,
+  type CoreAddressCase,
+  type FormPostCase,
+  type HeaderCase,
+  type RequestCases,
+  type WriteCase,
+} from "./request-cases.ts";
+export {
   aCodeId,
+  aCoreOrigin,
   aDomain,
   aRoleId,
   aViewer,
@@ -18,7 +44,7 @@ export {
 } from "./brands.ts";
 
 // Written out rather than imported from @robkit/session, whose own tests use
-// this package. If session's cookie, lifetime, callback or word that nobody
+// this package. If session's cookies, lifetime, callback or word that nobody
 // is signed in changes, its guard tests fail.
 const sessionCookie = "robkit_session";
 const sessionTokenLifetimeSeconds = 15 * 60;
@@ -59,23 +85,28 @@ export interface SigningKey {
   publicKey: CryptoKey;
   /** A session token shaped like core's. */
   token(options?: TokenOptions): Promise<string>;
-  /**
-   * The cookie header a conformance case's visitor sends `slug`, if any:
-   * a token for it, another's token, or core's word that nobody is signed
-   * in.
-   */
-  cookieFor(
-    asking: ConformanceCase,
-    slug?: string,
-  ): Promise<{ cookie?: string }>;
 }
 
 /** Long enough ago that a token has expired. */
 const expiredAgeSeconds = sessionTokenLifetimeSeconds + 5 * 60;
 
-/** The app's cookie, saying core said just now that nobody is signed in. */
-export function signedOutCookie(): string {
-  return `${sessionCookie}=signed-out.${String(Math.floor(Date.now() / 1000))}`;
+/**
+ * The session cookie's name on the install at `origin`, as
+ * `sessionCookies` in @robkit/session names it: `__Host-` over https, plain
+ * over http.
+ */
+export function sessionCookieOn(origin: string): string {
+  return new URL(origin).protocol === "https:"
+    ? `__Host-${sessionCookie}`
+    : sessionCookie;
+}
+
+/**
+ * The app's cookie on the install at `origin`, saying core said just now
+ * that nobody is signed in.
+ */
+export function signedOutCookie(origin: string): string {
+  return `${sessionCookieOn(origin)}=signed-out.${String(Math.floor(Date.now() / 1000))}`;
 }
 
 export async function signingKey(): Promise<SigningKey> {
@@ -106,29 +137,35 @@ export async function signingKey(): Promise<SigningKey> {
     );
   };
 
-  const cookieFor = async (
-    { session, guestRoles, otherToken }: ConformanceCase,
-    slug = app,
-  ) => {
-    if (session === "signed-out") return { cookie: signedOutCookie() };
-    const other =
-      otherToken &&
-      {
-        "another-app": `not${slug}`,
-        core: "core",
-        "no-audience": null,
-      }[otherToken];
-    const value = {
-      unknown:
-        other === undefined ? undefined : () => token({ audience: other }),
-      expired: () => token({ ageSeconds: expiredAgeSeconds, audience: slug }),
-      owner: () => token({ audience: slug }),
-      guest: () => token({ holder: guest(guestRoles), audience: slug }),
-    }[session];
-    return value ? { cookie: `${sessionCookie}=${await value()}` } : {};
-  };
+  return { publicKey, token };
+}
 
-  return { publicKey, token, cookieFor };
+/**
+ * The cookie header a conformance case's visitor sends `slug` on the install
+ * at `origin`, if any, with tokens `key` signs.
+ */
+async function cookieFor(
+  origin: string,
+  key: SigningKey,
+  { session, guestRoles, otherToken }: ConformanceCase,
+  slug: string = app,
+): Promise<{ cookie?: string }> {
+  if (session === "signed-out") return { cookie: signedOutCookie(origin) };
+  const other =
+    otherToken &&
+    {
+      "another-app": `not${slug}`,
+      core: "core",
+      "no-audience": null,
+    }[otherToken];
+  const value = {
+    unknown:
+      other === undefined ? undefined : () => key.token({ audience: other }),
+    expired: () => key.token({ ageSeconds: expiredAgeSeconds, audience: slug }),
+    owner: () => key.token({ audience: slug }),
+    guest: () => key.token({ holder: guest(guestRoles), audience: slug }),
+  }[session];
+  return value ? { cookie: `${sessionCookieOn(origin)}=${await value()}` } : {};
 }
 
 /** Core as an app's guard sees it: its JWKS and its app catalog's rules. */
@@ -137,8 +174,22 @@ export interface FakeCore {
   origin: CoreOrigin;
   /** The hub's origin beside it, `http://hub.robkit.localhost:<port>`. */
   hub: string;
+  /**
+   * A page on the app the tests guard, beside core on its port, as the dev
+   * proxy puts every app: `http://example.robkit.localhost:<port>/notes?x=1`.
+   */
+  page: string;
   /** The key core signs sessions with. */
   key: SigningKey;
+  /**
+   * The cookie header a conformance case's visitor sends `slug`, if any:
+   * a token for it, another's token, or core's word that nobody is signed
+   * in.
+   */
+  cookieFor(
+    asking: ConformanceCase,
+    slug?: string,
+  ): Promise<{ cookie?: string }>;
   /** Each app's rule in core's catalog, by slug. */
   rules: Record<string, AccessRule>;
   /** Set to fail every request with this status, such as 503. */
@@ -187,7 +238,9 @@ export async function fakeCore(): Promise<FakeCore> {
       }),
     ),
     hub: `http://hub.robkit.localhost:${String(port)}`,
+    page: `http://${app}.robkit.localhost:${String(port)}/notes?x=1`,
     key,
+    cookieFor: (asking, slug) => cookieFor(core.origin, key, asking, slug),
     rules: {},
     status: 200,
     fetched: [],
@@ -280,4 +333,203 @@ export function conformanceAnswer(
     case "not-found":
       return { status: 404, location: null, viewer: undefined };
   }
+}
+
+/** The cookie header a case's browser sends, if any. */
+export function addressCookie({ core, signedOut }: AddressCase): {
+  cookie?: string;
+} {
+  return signedOut ? { cookie: signedOutCookie(core) } : {};
+}
+
+/** What the guard must answer a case's page load with. */
+export function addressAnswer({
+  core,
+  signedOut,
+  next,
+}: AddressCase): Omit<PageAnswer, "viewer"> {
+  if (!signedOut) {
+    return { status: 302, location: refreshLocation(next, { origin: core }) };
+  }
+  const hub = new URL("/", core.replace("//core.", "//hub."));
+  hub.searchParams.set("next", next);
+  return { status: 302, location: hub.href };
+}
+
+/**
+ * The page a cookie case loads, on `example` beside the case's core, and
+ * its `Cookie` header as Node's HTTP server hands it on: each byte as the
+ * character with that code, which is Latin-1.
+ */
+export function cookieRequest({ core, cookie }: CookieCase): {
+  page: string;
+  cookie: string;
+} {
+  return {
+    page: `${core.replace("//core.", `//${app}.`)}/`,
+    cookie: Buffer.from(cookie).toString("latin1"),
+  };
+}
+
+/** What the guard must answer a cookie case's page load with. */
+export function cookieAnswer(asking: CookieCase): PageAnswer {
+  if (asking.reads) {
+    return { status: 200, location: null, viewer: { kind: "nobody" } };
+  }
+  return {
+    status: 302,
+    location: refreshLocation(cookieRequest(asking).page, {
+      origin: asking.core,
+    }),
+    viewer: undefined,
+  };
+}
+
+/**
+ * The request a write case sends: its method and headers, to its target on
+ * `example` beside its core.
+ */
+export function writeRequest({ core, method, target, headers }: WriteCase): {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+} {
+  return {
+    url: `${core.replace("//core.", `//${app}.`)}${target}`,
+    method,
+    headers,
+  };
+}
+
+/**
+ * What a write case's request must get: the guard's 403, with no handler
+ * run, or the app's handler.
+ */
+export function writeAnswer({ refused }: WriteCase): {
+  status: number;
+  reached: boolean;
+} {
+  return refused
+    ? { status: 403, reached: false }
+    : { status: 200, reached: true };
+}
+
+/**
+ * The form a form-post case's browser sends: a POST to `example`, beside
+ * its core, that navigates, from the app's own origin, with its `Referer`.
+ */
+export function formPostRequest({ core, referer }: FormPostCase): {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+} {
+  return {
+    url: `${core.replace("//core.", `//${app}.`)}/notes`,
+    method: "POST",
+    headers: {
+      "sec-fetch-mode": "navigate",
+      "sec-fetch-site": "same-origin",
+      ...(referer === undefined ? {} : { referer }),
+    },
+  };
+}
+
+/**
+ * What the guard must answer a form-post case with: its 401 page, whose
+ * one link goes through the app's refresh path back to `next`.
+ */
+export function formPostAnswer({ core, next }: FormPostCase): {
+  status: number;
+  type: string;
+  links: string[];
+} {
+  const link = new URL(
+    "/_robkit/refresh",
+    core.replace("//core.", `//${app}.`),
+  );
+  link.searchParams.set("next", next);
+  return {
+    status: 401,
+    type: "text/html; charset=UTF-8",
+    links: [link.href],
+  };
+}
+
+/**
+ * The links in a page's HTML, as a browser reads each `href`: every
+ * `&amp;` back to `&`. A link the page broke with unescaped text isn't
+ * one it means.
+ */
+export function linksIn(html: string): string[] {
+  return [...html.matchAll(/<a href="([^"<>]*)">/g)].map(([, href = ""]) =>
+    href.replaceAll("&amp;", "&"),
+  );
+}
+
+/**
+ * The request a header case sends: its method and headers, with core's
+ * word that nobody is signed in when the row says, to its target on
+ * `example` beside its core, and the rule the app's guard holds.
+ */
+export function headerRequest({
+  core,
+  access,
+  method,
+  target,
+  headers,
+  signedOut,
+}: HeaderCase): {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  access: AccessRule;
+} {
+  return {
+    url: `${core.replace("//core.", `//${app}.`)}${target}`,
+    method,
+    headers: signedOut
+      ? { ...headers, cookie: signedOutCookie(core) }
+      : { ...headers },
+    access: { kind: access },
+  };
+}
+
+/** Each of `answerHeaderNames` an answer carries, or null for one it lacks. */
+export type AnswerHeaders = Record<AnswerHeader, string | null>;
+
+/** Each of `answerHeaderNames`, with the value `read` gives it. */
+function answerHeaders(
+  read: (name: AnswerHeader) => string | null,
+): AnswerHeaders {
+  return {
+    "x-frame-options": read("x-frame-options"),
+    "x-content-type-options": read("x-content-type-options"),
+    "strict-transport-security": read("strict-transport-security"),
+    "content-security-policy": read("content-security-policy"),
+  };
+}
+
+/**
+ * Each of `answerHeaderNames` in `headers`, as `Headers.get` reads it: a
+ * header sent twice reads as both values joined with a comma.
+ */
+export function answerHeadersOf(headers: Headers): AnswerHeaders {
+  return answerHeaders((name) => headers.get(name));
+}
+
+/**
+ * What a header case's request must get: its status, whether the app's
+ * handler answered, and each of `answerHeaderNames` once with the row's
+ * value, or not at all.
+ */
+export function headerAnswer({ status, reached, answer }: HeaderCase): {
+  status: number;
+  reached: boolean;
+  headers: AnswerHeaders;
+} {
+  return {
+    status,
+    reached,
+    headers: answerHeaders((name) => answer[name] ?? null),
+  };
 }
