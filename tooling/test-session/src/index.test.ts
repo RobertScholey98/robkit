@@ -294,6 +294,10 @@ describe("refreshLocation", () => {
     expect(stateIn(`${refresh}&state=${state}`)).toBe(state);
   });
 
+  it("finds no state in a location that has none", () => {
+    expect(stateIn(refresh)).toBe("");
+  });
+
   it.each([refresh, `${refresh}&state=short`, `${refresh}x&state=${state}`])(
     "doesn't match %s",
     (location) => {
@@ -311,6 +315,14 @@ describe("callbackFor", () => {
       }),
     ).toBe(
       "http://example.robkit.localhost:3000/_robkit/session?next=http%3A%2F%2Fexample.robkit.localhost%3A3000%2Fnotes%3Fx%3D1&state=s&token=t",
+    );
+  });
+
+  it("sends no token when core has none to give", () => {
+    expect(
+      callbackFor("http://example.robkit.localhost:3000/", { state: "s" }),
+    ).toBe(
+      "http://example.robkit.localhost:3000/_robkit/session?next=http%3A%2F%2Fexample.robkit.localhost%3A3000%2F&state=s",
     );
   });
 });
