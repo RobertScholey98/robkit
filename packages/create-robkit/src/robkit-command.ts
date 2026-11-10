@@ -2,7 +2,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { CommandProblem, runCommand } from "@robkit/dev/cli";
+import { askDev, CommandProblem, runCommand } from "@robkit/dev/cli";
 import { isProblem, parseJson } from "@robkit/input";
 import {
   defaultDevPort,
@@ -210,11 +210,27 @@ async function add(): Promise<undefined> {
       `apps/${choices.slug} has its files but the install doesn't have its dependencies`,
     );
   }
-  console.log(`Added apps/${choices.slug}. Next:
+  // A pnpm dev already running starts the app; with no dependencies in,
+  // none can be.
+  const answer = hasDependencies
+    ? await askDev(root, { operation: "add", slug: choices.slug })
+    : ({ outcome: "not-running" } as const);
+  if (answer.outcome === "refused") {
+    throw new CommandProblem(`Added apps/${choices.slug}, but pnpm dev couldn't start it:
+
+  ${answer.message}
+
+Fix that, then stop pnpm dev and start it again, which starts every app in apps/.`);
+  }
+  console.log(
+    answer.outcome === "done"
+      ? `Added apps/${choices.slug}. ${answer.message}`
+      : `Added apps/${choices.slug}. Next:
 ${hasDependencies ? "" : "\n  pnpm install"}
   pnpm dev
 
-Then open ${dev.origin(choices.slug)}.`);
+Then open ${dev.origin(choices.slug)}.`,
+  );
   if (asked) {
     console.log(`
 The same app without the questions:
