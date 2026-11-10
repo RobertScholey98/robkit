@@ -16,6 +16,13 @@ if (databaseUrl && readFileSync("migrated", "utf8") !== databaseUrl) {
   console.error("started before its migration");
   process.exit(1);
 }
+// Says so as it stops, as most servers do, so the runner writes while it
+// stops too.
+process.on("SIGTERM", () => {
+  console.log("stopping");
+  process.exit(0);
+});
+
 // Crashes once every app is listening, so the runner has running apps to
 // stop however long each took to start. A fixed delay raced the slowest app.
 if (process.env.FIXTURE_CRASH === slug) {

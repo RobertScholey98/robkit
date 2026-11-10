@@ -25,7 +25,8 @@ import { requireGo } from "./toolchain.ts";
  * `robkit-dev`: runs the install in `root` for local development, refusing a
  * folder with no `robkit.json`. Finds the apps, refusing any folder that isn't a slug, or a Go app without Go, before
  * it starts anything. Starts Postgres, runs the provision step, starts every
- * app and puts the proxy in front. Stops it all on SIGINT or SIGTERM, or as soon as any app exits.
+ * app and puts the proxy in front. Stops it all on SIGINT, SIGTERM or
+ * SIGHUP, when its output closes, or as soon as any app exits.
  *
  * @returns the exit code: 0 after a signal, 1 if an app exited
  * @throws what failed while starting or stopping, once everything stopped:
@@ -79,8 +80,20 @@ export async function runDev(
   const onSignal = () => {
     stop("interrupted");
   };
+  // A closed terminal sends SIGHUP and closes this process's output, so a
+  // write to it then fails. With nobody left to read it, the runner stops
+  // as it does on SIGINT, and ignores every failed write, so the stop
+  // still finishes.
+  const output = { gone: false };
+  const onOutputGone = () => {
+    output.gone = true;
+    stop("interrupted");
+  };
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
+  process.on("SIGHUP", onOutputGone);
+  process.stdout.on("error", onOutputGone);
+  process.stderr.on("error", onOutputGone);
 
   const running: { slug: string; child: ChildProcess }[] = [];
   let proxy: Proxy | undefined;
@@ -163,13 +176,17 @@ export async function runDev(
   );
   const closeProxy = () => proxy?.close();
   const stopPostgres = () =>
-    exec("docker", ["compose", "stop"], { cwd: root, env }).catch(
-      (error: unknown) => {
-        // A failed compose up has said what is wrong; a stop that fails the
-        // same way would only say it twice.
-        if (!composeUpFailed) throw error;
-      },
-    );
+    // With the output gone, Compose prints nowhere: a write to a closed
+    // pipe would end it before it stopped Postgres.
+    exec("docker", ["compose", "stop"], {
+      cwd: root,
+      env,
+      quiet: output.gone,
+    }).catch((error: unknown) => {
+      // A failed compose up has said what is wrong; a stop that fails the
+      // same way would only say it twice.
+      if (!composeUpFailed) throw error;
+    });
   // The apps stop together, then the proxy, then Postgres. Each stage runs
   // even when one before it failed, so nothing is left running.
   for (const stage of [stopApps, [closeProxy], [stopPostgres]]) {
@@ -177,6 +194,13 @@ export async function runDev(
   }
   process.off("SIGINT", onSignal);
   process.off("SIGTERM", onSignal);
+  process.off("SIGHUP", onOutputGone);
+  // Once the output is gone, a line still on its way from an app must not
+  // end the process before it exits.
+  if (!output.gone) {
+    process.stdout.off("error", onOutputGone);
+    process.stderr.off("error", onOutputGone);
+  }
   throwFailures(failures);
   return outcome === "failed" ? 1 : 0;
 }

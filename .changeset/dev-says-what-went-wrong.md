@@ -17,3 +17,5 @@ A failed `compose up` is reported alone, not with the `compose stop` that follow
 `robkit-dev` sets `HOST` to `127.0.0.1` for core and every app, so a `HOST` the shell exports no longer moves them off loopback.
 
 `robkit-dev` prints each app's address once that app answers, rather than all of them as soon as it starts the apps, so the first request gets the app and not the proxy's "is not answering".
+
+Closing the terminal stops every app, the proxy and Postgres: `robkit-dev` stops on SIGHUP as on SIGINT, and ignores a failed write to its closed output. `exec` from `@robkit/dev/cli` takes `quiet`, which sends the command's output nowhere.

@@ -44,8 +44,9 @@ const projects: { root: string; project: string }[] = [];
 const children: ChildProcess[] = [];
 
 afterEach(async () => {
-  // SIGTERM, as a terminal's close would, so robkit-dev stops the apps it
+  // SIGTERM, as a process manager would, so robkit-dev stops the apps it
   // started; SIGKILL would leave them running in their own process groups.
+  // A terminal's close sends SIGHUP, which a test below sends.
   await Promise.all(
     children.splice(0).map(async (child) => {
       if (child.exitCode !== null || child.signalCode !== null) return;
@@ -273,6 +274,30 @@ describe("robkit-dev", () => {
     });
 
     expect(JSON.parse(answer)).toMatchObject({ slug: "alpha" });
+  });
+
+  it("stops it all on SIGHUP with its output closed, as a closed terminal leaves it", async () => {
+    const dev = await startDev();
+    await eventually(() => get(dev.port, "alpha.robkit.localhost"));
+
+    // A closed terminal closes the runner's output, then sends SIGHUP. The
+    // apps print as they stop, so the runner writes to the closed output.
+    dev.child.stdout?.destroy();
+    dev.child.stderr?.destroy();
+    dev.child.kill("SIGHUP");
+
+    expect(await exitCode(dev.child)).toBe(0);
+    expect(await isListening(dev.port)).toBe(false);
+    expect(await isListening(dev.port + 1)).toBe(false);
+    expect(await isListening(dev.port + 2)).toBe(false);
+    expect(await runningContainers(dev.root)).toBe("");
+
+    const next = startIn(dev.root, dev.port, dev.env);
+    expect(
+      JSON.parse(
+        await eventually(() => get(next.port, "alpha.robkit.localhost")),
+      ),
+    ).toMatchObject({ slug: "alpha", database: true });
   });
 
   // In this process, so the coverage report sees the runner. The test above
