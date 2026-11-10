@@ -15,7 +15,7 @@ interface InputProblem {
 - `InputProblem` is the only type for a failed read, and `isProblem` the only check for one. Don't write a `{ error: string }` of your own, and don't test a result with `"error" in`.
 - The reader takes `unknown`, or `Env` for environment variables. It never casts. Parsed JSON is `unknown` until a reader checks it: give `JSON.parse` and `.json()` results the type `unknown`, then read them.
 - The problem's `error` names the file or variable, the key, and what to do about it. Write it for the person who has to fix the input.
-- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `CommandProblem` from `@robkit/dev/cli` (see `errors.md`), and an HTTP route answers 400. An app's server or script that reads its environment as it starts calls `orExit(read)`, which returns the value or prints the problem alone and exits 1. Where the caller can't go on without the value, has nothing better to say and prints what it throws, such as a Vite config, `orThrow(read)` returns the value or throws the problem as an `Error`.
+- The reader doesn't throw or exit. Its caller decides what a problem means: core and the dev runner refuse to start, a command throws its message as a `CommandProblem` from `@robkit/input/command` (see `errors.md`), and an HTTP route answers 400. An app's server or script that reads its environment as it starts calls `orExit(read)`, which returns the value or prints the problem alone and exits 1. Where the caller can't go on without the value, has nothing better to say and prints what it throws, such as a Vite config, `orThrow(read)` returns the value or throws the problem as an `Error`.
 - When several values are read together, report every problem at once with `allProblems`, a line each, so one run shows everything to fix.
 - A value with a meaning beyond its type gets a brand that only its reader makes, so a function that takes one can't be handed a string nobody checked:
 
@@ -27,7 +27,7 @@ interface InputProblem {
   | `RoleId`     | A role's id                                             | `readRoleId`, `readRoleIds` and `readAccessRule`, and core's readers |
   | `CodeId`     | An access code's id, a guest's                          | `readCodeId`, and core's readers                                     |
 
-  `Slug`, `Domain` and `CoreOrigin` are in `@robkit/input`. An install's `host` and `origin` take a `Slug`, `requestGuard` takes core's origin as a `CoreOrigin`, and core's config holds its origin as a `CoreOrigin`. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
+  `Slug`, `Domain` and `CoreOrigin` are in `@robkit/input`. An install's `host` and `origin` take a `Slug`, `requestGuard` reads core's origin into a `CoreOrigin`, from `ROBKIT_CORE_URL` or its `core` option, and core's config holds its origin as a `CoreOrigin`. `RoleId` and `CodeId` are in `@robkit/guard`. Core's schema types its id columns with them, since core makes every id it stores.
 
 The shared readers live in `@robkit/input`: environment variables and JSON, `InputProblem`, `isProblem`, `isRecord` and `allProblems`, slugs, what an app's server reads from its environment, and an app's `robkit` field. Role and code ids, and access rules, are read in `@robkit/guard`, which takes `InputProblem` from `@robkit/input`, so its readers return one like every other. `@robkit/input` imports nothing, so the guard stays pure and the browser can load it. Every robkit package and every app can import them. An install's `packages/core-client` reads core's answers with them, and its readers return an `InputProblem` like every other. robkit's repo checks read their JSON files with `readJsonFile(path, read)` and `readManifest` in `tooling/repo-checks/src/manifest.ts`.
 
@@ -69,26 +69,25 @@ export function readServeEnv(
 }
 ```
 
-An app's `serve.ts` calls it once, at start:
+`serve()` in `@robkit/serve` calls it once, before it listens, so an app's `serve.ts` never does. A server of your own calls it the same way:
 
 ```ts
-import { serve } from "@hono/node-server";
+import { createServer } from "node:http";
 import { orExit, readServeEnv } from "@robkit/input";
-import { Hono } from "hono";
 
-const app = new Hono(); // the app's routes go here
-
-const { host: hostname, port } = orExit(readServeEnv(process.env));
-serve({ fetch: app.fetch, hostname, port });
+const { host, port } = orExit(readServeEnv(process.env));
+createServer((request, response) => {
+  response.end("hello");
+}).listen(port, host);
 ```
 
-With `PORT=80000` the app prints this and stops:
+With `PORT=80000` the server prints this and stops:
 
 ```text
 PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, or leave it unset for 3000.
 ```
 
-A Vite config can't go on without the values it reads, and Vite prints what it throws, so it uses `orThrow`:
+A Vite dev server can't go on without the values it reads, and Vite prints what its config throws, so `robkit()` in `@robkit/vite` uses `orThrow`:
 
 ```ts
 import { orThrow, readDevServerEnv } from "@robkit/input";

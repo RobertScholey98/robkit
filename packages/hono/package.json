@@ -4,13 +4,23 @@
   "description": "robkit's Hono adapter: runs the guard and hands handlers the viewer.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts",
+    "./serve": "./src/serve.ts"
   },
   "publishConfig": {
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./testing": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
+      },
+      "./serve": {
+        "types": "./dist/serve.d.ts",
+        "default": "./dist/serve.js"
       }
     }
   },
@@ -30,7 +40,9 @@
     "test:unit": "vitest run --typecheck --coverage"
   },
   "dependencies": {
+    "@hono/node-server": "catalog:",
     "@robkit/guard": "workspace:*",
+    "@robkit/serve": "workspace:*",
     "@robkit/session": "workspace:*"
   },
   "peerDependencies": {

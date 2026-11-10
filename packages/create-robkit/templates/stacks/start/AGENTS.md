@@ -13,6 +13,8 @@ const visit = createServerFn({ method: "POST" }).handler(({ context }) => {
 });
 ```
 
+The `declare module` block in `src/server.ts` tells Start's types that `context` holds the viewer. Start reads it only from that file, so keep it there.
+
 A viewer is `{ kind: "owner", id }`, `{ kind: "guest", id, roles }`, or `{ kind: "nobody" }` in an app open to anyone. Key a viewer's data by `viewer.id`. Never read the session cookie or verify the token yourself. The token is the app's own: core mints it for this app's slug, and no other app or core accepts it. Paths under `/_robkit/` are the guard's, so give no route one.
 
 `src/start.ts` hands server functions `sessionFetch` from `@robkit/react`. A call made after the session lapses goes through core's refresh and comes back to the page, rather than failing.
@@ -31,24 +33,45 @@ The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through,
 
 Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` from `@tanstack/react-start/server`. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack.
 
+## Serving
+
+- `pnpm dev` runs Vite, and `tanstackStart()` in `vite.config.ts` serves the app through `src/server.ts` and its guard.
+- `pnpm build` runs `vite build`, which writes the client's files to `dist/client`, with this app's `public` folder copied in, and Start's server entry to `dist/server`.
+- The production image runs the `start` script, which migrates and then runs `src/serve.ts`. It calls `serve()` from `@robkit/start/serve`, which listens on `HOST` and `PORT`, answers the files in `dist/client` at the root, hands every other request to Start's server entry, and stops on SIGTERM. It never answers anything in `dist/server`. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
+- Built files are public. `serve` answers `dist/client`, `public`'s copy included, before the guard runs, so put nothing in `public` that a viewer shouldn't see.
+- `dependencies` are what the server imports when it runs. The production image installs only those, so a package the server needs that sits in `devDependencies` is missing there.
+
+## Testing
+
+`pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does, and needs no database, no core and no `pnpm dev`. A server function runs only through Start's compiler and request handler, so a test calls what its handler calls instead. `src/home.test.tsx` shows the pattern:
+
+- Each server function's handler hands `context.viewer` to a plain function, as `src/routes/index.tsx` hands it to `shownTo` and `visitAgainAs` in `src/visits.ts`.
+- The test calls that function with a viewer from `@robkit/start/testing`: `owner()`, `guest({ roles: ["family"] })` or `nobody()`.
+- The function takes what it stores through as an argument, so the test passes a stand-in and nothing reaches Postgres.
+- The page's card is `HomeCard` in `src/home.tsx`, which takes what to show as props, so the test renders it with `renderToStaticMarkup`.
+
 ## Calling core
 
 The guard already asks core for what it needs: core's public key and this app's access rule. The owner sets who may open the app in admin. The `robkit` field in `package.json` is only the rule core starts from. If the app needs more from core, call it over HTTP from the server at `process.env.ROBKIT_CORE_URL`. Never import `@robkit/core`.
 
 ## Environment
 
+The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded(entry)` takes no settings. When one is missing or won't do, it prints what to fix and stops the app. Don't read them for the guard yourself.
+
+`vite.config.ts` calls `robkit()` from `@robkit/vite` first, which sets the dev server up for `pnpm dev`: it listens on `PORT`, answers `<slug>.<domain>`, and stops the dev server as it starts, with the same message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. It changes nothing under Vitest or for a build. The rest of the config, such as Tailwind and `build`, is the app's own.
+
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
-The example's queries are in `src/visits.ts`, and `src/routes/index.tsx` calls them from a server function.
+The example's queries are in `src/visits.ts`. `src/routes/index.tsx` reads the count from its loader with a GET server function, and records a visit with a POST one when the button is pressed.
 
 ## The database
 
 The app talks to Postgres with Drizzle over `DATABASE_URL`, as its own role. The role has the app's own schema first on its search path, so a table named without a schema lands there. The role can't reach core's schema or another app's.
 
 - `src/schema.ts` declares the tables. Use `pgTable`, never `pgSchema`: the app's schema is the role's, and naming another one fails.
-- `src/database.ts` gives queries the database, connected on first use. `src/visits.ts` shows a query.
+- `src/database.ts` gives queries the database with `appDatabase(schema)` from `@robkit/drizzle`, which connects on first use. `src/visits.ts` shows a query.
 - `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run.
 
-`src/migrate.ts` applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It follows Drizzle's migrator but skips its `CREATE SCHEMA`, which the app's role may not run, and keeps its journal table in the app's schema.
+The `migrate` script runs `robkit-migrate`, from `@robkit/drizzle`, which applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It keeps its journal table in the app's schema, and two containers that start together apply each migration once. If you set `out` in `drizzle.config.ts` to another folder, name it in the script: `robkit-migrate <folder>`.

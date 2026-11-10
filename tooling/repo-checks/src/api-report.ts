@@ -44,6 +44,30 @@ function printDeclaration(
     : `// Exported as ${name}.\n${text}`;
 }
 
+/**
+ * `export { name } from "<package>";` when `exported` passes on a value from
+ * another workspace package. In the workspace that package's exports point
+ * at its source, so its declaration has a body that the report shouldn't
+ * print. Its own report shows its type.
+ */
+function reExportLine(
+  exported: ts.Symbol,
+  target: ts.Symbol,
+): string | undefined {
+  const [specifier] = exported.declarations ?? [];
+  const from =
+    specifier && ts.isExportSpecifier(specifier)
+      ? specifier.parent.parent.moduleSpecifier
+      : undefined;
+  if (from === undefined || !ts.isStringLiteral(from)) return undefined;
+  if (from.text.startsWith(".")) return undefined;
+  const fromSource = (target.declarations ?? []).some(
+    (declaration) => !declaration.getSourceFile().isDeclarationFile,
+  );
+  if (!fromSource || !(target.flags & ts.SymbolFlags.Value)) return undefined;
+  return `export { ${exported.name} } from "${from.text}";`;
+}
+
 /** Every export of one entry point, sorted by name, as declarations. */
 function entryApi(checker: ts.TypeChecker, file: ts.SourceFile): string[] {
   const module = checker.getSymbolAtLocation(file);
@@ -56,6 +80,8 @@ function entryApi(checker: ts.TypeChecker, file: ts.SourceFile): string[] {
         exported.flags & ts.SymbolFlags.Alias
           ? checker.getAliasedSymbol(exported)
           : exported;
+      const reExport = reExportLine(exported, symbol);
+      if (reExport !== undefined) return [reExport];
       return (symbol.declarations ?? []).map((declaration) =>
         printDeclaration(checker, exported.name, declaration),
       );

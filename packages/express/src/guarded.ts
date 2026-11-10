@@ -52,9 +52,13 @@ async function send(answer: Response, res: ExpressResponse): Promise<void> {
  * core's public key and the app's slug, then lets the request through with
  * `res.locals.viewer` set, sends the browser to log in or for a token from
  * core, or answers 404. The guard answers `/_robkit/*` itself.
+ *
+ * It needs no options: it reads the app's slug and core's origin from
+ * `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy`
+ * set, and ends the process with the reader's message when one won't do.
  */
 export function guarded(
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): (
   req: ExpressRequest,
   res: GuardedResponse,

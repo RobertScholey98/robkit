@@ -23,26 +23,77 @@
 
 **Blocked by:** 10
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each Node stack's `serve.ts`, the hub's and admin's, is one import of a serve function, the app where there is one, and one call
-- [ ] Each listens on `HOST` and `PORT`, serves the client's files from the app's own folder with `nosniff`, and refuses a malformed `PORT` with the reader's message
-- [ ] Each adapter's `serve` returns the Node server, and a test closes it
-- [ ] A request for the server's bundle, such as `/serve.js` on a react-hono or Express app, never gets the file, and neither does admin's Vite manifest or a path that climbs out of the served folder
-- [ ] In production, a file in a react-hono or Express app's `public` folder is answered at the root, as it is under `pnpm dev`
-- [ ] A stylesheet and a script each arrive with their content type, and a conditional request for an unchanged file gets a 304
-- [ ] In `@robkit/serve`'s tests, a request open when SIGTERM arrives finishes, and the process then prints its line and exits with code 0
-- [ ] `robkit-core serve` listens and stops through `@robkit/serve`, and core's SIGTERM test from ticket 12 passes
-- [ ] `docker stop` on the hub's, admin's and every Node stack's production image ends the container with exit code 0 before Docker's kill timeout, and its log holds the line the server prints when it has stopped
-- [ ] The hub's production image holds neither Vite nor the guard's packages, and its answers carry the three headers, and `Strict-Transport-Security` on an https install
-- [ ] The production test finds no `vite` package in the hub's image or the Express app's
-- [ ] No Node stack's files import `@robkit/input`, and no stack's manifest lists it
-- [ ] The production test passes for every stack, its extra-packages check included
-- [ ] `@robkit/serve` has its README, API report, graph entry, changeset and thresholds, and the API reports, READMEs and changesets cover the adapters' new entries
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] Each Node stack's `serve.ts`, the hub's and admin's, is one import of a serve function, the app where there is one, and one call
+- [x] Each listens on `HOST` and `PORT`, serves the client's files from the app's own folder with `nosniff`, and refuses a malformed `PORT` with the reader's message
+- [x] Each adapter's `serve` returns the Node server, and a test closes it
+- [x] A request for the server's bundle, such as `/serve.js` on a react-hono or Express app, never gets the file, and neither does admin's Vite manifest or a path that climbs out of the served folder
+- [x] In production, a file in a react-hono or Express app's `public` folder is answered at the root, as it is under `pnpm dev`
+- [x] A stylesheet and a script each arrive with their content type, and a conditional request for an unchanged file gets a 304
+- [x] In `@robkit/serve`'s tests, a request open when SIGTERM arrives finishes, and the process then prints its line and exits with code 0
+- [x] In `@robkit/serve`'s tests, a keep-alive connection that is busy when SIGTERM arrives closes with its answer, and a connection that has sent nothing doesn't hold the process past the stop's limit: it still exits with code 0 (the lead's comment below has the measurements)
+- [x] `robkit-core serve` listens and stops through `@robkit/serve`, and core's SIGTERM test from ticket 12 passes
+- [x] `docker stop` on the hub's, admin's and every Node stack's production image ends the container with exit code 0 before Docker's kill timeout, and its log holds the line the server prints when it has stopped
+- [x] The hub's production image holds neither Vite nor the guard's packages, and its answers carry the three headers, and `Strict-Transport-Security` on an https install
+- [x] The production test finds no `vite` package in the hub's image or the Express app's
+- [x] No Node stack's files import `@robkit/input`, and no stack's manifest lists it
+- [x] The production test passes for every stack, its extra-packages check included
+- [x] `@robkit/serve` has its README, API report, graph entry, changeset and thresholds, and the API reports, READMEs and changesets cover the adapters' new entries
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
 ### From milestone 1, added by the lead
 
 `servePage()` takes the hub's headers, HSTS included, from `@robkit/input/headers`, where ticket 10 moved what ticket 06 wrote in `@robkit/session`. `securityHeaders(origin, "none")` gives them. Don't write the values again. When this ticket lands, take the hub out of `SECURITY.md`'s "What isn't covered" under framing.
+
+### From ticket 12's build, added by the lead
+
+Node's `server.close()` doesn't do all that "The stop" asks. I measured it on Node 24 with a plain `http` server:
+
+- **A connection busy when `close()` runs stays open as keep-alive.** Node goes on answering new requests on it, and the server never finishes closing while the client keeps it. A proxy with requests to send could hold a server open until Docker kills it. Core's `listenUntilStopped` (`packages/core/src/listen.ts`) now answers with `Connection: close` while it is stopping, and Node then closes the connection with that answer. Its test holds a keep-alive connection open through the signal. Keep both when the code moves to `@robkit/serve`.
+- **A connection that has sent nothing holds the server open too.** `closeIdleConnections()` doesn't count it as idle, and `close()` stops the timer that would have timed it out. Nothing in core answers this yet.
+- **An answer whose headers went out before the signal can't be marked.** Its connection closes when Node's keep-alive timeout runs out, 5 seconds after the answer ends.
+
+So give the stop a limit, shorter than Docker's 10 seconds. When it runs out, close every connection that is left with `closeAllConnections()`, then stop as usual. Say in the line the server prints, or in a second line, when it had to do that. Add a test that holds a silent connection open through the signal and expects the process to exit with code 0 inside the limit.
+
+### From the build
+
+Chosen in the build, each small enough not to ask R:
+
+- **The file library is `serve-static` 2.2.1.** It is Express's own, maintained by the Express team, and the Express template already ran it through `express.static`. It sets the content type from `mime-types`, sends `ETag` and `Last-Modified`, answers a conditional request with 304 through `fresh`, refuses a path that leaves its folder, encoded or not, and skips dotfiles. `@robkit/serve` mounts it under a prefix with `index: false` and `redirect: false`, and passes anything it doesn't find to the app.
+- **The stop's limit is 8 seconds**, 2 under Docker's 10. A server prints `<name> listening on <host>:<port>` when it starts and `<name> stopped` when it has stopped. When the limit runs out first it prints `<name> closed <n> connection(s) still open after 8 seconds` before `<name> stopped`. It then destroys every socket it tracked rather than calling `closeAllConnections()`, which misses an upgraded socket, such as a WebSocket's.
+- **Names in the lines:** `core`, `hub` and `admin` name themselves. A stack's app is `server`, since `serve()` doesn't know the slug; `name` is an option.
+- **`nosniff` goes on every answer**, the app's included, from `@robkit/serve`. `@robkit/input/headers` now exports `noSniff`, so the value is written once.
+- **Start's client files are `dist/client`**, which `vite build` writes with `public` copied in. `@robkit/start/serve` answers that folder at the root and never `dist/server`. Each request reaches Start's entry as a fetch `Request` through srvx 1.0.8, which Start already depends on and serves with on Node.
+- **Next answers its own files**, `dist/static` under `/_next/static` and the app's `public` folder, so `@robkit/next/serve` serves no folder and has no folder options. Next's `public` files go through the guard, since the proxy's matcher leaves out only `/_next/`.
+- **Next is typed by what `serve()` uses.** Next's types read its default two ways: the function under a bundler's resolution, which an install uses, and the default's default under Node's, which the package uses. `serve()` checks at runtime that it got a function and names only `prepare()` and `getRequestHandler()`.
+- **The Go stack's manifest dropped `@robkit/input` too.** Nothing imported it since its Vite config moved to `@robkit/vite`, and the criterion covers every stack.
+- **The hub sends HSTS only when `ROBKIT_CORE_URL` is https.** With it absent, `servePage()` takes `http://localhost` as the origin and sends the other three headers.
+
+For milestone 3:
+
+- A WebSocket server attached to the returned server must check `Origin` itself, as each stack's `AGENTS.md` says. The stop closes its sockets at the limit.
+- The production test's `imagePackages()` lists every package in an image, so a later check can name another package that must be missing.
+
+### Merged
+
+Added by the lead. PR 88 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `a0905ba`.
+
+### Changed in the code round, added by the lead
+
+The round on milestone 2's code (PR 89) found four faults in `@robkit/serve`, each fixed with a test that failed first:
+
+- **A handler that threw after a file lookup missed ended the process.** serve-static hands a request on from a file system callback, outside the promise that catches a throw. The app now runs at the start of a promise of its own.
+- **A range the file doesn't have, or a precondition that fails, was a 500 and a fault line.** They now answer 416 and 412.
+- **A second signal while `onStopped` ran ended the process.** The stop keeps its listeners until `onStopped` has finished.
+- **A failing `onStopped` printed "couldn't listen".** It now prints `<name> stopped, but its clean-up failed.` and exits 1.
+
+`SECURITY.md` and the README now say that serve-static follows a link inside a served folder, as `express.static` does. An app can only reach files in its own container that way.
+
+Left as they are:
+
+- **`serve()` doesn't close an app's database pool when it stops.** It exits, and Postgres logs the dropped connections. An owner can pass `onStopped`.
+- **`@robkit/next` depends on `@robkit/serve`**, which brings serve-static into the Next image, though Next serves no folder through it.
+- **`ServerOptions` and `ServeOptions` differ by a letter.** An owner passes an object and never names either.

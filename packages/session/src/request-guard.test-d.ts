@@ -2,18 +2,14 @@ import type { AccessRule, RoleId, Viewer } from "@robkit/guard";
 import { describe, expectTypeOf, it } from "vitest";
 import {
   appOrigin,
+  coreOrigin,
   requestGuard,
   type AccessRuleFailure,
   type GuardedOptions,
   type GuardFault,
   type RequestDecision,
 } from "./index.ts";
-import {
-  readSlug,
-  type CoreOrigin,
-  type InputProblem,
-  type Slug,
-} from "@robkit/input";
+import type { CoreOrigin, Slug } from "@robkit/input";
 import { type ManifestAccess } from "@robkit/input/manifest";
 import { readSessionLapsed, type SessionLapsed } from "./lapsed.ts";
 
@@ -40,31 +36,33 @@ describe("session's types", () => {
     >();
   });
 
-  it("works out the app's origin from its slug and core's origin alone", () => {
+  it("works out the app's origin from the settings it's given or reads", () => {
+    expectTypeOf(appOrigin()).toBeString();
     expectTypeOf(appOrigin({ app: notes, core })).toBeString();
-    // @ts-expect-error -- a string nobody read as a slug won't do
-    appOrigin({ app: "notes", core });
-    // @ts-expect-error -- nor a string nobody read as core's origin
-    appOrigin({ app: notes, core: "https://core.robkit.dev" });
+    expectTypeOf(
+      appOrigin({ app: "notes", core: "https://core.robkit.dev" }),
+    ).toBeString();
   });
 
-  it("takes the app as a Slug, which only readSlug makes", () => {
-    expectTypeOf(readSlug).parameter(0).toBeUnknown();
-    expectTypeOf(readSlug).returns.toEqualTypeOf<Slug | InputProblem>();
-    // The platform's own apps need no reading.
-    options({ app: "admin", core, access: { kind: "owner" } });
-    // @ts-expect-error A plain string hasn't been read as a slug.
-    options({ app: "notes", core });
-    // @ts-expect-error Nor has a string from anywhere else.
-    options({ app: String(notes), core });
-    // @ts-expect-error The guard needs core's origin.
-    options({ app: notes });
+  it("needs no options, since it reads its settings itself", () => {
+    expectTypeOf(requestGuard()).toEqualTypeOf<
+      (request: Request) => Promise<RequestDecision>
+    >();
+    options({});
+    options({ access: { kind: "owner" } });
   });
 
-  it("takes core's origin only as readCoreUrl made it", () => {
-    expectTypeOf<GuardedOptions["core"]>().toEqualTypeOf<CoreOrigin>();
-    // @ts-expect-error A plain string hasn't been read as core's origin.
-    options({ app: notes, core: "http://core.robkit.localhost:3000" });
+  it("takes the app and core's origin as plain strings, or as read", () => {
+    expectTypeOf<GuardedOptions["app"]>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<GuardedOptions["core"]>().toEqualTypeOf<string | undefined>();
+    options({ app: "notes", core: "http://core.robkit.localhost:3000" });
+    options({ app: notes, core });
+    // @ts-expect-error A slug is text.
+    options({ app: 1 });
+  });
+
+  it("reads core's origin for a page that shows it", () => {
+    expectTypeOf(coreOrigin).toEqualTypeOf<() => CoreOrigin>();
   });
 
   it("says how core's answer failed only for the access rule", () => {

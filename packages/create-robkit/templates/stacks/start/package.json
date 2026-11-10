@@ -4,27 +4,27 @@
   "scripts": {
     "dev": "vite dev",
     "typecheck": "tsc",
+    "test": "vitest run",
     "build": "vite build",
     "start": "node --run migrate && node src/serve.ts",
-    "migrate": "node src/migrate.ts",
+    "migrate": "robkit-migrate",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "@hono/node-server": "catalog:",
     "@internal/ui": "workspace:*",
-    "@robkit/input": "catalog:",
+    "@robkit/drizzle": "catalog:",
     "@robkit/react": "catalog:",
     "@robkit/start": "catalog:",
     "@tanstack/react-router": "catalog:",
     "@tanstack/react-start": "catalog:",
     "drizzle-orm": "catalog:",
-    "hono": "catalog:",
     "postgres": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
+    "@robkit/vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
@@ -33,6 +33,7 @@
     "drizzle-kit": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }

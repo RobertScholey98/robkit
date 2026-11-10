@@ -105,16 +105,17 @@ export async function letTheHubFrameNext(dir: string): Promise<void> {
   const policy =
     'frame-ancestors \'self\' ${String(process.env.ROBKIT_CORE_URL).replace("//core.", "//hub.")}';
   const after = before.replace(
-    "    agentRules: false,\n",
-    `    agentRules: false,
-    // The whole-stack test's: the hub may frame /visits.
-    headers: () =>
-      Promise.resolve([
-        {
-          source: "/visits",
-          headers: [{ key: "Content-Security-Policy", value: \`${policy}\` }],
-        },
-      ]),
+    "export default withRobkit();\n",
+    `export default withRobkit({
+  // The whole-stack test's: the hub may frame /visits.
+  headers: () =>
+    Promise.resolve([
+      {
+        source: "/visits",
+        headers: [{ key: "Content-Security-Policy", value: \`${policy}\` }],
+      },
+    ]),
+});
 `,
   );
   if (after === before) {

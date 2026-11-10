@@ -4,13 +4,28 @@
   "description": "robkit's Next.js adapter: runs the guard in proxy.ts and hands the app the viewer.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts",
+    "./config": "./src/config.ts",
+    "./serve": "./src/serve.ts"
   },
   "publishConfig": {
     "exports": {
       ".": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./testing": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
+      },
+      "./config": {
+        "types": "./dist/config.d.ts",
+        "default": "./dist/config.js"
+      },
+      "./serve": {
+        "types": "./dist/serve.d.ts",
+        "default": "./dist/serve.js"
       }
     }
   },
@@ -45,6 +60,7 @@
   "dependencies": {
     "@robkit/guard": "workspace:*",
     "@robkit/input": "workspace:*",
+    "@robkit/serve": "workspace:*",
     "@robkit/session": "workspace:*"
   },
   "peerDependencies": {

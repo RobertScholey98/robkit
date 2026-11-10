@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { guarded } from "@robkit/hono";
-import { isRecord, orExit, readCoreUrl } from "@robkit/input";
+import { coreOrigin, guarded } from "@robkit/hono";
+import { isRecord } from "@robkit/input";
 import { Hono } from "hono";
 import { html } from "hono/html";
 
@@ -26,13 +26,15 @@ async function clientAssets(): Promise<{ script: string; styles: string[] }> {
   };
 }
 
-const core = orExit(readCoreUrl(process.env));
+const core = coreOrigin();
 const assets = await clientAssets();
 
 const app = new Hono();
 
-// Only the owner may open admin, whatever core's catalog says.
-app.use(guarded({ app: "admin", access: { kind: "owner" }, core }));
+// Only the owner may open admin, whatever core's catalog says. The guard
+// reads admin's slug and core's address, which pnpm dev and robkit deploy
+// set.
+app.use(guarded({ access: { kind: "owner" } }));
 
 // The page calls core from the browser, so it carries core's address.
 app.get("*", (c) =>
@@ -45,7 +47,7 @@ app.get("*", (c) =>
             name="viewport"
             content="width=device-width, initial-scale=1.0"
           />
-          <meta name="robkit-core" content="${new URL(core).origin}" />
+          <meta name="robkit-core" content="${core}" />
           <title>robkit admin</title>
           ${assets.styles.map(
             (href) => html`<link rel="stylesheet" href="${href}" />`,

@@ -33,7 +33,7 @@ export const exceptions: readonly Exception[] = [
     why: "Start's server entry, called in the same process with the request the app received. It isn't a request robkit sends.",
   },
   {
-    file: "packages/create-robkit/templates/stacks/start/src/serve.ts",
+    file: "packages/start/src/serve.ts",
     call: "entry.fetch",
     why: "Start's server entry, called in the same process with the request the app received. It isn't a request robkit sends.",
   },

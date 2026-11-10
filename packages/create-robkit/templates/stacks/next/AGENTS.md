@@ -33,14 +33,25 @@ Never change state while a page renders or in a route handler's `GET`. Files out
 
 The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through, so only this app's own pages can put it in a frame. A frame from any app beside it would carry the viewer's cookies. To let another origin frame a page, such as the hub, send `Content-Security-Policy: frame-ancestors 'self' https://hub.<domain>` with it, and a browser follows that instead. To refuse every framer, this app included, send `frame-ancestors 'none'`.
 
-A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page sends its policy through `headers()` in `next.config.ts`, and a route handler sends it on its own answer. An `X-Frame-Options` of the app's own never arrives: Next sends the guard's and drops the app's.
+A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page sends its policy through `headers()` in `next.config.ts`, as `withRobkit({ headers: ... })`, and a route handler sends it on its own answer. An `X-Frame-Options` of the app's own never arrives: Next sends the guard's and drops the app's.
 
 ## Serving
 
-- `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. `next.config.ts` lets the dev proxy's host reach Next's dev server. Telemetry is off: the `dev` script sets `NEXT_TELEMETRY_DISABLED` because `next dev`'s own process never loads `next.config.ts`, and `next.config.ts` sets it for `next build` and the server.
+- `next.config.ts` is one call, `withRobkit()` from `@robkit/next/config`. It puts the build in `dist`, lets the dev proxy's host reach Next's dev server, and under `pnpm dev` stops the app as it starts, with the guard's message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. Put the app's own Next settings in its argument, such as `withRobkit({ images: { ... } })`.
+- `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. Telemetry is off: `pnpm dev` sets `NEXT_TELEMETRY_DISABLED` for every app, because `next dev`'s own process never loads `next.config.ts`, and `withRobkit()` sets it for `next build`. Next's production server sends none.
 - `pnpm build` runs `next build`, which writes the build to `dist`.
-- The production image runs the `start` script, which migrates and then runs `src/serve.ts`. It serves the build with Next's request handler on `HOST` and `PORT`.
-- `dependencies` are what runs in production: Next, React, and what `src/serve.ts` and `src/migrate.ts` import. The production image installs only those. `next build` bundles everything else the pages and the proxy import, `@robkit/next` and the UI kit among them, so those are dev dependencies.
+- The production image runs the `start` script, which migrates and then runs `src/serve.ts`.
+- `src/serve.ts` calls `serve()` from `@robkit/next/serve`. It listens on `HOST` and `PORT`, hands every request to Next, and stops on SIGTERM. Next answers its built files under `/_next/static` and this app's `public` folder itself. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
+- Built files are public. Next answers `/_next/static` without the guard, since the matcher in `src/proxy.ts` leaves `/_next/` out, so put nothing in the client's code that a viewer shouldn't see. Files in `public` go through the guard.
+- `dependencies` are what runs in production: Next, React, and what `src/serve.ts` imports, `@robkit/next`, since Next loads `next.config.ts` in production too, and `@robkit/drizzle` with `drizzle-orm` and `postgres`, which the `migrate` script runs. The production image installs only those. `next build` bundles everything else the pages and the proxy import, the UI kit among them, so those are dev dependencies.
+
+## Testing
+
+`pnpm test` runs Vitest. The app has no Vite config, so Vitest runs on its defaults, and a test needs no database, no core and no `pnpm dev`. `viewer()` reads the request's headers, which exist only while Next serves a request, so a test can't call a page that calls it. `src/home.test.tsx` shows the pattern instead:
+
+- A page reads the viewer once with `viewer()` and hands it to a plain function, as `src/app/page.tsx` hands it to `Home` in `src/home.tsx`. A server action does the same, as `src/app/actions.ts` calls `visitAgainAs`.
+- The test calls that function with a viewer from `@robkit/next/testing`: `owner()`, `guest({ roles: ["family"] })` or `nobody()`.
+- The function takes what it stores through as an argument, so the test passes a stand-in and nothing reaches Postgres.
 
 ## Calling core
 
@@ -48,18 +59,20 @@ The guard already asks core for what it needs: core's public key and this app's 
 
 ## Environment
 
+The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes no settings. When one is missing or won't do, it prints what to fix and stops the app. Don't read them for the guard yourself.
+
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
-The example's queries are in `src/visits.ts`. `src/app/page.tsx` records a visit as it renders, `src/app/actions.ts` records another from a server action, and `src/app/visits/page.tsx` lists the latest.
+The example's queries are in `src/visits.ts`. `src/app/page.tsx` shows the count through `src/home.tsx` and records nothing, `src/app/actions.ts` records a visit from a server action, and `src/app/visits/page.tsx` lists the latest.
 
 ## The database
 
 The app talks to Postgres with Drizzle over `DATABASE_URL`, as its own role. The role has the app's own schema first on its search path, so a table named without a schema lands there. The role can't reach core's schema or another app's.
 
 - `src/schema.ts` declares the tables. Use `pgTable`, never `pgSchema`: the app's schema is the role's, and naming another one fails.
-- `src/database.ts` gives queries the database, connected on first use. `src/visits.ts` shows a query.
+- `src/database.ts` gives queries the database with `appDatabase(schema)` from `@robkit/drizzle`, which connects on first use. `src/visits.ts` shows a query.
 - `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run.
 
-`src/migrate.ts` applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It follows Drizzle's migrator but skips its `CREATE SCHEMA`, which the app's role may not run, and keeps its journal table in the app's schema.
+The `migrate` script runs `robkit-migrate`, from `@robkit/drizzle`, which applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It keeps its journal table in the app's schema, and two containers that start together apply each migration once. If you set `out` in `drizzle.config.ts` to another folder, name it in the script: `robkit-migrate <folder>`.

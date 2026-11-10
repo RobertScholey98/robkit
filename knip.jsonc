@@ -22,6 +22,10 @@
       // commands a function builds, so knip can't read them.
       "ignoreDependencies": ["eslint"],
     },
+    "packages/core": {
+      // robkit-core runs it as a child process, by path.
+      "entry": ["src/serving.ts"],
+    },
     "tooling/eslint": {
       // The rules' JSDoc names estree's types, which ESLint's types bring.
       "ignoreDependencies": ["estree"],
@@ -36,6 +40,7 @@
         "@hono/node-server",
         "@tanstack/react-start",
         "@types/express",
+        "drizzle-orm",
         "express",
         "hono",
       ],

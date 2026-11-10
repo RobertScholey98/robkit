@@ -33,10 +33,7 @@ func migrate(ctx context.Context) error {
 	}
 	defer conn.Close(ctx)
 
-	if _, err := conn.Exec(ctx, `create table if not exists schema_migrations (
-		name text primary key,
-		applied_at timestamptz not null default now()
-	)`); err != nil {
+	if err := createJournal(ctx, conn); err != nil {
 		return err
 	}
 	tx, err := conn.Begin(ctx)
@@ -78,5 +75,30 @@ func migrate(ctx context.Context) error {
 		return err
 	}
 	fmt.Println("migrated")
+	return nil
+}
+
+// createJournal creates schema_migrations unless it exists. Two runs that
+// both find it missing both try to create it, and Postgres refuses the
+// later one. Which error it gives depends on how far the first had got, so
+// the refused run doesn't sort them. Postgres gives each only once the
+// first run has committed, so it looks for the table, and goes on if it is
+// there. It looks in pg_tables, not with to_regclass, which would also find
+// a type or a view of that name.
+func createJournal(ctx context.Context, conn *pgx.Conn) error {
+	_, err := conn.Exec(ctx, `create table if not exists schema_migrations (
+		name text primary key,
+		applied_at timestamptz not null default now()
+	)`)
+	if err == nil {
+		return nil
+	}
+	var made bool
+	if look := conn.QueryRow(ctx, `select exists (
+		select from pg_tables
+		where schemaname = current_schema() and tablename = 'schema_migrations'
+	)`).Scan(&made); look != nil || !made {
+		return err
+	}
 	return nil
 }

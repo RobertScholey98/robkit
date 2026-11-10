@@ -16,6 +16,7 @@ export {
   type SessionCookies,
 } from "./session-cookies.ts";
 export type { AccessRuleFailure } from "./core-access.ts";
+export { coreOrigin, type GuardSettings } from "./guard-settings.ts";
 export {
   appOrigin,
   requestGuard,
@@ -28,7 +29,7 @@ export {
   securityHeaders,
   withHeaders,
   type Framers,
-} from "./answer-headers.ts";
+} from "@robkit/input/headers";
 export {
   appRefreshPath,
   appSessionPath,

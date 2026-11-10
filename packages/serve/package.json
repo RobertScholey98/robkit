@@ -1,0 +1,47 @@
+{
+  "name": "@robkit/serve",
+  "version": "0.0.0",
+  "description": "What every robkit server does the same way: listen on HOST and PORT, serve the client's files, and stop on SIGTERM.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "!src/**/*.test.ts",
+    "!src/test"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@robkit/input": "workspace:*",
+    "serve-static": "catalog:"
+  },
+  "devDependencies": {
+    "@internal/eslint-config": "workspace:*",
+    "@internal/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/serve-static": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

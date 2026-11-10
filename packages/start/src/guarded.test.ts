@@ -7,6 +7,11 @@ import {
   headerCases,
   headerRequest,
   owner,
+  printedOnExit,
+  productionRun,
+  refreshLocation,
+  stubRun,
+  testRuns,
   type FakeCore,
   stateIn,
   slug,
@@ -16,8 +21,8 @@ import {
 } from "@internal/test-session";
 import { orThrow, readCoreUrl } from "@robkit/input";
 import { conformanceCases } from "@robkit/guard/conformance";
-import { describe, expect, it } from "vitest";
-import { guarded, type GuardedOptions } from "./index.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { coreOrigin, guarded, type GuardedOptions } from "./index.ts";
 
 // requestGuard's own tests cover the guard. These cover the Start glue: the
 // guard's answer goes out as is, and Start gets the viewer as context.
@@ -37,7 +42,11 @@ function on(core: FakeCore, path = "/notes?x=1"): string {
  * Asks the guarded entry for `url`. Start behind it answers with the context
  * it would hand the route or server function.
  */
-function open(options: GuardedOptions, url: string, init: RequestInit = {}) {
+function open(
+  options: GuardedOptions | undefined,
+  url: string,
+  init: RequestInit = {},
+) {
   const start = {
     fetch: (_request: Request, opts?: { context?: object }) =>
       Response.json(opts?.context ?? {}),
@@ -195,5 +204,129 @@ describe("guarded", () => {
 
     expect([back.status, back.headers.get("location")]).toEqual([302, page]);
     expect(await res.json()).toEqual({ viewer: owner });
+  });
+});
+
+describe("guarded(entry), reading its own settings", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("guards with ROBKIT_APP and ROBKIT_CORE_URL as it does when given them", async () => {
+    const core = await fakeCore();
+    core.rules.start = { kind: "owner" };
+    vi.stubEnv("ROBKIT_APP", "start");
+    vi.stubEnv("ROBKIT_CORE_URL", core.origin);
+    const token = await core.key.token({ audience: "start" });
+
+    const signedIn = await open(undefined, on(core), {
+      headers: { ...navigate, cookie: `robkit_session=${token}` },
+    });
+    const away = await open(undefined, on(core), { headers: navigate });
+
+    expect([signedIn.status, await signedIn.json(), away.status]).toEqual([
+      200,
+      { viewer: owner },
+      302,
+    ]);
+  });
+
+  it("exits with the reader's message when a setting is unset or won't do", () => {
+    vi.stubEnv("ROBKIT_APP", "public");
+    vi.stubEnv("ROBKIT_CORE_URL", "http://core.example.com/");
+
+    expect(printedOnExit(() => open(undefined, "http://x"))).toBe(
+      [
+        `ROBKIT_APP: "public" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+        `ROBKIT_CORE_URL is "http://core.example.com/", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`,
+      ].join("\n"),
+    );
+  });
+
+  it("takes the app and core as plain strings, and refuses a bad one the same way", async () => {
+    const core = await fakeCore();
+    const token = await core.key.token({ audience: "start" });
+
+    const res = await open(
+      { app: "start", core: String(core.origin), access: { kind: "owner" } },
+      on(core),
+      { headers: { ...navigate, cookie: `robkit_session=${token}` } },
+    );
+
+    expect(await res.json()).toEqual({ viewer: owner });
+    expect(
+      printedOnExit(() =>
+        open({ app: "Start", core: String(core.origin) }, on(core)),
+      ),
+    ).toBe(
+      `guarded()'s app: "Start" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
+    );
+  });
+});
+
+describe("guarded(entry), in a test run", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  /** How guarded(entry) answers a request with no session, as the env stands. */
+  async function noSession(core: FakeCore) {
+    vi.stubEnv("ROBKIT_APP", "start");
+    vi.stubEnv("ROBKIT_CORE_URL", core.origin);
+    let reached = false;
+    const start = {
+      fetch: () => {
+        reached = true;
+        return new Response("served");
+      },
+    };
+    const res = await guarded(start).fetch(
+      new Request(on(core), { headers: navigate }),
+    );
+    return {
+      status: res.status,
+      location: res.headers.get("location"),
+      reached,
+    };
+  }
+
+  it.each(testRuns)(
+    "sends a request with no session to core when $name, as in production",
+    async ({ settings }) => {
+      const core = await fakeCore();
+      core.rules.start = { kind: "open" };
+
+      stubRun(productionRun);
+      const production = await noSession(core);
+      stubRun(settings);
+      const testRun = await noSession(core);
+
+      const sentToCore = {
+        status: 302,
+        location: refreshLocation(on(core), core),
+        reached: false,
+      };
+      expect([production, testRun]).toEqual([sentToCore, sentToCore]);
+    },
+  );
+});
+
+describe("coreOrigin", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("is core's origin from ROBKIT_CORE_URL, for a page that shows it", () => {
+    vi.stubEnv("ROBKIT_CORE_URL", "https://core.robkit.dev/");
+
+    expect(coreOrigin()).toBe("https://core.robkit.dev");
+  });
+
+  it("exits with the reader's message when ROBKIT_CORE_URL is unset", () => {
+    vi.stubEnv("ROBKIT_CORE_URL", undefined);
+
+    expect(printedOnExit(() => coreOrigin())).toBe(
+      "ROBKIT_CORE_URL is not set. Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.",
+    );
   });
 });

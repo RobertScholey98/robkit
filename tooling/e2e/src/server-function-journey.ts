@@ -110,8 +110,8 @@ export function testServerFunctionJourney(dev: DevStack, runs: boolean): void {
           example,
         ],
         bouncedTo: example,
-        // The expired call recorded nothing. The page load after it did.
-        visitsAfterBounce: first + 2,
+        // Neither the expired call nor the page load after it recorded.
+        visitsAfterBounce: first + 1,
       });
     },
   );

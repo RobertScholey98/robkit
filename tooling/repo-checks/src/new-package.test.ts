@@ -83,7 +83,9 @@ describe("newPackage, and new-package.ts", () => {
         "",
       ].join("\n"),
     });
-  }, 30_000);
+    // Two packages made and formatted, one in a new process. On a busy CI
+    // runner that passed 30 seconds.
+  }, 120_000);
 
   it("writes the files a published package needs", async () => {
     const manifest: unknown = JSON.parse(

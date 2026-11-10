@@ -29,23 +29,83 @@
 
 **Blocked by:** 02, 04
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `apps/core` in a new install holds a `package.json` and no `src`, `tsconfig.json` or `typecheck` script, and the install's `pnpm typecheck` passes
-- [ ] `robkit-core start` provisions, migrates and serves; a check from outside finds neither secret in the serving process's own environment
-- [ ] With neither provisioning setting, `start` skips the step and says so; with one of the two, it stops with the reader's message
-- [ ] In core's own tests, a request open when SIGTERM arrives finishes, and the process then exits
-- [ ] `docker stop` on core's production image ends the container with exit code 0 before Docker's kill timeout, and its log holds the line core prints when it has stopped
-- [ ] `docker stop` on a Go app's production image, whose server already handles the signal, ends the container with exit code 0
-- [ ] No `package.json` script in the templates uses `exec`
-- [ ] Two cores that start together on an empty database, with the provisioning settings present and apps listed, one of them with roles in its rule, both come up; each role is made once, each migration runs once, each app is registered once and its rule is whole
-- [ ] While provisioning and core's migrations run, `pg_locks` shows no advisory lock
-- [ ] `robkit-core` runs through `runCommand` from `@robkit/input/command`, `@robkit/dev/cli` still exports it, and `docs/conventions/errors.md` names the new home
-- [ ] `pnpm dev` runs core through `robkit-core serve`; a linked install restarts it on a change to core's source; a packed install, and one that was linked and then vendored, run no watcher
-- [ ] A packed install whose manifests don't name `@robkit/provision` installs and runs with no access to the checkout, and asks npm for no `@robkit` package
-- [ ] Core's production image holds no `@robkit/dev`
-- [ ] Provisioning refuses its own role's name and a superuser's, and each command that calls it prints a message that names the slug, with no stack
-- [ ] `@robkit/provision` has its README, API report, graph entry, changeset and thresholds, and the graph check passes with no cycle
-- [ ] The README's own-core example compiles under the doc-examples check
-- [ ] The whole-stack and production tests pass
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] `apps/core` in a new install holds a `package.json` and no `src`, `tsconfig.json` or `typecheck` script, and the install's `pnpm typecheck` passes
+- [x] `robkit-core start` provisions, migrates and serves; a check from outside finds neither secret in the serving process's own environment
+- [x] With neither provisioning setting, `start` skips the step and says so; with one of the two, it stops with the reader's message
+- [x] In core's own tests, a request open when SIGTERM arrives finishes, and the process then exits
+- [x] `docker stop` on core's production image ends the container with exit code 0 before Docker's kill timeout, and its log holds the line core prints when it has stopped
+- [x] `docker stop` on a Go app's production image, whose server already handles the signal, ends the container with exit code 0
+- [x] No `package.json` script in the templates uses `exec`
+- [x] Two cores that start together on an empty database, with the provisioning settings present and apps listed, one of them with roles in its rule, both come up; each role is made once, each migration runs once, each app is registered once and its rule is whole
+- [x] While provisioning and core's migrations run, `pg_locks` shows no advisory lock
+- [x] `robkit-core` runs through `runCommand` from `@robkit/input/command`, `@robkit/dev/cli` still exports it, and `docs/conventions/errors.md` names the new home
+- [x] `pnpm dev` runs core through `robkit-core serve`; a linked install restarts it on a change to core's source; a packed install, and one that was linked and then vendored, run no watcher
+- [x] A packed install whose manifests don't name `@robkit/provision` installs and runs with no access to the checkout, and asks npm for no `@robkit` package
+- [x] Core's production image holds no `@robkit/dev`
+- [x] Provisioning refuses its own role's name and a superuser's, and each command that calls it prints a message that names the slug, with no stack
+- [x] `@robkit/provision` has its README, API report, graph entry, changeset and thresholds, and the graph check passes with no cycle
+- [x] The README's own-core example compiles under the doc-examples check
+- [x] The whole-stack and production tests pass
+- [x] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### Chosen in the build, awaiting R's review
+
+- **The serving process is a child, not `process.execve`.** `robkit-core start` provisions and migrates, then runs `serving.ts` in a child process whose environment has no `ROBKIT_ADMIN_DATABASE_URL` or `ROBKIT_DB_SECRET`. It passes SIGTERM and SIGINT on and exits with the child's code, or 128 plus the signal's number. `execve` is still experimental in Node 24, isn't on Windows, and would cut off output still on its way to a pipe. This hides the secrets from core's own environment only: code in core's container can still read them from `/proc`. `SECURITY.md` says so under Known gaps.
+- **How Docker's signal reaches the server.** I measured first:
+  - `node --run` passes no signal on. As PID 1 it ignored SIGTERM until Docker's SIGKILL (exit 137). Outside PID 1 it died with 143 and left the server running. Under `--init` it also died with 143, and the server was killed.
+  - Alpine's busybox `sh` does replace itself with the last command of an `a && b` list. The server's parent was `node --run` directly, with no shell between. **This contradicts the ticket's line** "a shell doesn't replace itself with the last command of an `&&` list". It holds for busybox `sh` on Alpine, which the image runs. I didn't check dash.
+  - So the Dockerfile's `CMD` reads the app's `start` script and hands it to `/bin/sh -c`. The server, or `robkit-core start` for core, becomes PID 1. `PATH` gains the app's and the root's `node_modules/.bin`, as `node --run` gave them. No `package.json` script holds `exec`, and a create-robkit test enforces that. pnpm's bin shim for `robkit-core` uses `exec` itself, so no shell stays between.
+- **The errors that mean a lost race, found by test.**
+  - Provisioning (`packages/provision/src/lost-race.ts`): `23505` on any `pg_` catalog index, `42710` "role already exists", and `XX000` "tuple concurrently updated". `42710` showed up only under `check:all`'s load. Each run now reads the database's and the public schema's access first and writes only what is missing, since every app's run shared those two rows. It tries an app up to 10 times.
+  - The journal table (`packages/core/src/migrate.ts`, `createJournal`): `42P07`, or `23505` on a `pg_` index (`pg_type_typname_nsp_index`, `pg_class_relname_nsp_index`). CI then met a third, `42710` "type already exists", on this PR's first full run. So the lead changed `createJournal`: it sorts no error codes. When its create is refused it looks in `pg_tables`, and goes on if the table is there. In WSL, 240 migrators in 40 rounds of six met `42710` once before the change and no error after.
+- **The signing key's advisory lock is gone too.** `ensureSigningKey` took one, so it now takes `lock table core.signing_keys in exclusive mode`. The ticket named three places; this was a fourth.
+- **`start` checks core's own settings before it provisions.** A container missing `ROBKIT_CORE_URL` stops before it touches the database.
+- **`robkit vendor` packs with `--filter-prod "<name>..."`**: each linked package and the packages it runs on, not its dev dependencies. The generator gets the same set from each package's `dependencies` (`withDependencies` in `create-robkit/src/robkit-repo.ts`).
+- **Core's coverage leaves out the two process entries**, `serving.ts` and `robkit-core-command.ts`. Each just calls a function that is tested in-process. The tests that spawn them can't feed the coverage report.
+
+### For ticket 09
+
+- Core's migrator is `migrate()` in `packages/core/src/migrate.ts`. `createJournal` makes the journal table. When Postgres refuses the create it looks for the table and goes on if another run made it, whatever the error was. Do the same in `@robkit/drizzle`'s migrator: a list of error codes missed one. The Go stack's `migrate.go` has the same race and no answer to it yet. The migrating transaction then takes `lock table core.__drizzle_migrations in exclusive mode`. The test that `pg_locks` shows no advisory lock is in `migrate.db.test.ts`.
+- `runCommand` and `CommandProblem` are in `@robkit/input/command`, for `robkit-migrate`.
+
+### For ticket 11
+
+- Core listens and stops in `listenUntilStopped` (`packages/core/src/listen.ts`), called from `serveCore` (`serve-core.ts`). On SIGTERM or SIGINT it closes the server, lets open requests finish, runs `onStopped` (core closes its database), prints `<name> stopped` and resolves 0. The lead added one thing after CI failed its test: an answer sent while stopping says `Connection: close`, because Node's `close()` leaves a connection that was busy open as keep-alive and goes on answering on it. Ticket 11's comments hold what was measured, and what the stop still lacks: a limit. If it can't listen, such as a taken port, it runs `onStopped` and rejects. Its doc comment says ticket 11 moves it to `@robkit/serve`.
+- In an image, Docker's SIGTERM goes straight to the `start` script's last command, so each stack's server must handle SIGTERM and exit 0 itself. The production test proves it for core and Go (`stopApp` in `tooling/e2e/src/production-checks.ts`). Add a Node stack there once its server handles the signal.
+
+### Proof
+
+- `pnpm check:all` passed in WSL, 65 of 65 tasks, and `check-coverage-ratchet.ts` then named core's functions threshold and dev's four, which are raised.
+- On Windows, `pnpm check` failed only the three known `vendor.test.ts` tests.
+- Dev's coverage fell under its thresholds once the code it tested moved out, so one runner test now runs `runDev` in-process.
+- Core: 448 tests, including two cores on an empty database, the stop with a slow request, and the serving process's environment read from `/proc`. Coverage passes its thresholds.
+- `@robkit/provision`: 30 tests at 100% lines, and its race test passed in four suites run at once, twice.
+- The production test passed, 16 tests. `docker stop` ended core in about half a second, with code 0 and `core stopped` as its last line. A Go app's container exited 0.
+- The whole-stack tests for core, config problems and each install's CI steps passed in WSL, typecheck included.
+
+### Not verified
+
+- I didn't rerun the production test with the old `CMD` to see the stop tests fail. The measurements above are the evidence that `node --run` would fail them.
+- No test runs a vendored install's `pnpm dev`. `watches()` is tested on paths, and the restart is tested in this checkout.
+
+### Merged
+
+Added by the lead. PR 84 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `91cb3d1`. That head holds tickets 07 and 08 too, and the lead's three fixes: the journal's create race, the stop's busy connections, and the adapters' API reports.
+
+### Changed in the code round, added by the lead
+
+From the round on milestone 2's code (PR 89):
+
+- **Core's stop waited on a query that was still running.** Core closed its database with no time limit, and postgres.js then waits for every query. A query can outlive its request, so core could wait until Docker killed it. It now gives its connections 1 second and closes them. The stop's 8 seconds and this 1 fit inside Docker's 10.
+- **`provisionDatabase` wrote its password argument into DDL between two quotes.** robkit's callers pass hex, but the argument is public. It now goes in as an `E''` string constant with quotes and backslashes escaped.
+- **The README said provisioning changes nothing when it refuses.** `provisionDatabases` stops at the first app it refuses, and the apps before it are already provisioned. The README now says so.
+
+Left as they are:
+
+- **A SIGTERM while `robkit-core start` provisions or migrates is ignored.** Core is the container's first process, which gets no default signal handling, and it listens for the signal only once it serves. Docker kills the container 10 seconds later, and a migration cut off that way rolls back. A signal that arrives before the serving child listens for it ends the child, and the container exits 143.
+- **The lost-race check reads the text `tuple concurrently updated`.** Opus asked whether a server with another `lc_messages` would translate it. Postgres raises it with `elog`, whose messages it doesn't translate. I didn't run a server in another language to see.
+- **Postgres logs a failed statement whole**, so a lost race writes `create role … password '…'` into Postgres's own log. Noted on ticket 30.

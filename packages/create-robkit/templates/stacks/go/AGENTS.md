@@ -17,9 +17,9 @@ case guard.Nobody:
 }
 ```
 
-Key a viewer's data by its id. Never read the session cookie or verify the token yourself. The token is the app's own: core mints it for this app's slug, and no other app or core accepts it. Paths under `/_robkit/` are the guard's, so give no route one. To test a handler, hand it a viewer with `session.WithViewer`, as `server_test.go` does.
+Key a viewer's data by its id. Never read the session cookie or verify the token yourself. The token is the app's own: core mints it for this app's slug, and no other app or core accepts it. Paths under `/_robkit/` are the guard's, so give no route one. To test a handler, hand it a viewer with `session.WithViewer`, and a stand-in for what it stores, as `server_test.go` does: `routes` takes a `visitStore`, which the server builds from the database with `visitsIn`, so the test needs no Postgres.
 
-The page is React, in `src/main.tsx`. It asks the server who is asking with `sessionFetch` from `@robkit/react`. A call from the page whose session has lapsed gets a 401 rather than a redirect, and `sessionFetch` sends the browser through core's refresh and back to the page. Make every call from the page to the app with it.
+The page is React, in `src/main.tsx`. It asks the server who is asking with `sessionFetch` from `@robkit/react`: a `GET /api/me` as it loads, which records nothing, and a `POST /api/me` when its button records a visit. A call from the page whose session has lapsed gets a 401 rather than a redirect, and `sessionFetch` sends the browser through core's refresh and back to the page. Make every call from the page to the app with it.
 
 ## Changing state
 
@@ -46,6 +46,10 @@ The guard already asks core for what it needs: core's public key and this app's 
 
 ## Environment
 
+The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `session.Guarded(session.Options{})` takes no settings. When one is missing or won't do, it returns an error that says what to fix, and the server prints it and stops. Don't read them for the guard yourself.
+
+`vite.config.ts` calls `robkit()` from `@robkit/vite` first, which sets the page's Vite dev server up for `pnpm dev`: it listens on the port the Go server gives it, answers `<slug>.<domain>`, and stops the dev server as it starts, with the same message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. It changes nothing under Vitest or for a build. The rest of the config, such as Tailwind and `build`, is the app's own.
+
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
@@ -58,4 +62,4 @@ The app owns its database code: it talks to Postgres with pgx over `DATABASE_URL
 - `migrations/` holds the migrations, one `.sql` file each, applied in name order. To change the schema, add the next file, such as `0002_add_notes.sql`, and commit it. Never edit a migration that has run.
 - `visits.go` shows a query. `server.go` connects with `pgxpool` as the server starts.
 
-`migrate.go` applies the migrations that haven't run yet, and records each in the `schema_migrations` table. They are embedded in the binary, so `dist/server migrate` needs no files beside it. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves.
+`migrate.go` applies the migrations that haven't run yet, and records each in the `schema_migrations` table. They are embedded in the binary, so `dist/server migrate` needs no files beside it. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It locks `schema_migrations` while it migrates, so two containers that start together apply each migration once.

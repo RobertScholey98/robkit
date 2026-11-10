@@ -42,12 +42,13 @@ function readVisit(body: unknown): Visit {
 }
 
 /**
- * Records a visit by whoever is asking. The guard answers the call, not
- * the page, when the session has lapsed, so `sessionFetch` sends the
- * browser to sign in and back.
+ * Asks the server who is asking and their visits: a GET reads them, and a
+ * POST records a visit first. The guard answers the call, not the page,
+ * when the session has lapsed, so `sessionFetch` sends the browser to sign
+ * in and back.
  */
-async function visit(): Promise<Visit> {
-  const response = await sessionFetch("/api/me", { method: "POST" });
+async function me(method: "GET" | "POST"): Promise<Visit> {
+  const response = await sessionFetch("/api/me", { method });
   if (!response.ok) {
     throw new Error(`/api/me answered ${String(response.status)}.`);
   }
@@ -66,8 +67,8 @@ function headingFor(kind: Kind): string {
   }
 }
 
-// Started once, as the page loads, so each load records one visit.
-const firstVisit = visit();
+// Started once, as the page loads. It reads, and records nothing.
+const firstVisit = me("GET");
 
 function Home() {
   const [latest, setLatest] = useState(firstVisit);
@@ -96,7 +97,7 @@ function Home() {
             onClick={() => {
               // Keeps this count on screen until the next one arrives.
               startTransition(() => {
-                setLatest(visit());
+                setLatest(me("POST"));
               });
             }}
           >

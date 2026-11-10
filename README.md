@@ -86,6 +86,7 @@ Every install uses the same tools: pnpm, Drizzle, shadcn on Base UI, ESLint with
 | [`@robkit/react`](packages/react)         | `sessionFetch`, for calls from the page when a session lapses                                                 |
 | [`robkit/go`](go)                         | The Go module: the guard and request guard for a React + Go app, ported to Go                                 |
 | [`@robkit/dev`](packages/dev)             | `robkit-dev`, the runner and proxy behind `pnpm dev`                                                          |
+| [`@robkit/vite`](packages/vite)           | `robkit()`, which sets a Vite app's dev server up behind `pnpm dev`, and Express's dev handoff                |
 
 ## Contributing
 

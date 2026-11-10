@@ -84,6 +84,30 @@ describe("registerApps", () => {
     );
   });
 
+  it("registers each app once, with its whole rule, when several cores start together", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    const declared = [
+      {
+        slug: slug("recipes"),
+        access: { kind: "roles" as const, roleNames: ["Family", "Cooks"] },
+      },
+      { slug: slug("notes"), access: { kind: "open" as const } },
+    ];
+
+    await Promise.all(
+      Array.from({ length: 6 }, () => registerApps(db, declared)),
+    );
+
+    const ids = await roleIdsByName(app, owner);
+    expect(Object.keys(ids).sort()).toEqual(["Cooks", "Family", "Friends"]);
+    expect((await accessOf(app, "recipes")).body).toEqual({
+      kind: "roles",
+      roles: [ids.Cooks, ids.Family],
+    });
+    expect((await accessOf(app, "notes")).body).toEqual({ kind: "open" });
+  });
+
   it("keeps the owner's rule but takes the icon an app declares now", async () => {
     const { app, db } = await freshCore();
     const owner = await claim(app);

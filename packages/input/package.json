@@ -7,7 +7,9 @@
     ".": "./src/index.ts",
     "./addresses": "./src/addresses.ts",
     "./report": "./src/report.ts",
-    "./manifest": "./src/manifest.ts"
+    "./command": "./src/command.ts",
+    "./manifest": "./src/manifest.ts",
+    "./headers": "./src/headers.ts"
   },
   "publishConfig": {
     "exports": {
@@ -23,9 +25,17 @@
         "types": "./dist/report.d.ts",
         "default": "./dist/report.js"
       },
+      "./command": {
+        "types": "./dist/command.d.ts",
+        "default": "./dist/command.js"
+      },
       "./manifest": {
         "types": "./dist/manifest.d.ts",
         "default": "./dist/manifest.js"
+      },
+      "./headers": {
+        "types": "./dist/headers.d.ts",
+        "default": "./dist/headers.js"
       }
     }
   },

@@ -1291,6 +1291,54 @@ func TestReadGuardEnv(t *testing.T) {
 	}
 }
 
+func TestGuardReadsTheSettingsItIsNotGiven(t *testing.T) {
+	core := fakecore.Start(t)
+	t.Setenv("ROBKIT_APP", fakecore.App)
+	t.Setenv("ROBKIT_CORE_URL", core.Origin)
+
+	wrap, err := session.Guarded(session.Options{Access: guard.OwnerRule{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := app{t, wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(session.ViewerFrom(r.Context()))
+	}))}
+	signedIn := a.get(core.Page, navigate, cookie(core.Key.Token(fakecore.TokenOptions{})))
+	away := a.get(core.Page, navigate)
+
+	if signedIn.status != 200 || !strings.Contains(signedIn.body, `"kind":"owner"`) || away.status != 302 {
+		t.Errorf("signed in: %d %s, away: %d", signedIn.status, signedIn.body, away.status)
+	}
+}
+
+func TestGuardReadsOnlyTheSettingsItIsNotGiven(t *testing.T) {
+	core := fakecore.Start(t)
+	t.Setenv("ROBKIT_APP", "Not-This")
+	t.Setenv("ROBKIT_CORE_URL", core.Origin)
+	if _, err := session.Guarded(session.Options{App: "notes"}); err != nil {
+		t.Errorf("with App given: %v", err)
+	}
+
+	t.Setenv("ROBKIT_APP", "notes")
+	t.Setenv("ROBKIT_CORE_URL", "http://core.example.com")
+	if _, err := session.Guarded(session.Options{Core: core.Origin}); err != nil {
+		t.Errorf("with Core given: %v", err)
+	}
+}
+
+func TestGuardSaysWhatToFixInTheSettingsItReads(t *testing.T) {
+	t.Setenv("ROBKIT_APP", "")
+	t.Setenv("ROBKIT_CORE_URL", "http://core.example.com/")
+
+	_, err := session.Guarded(session.Options{})
+
+	want := "ROBKIT_APP is not set. Run the app with pnpm dev, which sets it to the app's slug.\n" +
+		`ROBKIT_CORE_URL is "http://core.example.com/", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`
+	if err == nil || err.Error() != want {
+		t.Errorf("got %v", err)
+	}
+}
+
 func TestGuardJudgesCoresAddressAlikeFromSettingsAndCode(t *testing.T) {
 	for _, c := range conformance.CoreAddressCases(t) {
 		t.Run(c.Origin, func(t *testing.T) {

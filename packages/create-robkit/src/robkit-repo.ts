@@ -26,6 +26,27 @@ export interface RobkitRepo {
 export interface RobkitPackage {
   version: string;
   dir: string;
+  /** The robkit packages among its `dependencies`, which it runs on. */
+  dependencies: string[];
+}
+
+/**
+ * `names`, and each robkit package they run on, in turn, sorted. An
+ * install's manifests name only some of them: `@robkit/provision` arrives
+ * behind `@robkit/core`.
+ */
+export function withDependencies(
+  names: Iterable<string>,
+  packages: ReadonlyMap<string, RobkitPackage>,
+): string[] {
+  const found = new Set<string>();
+  const queue = [...names];
+  for (let name = queue.shift(); name !== undefined; name = queue.shift()) {
+    if (found.has(name)) continue;
+    found.add(name);
+    queue.push(...(packages.get(name)?.dependencies ?? []));
+  }
+  return [...found].sort();
 }
 
 const robkitRoot = fileURLToPath(new URL("../../../", import.meta.url));
@@ -58,8 +79,18 @@ async function readLintPolicy(): Promise<Map<string, string>> {
 
 /** A manifest's string fields, such as its name and version. */
 async function readManifest(dir: string): Promise<Record<string, string>> {
+  return stringsIn(await readManifestJson(dir));
+}
+
+async function readManifestJson(dir: string) {
   const path = join(dir, "package.json");
-  return stringsIn(jsonObject(await readFile(path, "utf8"), path));
+  return jsonObject(await readFile(path, "utf8"), path);
+}
+
+/** Whether `name` is one of robkit's packages, which an install takes. */
+function isRobkitPackage(name: string): boolean {
+  // An install takes create-robkit for robkit add.
+  return name.startsWith("@robkit/") || name === "create-robkit";
 }
 
 export async function readRobkitRepo(): Promise<RobkitRepo> {
@@ -80,10 +111,16 @@ export async function readRobkitRepo(): Promise<RobkitRepo> {
   for (const entry of await readdir(packagesDir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const dir = join(packagesDir, entry.name);
-    const { name, version } = await readManifest(dir);
-    // An install takes create-robkit for robkit add.
-    if ((name?.startsWith("@robkit/") || name === "create-robkit") && version) {
-      packages.set(name, { version, dir });
+    const manifest = await readManifestJson(dir);
+    const { name, version } = stringsIn(manifest);
+    if (name !== undefined && isRobkitPackage(name) && version) {
+      packages.set(name, {
+        version,
+        dir,
+        dependencies: Object.keys(stringsIn(manifest.dependencies)).filter(
+          isRobkitPackage,
+        ),
+      });
     }
   }
 

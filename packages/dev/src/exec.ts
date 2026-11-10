@@ -2,7 +2,7 @@ import { spawn, type SpawnOptions } from "node:child_process";
 import { once } from "node:events";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
-import { CommandProblem } from "./run-command.ts";
+import { CommandProblem } from "@robkit/input/command";
 
 /** Copies each line from `from` to `to`, prefixed with the app's slug. */
 export function prefixLines(

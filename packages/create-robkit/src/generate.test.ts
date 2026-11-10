@@ -333,8 +333,189 @@ describe("generateInstall", () => {
     expect(dockerfile).toMatch(/if \[ -f [^\]]*go\.mod \]; then/);
     expect(dockerfile).toContain("sha256sum -c -");
     expect(dockerfile).toContain("COPY --from=go /usr/local/go /usr/local/go");
-    // The runtime is the same for every app: Node runs the start script.
-    expect(dockerfile).toMatch(/\nCMD \["node", "--run", "start"\]\n$/);
+    // The runtime is the same for every app: a shell runs the start script,
+    // since `node --run` passes no signal on. The production test proves
+    // that `docker stop` reaches the server.
+    expect(dockerfile).toMatch(
+      /\nCMD \["\/bin\/sh", "-c", "exec \/bin\/sh -c \\"\$\(node -p 'require\(\\"\.\/package\.json\\"\)\.scripts\.start'\)\\""\]\n$/,
+    );
+  });
+
+  // The Node stacks' scripts run under cmd.exe on Windows, where `exec`
+  // would end them. The Dockerfile, on Linux only, holds the shell syntax.
+  it("puts exec in no template's package.json script", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+    const manifests = [...files].filter(([path]) =>
+      path.endsWith("package.json"),
+    );
+
+    expect(manifests.length).toBeGreaterThan(5);
+    const withExec = manifests.flatMap(([path, text]) =>
+      Object.entries(
+        (JSON.parse(text) as { scripts?: Record<string, string> }).scripts ??
+          {},
+      )
+        .filter(([, script]) => /(^|[\s;&|(])exec\s/.test(script))
+        .map(([name]) => `${path}: ${name}`),
+    );
+    expect(withExec).toEqual([]);
+  });
+
+  // What robkit adds to Vite and Next is in @robkit/vite and @robkit/next,
+  // so a config holds only the app's own settings.
+  it("sets every app's dev server up with robkit's packages, reading no setting itself", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+    const configs = [...files].filter(([path]) =>
+      /(^|\/)(vite|vitest|next)\.config\.ts$/.test(path),
+    );
+    const call = (path: string) =>
+      path.endsWith("next.config.ts")
+        ? "export default withRobkit();"
+        : path.endsWith("hub/vite.config.ts")
+          ? "robkit({ guarded: false })"
+          : "robkit()";
+
+    expect(configs.map(([path]) => path).sort()).toEqual([
+      "base/apps/admin/vite.config.ts",
+      "base/apps/hub/vite.config.ts",
+      "base/apps/hub/vitest.config.ts",
+      "stacks/express/vite.config.ts",
+      "stacks/go/vite.config.ts",
+      "stacks/next/next.config.ts",
+      "stacks/react-hono/vite.config.ts",
+      "stacks/start/vite.config.ts",
+    ]);
+    expect(
+      configs.flatMap(([path, text]) =>
+        text.includes("@robkit/input") || text.includes("process.env")
+          ? [path]
+          : [],
+      ),
+    ).toEqual([]);
+    expect(
+      configs.flatMap(([path, text]) =>
+        path.endsWith("vitest.config.ts") || text.includes(call(path))
+          ? []
+          : [path],
+      ),
+    ).toEqual([]);
+  });
+
+  it("lists robkit's dev wiring where each app's image leaves Vite out and keeps Next's config", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+    const manifest = (path: string) =>
+      JSON.parse(files.get(path) ?? "{}") as {
+        dependencies?: Record<string, string>;
+        devDependencies?: Record<string, string>;
+      };
+    const viteApps = [
+      "base/apps/admin",
+      "base/apps/hub",
+      "stacks/express",
+      "stacks/go",
+      "stacks/react-hono",
+      "stacks/start",
+    ];
+
+    for (const app of viteApps) {
+      const { dependencies = {}, devDependencies = {} } = manifest(
+        `${app}/package.json`,
+      );
+      expect(devDependencies["@robkit/vite"], app).toBe("catalog:");
+      expect(dependencies, app).not.toHaveProperty("@robkit/vite");
+      expect(dependencies, app).not.toHaveProperty("vite");
+    }
+    // Next loads next.config.ts in production too.
+    const next = manifest("stacks/next/package.json");
+    expect(next.dependencies?.["@robkit/next"]).toBe("catalog:");
+    expect(next.devDependencies).not.toHaveProperty("@robkit/next");
+  });
+
+  // What every server does is in the adapter, so serve.ts holds only what
+  // the owner might change: what it serves, and code before the call.
+  it.each([
+    [
+      "stacks/react-hono/src/serve.ts",
+      [
+        'import { serve } from "@robkit/hono/serve";',
+        'import server from "./server.tsx";',
+        "serve(server);",
+      ],
+    ],
+    [
+      "stacks/express/src/serve.ts",
+      [
+        'import { serve } from "@robkit/express/serve";',
+        'import server from "./server.tsx";',
+        "serve(server);",
+      ],
+    ],
+    [
+      "stacks/start/src/serve.ts",
+      ['import { serve } from "@robkit/start/serve";', "await serve();"],
+    ],
+    [
+      "stacks/next/src/serve.ts",
+      ['import { serve } from "@robkit/next/serve";', "await serve();"],
+    ],
+    [
+      "base/apps/admin/src/serve.ts",
+      [
+        'import { serve } from "@robkit/hono/serve";',
+        'import admin from "./server.ts";',
+        'serve(admin, { assets: "dist/client/assets", name: "admin" });',
+      ],
+    ],
+  ])(
+    "gives %s one import of a serve function, the app, and one call",
+    async (path, code) => {
+      const templates = fileURLToPath(
+        new URL("../templates/", import.meta.url),
+      );
+      const text = (await readFolder(templates)).get(path) ?? "";
+
+      expect(
+        text.split("\n").filter((line) => line && !line.startsWith("//")),
+      ).toEqual(code);
+    },
+  );
+
+  // The adapters read HOST and PORT, so a stack's own files never do.
+  it("gives no stack a file that imports @robkit/input, or a manifest that lists it", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+
+    expect(
+      [...files]
+        .filter(
+          ([path, text]) =>
+            path.startsWith("stacks/") && text.includes("@robkit/input"),
+        )
+        .map(([path]) => path),
+    ).toEqual([]);
+  });
+
+  // The hub is a built page, so its image holds @robkit/serve and what it
+  // runs on: no build tool, and nothing from the guard.
+  it("serves the hub with servePage() alone", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+    const manifest = JSON.parse(
+      files.get("base/apps/hub/package.json") ?? "{}",
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+
+    expect(files.get("base/apps/hub/serve.ts")).toBe(
+      'import { servePage } from "@robkit/serve";\n\nservePage({ name: "hub" });\n',
+    );
+    expect(manifest.dependencies).toEqual({ "@robkit/serve": "catalog:" });
+    // The page imports @robkit/input/addresses, which Vite bundles.
+    expect(manifest.devDependencies?.["@robkit/input"]).toBe("catalog:");
   });
 
   it("tells the root AGENTS.md about each dev tool", async () => {
@@ -380,7 +561,7 @@ describe("generateInstall", () => {
 
     expect([...files.keys()].filter(isTestFile)).toEqual(
       expect.arrayContaining([
-        "apps/admin/vitest.config.ts",
+        "apps/hub/vitest.config.ts",
         "apps/hub/src/core-api.test.ts",
         "packages/core-client/src/call-core.test.ts",
       ]),
@@ -439,14 +620,19 @@ describe("generateInstall", () => {
     expect(overrides).toEqual({
       "@robkit/core": at("core"),
       "@robkit/dev": at("dev"),
+      "@robkit/drizzle": at("drizzle"),
       "@robkit/express": at("express"),
       "@robkit/guard": at("guard"),
       "@robkit/hono": at("hono"),
       "@robkit/input": at("input"),
       "@robkit/next": at("next"),
+      // No manifest names it: it arrives behind @robkit/core.
+      "@robkit/provision": at("provision"),
       "@robkit/react": at("react"),
+      "@robkit/serve": at("serve"),
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),
+      "@robkit/vite": at("vite"),
       "create-robkit": at("create-robkit"),
       "styled-jsx>@babel/core": "-",
     });
@@ -529,14 +715,23 @@ describe("generateInstall", () => {
         dependencies: Record<string, string>;
       };
 
-      expect(files.has("src/migrate.ts")).toBe(true);
+      expect(files.has("src/migrate.ts")).toBe(false);
+      expect(files.get("src/database.ts")).toBe(
+        `import { appDatabase } from "@robkit/drizzle";
+import * as schema from "./schema.ts";
+
+export const database = appDatabase(schema);
+`,
+      );
       expect(files.has("src/visits.ts")).toBe(true);
       expect(files.has("drizzle/0000_init.sql")).toBe(true);
-      expect(manifest.scripts.migrate).toBe("node src/migrate.ts");
+      expect(manifest.scripts.migrate).toBe("robkit-migrate");
+      expect(manifest.dependencies["@robkit/drizzle"]).toBe("catalog:");
       expect(manifest.dependencies["drizzle-orm"]).toBe("catalog:");
+      expect(manifest.dependencies.postgres).toBe("catalog:");
       expect(manifest.scripts.start).toMatch(/^node --run migrate && /);
       expect(files.get("AGENTS.md")).toContain(
-        "`src/migrate.ts` applies the migrations",
+        "The `migrate` script runs `robkit-migrate`, from `@robkit/drizzle`",
       );
     },
   );

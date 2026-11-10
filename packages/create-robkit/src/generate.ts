@@ -8,7 +8,11 @@ import { format } from "prettier";
 import { parseDocument } from "yaml";
 import { readyStacks, type Choices, type Stack } from "./choices.ts";
 import { goModuleFor, withGoModule } from "./go-module.ts";
-import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
+import {
+  readRobkitRepo,
+  withDependencies,
+  type RobkitRepo,
+} from "./robkit-repo.ts";
 
 /** An install in memory: each file's path from the install root, and its text. */
 export type Files = Map<string, string>;
@@ -143,7 +147,9 @@ async function renderSettings(
     "catalog",
     Object.fromEntries(names.map((name) => [name, versionOf(repo, name)])),
   );
-  for (const name of link ? names : []) {
+  // Every robkit package the install runs on, named or not, so pnpm asks
+  // npm for none of them.
+  for (const name of link ? withDependencies(names, repo.packages) : []) {
     const pkg = repo.packages.get(name);
     if (pkg === undefined) continue;
     workspace.setIn(

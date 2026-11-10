@@ -10,7 +10,6 @@
     "start": "node src/serve.ts"
   },
   "dependencies": {
-    "@hono/node-server": "catalog:",
     "@robkit/hono": "catalog:",
     "@robkit/input": "catalog:",
     "hono": "catalog:"
@@ -23,6 +22,7 @@
     "@internal/ui": "workspace:*",
     "@robkit/guard": "catalog:",
     "@robkit/session": "catalog:",
+    "@robkit/vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@testing-library/dom": "catalog:",
     "@testing-library/react": "catalog:",

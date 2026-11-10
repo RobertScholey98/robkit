@@ -17,7 +17,7 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 ## Layout
 
 - `apps/<slug>` is an app. Its folder name is its slug, its subdomain (`<slug>.robkit.localhost` locally) and its Postgres role and schema. A slug is lowercase letters and digits, starting with a letter. Each app has its own `AGENTS.md` for its stack.
-- `apps/core` runs core, from `@robkit/core`. `apps/hub` and `apps/admin` are the platform's own apps.
+- `apps/core` runs core: its scripts run `robkit-core`, from `@robkit/core`, and it has no source of its own. `apps/hub` and `apps/admin` are the platform's own apps.
 - `packages/` holds code the apps share, such as `packages/core-client`, which the hub and admin call core through.
 - `packages/theme/theme.css` holds the install's look: its colour, radius and font variables. The hub and admin draw with Tailwind classes named after them, such as `bg-primary`, so changing a variable restyles both. Every control they draw comes from their own `ui.tsx`, which draws with the install's UI kit: shadcn on Base UI, in `packages/ui`, with its own `AGENTS.md`. Every app draws with it too.
 - `robkit.json` marks this folder as a robkit install, and records the stack init gave the example app. The `robkit` commands refuse a folder without it.
@@ -29,12 +29,12 @@ pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
 
 - An app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.
 - A shared package imports only its own files, @robkit/* packages and other shared packages/*. It never imports an app.
-- An app or shared package reaches core over HTTP only, never through @robkit/core. Only `apps/core` imports it. Postgres keeps the data side: an app's role can reach its own schema and nothing else.
+- An app or shared package reaches core over HTTP only, never through @robkit/core. Only `apps/core` depends on it. Postgres keeps the data side: an app's role can reach its own schema and nothing else.
 - Handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.
 
 ## Databases
 
-`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. Write migrations so they can run again: the script runs every time.
+`pnpm dev` gives each app with a `migrate` script its own schema and role, then runs that script each time the app starts. The app gets its connection as `DATABASE_URL`, with its own schema first on the search path. A Node app's `migrate` script is `robkit-migrate`, and its `src/database.ts` calls `appDatabase(schema)`, both from `@robkit/drizzle`. `robkit-migrate` applies the migrations in the app's `drizzle` folder that haven't run, and records each in the app's schema, so a second run changes nothing. A Go app's migrator does the same in Go.
 
 ## Production
 

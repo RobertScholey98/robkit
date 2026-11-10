@@ -1,12 +1,12 @@
 # @robkit/input
 
-Readers for input from outside robkit's own code: environment variables, JSON, an app's slug and its manifest. Each takes the raw value and returns the typed value or an `InputProblem` that says what to fix. `docs/conventions/input.md` says how robkit uses them. Its subpaths hold the manifest format, an install's addresses and `Report`, which robkit's packages share.
+Readers for input from outside robkit's own code: environment variables, JSON, an app's slug and its manifest. Each takes the raw value and returns the typed value or an `InputProblem` that says what to fix. `docs/conventions/input.md` says how robkit uses them. Its subpaths hold the manifest format, an install's addresses, the headers robkit sends, `Report` and the command lines' handler, which robkit's packages share.
 
 Every robkit package and every app can import it. It imports nothing, so the browser can load it.
 
 ## Example
 
-An app's `serve.ts` reads where to listen once, at start. `orExit` gives back the value, or prints the problem alone and exits 1:
+A server reads where to listen once, at start, as `@robkit/serve` does. `orExit` gives back the value, or prints the problem alone and exits 1:
 
 ```ts
 import { orExit, readServeEnv } from "@robkit/input";
@@ -25,20 +25,20 @@ PORT is "80000", which isn't a port. Set it to a whole number from 1 to 65535, o
 
 `@robkit/input`, the reading primitives:
 
-| Export                                                                                           | What it is                                                                                                                                            |
-| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `InputProblem`, `problem(message)`, `isProblem`                                                  | The one type for a failed read, `{ error }`, its one maker, and the one check for it                                                                  |
-| `allProblems(...reads)`                                                                          | Every problem among several reads as one, a line each                                                                                                 |
-| `orExit(read)`                                                                                   | The value, or its problem printed alone and the process ended with 1, for an app's server or script as it starts                                      |
-| `orThrow(read)`                                                                                  | The value, or its problem thrown as an `Error`, for a place that can't go on without it and prints what it throws, such as a Vite config              |
-| `isRecord(value)`                                                                                | Whether a value is a plain object                                                                                                                     |
-| `parseJson(text, source)`                                                                        | `{ json }`, typed `unknown`, or a problem naming `source`                                                                                             |
-| `Env`                                                                                            | A process's environment, such as `process.env`                                                                                                        |
-| `readSet`, `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl` | One variable each. An empty variable counts as unset. `readDomain` lower-cases the domain, and `readCoreUrl` refuses http unless the install is local |
-| `isDomain(value)`                                                                                | Whether a string is a domain alone. With `readDomain`, the only maker of a `Domain`                                                                   |
-| `readServeEnv`, `readDevServerEnv`, `readGuardEnv`                                               | What an app's server reads, each read whole: where it listens, what its Vite dev server needs, and its slug and core's origin for the guard           |
-| `readSlug(value)`, `Slug`, `slugProblem(name)`                                                   | An app's slug: lowercase letters and digits, starting with a letter. Only `readSlug` makes a `Slug`                                                   |
-| `platformApps`, `isPlatformApp`, `PlatformApp`                                                   | Core, the hub and admin, whose names are slugs as they stand                                                                                          |
+| Export                                                                                           | What it is                                                                                                                                                      |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `InputProblem`, `problem(message)`, `isProblem`                                                  | The one type for a failed read, `{ error }`, its one maker, and the one check for it                                                                            |
+| `allProblems(...reads)`                                                                          | Every problem among several reads as one, a line each                                                                                                           |
+| `orExit(read)`                                                                                   | The value, or its problem printed alone and the process ended with 1, for an app's server or script as it starts                                                |
+| `orThrow(read)`                                                                                  | The value, or its problem thrown as an `Error`, for a place that can't go on without it and prints what it throws, such as a Vite config                        |
+| `isRecord(value)`                                                                                | Whether a value is a plain object                                                                                                                               |
+| `parseJson(text, source)`                                                                        | `{ json }`, typed `unknown`, or a problem naming `source`                                                                                                       |
+| `Env`                                                                                            | A process's environment, such as `process.env`                                                                                                                  |
+| `readSet`, `readPort`, `readHost`, `readDomain`, `readCoreUrl`, `readAppSlug`, `readDatabaseUrl` | One variable each. An empty variable counts as unset. `readDomain` lower-cases the domain, and `readCoreUrl` refuses http unless the install is local           |
+| `isDomain(value)`                                                                                | Whether a string is a domain alone. With `readDomain`, the only maker of a `Domain`                                                                             |
+| `readServeEnv`, `readDevServerEnv`, `readGuardEnv`                                               | What an app's server reads, each read whole: where it listens, what its Vite dev server needs, and its slug and core's origin, which the guard now reads itself |
+| `readSlug(value)`, `Slug`, `slugProblem(name)`                                                   | An app's slug: lowercase letters and digits, starting with a letter. Only `readSlug` makes a `Slug`                                                             |
+| `platformApps`, `isPlatformApp`, `PlatformApp`                                                   | Core, the hub and admin, whose names are slugs as they stand                                                                                                    |
 
 ### `@robkit/input/manifest`
 
@@ -69,6 +69,17 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 | `defaultDomain`, `defaultDevPort`     | `robkit.localhost` and `3000`                                                                                                                                                                                      |
 | `coreInstall(core)`                   | The install core's origin is on. Takes a `CoreOrigin` from `readCoreUrl`                                                                                                                                           |
 
+### `@robkit/input/headers`
+
+The headers robkit sends with an answer, written here and nowhere else in TypeScript. The guard, core, `robkit()` for the hub in dev, and `@robkit/serve` all take them from here. `@robkit/session` re-exports them for the adapters. Go's port writes the same values in `go/session`; change both together.
+
+| Export                                        | What it is                                                                                                                                               |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `securityHeaders(origin, framers)`, `Framers` | `nosniff`, HSTS when `origin` is https, and who may frame the answer: `same-origin`, `none`, or `undefined` for a redirect, which gets no framing header |
+| `withHeaders(response, headers)`              | `response` with each of `headers` it lacks, copied first when its headers can't change                                                                   |
+| `isRedirect(status)`                          | Whether `status` sends the browser on                                                                                                                    |
+| `noSniff`                                     | The `X-Content-Type-Options: nosniff` pair alone, which a server sends with the files it answers before the guard                                        |
+
 ### `@robkit/input/report`
 
 | Export            | What it is                                                                         |
@@ -76,7 +87,17 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 | `Report`          | The one shape for reporting a fault nobody calling can handle, `(message, cause?)` |
 | `reportToConsole` | Its default, which prints the message, then the cause with its stack               |
 
-Core's `logError`, the guard's default `onUnavailable` and dev's `runCommand` all report through it (see `docs/conventions/errors.md`).
+Core's `logError`, the guard's default `onUnavailable` and `runCommand` all report through it (see `docs/conventions/errors.md`).
+
+### `@robkit/input/command`
+
+The one top-level handler of robkit's command lines. `@robkit/dev/cli` re-exports it.
+
+| Export                      | What it is                                                                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runCommand(main, report?)` | Runs a command line and returns its exit code. A thrown `CommandProblem` prints its message alone and exits 1. Anything else prints a line saying it's a bug and where to report it, then the error with its stack |
+| `CommandProblem`            | A problem the person running the command can fix. Its message says what to do                                                                                                                                      |
+| `reportFaultsAt`            | Where a fault robkit didn't expect gets reported                                                                                                                                                                   |
 
 ## What it must never do
 

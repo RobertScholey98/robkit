@@ -16,6 +16,9 @@ function runWithout(app: string, script: string, unset: string) {
   });
 }
 
+/** The default install's apps/core, which runs robkit-core. */
+const coreDir = () => join(inject("installs").start, "apps", "core");
+
 // A variable that won't do is the owner's to fix, so the app prints the
 // line that says how, alone, rather than a stack.
 describe("an app of the default install that starts with a config problem", () => {
@@ -31,8 +34,8 @@ describe("an app of the default install that starts with a config problem", () =
 
   it("prints core's problem alone and exits 1, naming ROBKIT_CORE_URL", async () => {
     await expect(
-      run(process.execPath, ["src/main.ts"], {
-        cwd: join(inject("installs").start, "apps", "core"),
+      run(join(coreDir(), "node_modules/.bin/robkit-core"), ["start"], {
+        cwd: coreDir(),
         env: {
           ...Object.fromEntries(
             Object.entries(process.env).filter(
@@ -52,8 +55,16 @@ describe("an app of the default install that starts with a config problem", () =
   });
 
   it("prints the example's migration's problem alone and exits 1", async () => {
+    const exampleDir = join(inject("installs").start, "apps", "example");
     await expect(
-      runWithout("example", "src/migrate.ts", "DATABASE_URL"),
+      run(join(exampleDir, "node_modules/.bin/robkit-migrate"), [], {
+        cwd: exampleDir,
+        env: Object.fromEntries(
+          Object.entries(process.env).filter(
+            ([name]) => name !== "DATABASE_URL",
+          ),
+        ),
+      }),
     ).rejects.toMatchObject({
       code: 1,
       stderr:

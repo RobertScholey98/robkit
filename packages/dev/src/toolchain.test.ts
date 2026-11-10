@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { requireGo } from "./toolchain.ts";
-import { CommandProblem } from "./run-command.ts";
+import { CommandProblem } from "@robkit/input/command";
 
 /** An environment whose PATH is an empty folder, so no `go` is on it. */
 async function withoutGo(): Promise<NodeJS.ProcessEnv> {

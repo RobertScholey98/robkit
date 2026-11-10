@@ -70,7 +70,7 @@ export const exceptions: Exceptions = {
     },
     {
       word: "plugin",
-      file: "packages/create-robkit/templates/**/vite.config.ts",
+      file: "{packages/vite/**,packages/create-robkit/templates/**/vite.config.ts}",
       text: "plugin",
       why: "Vite's word for what extends it.",
     },
@@ -88,7 +88,7 @@ export const exceptions: Exceptions = {
     },
     {
       word: "grant",
-      file: "packages/dev/src/provision.ts",
+      file: "packages/provision/src/provision.ts",
       text: "grant",
       why: "Postgres's GRANT.",
     },
@@ -105,7 +105,7 @@ export const exceptions: Exceptions = {
     },
     {
       word: "middleware",
-      file: "packages/{hono,express,start,create-robkit/templates/stacks/{react-hono,express}}/**",
+      file: "packages/{hono,express,start,vite,create-robkit/templates/stacks/{react-hono,express}}/**",
       text: "middleware",
       why: "Hono's, Express's, Vite's and TanStack Start's word for what an adapter hands them.",
     },

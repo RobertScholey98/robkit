@@ -36,6 +36,9 @@ catalogs:
     '@types/node':
       specifier: 26.6.5
       version: 26.6.5
+    '@types/serve-static':
+      specifier: 2.2.0
+      version: 2.2.0
     '@vitest/coverage-v8':
       specifier: 5.0.5
       version: 5.0.5
@@ -90,6 +93,12 @@ catalogs:
     react-dom:
       specifier: 19.3.1
       version: 19.3.1
+    serve-static:
+      specifier: 2.2.1
+      version: 2.2.1
+    srvx:
+      specifier: 1.0.8
+      version: 1.0.8
     turbo:
       specifier: 2.11.10
       version: 2.11.10
@@ -142,12 +151,24 @@ importers:
 
   packages/core:
     dependencies:
+      '@hono/node-server':
+        specifier: 'catalog:'
+        version: 2.1.5(hono@4.13.14)
+      '@robkit/drizzle':
+        specifier: workspace:*
+        version: link:../drizzle
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
       '@robkit/input':
         specifier: workspace:*
         version: link:../input
+      '@robkit/provision':
+        specifier: workspace:*
+        version: link:../provision
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -176,9 +197,6 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
-      '@robkit/dev':
-        specifier: workspace:*
-        version: link:../dev
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -212,6 +230,9 @@ importers:
       '@robkit/input':
         specifier: workspace:*
         version: link:../input
+      '@robkit/provision':
+        specifier: workspace:*
+        version: link:../provision
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -255,9 +276,9 @@ importers:
       '@robkit/input':
         specifier: workspace:*
         version: link:../input
-      postgres:
-        specifier: 'catalog:'
-        version: 3.4.9
+      '@robkit/provision':
+        specifier: workspace:*
+        version: link:../provision
     devDependencies:
       '@internal/eslint-config':
         specifier: workspace:*
@@ -280,6 +301,55 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.9
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/drizzle:
+    dependencies:
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
+    devDependencies:
+      '@internal/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@internal/test-postgres':
+        specifier: workspace:*
+        version: link:../../tooling/test-postgres
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../../tooling/test-session
+      '@internal/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@robkit/provision':
+        specifier: workspace:*
+        version: link:../provision
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.5(vitest@5.0.5)
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.4(postgres@3.4.9)
+      eslint:
+        specifier: 'catalog:'
+        version: 10.13.0(jiti@2.7.0)
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.9
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -295,6 +365,9 @@ importers:
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -369,9 +442,15 @@ importers:
 
   packages/hono:
     dependencies:
+      '@hono/node-server':
+        specifier: 'catalog:'
+        version: 2.1.5(hono@4.13.14)
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -445,6 +524,9 @@ importers:
       '@robkit/input':
         specifier: workspace:*
         version: link:../input
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
@@ -483,6 +565,46 @@ importers:
         specifier: 'catalog:'
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
+  packages/provision:
+    dependencies:
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.9
+    devDependencies:
+      '@internal/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@internal/test-postgres':
+        specifier: workspace:*
+        version: link:../../tooling/test-postgres
+      '@internal/test-session':
+        specifier: workspace:*
+        version: link:../../tooling/test-session
+      '@internal/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.5(vitest@5.0.5)
+      eslint:
+        specifier: 'catalog:'
+        version: 10.13.0(jiti@2.7.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/react:
     dependencies:
       '@robkit/session':
@@ -507,6 +629,40 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/serve:
+    dependencies:
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
+      serve-static:
+        specifier: 'catalog:'
+        version: 2.2.1
+    devDependencies:
+      '@internal/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@internal/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
+      '@types/serve-static':
+        specifier: 'catalog:'
+        version: 2.2.0
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.5(vitest@5.0.5)
+      eslint:
+        specifier: 'catalog:'
+        version: 10.13.0(jiti@2.7.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
       vitest:
         specifier: 'catalog:'
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -556,9 +712,18 @@ importers:
       '@robkit/guard':
         specifier: workspace:*
         version: link:../guard
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../session
+      srvx:
+        specifier: 'catalog:'
+        version: 1.0.8
     devDependencies:
       '@internal/eslint-config':
         specifier: workspace:*
@@ -569,9 +734,6 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
-      '@robkit/input':
-        specifier: workspace:*
-        version: link:../input
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.169.4(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.15)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -590,6 +752,37 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.3.1(react@19.3.1)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/vite:
+    dependencies:
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../input
+    devDependencies:
+      '@internal/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@internal/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
+      '@vitest/coverage-v8':
+        specifier: 'catalog:'
+        version: 5.0.5(vitest@5.0.5)
+      eslint:
+        specifier: 'catalog:'
+        version: 10.13.0(jiti@2.7.0)
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
@@ -623,6 +816,9 @@ importers:
       '@robkit/input':
         specifier: workspace:*
         version: link:../../packages/input
+      '@robkit/provision':
+        specifier: workspace:*
+        version: link:../../packages/provision
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -702,6 +898,9 @@ importers:
       '@robkit/dev':
         specifier: workspace:*
         version: link:../../packages/dev
+      '@robkit/drizzle':
+        specifier: workspace:*
+        version: link:../../packages/drizzle
       '@robkit/express':
         specifier: workspace:*
         version: link:../../packages/express
@@ -717,15 +916,24 @@ importers:
       '@robkit/next':
         specifier: workspace:*
         version: link:../../packages/next
+      '@robkit/provision':
+        specifier: workspace:*
+        version: link:../../packages/provision
       '@robkit/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@robkit/serve':
+        specifier: workspace:*
+        version: link:../../packages/serve
       '@robkit/session':
         specifier: workspace:*
         version: link:../../packages/session
       '@robkit/start':
         specifier: workspace:*
         version: link:../../packages/start
+      '@robkit/vite':
+        specifier: workspace:*
+        version: link:../../packages/vite
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.169.4(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.15)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -741,6 +949,9 @@ importers:
       create-robkit:
         specifier: workspace:*
         version: link:../../packages/create-robkit
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.45.4(postgres@3.4.9)
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)

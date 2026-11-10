@@ -19,6 +19,7 @@ export interface CoreOptions {
   now?: () => Date;
   trustedProxy?: TrustedProxy | undefined;
   logError?: Report;
+  signingKey?: SigningKey;
   signInLimits?: Partial<SignInLimits>;
 }
 export function createApp({
@@ -27,6 +28,7 @@ export function createApp({
   now,
   trustedProxy,
   logError,
+  signingKey: loaded,
   signInLimits,
 }: CoreOptions): Hono;
 export function createDatabase(databaseUrl: string): Database;

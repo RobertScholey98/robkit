@@ -9,12 +9,10 @@ Apps on the Next.js stack use it. It needs Next 16, whose proxy runs on Node: th
 From the Next.js template (`templates/stacks/next/src/proxy.ts`):
 
 ```ts
-import { orExit, readGuardEnv } from "@robkit/input";
 import { guarded } from "@robkit/next";
 
-// The app's slug and core's address, which pnpm dev and robkit deploy set.
 // The rule is the one the owner set for this app in admin.
-export const proxy = guarded(orExit(readGuardEnv(process.env)));
+export const proxy = guarded();
 
 // Every path but Next's own files. Next reads this where it is written, so
 // it stays a literal here.
@@ -32,16 +30,20 @@ export async function GET(): Promise<Response> {
 }
 ```
 
-`pnpm dev` and the production image set `ROBKIT_APP` and `ROBKIT_CORE_URL` for every app.
+`guarded()` reads `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and the production image set for every app. When one is missing or won't do, the app prints the problem and exits 1.
 
 ## Exports
 
-| Export             | What it is                                                                                             |
-| ------------------ | ------------------------------------------------------------------------------------------------------ |
-| `guarded(options)` | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 403, 404) |
-| `viewer()`         | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request               |
-| `GuardedOptions`   | `app` (the slug), `core` (core's public origin), and an optional fixed `access` rule                   |
-| `Viewer`           | The owner, a guest with role ids, or `{ kind: "nobody" }`                                              |
+| Export                 | What it is                                                                                                                                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guarded(options?)`    | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 403, 404)                                                                                        |
+| `viewer()`             | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request                                                                                                      |
+| `GuardedOptions`       | All optional: `app` (the slug) and `core` (core's public origin), read from `ROBKIT_APP` and `ROBKIT_CORE_URL` when left out and taken as plain strings when given, and a fixed `access` rule |
+| `coreOrigin()`         | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                      |
+| `Viewer`               | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                     |
+| `@robkit/next/testing` | For tests only: `owner()`, `guest({ roles })` and `nobody()`. See [Testing](#testing)                                                                                                         |
+| `@robkit/next/config`  | `withRobkit(config?)`, for `next.config.ts`. See [The config](#the-config)                                                                                                                    |
+| `@robkit/next/serve`   | `serve(options?)`, which serves the built app in production. See [Serving](#serving)                                                                                                          |
 
 ## A lapsed session
 
@@ -63,6 +65,67 @@ The proxy sets `X-Frame-Options: SAMEORIGIN`, `nosniff` and, on an https install
 The proxy passes the viewer on in the `robkit-viewer` request header. It replaces any the request came with, so on a path the matcher covers, nobody can send their own. On a path the matcher leaves out, the proxy doesn't run, so it can't replace one. The proxy puts a key beside each viewer, random for each server process, and `viewer()` refuses a header without it. So a request the proxy didn't guard makes `viewer()` throw, whatever headers it came with.
 
 The proxy and the app's code are bundled apart but run in one Node process, under `next dev` and in production, so the key is kept on `globalThis`.
+
+## Testing
+
+`@robkit/next/testing` is for tests only. It builds viewers with `owner()`, `guest({ roles })` and `nobody()`, so a test never casts to a branded id. It has no stand-in for the guard: `viewer()` reads the request's headers, which Next sets only while it serves a request. So a page reads the viewer once and hands it to a plain function, and a test calls that function with a built viewer:
+
+```ts
+import type { Viewer } from "@robkit/next";
+import { guest, owner } from "@robkit/next/testing";
+
+// The page calls greeting(await viewer()).
+function greeting(asking: Viewer): string {
+  return asking.kind === "owner" ? "Welcome back" : "Hello";
+}
+
+greeting(owner()); // "Welcome back"
+greeting(guest({ roles: ["family"] })); // "Hello"
+```
+
+## The config
+
+`@robkit/next/config` exports `withRobkit(config?)`, which an app's `next.config.ts` is one call of:
+
+```ts
+import { withRobkit } from "@robkit/next/config";
+
+export default withRobkit({
+  // The app's own settings, if any.
+  reactStrictMode: true,
+});
+```
+
+It returns the function Next calls with its phase, and gives the app's settings with what the app needs in an install:
+
+- the build in `dist`, where turbo and the install's Dockerfile find it;
+- `agentRules` off, since the app's `AGENTS.md` is the install's and `next dev` would add its own section;
+- under `next dev`, the dev proxy's host names in `allowedDevOrigins`, beside any the app gives;
+- under `next dev` and `next build`, a linked install's robkit checkout as an extra Turbopack root, beside any the app gives. An install from npm needs none.
+
+Under `next dev` it checks `ROBKIT_APP` and `ROBKIT_CORE_URL`, and stops with the reader's message, naming the one that's missing. Next loads `proxy.ts`, and the guard, only on the first request, so without it a missing setting would wait for that.
+
+It sets `NEXT_TELEMETRY_DISABLED`, which `next build` reads after it loads the config. `next dev`'s own process reads it before it loads any config, so `pnpm dev` sets it for every app. Next's production server sends no telemetry.
+
+Next loads `next.config.ts` in production as well, so an app lists `@robkit/next` under `dependencies`, and `@robkit/next/config` imports nothing from the guard or from a build tool.
+
+| Export                | What it is                                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `withRobkit(config?)` | The function Next calls with its phase. `distDir` and `agentRules` are robkit's; the app's other settings stay as given |
+
+## Serving
+
+`@robkit/next/serve` serves the built app in production. An app's `src/serve.ts` is the import and one call:
+
+```ts nocheck
+import { serve } from "@robkit/next/serve";
+
+await serve();
+```
+
+It reads `HOST` and `PORT`, 127.0.0.1 and 3000 unless set, and refuses a malformed one with the reader's message before Next loads. Then it makes Next's server in production mode from the folder the app runs in, waits for it to be ready, and hands it every request. Next answers its own built files under `/_next/static`, from `dist/static`, and the files in the app's `public` folder, and runs `proxy.ts`, the guard, before its pages. Nothing else in `dist` is answered. Every answer carries `nosniff`. On SIGTERM it stops as `@robkit/serve` does and exits 0. It resolves with the Node server, so a WebSocket server can attach to it and a test can close it.
+
+`ServeOptions` are `@robkit/serve`'s `name` and `onStopped`.
 
 ## What it must never do
 

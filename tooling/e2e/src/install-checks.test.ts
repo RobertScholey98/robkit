@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { readyStacks } from "create-robkit";
 import { describe, expect, inject, it } from "vitest";
+import { freePortBlock } from "@internal/test-postgres";
 import { cleanPath } from "./clean-path.ts";
 import { ownCiSteps, runOwnCi } from "./own-ci.ts";
 
@@ -44,9 +45,44 @@ describe.each(readyStacks)("the %s install", (name) => {
     expect(runs).toContainEqual(expect.stringMatching(/^pnpm build$/));
     // A failing step rejects with its output. Its scripts find only the
     // bins the install's own manifests give it, as on the owner's machine.
+    // No robkit setting is set, as on CI: each app's tests, which load its
+    // Vite config, need none.
     await runOwnCi(dir, steps, {
-      ...process.env,
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(
+          ([name]) => !name.startsWith("ROBKIT_"),
+        ),
+      ),
       PATH: await cleanPath(),
+    });
+  });
+});
+
+// Next loads the guard only on the first request, so withRobkit() checks
+// its settings as next dev starts.
+describe("the next install's example under next dev", () => {
+  it("stops as it starts when ROBKIT_APP is missing, naming it", async () => {
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(
+        ([name]) => !name.startsWith("ROBKIT_"),
+      ),
+    );
+
+    const dev = run("pnpm", ["run", "dev"], {
+      cwd: join(inject("checkInstalls").next, "apps", "example"),
+      env: {
+        ...env,
+        PORT: String(await freePortBlock(1)),
+        ROBKIT_CORE_URL: "http://core.robkit.localhost:3000",
+        ROBKIT_DOMAIN: "robkit.localhost",
+      },
+      // A dev server that started would run until killed.
+      timeout: 60_000,
+    });
+
+    await expect(dev).rejects.toMatchObject({
+      killed: false,
+      stderr: expect.stringContaining("ROBKIT_APP is not set.") as string,
     });
   });
 });

@@ -7,11 +7,17 @@ import {
   callbackFor,
   conformanceAnswer,
   fakeCore,
+  type FakeCore,
   guest,
   headerAnswer,
   headerCases,
   headerRequest,
   owner,
+  printedOnExit,
+  productionRun,
+  refreshLocation,
+  stubRun,
+  testRuns,
   signedOutCookie,
   slug,
   stateIn,
@@ -23,8 +29,8 @@ import { conformanceCases } from "@robkit/guard/conformance";
 import { orThrow, readCoreUrl } from "@robkit/input";
 import { readSessionLapsed } from "@robkit/session/lapsed";
 import { NextRequest } from "next/server.js";
-import { describe, expect, it, vi } from "vitest";
-import { guarded, viewer } from "./index.ts";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { coreOrigin as originOfCore, guarded, viewer } from "./index.ts";
 import {
   requestHeaders,
   servedWith,
@@ -432,6 +438,144 @@ describe("viewer", () => {
       ),
     ).rejects.toThrow(
       "robkit's guard didn't run for this request, so it has no robkit-viewer header.",
+    );
+  });
+});
+
+describe("guarded(), reading its own settings", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("guards with ROBKIT_APP and ROBKIT_CORE_URL as it does when given them", async () => {
+    const core = await fakeCore();
+    core.rules.example = { kind: "owner" };
+    vi.stubEnv("ROBKIT_APP", "example");
+    vi.stubEnv("ROBKIT_CORE_URL", core.origin);
+    const proxy = guarded();
+
+    const signedIn = await ask(proxy, core.page, {
+      headers: {
+        ...navigate,
+        cookie: `robkit_session=${await core.key.token()}`,
+      },
+    });
+    const away = await ask(proxy, core.page, { headers: navigate });
+    const action = await ask(proxy, core.page, {
+      method: "POST",
+      headers: {
+        "sec-fetch-mode": "cors",
+        "next-action": "7f00aa",
+        cookie: `robkit_session=${await core.key.token({ ageSeconds: 20 * 60 })}`,
+      },
+    });
+
+    expect([signedIn.status, await signedIn.json(), away.status]).toEqual([
+      200,
+      owner,
+      302,
+    ]);
+    expect(action.headers.get("x-action-redirect")).toBe(
+      `${new URL("/_robkit/refresh", core.page).href}?next=${encodeURIComponent(core.page)};push`,
+    );
+  });
+
+  it("exits with the reader's message when a setting is unset or won't do", () => {
+    vi.stubEnv("ROBKIT_APP", undefined);
+    vi.stubEnv("ROBKIT_CORE_URL", "https://hub.robkit.dev");
+
+    expect(printedOnExit(() => guarded())).toBe(
+      [
+        "ROBKIT_APP is not set. Run the app with pnpm dev, which sets it to the app's slug.",
+        `ROBKIT_CORE_URL is "https://hub.robkit.dev", which isn't core's address. Set it to core's public origin, such as https://core.robkit.dev.`,
+      ].join("\n"),
+    );
+  });
+
+  it("takes the app and core as plain strings, and refuses a bad one the same way", async () => {
+    const core = await fakeCore();
+    const proxy = guarded({
+      app: "example",
+      core: String(core.origin),
+      access: { kind: "owner" },
+    });
+
+    const res = await ask(proxy, core.page, {
+      headers: {
+        ...navigate,
+        cookie: `robkit_session=${await core.key.token()}`,
+      },
+    });
+
+    expect(await res.json()).toEqual(owner);
+    expect(
+      printedOnExit(() =>
+        guarded({ app: "example", core: "http://core.example.com" }),
+      ),
+    ).toBe(
+      `guarded()'s core is "http://core.example.com", which is http on a domain that isn't local. Serve the install over https and set it to https://core.example.com.`,
+    );
+  });
+});
+
+describe("guarded(), in a test run", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  /** How guarded()'s proxy answers a request with no session, as the env stands. */
+  async function noSession(core: FakeCore) {
+    vi.stubEnv("ROBKIT_APP", "example");
+    vi.stubEnv("ROBKIT_CORE_URL", core.origin);
+    let reached = false;
+    const res = await ask(guarded(), core.page, { headers: navigate }, () => {
+      reached = true;
+      return Promise.resolve(new Response("served"));
+    });
+    return {
+      status: res.status,
+      location: res.headers.get("location"),
+      reached,
+    };
+  }
+
+  it.each(testRuns)(
+    "sends a request with no session to core when $name, as in production",
+    async ({ settings }) => {
+      const core = await fakeCore();
+      core.rules.example = { kind: "open" };
+
+      stubRun(productionRun);
+      const production = await noSession(core);
+      stubRun(settings);
+      const testRun = await noSession(core);
+
+      const sentToCore = {
+        status: 302,
+        location: refreshLocation(core.page, core),
+        reached: false,
+      };
+      expect([production, testRun]).toEqual([sentToCore, sentToCore]);
+    },
+  );
+});
+
+describe("coreOrigin", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("is core's origin from ROBKIT_CORE_URL, for a page that shows it", () => {
+    vi.stubEnv("ROBKIT_CORE_URL", "https://core.robkit.dev/");
+
+    expect(originOfCore()).toBe("https://core.robkit.dev");
+  });
+
+  it("exits with the reader's message when ROBKIT_CORE_URL is unset", () => {
+    vi.stubEnv("ROBKIT_CORE_URL", undefined);
+
+    expect(printedOnExit(() => originOfCore())).toBe(
+      "ROBKIT_CORE_URL is not set. Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.",
     );
   });
 });

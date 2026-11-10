@@ -50,8 +50,8 @@ What stays the app's job:
 A page on a sibling subdomain is same-site, so a frame it puts admin or another app in carries the viewer's cookies, and a tricked click there acts as the viewer. So by default no guarded app, admin included, can be framed from another origin:
 
 - Every answer the guard lets through, and each of its own pages, carries `X-Frame-Options: SAMEORIGIN` and `X-Content-Type-Options: nosniff`.
-- Core's answers carry `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, so nobody can frame core.
-- On an https install, core and every guarded app send `Strict-Transport-Security: max-age=31536000`, a year, with no `includeSubDomains`, since the domain may hold hosts robkit doesn't run.
+- Core's answers, and the hub's, carry `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, so nobody can frame core or the hub. The hub sends them from `servePage()` in `@robkit/serve`.
+- On an https install, core, the hub and every guarded app send `Strict-Transport-Security: max-age=31536000`, a year, with no `includeSubDomains`, since the domain may hold hosts robkit doesn't run.
 - The guard's and core's redirects carry no framing header. They keep `nosniff`, and HSTS on an https install. A redirect renders nothing, and an app that lets a framer in renews its token through those redirects inside the frame.
 
 An app lets another origin frame it with its own `Content-Security-Policy: frame-ancestors`, which a browser obeys over `X-Frame-Options`. Each stack's `AGENTS.md` says how. An app's own `X-Frame-Options` isn't supported: on Next the guard's always wins, and on the other stacks the app's may.
@@ -59,8 +59,13 @@ An app lets another origin frame it with its own `Content-Security-Policy: frame
 What isn't covered:
 
 - Files a stack serves without the guard, such as an app's built scripts and styles. They carry no framing header, and aren't pages.
-- The hub, which isn't guarded and can be framed until [ticket 10](.scratch/just-use-it/issues/10-dev-and-build-wiring.md) and [ticket 11](.scratch/just-use-it/issues/11-serve-in-each-adapter.md) give it core's headers.
 - A window of its own. A sibling app can still open admin in a new window and time a double-click onto one of its own buttons, so the click lands in admin. These headers don't stop that, so don't read them as "admin's clicks are safe".
+
+### Built files are public
+
+An app's server answers its built client files, and the files in its `public` folder, before the guard runs, so anyone who can reach the app can fetch them. That is `/assets` on Hono and Express, `dist/client` on Start, and `/_next/static` on Next, whose `public` files go through the guard. Put nothing in the client's code or in `public` that a viewer shouldn't see.
+
+`@robkit/serve` answers only the folders an adapter names. It never answers the rest of `dist`, such as the server's bundle or Vite's manifest, nor a URL that climbs out of a folder, encoded or not. It does follow a link inside a served folder, so the file a link points at is public too. Every file it answers carries `nosniff`.
 
 ### Core checks whole origins
 
@@ -93,6 +98,7 @@ The plan, `.scratch/kit/map.md`, lists the gaps we know of. The ones that bear o
 - After sign-out, an app the browser opened in the last 15 minutes still lets it in until that app's token expires.
 - Core hands an app its token in the callback's URL, so a proxy that logs URLs logs that app's token, good for 15 minutes on that app alone.
 - Any container on Coolify's network can reach core directly and send its own forwarded headers. Only the owner's apps run there.
+- Core's container starts with the Postgres admin URL and the database secret, from which every app's password comes. `robkit-core start` uses them to give each app its database, then serves core from a process whose environment holds neither, so nothing core logs or dumps of its own environment carries them. That is not a wall: code running in core's container can still read them from `/proc`.
 - Wrong access codes are limited to 20 an hour across the whole install, whatever addresses they come from. A generated code is 5 characters from 31, about 28.6 million codes. An attacker wants any live code, not one in particular, so trying them all takes about 163 years however many are live. With k codes live, the first hit is expected after about 28.6 million ÷ (k + 1) guesses: about 82 years with 1 live code, and about 8 years with 20, about a 12% chance of a hit in a year.
 - What that costs: an attacker can stop new code sign-ins for up to an hour, and again for as long as they keep it up. Guests already signed in and the owner's password sign-in are unaffected.
 - A 3-character code stays guessable in weeks. [Ticket 29](.scratch/just-use-it/issues/29-access-codes-at-least-five.md) takes that.

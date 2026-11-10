@@ -5,16 +5,19 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/hono
 
 ```ts
-export function guarded(options: GuardedOptions): MiddlewareHandler<GuardedEnv>;
+export { coreOrigin } from "@robkit/session";
+export function guarded(
+  options?: GuardedOptions,
+): MiddlewareHandler<GuardedEnv>;
 export interface GuardedEnv {
   Variables: {
     viewer: Viewer;
   };
 }
-export interface GuardedOptions {
-  app: Slug;
+export interface GuardedOptions extends GuardSettings {
+  app?: string | undefined;
   access?: AccessRule | undefined;
-  core: CoreOrigin;
+  core?: string | undefined;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export type Viewer =
@@ -22,4 +25,27 @@ export type Viewer =
   | {
       kind: "nobody";
     };
+```
+
+## @robkit/hono/testing
+
+```ts
+export function guardedAs(viewer: Viewer): MiddlewareHandler<GuardedEnv>;
+export { guest } from "@robkit/guard/testing";
+export interface GuestOptions {
+  id?: string;
+  roles?: readonly string[];
+}
+export { nobody } from "@robkit/guard/testing";
+export { owner } from "@robkit/guard/testing";
+```
+
+## @robkit/hono/serve
+
+```ts
+export function serve(app: FetchApp, options?: ServeOptions): Server;
+export interface ServeOptions extends ServerOptions {
+  assets?: string;
+  public?: string;
+}
 ```

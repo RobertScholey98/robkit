@@ -4,7 +4,7 @@ A React app on an Express server in a robkit install. Its folder name is its slu
 
 ## The viewer
 
-`src/server.tsx` is the Express app, and it renders React to HTML. Its first middleware is `guarded` from `@robkit/express`. Before any handler runs, the guard checks the session and this app's access rule, and sends anyone who may not open the app to sign in. Handlers read who is asking as `res.locals.viewer`, typed by `GuardedResponse`:
+`src/server.tsx` is the Express app. Its first middleware is `guarded` from `@robkit/express`, and then it mounts the app's routes from `src/routes.tsx`, which render React to HTML. Before any handler runs, the guard checks the session and this app's access rule, and sends anyone who may not open the app to sign in. Handlers read who is asking as `res.locals.viewer`, typed by `GuardedResponse`:
 
 ```tsx
 app.get("/", (req, res: GuardedResponse) => {
@@ -33,9 +33,21 @@ Set it in the handler, with `res.set("Content-Security-Policy", ...)`, or in mid
 
 ## Serving
 
-- `pnpm dev` runs Vite. `vite.config.ts` hands every request Vite doesn't answer itself to the Express app in `src/server.tsx`, which it loads afresh after each change. Don't call `app.listen` in `src/server.tsx`.
-- `pnpm build` builds `src/serve.ts`, which serves the built stylesheet and then the app, into `dist/serve.js`. The production image runs the `start` script, which migrates and then runs it.
+- `pnpm dev` runs Vite. `expressApp()` from `@robkit/vite/express`, in `vite.config.ts`, hands every request Vite doesn't answer itself to the Express app in `src/server.tsx`, which it loads afresh after each change. Don't listen in `src/server.tsx`.
+- `pnpm build` builds `src/serve.ts` into `dist/serve.js`, and the stylesheet the page links into `dist/assets`. The production image runs the `start` script, which migrates and then runs it.
+- `src/serve.ts` calls `serve(server)` from `@robkit/express/serve`. It listens on `HOST` and `PORT`, answers `dist/assets` under `/assets` and this app's `public` folder at the root, hands every other request to the app, and stops on SIGTERM. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
+- Built files are public. `serve` answers `dist/assets`, and every file in `public`, before the guard runs, so put nothing there that a viewer shouldn't see.
 - `dependencies` are what the server imports when it runs. The production image installs only those, so a package the server needs that sits in `devDependencies` is missing there.
+
+## Testing
+
+`pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does. A test needs no database, no core and no `pnpm dev`. `src/routes.test.tsx` shows the pattern:
+
+- It mounts `routes(...)` behind `guardedAs(viewer)` from `@robkit/express/testing` instead of `guarded()`, so every request is that viewer's. `owner()`, `guest({ roles: ["family"] })` and `nobody()`, from the same entry, build the viewer.
+- It passes the routes a stand-in for what they store through, so nothing reaches Postgres. Give a new route what it stores the same way, as an argument to `routes`.
+- It imports `src/routes.tsx`, never `src/server.tsx`. `guarded()` reads its settings as the server loads, and stops the run when one is missing.
+
+`guardedAs` serves only in a test run. In the app's image, under `pnpm dev` and in a server started by hand it refuses every request, so it never stands in for the guard in a server.
 
 ## Calling core
 
@@ -43,18 +55,22 @@ The guard already asks core for what it needs: core's public key and this app's 
 
 ## Environment
 
+The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes no settings. When one is missing or won't do, it prints what to fix and stops the app. Don't read them for the guard yourself.
+
+`vite.config.ts` calls `robkit()` from `@robkit/vite` first, which sets the dev server up for `pnpm dev`: it listens on `PORT`, answers `<slug>.<domain>`, and stops the dev server as it starts, with the same message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. It changes nothing under Vitest or for a build. The rest of the config, such as Tailwind and `build`, is the app's own.
+
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
-The example's queries are in `src/visits.ts`, and its `/` handler in `src/server.tsx` calls them.
+The example's queries are in `src/visits.ts`. The server hands them to `routes(visits)` in `src/routes.tsx`.
 
 ## The database
 
 The app talks to Postgres with Drizzle over `DATABASE_URL`, as its own role. The role has the app's own schema first on its search path, so a table named without a schema lands there. The role can't reach core's schema or another app's.
 
 - `src/schema.ts` declares the tables. Use `pgTable`, never `pgSchema`: the app's schema is the role's, and naming another one fails.
-- `src/database.ts` gives queries the database, connected on first use. `src/visits.ts` shows a query.
+- `src/database.ts` gives queries the database with `appDatabase(schema)` from `@robkit/drizzle`, which connects on first use. `src/visits.ts` shows a query.
 - `drizzle/` holds the migrations. After changing `src/schema.ts`, run `pnpm db:generate` to write the next one, and commit it. Never edit a migration that has run.
 
-`src/migrate.ts` applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It follows Drizzle's migrator but skips its `CREATE SCHEMA`, which the app's role may not run, and keeps its journal table in the app's schema.
+The `migrate` script runs `robkit-migrate`, from `@robkit/drizzle`, which applies the migrations that haven't run yet. `pnpm dev`, and the app's container as it starts, run it after the app's schema and role exist and before the app serves. It keeps its journal table in the app's schema, and two containers that start together apply each migration once. If you set `out` in `drizzle.config.ts` to another folder, name it in the script: `robkit-migrate <folder>`.

@@ -34,8 +34,8 @@ export function parseJson(
 export type PlatformApp = (typeof platformApps)[number];
 export const platformApps: readonly ["core", "hub", "admin"];
 export function problem(message: string): InputProblem;
-export function readAppSlug(env: Env): Slug | InputProblem;
-export function readCoreUrl(env: Env): CoreOrigin | InputProblem;
+export function readAppSlug(env: Env, name?: string): Slug | InputProblem;
+export function readCoreUrl(env: Env, name?: string): CoreOrigin | InputProblem;
 export function readDatabaseUrl(
   env: Env,
   name?: string,
@@ -111,6 +111,19 @@ export type Report = (message: string, cause?: unknown) => void;
 export const reportToConsole: Report;
 ```
 
+## @robkit/input/command
+
+```ts
+export class CommandProblem extends Error {
+  name: string;
+}
+export const reportFaultsAt: "https://github.com/RobertScholey98/robkit/issues";
+export function runCommand(
+  main: () => Promise<number | undefined>,
+  report?: Report,
+): Promise<number>;
+```
+
 ## @robkit/input/manifest
 
 ```ts
@@ -144,4 +157,20 @@ export function readListedApp(
   value: unknown,
   field: string,
 ): ListedApp | InputProblem;
+```
+
+## @robkit/input/headers
+
+```ts
+export type Framers = "same-origin" | "none";
+export function isRedirect(status: number): boolean;
+export const noSniff: readonly [string, string];
+export function securityHeaders(
+  origin: string,
+  framers: Framers | undefined,
+): [string, string][];
+export function withHeaders(
+  response: Response,
+  headers: readonly [string, string][],
+): Response;
 ```

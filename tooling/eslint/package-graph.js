@@ -36,44 +36,87 @@ export const packageGraph = {
   },
   // Adapters take session and guard, never core.
   "@robkit/hono": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
+    dependencies: ["@robkit/guard", "@robkit/serve", "@robkit/session"],
     devDependencies: ["@internal/test-session", "@robkit/input"],
   },
   "@robkit/express": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
+    dependencies: ["@robkit/guard", "@robkit/serve", "@robkit/session"],
     devDependencies: ["@internal/test-session", "@robkit/input"],
   },
   "@robkit/next": {
-    dependencies: ["@robkit/guard", "@robkit/input", "@robkit/session"],
+    dependencies: [
+      "@robkit/guard",
+      "@robkit/input",
+      "@robkit/serve",
+      "@robkit/session",
+    ],
     devDependencies: ["@internal/test-session"],
   },
   "@robkit/start": {
-    dependencies: ["@robkit/guard", "@robkit/session"],
-    devDependencies: ["@internal/test-session", "@robkit/input"],
+    dependencies: [
+      "@robkit/guard",
+      "@robkit/input",
+      "@robkit/serve",
+      "@robkit/session",
+    ],
+    devDependencies: ["@internal/test-session"],
   },
   "@robkit/react": {
     dependencies: ["@robkit/session"],
     devDependencies: [],
   },
-  // Core's tests provision their database with the dev runner's step.
-  "@robkit/core": {
-    dependencies: ["@robkit/guard", "@robkit/input", "@robkit/session"],
-    devDependencies: [
-      "@internal/test-postgres",
-      "@internal/test-session",
-      "@robkit/dev",
-    ],
-  },
-  "@robkit/dev": {
+  // Gives each app its schema and role. Below core and the dev runner, so
+  // neither needs the other for it.
+  "@robkit/provision": {
     dependencies: ["@robkit/input"],
     devDependencies: ["@internal/test-postgres", "@internal/test-session"],
   },
+  // Gives an app its Drizzle database and migrates its schema. Its tests
+  // migrate a schema the provision step made.
+  "@robkit/drizzle": {
+    dependencies: ["@robkit/input"],
+    devDependencies: [
+      "@internal/test-postgres",
+      "@internal/test-session",
+      "@robkit/provision",
+    ],
+  },
+  // robkit-core runs the provision step before it migrates and serves,
+  // migrates through the apps' migrator, and listens as every server does.
+  "@robkit/core": {
+    dependencies: [
+      "@robkit/drizzle",
+      "@robkit/guard",
+      "@robkit/input",
+      "@robkit/provision",
+      "@robkit/serve",
+      "@robkit/session",
+    ],
+    devDependencies: ["@internal/test-postgres", "@internal/test-session"],
+  },
+  "@robkit/dev": {
+    dependencies: ["@robkit/input", "@robkit/provision"],
+    devDependencies: ["@internal/test-postgres", "@internal/test-session"],
+  },
   // `robkit check` refuses an app that reads the session cookie by its name,
-  // which it takes from session.
+  // which it takes from session. A deploy derives each app's database
+  // password as the provision step does.
   "create-robkit": {
-    dependencies: ["@robkit/dev", "@robkit/input", "@robkit/session"],
+    dependencies: [
+      "@robkit/dev",
+      "@robkit/input",
+      "@robkit/provision",
+      "@robkit/session",
+    ],
     devDependencies: ["@internal/test-session"],
   },
+  // Everything robkit adds to Vite. Apps list it under devDependencies, and
+  // it is the one published package that names vite, so no image holds it.
+  "@robkit/vite": { dependencies: ["@robkit/input"], devDependencies: [] },
+  // What every server does the same way: listen, serve the client's files
+  // and stop. Nothing from the guard, Vite or a stack, so the hub's image
+  // holds none of them.
+  "@robkit/serve": { dependencies: ["@robkit/input"], devDependencies: [] },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
   "@internal/tsconfig": { dependencies: [], devDependencies: [] },
   "@internal/test-postgres": { dependencies: [], devDependencies: [] },
@@ -87,14 +130,18 @@ export const packageGraph = {
     devDependencies: [
       "@robkit/core",
       "@robkit/dev",
+      "@robkit/drizzle",
       "@robkit/express",
       "@robkit/guard",
       "@robkit/hono",
       "@robkit/input",
       "@robkit/next",
+      "@robkit/provision",
       "@robkit/react",
+      "@robkit/serve",
       "@robkit/session",
       "@robkit/start",
+      "@robkit/vite",
       "create-robkit",
     ],
   },
@@ -106,6 +153,7 @@ export const packageGraph = {
       "@internal/test-session",
       "@robkit/dev",
       "@robkit/input",
+      "@robkit/provision",
       "create-robkit",
     ],
   },

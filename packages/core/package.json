@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "description": "robkit's core: the Hono backend that owns the core tables.",
   "type": "module",
+  "bin": {
+    "robkit-core": "./src/robkit-core-command.ts"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
@@ -12,6 +15,9 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       }
+    },
+    "bin": {
+      "robkit-core": "./dist/robkit-core-command.js"
     }
   },
   "files": [
@@ -33,8 +39,12 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@hono/node-server": "catalog:",
+    "@robkit/drizzle": "workspace:*",
     "@robkit/guard": "workspace:*",
     "@robkit/input": "workspace:*",
+    "@robkit/provision": "workspace:*",
+    "@robkit/serve": "workspace:*",
     "@robkit/session": "workspace:*",
     "drizzle-orm": "catalog:",
     "hono": "catalog:",
@@ -46,7 +56,6 @@
     "@internal/test-postgres": "workspace:*",
     "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
-    "@robkit/dev": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "drizzle-kit": "catalog:",

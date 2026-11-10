@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "@robkit/input": "workspace:*",
-    "postgres": "catalog:"
+    "@robkit/provision": "workspace:*"
   },
   "devDependencies": {
     "@internal/eslint-config": "workspace:*",
@@ -53,6 +53,7 @@
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "postgres": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

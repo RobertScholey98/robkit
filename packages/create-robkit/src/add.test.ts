@@ -47,7 +47,7 @@ describe("addApp", () => {
 
     expect(await manifest(dir, "notes")).toMatchObject({
       name: "@internal/notes-app",
-      scripts: { migrate: "node src/migrate.ts" },
+      scripts: { migrate: "robkit-migrate" },
       dependencies: { "@robkit/hono": "catalog:" },
       robkit: { access: { kind: "open" }, icon: "📝" },
     });
@@ -199,7 +199,7 @@ describe("addApp", () => {
       await readFile(join(dir, "apps/notes/src/styles.css"), "utf8"),
     ).toContain('@import "@internal/ui/styles.css";');
     expect(
-      await readFile(join(dir, "apps/notes/src/server.tsx"), "utf8"),
+      await readFile(join(dir, "apps/notes/src/routes.tsx"), "utf8"),
     ).toContain('from "@internal/ui/components/ui/card"');
   });
 

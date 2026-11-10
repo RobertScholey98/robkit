@@ -5,17 +5,18 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/start
 
 ```ts
+export { coreOrigin } from "@robkit/session";
 export function guarded(
   entry: ServerEntry,
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): ServerEntry;
 export interface GuardedContext {
   viewer: Viewer;
 }
-export interface GuardedOptions {
-  app: Slug;
+export interface GuardedOptions extends GuardSettings {
+  app?: string | undefined;
   access?: AccessRule | undefined;
-  core: CoreOrigin;
+  core?: string | undefined;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export type Viewer =
@@ -23,4 +24,26 @@ export type Viewer =
   | {
       kind: "nobody";
     };
+```
+
+## @robkit/start/testing
+
+```ts
+export { guest } from "@robkit/guard/testing";
+export interface GuestOptions {
+  id?: string;
+  roles?: readonly string[];
+}
+export { nobody } from "@robkit/guard/testing";
+export { owner } from "@robkit/guard/testing";
+```
+
+## @robkit/start/serve
+
+```ts
+export function serve(options?: ServeOptions): Promise<Server>;
+export interface ServeOptions extends ServerOptions {
+  client?: string;
+  server?: string;
+}
 ```

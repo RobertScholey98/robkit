@@ -50,129 +50,176 @@ describe("vendorPackages", () => {
     );
   });
 
-  describe("when the linked checkout can't be packed", () => {
-    /**
-     * An install that links `@robkit/broken` to a checkout's
-     * `packages/broken` holding a package with `scripts`, or an empty folder
-     * without them. The checkout has a Go module in `go/`.
-     */
-    async function linkedToBroken(
-      scripts?: Record<string, string>,
-      choices: Choices = defaultChoices,
-      { withGo = true } = {},
-    ) {
-      const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
-      await init(choices, dir);
-      const root = await mkdtemp(join(tmpdir(), "robkit-checkout-"));
-      const checkout = join(root, "packages", "broken");
-      await mkdir(checkout, { recursive: true });
-      for (const [path, text] of Object.entries(withGo ? goModule : {})) {
-        await mkdir(join(root, "go", path, ".."), { recursive: true });
-        await writeFile(join(root, "go", path), text);
+  // Each writes an install, then runs pnpm's build and pack in a checkout,
+  // beside the others. That takes 12 to 20 seconds on a CI runner and
+  // passed 30 on a busy one.
+  describe(
+    "when the linked checkout can't be packed",
+    { timeout: 120_000 },
+    () => {
+      /**
+       * An install that links `@robkit/broken` to a checkout's
+       * `packages/broken` holding a package with `scripts`, or an empty folder
+       * without them. The checkout has a Go module in `go/`.
+       */
+      async function linkedToBroken(
+        scripts?: Record<string, string>,
+        choices: Choices = defaultChoices,
+        { withGo = true } = {},
+      ) {
+        const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
+        await init(choices, dir);
+        const root = await mkdtemp(join(tmpdir(), "robkit-checkout-"));
+        const checkout = join(root, "packages", "broken");
+        await mkdir(checkout, { recursive: true });
+        for (const [path, text] of Object.entries(withGo ? goModule : {})) {
+          await mkdir(join(root, "go", path, ".."), { recursive: true });
+          await writeFile(join(root, "go", path), text);
+        }
+        if (scripts) {
+          await writeFile(
+            join(checkout, "package.json"),
+            JSON.stringify({
+              name: "@robkit/broken",
+              version: "0.0.0",
+              scripts,
+            }),
+          );
+        }
+        await override(dir, "@robkit/broken", `link:${checkout}`);
+        return { dir, root, checkout };
       }
-      if (scripts) {
+
+      it("names the build that failed, its folder and its exit code", async () => {
+        const { dir, checkout } = await linkedToBroken({ build: "exit 3" });
+
+        const vendoring = vendorPackages(dir);
+
+        await expect(vendoring).rejects.toThrow(CommandProblem);
+        await expect(vendoring).rejects.toThrow(
+          `pnpm --recursive --filter-prod @robkit/broken... run build exited with 3 in ${checkout}. Its output is above: fix what it says, then try again.`,
+        );
+      });
+
+      it("names the pack that failed, its folder, its exit code and what it printed", async () => {
+        const { dir, checkout } = await linkedToBroken({
+          build: "exit 0",
+          prepack: "exit 4",
+        });
+
+        const vendoring = vendorPackages(dir);
+
+        await expect(vendoring).rejects.toThrow(CommandProblem);
+        await expect(vendoring).rejects.toThrow(
+          new RegExp(
+            `^pnpm --recursive --filter-prod @robkit/broken\\.\\.\\. pack --json --pack-destination ".+" exited with 4 in ${escape(checkout)}\\. It printed:\\n[^]*prepack: \`exit 4\`[^]*\\nFix what it says, then try again\\.$`,
+          ),
+        );
+      });
+
+      it("says which package pnpm didn't pack, and where to look", async () => {
+        const { dir, checkout } = await linkedToBroken();
+
+        const vendoring = vendorPackages(dir);
+
+        await expect(vendoring).rejects.toThrow(CommandProblem);
+        await expect(vendoring).rejects.toThrow(
+          `pnpm pack wrote no tarball for @robkit/broken in ${checkout}. Check that the install's overrides link to a robkit checkout with @robkit/broken in it, then try again.`,
+        );
+      });
+
+      it("packs a checkout that links one package", async () => {
+        const { dir } = await linkedToBroken({ build: "exit 0" });
+
+        await vendorPackages(dir);
+
+        expect(await overridesOf(dir)).toEqual({
+          "@robkit/broken": "file:vendor/robkit/robkit-broken-0.0.0.tgz",
+          "styled-jsx>@babel/core": "-",
+        });
+      });
+
+      it("packs what a linked package runs on, though the install doesn't link it", async () => {
+        const { dir, root, checkout } = await linkedToBroken();
+        // The checkout is a workspace: broken runs on helper, and builds
+        // with tooling, which stays out.
+        await writeFile(
+          join(root, "pnpm-workspace.yaml"),
+          "packages:\n  - packages/*\n",
+        );
+        const manifest = (name: string, more: object = {}) =>
+          JSON.stringify({
+            name,
+            version: "0.0.0",
+            scripts: { build: "exit 0" },
+            ...more,
+          });
         await writeFile(
           join(checkout, "package.json"),
-          JSON.stringify({ name: "@robkit/broken", version: "0.0.0", scripts }),
+          manifest("@robkit/broken", {
+            dependencies: { "@robkit/helper": "workspace:*" },
+            devDependencies: { "@robkit/tooling": "workspace:*" },
+          }),
         );
-      }
-      await override(dir, "@robkit/broken", `link:${checkout}`);
-      return { dir, root, checkout };
-    }
+        for (const name of ["helper", "tooling"]) {
+          await mkdir(join(root, "packages", name));
+          await writeFile(
+            join(root, "packages", name, "package.json"),
+            manifest(`@robkit/${name}`),
+          );
+        }
 
-    it("names the build that failed, its folder and its exit code", async () => {
-      const { dir, checkout } = await linkedToBroken({ build: "exit 3" });
+        await vendorPackages(dir);
 
-      const vendoring = vendorPackages(dir);
-
-      await expect(vendoring).rejects.toThrow(CommandProblem);
-      await expect(vendoring).rejects.toThrow(
-        `pnpm --recursive --filter @robkit/broken run build exited with 3 in ${checkout}. Its output is above: fix what it says, then try again.`,
-      );
-    });
-
-    it("names the pack that failed, its folder, its exit code and what it printed", async () => {
-      const { dir, checkout } = await linkedToBroken({
-        build: "exit 0",
-        prepack: "exit 4",
+        expect(await overridesOf(dir)).toEqual({
+          "@robkit/broken": "file:vendor/robkit/robkit-broken-0.0.0.tgz",
+          "@robkit/helper": "file:vendor/robkit/robkit-helper-0.0.0.tgz",
+          "styled-jsx>@babel/core": "-",
+        });
       });
 
-      const vendoring = vendorPackages(dir);
+      it("says when the checkout has no Go module to copy", async () => {
+        const { dir, root } = await linkedToBroken(
+          { build: "exit 0" },
+          defaultChoices,
+          { withGo: false },
+        );
 
-      await expect(vendoring).rejects.toThrow(CommandProblem);
-      await expect(vendoring).rejects.toThrow(
-        new RegExp(
-          `^pnpm --recursive --filter @robkit/broken pack --json --pack-destination ".+" exited with 4 in ${escape(checkout)}\\. It printed:\\n[^]*prepack: \`exit 4\`[^]*\\nFix what it says, then try again\\.$`,
-        ),
-      );
-    });
-
-    it("says which package pnpm didn't pack, and where to look", async () => {
-      const { dir, checkout } = await linkedToBroken();
-
-      const vendoring = vendorPackages(dir);
-
-      await expect(vendoring).rejects.toThrow(CommandProblem);
-      await expect(vendoring).rejects.toThrow(
-        `pnpm pack wrote no tarball for @robkit/broken in ${checkout}. Check that the install's overrides link to a robkit checkout with @robkit/broken in it, then try again.`,
-      );
-    });
-
-    it("packs a checkout that links one package", async () => {
-      const { dir } = await linkedToBroken({ build: "exit 0" });
-
-      await vendorPackages(dir);
-
-      expect(await overridesOf(dir)).toEqual({
-        "@robkit/broken": "file:vendor/robkit/robkit-broken-0.0.0.tgz",
-        "styled-jsx>@babel/core": "-",
+        await expect(vendorPackages(dir)).rejects.toThrow(
+          `${join(root, "packages", "broken", "..", "..", "go")} doesn't exist, so robkit vendor can't copy robkit's Go module from the checkout. Check that the install's overrides link to a robkit checkout, then try again.`,
+        );
       });
-    });
 
-    it("says when the checkout has no Go module to copy", async () => {
-      const { dir, root } = await linkedToBroken(
-        { build: "exit 0" },
-        defaultChoices,
-        { withGo: false },
-      );
+      it("copies the checkout's Go module, but its tests, and points each Go app at the copy", async () => {
+        const { dir, root } = await linkedToBroken(
+          { build: "exit 0" },
+          { exampleStack: "go" },
+        );
+        const goMod = join(dir, "apps/example/go.mod");
+        const linkedGoMod = (await readFile(goMod, "utf8")).replace(
+          "=> ../../vendor/robkit/go",
+          `=> ${join(root, "go").replaceAll("\\", "/")}`,
+        );
+        await writeFile(goMod, linkedGoMod);
 
-      await expect(vendorPackages(dir)).rejects.toThrow(
-        `${join(root, "packages", "broken", "..", "..", "go")} doesn't exist, so robkit vendor can't copy robkit's Go module from the checkout. Check that the install's overrides link to a robkit checkout, then try again.`,
-      );
-    });
+        await vendorPackages(dir);
 
-    it("copies the checkout's Go module, but its tests, and points each Go app at the copy", async () => {
-      const { dir, root } = await linkedToBroken(
-        { build: "exit 0" },
-        { exampleStack: "go" },
-      );
-      const goMod = join(dir, "apps/example/go.mod");
-      const linkedGoMod = (await readFile(goMod, "utf8")).replace(
-        "=> ../../vendor/robkit/go",
-        `=> ${join(root, "go").replaceAll("\\", "/")}`,
-      );
-      await writeFile(goMod, linkedGoMod);
-
-      await vendorPackages(dir);
-
-      const copied = await readdir(join(dir, "vendor/robkit/go"), {
-        recursive: true,
+        const copied = await readdir(join(dir, "vendor/robkit/go"), {
+          recursive: true,
+        });
+        expect(copied.map((path) => path.replaceAll("\\", "/")).sort()).toEqual(
+          ["README.md", "go.mod", "guard", "guard/guard.go"],
+        );
+        expect(
+          (await readFile(goMod, "utf8"))
+            .split("\n")
+            .filter((line) => line.startsWith("replace ")),
+        ).toEqual([
+          "replace github.com/RobertScholey98/robkit/go => ../../vendor/robkit/go",
+        ]);
       });
-      expect(copied.map((path) => path.replaceAll("\\", "/")).sort()).toEqual([
-        "README.md",
-        "go.mod",
-        "guard",
-        "guard/guard.go",
-      ]);
-      expect(
-        (await readFile(goMod, "utf8"))
-          .split("\n")
-          .filter((line) => line.startsWith("replace ")),
-      ).toEqual([
-        "replace github.com/RobertScholey98/robkit/go => ../../vendor/robkit/go",
-      ]);
-    });
-  });
+    },
+  );
 
   it("refuses an install that isn't linked to a robkit checkout", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
