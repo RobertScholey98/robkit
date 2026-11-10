@@ -12,14 +12,17 @@ import (
 	"github.com/RobertScholey98/robkit/go/guard"
 )
 
-// Options configure Guarded.
+// Options configure Guarded. Every field may be left out: Guarded reads
+// App and Core from ROBKIT_APP and ROBKIT_CORE_URL, which pnpm dev and
+// robkit deploy set.
 type Options struct {
 	// App is the app's slug, which is also its subdomain. The guard accepts
-	// only a token core minted for this slug.
+	// only a token core minted for this slug. ROBKIT_APP when left empty.
 	App string
 	// Core is core's public origin, such as https://core.robkit.dev. The hub
 	// is beside it on hub. It comes from config, never the request's Host,
-	// so a request can't choose whose keys the app trusts.
+	// so a request can't choose whose keys the app trusts. ROBKIT_CORE_URL
+	// when left empty.
 	Core string
 	// Access is a fixed rule, for an app core's catalog doesn't hold.
 	// Without one, the rule comes from core's catalog and is kept for a
@@ -39,25 +42,36 @@ type Options struct {
 // ROBKIT_CORE_URL, core's public origin. Pass os.Getenv. Its error says how
 // to fix each variable that won't do, one per line.
 func ReadGuardEnv(getenv func(string) string) (Options, error) {
+	return withEnv(Options{}, getenv)
+}
+
+// withEnv is options with App and Core read from the environment where
+// they are left empty, as Guarded reads them. Its error says how to fix
+// each variable that won't do, one per line.
+func withEnv(options Options, getenv func(string) string) (Options, error) {
 	var problems []string
-	app := getenv("ROBKIT_APP")
-	if app == "" {
-		problems = append(problems, "ROBKIT_APP is not set. Run the app with pnpm dev, which sets it to the app's slug.")
-	} else if err := checkSlug(app); err != nil {
-		problems = append(problems, "ROBKIT_APP: "+err.Error())
+	if options.App == "" {
+		options.App = getenv("ROBKIT_APP")
+		if options.App == "" {
+			problems = append(problems, "ROBKIT_APP is not set. Run the app with pnpm dev, which sets it to the app's slug.")
+		} else if err := checkSlug(options.App); err != nil {
+			problems = append(problems, "ROBKIT_APP: "+err.Error())
+		}
 	}
-	core := getenv("ROBKIT_CORE_URL")
-	if core == "" {
-		problems = append(problems, "ROBKIT_CORE_URL is not set. Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.")
-	} else if origin, ok := originOf(core); ok && isCoreOrigin(origin) {
-		core = origin
-	} else {
-		problems = append(problems, notCoreOrigin("ROBKIT_CORE_URL is", core))
+	if options.Core == "" {
+		core := getenv("ROBKIT_CORE_URL")
+		if core == "" {
+			problems = append(problems, "ROBKIT_CORE_URL is not set. Run the app with pnpm dev, which sets it, or set it to core's public origin, such as https://core.robkit.dev.")
+		} else if origin, ok := originOf(core); ok && isCoreOrigin(origin) {
+			options.Core = origin
+		} else {
+			problems = append(problems, notCoreOrigin("ROBKIT_CORE_URL is", core))
+		}
 	}
 	if len(problems) > 0 {
 		return Options{}, errors.New(strings.Join(problems, "\n"))
 	}
-	return Options{App: app, Core: core}, nil
+	return options, nil
 }
 
 // shown is value as JSON shows it, as robkit's problems quote a value.

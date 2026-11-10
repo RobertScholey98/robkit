@@ -17,6 +17,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -65,7 +66,8 @@ type requestGuard struct {
 }
 
 // Guarded is robkit's guard as middleware for every request the app
-// serves. It checks options and refuses ones that won't do.
+// serves. It reads App and Core from the environment where options leave
+// them empty, so an app can pass none, and refuses options that won't do.
 func Guarded(options Options) (func(http.Handler) http.Handler, error) {
 	g, err := newRequestGuard(options)
 	if err != nil {
@@ -89,6 +91,10 @@ func Guarded(options Options) (func(http.Handler) http.Handler, error) {
 }
 
 func newRequestGuard(options Options) (*requestGuard, error) {
+	options, err := withEnv(options, os.Getenv)
+	if err != nil {
+		return nil, err
+	}
 	if err := checkSlug(options.App); err != nil {
 		return nil, errors.New("session: App: " + err.Error())
 	}
