@@ -28,13 +28,10 @@ func serve(ctx context.Context, page http.Handler, stopped <-chan error) error {
 	if err != nil {
 		return err
 	}
-	// The app's slug and core's address, which pnpm dev and robkit deploy
-	// set. The rule is the one the owner set for this app in admin.
-	options, err := session.ReadGuardEnv(os.Getenv)
-	if err != nil {
-		return err
-	}
-	guarded, err := session.Guarded(options)
+	// The guard reads the app's slug and core's address, which pnpm dev and
+	// robkit deploy set. The rule is the one the owner set for this app in
+	// admin.
+	guarded, err := session.Guarded(session.Options{})
 	if err != nil {
 		return err
 	}
