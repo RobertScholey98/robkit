@@ -41,6 +41,7 @@ const dependencyFields = [
 export interface Manifest {
   name?: string;
   private?: boolean;
+  version?: string;
   scripts?: Strings;
   dependencies?: Strings;
   devDependencies?: Strings;
@@ -88,6 +89,13 @@ export function readManifest(
     if (typeof name !== "string")
       return fieldProblem("name", "must be a string");
     manifest.name = name;
+  }
+  const { version } = json;
+  if (version !== undefined) {
+    if (typeof version !== "string") {
+      return fieldProblem("version", "must be a string");
+    }
+    manifest.version = version;
   }
   if (isPrivate !== undefined) {
     if (typeof isPrivate !== "boolean") {
