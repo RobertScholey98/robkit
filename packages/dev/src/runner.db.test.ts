@@ -425,17 +425,6 @@ describe("robkit-dev", () => {
   });
 });
 
-/** Where the install's Postgres container listens on this machine. */
-async function publishedPostgres(root: string): Promise<string> {
-  const project = projects.find((p) => p.root === root)?.project ?? "";
-  const { stdout } = await run(
-    "docker",
-    ["compose", "-p", project, "port", "postgres", "5432"],
-    { cwd: root },
-  );
-  return stdout.trim();
-}
-
 describe("robkit-dev's settings in the install's .env", () => {
   it("moves Postgres and the runner together with ROBKIT_POSTGRES_PORT there", async () => {
     const port = await freePostgresPort();
@@ -455,7 +444,9 @@ describe("robkit-dev's settings in the install's .env", () => {
     );
 
     expect(JSON.parse(alpha)).toMatchObject({ database: true });
-    expect(await publishedPostgres(dev.root)).toBe(`127.0.0.1:${String(port)}`);
+    // Something listens there, whether Docker publishes the port or
+    // Postgres holds it on the host's network, as it does on CI.
+    expect(await isListening(port)).toBe(true);
   });
 
   it("keeps the shell's ROBKIT_POSTGRES_PORT over the file's", async () => {
@@ -476,9 +467,10 @@ describe("robkit-dev's settings in the install's .env", () => {
     );
 
     expect(JSON.parse(alpha)).toMatchObject({ database: true });
-    expect(await publishedPostgres(dev.root)).toBe(
-      `127.0.0.1:${String(inShell)}`,
-    );
+    expect({
+      inShell: await isListening(inShell),
+      inFile: await isListening(inFile),
+    }).toEqual({ inShell: true, inFile: false });
   });
 });
 

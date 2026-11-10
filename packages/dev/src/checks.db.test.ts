@@ -178,16 +178,25 @@ describe("checkBeforeStart", () => {
     );
 
     // Compose reads the file only to find the project's name, as it does
-    // in an install, which sets none.
+    // in an install, which sets none. It reads that file alone, as it does
+    // for an owner: CI's COMPOSE_FILE adds one that names a postgres service.
     const said = await problems(
       checkBeforeStart({
         ...install,
-        env: { ...install.env, COMPOSE_PROJECT_NAME: undefined },
+        env: {
+          ...install.env,
+          COMPOSE_PROJECT_NAME: undefined,
+          COMPOSE_FILE: "compose.yaml",
+        },
       }),
     );
 
+    // Compose's own words are its to change, so only that they are there.
     expect(said).toEqual([
-      `docker compose ps --quiet --no-trunc postgres failed in ${install.root}: no such service: postgres. Fix what it says, then run pnpm dev again.`,
+      expect.stringMatching(
+        /^docker compose ps --quiet --no-trunc postgres failed in .+: .*postgres.*\. Fix what it says, then run pnpm dev again\.$/s,
+      ),
     ]);
+    expect(said[0]).toContain(install.root);
   });
 });
