@@ -25,7 +25,7 @@
 - [x] The Go template gets its guard in one call
 - [x] The API reports, READMEs and each stack's `AGENTS.md` show the new call
 - [x] A `core` that is http on a domain that isn't local is refused by `requestGuard` itself, however it was typed
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -61,3 +61,7 @@ So `@robkit/start` ships no augmentation, `GuardedContext` stays exported, and S
 - **Ticket 09.** No stack's server file imports `@robkit/input` now. Each stack's `package.json` still lists it, because `database.ts` and `serve.ts` import it, and Next's `next.config.ts` and the Vite configs read `readGuardEnv` or `readCoreUrl`. Admin's `server.ts` imports only `isRecord`.
 - **Ticket 11.** `coreOrigin()` is in `@robkit/session` and each adapter. A `serve()` that needs core's origin can use it, and fails the same way.
 - **`readGuardEnv`** in `@robkit/input` and Go's `ReadGuardEnv` have no caller in the templates now, besides Next's config and the Vite configs, which ticket 10 replaces.
+
+### Merged
+
+Added by the lead. PR 83 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `6b64e7c`.
