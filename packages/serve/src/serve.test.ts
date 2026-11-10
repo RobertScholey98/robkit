@@ -273,6 +273,42 @@ describe("serve", () => {
     ]);
   });
 
+  // serve-static hands a request on from a file system callback. A throw
+  // there is outside the promise the request began in, and nothing catches
+  // it: it would end the process and every request open on it.
+  it("answers 500 when the app throws on a request no file answered, and goes on serving", async () => {
+    const port = await freePort();
+    logged();
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    onTestFinished(() => {
+      errors.mockRestore();
+    });
+    const broke = new Error("The handler broke.");
+    const server = closeAfter(
+      serve(
+        (request, response) => {
+          if (request.url === "/assets/missing.css") throw broke;
+          response.end("fine");
+        },
+        {
+          address: { host: "127.0.0.1", port },
+          files: [{ at: "/assets", folder: join(dir, "dist/assets") }],
+        },
+      ),
+    );
+    await once(server, "listening");
+
+    const { status } = await answer(port, "/assets/missing.css");
+    const { body } = await answer(port, "/assets/other.css");
+
+    expect({ status, body }).toEqual({ status: 500, body: "fine" });
+    expect(errors.mock.calls).toEqual([
+      ["server couldn't answer GET /assets/missing.css.", broke],
+    ]);
+  });
+
   // dist holds the server's own bundle beside the client's files.
   it.each([
     "/serve.js",

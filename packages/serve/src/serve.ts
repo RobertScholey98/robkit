@@ -117,7 +117,17 @@ function withFiles(
               new Error("serve-static couldn't send a file.", { cause: error }),
             );
           } else if (step) step(request, response, from(index + 1));
-          else resolve(app(request, response));
+          else {
+            // serve-static calls this from a file system callback, after
+            // the outer promise's start has returned. A throw from the app
+            // there would be caught by nothing and end the process, so the
+            // app runs at the start of a promise of its own.
+            resolve(
+              new Promise((answered) => {
+                answered(app(request, response));
+              }),
+            );
+          }
         };
       from(0)();
     });
