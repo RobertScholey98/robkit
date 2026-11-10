@@ -222,6 +222,20 @@ describe("init with no flags", () => {
     expect(written).not.toContain(".git");
   });
 
+  it("prints a cd a shell reads as one folder when its name has a space", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
+
+    const { code, output } = await init(cwd, [
+      "my app",
+      "--stack",
+      "start",
+      "--no-install",
+    ]);
+
+    expect(code).toBe(0);
+    expect(printed(output)).toContain(`\n  cd "my app"\n`);
+  });
+
   it("prints a known problem alone, without a stack", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "robkit-"));
 

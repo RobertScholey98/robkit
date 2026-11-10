@@ -9,7 +9,7 @@ import { readArgs } from "./args.ts";
 import { stackFrom } from "./choices.ts";
 import { init } from "./init.ts";
 import { usage } from "./usage.ts";
-import { askInit, commandFor } from "./wizard.ts";
+import { askInit, commandFor, shellWord } from "./wizard.ts";
 
 /** Where a fresh install's hub answers under pnpm dev. */
 const hubOrigin = addresses({
@@ -58,7 +58,9 @@ The same install without the questions:
   });
   for (const note of notes) console.log(note);
   const steps = [
-    `cd ${answers.folder}`,
+    // Quoted when it has a space. --stack skips the wizard's check of the
+    // name, so one no quoting keeps is printed as it was typed.
+    `cd ${shellWord(answers.folder) ?? answers.folder}`,
     ...(install ? [] : ["pnpm install"]),
     "pnpm dev",
   ];

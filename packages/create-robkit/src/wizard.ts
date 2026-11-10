@@ -40,7 +40,7 @@ function answered<T>(answer: T | typeof CANCEL_SYMBOL): T {
  * bash, PowerShell and cmd, or undefined for a name no quoting would keep.
  * Shells share no escape, so only double quotes, around these characters.
  */
-function shellWord(folder: string): string | undefined {
+export function shellWord(folder: string): string | undefined {
   if (!/^[\p{L}\p{N} ._/\\:-]+$/u.test(folder)) return undefined;
   return /^[\p{L}\p{N}._/-]+$/u.test(folder) ? folder : `"${folder}"`;
 }
