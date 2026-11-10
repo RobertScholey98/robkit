@@ -33,6 +33,15 @@ The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through,
 
 Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` from `@tanstack/react-start/server`. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack.
 
+## Testing
+
+`pnpm test` runs Vitest, which loads `vite.config.ts`, Start's plugin included, and needs no database, no core and no `pnpm dev`. A server function runs only through Start's compiler and request handler, so a test calls what its handler calls instead. `src/home.test.tsx` shows the pattern:
+
+- Each server function's handler hands `context.viewer` to a plain function, as `src/routes/index.tsx` hands it to `shownTo` and `visitAgainAs` in `src/visits.ts`.
+- The test calls that function with a viewer from `@robkit/start/testing`: `owner()`, `guest({ roles: ["family"] })` or `nobody()`.
+- The function takes what it stores through as an argument, so the test passes a stand-in and nothing reaches Postgres.
+- The page's card is `HomeCard` in `src/home.tsx`, which takes what to show as props, so the test renders it with `renderToStaticMarkup`.
+
 ## Calling core
 
 The guard already asks core for what it needs: core's public key and this app's access rule. The owner sets who may open the app in admin. The `robkit` field in `package.json` is only the rule core starts from. If the app needs more from core, call it over HTTP from the server at `process.env.ROBKIT_CORE_URL`. Never import `@robkit/core`.
@@ -45,7 +54,7 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded(entry)` t
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
 
-The example's queries are in `src/visits.ts`, and `src/routes/index.tsx` calls them from a server function.
+The example's queries are in `src/visits.ts`. `src/routes/index.tsx` reads the count from its loader with a GET server function, and records a visit with a POST one when the button is pressed.
 
 ## The database
 

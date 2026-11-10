@@ -10,7 +10,9 @@ const { port, domain } = orThrow(readDevServerEnv(process.env));
 // proxy. src/server.ts puts robkit's guard in front of Start.
 export default defineConfig(({ command }) => {
   // Start loads the server entry on the first request, so check its config now.
-  if (command === "serve") {
+  // Vitest runs the serve command too, with no pnpm dev behind it, and sets
+  // VITEST before it loads this file.
+  if (command === "serve" && !process.env.VITEST) {
     orThrow(readCoreUrl(process.env));
   }
   return {
