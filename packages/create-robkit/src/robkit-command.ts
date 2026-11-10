@@ -2,7 +2,7 @@
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { askDev, CommandProblem, runCommand } from "@robkit/dev/cli";
+import { askDev, CommandProblem, isMissing, runCommand } from "@robkit/dev/cli";
 import { isProblem, parseJson, readSlug } from "@robkit/input";
 import {
   defaultDevPort,
@@ -23,7 +23,9 @@ import { afterAdd, afterMigrate } from "./dev-answers.ts";
 import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { readAppList, readCoolify, readDatabaseUrlsConfig } from "./env.ts";
+import { readRobkitRepo } from "./robkit-repo.ts";
 import { finishInstall, installDependencies } from "./set-up.ts";
+import { finishUpgrade } from "./upgrade.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
 
 /** Where an install's apps answer under pnpm dev. */
@@ -70,6 +72,7 @@ process.exitCode = await runCommand(async () => {
   const commands: Record<string, () => Promise<number | undefined>> = {
     check,
     migrate: migrateApp,
+    upgrade: upgradeInstall,
     vendor,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
@@ -250,6 +253,38 @@ async function migrateApp(): Promise<undefined> {
   const slug = readSlug(given);
   if (isProblem(slug)) throw new CommandProblem(slug.error);
   console.log(afterMigrate(await askDev(root, { operation: "migrate", slug })));
+}
+
+async function upgradeInstall(): Promise<undefined> {
+  const { values, positionals } = readArgs(
+    {
+      allowPositionals: true,
+      // The first step runs `robkit upgrade --finish <version>` on the
+      // robkit it installs. An owner never types it.
+      options: { finish: { type: "string" } },
+    },
+    usage,
+  );
+  const finishing = values.finish;
+  if (positionals.length > 1) throw new CommandProblem(usage);
+  const root = process.cwd();
+  await readInstallChoices(root);
+  if (finishing === undefined) throw new CommandProblem(usage);
+  const changelog = await readFile(
+    new URL("../CHANGELOG.md", import.meta.url),
+    "utf8",
+  ).catch((error: unknown) => {
+    if (isMissing(error)) return undefined;
+    throw error;
+  });
+  console.log(
+    await finishUpgrade(root, {
+      from: finishing,
+      repo: await readRobkitRepo(),
+      changelog,
+      env: process.env,
+    }),
+  );
 }
 
 function fail(message: string): never {
