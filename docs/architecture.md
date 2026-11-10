@@ -189,7 +189,7 @@ flowchart TD
 | Core's tables                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                      |
 | Sessions, refresh and minting app tokens        | `packages/core/src/session-store.ts`, `packages/core/src/mint-token.ts`                    |
 | Access codes, roles and the app catalog         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                 |
-| The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`                                             |
+| The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`, `sign-in-limits.ts`, `password.ts`         |
 | `pnpm dev`: finding apps, the proxy, the runner | `packages/dev/src/apps.ts`, `proxy.ts`, `runner.ts`                                        |
 | Each app's schema and role                      | `packages/dev/src/provision.ts`                                                            |
 | What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/` |

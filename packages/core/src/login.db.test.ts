@@ -130,9 +130,23 @@ describe("POST /login's rate limit", () => {
     expect(soon.status).toBe(429);
     expect(soon.headers.get("retry-after")).toBe("30");
     expect(await soon.json()).toEqual({
-      error: "Too many attempts. Try again in 1 minute.",
+      error: "Too many attempts. Try again in 30 seconds.",
     });
     expect(later.status).toBe(200);
+  });
+
+  it("says a wait under a minute in seconds", async () => {
+    const { app, advance } = await freshCore();
+    await claim(app);
+    await failFiveTimes(app, "203.0.113.7");
+
+    advance(15 * minute - 1);
+    const res = await postJson(app, "/login", rob, from("203.0.113.7"));
+
+    expect(res.headers.get("retry-after")).toBe("1");
+    expect(await res.json()).toEqual({
+      error: "Too many attempts. Try again in 1 second.",
+    });
   });
 
   it("forgets failures older than 15 minutes", async () => {
