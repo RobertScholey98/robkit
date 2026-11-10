@@ -15,10 +15,10 @@ export function guarded(
 export interface GuardedLocals {
   viewer: Viewer;
 }
-export interface GuardedOptions {
-  app: Slug;
+export interface GuardedOptions extends GuardSettings {
+  app?: string | undefined;
   access?: AccessRule | undefined;
-  core: CoreOrigin;
+  core?: string | undefined;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export type GuardedResponse = ExpressResponse<unknown, GuardedLocals>;

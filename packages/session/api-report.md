@@ -7,10 +7,7 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ```ts
 export type AccessRuleFailure =
   "unknown-app" | "bad-answer" | "invalid-json" | "interrupted-body";
-export function appOrigin({
-  app,
-  core,
-}: Pick<GuardedOptions, "app" | "core">): string;
+export function appOrigin(settings?: GuardSettings): string;
 export const appRefreshPath: "/_robkit/refresh";
 export const appSessionPath: "/_robkit/session";
 export function appSessionUrl(
@@ -25,10 +22,10 @@ export function appSessionUrl(
 ): string;
 export const coreAudience: "core";
 export type Framers = "same-origin" | "none";
-export interface GuardedOptions {
-  app: Slug;
+export interface GuardedOptions extends GuardSettings {
+  app?: string | undefined;
   access?: AccessRule | undefined;
-  core: CoreOrigin;
+  core?: string | undefined;
   onUnavailable?: ((fault: GuardFault) => void) | undefined;
 }
 export type GuardFault = {
@@ -43,6 +40,10 @@ export type GuardFault = {
       reason: AccessRuleFailure;
     }
 );
+export interface GuardSettings {
+  app?: string | undefined;
+  core?: string | undefined;
+}
 export function isRedirect(status: number): boolean;
 export function readAppToken(
   key: VerifyKey,
@@ -72,7 +73,7 @@ export type RequestDecision =
       response: Response;
     };
 export function requestGuard(
-  options: GuardedOptions,
+  options?: GuardedOptions,
 ): (request: Request) => Promise<RequestDecision>;
 export function securityHeaders(
   origin: string,
