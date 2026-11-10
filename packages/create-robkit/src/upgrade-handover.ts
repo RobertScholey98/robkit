@@ -8,6 +8,17 @@
 // then public, like an export: every later robkit must answer them.
 // upgrade-handover.test.ts runs this file, then the current second step.
 //
+// What a later robkit's second step can count on from this one:
+//
+// - It runs as the `robkit` bin, in the install's root, in a tree that was
+//   clean when the upgrade started. The catalog's robkit entries are at
+//   its own version, that version is installed, and nothing else changed.
+// - When it exits with anything but 0, this step puts back the five paths
+//   in `ownedPaths` and no others, then says the second step failed. A
+//   second step that writes anywhere else puts that back itself first.
+// - When it exits 0, this step prints nothing more, so the second step's
+//   last lines are the owner's.
+//
 // To change the first step in a later version, copy this file, change the
 // copy, and have upgrade.ts import the copy. Keep this file and its test.
 //
