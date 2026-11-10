@@ -67,6 +67,7 @@ since TURBO_SCM_BASE. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run,
 prints each app's variables and contacts nothing.`;
 
 process.exitCode = await runCommand(async () => {
+  requireInstall(process.cwd());
   const [command] = process.argv.slice(2);
   const commands: Record<string, () => Promise<number | undefined>> = {
     check,
@@ -76,6 +77,15 @@ process.exitCode = await runCommand(async () => {
   };
   return (commands[command ?? ""] ?? add)();
 });
+
+/** Refuses a folder with no `robkit.json` in one line, whatever the command. */
+function requireInstall(root: string): void {
+  if (!existsSync(join(root, "robkit.json"))) {
+    throw new CommandProblem(
+      `${root} isn't a robkit install: it has no robkit.json. Run robkit in an install's folder.`,
+    );
+  }
+}
 
 async function check(): Promise<number> {
   const { positionals } = readArgs({ allowPositionals: true }, usage);

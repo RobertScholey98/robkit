@@ -124,16 +124,32 @@ Then open http://notes.robkit.localhost:3000.
 
     expect({ code, output }).toEqual({
       code: 1,
-      output: `${dir} has no robkit.json. Run robkit add in an install's folder.\n`,
+      output: `${dir} isn't a robkit install: it has no robkit.json. Run robkit in an install's folder.\n`,
     });
   });
+});
+
+describe("robkit outside an install", () => {
+  it.each([[[]], [["check"]], [["deploy"]], [["vendor", "--nope"]]])(
+    "prints one line saying so for %j",
+    async (args) => {
+      const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+
+      const { code, output } = await drive(bin, dir, args);
+
+      expect({ code, output }).toEqual({
+        code: 1,
+        output: `${dir} isn't a robkit install: it has no robkit.json. Run robkit in an install's folder.\n`,
+      });
+    },
+  );
 });
 
 describe("robkit's failures", () => {
   it.each([["check"], ["add"]])(
     "refuses an option %s doesn't take, printing why and the usage, not a bug",
     async (command) => {
-      const dir = await mkdtemp(join(tmpdir(), "robkit-"));
+      const dir = await readOnlyInstall();
 
       const { code, output } = await drive(bin, dir, [command, "--nope"]);
 
