@@ -28,10 +28,13 @@ An app keeps its tables in `src/schema.ts` and passes them all, as `appDatabase(
 
 The pool opens once per process, with at most 2 connections unless the second argument, postgres.js's options, says otherwise. A dev server that reloads the app's modules gets the same pool back, and a Drizzle database built from the schema as it now is, so a table added to `schema.ts` can be queried on the next request.
 
+An app's `migrate` script is `robkit-migrate`. It applies the migrations in the app's `drizzle` folder that haven't run, as the app's role, and prints `migrated`. Give it a folder, as `robkit-migrate db/migrations`, when `drizzle.config.ts` sets `out` to another. It keeps its journal table, `__drizzle_migrations`, in the app's schema, where each Node stack's old `src/migrate.ts` kept it, so an app that migrated with that carries on. A missing `DATABASE_URL` prints the reader's message and exits 1.
+
 ## Exports
 
 | Export                          | What it is                                                                                                                                          |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `robkit-migrate [folder]` (bin) | An app's `migrate` script, above                                                                                                                    |
 | `appDatabase(schema, options?)` | A function that gives the app's Drizzle database, connected on first call from `DATABASE_URL`                                                       |
 | `AppDatabase`, `PoolOptions`    | What that function returns, and postgres.js's options                                                                                               |
 | `migrate(options)`              | Applies the migrations in `folder` that haven't run, keeping Drizzle's journal table in the role's schema, or in `schema` when the options name one |

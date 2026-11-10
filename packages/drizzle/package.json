@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "description": "Gives a robkit app its Drizzle database and applies its migrations in its own schema.",
   "type": "module",
+  "bin": {
+    "robkit-migrate": "./src/robkit-migrate-command.ts"
+  },
   "exports": {
     ".": "./src/index.ts"
   },
@@ -12,6 +15,9 @@
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
       }
+    },
+    "bin": {
+      "robkit-migrate": "./dist/robkit-migrate-command.js"
     }
   },
   "files": [
