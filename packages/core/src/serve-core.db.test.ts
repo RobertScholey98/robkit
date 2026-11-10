@@ -2,6 +2,7 @@ import { createServer } from "node:net";
 import { once } from "node:events";
 import { freePort } from "@internal/test-postgres";
 import { CommandProblem } from "@robkit/input/command";
+import postgres from "postgres";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { migrate } from "./migrate.ts";
 import { serveCore } from "./serve-core.ts";
@@ -44,6 +45,75 @@ describe("serveCore", () => {
     expect(await served).toBe(0);
     expect(lines()).toEqual([listening, "core stopped"]);
   });
+
+  // A query can outlive its request: the client gave up, or the stop's
+  // limit closed its connection. Docker kills a container 10 seconds after
+  // its signal, so core doesn't wait for one.
+  it("stops while a query is still running, without waiting for it", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    const port = await freePort();
+    const lines = logged();
+    // Core logs the query it gave up on.
+    const faults = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    onTestFinished(() => {
+      faults.mockRestore();
+    });
+    const served = serveCore({
+      DATABASE_URL: databaseUrl,
+      ROBKIT_CORE_URL: coreUrl,
+      PORT: String(port),
+    });
+    const listening = `core listening on 127.0.0.1:${String(port)}`;
+    await expect.poll(lines).toContain(listening);
+    // Another session holds core.apps, so core's read of it waits.
+    const other = postgres(databaseUrl, { max: 2, onnotice: () => undefined });
+    const { promise: locked, resolve: lock } = Promise.withResolvers();
+    const { promise: released, resolve: release } = Promise.withResolvers();
+    const held = other.begin(async (sql) => {
+      await sql`lock table core.apps in access exclusive mode`;
+      lock(undefined);
+      await released;
+    });
+    onTestFinished(async () => {
+      release(undefined);
+      await held;
+      await other.end();
+    });
+    await locked;
+    const gone = new AbortController();
+    const asked = fetch(`http://127.0.0.1:${String(port)}/apps/notes/access`, {
+      signal: gone.signal,
+    }).then(
+      () => "answered",
+      () => "dropped",
+    );
+    await expect
+      .poll(async () => {
+        const [row] = await other<{ waiting: number }[]>`
+          select count(*)::int as waiting from pg_locks
+          where not granted and database =
+            (select oid from pg_database where datname = current_database())`;
+        return row?.waiting;
+      })
+      .toBe(1);
+    // The client gives up, so no connection is left for the stop to wait on.
+    gone.abort();
+    expect(await asked).toBe("dropped");
+
+    process.emit("SIGTERM", "SIGTERM");
+
+    const stopped = await Promise.race([
+      served,
+      new Promise((resolve) =>
+        setTimeout(resolve, 5000, "still waiting on its query"),
+      ),
+    ]);
+    expect(stopped).toBe(0);
+    expect(lines()).toEqual([listening, "core stopped"]);
+  }, 20_000);
 
   it("stops with the reader's message when a setting won't do", async () => {
     await expect(

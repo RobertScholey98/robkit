@@ -9,6 +9,15 @@ import { listenUntilStopped } from "@robkit/serve";
 import { ensureSigningKey } from "./signing-key.ts";
 
 /**
+ * How long a query still running gets once the server has stopped, in
+ * seconds. Its request is gone by then: the client gave up, or the stop's
+ * limit closed its connection. postgres.js waits for every query unless
+ * told how long. The server's stop takes up to 8 seconds, and Docker kills
+ * a container at 10.
+ */
+const queryLimit = 1;
+
+/**
  * Serves core from its environment until SIGTERM or SIGINT: loads its
  * signing key, adds the apps in `ROBKIT_APPS` it doesn't know, then
  * listens on `HOST` and `PORT`. Core's schema must be migrated first.
@@ -43,6 +52,6 @@ export async function serveCore(env: Env): Promise<number> {
     hostname: config.host,
     port: config.port,
     name: "core",
-    onStopped: () => db.$client.end(),
+    onStopped: () => db.$client.end({ timeout: queryLimit }),
   });
 }
