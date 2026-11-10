@@ -36,8 +36,9 @@ export function withRobkit(
   return (phase) => {
     // next build makes its telemetry after it loads this. The production
     // server makes none, and next dev's own process never loads this, so
-    // pnpm dev sets it there.
-    process.env.NEXT_TELEMETRY_DISABLED = "1";
+    // pnpm dev sets it there. Either only where nothing has, so the shell or
+    // the app's .env decides.
+    process.env.NEXT_TELEMETRY_DISABLED ??= "1";
     const developing = phase === PHASE_DEVELOPMENT_SERVER;
     let domain: string | undefined;
     if (developing) {
