@@ -1,4 +1,4 @@
-import { lstat, mkdir, rm } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { createServer, type Socket } from "node:net";
 import { isProblem } from "@robkit/input";
 import { CommandProblem, reportFaultsAt } from "@robkit/input/command";
@@ -11,22 +11,23 @@ import {
   type DevSocket,
   maxRequestBytes,
   readDevRequest,
+  socketFolderIsOwn,
 } from "./requests.ts";
 
 /**
  * Makes the folder `socket` is in, for this account alone, unless it is
- * there, and checks that only this account can open it. No browser can
- * reach a socket file, so the folder's mode is what keeps others out.
+ * there, and checks that only this account can open it, as
+ * {@link socketFolderIsOwn} does for the commands that ask.
  *
  * @param owner the account that must own it, this process's by default
  * @throws a {@link CommandProblem} for a folder it can't make, that isn't
  *   one, that another account owns, or that others can open
  */
 export async function privateFolder(
-  { folder, setBy }: Pick<DevSocket, "folder" | "setBy">,
-  { owner = process.getuid?.() }: { owner?: number | undefined } = {},
+  socket: Pick<DevSocket, "folder" | "setBy">,
+  options: { owner?: number | undefined } = {},
 ): Promise<void> {
-  const where = `pnpm dev keeps its socket in ${folder}`;
+  const { folder, setBy } = socket;
   try {
     await mkdir(folder, { mode: 0o700 });
   } catch (error) {
@@ -40,28 +41,12 @@ export async function privateFolder(
           ? error.code
           : "no error code";
       throw new CommandProblem(
-        `${where}, and couldn't make that folder (${code}). Point ${setBy} at a folder you can write to, then run pnpm dev again.`,
+        `pnpm dev keeps its socket in ${folder}, and couldn't make that folder (${code}). Point ${setBy} at a folder you can write to, then run pnpm dev again.`,
         { cause: error },
       );
     }
   }
-  const stats = await lstat(folder);
-  if (!stats.isDirectory()) {
-    throw new CommandProblem(
-      `${where}, which isn't a folder. Remove it, then run pnpm dev again.`,
-    );
-  }
-  if (stats.uid !== owner) {
-    throw new CommandProblem(
-      `${where}, which another account owns. Point ${setBy} at a folder of your own, then run pnpm dev again.`,
-    );
-  }
-  if ((stats.mode & 0o077) !== 0) {
-    const mode = (stats.mode & 0o777).toString(8);
-    throw new CommandProblem(
-      `${where}, which others can open (mode ${mode}). Run chmod 700 ${folder}, then run pnpm dev again.`,
-    );
-  }
+  await socketFolderIsOwn(socket, options);
 }
 
 /** How long a connection gets to send its request before it is closed. */

@@ -475,6 +475,40 @@ describe.skipIf(process.platform === "win32")("askDev", () => {
     );
   });
 
+  it("asks nothing of a socket in a folder others can open, where another account could answer", async () => {
+    const { root, env, socket } = await place();
+    let asked = 0;
+    await impostorAt(socket.path, (connection) => {
+      asked += 1;
+      connection.end('{"outcome":"done","message":"Added."}\n');
+    });
+    await chmod(socket.folder, 0o777);
+
+    const answer = askDev(root, { operation: "add", slug: slug("notes") }, env);
+
+    await expect(answer).rejects.toThrow(
+      new CommandProblem(
+        `pnpm dev keeps its socket in ${socket.folder}, which others can open (mode 777). Run chmod 700 ${socket.folder}, then run pnpm dev again.`,
+      ),
+    );
+    expect(asked).toBe(0);
+  });
+
+  it("stops reading an answer with no line break at 64 KB, as a fault", async () => {
+    const { root, env, socket } = await place();
+    await impostorAt(socket.path, (connection) => {
+      // askDev closes the connection while this is still being sent.
+      connection.on("error", () => undefined);
+      connection.write("x".repeat(70 * 1024));
+    });
+
+    const answer = askDev(root, { operation: "add", slug: slug("notes") }, env);
+
+    await expect(answer).rejects.toThrow(
+      `pnpm dev sent over 64 KB at ${socket.path} with no line break, which is no answer.`,
+    );
+  });
+
   // Root opens any folder.
   it.skipIf(process.getuid?.() === 0)(
     "refuses a socket in a folder it can't open, as a fault",
@@ -518,6 +552,18 @@ describe.skipIf(process.platform === "win32")("devRunning", () => {
     await staleSocketAt(socket.path);
 
     expect(await devRunning(root, env)).toBe(false);
+  });
+
+  it("doesn't say for a socket in a folder others can open, where another account could answer", async () => {
+    const { root, env, socket } = await place();
+    await serving(socket);
+    await chmod(socket.folder, 0o755);
+
+    await expect(devRunning(root, env)).rejects.toThrow(
+      new CommandProblem(
+        `pnpm dev keeps its socket in ${socket.folder}, which others can open (mode 755). Run chmod 700 ${socket.folder}, then try again.`,
+      ),
+    );
   });
 });
 
