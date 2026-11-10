@@ -230,8 +230,9 @@ describe("robkit upgrade from a registry", () => {
       env,
     });
 
-    expect(again.trim()).toBe(
+    expect(again.trim().split("\n")).toEqual([
+      "Asking the registry which versions of robkit it has.",
       `This install is on robkit ${newer}, the newest.`,
-    );
+    ]);
   });
 });

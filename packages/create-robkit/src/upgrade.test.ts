@@ -737,6 +737,20 @@ describe("robkit upgrade on the command line", () => {
     expect(output).not.toContain("--finish");
   });
 
+  it("says it is asking the registry before it asks, since pnpm waits over a minute on one it can't reach", async () => {
+    const { dir, env } = await committedInstall();
+    const pnpm = await fakePnpm({ view: "fails" }, env);
+
+    const { code, output } = await drive(bin, dir, ["upgrade"], [], pnpm.env);
+
+    expect(code).toBe(1);
+    const asking = "Asking the registry which versions of robkit it has.\n";
+    expect(output.startsWith(asking)).toBe(true);
+    expect(output.slice(asking.length)).toContain(
+      "robkit upgrade couldn't ask the registry which versions of create-robkit it has",
+    );
+  });
+
   it("names step 2 when it fails there, and says why", async () => {
     const { dir, env } = await committedInstall(async (dir) => {
       await editCatalog(dir, { express: null });

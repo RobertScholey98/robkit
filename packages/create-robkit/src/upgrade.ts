@@ -283,6 +283,9 @@ export async function upgrade(
     );
   }
   const from = await installedVersion();
+  // pnpm tries a registry it can't reach for over a minute before it says
+  // so, so the owner hears what the wait is for.
+  console.log("Asking the registry which versions of robkit it has.");
   const to = target(from, given, await published(root, env));
   if (typeof to !== "string") return to.nothing;
   await handOver(root, { from, to }, env);
