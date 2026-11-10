@@ -140,22 +140,18 @@ async function renderSettings(
   files: Files,
   names: string[],
   repo: RobkitRepo,
-  { link = false }: GenerateOptions,
 ): Promise<void> {
   const workspace = parseDocument(files.get(pnpmSettings) ?? "");
   workspace.set(
     "catalog",
     Object.fromEntries(names.map((name) => [name, versionOf(repo, name)])),
   );
-  // Every robkit package the install runs on, named or not, so pnpm asks
-  // npm for none of them.
-  for (const name of link ? withDependencies(names, repo.packages) : []) {
-    const pkg = repo.packages.get(name);
-    if (pkg === undefined) continue;
-    workspace.setIn(
-      ["overrides", name],
-      `link:${pkg.dir.replaceAll("\\", "/")}`,
-    );
+  // With --link, every robkit package the install runs on, named or not,
+  // so pnpm asks npm for none of them.
+  for (const name of withDependencies(names, repo.packages)) {
+    const dir = repo.links.get(name);
+    if (dir === undefined) continue;
+    workspace.setIn(["overrides", name], `link:${dir.replaceAll("\\", "/")}`);
   }
   files.set(
     pnpmSettings,
@@ -192,8 +188,8 @@ export async function generateInstall(
     ...files,
     ...stacks.flatMap((stack) => [...stack]),
   ]);
-  const repo = await readRobkitRepo();
-  await renderSettings(files, names, repo, options);
+  const repo = await readRobkitRepo(options);
+  await renderSettings(files, names, repo);
   const goModule = goModuleFor(overridesIn(files.get(pnpmSettings) ?? ""));
   for (const [path, text] of files) {
     if (/^apps\/[^/]+\/go\.mod$/.test(path)) {

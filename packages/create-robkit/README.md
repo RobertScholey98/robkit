@@ -64,6 +64,7 @@ await init({ exampleStack: "start" }, "/tmp/my-install", {
 - Init asks only for the folder and the example app's stack. It ends by printing the flags that make the same install: `--stack`, and `--install` and `--link` when it was given them.
 - `init` in `src/init.ts` is the one operation from choices to a finished install: generate, write, then with `install` initialise git and install dependencies, in that order, so Husky's postinstall finds the repository. The command line and the whole-stack test both call it.
 - The generator reads `base` in memory, mounts the example's stack at `apps/example`, writes the catalog from robkit's own, covering every stack, and records the example's stack in `robkit.json`.
+- `readRobkitRepo` in `src/robkit-repo.ts` is where the generator gets what an install takes from robkit: the catalog, pnpm's version, each package's version, the lint policy and the Go module. The build writes them to `dist/carried.json` with `scripts/carry.ts`, and the built package reads that, so it needs no checkout. The source, and any run with `--link`, reads the checkout. `turbo.json` names each file the build reads as an input to `create-robkit#build`, and `src/robkit-repo.test.ts` fails if one is missing.
 - Every install of one robkit version has the same `packages/ui`, `packages/theme`, `packages/core-client` and catalog.
 
 ### The templates

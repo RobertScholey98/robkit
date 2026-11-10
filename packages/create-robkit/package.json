@@ -41,7 +41,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && node scripts/carry.ts",
     "lint": "eslint .",
     "typecheck": "tsc",
     "test": "vitest run --coverage",

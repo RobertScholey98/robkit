@@ -19,6 +19,18 @@
     "test:unit": {
       "dependsOn": ["^build"]
     },
+    "create-robkit#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/pnpm-workspace.yaml",
+        "$TURBO_ROOT$/package.json",
+        "$TURBO_ROOT$/packages/*/package.json",
+        "$TURBO_ROOT$/tooling/eslint/*.js",
+        "$TURBO_ROOT$/go/**"
+      ]
+    },
     "create-robkit#test": {
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"],

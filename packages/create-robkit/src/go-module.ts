@@ -1,7 +1,29 @@
 // How a Go app's go.mod reaches robkit's Go module, which isn't on a module
 // proxy: a replace directive, to the checkout's go folder in an install
 // made with --link, and to vendor/robkit/go in any other.
-import { posix } from "node:path";
+import { readdir, readFile } from "node:fs/promises";
+import { join, posix, relative } from "node:path";
+
+/** What the checkout's go folder holds that a Go app doesn't build with. */
+const notModule = new Set(["package.json", "node_modules", ".turbo"]);
+
+/**
+ * robkit's Go module in `dir`, the checkout's go folder, by each file's
+ * path from there, leaving out its tests and the manifest that runs Go's
+ * tools in the gates. A Windows checkout's CRLF endings become LF.
+ */
+export async function readGoModule(dir: string): Promise<Map<string, string>> {
+  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  const files = new Map<string, string>();
+  for (const entry of entries) {
+    if (!entry.isFile() || entry.name.endsWith("_test.go")) continue;
+    const file = join(entry.parentPath, entry.name);
+    const path = relative(dir, file).replaceAll("\\", "/");
+    if (path.split("/").some((part) => notModule.has(part))) continue;
+    files.set(path, (await readFile(file, "utf8")).replaceAll("\r\n", "\n"));
+  }
+  return new Map([...files].sort(([a], [b]) => (a < b ? -1 : 1)));
+}
 
 /** The module path of robkit's guard for Go, in the checkout's `go/`. */
 const goModule = "github.com/RobertScholey98/robkit/go";
