@@ -28,7 +28,7 @@
 - [x] `robkit add notes --icon memo` fails with the manifest's message and writes nothing
 - [x] An image in a template override arrives byte for byte
 - [x] The repo README's quickstart is the three commands
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -80,3 +80,18 @@ Built on branch `91-init-installs`, one commit per change.
 - The built bin under a real Node 22.23.4 printed `Node 22.23.4 is too old: robkit needs Node 24 or later. Install it from https://nodejs.org, then run npm create robkit again.`, exited 1 and wrote nothing.
 - `create-robkit my-install --stack start --link` with a git identity ended with the next steps and left one commit, `Make a robkit install`. With no name or email, it printed the one-line note above the same next steps and exited 0.
 - `pnpm robkit add notes --icon memo` printed `robkit.icon must be one emoji, such as "📝".` and wrote nothing.
+
+### Merged
+
+Added by the lead. PR 94 merged into `m3-making-an-install` on 2026-11-10 as `62f9f9b`, with `gate`, `check`, `pull-request` and `production` green on `3bb56ed`.
+
+I added four commits to the branch before it merged:
+
+- **A merge of the milestone branch**, which by then held ticket 14's release. Both tickets had added a line at the same place in the map, and the merge keeps both.
+- **`CONTRIBUTING.md`'s check of a release** no longer runs `pnpm install` after `npm create robkit`.
+- **The two tests of init's install use a fake pnpm**, ahead of the machine's own on `PATH`, beside the machine's real git (`pathAhead` in `src/test/path.ts`). They ran a real install from npm's registry with 110 seconds to finish. In the first CI run npm took 10 to 21 seconds a request, and neither finished. The registry test in `tooling/e2e` still makes an install and its first commit with the real pnpm, from `npm create robkit` alone, so the first criterion rests on both.
+- **Three of init's tests read pnpm's version from the checkout** (`installsPnpm`), where they named 11.28.9.
+
+The second CI run failed in the Next journey, for a cause that wasn't this ticket's: core restarted mid-journey when another install's `pnpm install` linked a file core imports. That is ticket 33. The same commit passed when the job ran again.
+
+After the merge I made the six tests that named robkit's version as 0.0.0 read it from `package.json`, so the version pull request passes `gate`: five in create-robkit and the registry test in `tooling/e2e`. In a copy bumped to 0.1.0 with `changeset version`, create-robkit's 364 tests and the registry test's 11 passed.
