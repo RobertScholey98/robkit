@@ -88,7 +88,8 @@
         "$TURBO_ROOT$/AGENTS.md",
         "$TURBO_ROOT$/docs/**",
         "$TURBO_ROOT$/renovate.json",
-        "$TURBO_ROOT$/.changeset/**"
+        "$TURBO_ROOT$/.changeset/**",
+        "$TURBO_ROOT$/.github/workflows/**"
       ]
     },
     "@internal/repo-checks#test:unit": {
@@ -109,7 +110,8 @@
         "$TURBO_ROOT$/AGENTS.md",
         "$TURBO_ROOT$/docs/**",
         "$TURBO_ROOT$/renovate.json",
-        "$TURBO_ROOT$/.changeset/**"
+        "$TURBO_ROOT$/.changeset/**",
+        "$TURBO_ROOT$/.github/workflows/**"
       ]
     }
   }
