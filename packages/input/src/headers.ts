@@ -1,10 +1,14 @@
+// The headers robkit sends with an answer, written here alone: the guard,
+// core, robkit() for the hub in dev, and the hub's server take them from
+// here. Go's port writes them again in go/session.
+
 /**
  * HSTS's value on an https install: a year, for the host that sends it
  * alone. robkit refuses plain http off a local domain, so an https install
  * stays https. No `includeSubDomains`, since the domain may hold hosts
  * robkit doesn't run.
  */
-export const strictTransportSecurity = "max-age=31536000";
+const strictTransportSecurity = "max-age=31536000";
 
 /** Who may frame an answer: pages on its own origin, or nobody. */
 export type Framers = "same-origin" | "none";

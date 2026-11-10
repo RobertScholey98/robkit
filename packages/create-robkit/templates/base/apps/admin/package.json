@@ -23,6 +23,7 @@
     "@internal/ui": "workspace:*",
     "@robkit/guard": "catalog:",
     "@robkit/session": "catalog:",
+    "@robkit/vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@testing-library/dom": "catalog:",
     "@testing-library/react": "catalog:",

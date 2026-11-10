@@ -99,6 +99,9 @@ export const packageGraph = {
     ],
     devDependencies: ["@internal/test-session"],
   },
+  // Everything robkit adds to Vite. Apps list it under devDependencies, and
+  // it is the one published package that names vite, so no image holds it.
+  "@robkit/vite": { dependencies: ["@robkit/input"], devDependencies: [] },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
   "@internal/tsconfig": { dependencies: [], devDependencies: [] },
   "@internal/test-postgres": { dependencies: [], devDependencies: [] },
@@ -122,6 +125,7 @@ export const packageGraph = {
       "@robkit/react",
       "@robkit/session",
       "@robkit/start",
+      "@robkit/vite",
       "create-robkit",
     ],
   },

@@ -183,6 +183,8 @@ export function useDevStack(
     dev = spawn("pnpm", ["run", "dev"], {
       cwd: dir,
       env: {
+        // This suite's VITEST goes along. robkit-dev keeps it from each
+        // app, whose robkit() would set nothing up under it.
         ...process.env,
         ROBKIT_DEV_PORT: String(devPort),
         ROBKIT_POSTGRES_PORT: String(postgresPort),

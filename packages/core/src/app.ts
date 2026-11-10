@@ -6,7 +6,11 @@ import { HTTPException } from "hono/http-exception";
 import { reportToConsole, type Report } from "@robkit/input/report";
 import type { CoreOrigin } from "@robkit/input";
 import { coreInstall } from "@robkit/input/addresses";
-import { isRedirect, securityHeaders, withHeaders } from "@robkit/session";
+import {
+  isRedirect,
+  securityHeaders,
+  withHeaders,
+} from "@robkit/input/headers";
 import type { TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
 import type { RouteContext } from "./routes/context.ts";

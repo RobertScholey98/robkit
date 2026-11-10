@@ -7,7 +7,7 @@ import {
 } from "@robkit/guard";
 import type { Slug } from "@robkit/input";
 import { coreInstall } from "@robkit/input/addresses";
-import { isRedirect, securityHeaders } from "./answer-headers.ts";
+import { isRedirect, securityHeaders } from "@robkit/input/headers";
 import { appRefreshPath } from "./app-session.ts";
 import {
   AccessRuleError,

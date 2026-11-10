@@ -101,7 +101,9 @@ describe("the docs' TypeScript examples", async () => {
 
   // Fails when an example drifts from the API. Fix the example, or mark a
   // fence that isn't a whole program ```ts nocheck.
+  // It compiles every example in every README, so it grows with each
+  // package. On a busy CI runner it passed the suite's 30 seconds.
   it("compile against the built packages", async () => {
     expect(await exampleProblems(repoRoot, examples)).toEqual([]);
-  });
+  }, 120_000);
 });

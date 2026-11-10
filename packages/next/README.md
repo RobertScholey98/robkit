@@ -42,6 +42,7 @@ export async function GET(): Promise<Response> {
 | `coreOrigin()`         | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                      |
 | `Viewer`               | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                     |
 | `@robkit/next/testing` | For tests only: `owner()`, `guest({ roles })` and `nobody()`. See [Testing](#testing)                                                                                                         |
+| `@robkit/next/config`  | `withRobkit(config?)`, for `next.config.ts`. See [The config](#the-config)                                                                                                                    |
 
 ## A lapsed session
 
@@ -80,6 +81,36 @@ function greeting(asking: Viewer): string {
 greeting(owner()); // "Welcome back"
 greeting(guest({ roles: ["family"] })); // "Hello"
 ```
+
+## The config
+
+`@robkit/next/config` exports `withRobkit(config?)`, which an app's `next.config.ts` is one call of:
+
+```ts
+import { withRobkit } from "@robkit/next/config";
+
+export default withRobkit({
+  // The app's own settings, if any.
+  reactStrictMode: true,
+});
+```
+
+It returns the function Next calls with its phase, and gives the app's settings with what the app needs in an install:
+
+- the build in `dist`, where turbo and the install's Dockerfile find it;
+- `agentRules` off, since the app's `AGENTS.md` is the install's and `next dev` would add its own section;
+- under `next dev`, the dev proxy's host names in `allowedDevOrigins`, beside any the app gives;
+- under `next dev` and `next build`, a linked install's robkit checkout as an extra Turbopack root, beside any the app gives. An install from npm needs none.
+
+Under `next dev` it checks `ROBKIT_APP` and `ROBKIT_CORE_URL`, and stops with the reader's message, naming the one that's missing. Next loads `proxy.ts`, and the guard, only on the first request, so without it a missing setting would wait for that.
+
+It sets `NEXT_TELEMETRY_DISABLED`, which `next build` reads after it loads the config. `next dev`'s own process reads it before it loads any config, so `pnpm dev` sets it for every app. Next's production server sends no telemetry.
+
+Next loads `next.config.ts` in production as well, so an app lists `@robkit/next` under `dependencies`, and `@robkit/next/config` imports nothing from the guard or from a build tool.
+
+| Export                | What it is                                                                                                              |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `withRobkit(config?)` | The function Next calls with its phase. `distDir` and `agentRules` are robkit's; the app's other settings stay as given |
 
 ## What it must never do
 

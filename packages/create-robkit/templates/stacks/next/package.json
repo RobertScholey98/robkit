@@ -2,7 +2,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NEXT_TELEMETRY_DISABLED=1 next dev --hostname 127.0.0.1",
+    "dev": "next dev --hostname 127.0.0.1",
     "typecheck": "tsc",
     "test": "vitest run",
     "build": "next build",
@@ -13,6 +13,7 @@
   "dependencies": {
     "@robkit/drizzle": "catalog:",
     "@robkit/input": "catalog:",
+    "@robkit/next": "catalog:",
     "drizzle-orm": "catalog:",
     "next": "catalog:",
     "postgres": "catalog:",
@@ -22,7 +23,6 @@
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
     "@internal/ui": "workspace:*",
-    "@robkit/next": "catalog:",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

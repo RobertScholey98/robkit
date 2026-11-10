@@ -35,6 +35,8 @@ createServer((_req, res) => {
       app: process.env.ROBKIT_APP,
       apps: process.env.ROBKIT_APPS,
       database: databaseUrl !== undefined,
+      nextTelemetry: process.env.NEXT_TELEMETRY_DISABLED,
+      vitest: process.env.VITEST,
     }),
   );
 }).listen(Number(process.env.PORT), "127.0.0.1", () => {

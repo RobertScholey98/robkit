@@ -33,14 +33,15 @@ Never change state while a page renders or in a route handler's `GET`. Files out
 
 The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through, so only this app's own pages can put it in a frame. A frame from any app beside it would carry the viewer's cookies. To let another origin frame a page, such as the hub, send `Content-Security-Policy: frame-ancestors 'self' https://hub.<domain>` with it, and a browser follows that instead. To refuse every framer, this app included, send `frame-ancestors 'none'`.
 
-A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page sends its policy through `headers()` in `next.config.ts`, and a route handler sends it on its own answer. An `X-Frame-Options` of the app's own never arrives: Next sends the guard's and drops the app's.
+A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page sends its policy through `headers()` in `next.config.ts`, as `withRobkit({ headers: ... })`, and a route handler sends it on its own answer. An `X-Frame-Options` of the app's own never arrives: Next sends the guard's and drops the app's.
 
 ## Serving
 
-- `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. `next.config.ts` lets the dev proxy's host reach Next's dev server. Telemetry is off: the `dev` script sets `NEXT_TELEMETRY_DISABLED` because `next dev`'s own process never loads `next.config.ts`, and `next.config.ts` sets it for `next build` and the server.
+- `next.config.ts` is one call, `withRobkit()` from `@robkit/next/config`. It puts the build in `dist`, lets the dev proxy's host reach Next's dev server, and under `pnpm dev` stops the app as it starts, with the guard's message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. Put the app's own Next settings in its argument, such as `withRobkit({ images: { ... } })`.
+- `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. Telemetry is off: `pnpm dev` sets `NEXT_TELEMETRY_DISABLED` for every app, because `next dev`'s own process never loads `next.config.ts`, and `withRobkit()` sets it for `next build`. Next's production server sends none.
 - `pnpm build` runs `next build`, which writes the build to `dist`.
 - The production image runs the `start` script, which migrates and then runs `src/serve.ts`. It serves the build with Next's request handler on `HOST` and `PORT`.
-- `dependencies` are what runs in production: Next, React, and what `src/serve.ts` imports, and `@robkit/drizzle` with `drizzle-orm` and `postgres`, which the `migrate` script runs. The production image installs only those. `next build` bundles everything else the pages and the proxy import, `@robkit/next` and the UI kit among them, so those are dev dependencies.
+- `dependencies` are what runs in production: Next, React, and what `src/serve.ts` imports, `@robkit/next`, since Next loads `next.config.ts` in production too, and `@robkit/drizzle` with `drizzle-orm` and `postgres`, which the `migrate` script runs. The production image installs only those. `next build` bundles everything else the pages and the proxy import, the UI kit among them, so those are dev dependencies.
 
 ## Testing
 

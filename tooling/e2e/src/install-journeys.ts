@@ -100,6 +100,17 @@ export function describeJourneys(
 
       expect(hub.headers["content-type"]).toMatch(/text\/html/);
       expect(hub.body).toContain('<div id="root">');
+      // The hub has no guard, so robkit({ guarded: false }) sends core's
+      // three headers from its dev server: nobody may frame it.
+      expect({
+        frame: hub.headers["x-frame-options"],
+        policy: hub.headers["content-security-policy"],
+        sniff: hub.headers["x-content-type-options"],
+      }).toEqual({
+        frame: "DENY",
+        policy: "frame-ancestors 'none'",
+        sniff: "nosniff",
+      });
     });
 
     it("serves core on core.robkit.localhost, open to the hub", async () => {

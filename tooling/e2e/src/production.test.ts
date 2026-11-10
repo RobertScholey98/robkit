@@ -272,6 +272,19 @@ describe("the default install in production", () => {
     },
   );
 
+  // Next loads next.config.ts, and withRobkit() from @robkit/next/config,
+  // as its server starts, so the Next app's image holds @robkit/next and
+  // the robkit packages it runs on.
+  it("puts @robkit/next and what it runs on in the Next app's image", async () => {
+    expect(await robkitPackages(stack, slug("next"))).toEqual([
+      "@robkit/drizzle",
+      "@robkit/guard",
+      "@robkit/input",
+      "@robkit/next",
+      "@robkit/session",
+    ]);
+  });
+
   // Last, since they stop what the tests above use. The exit code is the
   // server's own: Docker's signal reached it, and it stopped before
   // Docker's kill, which would have made it 137.

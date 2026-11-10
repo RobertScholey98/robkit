@@ -136,6 +136,7 @@ flowchart TD
   gomodule["go/ (Go module)<br/>guard and request guard, ported"]
   core["@robkit/core<br/>the backend"]
   dev["@robkit/dev<br/>robkit-dev, provision step"]
+  vite["@robkit/vite<br/>dev server setup, dev only"]
   create["create-robkit<br/>init and the robkit command"]
 
   guard --> input
@@ -176,27 +177,29 @@ flowchart TD
 
 ## Where to look
 
-| Concern                                         | Where                                                                                      |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Who may open an app                             | `packages/guard/src/guard.ts`, and the cases in `packages/guard/conformance.json`          |
-| Reading cookies, verifying tokens, `/_robkit/*` | `packages/session/src/request-guard.ts`                                                    |
-| The same, for a Go app                          | `go/session/guarded.go` and `go/guard/guard.go` (see `go/README.md`)                       |
-| Token claims and cookies                        | `packages/session/src/session-token.ts`                                                    |
-| Reading env, JSON, slugs and the manifest       | `packages/input/src/` (`@robkit/input`), and `docs/conventions/input.md`                   |
-| An install's addresses                          | `packages/session/src/addresses.ts` (`@robkit/session/addresses`)                          |
-| What an app declares in its manifest            | `packages/input/src/manifest.ts` (`@robkit/input`)                                         |
-| Core's routes                                   | `packages/core/src/routes/`, mounted in `app.ts`                                           |
-| Core's tables                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                      |
-| Sessions, refresh and minting app tokens        | `packages/core/src/session-store.ts`, `packages/core/src/mint-token.ts`                    |
-| Access codes, roles and the app catalog         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                 |
-| The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`, `sign-in-limits.ts`, `password.ts`         |
-| `pnpm dev`: finding apps, the proxy, the runner | `packages/dev/src/apps.ts`, `proxy.ts`, `runner.ts`                                        |
-| Each app's schema and role                      | `packages/provision/src/provision.ts` (`@robkit/provision`)                                |
-| How core starts and stops                       | `packages/core/src/robkit-core.ts`, `serve-core.ts`, `listen.ts`                           |
-| What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/` |
-| `robkit add`                                    | `packages/create-robkit/src/add.ts`, `add-wizard.ts`                                       |
-| The install's layer rule                        | `packages/create-robkit/src/check.ts`                                                      |
-| Deploying to Coolify                            | `packages/create-robkit/src/coolify-*.ts`, `deployment.ts`                                 |
-| The hub and admin                               | `packages/create-robkit/templates/base/apps/hub`, `apps/admin`                             |
-| robkit's own layer rule                         | `tooling/eslint/layers.js`, `core-schema.js`                                               |
-| The whole-stack test                            | `tooling/e2e/src/`                                                                         |
+| Concern                                         | Where                                                                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Who may open an app                             | `packages/guard/src/guard.ts`, and the cases in `packages/guard/conformance.json`                                      |
+| Reading cookies, verifying tokens, `/_robkit/*` | `packages/session/src/request-guard.ts`                                                                                |
+| The same, for a Go app                          | `go/session/guarded.go` and `go/guard/guard.go` (see `go/README.md`)                                                   |
+| Token claims and cookies                        | `packages/session/src/session-token.ts`                                                                                |
+| Reading env, JSON, slugs and the manifest       | `packages/input/src/` (`@robkit/input`), and `docs/conventions/input.md`                                               |
+| An install's addresses                          | `packages/session/src/addresses.ts` (`@robkit/session/addresses`)                                                      |
+| What an app declares in its manifest            | `packages/input/src/manifest.ts` (`@robkit/input`)                                                                     |
+| Core's routes                                   | `packages/core/src/routes/`, mounted in `app.ts`                                                                       |
+| Core's tables                                   | `packages/core/src/schema.ts`, migrations in `packages/core/drizzle/`                                                  |
+| Sessions, refresh and minting app tokens        | `packages/core/src/session-store.ts`, `packages/core/src/mint-token.ts`                                                |
+| Access codes, roles and the app catalog         | `packages/core/src/access-codes.ts`, `roles.ts`, `apps.ts`                                                             |
+| The sign-in limit                               | `packages/core/src/rate-limit.ts`, `client.ts`, `sign-in-limits.ts`, `password.ts`                                     |
+| `pnpm dev`: finding apps, the proxy, the runner | `packages/dev/src/apps.ts`, `proxy.ts`, `runner.ts`                                                                    |
+| An app's dev server and build config            | `packages/vite/src/robkit.ts` and `express.ts` (`@robkit/vite`), `packages/next/src/config.ts` (`@robkit/next/config`) |
+| The headers robkit sends                        | `packages/input/src/headers.ts` (`@robkit/input/headers`), and `go/session/` for Go                                    |
+| Each app's schema and role                      | `packages/provision/src/provision.ts` (`@robkit/provision`)                                                            |
+| How core starts and stops                       | `packages/core/src/robkit-core.ts`, `serve-core.ts`, `listen.ts`                                                       |
+| What init writes                                | `packages/create-robkit/src/generate.ts`, templates in `packages/create-robkit/templates/`                             |
+| `robkit add`                                    | `packages/create-robkit/src/add.ts`, `add-wizard.ts`                                                                   |
+| The install's layer rule                        | `packages/create-robkit/src/check.ts`                                                                                  |
+| Deploying to Coolify                            | `packages/create-robkit/src/coolify-*.ts`, `deployment.ts`                                                             |
+| The hub and admin                               | `packages/create-robkit/templates/base/apps/hub`, `apps/admin`                                                         |
+| robkit's own layer rule                         | `tooling/eslint/layers.js`, `core-schema.js`                                                                           |
+| The whole-stack test                            | `tooling/e2e/src/`                                                                                                     |

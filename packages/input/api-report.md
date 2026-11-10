@@ -158,3 +158,18 @@ export function readListedApp(
   field: string,
 ): ListedApp | InputProblem;
 ```
+
+## @robkit/input/headers
+
+```ts
+export type Framers = "same-origin" | "none";
+export function isRedirect(status: number): boolean;
+export function securityHeaders(
+  origin: string,
+  framers: Framers | undefined,
+): [string, string][];
+export function withHeaders(
+  response: Response,
+  headers: readonly [string, string][],
+): Response;
+```

@@ -26,6 +26,7 @@
 Found while milestone 1 was built (2026-11-09):
 
 - Two of repo-checks' own tests hit Vitest's 30-second limit on a busy GitHub runner, once each, and passed on a rerun: the `beforeAll` in `tooling/repo-checks/src/new-package.test.ts` (PR 78, run 42719625052) and `doc-examples.test.ts` (PR 75). Each does real work in a hook or a test: it copies the repo, or builds. Give them a limit that fits the work, or make the work smaller. Don't add a retry.
+- The lead gave both a 120-second limit on 2026-11-10, in ticket 10's PR. They had timed out three more times in milestone 2, once as a 25-minute CI run's only failure, and `doc-examples.test.ts` compiles every README's examples, so it slows with each new package. What is left for this ticket is to make the work smaller, if it still matters.
 
 Found in milestone 1's code review (2026-11-10):
 

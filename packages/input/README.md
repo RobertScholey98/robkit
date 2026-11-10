@@ -1,6 +1,6 @@
 # @robkit/input
 
-Readers for input from outside robkit's own code: environment variables, JSON, an app's slug and its manifest. Each takes the raw value and returns the typed value or an `InputProblem` that says what to fix. `docs/conventions/input.md` says how robkit uses them. Its subpaths hold the manifest format, an install's addresses, `Report` and the command lines' handler, which robkit's packages share.
+Readers for input from outside robkit's own code: environment variables, JSON, an app's slug and its manifest. Each takes the raw value and returns the typed value or an `InputProblem` that says what to fix. `docs/conventions/input.md` says how robkit uses them. Its subpaths hold the manifest format, an install's addresses, the headers robkit sends, `Report` and the command lines' handler, which robkit's packages share.
 
 Every robkit package and every app can import it. It imports nothing, so the browser can load it.
 
@@ -68,6 +68,16 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 | `isLocal(domain)`                     | Whether the domain is `localhost` or under it, the only kind of install that may run over plain http                                                                                                               |
 | `defaultDomain`, `defaultDevPort`     | `robkit.localhost` and `3000`                                                                                                                                                                                      |
 | `coreInstall(core)`                   | The install core's origin is on. Takes a `CoreOrigin` from `readCoreUrl`                                                                                                                                           |
+
+### `@robkit/input/headers`
+
+The headers robkit sends with an answer, written here and nowhere else in TypeScript. The guard, core, `robkit()` for the hub in dev, and the hub's server all take them from here. `@robkit/session` re-exports them for the adapters. Go's port writes the same values in `go/session`; change both together.
+
+| Export                                        | What it is                                                                                                                                               |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `securityHeaders(origin, framers)`, `Framers` | `nosniff`, HSTS when `origin` is https, and who may frame the answer: `same-origin`, `none`, or `undefined` for a redirect, which gets no framing header |
+| `withHeaders(response, headers)`              | `response` with each of `headers` it lacks, copied first when its headers can't change                                                                   |
+| `isRedirect(status)`                          | Whether `status` sends the browser on                                                                                                                    |
 
 ### `@robkit/input/report`
 

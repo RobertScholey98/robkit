@@ -77,6 +77,10 @@ async function devInstall(
     port,
     env: {
       ...process.env,
+      // Each app gets it from robkit-dev, not from the shell.
+      NEXT_TELEMETRY_DISABLED: undefined,
+      // As a test that starts pnpm dev hands it. No app may see it.
+      VITEST: "true",
       ROBKIT_DEV_PORT: String(port),
       ROBKIT_POSTGRES_PORT: String(await freePostgresPort()),
       COMPOSE_FILE: testComposeFiles(),
@@ -191,6 +195,7 @@ describe("robkit-dev", () => {
     const beta: unknown = JSON.parse(
       await eventually(() => get(dev.port, "beta.robkit.localhost")),
     );
+    // Neither holds `vitest`: an app pnpm dev runs is no test run.
     expect(alpha).toEqual({
       slug: "alpha",
       domain: "robkit.localhost",
@@ -198,6 +203,7 @@ describe("robkit-dev", () => {
       app: "alpha",
       apps: JSON.stringify([{ slug: "alpha" }, { slug: "beta" }]),
       database: true,
+      nextTelemetry: "1",
     });
     expect(beta).toEqual({
       slug: "beta",
@@ -206,6 +212,7 @@ describe("robkit-dev", () => {
       app: "beta",
       apps: JSON.stringify([{ slug: "alpha" }, { slug: "beta" }]),
       database: false,
+      nextTelemetry: "1",
     });
     expect(dev.output()).toMatch(/^\[alpha\] .*listening on \d+$/m);
 

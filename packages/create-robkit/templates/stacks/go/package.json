@@ -15,6 +15,7 @@
     "@internal/ui": "workspace:*",
     "@robkit/input": "catalog:",
     "@robkit/react": "catalog:",
+    "@robkit/vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

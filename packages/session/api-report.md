@@ -45,7 +45,7 @@ export interface GuardSettings {
   app?: string | undefined;
   core?: string | undefined;
 }
-export function isRedirect(status: number): boolean;
+export { isRedirect } from "@robkit/input/headers";
 export function readAppToken(
   key: VerifyKey,
   token: string,
@@ -76,10 +76,7 @@ export type RequestDecision =
 export function requestGuard(
   options?: GuardedOptions,
 ): (request: Request) => Promise<RequestDecision>;
-export function securityHeaders(
-  origin: string,
-  framers: Framers | undefined,
-): [string, string][];
+export { securityHeaders } from "@robkit/input/headers";
 export const sessionCookie: "robkit_session";
 export function sessionCookies(origin: string): SessionCookies;
 export interface SessionCookies {
@@ -111,10 +108,7 @@ export type ViewerClaims =
       id: CodeId;
       roles: RoleId[];
     };
-export function withHeaders(
-  response: Response,
-  headers: readonly [string, string][],
-): Response;
+export { withHeaders } from "@robkit/input/headers";
 ```
 
 ## @robkit/session/lapsed
