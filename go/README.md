@@ -35,14 +35,14 @@ return http.ListenAndServe("127.0.0.1:3000", guarded(mux))
 
 `session`:
 
-| Name                                   | What it is                                                                                                                                                        |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Guarded(options)`                     | The guard, as a `func(http.Handler) http.Handler`. It answers `/_robkit/session` and `/_robkit/refresh` itself, and refuses options that won't do                 |
-| `Options`                              | `App` (the slug), `Core` (core's public origin), an optional fixed `Access` rule, an optional `OnUnavailable`, and `Now`, the clock                               |
-| `ReadGuardEnv(getenv)`                 | `Options` from `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy` set. Its error says how to fix each variable                              |
-| `ViewerFrom(ctx)`                      | Who is asking, a `guard.Viewer`. It panics for a request that didn't come through `Guarded`                                                                       |
-| `WithViewer(ctx, viewer)`              | A context carrying a viewer, for testing a handler                                                                                                                |
-| `Fault`, `Failed`, `AccessRuleFailure` | What `OnUnavailable` hears when the guard answers 503: what failed (`core-key`, `access-rule` or `network`), how core's answer for the rule failed, and the cause |
+| Name                                   | What it is                                                                                                                                                                             |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Guarded(options)`                     | The guard, as a `func(http.Handler) http.Handler`. It answers `/_robkit/session` and `/_robkit/refresh` itself, refuses a write from another origin, and refuses options that won't do |
+| `Options`                              | `App` (the slug), `Core` (core's public origin), an optional fixed `Access` rule, an optional `OnUnavailable`, and `Now`, the clock                                                    |
+| `ReadGuardEnv(getenv)`                 | `Options` from `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy` set. Its error says how to fix each variable                                                   |
+| `ViewerFrom(ctx)`                      | Who is asking, a `guard.Viewer`. It panics for a request that didn't come through `Guarded`                                                                                            |
+| `WithViewer(ctx, viewer)`              | A context carrying a viewer, for testing a handler                                                                                                                                     |
+| `Fault`, `Failed`, `AccessRuleFailure` | What `OnUnavailable` hears when the guard answers 503: what failed (`core-key`, `access-rule` or `network`), how core's answer for the rule failed, and the cause                      |
 
 `guard`:
 

@@ -17,7 +17,8 @@ const check = requestGuard(orExit(readGuardEnv(process.env)));
 
 async function handle(request: Request): Promise<Response> {
   const decision = await check(request);
-  // A redirect to the hub or core, the guard's 401 for a call, or a 404.
+  // A redirect to the hub or core, the guard's 401 for a call, its 403
+  // for a write from another origin, or a 404.
   if (decision.outcome === "answer") return decision.response;
   return new Response(`Hello, ${decision.viewer.kind}`);
 }
@@ -61,6 +62,8 @@ The readers for input from outside robkit's own code, an app's environment, the 
 - Every URL the guard builds is `appOrigin` plus the request's path and query, worked out once from `GuardedOptions`. An adapter may hand it a `Request` on any origin: only its path and query count. The `address` list in `tooling/test-session/request-cases.json` holds the cases, forged headers and a target that starts with two slashes among them, that this package's tests, the Express and Next adapters' tests and Go's tests all run.
 - A page load it holds nothing for goes to core's `/refresh` with a random state, and core sends the browser back to the app's `/_robkit/session` with a token for that app, or none if nobody is signed in.
 - The guard answers that callback, and `/_robkit/refresh`, where a call whose token lapsed sends the browser, itself, so the adapters and the app's code never see them.
+- Before anything else, on every path, it refuses a write from another origin with a plain-text 403 (`isFromAnotherOrigin` in `guard-http.ts`). Any method but GET, HEAD and OPTIONS is a write. `Sec-Fetch-Site` decides when it is there, and `Origin` when it isn't. A WebSocket handshake is judged by `Origin` alone. The `writes` list in `tooling/test-session/request-cases.json` holds the cases, which this package's tests, every adapter's tests and Go's tests run.
+- A form posted as a page load (`POST` with `Sec-Fetch-Mode: navigate`) that would get the JSON 401 gets an HTML page with the same status instead (`formNotSent` in `guard-http.ts`). Its one link goes through `/_robkit/refresh` back to the page in the `Referer`, when that is a page on the app. Who the guard takes the request to be doesn't change. The `formPost` list holds the `Referer` cases both ports run.
 - It fetches core's public key once, so apps verify tokens locally, and keeps an app's access rule from core for a minute.
 - When it can't check a request it answers 503 and tells `onUnavailable` why: what failed (`core-key`, `access-rule` or `network`) and the cause. An `access-rule` fault also has a `reason`: `unknown-app`, `bad-answer`, `invalid-json` or `interrupted-body`. By default that reports the app, what failed and the cause through `reportToConsole` from `@robkit/input/report`.
 - The guard's code is in four files. `request-guard.ts` is the dispatcher: it reads the session, reads the rule, asks `guard` and turns the decision into an answer. `refresh-protocol.ts` holds the trip through core and back, with the state cookie and the app's own cookie, and reads the session from that cookie. `core-access.ts` loads the app's rule, keeps it for a minute, and throws an `AccessRuleError` that says how core's answer failed. `guard-http.ts` holds the helpers for reading the request and writing the answer.
