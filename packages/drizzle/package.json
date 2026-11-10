@@ -30,6 +30,9 @@
     "test": "vitest run --coverage",
     "test:unit": "vitest run --project unit"
   },
+  "dependencies": {
+    "@robkit/input": "workspace:*"
+  },
   "peerDependencies": {
     "drizzle-orm": "^0.45.0",
     "postgres": "^3.4.0"

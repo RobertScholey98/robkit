@@ -2,7 +2,6 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    passWithNoTests: true,
     // A `*.db.test.ts` file needs the suite's Postgres, which needs Docker.
     // `test:unit` runs the `unit` project alone, so `pnpm check` runs the
     // rest without starting Postgres.

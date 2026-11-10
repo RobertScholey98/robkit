@@ -5,6 +5,14 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/drizzle
 
 ```ts
+export function appDatabase<TSchema extends Record<string, unknown>>(
+  schema: TSchema,
+  options?: PoolOptions,
+): () => AppDatabase<TSchema>;
+export type AppDatabase<TSchema extends Record<string, unknown>> =
+  PostgresJsDatabase<TSchema> & {
+    $client: postgres.Sql;
+  };
 export function migrate({
   databaseUrl,
   folder,
@@ -15,4 +23,7 @@ export interface MigrateOptions {
   folder: string;
   schema?: string;
 }
+export type PoolOptions = postgres.Options<
+  Record<string, postgres.PostgresType>
+>;
 ```

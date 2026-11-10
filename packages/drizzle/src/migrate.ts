@@ -75,9 +75,10 @@ async function firstSchema(db: PostgresJsDatabase): Promise<string> {
   }>(sql`
     select current_schema() as schema, current_user as role,
       current_setting('search_path') as path`);
+  // A select with no from gives exactly one row.
   if (row?.schema == null) {
     throw new Error(
-      `The database role ${row?.role ?? "in DATABASE_URL"} has no schema on its search path (${row?.path ?? "unknown"}), so there is nowhere to keep the migrations' journal. Run the provision step, which makes the app's schema, then migrate again.`,
+      `The database role ${String(row?.role)} has no schema on its search path (${String(row?.path)}), so there is nowhere to keep the migrations' journal. Run the provision step, which makes the app's schema, then migrate again.`,
     );
   }
   return row.schema;

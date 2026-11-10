@@ -64,7 +64,7 @@ export const packageGraph = {
   // Gives an app its Drizzle database and migrates its schema. Its tests
   // migrate a schema the provision step made.
   "@robkit/drizzle": {
-    dependencies: [],
+    dependencies: ["@robkit/input"],
     devDependencies: [
       "@internal/test-postgres",
       "@internal/test-session",
