@@ -27,6 +27,7 @@
     "@robkit/react": "workspace:*",
     "@robkit/session": "workspace:*",
     "@robkit/start": "workspace:*",
+    "@robkit/vite": "workspace:*",
     "@tanstack/react-start": "catalog:",
     "@types/express": "catalog:",
     "@types/node": "catalog:",
