@@ -38,23 +38,24 @@ export interface Ran {
   stderr: string;
 }
 
-/** How long a command init runs for its checks may take. */
-const checkTimeoutMs = 120_000;
+/** How long a command init runs for its checks or its commit may take. */
+const runTimeoutMs = 120_000;
 
 /**
  * Runs `command` with `args` in `cwd` and collects what it prints. On
- * Windows the shell starts it, since pnpm is a .cmd file there, so `args`
- * must be plain words.
+ * Windows the shell starts it, since pnpm is a .cmd file there, so each of
+ * `args` must be fixed text with no quote or `%` in it.
  */
 export function run(
   command: string,
   args: string[],
   { cwd, env }: { cwd: string; env: NodeJS.ProcessEnv },
 ): Promise<Ran> {
-  const options = { cwd, env, timeout: checkTimeoutMs };
+  const options = { cwd, env, timeout: runTimeoutMs };
+  const quoted = args.map((arg) => (/\s/.test(arg) ? `"${arg}"` : arg));
   const child =
     process.platform === "win32"
-      ? spawn([command, ...args].join(" "), { ...options, shell: true })
+      ? spawn([command, ...quoted].join(" "), { ...options, shell: true })
       : spawn(command, args, options);
   let stdout = "";
   let stderr = "";

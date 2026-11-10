@@ -2,13 +2,14 @@ import { requireGo } from "@robkit/dev/cli";
 import { toolchainOf, type Choices } from "./choices.ts";
 import { generateInstall, type GenerateOptions } from "./generate.ts";
 import { jsonObject, stringsIn } from "./json.ts";
-import { initGit, installDependencies } from "./set-up.ts";
+import { firstCommit, installDependencies, startGit } from "./set-up.ts";
 import { dockerNote, requirePnpm } from "./toolchain.ts";
 import { writeInstall } from "./write.ts";
 
 export interface InitOptions extends GenerateOptions {
   /**
-   * Initialise git and install the dependencies once the install is written.
+   * Initialise git, install the dependencies and make the first commit once
+   * the install is written.
    * On by default, as on the command line without `--no-install`.
    */
   install?: boolean;
@@ -25,9 +26,10 @@ export interface InitResult {
 /**
  * Takes init's choices to a finished install in `dir`, which must be empty
  * or not exist yet. It checks what it needs, generates the install, writes
- * it, and unless told not to install, initialises git and installs its
- * dependencies, in that order, so an install script that sets up git
- * hooks, as Husky's does, finds the repository. The command line and the
+ * it, and unless told not to install, initialises git, installs its
+ * dependencies and commits, in that order, so an install script that sets
+ * up git hooks, as Husky's does, finds the repository. A first commit that
+ * fails is a note, not a failure. The command line and the
  * whole-stack test both make their installs with it.
  *
  * Every check runs before it writes anything: Go for an example on React +
@@ -53,7 +55,8 @@ export async function init(
   }
   await writeInstall(dir, files);
   if (!install) return { notes };
-  await initGit(dir, env);
+  const noGit = await startGit(dir, env);
   await installDependencies(dir, env);
-  return { notes };
+  const noCommit = noGit ?? (await firstCommit(dir, env));
+  return { notes: noCommit === undefined ? notes : [...notes, noCommit] };
 }
