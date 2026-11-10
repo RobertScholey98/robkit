@@ -730,6 +730,136 @@ func coreHost(core *fakecore.Core) string {
 	return u.Host
 }
 
+var linkPattern = regexp.MustCompile(`<a href="([^"<>]*)">`)
+
+// linksIn is each link in a page's HTML, as a browser reads its href.
+func linksIn(html string) []string {
+	var links []string
+	for _, match := range linkPattern.FindAllStringSubmatch(html, -1) {
+		links = append(links, strings.ReplaceAll(match[1], "&amp;", "&"))
+	}
+	return links
+}
+
+// form is a form posted from the app's own page, as a browser sends one.
+func form(headers ...map[string]string) map[string]string {
+	return with(append([]map[string]string{navigate, {"sec-fetch-site": "same-origin"}}, headers...)...)
+}
+
+func TestGuardOnAFormItCantTake(t *testing.T) {
+	for _, c := range conformance.FormPostCases(t) {
+		t.Run(c.Name, func(t *testing.T) {
+			open := guarded(t, nil, session.Options{Access: guard.OwnerRule{}, Core: c.Core})
+			headers := form()
+			if c.Referer != "" {
+				headers["referer"] = c.Referer
+			}
+
+			res := open.open(http.MethodPost, onApp(c.Core, "/notes"), headers)
+
+			want := onApp(c.Core, "/_robkit/refresh") + "?" + url.Values{"next": {c.Next}}.Encode()
+			if links := linksIn(res.body); res.status != 401 || res.header.Get("content-type") != "text/html; charset=UTF-8" || !slices.Equal(links, []string{want}) {
+				t.Errorf("got %d %q %q, want 401 with one link, %q", res.status, res.header.Get("content-type"), links, want)
+			}
+			if regexp.MustCompile(`<script|<img|onerror`).MatchString(res.body) {
+				t.Errorf("the page holds markup from the Referer: %s", res.body)
+			}
+		})
+	}
+}
+
+func TestGuardAnswersAFormWithAPageNoCacheKeepsSayingItWasntSent(t *testing.T) {
+	core := fakecore.Start(t)
+
+	res := ownerOnly(t, core).open(http.MethodPost, core.Page, form(map[string]string{"referer": core.Page}))
+
+	if res.status != 401 || res.header.Get("cache-control") != "no-store" || !strings.Contains(res.body, "<h1>Your form wasn't sent</h1>") {
+		t.Errorf("got %d %v %s", res.status, res.header, res.body)
+	}
+}
+
+func TestGuardSendsAFormWhoseTokenLapsedBackToItsPageSignedIn(t *testing.T) {
+	core := fakecore.Start(t)
+	open := ownerOnly(t, core)
+	lapsedToken := core.Key.Token(fakecore.TokenOptions{Age: 20 * time.Minute})
+
+	page := open.open(http.MethodPost, core.Page, form(map[string]string{"referer": core.Page}, cookie(lapsedToken)))
+	links := linksIn(page.body)
+	if len(links) != 1 {
+		t.Fatalf("got %d %q, want one link", page.status, page.body)
+	}
+	away := open.get(links[0], navigate)
+	token := core.Key.Token(fakecore.TokenOptions{})
+	back := open.get(callbackFor(core.Page, stateIn(away.location()), &token), navigate, cookiesFrom(away))
+	signedIn := open.get(core.Page, navigate, cookiesFrom(back))
+
+	if page.status != 401 || back.location() != core.Page {
+		t.Errorf("page %d, back to %q", page.status, back.location())
+	}
+	if signedIn.status != 200 || signedIn.body != viewerJSON(t, guard.Owner{ID: "owner-1"}) {
+		t.Errorf("signed in: %d %s", signedIn.status, signedIn.body)
+	}
+}
+
+func TestGuardSendsASignedOutViewersFormOnAGatedAppToTheHub(t *testing.T) {
+	core := fakecore.Start(t)
+	open := ownerOnly(t, core)
+
+	page := open.open(http.MethodPost, core.Page, form(map[string]string{"referer": core.Page}))
+	links := linksIn(page.body)
+	if len(links) != 1 {
+		t.Fatalf("got %d %q, want one link", page.status, page.body)
+	}
+	away := open.get(links[0], navigate)
+	back := open.get(callbackFor(core.Page, stateIn(away.location()), nil), navigate, cookiesFrom(away))
+	toHub := open.get(core.Page, navigate, cookiesFrom(back))
+
+	if want := []string{"robkit_session=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"}; page.status != 401 || !slices.Equal(page.cookies, want) {
+		t.Errorf("page %d %q", page.status, page.cookies)
+	}
+	if back.location() != core.Page || toHub.location() != loginLocation(core, core.Page) {
+		t.Errorf("back to %q, then %q", back.location(), toHub.location())
+	}
+}
+
+func TestGuardLetsASignedOutVisitorsFormOnAnOpenAppThroughAsNobody(t *testing.T) {
+	for name, said := range map[string]map[string]string{
+		"fresh":               {"cookie": "robkit_session=signed-out." + strconv.FormatInt(time.Now().Unix(), 10)},
+		"older than a minute": {"cookie": "robkit_session=signed-out." + strconv.FormatInt(time.Now().Add(-2*time.Minute).Unix(), 10)},
+		"absent":              {},
+	} {
+		t.Run(name, func(t *testing.T) {
+			core := fakecore.Start(t)
+
+			res := guarded(t, core, session.Options{Access: guard.OpenRule{}}).open(http.MethodPost, core.Page, form(map[string]string{"referer": core.Page}, said))
+
+			if res.status != 200 || res.body != `{"kind":"nobody"}`+"\n" {
+				t.Errorf("got %d %s", res.status, res.body)
+			}
+		})
+	}
+}
+
+func TestGuardAnswersAFetchInEachOfThoseCasesAsBefore(t *testing.T) {
+	core := fakecore.Start(t)
+	call := map[string]string{"sec-fetch-mode": "cors", "sec-fetch-site": "same-origin"}
+	old := core.Key.Token(fakecore.TokenOptions{Age: 20 * time.Minute})
+
+	refresh := ownerOnly(t, core).open(http.MethodPost, core.Page, call, cookie(old))
+	login := ownerOnly(t, core).open(http.MethodPost, core.Page, call)
+	nobody := guarded(t, core, session.Options{Access: guard.OpenRule{}}).open(http.MethodPost, core.Page, call)
+
+	if o, _, l := lapsed(t, refresh); o != "refresh" || l != onApp(core.Origin, "/_robkit/refresh") {
+		t.Errorf("refresh: %q %q", o, l)
+	}
+	if o, _, l := lapsed(t, login); o != "login" || l != core.Hub+"/" {
+		t.Errorf("login: %q %q", o, l)
+	}
+	if nobody.status != 200 || nobody.body != `{"kind":"nobody"}`+"\n" {
+		t.Errorf("nobody: %d %s", nobody.status, nobody.body)
+	}
+}
+
 func TestGuardFetchesCoresKeyOnceKeepingCoresHost(t *testing.T) {
 	core := fakecore.Start(t)
 	open := ownerOnly(t, core)
