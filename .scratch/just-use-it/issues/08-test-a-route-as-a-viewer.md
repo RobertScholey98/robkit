@@ -26,7 +26,7 @@
 - [x] Each Node stack's template has a `test` script and a test of its page as the owner and as a guest, which passes with no database and no `pnpm dev` running
 - [x] The whole-stack test's run of each install's own CI passes with the new tests
 - [x] The API reports, READMEs and each stack's `AGENTS.md` cover the entry and the pattern
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -62,3 +62,7 @@ Each Vite config now skips its check with `if (command === "serve" && !process.e
 - **Go:** `routes(page, visits visitStore)`, where `visitStore` has `record` and `count`. `visitsIn(db)` returns `databaseVisits`.
 
 Ticket 09 can swap `database.ts` for `appDatabase(schema)` with no change to `visits.ts`, as long as `database` stays a function. `database.ts`, `migrate.ts` and each `serve.ts` are untouched, and each `serve.ts` still imports the server file's default export.
+
+### Merged
+
+Added by the lead. PR 85 merged into `m2-an-apps-files` on 2026-11-10, with `gate`, `check`, `production` and `pull-request` green on `3d4125f`.
