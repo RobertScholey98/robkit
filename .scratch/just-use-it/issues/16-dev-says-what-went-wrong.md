@@ -26,3 +26,11 @@
 - [ ] No expected failure above prints "robkit hit a bug"
 - [ ] The Proof says what a Windows browser saw against an install in WSL 2
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From milestone 2, added by the lead
+
+In a robkit checkout an install links to, `robkit-core serve` runs core under `node --watch` (`watches()` in `packages/core/src/robkit-core.ts`). Ticket 11's worker saw core's restart test (`robkit-core.db.test.ts`, "restarts core when its source changes, in a checkout") leave a `serving.ts` process behind once in four runs. The test touches a source file and then stops the command, so SIGTERM can reach Node's watcher while it is between the old child and the new one. I haven't reproduced it or found the cause.
+
+It can't happen in an install from npm, which runs no watcher. In a linked checkout a leftover core would hold core's port, and the next `pnpm dev` would fail on it. The port check this ticket adds will name that port. If you see the leftover while you build this, find out whether Node's watcher or `runChild` loses the signal, and say what you found.
