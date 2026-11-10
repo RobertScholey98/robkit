@@ -74,6 +74,7 @@ Not taken:
 - **Requests wait for start-up.** One sent while `pnpm dev` is still migrating is answered once every app has started. One sent while it stops is refused.
 - **An added app's port** is the first after the proxy's that no running app holds and nothing on `127.0.0.1` listens on.
 - **Order of an add:** check the app's `.env`, provision it alone, run its `migrate`, start it, wait for it to answer, restart core, then route it. Until it answers, its exit stops nothing else. After, it counts like any app.
+- **Core restarts without a gap.** The new core starts on the first free port after the proxy's, and the proxy moves core's host to it once it answers. Only then does the old core's process group stop. Every app reaches core through the proxy, so no guard sees core gone. Before this, the whole-stack test under load saw a guarded app answer 503 while core restarted. Core's port moves on each add. Nothing but the proxy uses it.
 - **A fault while handling a request** prints as a bug, with where to report it, and answers "pnpm dev hit a bug in robkit." It doesn't stop the runner.
 - **`robkit add` asks only when the install has `node_modules`.** Without them no app can start, so it prints the old "Next:" lines.
 - **`robkit migrate` with no `pnpm dev` running exits 0**, since starting `pnpm dev` migrates every app. A refusal exits 1.
