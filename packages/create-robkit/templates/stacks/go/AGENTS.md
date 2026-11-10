@@ -46,6 +46,8 @@ The guard already asks core for what it needs: core's public key and this app's 
 
 ## Environment
 
+The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `session.Guarded(session.Options{})` takes no settings. When one is missing or won't do, it returns an error that says what to fix, and the server prints it and stops. Don't read them for the guard yourself.
+
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
