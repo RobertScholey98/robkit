@@ -280,3 +280,54 @@ describe("the install's budget for wrong codes", () => {
     expect(await codePlacesLeft(app, "203.0.113.7")).toBe(7);
   });
 });
+
+describe("a full limit", () => {
+  it("refuses a new client on /login/code, and keeps counting the clients it holds", async () => {
+    const { app } = await freshCore({ signInLimits: { clientsTracked: 2 } });
+    const code = await liveCode(app);
+    await inTurn(10, () =>
+      postJson(app, "/login/code", { code: "NOPE2" }, from("203.0.113.1")),
+    );
+    await postJson(app, "/login/code", { code: "NOPE2" }, from("203.0.113.2"));
+
+    const newcomer = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.3"),
+    );
+    const limited = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.1"),
+    );
+    const held = await postJson(
+      app,
+      "/login/code",
+      { code },
+      from("203.0.113.2"),
+    );
+
+    expect(newcomer.status).toBe(429);
+    expect(newcomer.headers.get("retry-after")).toBe("1");
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("retry-after")).toBe("900");
+    expect(held.status).toBe(200);
+  });
+
+  it("lets a new client sign in with the right password on /login, without counting it", async () => {
+    const { app } = await freshCore({ signInLimits: { clientsTracked: 2 } });
+    await claim(app);
+    await postJson(app, "/login", wrong, from("203.0.113.1"));
+    await postJson(app, "/login", wrong, from("203.0.113.2"));
+
+    const wrongs = await inTurn(6, () =>
+      postJson(app, "/login", wrong, from("203.0.113.3")),
+    );
+    const right = await postJson(app, "/login", rob, from("203.0.113.3"));
+
+    expect(tally(wrongs)).toEqual({ 401: 6 });
+    expect(right.status).toBe(200);
+  });
+});

@@ -57,9 +57,15 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   const { db, install, now, signingKey, signInLimits, trustedProxy } = context;
   const origin = install.origin("core");
   const routes = new Hono<CoreEnv>();
+  // When full, a new client may still try its password, uncounted:
+  // refusing it would let someone with many addresses fill the limit once
+  // and shut the owner out for the whole window. The cap on password
+  // checks is the brake then.
   const loginLimiter = createRateLimiter({
     limit: signInLimits.passwordsPerClient,
     windowMs: signInLimits.clientWindowMs,
+    maxClients: signInLimits.clientsTracked,
+    whenFull: "admit",
     now,
   });
   // Apart from the owner's limit, so a guest guessing codes can't lock the
@@ -69,6 +75,8 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   const codeLimiter = createRateLimiter({
     limit: signInLimits.codesPerClient,
     windowMs: signInLimits.clientWindowMs,
+    maxClients: signInLimits.clientsTracked,
+    whenFull: "refuse",
     now,
   });
   // Holds wrong codes from every client together, so rotating addresses
@@ -77,6 +85,8 @@ export function sessionRoutes(context: RouteContext): Hono<CoreEnv> {
   const codeBudget = createRateLimiter({
     limit: signInLimits.codesPerInstall,
     windowMs: signInLimits.installWindowMs,
+    maxClients: 1,
+    whenFull: "refuse",
     now,
   });
 

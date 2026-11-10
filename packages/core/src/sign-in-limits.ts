@@ -19,6 +19,11 @@ export interface SignInLimits {
   codesPerInstall: number;
   /** How long a wrong access code counts against the install. */
   installWindowMs: number;
+  /**
+   * The most clients each route's limit keeps. A client is kept while it
+   * holds a place or a failure in the window, and never dropped before.
+   */
+  clientsTracked: number;
 }
 
 export const defaultSignInLimits: SignInLimits = {
@@ -33,4 +38,12 @@ export const defaultSignInLimits: SignInLimits = {
   // code, and about 8 years with 20, about a 12% chance of a hit in a year.
   codesPerInstall: 20,
   installWindowMs: 60 * minute,
+  // An estimate. Each client kept for /login failed a password at least
+  // once in the window. At 2 checks at once and 30 ms a check, 15 minutes
+  // holds about 2 × 900 s / 0.03 s = 60,000 wrong passwords, so 100,000
+  // leaves room. A check measured 63 ms on Windows and 87 ms in WSL on the
+  // machine these tests were written on (median of 20, 2026-11-10), so a
+  // window there holds fewer. /login/code's limit fills only if something else is
+  // wrong: the install's budget holds wrong codes to 20 an hour.
+  clientsTracked: 100_000,
 };

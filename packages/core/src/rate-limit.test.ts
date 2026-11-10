@@ -1,13 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { createRateLimiter, type Place } from "./rate-limit.ts";
+import {
+  createRateLimiter,
+  type LimiterOptions,
+  type Place,
+} from "./rate-limit.ts";
 
-/** A limiter of 3 places a minute on a clock the test moves. */
-function limiter() {
+/**
+ * A limiter of 3 places a minute on a clock the test moves, tracking as
+ * many clients as `full` says.
+ */
+function limiter(
+  full: Partial<Pick<LimiterOptions, "maxClients" | "whenFull">> = {},
+) {
   let now = Date.parse("2026-11-01T12:00:00Z");
   return {
     limit: createRateLimiter({
       limit: 3,
       windowMs: 60_000,
+      maxClients: 1000,
+      whenFull: "refuse",
+      ...full,
       now: () => new Date(now),
     }),
     advance: (ms: number) => {
@@ -182,6 +194,75 @@ describe("createRateLimiter", () => {
       expect(limit.reserve("1.2.3.4").outcome).toBe("refused");
       for (const each of pending) each.fail();
       expect(limit.reserve("1.2.3.4").outcome).toBe("refused");
+    });
+  });
+
+  describe("a full limiter", () => {
+    it("refuses a new client for a second when it refuses the full", () => {
+      const { limit } = limiter({ maxClients: 2 });
+      failTimes(limit, 1, "1.1.1.1");
+      failTimes(limit, 1, "2.2.2.2");
+
+      expect(limit.reserve("3.3.3.3")).toEqual({
+        outcome: "refused",
+        retryAfter: 1,
+      });
+    });
+
+    it("never forgets a failure in the window to make room", () => {
+      const { limit } = limiter({ maxClients: 2 });
+      failTimes(limit, 3, "1.1.1.1");
+      failTimes(limit, 1, "2.2.2.2");
+      limit.reserve("3.3.3.3");
+
+      expect(limit.reserve("1.1.1.1")).toEqual({
+        outcome: "refused",
+        retryAfter: 60,
+      });
+      expect(limit.reserve("2.2.2.2").outcome).toBe("reserved");
+    });
+
+    it("lets a new client try uncounted when it admits the full", () => {
+      const { limit } = limiter({ maxClients: 1, whenFull: "admit" });
+      failTimes(limit, 1, "1.1.1.1");
+      failTimes(limit, 5, "2.2.2.2");
+
+      expect(limit.reserve("2.2.2.2").outcome).toBe("reserved");
+    });
+
+    it("makes room once a client's failures have all expired", () => {
+      const { limit, advance } = limiter({ maxClients: 2 });
+      failTimes(limit, 1, "1.1.1.1");
+      advance(30_000);
+      failTimes(limit, 1, "2.2.2.2");
+      advance(30_000);
+
+      failTimes(limit, 3, "3.3.3.3");
+
+      expect(limit.reserve("3.3.3.3").outcome).toBe("refused");
+      expect(limit.reserve("4.4.4.4")).toEqual({
+        outcome: "refused",
+        retryAfter: 1,
+      });
+    });
+
+    it("keeps no client that holds no place and no failure", () => {
+      const { limit } = limiter({ maxClients: 1 });
+      place(limit, "1.1.1.1").release();
+      failTimes(limit, 1, "2.2.2.2");
+      limit.clear("2.2.2.2");
+
+      expect(limit.reserve("3.3.3.3").outcome).toBe("reserved");
+    });
+
+    it("keeps a client while it holds a place, failure or not", () => {
+      const { limit, advance } = limiter({ maxClients: 1 });
+      const held = place(limit, "1.1.1.1");
+      advance(60_000);
+
+      expect(limit.reserve("2.2.2.2").outcome).toBe("refused");
+      held.release();
+      expect(limit.reserve("2.2.2.2").outcome).toBe("reserved");
     });
   });
 });

@@ -34,6 +34,23 @@ interface Client {
   checking: number;
 }
 
+export interface LimiterOptions {
+  /** Attempts each client may make in `windowMs`. */
+  limit: number;
+  windowMs: number;
+  /** The most clients it keeps at once. */
+  maxClients: number;
+  /**
+   * What a client it doesn't hold gets while it holds `maxClients`:
+   * `refuse` answers 429, and `admit` lets it try without counting.
+   */
+  whenFull: "refuse" | "admit";
+  now: () => Date;
+}
+
+/** The place of a client a full limiter lets try without counting it. */
+const uncounted: Place = { fail: () => undefined, release: () => undefined };
+
 /**
  * Allows each client `limit` attempts in any `windowMs`, counting both
  * its failures and the attempts still being checked, so a burst sent
@@ -43,12 +60,12 @@ interface Client {
 export function createRateLimiter({
   limit,
   windowMs,
+  maxClients,
+  whenFull,
   now,
-}: {
-  limit: number;
-  windowMs: number;
-  now: () => Date;
-}): RateLimiter {
+}: LimiterOptions): RateLimiter {
+  // In order of each client's latest failure, or of its first place if it
+  // has none yet, so the clients whose failures expired first come first.
   const clients = new Map<string, Client>();
 
   const recent = (client: Client, at: number) =>
@@ -98,10 +115,35 @@ export function createRateLimiter({
     };
   }
 
+  /**
+   * Forgets the clients whose failures have all expired, oldest first. It
+   * stops at the first client with a failure still in the window, since
+   * every client after it failed later, so it never walks every client.
+   * A client still holding a place is skipped and kept.
+   */
+  const prune = (at: number) => {
+    for (const [key, client] of clients) {
+      if (client.checking > 0) continue;
+      const latest = client.failures.at(-1);
+      if (latest !== undefined && at - latest < windowMs) return;
+      clients.delete(key);
+    }
+  };
+
   return {
     reserve(key) {
       const at = now().getTime();
-      const client = clients.get(key) ?? { failures: [], checking: 0 };
+      let client = clients.get(key);
+      if (!client) {
+        prune(at);
+        if (clients.size >= maxClients) {
+          return whenFull === "admit"
+            ? { outcome: "reserved", place: uncounted }
+            : { outcome: "refused", retryAfter: 1 };
+        }
+        client = { failures: [], checking: 0 };
+        clients.set(key, client);
+      }
       client.failures = recent(client, at);
       if (client.failures.length + client.checking >= limit) {
         return {
@@ -110,7 +152,6 @@ export function createRateLimiter({
         };
       }
       client.checking += 1;
-      if (!clients.has(key)) clients.set(key, client);
       return { outcome: "reserved", place: placeFor(key, client) };
     },
     clear(key) {
