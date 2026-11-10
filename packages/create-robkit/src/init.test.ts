@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { defaultChoices } from "./choices.ts";
 import { init } from "./init.ts";
-import { pathWith } from "./test/path.ts";
+import { installsPnpm, pathWith } from "./test/path.ts";
+
+/** The version a fake pnpm must print for init to install with it. */
+const pnpm = await installsPnpm();
 
 async function exists(path: string): Promise<boolean> {
   return access(path).then(
@@ -46,7 +49,7 @@ describe("init", () => {
     [
       "too old for the install's packageManager",
       { pnpm: "9.15.9", corepack: "0.34.0" },
-      "pnpm 9.15.9 can't run pnpm 11.28.9, which the install uses. Run corepack enable, then run npm create robkit again.",
+      `pnpm 9.15.9 can't run pnpm ${pnpm}, which the install uses. Run corepack enable, then run npm create robkit again.`,
     ],
   ])(
     "says how to fix pnpm, writing nothing, when it's %s",
@@ -61,7 +64,7 @@ describe("init", () => {
 
   it("notes that pnpm dev needs Docker when it's missing, and carries on", async () => {
     const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "my-app");
-    const env = await pathWith({ pnpm: "11.28.9", git: "git" });
+    const env = await pathWith({ pnpm, git: "git" });
 
     const { notes } = await init(defaultChoices, dir, { env });
 
@@ -74,7 +77,7 @@ describe("init", () => {
   it("names the folder and the command to finish with when pnpm install fails", async () => {
     const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "my-app");
     const env = await pathWith({
-      pnpm: { line: "11.28.9", failsOn: "install" },
+      pnpm: { line: pnpm, failsOn: "install" },
       git: "git",
     });
 
