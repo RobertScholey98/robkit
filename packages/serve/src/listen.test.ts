@@ -361,6 +361,28 @@ describe.skipIf(process.platform === "win32")("listenUntilStopped", () => {
     }
   });
 
+  // Ctrl+C reaches a whole process group, and pnpm dev then stops each app
+  // itself, so a second signal can arrive while onStopped still runs.
+  it("takes a signal that arrives while onStopped runs as the same request", async () => {
+    const port = await freePort();
+    const server = spawn(process.execPath, [slowServer], {
+      env: { ...process.env, PORT: String(port), CLEANUP: "slow" },
+      stdio: ["pipe", "pipe", "inherit"],
+    });
+    const output: string[] = [];
+    server.stdout.on("data", (chunk: Buffer) => output.push(String(chunk)));
+    const exited = once(server, "exit");
+    await printed(output, `slow listening on 127.0.0.1:${String(port)}`);
+
+    server.kill("SIGTERM");
+    await printed(output, "slow cleaning up");
+    server.kill("SIGTERM");
+    server.stdin.end("release\n");
+
+    expect(await exited).toEqual([0, null]);
+    expect(output.join("")).toContain("slow stopped\n");
+  });
+
   // A connection that has sent nothing holds Node's close() open: it isn't
   // idle to closeIdleConnections(), and close() stops the timer that would
   // have ended it.

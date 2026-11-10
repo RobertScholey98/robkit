@@ -111,17 +111,23 @@ export function start(
     // Node takes no new connection and closes the idle ones at once.
     server.close(() => {
       clearTimeout(timer);
-      onStopped().then(() => {
-        console.log(`${name} stopped`);
-        resolve(0);
-      }, reject);
+      onStopped()
+        .finally(unlisten)
+        .then(() => {
+          console.log(`${name} stopped`);
+          resolve(0);
+        }, reject);
     });
   };
   const unlisten = () => {
     process.off("SIGTERM", stop);
     process.off("SIGINT", stop);
   };
-  server.once("close", unlisten);
+  // A stop keeps its listeners until onStopped has finished, so a signal
+  // that arrives meanwhile can't end the process halfway.
+  server.once("close", () => {
+    if (!stopping) unlisten();
+  });
   // Such as the port being taken: it never listened, so nothing is open.
   server.once("error", (error) => {
     unlisten();
