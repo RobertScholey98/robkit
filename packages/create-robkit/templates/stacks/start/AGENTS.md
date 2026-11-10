@@ -35,7 +35,7 @@ Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` fr
 
 ## Testing
 
-`pnpm test` runs Vitest, which loads `vite.config.ts`, Start's plugin included, and needs no database, no core and no `pnpm dev`. A server function runs only through Start's compiler and request handler, so a test calls what its handler calls instead. `src/home.test.tsx` shows the pattern:
+`pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does, and needs no database, no core and no `pnpm dev`. A server function runs only through Start's compiler and request handler, so a test calls what its handler calls instead. `src/home.test.tsx` shows the pattern:
 
 - Each server function's handler hands `context.viewer` to a plain function, as `src/routes/index.tsx` hands it to `shownTo` and `visitAgainAs` in `src/visits.ts`.
 - The test calls that function with a viewer from `@robkit/start/testing`: `owner()`, `guest({ roles: ["family"] })` or `nobody()`.

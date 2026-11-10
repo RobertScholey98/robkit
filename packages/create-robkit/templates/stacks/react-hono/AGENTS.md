@@ -31,7 +31,7 @@ Set it in the handler, with `c.header("Content-Security-Policy", ...)`, or in mi
 
 ## Testing
 
-`pnpm test` runs Vitest, which loads `vite.config.ts`, so a test sees the app's own plugins. A test needs no database, no core and no `pnpm dev`. `src/routes.test.tsx` shows the pattern:
+`pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does. A test needs no database, no core and no `pnpm dev`. `src/routes.test.tsx` shows the pattern:
 
 - It mounts `routes(...)` behind `guardedAs(viewer)` from `@robkit/hono/testing` instead of `guarded()`, so every request is that viewer's. `owner()`, `guest({ roles: ["family"] })` and `nobody()`, from the same entry, build the viewer.
 - It passes the routes a stand-in for what they store through, so nothing reaches Postgres. Give a new route what it stores the same way, as an argument to `routes`.
