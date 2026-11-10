@@ -22,18 +22,18 @@
 
 **Blocked by:** 13, 14, 15, 18
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] With two versions in the local registry, `robkit upgrade` moves an install from the older to the newer, and the install then installs, lints, typechecks and builds
-- [ ] A catalog entry the newer version's packages need, and the older install lacks or holds too low, is there afterwards, an entry the owner added is unchanged, and `packageManager` is the newer version's
-- [ ] `robkit upgrade <version>` moves to that version, and refuses one the registry doesn't have, the installed one and an older one, each with a message that says so
-- [ ] It refuses, and changes nothing, with no git, with no commit, with an uncommitted change and with an untracked file
-- [ ] It refuses, and changes nothing, while `pnpm dev` runs in the install
-- [ ] With `pnpm install` made to fail in step 1, and in another test in step 2, the tree is as it was at the last commit, the message names the step, and a second `robkit upgrade` then succeeds
-- [ ] A test runs step 1 as 0.1.0 does it, from a copy kept in the repo, and the current step 2 finishes the upgrade
-- [ ] `vendor/robkit/go` and the lint policy match the new version afterwards, and no file under `apps/` changed
-- [ ] It prints the changelog entries between the two versions
-- [ ] In a linked install, and in a vendored one, it prints one line and changes nothing
+- [x] With two versions in the local registry, `robkit upgrade` moves an install from the older to the newer, and the install then installs, lints, typechecks and builds
+- [x] A catalog entry the newer version's packages need, and the older install lacks or holds too low, is there afterwards, an entry the owner added is unchanged, and `packageManager` is the newer version's
+- [x] `robkit upgrade <version>` moves to that version, and refuses one the registry doesn't have, the installed one and an older one, each with a message that says so
+- [x] It refuses, and changes nothing, with no git, with no commit, with an uncommitted change and with an untracked file
+- [x] It refuses, and changes nothing, while `pnpm dev` runs in the install
+- [x] With `pnpm install` made to fail in step 1, and in another test in step 2, the tree is as it was at the last commit, the message names the step, and a second `robkit upgrade` then succeeds
+- [x] A test runs step 1 as 0.1.0 does it, from a copy kept in the repo, and the current step 2 finishes the upgrade
+- [x] `vendor/robkit/go` and the lint policy match the new version afterwards, and no file under `apps/` changed
+- [x] It prints the changelog entries between the two versions
+- [x] In a linked install, and in a vendored one, it prints one line and changes nothing
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -60,3 +60,38 @@ Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Both raised the sa
 
 - **Upgrade refuses while `pnpm dev` runs.** Ticket 18's build asked what an upgrade should do to a running install, and the ticket didn't say. I chose a refusal, as one more check before any change. An upgrade runs `pnpm install` twice and replaces the lint policy and the Go module, under apps that have already loaded the old packages. The check is in step 1, so it is in the half that can't change after 0.1.0. A refusal is the side to be wrong on: a later version can't relax it for an install on 0.1.0, but that owner only has to stop `pnpm dev`. R hasn't seen this choice yet.
 - **How to tell.** The runner listens on a socket file (ticket 18). `devSocket` in `@robkit/dev/cli` gives its path, and something answering there is a running `pnpm dev`. `askDev` sends an add or a migrate, which upgrade must not send. So `@robkit/dev/cli` needs one more export that only connects and closes. On native Windows `pnpm dev` doesn't run (ticket 21), and the answer is no.
+
+### From the build
+
+**The handover, as 0.1.0 will ship it.** The ticket fixed the call and its argument. These details it left open, and the build chose them. Each is frozen once 0.1.0 is on npm, so R should read them before the first release:
+
+- **Step 1 calls `pnpm exec robkit upgrade --finish <old version>`**, not `pnpm robkit ...`. The install's `robkit` script is the owner's to rename, and `pnpm exec` finds the bin whatever the script is called.
+- **Step 1 sets only the robkit entries the catalog already has** (`create-robkit` and every `@robkit/*` there) to the new version. Adding the entries a new version needs is step 2's job.
+- **Step 1's `pnpm install` takes `--no-frozen-lockfile`**, so a CI-like environment with `frozen-lockfile` set doesn't refuse the change step 1 just made.
+- **Step 2 must exit non-zero when it fails.** Step 1 treats any non-zero exit as a failed step 2, puts every file back, and says "Step 2 of robkit upgrade failed: robkit X couldn't finish it." Step 2 prints its own reason first.
+- **How a file goes back is part of step 1**: `git ls-tree --name-only HEAD` on `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `package.json`, `tooling/eslint` and `vendor/robkit/go`, then `git checkout HEAD --` on those it lists, then `git clean -fdq --` on the five. Step 2 puts back the same way before it exits, and step 1 does it again after. Doing it twice changes nothing.
+- **The checks run in step 1**, which lives in `upgrade.ts`, not in the frozen file. 0.1.0's checks are whatever 0.1.0's `upgrade.ts` has: a later robkit can't add a check for an install on 0.1.0, only step 2 can refuse.
+- **The frozen copy is the live file.** `src/upgrade-handover.ts` is what step 1 runs today, and its first comment says it is frozen and why. A test checks its sha256, so an edit fails the build until someone means it. To change step 1 after 0.1.0, copy the file, point `upgrade.ts` at the copy, and leave this one for the handover test. The file imports only `node:` modules, `yaml`, and `exec` and `CommandProblem` from `@robkit/dev/cli`, and loads nothing after `pnpm install`, which replaces the packages under it.
+
+**Chosen in the build, awaiting R's review:**
+
+- **`devRunning(root)` in `@robkit/dev/cli`** connects to the socket and closes it, and sends nothing. On native Windows it answers false, as `pnpm dev` doesn't run there (ticket 21).
+- **A linked or vendored install exits 0** with its one line. So does an install already on the newest when no version was given: "This install is on robkit X, the newest." A version given that is the installed one exits 1, as the ticket says.
+- **The registry is the one the install's pnpm uses.** `pnpm view create-robkit dist-tags versions --json`, run in the install. A failed `pnpm view` gives pnpm's own reason and says to check the network and `pnpm config get registry`.
+- **A version shape check comes first**, before git: "latest" isn't a version. Give one such as 0.2.0, or none for the newest.
+- **The catalog is read and written with `yaml`'s document API**, so the owner's comments and the order of entries survive, then formatted with Prettier as init writes it.
+- **The changelog** is create-robkit's `CHANGELOG.md` from the newer package, the `## <version>` sections after the old version up to the new one. With none, the output says so.
+- **Its last lines** list each file it changed and why, the changelog, and "Next, read git diff, run pnpm lint, pnpm typecheck and pnpm test, then commit."
+- **Each stack's `AGENTS.md`** has an "Upgrading robkit" section that says upgrade never rewrites the app's folder. The Go stack's names `vendor/robkit/go`.
+- **The README test in `generate.test.ts`** now allows `pnpm install`, which the undo commands use.
+
+**How the tests make a second version.** No test assumes robkit's version, pnpm's or how fast npm is.
+
+- In `packages/create-robkit`, the newer version is `newerVersion`, the installed one's patch plus one (`src/test/robkit-version.ts`). A fake pnpm (`src/test/fake-pnpm.ts`), put first on `PATH`, answers `pnpm view` with the two versions, appends a line to `pnpm-lock.yaml` for each `install` (and fails the Nth when told to), and runs `pnpm exec robkit ...` as this checkout's `robkit-command.ts`. Step 2's tests call `finishUpgrade` with the checkout's carried files at `newerVersion` (`newerRepo()` in `upgrade.test.ts`), so the newer version is this checkout under a higher number.
+- In `tooling/e2e`, `packNewer` (`src/newer-version.ts`) repacks every tarball the checkout packed at `nextPatch`. It rewrites each robkit dependency to the new version, sets every package's version in create-robkit's `dist/carried.json`, adds a known line to the lint policy's `policy.js` and to `go.mod`, and writes a `CHANGELOG.md` with an entry before and after the old version. The local registry now serves several versions of each package, with `latest` the newest. `npm create robkit@<older>` makes a Go install, the test removes `next` from its catalog, sets `express` to 4.0.0 and adds `left-pad`, commits, and runs `pnpm robkit upgrade`. It checks the catalog, the two folders, the output, then `lint`, `typecheck` and `build`, and that a second run says the install is on the newest.
+
+**For ticket 20:**
+
+- The map's ADR list names "upgrade's two steps, with the handover that can't change (19)". The record should cite `src/upgrade-handover.ts`, its hash test, and the choices under "The handover, as 0.1.0 will ship it" above.
+- The install's README has an "Upgrade robkit" section with the undo commands, the install's `AGENTS.md` an "Upgrading robkit" one, each stack's `AGENTS.md` a short one, and create-robkit's README an "Upgrade" section for contributors. `docs/testing.md` describes the upgrade test.
+- Before 0.1.0 is released, ticket 14's runbook should read the frozen file once more. After it, the hash in `upgrade-handover.test.ts` is never updated.
