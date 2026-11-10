@@ -11,6 +11,7 @@
   - the tree has an uncommitted change or an untracked file.
   - the version given isn't in the registry, or isn't newer than the installed one. It moves forward only, and says so for the same version. With no version given, the newest is the registry's `latest` for create-robkit.
   - `tooling/eslint` or `vendor/robkit/go` is a link. It overwrites both whole and follows no link.
+  - `pnpm dev` is running in the install. An upgrade swaps the packages under every running app, so it says to stop `pnpm dev` first.
 - **A failure puts the files back.** Each step changes files and then runs `pnpm install`, which can fail: no network, or a version pnpm can't resolve. Upgrade then restores every file it changed from the last commit, removes what it added under the two folders it owns, says which step failed and why, and says to run `pnpm install` to put `node_modules` back. The tree was clean when it started, so everything changed is its own. The owner is never left with a tree that upgrade's own check refuses.
 - **Git is the undo.** It overwrites robkit's copies whole, and ends by saying to read `git diff` and commit. The install's README gives the commands that undo an upgrade by hand, for one that was killed partway.
 - **What it writes, and no more.** `pnpm-workspace.yaml`, `pnpm-lock.yaml`, `packageManager` in the root `package.json`, `tooling/eslint` and `vendor/robkit/go`. In the catalog it raises an entry that is lower than the new version needs and adds one that is missing. It never lowers or removes one, so an entry the owner added stays.
@@ -27,6 +28,7 @@
 - [ ] A catalog entry the newer version's packages need, and the older install lacks or holds too low, is there afterwards, an entry the owner added is unchanged, and `packageManager` is the newer version's
 - [ ] `robkit upgrade <version>` moves to that version, and refuses one the registry doesn't have, the installed one and an older one, each with a message that says so
 - [ ] It refuses, and changes nothing, with no git, with no commit, with an uncommitted change and with an untracked file
+- [ ] It refuses, and changes nothing, while `pnpm dev` runs in the install
 - [ ] With `pnpm install` made to fail in step 1, and in another test in step 2, the tree is as it was at the last commit, the message names the step, and a second `robkit upgrade` then succeeds
 - [ ] A test runs step 1 as 0.1.0 does it, from a copy kept in the repo, and the current step 2 finishes the upgrade
 - [ ] `vendor/robkit/go` and the lint policy match the new version afterwards, and no file under `apps/` changed
@@ -53,3 +55,8 @@ Opus 5.5 and Sol 6.1 read milestone 3's tickets at `a314729`. Both raised the sa
 - **Taken as written above**: checks before any change, forward only (Sol), `latest` as the newest (Opus asked what "newest" means; ticket 13 exempts robkit's packages from pnpm's release-age rule, so `latest` installs on release day), `packageManager` (both), the two folders and no links (Sol), owner catalog entries kept (Sol), and a vendored install (Opus).
 - **This ticket now waits for 18** (both). Both change `robkit-command.ts`, the install's README and `AGENTS.md`, and the whole-stack test.
 - **The first release waits for this ticket.** Ticket 14's runbook says so. 0.1.0's step 1 can't change once it is on npm.
+
+### From the lead, after ticket 18, 2026-11-10
+
+- **Upgrade refuses while `pnpm dev` runs.** Ticket 18's build asked what an upgrade should do to a running install, and the ticket didn't say. I chose a refusal, as one more check before any change. An upgrade runs `pnpm install` twice and replaces the lint policy and the Go module, under apps that have already loaded the old packages. The check is in step 1, so it is in the half that can't change after 0.1.0. A refusal is the side to be wrong on: a later version can't relax it for an install on 0.1.0, but that owner only has to stop `pnpm dev`. R hasn't seen this choice yet.
+- **How to tell.** The runner listens on a socket file (ticket 18). `devSocket` in `@robkit/dev/cli` gives its path, and something answering there is a running `pnpm dev`. `askDev` sends an add or a migrate, which upgrade must not send. So `@robkit/dev/cli` needs one more export that only connects and closes. On native Windows `pnpm dev` doesn't run (ticket 21), and the answer is no.
