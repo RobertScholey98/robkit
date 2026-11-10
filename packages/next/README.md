@@ -34,13 +34,14 @@ export async function GET(): Promise<Response> {
 
 ## Exports
 
-| Export              | What it is                                                                                                                                                                                    |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `guarded(options?)` | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 403, 404)                                                                                        |
-| `viewer()`          | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request                                                                                                      |
-| `GuardedOptions`    | All optional: `app` (the slug) and `core` (core's public origin), read from `ROBKIT_APP` and `ROBKIT_CORE_URL` when left out and taken as plain strings when given, and a fixed `access` rule |
-| `coreOrigin()`      | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                      |
-| `Viewer`            | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                     |
+| Export                 | What it is                                                                                                                                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `guarded(options?)`    | The proxy. Lets the request through with the viewer passed on, or answers it (redirect, 401, 403, 404)                                                                                        |
+| `viewer()`             | Who is asking, as the proxy passed it on. Throws when the proxy didn't guard the request                                                                                                      |
+| `GuardedOptions`       | All optional: `app` (the slug) and `core` (core's public origin), read from `ROBKIT_APP` and `ROBKIT_CORE_URL` when left out and taken as plain strings when given, and a fixed `access` rule |
+| `coreOrigin()`         | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                      |
+| `Viewer`               | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                     |
+| `@robkit/next/testing` | For tests only: `owner()`, `guest({ roles })` and `nobody()`. See [Testing](#testing)                                                                                                         |
 
 ## A lapsed session
 
@@ -62,6 +63,23 @@ The proxy sets `X-Frame-Options: SAMEORIGIN`, `nosniff` and, on an https install
 The proxy passes the viewer on in the `robkit-viewer` request header. It replaces any the request came with, so on a path the matcher covers, nobody can send their own. On a path the matcher leaves out, the proxy doesn't run, so it can't replace one. The proxy puts a key beside each viewer, random for each server process, and `viewer()` refuses a header without it. So a request the proxy didn't guard makes `viewer()` throw, whatever headers it came with.
 
 The proxy and the app's code are bundled apart but run in one Node process, under `next dev` and in production, so the key is kept on `globalThis`.
+
+## Testing
+
+`@robkit/next/testing` is for tests only. It builds viewers with `owner()`, `guest({ roles })` and `nobody()`, so a test never casts to a branded id. It has no stand-in for the guard: `viewer()` reads the request's headers, which Next sets only while it serves a request. So a page reads the viewer once and hands it to a plain function, and a test calls that function with a built viewer:
+
+```ts
+import type { Viewer } from "@robkit/next";
+import { guest, owner } from "@robkit/next/testing";
+
+// The page calls greeting(await viewer()).
+function greeting(asking: Viewer): string {
+  return asking.kind === "owner" ? "Welcome back" : "Hello";
+}
+
+greeting(owner()); // "Welcome back"
+greeting(guest({ roles: ["family"] })); // "Hello"
+```
 
 ## What it must never do
 

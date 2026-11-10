@@ -8,6 +8,10 @@ import {
   headerRequest,
   owner,
   printedOnExit,
+  productionRun,
+  refreshLocation,
+  stubRun,
+  testRuns,
   type FakeCore,
   stateIn,
   slug,
@@ -258,6 +262,53 @@ describe("guarded(entry), reading its own settings", () => {
       `guarded()'s app: "Start" can't be an app's slug, which is also its subdomain and database role. Use lowercase letters and digits, start with a letter, and avoid public and postgres.`,
     );
   });
+});
+
+describe("guarded(entry), in a test run", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  /** How guarded(entry) answers a request with no session, as the env stands. */
+  async function noSession(core: FakeCore) {
+    vi.stubEnv("ROBKIT_APP", "start");
+    vi.stubEnv("ROBKIT_CORE_URL", core.origin);
+    let reached = false;
+    const start = {
+      fetch: () => {
+        reached = true;
+        return new Response("served");
+      },
+    };
+    const res = await guarded(start).fetch(
+      new Request(on(core), { headers: navigate }),
+    );
+    return {
+      status: res.status,
+      location: res.headers.get("location"),
+      reached,
+    };
+  }
+
+  it.each(testRuns)(
+    "sends a request with no session to core when $name, as in production",
+    async ({ settings }) => {
+      const core = await fakeCore();
+      core.rules.start = { kind: "open" };
+
+      stubRun(productionRun);
+      const production = await noSession(core);
+      stubRun(settings);
+      const testRun = await noSession(core);
+
+      const sentToCore = {
+        status: 302,
+        location: refreshLocation(on(core), core),
+        reached: false,
+      };
+      expect([production, testRun]).toEqual([sentToCore, sentToCore]);
+    },
+  );
 });
 
 describe("coreOrigin", () => {

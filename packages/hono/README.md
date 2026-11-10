@@ -42,13 +42,33 @@ app.get("*", (c) => c.html(`<meta name="robkit-core" content="${core}" />`));
 
 ## Exports
 
-| Export              | What it is                                                                                                                                                                                                               |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `guarded(options?)` | Hono middleware. Lets the request through with `c.var.viewer` set, and adds `X-Frame-Options: SAMEORIGIN`, `nosniff` and, over https, HSTS to its answer where the app set none, or answers it (redirect, 401, 403, 404) |
-| `GuardedOptions`    | All optional: `app` (the slug) and `core` (core's public origin), read from `ROBKIT_APP` and `ROBKIT_CORE_URL` when left out and taken as plain strings when given, and a fixed `access` rule                            |
-| `coreOrigin()`      | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                                                 |
-| `GuardedEnv`        | The Hono env that types `c.var.viewer`                                                                                                                                                                                   |
-| `Viewer`            | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                                                |
+| Export                 | What it is                                                                                                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `guarded(options?)`    | Hono middleware. Lets the request through with `c.var.viewer` set, and adds `X-Frame-Options: SAMEORIGIN`, `nosniff` and, over https, HSTS to its answer where the app set none, or answers it (redirect, 401, 403, 404) |
+| `GuardedOptions`       | All optional: `app` (the slug) and `core` (core's public origin), read from `ROBKIT_APP` and `ROBKIT_CORE_URL` when left out and taken as plain strings when given, and a fixed `access` rule                            |
+| `coreOrigin()`         | Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core. It exits with the reader's message when the variable is unset or won't do, as `guarded()` does                                                 |
+| `GuardedEnv`           | The Hono env that types `c.var.viewer`                                                                                                                                                                                   |
+| `Viewer`               | The owner, a guest with role ids, or `{ kind: "nobody" }`                                                                                                                                                                |
+| `@robkit/hono/testing` | For tests only: `owner()`, `guest({ roles })` and `nobody()`, and `guardedAs(viewer)`, a stand-in for `guarded()`. See [Testing](#testing)                                                                               |
+
+## Testing
+
+`@robkit/hono/testing` is for tests only. It builds viewers with `owner()`, `guest({ roles })` and `nobody()`, so a test never casts to a branded id, and gives `guardedAs(viewer)`, a stand-in for `guarded()` that checks nothing and serves every request as that viewer. A test puts it where the server puts `guarded()`, in front of the app's routes, and needs no core and no settings:
+
+```ts
+import type { GuardedEnv } from "@robkit/hono";
+import { guardedAs, guest } from "@robkit/hono/testing";
+import { Hono } from "hono";
+
+const app = new Hono<GuardedEnv>();
+app.use(guardedAs(guest({ roles: ["family"] })));
+app.get("/", (c) => c.text(c.var.viewer.kind));
+
+const res = await app.request("/");
+// 200, "guest"
+```
+
+When `NODE_ENV` is `production`, as in every image robkit builds, `guardedAs` answers every request with a 500 that names it, so test code copied into a server opens nothing. `guarded()` itself has no option, setting or environment variable that skips the check.
 
 ## What it must never do
 

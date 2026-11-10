@@ -34,6 +34,15 @@ export type Decision =
       outcome: "not-found";
     };
 export function guard(rule: AccessRule, session: SessionState): Decision;
+export interface GuestViewer {
+  kind: "guest";
+  id: CodeId;
+  roles: RoleId[];
+}
+export interface OwnerViewer {
+  kind: "owner";
+  id: string;
+}
 export function readAccessRule(value: unknown): AccessRule | InputProblem;
 export function readCodeId(value: unknown): CodeId | InputProblem;
 export function readRoleId(value: unknown): RoleId | InputProblem;
@@ -76,4 +85,18 @@ export interface ConformanceCase {
 }
 export const conformanceCases: ConformanceCase[];
 export function readConformanceCases(value: unknown): ConformanceCase[];
+```
+
+## @robkit/guard/testing
+
+```ts
+export function guest({ id, roles }?: GuestOptions): GuestViewer;
+export interface GuestOptions {
+  id?: string;
+  roles?: readonly string[];
+}
+export function nobody(): {
+  kind: "nobody";
+};
+export function owner(id?: string): OwnerViewer;
 ```

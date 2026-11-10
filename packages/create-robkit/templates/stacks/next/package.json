@@ -4,6 +4,7 @@
   "scripts": {
     "dev": "NEXT_TELEMETRY_DISABLED=1 next dev --hostname 127.0.0.1",
     "typecheck": "tsc",
+    "test": "vitest run",
     "build": "next build",
     "start": "node --run migrate && node src/serve.ts",
     "migrate": "node src/migrate.ts",
@@ -27,6 +28,7 @@
     "@types/react-dom": "catalog:",
     "drizzle-kit": "catalog:",
     "tailwindcss": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

@@ -69,27 +69,32 @@ func serve(ctx context.Context, page http.Handler, stopped <-chan error) error {
 	}
 }
 
-// recordVisit records a visit by viewerID and counts their visits so far.
-type recordVisit func(ctx context.Context, viewerID string) (int64, error)
+// visitStore is what the routes store visits through. The server passes
+// the database's, from visitsIn, and a test passes its own.
+type visitStore interface {
+	// record records a visit by viewerID.
+	record(ctx context.Context, viewerID string) error
+	// count is how many visits viewerID has made.
+	count(ctx context.Context, viewerID string) (int64, error)
+}
 
 // routes is the API, under /api, and page for every other GET or HEAD.
-func routes(page http.Handler, record recordVisit) http.Handler {
+// GET /api/me says who is asking and counts their visits, and records
+// nothing, since the guard can't protect a GET from another app's link.
+// POST /api/me records a visit, then answers the same.
+func routes(page http.Handler, visits visitStore) http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/me", func(w http.ResponseWriter, r *http.Request) {
+		me(w, r, visits)
+	})
 	mux.HandleFunc("POST /api/me", func(w http.ResponseWriter, r *http.Request) {
-		viewer := session.ViewerFrom(r.Context())
-		id := viewerID(viewer)
-		visits, err := record(r.Context(), id)
-		if err != nil {
+		id := viewerID(session.ViewerFrom(r.Context()))
+		if err := visits.record(r.Context(), id); err != nil {
 			log.Printf("couldn't record a visit by %s: %v", id, err)
 			http.Error(w, "Couldn't record the visit.", http.StatusInternalServerError)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
-			"kind":     viewer.Kind(),
-			"viewerId": id,
-			"visits":   visits,
-		})
+		me(w, r, visits)
 	})
 	mux.Handle("/api/", http.NotFoundHandler())
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +106,24 @@ func routes(page http.Handler, record recordVisit) http.Handler {
 		page.ServeHTTP(w, r)
 	})
 	return mux
+}
+
+// me answers who is asking, and their visits so far.
+func me(w http.ResponseWriter, r *http.Request, visits visitStore) {
+	viewer := session.ViewerFrom(r.Context())
+	id := viewerID(viewer)
+	counted, err := visits.count(r.Context(), id)
+	if err != nil {
+		log.Printf("couldn't count the visits by %s: %v", id, err)
+		http.Error(w, "Couldn't count the visits.", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"kind":     viewer.Kind(),
+		"viewerId": id,
+		"visits":   counted,
+	})
 }
 
 // viewerID keys a viewer's data: the owner's id, a guest's code's id, or

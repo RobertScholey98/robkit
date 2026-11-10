@@ -6,11 +6,11 @@ import {
 } from "@internal/ui/components/ui/card";
 import { viewer } from "@robkit/next";
 import Link from "next/link";
-import { latestVisits, visitorId } from "../../visits.ts";
+import { visitorId, visits } from "../../visits.ts";
 
 /** When whoever is asking last visited. */
 export default async function Visits() {
-  const visits = await latestVisits(visitorId(await viewer()));
+  const latest = await visits.latest(visitorId(await viewer()));
 
   return (
     <Card className="w-full max-w-sm">
@@ -21,7 +21,7 @@ export default async function Visits() {
       </CardHeader>
       <CardContent className="text-muted-foreground">
         <ol data-testid="latest-visits" className="grid gap-1">
-          {visits.map((at) => (
+          {latest.map((at) => (
             <li key={at.toISOString()}>
               <time dateTime={at.toISOString()}>{at.toUTCString()}</time>
             </li>

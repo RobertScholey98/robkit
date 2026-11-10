@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import { launch } from "./browser.ts";
 import type { DevStack } from "./dev-stack.ts";
 import { addedSlug, exampleSlug } from "./install.ts";
-import { openSignedIn } from "./lapsed-call-journeys.ts";
+import { openSignedIn, visitsOn } from "./lapsed-call-journeys.ts";
 import { sessionCookieFor, type JourneyOptions } from "./owner-journey.ts";
 
 // A browser sends an app's cookie with a form posted from a sibling app,
@@ -13,10 +13,22 @@ import { sessionCookieFor, type JourneyOptions } from "./owner-journey.ts";
 const refusal =
   "This app only accepts changes from its own pages, and this request came from another origin.";
 
+/**
+ * How the example's page posts: a script's fetch, as Go's, Next's and
+ * Start's do, answered 200, or an HTML form, as React + Hono's and
+ * Express's do, answered 303 back to the page.
+ */
+export type Posts = "fetch" | "form";
+
 /** What the owner's browser did with the example's own POST. */
 export interface CrossOriginWriteJourney {
   /** The status the example's page got for its own POST. */
   own: number;
+  /**
+   * The visit count on the page before the POST, once it had landed, and
+   * after a reload, which records nothing.
+   */
+  visits: [number, number, number];
   /** The same POST, sent as a form from a page on the added app. */
   sibling: {
     /** The browser's `Sec-Fetch-Site`. */
@@ -41,6 +53,7 @@ export async function crossOriginWriteJourney(
   try {
     const context = await browser.newContext();
     const page = await openSignedIn(context, options);
+    const before = await visitsOn(page);
     const posted = page.waitForResponse(
       (res) =>
         res.request().method() === "POST" &&
@@ -48,6 +61,10 @@ export async function crossOriginWriteJourney(
     );
     await page.getByRole("button", { name: "Visit again" }).click();
     const own = await posted;
+    await page.getByText(`Visits: ${String(before + 1)}`).waitFor();
+    const after = await visitsOn(page);
+    await page.reload();
+    const reloaded = await visitsOn(page);
 
     const sibling = await context.newPage();
     await sibling.goto(`${options.install.origin(addedSlug)}/`);
@@ -66,6 +83,7 @@ export async function crossOriginWriteJourney(
 
     return {
       own: own.status(),
+      visits: [before, after, reloaded],
       sibling: {
         site: sent["sec-fetch-site"],
         sentCookie: (sent.cookie ?? "").includes("robkit_session="),
@@ -129,33 +147,32 @@ export async function ownerCookie(options: JourneyOptions): Promise<string> {
 }
 
 /**
- * The cross-origin journeys, as tests of `dev`. `posts` says the example's
- * page posts to its server, as Go's, Next's and Start's do. `viteSocket`
+ * The cross-origin journeys, as tests of `dev`. `posts` says how the
+ * example's page posts to its server, as every example's does. `viteSocket`
  * says the example's server passes Vite's hot-update socket through the
  * guard, as Go's does under `pnpm dev`.
  */
 export function testCrossOriginJourney(
   dev: DevStack,
-  { posts, viteSocket }: { posts: boolean; viteSocket: boolean },
+  { posts, viteSocket }: { posts: Posts; viteSocket: boolean },
 ): void {
-  it.runIf(posts)(
-    "refuses the example's own POST sent from a sibling app's page",
-    async () => {
-      await dev.claimed();
+  it("refuses the example's own POST sent from a sibling app's page", async () => {
+    await dev.claimed();
 
-      const journey = await crossOriginWriteJourney(dev.journey());
+    const journey = await crossOriginWriteJourney(dev.journey());
 
-      expect(journey).toEqual({
-        own: 200,
-        sibling: {
-          site: "same-site",
-          sentCookie: true,
-          status: 403,
-          body: refusal,
-        },
-      });
-    },
-  );
+    const [before] = journey.visits;
+    expect(journey).toEqual({
+      own: posts === "form" ? 303 : 200,
+      visits: [before, before + 1, before + 1],
+      sibling: {
+        site: "same-site",
+        sentCookie: true,
+        status: 403,
+        body: refusal,
+      },
+    });
+  });
 
   it.runIf(viteSocket)(
     "passes Vite's socket from the example's own origin, and refuses one from a sibling's",
