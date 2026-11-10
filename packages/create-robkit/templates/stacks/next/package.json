@@ -13,6 +13,7 @@
   "dependencies": {
     "@robkit/drizzle": "catalog:",
     "@robkit/input": "catalog:",
+    "@robkit/next": "catalog:",
     "drizzle-orm": "catalog:",
     "next": "catalog:",
     "postgres": "catalog:",
@@ -22,7 +23,6 @@
   "devDependencies": {
     "@internal/tsconfig": "workspace:*",
     "@internal/ui": "workspace:*",
-    "@robkit/next": "catalog:",
     "@tailwindcss/postcss": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",

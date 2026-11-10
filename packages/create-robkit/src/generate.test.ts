@@ -362,18 +362,20 @@ describe("generateInstall", () => {
     expect(withExec).toEqual([]);
   });
 
-  // What robkit adds to Vite is in @robkit/vite, so a config holds only
-  // the app's own settings.
-  it("sets every Vite app's dev server up with robkit(), reading no setting itself", async () => {
+  // What robkit adds to Vite and Next is in @robkit/vite and @robkit/next,
+  // so a config holds only the app's own settings.
+  it("sets every app's dev server up with robkit's packages, reading no setting itself", async () => {
     const templates = fileURLToPath(new URL("../templates/", import.meta.url));
     const files = await readFolder(templates);
     const configs = [...files].filter(([path]) =>
-      /(^|\/)(vite|vitest)\.config\.ts$/.test(path),
+      /(^|\/)(vite|vitest|next)\.config\.ts$/.test(path),
     );
     const call = (path: string) =>
-      path.endsWith("hub/vite.config.ts")
-        ? "robkit({ guarded: false })"
-        : "robkit()";
+      path.endsWith("next.config.ts")
+        ? "export default withRobkit();"
+        : path.endsWith("hub/vite.config.ts")
+          ? "robkit({ guarded: false })"
+          : "robkit()";
 
     expect(configs.map(([path]) => path).sort()).toEqual([
       "base/apps/admin/vite.config.ts",
@@ -381,6 +383,7 @@ describe("generateInstall", () => {
       "base/apps/hub/vitest.config.ts",
       "stacks/express/vite.config.ts",
       "stacks/go/vite.config.ts",
+      "stacks/next/next.config.ts",
       "stacks/react-hono/vite.config.ts",
       "stacks/start/vite.config.ts",
     ]);
@@ -400,7 +403,7 @@ describe("generateInstall", () => {
     ).toEqual([]);
   });
 
-  it("lists robkit's dev wiring where each app's image leaves Vite out", async () => {
+  it("lists robkit's dev wiring where each app's image leaves Vite out and keeps Next's config", async () => {
     const templates = fileURLToPath(new URL("../templates/", import.meta.url));
     const files = await readFolder(templates);
     const manifest = (path: string) =>
@@ -425,6 +428,10 @@ describe("generateInstall", () => {
       expect(dependencies, app).not.toHaveProperty("@robkit/vite");
       expect(dependencies, app).not.toHaveProperty("vite");
     }
+    // Next loads next.config.ts in production too.
+    const next = manifest("stacks/next/package.json");
+    expect(next.dependencies?.["@robkit/next"]).toBe("catalog:");
+    expect(next.devDependencies).not.toHaveProperty("@robkit/next");
   });
 
   it("tells the root AGENTS.md about each dev tool", async () => {
