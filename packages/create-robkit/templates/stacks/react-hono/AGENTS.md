@@ -39,7 +39,7 @@ Set it in the handler, with `c.header("Content-Security-Policy", ...)`, or in mi
 
 ## Testing
 
-`pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does. A test needs no database, no core and no `pnpm dev`. `src/routes.test.tsx` shows the pattern:
+`pnpm test` runs Vitest, which loads `vite.config.ts` as `pnpm dev` does. A test needs no database, no core and no `pnpm dev`. A test runs with no `pnpm dev` behind it, so the app's `.env` doesn't reach `process.env`. A test that needs a setting sets it, with `vi.stubEnv`. `src/routes.test.tsx` shows the pattern:
 
 - It mounts `routes(...)` behind `guardedAs(viewer)` from `@robkit/hono/testing` instead of `guarded()`, so every request is that viewer's. `owner()`, `guest({ roles: ["family"] })` and `nobody()`, from the same entry, build the viewer.
 - It passes the routes a stand-in for what they store through, so nothing reaches Postgres. Give a new route what it stores the same way, as an argument to `routes`.
@@ -60,6 +60,8 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes 
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
+
+The app's own settings, such as an API key, go in its `.env`, which git ignores. `pnpm dev` loads it for this app alone as it starts, so an edit waits for the next `pnpm dev`. Commit an `.env.example` that names each setting. The install's `AGENTS.md` says what the file can't set, and where the settings go in production. Vite writes a `VITE_*` value into the page when it builds the app, and Docker builds an image without the `.env`, so in production the page doesn't have it. Read the setting on the server and hand it to the page instead.
 
 The example's queries are in `src/visits.ts`. The server hands them to `routes(visits)` in `src/routes.tsx`.
 

@@ -38,7 +38,7 @@ A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page s
 ## Serving
 
 - `next.config.ts` is one call, `withRobkit()` from `@robkit/next/config`. It puts the build in `dist`, lets the dev proxy's host reach Next's dev server, and under `pnpm dev` stops the app as it starts, with the guard's message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. Put the app's own Next settings in its argument, such as `withRobkit({ images: { ... } })`.
-- `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. Telemetry is off: `pnpm dev` sets `NEXT_TELEMETRY_DISABLED` for every app, because `next dev`'s own process never loads `next.config.ts`, and `withRobkit()` sets it for `next build`. Next's production server sends none.
+- `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. Telemetry is off unless the shell or the app's `.env` sets `NEXT_TELEMETRY_DISABLED`: `pnpm dev` sets it to `1` for an app that has no value, because `next dev`'s own process never loads `next.config.ts`, and `withRobkit()` does the same for `next build`. Next also loads `.env.local` and its other `.env` files itself, and `pnpm dev` neither loads nor blocks them. Next's production server sends none.
 - `pnpm build` runs `next build`, which writes the build to `dist`.
 - The production image runs the `start` script, which migrates and then runs `src/serve.ts`.
 - `src/serve.ts` calls `serve()` from `@robkit/next/serve`. It listens on `HOST` and `PORT`, hands every request to Next, and stops on SIGTERM. Next answers its built files under `/_next/static` and this app's `public` folder itself. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
@@ -47,7 +47,7 @@ A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page s
 
 ## Testing
 
-`pnpm test` runs Vitest. The app has no Vite config, so Vitest runs on its defaults, and a test needs no database, no core and no `pnpm dev`. `viewer()` reads the request's headers, which exist only while Next serves a request, so a test can't call a page that calls it. `src/home.test.tsx` shows the pattern instead:
+`pnpm test` runs Vitest. The app has no Vite config, so Vitest runs on its defaults, and a test needs no database, no core and no `pnpm dev`. A test runs with no `pnpm dev` behind it, so the app's `.env` doesn't reach `process.env`. A test that needs a setting sets it, with `vi.stubEnv`. `viewer()` reads the request's headers, which exist only while Next serves a request, so a test can't call a page that calls it. `src/home.test.tsx` shows the pattern instead:
 
 - A page reads the viewer once with `viewer()` and hands it to a plain function, as `src/app/page.tsx` hands it to `Home` in `src/home.tsx`. A server action does the same, as `src/app/actions.ts` calls `visitAgainAs`.
 - The test calls that function with a viewer from `@robkit/next/testing`: `owner()`, `guest({ roles: ["family"] })` or `nobody()`.
@@ -64,6 +64,8 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes 
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
 - `DATABASE_URL` connects as the app's own Postgres role. Only an app with a `migrate` script gets one.
+
+The app's own settings, such as an API key, go in its `.env`, which git ignores. `pnpm dev` loads it for this app alone as it starts, so an edit waits for the next `pnpm dev`. Commit an `.env.example` that names each setting. The install's `AGENTS.md` says what the file can't set, and where the settings go in production. Next writes a `NEXT_PUBLIC_*` value into the page when it builds the app, and Docker builds an image without the `.env`, so in production the page doesn't have it. Read the setting on the server and hand it to the page instead.
 
 The example's queries are in `src/visits.ts`. `src/app/page.tsx` shows the count through `src/home.tsx` and records nothing, `src/app/actions.ts` records a visit from a server action, and `src/app/visits/page.tsx` lists the latest.
 

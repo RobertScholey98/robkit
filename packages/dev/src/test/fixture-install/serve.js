@@ -46,6 +46,8 @@ const server = createServer((_req, res) => {
       database: databaseUrl !== undefined,
       nextTelemetry: process.env.NEXT_TELEMETRY_DISABLED,
       vitest: process.env.VITEST,
+      own: process.env.FIXTURE_OWN,
+      shadowed: process.env.FIXTURE_SHADOWED,
       listeningOn: server.address().address,
     }),
   );

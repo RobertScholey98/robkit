@@ -90,6 +90,14 @@ describe("withRobkit()", () => {
     expect(process.env.NEXT_TELEMETRY_DISABLED).toBe("1");
   });
 
+  it("leaves telemetry as it found it when something set it", () => {
+    vi.stubEnv("NEXT_TELEMETRY_DISABLED", "0");
+
+    withRobkit()(PHASE_PRODUCTION_BUILD);
+
+    expect(process.env.NEXT_TELEMETRY_DISABLED).toBe("0");
+  });
+
   it("adds no root when @robkit/next came from a registry", async () => {
     const installed = join(
       await mkdtemp(join(tmpdir(), "robkit-next-npm-")),
