@@ -47,7 +47,9 @@ function answerAt(
   port: number,
   path: string,
   options: { method?: string; headers?: Record<string, string> } = {},
-): Promise<Answer & { etag: string | undefined }> {
+): Promise<
+  Answer & { etag: string | undefined; contentRange: string | undefined }
+> {
   return new Promise((resolve, reject) => {
     request({ host: "127.0.0.1", port, path, ...options }, (response) => {
       let body = "";
@@ -60,6 +62,7 @@ function answerAt(
           type: response.headers["content-type"],
           sniff: String(response.headers["x-content-type-options"]),
           etag: response.headers.etag,
+          contentRange: response.headers["content-range"],
           body,
         });
       });
@@ -192,6 +195,47 @@ describe("serve", () => {
       status: 304,
       body: "",
     });
+  });
+
+  // serve-static hands both on as errors, once it has found the file. Neither
+  // is a fault in the app, so neither is a 500 or a line in its log.
+  it("answers 416 to a range the file doesn't have, and 412 to a precondition that fails", async () => {
+    const port = await served();
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    onTestFinished(() => {
+      errors.mockRestore();
+    });
+
+    const range = await answerAt(port, "/assets/page.css", {
+      headers: { range: "bytes=100-" },
+    });
+    const held = await answerAt(port, "/assets/page.css", {
+      headers: { "if-match": '"another"' },
+    });
+
+    // Each still says which version of the file the server has.
+    const etag: unknown = expect.any(String);
+    expect([range, held]).toEqual([
+      {
+        status: 416,
+        type: undefined,
+        sniff: "nosniff",
+        etag,
+        contentRange: "bytes */7",
+        body: "",
+      },
+      {
+        status: 412,
+        type: undefined,
+        sniff: "nosniff",
+        etag,
+        contentRange: undefined,
+        body: "",
+      },
+    ]);
+    expect(errors).not.toHaveBeenCalled();
   });
 
   it("answers a file in the public folder at the root", async () => {

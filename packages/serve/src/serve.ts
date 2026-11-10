@@ -65,6 +65,30 @@ function filesAt({ at, folder }: Files): Step {
   };
 }
 
+/**
+ * The two answers serve-static gives for a file it found and won't send: a
+ * precondition that failed, and a range the file doesn't have. It hands
+ * each on as an error, before it has sent anything.
+ */
+const refusals = new Set([412, 416]);
+
+/** What serve-static hands on for one of {@link refusals}. */
+interface Refusal {
+  statusCode: number;
+  /** A 416's `Content-Range`, which says how long the file is. */
+  headers?: Record<string, string>;
+}
+
+function isRefusal(error: unknown): error is Refusal {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "statusCode" in error &&
+    typeof error.statusCode === "number" &&
+    refusals.has(error.statusCode)
+  );
+}
+
 /** `app` behind `files`, with `headers` on every answer. */
 function withFiles(
   app: RequestHandler,
@@ -82,7 +106,13 @@ function withFiles(
         (index: number) =>
         (error?: unknown): void => {
           const step = steps[index];
-          if (error !== undefined) {
+          if (isRefusal(error)) {
+            // The client asked for what the file can't give, which is no
+            // fault of the app's. The answer has no body, so the file's
+            // type isn't its own.
+            response.removeHeader("content-type");
+            response.writeHead(error.statusCode, error.headers).end();
+          } else if (error !== undefined) {
             reject(
               new Error("serve-static couldn't send a file.", { cause: error }),
             );
