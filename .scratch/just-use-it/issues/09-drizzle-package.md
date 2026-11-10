@@ -37,3 +37,11 @@
 - [ ] The whole-stack and production tests pass for every stack, with each app migrating through `robkit-migrate`
 - [ ] The package has its README, API report, graph entry, changeset and thresholds
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From ticket 12's build, added by the lead
+
+Two runs that race to create a journal table get one of at least three errors from Postgres: `42P07`, `42710` for the table's row type, or `23505` on a catalog index. Ticket 12's worker listed two, and CI met the third. So core's `createJournal` (`packages/core/src/migrate.ts`) sorts none of them. When its create is refused it looks in `pg_tables`, and goes on if the table is there. Postgres gives each of these errors only after the winning run has committed, so the look is safe. Look in `pg_tables`, not with `to_regclass`, which also finds a type or a view of that name.
+
+Do the same in this ticket's migrator, with a test that fails the create for another reason and expects Postgres's own error. The Go stack's `migrate.go` creates its journal with no answer to this race. Give it the same one here, since this ticket already holds the two migrators to one behaviour.

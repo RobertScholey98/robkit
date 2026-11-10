@@ -2,11 +2,34 @@
 
 Core: the Hono backend that owns the core tables (the owner, access codes, sessions, roles and the app catalog) and the signing key. It handles claiming the install, signing in and out, `/refresh`, and everything admin manages.
 
-Only an install's `apps/core` imports it. Every other app, the hub and admin included, reaches core over HTTP.
+Only an install's `apps/core` depends on it, and runs it through its `robkit-core` command. Every other app, the hub and admin included, reaches core over HTTP.
 
 ## Example
 
-An install's `apps/core/src/main.ts`:
+An install's `apps/core/package.json` runs core through its one command:
+
+```json
+{
+  "scripts": {
+    "dev": "robkit-core serve",
+    "migrate": "robkit-core migrate",
+    "start": "robkit-core start"
+  },
+  "dependencies": { "@robkit/core": "catalog:" }
+}
+```
+
+| Command               | What it does                                                                                                                                                                                                                                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `robkit-core start`   | In production. Gives each app in `ROBKIT_DATABASES` its database with `@robkit/provision`, migrates core's, then serves core in a child process whose environment holds neither `ROBKIT_ADMIN_DATABASE_URL` nor `ROBKIT_DB_SECRET`. With neither set it skips the provision step and says so; with one alone it stops |
+| `robkit-core migrate` | Migrates core's database from `DATABASE_URL`                                                                                                                                                                                                                                                                          |
+| `robkit-core serve`   | Serves core, for `pnpm dev`, which has already given each app its database. In a robkit checkout an install links to, it restarts core when core's source changes; anywhere else it runs no watcher                                                                                                                   |
+
+Core loads its signing key before it listens. On SIGTERM it stops taking new requests, lets open ones finish, prints `core stopped` and exits 0.
+
+### Your own core
+
+To change how core starts, write your own `main.ts` from the same parts, and point `apps/core`'s scripts at it. It needs `@hono/node-server` and `@robkit/input` in `apps/core`'s dependencies:
 
 ```ts
 import { serve } from "@hono/node-server";
@@ -14,19 +37,18 @@ import {
   createApp,
   createDatabase,
   ensureSigningKey,
+  migrate,
   readCoreConfig,
   registerApps,
 } from "@robkit/core";
-import { isProblem } from "@robkit/input";
+import { orExit } from "@robkit/input";
 
-const config = readCoreConfig(process.env);
-if (isProblem(config)) {
-  console.error(config.error);
-  process.exit(1);
-}
+const config = orExit(readCoreConfig(process.env));
 
+await migrate(config.databaseUrl);
 const db = createDatabase(config.databaseUrl);
-await ensureSigningKey(db);
+// Loaded before core listens, so no sign-in waits on it.
+const signingKey = await ensureSigningKey(db);
 // The owner's apps, as each declares itself. Core adds any it doesn't know,
 // with the rule it declares or as owner-only.
 await registerApps(db, config.apps);
@@ -36,40 +58,32 @@ const app = createApp({
   // Set to cloudflare behind a Cloudflare tunnel, so the sign-in limits
   // count each visitor. Only when nothing but the tunnel reaches the host.
   trustedProxy: config.trustedProxy,
+  signingKey,
 });
 
 // Core trusts the proxy's X-Forwarded-For, so only the proxy may reach it.
 // A container sets HOST to listen beyond loopback.
 const { host: hostname, port } = config;
+const server = serve({ fetch: app.fetch, hostname, port });
 
-serve({ fetch: app.fetch, hostname, port }, ({ port }) => {
-  console.log(`core listening on ${hostname}:${String(port)}`);
+process.on("SIGTERM", () => {
+  server.close(() => void db.$client.end());
 });
-```
-
-And its `apps/core/src/migrate.ts`, which runs before core starts:
-
-```ts
-import { migrate } from "@robkit/core";
-
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL is not set");
-
-await migrate(databaseUrl);
 ```
 
 ## Exports
 
-| Export                               | What it is                                                                                                                                                                                                                                                   |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `origin` (core's public origin, a `CoreOrigin`, as `readCoreConfig` reads it), optional `trustedProxy`, `now`, `logError`, a `Report` where every unexpected error is logged, and `signInLimits`, for tests and tuning |
-| `createDatabase(url)`, `Database`    | Core's connection to its schema, to hand to `createApp`, `ensureSigningKey` and `registerApps`                                                                                                                                                               |
-| `migrate(url)`                       | Applies core's migrations from `drizzle/`                                                                                                                                                                                                                    |
-| `ensureSigningKey(db)`, `SigningKey` | Core's Ed25519 key, made on first boot and kept in core's schema                                                                                                                                                                                             |
-| `readCoreConfig(env)`, `CoreConfig`  | Reads core's environment once, at start: its database, its public origin (`ROBKIT_CORE_URL`), apps (`ROBKIT_APPS`), trusted proxy, host and port, or an `InputProblem` naming each bad variable                                                              |
-| `registerApps(db, apps)`             | Adds apps core hasn't seen, with their declared rule or owner-only. Keeps the owner's edits                                                                                                                                                                  |
-| `TrustedProxy`                       | `cloudflare`, or nothing                                                                                                                                                                                                                                     |
-| `SignInLimits`                       | The sign-in limits `createApp` takes any of as `signInLimits`: attempts per client and per install, their windows, how many clients a limit keeps, and how many password checks run and wait at once                                                         |
+| Export                               | What it is                                                                                                                                                                                                                                                                                             |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `robkit-core` (bin)                  | Core's one command: `start`, `migrate` and `serve`, above                                                                                                                                                                                                                                              |
+| `createApp(options)`                 | Core's Hono app. `CoreOptions`: `db`, `origin` (core's public origin, a `CoreOrigin`, as `readCoreConfig` reads it), optional `trustedProxy`, `now`, `logError`, a `Report` where every unexpected error is logged, `signingKey`, loaded before core listens, and `signInLimits`, for tests and tuning |
+| `createDatabase(url)`, `Database`    | Core's connection to its schema, to hand to `createApp`, `ensureSigningKey` and `registerApps`                                                                                                                                                                                                         |
+| `migrate(url)`                       | Applies core's migrations from `drizzle/`, under a lock on its journal table so two cores starting together apply each once                                                                                                                                                                            |
+| `ensureSigningKey(db)`, `SigningKey` | Core's Ed25519 key, made on first boot and kept in core's schema                                                                                                                                                                                                                                       |
+| `readCoreConfig(env)`, `CoreConfig`  | Reads core's environment once, at start: its database, its public origin (`ROBKIT_CORE_URL`), apps (`ROBKIT_APPS`), trusted proxy, host and port, or an `InputProblem` naming each bad variable                                                                                                        |
+| `registerApps(db, apps)`             | Adds apps core hasn't seen, with their declared rule or owner-only. Keeps the owner's edits                                                                                                                                                                                                            |
+| `TrustedProxy`                       | `cloudflare`, or nothing                                                                                                                                                                                                                                                                               |
+| `SignInLimits`                       | The sign-in limits `createApp` takes any of as `signInLimits`: attempts per client and per install, their windows, how many clients a limit keeps, and how many password checks run and wait at once                                                                                                   |
 
 Core's routes are in `src/routes/`, one Hono app each for status, the session, codes, apps and roles. `createApp` in `src/app.ts` mounts them behind CORS and the rules every POST meets, and its one error handler answers what a route didn't expect. Outside CORS, so a preflight gets them too, every answer that isn't a redirect carries `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, every answer carries `nosniff`, and an https core sends HSTS. `docs/architecture.md` shows how they fit the request and token flows.
 
@@ -88,4 +102,6 @@ Core's routes are in `src/routes/`, one Hono app each for status, the session, c
 - `session-claims.ts` holds the session logic that needs no database: when a session expires, the holder's claims and guard viewer, and when a live session's token renews. `session-store.ts` calls it, and its unit tests need no Postgres.
 - The sign-in limit is in `rate-limit.ts`, keyed by `clientOf` in `client.ts`, with its defaults in `sign-in-limits.ts`. `/login` and `/login/code` reserve a place before they check, and release it in a `finally` unless the verdict is wrong. `/login/code` also reserves one in the install's budget of wrong codes. Every password hash and check runs through the one `PasswordChecker` from `password.ts` that `createApp` puts in the context, which runs 2 at once. When a limit trips, core writes one line to `logError`.
 - Each 500 carries a fresh request id, in the `X-Request-Id` header and the body's `requestId`. The log line names the same id, such as `GET /path failed (request <id>).`, so a 500 a person reports leads to its cause in core's log.
+- `robkit-core` is `src/robkit-core.ts`. `start` and `serve` in a checkout run `src/serving.ts` as a child, passing SIGTERM and SIGINT on and waiting; `serve` elsewhere runs it in its own process. `src/listen.ts` listens and stops; ticket 11 moves it to `@robkit/serve`.
+- Two cores can start together, as in a rolling deploy, with no advisory lock: any role in the shared database can take any advisory key. The provision step tries an app again when it loses a race, `migrate` and `ensureSigningKey` lock core's own tables, which only core's role can, and `registerApps` adds an app's roles only in the core whose insert added it.
 - Core adds a new app with the rule it declares, or owner-only, and creates any role it names that the owner lacks. After that admin sets who may open it, and core keeps the owner's rule.

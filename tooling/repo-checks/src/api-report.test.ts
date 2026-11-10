@@ -75,6 +75,42 @@ describe("apiReport", () => {
       ].join("\n"),
     );
   });
+
+  it("shows a value another workspace package exports as a re-export, not its source", async () => {
+    const dir = await builtPackage({
+      "package.json": JSON.stringify({
+        name: "@robkit/x",
+        type: "module",
+        publishConfig: {
+          exports: {
+            "./cli": { types: "./dist/cli.d.ts", default: "./dist/cli.js" },
+          },
+        },
+      }),
+      "dist/cli.d.ts": 'export { run, type Run } from "@robkit/y/command";\n',
+      // In the workspace a package's exports point at its source.
+      "node_modules/@robkit/y/package.json": JSON.stringify({
+        name: "@robkit/y",
+        type: "module",
+        exports: { "./command": "./src/command.ts" },
+      }),
+      "node_modules/@robkit/y/src/command.ts": [
+        "export type Run = () => number;",
+        "export function run(code: number): number {",
+        "  return code;",
+        "}",
+      ].join("\n"),
+    });
+
+    expect(await apiReport(dir)).toContain(
+      [
+        "```ts",
+        'export { run } from "@robkit/y/command";',
+        "export type Run = () => number;",
+        "```",
+      ].join("\n"),
+    );
+  });
 });
 
 describe("each published package's api-report.md", async () => {

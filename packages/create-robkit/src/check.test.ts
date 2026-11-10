@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { checkInstall } from "./check.ts";
@@ -37,6 +37,7 @@ function readOnlyInstall(): Promise<string> {
 /** The install with one file written, as an agent's change might. */
 async function installWith(path: string, text: string): Promise<string> {
   const dir = await freshInstall();
+  await mkdir(dirname(join(dir, path)), { recursive: true });
   await writeFile(join(dir, path), text);
   return dir;
 }
@@ -158,6 +159,8 @@ describe("checkInstall", () => {
     expect(await checkInstall(dir)).toEqual([]);
   });
 
+  // apps/core has no source, but an owner who writes their own core gives
+  // it some.
   it("lets core import @robkit/core and read the session", async () => {
     const dir = await installWith(
       "apps/core/src/reach.ts",

@@ -7,6 +7,7 @@
     ".": "./src/index.ts",
     "./addresses": "./src/addresses.ts",
     "./report": "./src/report.ts",
+    "./command": "./src/command.ts",
     "./manifest": "./src/manifest.ts"
   },
   "publishConfig": {
@@ -22,6 +23,10 @@
       "./report": {
         "types": "./dist/report.d.ts",
         "default": "./dist/report.js"
+      },
+      "./command": {
+        "types": "./dist/command.d.ts",
+        "default": "./dist/command.js"
       },
       "./manifest": {
         "types": "./dist/manifest.d.ts",

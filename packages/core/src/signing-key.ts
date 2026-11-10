@@ -29,16 +29,15 @@ export interface SigningKey {
   publicJwk: JWK;
 }
 
-// Any constant works; it only has to be the same in every core process.
-const signingKeyLock = 0x5167_6b65;
-
 /**
  * Loads core's signing key, creating it the first time. Safe to call from
- * several processes at once: they all end up with the same key.
+ * several processes at once: they all end up with the same key. Each locks
+ * core's own table while it looks, which only core's role can do, rather
+ * than an advisory key, which any role in the shared database could hold.
  */
 export async function ensureSigningKey(db: Database): Promise<SigningKey> {
   const row = await db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(${signingKeyLock})`);
+    await tx.execute(sql`lock table core.signing_keys in exclusive mode`);
     const [existing] = await tx
       .select()
       .from(signingKeys)

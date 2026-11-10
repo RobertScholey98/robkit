@@ -22,7 +22,7 @@ Inside an install:
 pnpm robkit add                                       # asks for the name, stack, who may open it and an icon
 pnpm robkit add notes --stack react-hono --access roles --roles Family --icon 📝
 pnpm robkit check                                     # the install's layer rule; pnpm lint runs it
-pnpm robkit vendor                                    # packs the linked packages into vendor/robkit
+pnpm robkit vendor                                    # packs the linked packages, and what they run on, into vendor/robkit
 ```
 
 `robkit database-urls` and `robkit deploy` are for production. The install's `docs/deploy.md` is the runbook for both.
@@ -84,7 +84,7 @@ The hub, admin and core-client are template files, not packages of this repo. In
 | The hub         | `base/apps/hub/src/`: the launcher (`launcher.tsx`), sign-in forms and `core-api.ts`              |
 | Admin           | `base/apps/admin/src/client/` for its screens, and `src/server.ts` for its server                 |
 | core-client     | `base/packages/core-client/src/`: `call-core.ts`, and `fake-core.ts`, which the tests answer from |
-| Core's app      | `base/apps/core/src/`, which starts `@robkit/core`                                                |
+| Core's app      | `base/apps/core/package.json`, whose scripts run `robkit-core` from `@robkit/core`                |
 | The example app | `stacks/<stack>/`, mounted at `apps/example`                                                      |
 
 An install's paths match the template's: `templates/base/apps/hub/src/launcher.tsx` becomes `apps/hub/src/launcher.tsx`. The one exception is `.gitignore`, which the template keeps as `gitignore` because npm would drop it from the package.
@@ -165,7 +165,7 @@ The package's second command, `robkit`, runs in an install, which takes create-r
 
 - `robkit check` is the install's layer rule, and the install's `lint` script runs it.
 - `pnpm robkit add` adds an app. `addApp` in `src/add.ts` writes `apps/<slug>` on any ready stack, through the same `appFiles` the generator mounts the example with, or from the install's own `robkit/templates/<stack>` folder, which replaces robkit's template whole. It writes files only. The generator catalogs every stack's dependencies, so an added app needs no new versions.
-- `robkit vendor` packs the packages a linked install uses into its `vendor/robkit`, and copies robkit's Go module to `vendor/robkit/go`, so it builds without the checkout until the packages are on npm.
+- `robkit vendor` packs the packages a linked install uses, and the robkit packages those run on, into its `vendor/robkit`, and copies robkit's Go module to `vendor/robkit/go`, so it builds without the checkout until the packages are on npm.
 - `robkit database-urls` prints each app's production `DATABASE_URL`.
 - `robkit deploy` deploys the install to Coolify. `src/coolify-config.ts` reads `coolify.json`, `src/coolify-api.ts` makes each request to Coolify, `src/coolify-deploy.ts` syncs the apps and deploys them in order, and `deploymentOf` in `src/deployment.ts` works out each app's variables.
 

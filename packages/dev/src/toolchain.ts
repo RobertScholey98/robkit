@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { CommandProblem } from "./run-command.ts";
+import { CommandProblem } from "@robkit/input/command";
 
 /**
  * Checks that Go's toolchain is on the PATH in `env`, before running or

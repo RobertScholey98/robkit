@@ -333,8 +333,33 @@ describe("generateInstall", () => {
     expect(dockerfile).toMatch(/if \[ -f [^\]]*go\.mod \]; then/);
     expect(dockerfile).toContain("sha256sum -c -");
     expect(dockerfile).toContain("COPY --from=go /usr/local/go /usr/local/go");
-    // The runtime is the same for every app: Node runs the start script.
-    expect(dockerfile).toMatch(/\nCMD \["node", "--run", "start"\]\n$/);
+    // The runtime is the same for every app: a shell runs the start script,
+    // since `node --run` passes no signal on. The production test proves
+    // that `docker stop` reaches the server.
+    expect(dockerfile).toMatch(
+      /\nCMD \["\/bin\/sh", "-c", "exec \/bin\/sh -c \\"\$\(node -p 'require\(\\"\.\/package\.json\\"\)\.scripts\.start'\)\\""\]\n$/,
+    );
+  });
+
+  // The Node stacks' scripts run under cmd.exe on Windows, where `exec`
+  // would end them. The Dockerfile, on Linux only, holds the shell syntax.
+  it("puts exec in no template's package.json script", async () => {
+    const templates = fileURLToPath(new URL("../templates/", import.meta.url));
+    const files = await readFolder(templates);
+    const manifests = [...files].filter(([path]) =>
+      path.endsWith("package.json"),
+    );
+
+    expect(manifests.length).toBeGreaterThan(5);
+    const withExec = manifests.flatMap(([path, text]) =>
+      Object.entries(
+        (JSON.parse(text) as { scripts?: Record<string, string> }).scripts ??
+          {},
+      )
+        .filter(([, script]) => /(^|[\s;&|(])exec\s/.test(script))
+        .map(([name]) => `${path}: ${name}`),
+    );
+    expect(withExec).toEqual([]);
   });
 
   it("tells the root AGENTS.md about each dev tool", async () => {
@@ -444,6 +469,8 @@ describe("generateInstall", () => {
       "@robkit/hono": at("hono"),
       "@robkit/input": at("input"),
       "@robkit/next": at("next"),
+      // No manifest names it: it arrives behind @robkit/core.
+      "@robkit/provision": at("provision"),
       "@robkit/react": at("react"),
       "@robkit/session": at("session"),
       "@robkit/start": at("start"),

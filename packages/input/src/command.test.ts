@@ -1,6 +1,6 @@
-import type { Report } from "@robkit/input/report";
+import type { Report } from "./report.ts";
 import { describe, expect, it } from "vitest";
-import { CommandProblem, reportFaultsAt, runCommand } from "./run-command.ts";
+import { CommandProblem, reportFaultsAt, runCommand } from "./command.ts";
 
 /** What `runCommand` reported and returned for `main`. */
 async function run(main: () => Promise<number | undefined>) {

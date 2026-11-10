@@ -1,9 +1,6 @@
-import {
-  catalogOf,
-  databasePassword,
-  databaseUrl,
-  discoverApps,
-} from "@robkit/dev";
+import { catalogOf, discoverApps } from "@robkit/dev";
+import { CommandProblem } from "@robkit/input/command";
+import { databasePassword, databaseUrl } from "@robkit/provision";
 import { type Slug, type Domain } from "@robkit/input";
 import { install } from "@robkit/input/addresses";
 
@@ -88,8 +85,16 @@ export async function databaseUrls(
   const urls = new Map<string, string>();
   for (const { slug, migrates } of await discoverApps(root)) {
     if (!migrates) continue;
-    const password = databasePassword(secret, slug);
-    urls.set(databaseUrlVariable(slug), databaseUrl(adminUrl, slug, password));
+    const derived = databasePassword(secret, slug);
+    if (derived.outcome !== "derived") {
+      throw new CommandProblem(
+        `robkit database-urls can't derive ${slug}'s password. ${derived.error} Set ROBKIT_DB_SECRET to the install's secret.`,
+      );
+    }
+    urls.set(
+      databaseUrlVariable(slug),
+      databaseUrl(adminUrl, slug, derived.password),
+    );
   }
   return urls;
 }

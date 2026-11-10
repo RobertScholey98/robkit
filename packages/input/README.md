@@ -1,6 +1,6 @@
 # @robkit/input
 
-Readers for input from outside robkit's own code: environment variables, JSON, an app's slug and its manifest. Each takes the raw value and returns the typed value or an `InputProblem` that says what to fix. `docs/conventions/input.md` says how robkit uses them. Its subpaths hold the manifest format, an install's addresses and `Report`, which robkit's packages share.
+Readers for input from outside robkit's own code: environment variables, JSON, an app's slug and its manifest. Each takes the raw value and returns the typed value or an `InputProblem` that says what to fix. `docs/conventions/input.md` says how robkit uses them. Its subpaths hold the manifest format, an install's addresses, `Report` and the command lines' handler, which robkit's packages share.
 
 Every robkit package and every app can import it. It imports nothing, so the browser can load it.
 
@@ -76,7 +76,17 @@ installAt("http://hub.robkit.localhost:3000/", "hub")?.origin("core");
 | `Report`          | The one shape for reporting a fault nobody calling can handle, `(message, cause?)` |
 | `reportToConsole` | Its default, which prints the message, then the cause with its stack               |
 
-Core's `logError`, the guard's default `onUnavailable` and dev's `runCommand` all report through it (see `docs/conventions/errors.md`).
+Core's `logError`, the guard's default `onUnavailable` and `runCommand` all report through it (see `docs/conventions/errors.md`).
+
+### `@robkit/input/command`
+
+The one top-level handler of robkit's command lines. `@robkit/dev/cli` re-exports it.
+
+| Export                      | What it is                                                                                                                                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runCommand(main, report?)` | Runs a command line and returns its exit code. A thrown `CommandProblem` prints its message alone and exits 1. Anything else prints a line saying it's a bug and where to report it, then the error with its stack |
+| `CommandProblem`            | A problem the person running the command can fix. Its message says what to do                                                                                                                                      |
+| `reportFaultsAt`            | Where a fault robkit didn't expect gets reported                                                                                                                                                                   |
 
 ## What it must never do
 

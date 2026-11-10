@@ -9,6 +9,47 @@ import { docker, network, type Stack } from "./production-stack.ts";
 
 const run = promisify(execFile);
 
+/** The robkit packages in `slug`'s image, by name, such as `@robkit/core`. */
+export async function robkitPackages(
+  stack: Stack,
+  slug: Slug,
+): Promise<string[]> {
+  const store = await docker(
+    "run",
+    "--rm",
+    "--entrypoint",
+    "ls",
+    `${stack.name}/${slug}`,
+    "/install/node_modules/.pnpm",
+  );
+  // pnpm keeps each package in a folder such as `@robkit+core@file+...`.
+  return [
+    ...new Set(
+      [...store.matchAll(/^@robkit\+([a-z-]+)@/gm)].map(
+        ([, name]) => `@robkit/${name ?? ""}`,
+      ),
+    ),
+  ].sort();
+}
+
+/**
+ * Stops `slug`'s container as a redeploy does, with `docker stop`: SIGTERM,
+ * then SIGKILL 10 seconds later. Answers with its exit code, which is 137
+ * if Docker had to kill it, and the last line it printed.
+ */
+export async function stopApp(
+  stack: Stack,
+  slug: Slug,
+): Promise<{ exitCode: number; lastLine: string }> {
+  const container = `${stack.name}-${slug}`;
+  await docker("stop", container);
+  const exitCode = Number(
+    await docker("inspect", "--format", "{{.State.ExitCode}}", container),
+  );
+  const lines = (await docker("logs", container)).trim().split("\n");
+  return { exitCode, lastLine: lines.at(-1) ?? "" };
+}
+
 /**
  * The packages in `slug`'s image that nothing in production needs, as
  * `name@version`, found by `extraneous-packages.js` running in the image.

@@ -15,8 +15,9 @@ import {
   testComposeFiles,
   testTag,
 } from "@internal/test-postgres";
-import { afterEach, describe, expect, it } from "vitest";
-import { reportFaultsAt } from "./run-command.ts";
+import { afterEach, describe, expect, it, onTestFinished } from "vitest";
+import { reportFaultsAt } from "@robkit/input/command";
+import { runDev } from "./runner.ts";
 
 const run = promisify(execFile);
 const bin = fileURLToPath(new URL("robkit-dev-command.ts", import.meta.url));
@@ -55,10 +56,13 @@ afterEach(async () => {
   );
 });
 
-async function startDev(
-  env: Record<string, string> = {},
+/**
+ * A copy of the fixture install, and the environment robkit-dev runs it
+ * with: its own ports, and its own Compose project, removed after the test.
+ */
+async function devInstall(
   prepare: (root: string) => Promise<void> = () => Promise.resolve(),
-): Promise<Dev> {
+): Promise<{ root: string; port: number; env: NodeJS.ProcessEnv }> {
   const root = await mkdtemp(join(tmpdir(), "robkit-dev-"));
   await cp(fixture, root, { recursive: true });
   await cp(composeFile, join(root, "compose.yaml"));
@@ -68,9 +72,9 @@ async function startDev(
   projects.push({ root, project });
   const tag = testTag();
   removeWhenGone({ tagged: tag }, { docker: project });
-
-  const child = spawn(process.execPath, [bin], {
-    cwd: root,
+  return {
+    root,
+    port,
     env: {
       ...process.env,
       ROBKIT_DEV_PORT: String(port),
@@ -78,8 +82,18 @@ async function startDev(
       COMPOSE_FILE: testComposeFiles(),
       ROBKIT_TEST_TAG: tag,
       COMPOSE_PROJECT_NAME: project,
-      ...env,
     },
+  };
+}
+
+async function startDev(
+  env: Record<string, string> = {},
+  prepare: (root: string) => Promise<void> = () => Promise.resolve(),
+): Promise<Dev> {
+  const { root, port, env: devEnv } = await devInstall(prepare);
+  const child = spawn(process.execPath, [bin], {
+    cwd: root,
+    env: { ...devEnv, ...env },
     stdio: ["ignore", "pipe", "pipe"],
   });
   children.push(child);
@@ -202,6 +216,24 @@ describe("robkit-dev", () => {
     expect(await isListening(dev.port + 1)).toBe(false);
     expect(await isListening(dev.port + 2)).toBe(false);
     expect(await runningContainers(dev.root)).toBe("");
+  });
+
+  // In this process, so the coverage report sees the runner. The test above
+  // proves the command's own signal handling.
+  it("runs the install in this process until SIGINT, then stops it all", async () => {
+    const { root, port, env } = await devInstall();
+    onTestFinished(() => {
+      process.emit("SIGINT", "SIGINT");
+    });
+
+    const running = runDev(root, env);
+    const alpha = await eventually(() => get(port, "alpha.robkit.localhost"));
+    process.emit("SIGINT", "SIGINT");
+
+    expect(JSON.parse(alpha)).toMatchObject({ slug: "alpha", database: true });
+    expect(await running).toBe(0);
+    expect(await isListening(port)).toBe(false);
+    expect(await runningContainers(root)).toBe("");
   });
 
   it("starts nothing when a migration fails", async () => {
