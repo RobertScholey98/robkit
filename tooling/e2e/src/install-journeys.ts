@@ -5,6 +5,7 @@ import { discoverApps } from "@robkit/dev";
 import { describe, expect, it } from "vitest";
 import { testA11yJourney } from "./a11y-journey.ts";
 import { testAddedAppJourney } from "./added-app-journey.ts";
+import { testCrossOriginJourney } from "./cross-origin-journey.ts";
 import { interrupt, owner, useDevStack } from "./dev-stack.ts";
 import { testGuestJourney } from "./guest-journey.ts";
 import { installChoices, type InstallName } from "./install.ts";
@@ -50,6 +51,16 @@ export interface JourneyOptions {
    * gets journeys of its own, as Next's example has both.
    */
   lapsedCalls?: boolean;
+  /**
+   * Whether the example's page posts to its server, as Go's, Next's and
+   * Start's do, so a sibling app's page can post the same and be refused.
+   */
+  posts?: boolean;
+  /**
+   * Whether the example's server passes Vite's hot-update socket through
+   * the guard under pnpm dev, as Go's does.
+   */
+  viteSocket?: boolean;
 }
 
 /**
@@ -67,6 +78,8 @@ export function describeJourneys(
     roles = true,
     serverFunction = false,
     lapsedCalls = false,
+    posts = false,
+    viteSocket = false,
   }: JourneyOptions = {},
 ): void {
   const stack = installChoices[name].exampleStack;
@@ -127,6 +140,7 @@ export function describeJourneys(
     testServerFunctionJourney(dev, serverFunction);
     testClientNavigationJourney(dev, lapsedCalls);
     testServerActionJourney(dev, lapsedCalls);
+    testCrossOriginJourney(dev, { posts, viteSocket });
     testGuestJourney(dev);
     testAddedAppJourney(dev);
     testThemeJourney(dev);
