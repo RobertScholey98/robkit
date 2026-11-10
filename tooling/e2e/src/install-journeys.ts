@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { testA11yJourney } from "./a11y-journey.ts";
 import { testAddedAppJourney } from "./added-app-journey.ts";
 import { testCrossOriginJourney } from "./cross-origin-journey.ts";
+import { letTheHubFrameNext, testFramingJourneys } from "./framing-journey.ts";
 import { interrupt, owner, useDevStack } from "./dev-stack.ts";
 import { testGuestJourney } from "./guest-journey.ts";
 import { installChoices, type InstallName } from "./install.ts";
@@ -61,6 +62,12 @@ export interface JourneyOptions {
    * the guard under pnpm dev, as Go's does.
    */
   viteSocket?: boolean;
+  /**
+   * Whether the example lets the hub frame a page and has route handlers
+   * that send their own framing headers, which the test adds to Next's
+   * before `pnpm dev` starts, so its framing journeys run.
+   */
+  hubFrames?: boolean;
 }
 
 /**
@@ -80,10 +87,11 @@ export function describeJourneys(
     lapsedCalls = false,
     posts = false,
     viteSocket = false,
+    hubFrames = false,
   }: JourneyOptions = {},
 ): void {
   const stack = installChoices[name].exampleStack;
-  const dev = useDevStack(name);
+  const dev = useDevStack(name, hubFrames ? letTheHubFrameNext : undefined);
 
   describe(`pnpm dev in an install with the ${stack} example`, () => {
     it("serves the hub on hub.robkit.localhost", async () => {
@@ -141,6 +149,7 @@ export function describeJourneys(
     testClientNavigationJourney(dev, lapsedCalls);
     testServerActionJourney(dev, lapsedCalls);
     testCrossOriginJourney(dev, { posts, viteSocket });
+    testFramingJourneys(dev, { hubFrames });
     testGuestJourney(dev);
     testAddedAppJourney(dev);
     testThemeJourney(dev);

@@ -27,6 +27,12 @@ A browser sends this app's cookie with a form posted from any app beside it, sin
 
 Every request reaches the guard, WebSocket handshakes included. It lets a handshake through only when its `Origin` is this app's own, which is how Vite's hot updates pass under `pnpm dev`.
 
+## Who may frame it
+
+The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through, so only this app's own pages can put it in a frame. A frame from any app beside it would carry the viewer's cookies. To let another origin frame a page, such as the hub, send `Content-Security-Policy: frame-ancestors 'self' https://hub.<domain>` with it, and a browser follows that instead. To refuse every framer, this app included, send `frame-ancestors 'none'`.
+
+Set it in the handler, with `w.Header().Set("Content-Security-Policy", ...)` before it writes. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack.
+
 ## Serving
 
 - `pnpm dev` runs `go run . dev`. The Go server listens on `PORT` and guards everything, as in production. It starts Vite on a port of its own and passes it every request beyond the API: the page, its modules, and Vite's hot updates over a WebSocket. Restart `pnpm dev` after changing Go code; Vite reloads the page's own changes.

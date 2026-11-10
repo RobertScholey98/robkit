@@ -25,6 +25,12 @@ A browser sends this app's cookie with a form posted from any app beside it, sin
 
 Node hands a WebSocket upgrade to the HTTP server's `upgrade` event, not to Express, so the guard never sees one. If you add a WebSocket, check its `Origin` against this app's own origin before you accept it.
 
+## Who may frame it
+
+The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through, so only this app's own pages can put it in a frame. A frame from any app beside it would carry the viewer's cookies. To let another origin frame a page, such as the hub, send `Content-Security-Policy: frame-ancestors 'self' https://hub.<domain>` with it, and a browser follows that instead. To refuse every framer, this app included, send `frame-ancestors 'none'`.
+
+Set it in the handler, with `res.set("Content-Security-Policy", ...)`, or in middleware after `guarded`. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack.
+
 ## Serving
 
 - `pnpm dev` runs Vite. `vite.config.ts` hands every request Vite doesn't answer itself to the Express app in `src/server.tsx`, which it loads afresh after each change. Don't call `app.listen` in `src/server.tsx`.

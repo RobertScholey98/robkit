@@ -1,5 +1,6 @@
 import {
   addressAnswer,
+  answerHeadersOf,
   addressCases,
   addressCookie,
   aRoleId,
@@ -13,6 +14,9 @@ import {
   formPostCases,
   formPostRequest,
   guest,
+  headerAnswer,
+  headerCases,
+  headerRequest,
   linksIn,
   owner,
   refreshLocation,
@@ -34,6 +38,7 @@ import {
   requestGuard,
   type GuardedOptions,
   type GuardFault,
+  withHeaders,
 } from "./index.ts";
 import { readSessionLapsed } from "./lapsed.ts";
 import { coreOrigin } from "./test/core-origin.ts";
@@ -133,7 +138,7 @@ describe("requestGuard, on a page load", () => {
     ]);
   });
 
-  it("tags what it decides: serve the viewer, or answer for the app", async () => {
+  it("tags what it decides: serve the viewer with the headers the answer needs, or answer for the app", async () => {
     const core = await fakeCore();
     const check = requestGuard({
       app: example,
@@ -145,6 +150,10 @@ describe("requestGuard, on a page load", () => {
     expect(await check(new Request(core.page, { headers: signedIn }))).toEqual({
       outcome: "serve",
       viewer: owner,
+      headers: [
+        ["x-frame-options", "SAMEORIGIN"],
+        ["x-content-type-options", "nosniff"],
+      ],
     });
     const away = await check(new Request(core.page, { headers: navigate }));
     expect(away.outcome === "answer" && away.response.status).toBe(302);
@@ -350,6 +359,174 @@ describe("requestGuard, on a request from another origin", () => {
     });
 
     expect([res.status, core.fetched]).toEqual([403, []]);
+  });
+});
+
+/**
+ * What an app answers behind the guard in a header case: its own policy,
+ * or at `/moved` a redirect whose headers can't change, as
+ * `Response.redirect()` makes one.
+ */
+function appAnswer(url: string): Response {
+  return new URL(url).pathname === "/moved"
+    ? Response.redirect(new URL("/", url), 302)
+    : new Response("the app", {
+        headers: { "content-security-policy": "default-src 'self'" },
+      });
+}
+
+describe("requestGuard, on what an answer tells the browser", () => {
+  it.each(headerCases)("$name", async (asking) => {
+    const { url, access, ...init } = headerRequest(asking);
+    const check = requestGuard({
+      app: example,
+      access,
+      core: coreOrigin(asking.core),
+    });
+
+    const decision = await check(new Request(url, init));
+
+    const res =
+      decision.outcome === "serve"
+        ? withHeaders(appAnswer(url), decision.headers)
+        : decision.response;
+    expect({
+      status: res.status,
+      reached: decision.outcome === "serve",
+      headers: answerHeadersOf(res.headers),
+    }).toEqual(headerAnswer(asking));
+  });
+
+  it("answers 404 with both headers", async () => {
+    const core = await fakeCore();
+
+    const res = await guardedBy(core)(core.page, {
+      headers: {
+        ...navigate,
+        ...cookie(await core.key.token({ holder: guest() })),
+      },
+    });
+
+    expect([res.status, answerHeadersOf(res.headers)]).toEqual([
+      404,
+      {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": null,
+        "content-security-policy": null,
+      },
+    ]);
+  });
+
+  it("answers 503 with both headers when it can't check the session", async () => {
+    const core = await fakeCore();
+    core.status = 503;
+
+    const res = await guardedBy(core, {
+      app: example,
+      access: { kind: "owner" },
+      onUnavailable: () => undefined,
+    })(core.page, { headers: cookie(await core.key.token()) });
+
+    expect([res.status, answerHeadersOf(res.headers)]).toEqual([
+      503,
+      {
+        "x-frame-options": "SAMEORIGIN",
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": null,
+        "content-security-policy": null,
+      },
+    ]);
+  });
+
+  it("sends nosniff and no framing header on its callback's redirect to the page", async () => {
+    const core = await fakeCore();
+    const app = guardedBy(core);
+    const away = await app(core.page, { headers: navigate });
+
+    const back = await app(
+      callbackFor(core.page, {
+        state: stateIn(away.headers.get("location")),
+        token: await core.key.token(),
+      }),
+      {
+        headers: {
+          ...navigate,
+          cookie: away.headers
+            .getSetCookie()
+            .map((set) => set.split(";")[0])
+            .join("; "),
+        },
+      },
+    );
+
+    expect([back.status, answerHeadersOf(back.headers)]).toEqual([
+      302,
+      {
+        "x-frame-options": null,
+        "x-content-type-options": "nosniff",
+        "strict-transport-security": null,
+        "content-security-policy": null,
+      },
+    ]);
+  });
+});
+
+describe("withHeaders", () => {
+  const ours: [string, string][] = [
+    ["x-frame-options", "SAMEORIGIN"],
+    ["x-content-type-options", "nosniff"],
+  ];
+
+  it("adds each header the answer lacks, and keeps the app's own", async () => {
+    const app = new Response("the app", {
+      status: 201,
+      headers: { "x-frame-options": "DENY", "set-cookie": "a=1" },
+    });
+
+    const res = withHeaders(app, ours);
+
+    expect({
+      status: res.status,
+      headers: [...res.headers],
+      body: await res.text(),
+    }).toEqual({
+      status: 201,
+      headers: [
+        ["content-type", "text/plain;charset=UTF-8"],
+        ["set-cookie", "a=1"],
+        ["x-content-type-options", "nosniff"],
+        ["x-frame-options", "DENY"],
+      ],
+      body: "the app",
+    });
+  });
+
+  it("copies an answer whose headers can't change, such as Response.redirect()'s", () => {
+    const res = withHeaders(
+      Response.redirect("https://example.robkit.dev/", 302),
+      ours,
+    );
+
+    expect([res.status, [...res.headers]]).toEqual([
+      302,
+      [
+        ["location", "https://example.robkit.dev/"],
+        ["x-content-type-options", "nosniff"],
+        ["x-frame-options", "SAMEORIGIN"],
+      ],
+    ]);
+  });
+
+  it("hands back an answer that has every header as it is", () => {
+    const app = new Response(null, {
+      headers: {
+        "x-frame-options": "DENY",
+        "x-content-type-options": "nosniff",
+      },
+    });
+
+    expect(withHeaders(app, ours)).toBe(app);
   });
 });
 

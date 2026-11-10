@@ -54,6 +54,10 @@ Next hands the proxy a URL on its own host and port. The adapter keeps only its 
 
 A route handler the page calls with `fetch` gets the 401 as it is. Call it with `sessionFetch` from `@robkit/react`.
 
+## Who may frame a page
+
+The proxy sets `X-Frame-Options: SAMEORIGIN`, `nosniff` and, on an https install, HSTS on what it passes on. Next sends them with the page's or route handler's answer, and drops that answer's own header of the same name, so an app's own `X-Frame-Options` never arrives. To let another origin frame the app, send `Content-Security-Policy: frame-ancestors` instead, which a browser obeys over `X-Frame-Options`: a page through `headers()` in `next.config.ts`, and a route handler on its own answer.
+
 ## The viewer header
 
 The proxy passes the viewer on in the `robkit-viewer` request header. It replaces any the request came with, so on a path the matcher covers, nobody can send their own. On a path the matcher leaves out, the proxy doesn't run, so it can't replace one. The proxy puts a key beside each viewer, random for each server process, and `viewer()` refuses a header without it. So a request the proxy didn't guard makes `viewer()` throw, whatever headers it came with.

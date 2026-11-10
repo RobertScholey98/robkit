@@ -5,10 +5,11 @@ import cases from "../request-cases.json" with { type: "json" };
 // pass, one list per kind, under its own key: "address" for where the
 // guard sends the browser, "cookies" for which cookie it reads,
 // "coreAddress" for which addresses of core each port's reader accepts,
-// "writes" for which requests from another origin it refuses, and
-// "formPost" for where its page for a form it didn't take links back to. A ticket that
-// adds a kind adds a key, a row type and a reader here, and a reader in
-// go/internal/conformance.
+// "writes" for which requests from another origin it refuses, "formPost"
+// for where its page for a form it didn't take links back to, and
+// "headers" for who may frame an answer and how the browser reads it. A
+// ticket that adds a kind adds a key, a row type and a reader here, and a
+// reader in go/internal/conformance.
 
 /**
  * One row of request-cases.json's `address` list: a page load on the app the tests guard,
@@ -216,6 +217,117 @@ function readFormPostCase(value: unknown, index: number): FormPostCase {
   return { name, core, ...(referer === undefined ? {} : { referer }), next };
 }
 
+/**
+ * The headers on an answer that say who may frame it, how to read it and
+ * how to reach the app, by lowercase name. A `headers` row names the value
+ * each must have, or leaves it out where the answer must carry none.
+ */
+export const answerHeaderNames = [
+  "x-frame-options",
+  "x-content-type-options",
+  "strict-transport-security",
+  "content-security-policy",
+] as const;
+
+/** One of `answerHeaderNames`. */
+export type AnswerHeader = (typeof answerHeaderNames)[number];
+
+/**
+ * One row of request-cases.json's `headers` list: a request to `example`,
+ * open to anyone or owner-only, with no cookie, or with core's word that
+ * nobody is signed in, and exactly `headers`. Behind the guard, the app's
+ * handler answers with its own `Content-Security-Policy: default-src
+ * 'self'`, and at `/moved` redirects to `/` its own way. The answer, the
+ * guard's or the app's, carries each of `answerHeaderNames` once, with the
+ * value `answer` gives, and none it leaves out.
+ */
+export interface HeaderCase {
+  name: string;
+  /** Core's origin, as the app's settings name it. */
+  core: string;
+  /** Who may open the app. */
+  access: "open" | "owner";
+  method: string;
+  /** The path and query on the request line. */
+  target: string;
+  /** The request's headers, by lowercase name. */
+  headers: Record<string, string>;
+  /** Whether the browser holds core's word that nobody is signed in. */
+  signedOut: boolean;
+  /** The answer's status. */
+  status: number;
+  /** Whether the app's handler answered, rather than the guard. */
+  reached: boolean;
+  /** Each of `answerHeaderNames` the answer carries, with its value. */
+  answer: Partial<Record<AnswerHeader, string>>;
+}
+
+/** Whether `value` is an object whose every value is a string. */
+function isStrings(value: unknown): value is Record<string, string> {
+  return (
+    isRecord(value) &&
+    Object.values(value).every((field) => typeof field === "string")
+  );
+}
+
+/** Whether `value` names only `answerHeaderNames`, each with a string. */
+function isAnswer(
+  value: unknown,
+): value is Partial<Record<AnswerHeader, string>> {
+  return (
+    isStrings(value) &&
+    Object.keys(value).every((name) =>
+      answerHeaderNames.some((known) => known === name),
+    )
+  );
+}
+
+function readHeaderCase(value: unknown, index: number): HeaderCase {
+  const at = `request-cases.json headers[${String(index)}]`;
+  if (!isRecord(value)) throw new Error(`${at} must be an object.`);
+  const {
+    name,
+    core,
+    access,
+    method,
+    target,
+    headers,
+    signedOut = false,
+    status,
+    reached,
+    answer,
+  } = value;
+  if (
+    typeof name !== "string" ||
+    typeof core !== "string" ||
+    (access !== "open" && access !== "owner") ||
+    typeof method !== "string" ||
+    typeof target !== "string" ||
+    !isStrings(headers) ||
+    typeof signedOut !== "boolean" ||
+    typeof status !== "number" ||
+    !Number.isInteger(status) ||
+    typeof reached !== "boolean" ||
+    !isAnswer(answer)
+  ) {
+    throw new Error(
+      `${at} needs a name, core, method and target as strings, access as "open" or "owner", headers as an object of strings, signedOut as true, false or left out, status as a whole number, reached as true or false, and answer as an object of strings named from ${answerHeaderNames.join(", ")}.`,
+    );
+  }
+  return {
+    name,
+    core,
+    access,
+    method,
+    target,
+    headers: { ...headers },
+    signedOut,
+    status,
+    reached,
+    answer: { ...answer },
+  };
+}
+
 /** The list of cases under `kind` in `file`, or a throw that names it. */
 function listIn(file: unknown, kind: keyof RequestCases): unknown[] {
   const list = isRecord(file) ? file[kind] : undefined;
@@ -234,6 +346,7 @@ export interface RequestCases {
   coreAddress: CoreAddressCase[];
   writes: WriteCase[];
   formPost: FormPostCase[];
+  headers: HeaderCase[];
 }
 
 /** The cases in `value`, as request-cases.json holds them. Throws on a bad one. */
@@ -244,6 +357,7 @@ export function readRequestCases(value: unknown): RequestCases {
     coreAddress: listIn(value, "coreAddress").map(readCoreAddressCase),
     writes: listIn(value, "writes").map(readWriteCase),
     formPost: listIn(value, "formPost").map(readFormPostCase),
+    headers: listIn(value, "headers").map(readHeaderCase),
   };
 }
 
@@ -264,3 +378,6 @@ export const writeCases = requestCases.writes;
 
 /** Where every port's page for a form it didn't take must link back to. */
 export const formPostCases = requestCases.formPost;
+
+/** The headers every port's answers must carry alike. */
+export const headerCases = requestCases.headers;

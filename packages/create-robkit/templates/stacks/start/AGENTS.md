@@ -25,6 +25,12 @@ A browser sends this app's cookie with a form posted from any app beside it, sin
 
 The guard wraps Start's `fetch`, and a WebSocket the server upgrades outside it never reaches the guard. If you add one, check its `Origin` against this app's own origin before you accept it.
 
+## Who may frame it
+
+The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through, so only this app's own pages can put it in a frame. A frame from any app beside it would carry the viewer's cookies. To let another origin frame a page, such as the hub, send `Content-Security-Policy: frame-ancestors 'self' https://hub.<domain>` with it, and a browser follows that instead. To refuse every framer, this app included, send `frame-ancestors 'none'`.
+
+Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` from `@tanstack/react-start/server`. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack.
+
 ## Calling core
 
 The guard already asks core for what it needs: core's public key and this app's access rule. The owner sets who may open the app in admin. The `robkit` field in `package.json` is only the rule core starts from. If the app needs more from core, call it over HTTP from the server at `process.env.ROBKIT_CORE_URL`. Never import `@robkit/core`.

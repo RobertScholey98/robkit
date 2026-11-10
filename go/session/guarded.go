@@ -75,9 +75,14 @@ func Guarded(options Options) (func(http.Handler) http.Handler, error) {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			viewer, answer := g.check(r)
 			if answer != nil {
+				g.secure(answer.header, isRedirect(answer.status))
 				answer.write(w)
 				return
 			}
+			// Before the handler, which may set its own or redirect. An
+			// app's own redirect carries the framing header too, and so
+			// may the 101 a WebSocket handshake gets, which does no harm.
+			g.secure(w.Header(), false)
 			next.ServeHTTP(w, r.WithContext(WithViewer(r.Context(), viewer)))
 		})
 	}, nil
@@ -128,6 +133,22 @@ func newRequestGuard(options Options) (*requestGuard, error) {
 		keyUnavailable: g.keyUnavailable,
 	}
 	return g, nil
+}
+
+// secure sets on header what every answer carries: nosniff, HSTS on an
+// https install, and, unless the answer is a redirect, which renders
+// nothing, X-Frame-Options: SAMEORIGIN. An app changes who may frame it
+// with its own Content-Security-Policy: frame-ancestors, which a browser
+// obeys over X-Frame-Options. A redirect with no framing header lets an
+// app that allows a framer renew its token inside the frame.
+func (g *requestGuard) secure(header http.Header, redirect bool) {
+	if !redirect {
+		header.Set("X-Frame-Options", "SAMEORIGIN")
+	}
+	header.Set("X-Content-Type-Options", "nosniff")
+	if g.origin.Scheme == "https" {
+		header.Set("Strict-Transport-Security", strictTransportSecurity)
+	}
 }
 
 // unavailable is a 503 for a check that failed, after telling

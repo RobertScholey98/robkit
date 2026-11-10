@@ -31,7 +31,11 @@ describe("session's types", () => {
       (request: Request) => Promise<RequestDecision>
     >();
     expectTypeOf<RequestDecision>().toEqualTypeOf<
-      | { outcome: "serve"; viewer: Viewer }
+      | {
+          outcome: "serve";
+          viewer: Viewer;
+          headers: readonly [string, string][];
+        }
       | { outcome: "answer"; response: Response }
     >();
   });

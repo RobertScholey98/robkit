@@ -2,11 +2,15 @@ import {
   addressAnswer,
   addressCases,
   addressCookie,
+  answerHeadersOf,
   aRoleId,
   callbackFor,
   conformanceAnswer,
   fakeCore,
   guest,
+  headerAnswer,
+  headerCases,
+  headerRequest,
   owner,
   signedOutCookie,
   slug,
@@ -318,6 +322,65 @@ describe("guarded", () => {
     });
 
     expect({ status: res.status, reached }).toEqual(writeAnswer(asking));
+  });
+
+  it.each(headerCases)("$name", async (asking) => {
+    let reached = false;
+    const { url, method, headers, access } = headerRequest(asking);
+    const proxy = guarded({
+      app: example,
+      access,
+      core: coreOrigin(asking.core),
+    });
+
+    const res = await ask(proxy, url, { method, headers }, () => {
+      reached = true;
+      return Promise.resolve(
+        new URL(url).pathname === "/moved"
+          ? Response.redirect(new URL("/", url), 302)
+          : new Response("the app", {
+              headers: { "content-security-policy": "default-src 'self'" },
+            }),
+      );
+    });
+
+    expect({
+      status: res.status,
+      reached,
+      headers: answerHeadersOf(res.headers),
+    }).toEqual(headerAnswer(asking));
+  });
+
+  it("sends a route handler's answer with the guard's X-Frame-Options, not its own", async () => {
+    const proxy = guarded({
+      app: example,
+      access: { kind: "open" },
+      core: coreOrigin("https://core.robkit.dev"),
+    });
+
+    const res = await ask(
+      proxy,
+      "https://example.robkit.dev/api/notes",
+      {},
+      () =>
+        Promise.resolve(
+          new Response("the app", {
+            headers: {
+              "x-frame-options": "DENY",
+              "content-security-policy":
+                "frame-ancestors 'self' https://hub.robkit.dev",
+            },
+          }),
+        ),
+    );
+
+    expect(answerHeadersOf(res.headers)).toEqual({
+      "x-frame-options": "SAMEORIGIN",
+      "x-content-type-options": "nosniff",
+      "strict-transport-security": "max-age=31536000",
+      "content-security-policy":
+        "frame-ancestors 'self' https://hub.robkit.dev",
+    });
   });
 
   it("replaces a viewer the request came with by the guard's own", async () => {

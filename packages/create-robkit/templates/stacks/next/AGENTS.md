@@ -29,6 +29,12 @@ A browser sends this app's cookie with a form posted from any app beside it, sin
 
 Never change state while a page renders or in a route handler's `GET`. Files outside the matcher in `src/proxy.ts` skip the guard, so serve nothing there that changes state.
 
+## Who may frame it
+
+The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through, so only this app's own pages can put it in a frame. A frame from any app beside it would carry the viewer's cookies. To let another origin frame a page, such as the hub, send `Content-Security-Policy: frame-ancestors 'self' https://hub.<domain>` with it, and a browser follows that instead. To refuse every framer, this app included, send `frame-ancestors 'none'`.
+
+A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page sends its policy through `headers()` in `next.config.ts`, and a route handler sends it on its own answer. An `X-Frame-Options` of the app's own never arrives: Next sends the guard's and drops the app's.
+
 ## Serving
 
 - `pnpm dev` runs `next dev` on the port `pnpm dev` assigns. `next.config.ts` lets the dev proxy's host reach Next's dev server. Telemetry is off: the `dev` script sets `NEXT_TELEMETRY_DISABLED` because `next dev`'s own process never loads `next.config.ts`, and `next.config.ts` sets it for `next build` and the server.

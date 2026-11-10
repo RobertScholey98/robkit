@@ -113,7 +113,7 @@ async function handshake(
 }
 
 /** The owner's session cookie on the example, as a `Cookie` header. */
-async function ownerCookie(options: JourneyOptions): Promise<string> {
+export async function ownerCookie(options: JourneyOptions): Promise<string> {
   const browser = await launch();
   try {
     const context = await browser.newContext();

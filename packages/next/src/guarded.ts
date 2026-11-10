@@ -62,6 +62,11 @@ export function guarded(
     // set replaces any viewer the request came with.
     const forwarded = new Headers(request.headers);
     forwarded.set(viewerHeader, viewerValue(decision.viewer));
-    return NextResponse.next({ request: { headers: forwarded } });
+    const next = NextResponse.next({ request: { headers: forwarded } });
+    // The guard answers before the page exists, so its headers go on what
+    // it passes on. Next sends them with the page's answer, and drops the
+    // page's own header of the same name.
+    for (const [name, value] of decision.headers) next.headers.set(name, value);
+    return next;
   };
 }

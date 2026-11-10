@@ -45,6 +45,23 @@ What stays the app's job:
 - A WebSocket the guard never sees. Go's guard sees every handshake. On the Node stacks a socket is usually upgraded outside the framework's middleware, where the guard doesn't run, so the app must check `Origin` itself.
 - Allowing another origin to write. There's no option for it yet.
 
+### No guarded app can be framed from another origin
+
+A page on a sibling subdomain is same-site, so a frame it puts admin or another app in carries the viewer's cookies, and a tricked click there acts as the viewer. So by default no guarded app, admin included, can be framed from another origin:
+
+- Every answer the guard lets through, and each of its own pages, carries `X-Frame-Options: SAMEORIGIN` and `X-Content-Type-Options: nosniff`.
+- Core's answers carry `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, so nobody can frame core.
+- On an https install, core and every guarded app send `Strict-Transport-Security: max-age=31536000`, a year, with no `includeSubDomains`, since the domain may hold hosts robkit doesn't run.
+- The guard's and core's redirects carry `nosniff` alone. A redirect renders nothing, and an app that lets a framer in renews its token through those redirects inside the frame.
+
+An app lets another origin frame it with its own `Content-Security-Policy: frame-ancestors`, which a browser obeys over `X-Frame-Options`. Each stack's `AGENTS.md` says how. An app's own `X-Frame-Options` isn't supported: on Next the guard's always wins, and on the other stacks the app's may.
+
+What isn't covered:
+
+- Files a stack serves without the guard, such as an app's built scripts and styles. They carry no framing header, and aren't pages.
+- The hub, which isn't guarded and can be framed until [ticket 10](.scratch/just-use-it/issues/10-dev-and-build-wiring.md) and [ticket 11](.scratch/just-use-it/issues/11-serve-in-each-adapter.md) give it core's headers.
+- A window of its own. A sibling app can still open admin in a new window and time a double-click onto one of its own buttons, so the click lands in admin. These headers don't stop that, so don't read them as "admin's clicks are safe".
+
 ### Core checks whole origins
 
 Core knows its own origin from `ROBKIT_CORE_URL`, and works out every other address from it. It compares protocol, host and port, never the host alone:
@@ -65,6 +82,7 @@ It can't:
 
 - Open admin or another app as the viewer. Its app token is good only for its own slug, and core never renews from it.
 - Post to another app as the viewer from its own pages. The other app's guard refuses a write from another origin.
+- Frame admin or another app in its own pages, unless that app's own policy names it. The other app's guard sends `X-Frame-Options: SAMEORIGIN`.
 - Read core's tables or another app's schema. Its database role reaches its own schema and nothing else.
 - Import `@robkit/core`, another app, or read the session cookie itself, if it keeps to the install's layer rule. `robkit check` enforces that rule on the source, so review an imported app's code before you trust it beyond that.
 

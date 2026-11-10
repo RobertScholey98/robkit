@@ -6,6 +6,7 @@ import { HTTPException } from "hono/http-exception";
 import { reportToConsole, type Report } from "@robkit/input/report";
 import type { CoreOrigin } from "@robkit/input";
 import { coreInstall } from "@robkit/input/addresses";
+import { isRedirect, securityHeaders, withHeaders } from "@robkit/session";
 import type { TrustedProxy } from "./client.ts";
 import type { Database } from "./database.ts";
 import type { RouteContext } from "./routes/context.ts";
@@ -92,6 +93,16 @@ export function createApp({
       500,
       { "X-Request-Id": requestId },
     );
+  });
+
+  // No page of core's may be framed, and a browser reads each as the type
+  // it says. A redirect renders nothing, so it gets no framing header: an
+  // app that lets a framer in renews its token through /refresh inside the
+  // frame. Registered before cors(), so a preflight's answer gets them.
+  app.use(async (c, next) => {
+    await next();
+    const framers = isRedirect(c.res.status) ? undefined : "none";
+    c.res = withHeaders(c.res, securityHeaders(origin, framers));
   });
 
   const install = coreInstall(origin);

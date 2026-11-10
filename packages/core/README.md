@@ -71,7 +71,7 @@ await migrate(databaseUrl);
 | `TrustedProxy`                       | `cloudflare`, or nothing                                                                                                                                                                                                                                     |
 | `SignInLimits`                       | The sign-in limits `createApp` takes any of as `signInLimits`: attempts per client and per install, their windows, how many clients a limit keeps, and how many password checks run and wait at once                                                         |
 
-Core's routes are in `src/routes/`, one Hono app each for status, the session, codes, apps and roles. `createApp` in `src/app.ts` mounts them behind CORS and the rules every POST meets, and its one error handler answers what a route didn't expect. `docs/architecture.md` shows how they fit the request and token flows.
+Core's routes are in `src/routes/`, one Hono app each for status, the session, codes, apps and roles. `createApp` in `src/app.ts` mounts them behind CORS and the rules every POST meets, and its one error handler answers what a route didn't expect. Outside CORS, so a preflight gets them too, every answer that isn't a redirect carries `X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, every answer carries `nosniff`, and an https core sends HSTS. `docs/architecture.md` shows how they fit the request and token flows.
 
 ## What it must never do
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -256,6 +257,92 @@ func FormPostCases(t testing.TB) []FormPostCase {
 	}
 	if len(cases) == 0 {
 		t.Fatal("request-cases.json holds no form-post cases")
+	}
+	return cases
+}
+
+// AnswerHeaders are the headers on an answer that say who may frame it,
+// how to read it and how to reach the app, in lowercase. A HeaderCase
+// names the value each must have, or leaves it out where the answer must
+// carry none.
+var AnswerHeaders = []string{
+	"x-frame-options",
+	"x-content-type-options",
+	"strict-transport-security",
+	"content-security-policy",
+}
+
+// HeaderCase is one row of the "headers" list in request-cases.json: a
+// request to App, open to anyone or owner-only, with no cookie, or with
+// core's word that nobody is signed in, and exactly Headers. Behind the
+// guard, the app's handler answers with its own Content-Security-Policy:
+// default-src 'self', and at /moved redirects to / its own way. The
+// answer, the guard's or the app's, carries each of AnswerHeaders once,
+// with the value Answer gives, and none it leaves out.
+type HeaderCase struct {
+	Name string
+	// Core is core's origin, as the app's settings name it.
+	Core string
+	// Access is who may open the app: "open" or "owner".
+	Access string
+	Method string
+	// Target is the path and query on the request line.
+	Target string
+	// Headers are the request's headers, by lowercase name.
+	Headers map[string]string
+	// SignedOut says the browser holds core's word that nobody is signed
+	// in.
+	SignedOut bool
+	// Status is the answer's status.
+	Status int
+	// Reached says the app's handler answered, rather than the guard.
+	Reached bool
+	// Answer is each of AnswerHeaders the answer carries, with its value.
+	Answer map[string]string
+}
+
+// HeaderCases reads every header case, failing the test on a file or case
+// that won't do.
+func HeaderCases(t testing.TB) []HeaderCase {
+	t.Helper()
+	data, err := os.ReadFile(requestPath())
+	if err != nil {
+		t.Fatalf("can't read the request guard's cases: %v", err)
+	}
+	var file struct {
+		Headers []struct {
+			Name      string            `json:"name"`
+			Core      string            `json:"core"`
+			Access    string            `json:"access"`
+			Method    string            `json:"method"`
+			Target    string            `json:"target"`
+			Headers   map[string]string `json:"headers"`
+			SignedOut bool              `json:"signedOut"`
+			Status    int               `json:"status"`
+			Reached   *bool             `json:"reached"`
+			Answer    map[string]string `json:"answer"`
+		} `json:"headers"`
+	}
+	if err := json.Unmarshal(data, &file); err != nil {
+		t.Fatalf("request-cases.json must be an object with a headers list of cases: %v", err)
+	}
+	cases := make([]HeaderCase, 0, len(file.Headers))
+	for i, row := range file.Headers {
+		named := row.Answer != nil
+		for name := range row.Answer {
+			named = named && slices.Contains(AnswerHeaders, name)
+		}
+		if row.Name == "" || row.Core == "" || (row.Access != "open" && row.Access != "owner") || row.Method == "" || row.Target == "" ||
+			row.Headers == nil || row.Status == 0 || row.Reached == nil || !named {
+			t.Fatalf("request-cases.json headers[%d] (%s) needs a name, core, access as open or owner, method, target, headers, status, reached and answer, named from %v", i, row.Name, AnswerHeaders)
+		}
+		cases = append(cases, HeaderCase{
+			Name: row.Name, Core: row.Core, Access: row.Access, Method: row.Method, Target: row.Target, Headers: row.Headers,
+			SignedOut: row.SignedOut, Status: row.Status, Reached: *row.Reached, Answer: row.Answer,
+		})
+	}
+	if len(cases) == 0 {
+		t.Fatal("request-cases.json holds no header cases")
 	}
 	return cases
 }
