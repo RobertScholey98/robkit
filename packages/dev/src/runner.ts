@@ -4,6 +4,12 @@ import { join } from "node:path";
 import { install } from "@robkit/input/addresses";
 import { isProblem } from "@robkit/input";
 import { CommandProblem } from "@robkit/input/command";
+import {
+  appSettings,
+  type InstallFacts,
+  sharedSettings,
+  shellForApps,
+} from "./app-env.ts";
 import { catalogOf, discoverApps, routesFor, type App } from "./apps.ts";
 import { checkBeforeStart, proxyPortProblem } from "./checks.ts";
 import { readDevConfig, withInstallEnv } from "./env.ts";
@@ -49,22 +55,12 @@ export async function runDev(
   // Before anything starts, and outside the stop below, so a second pnpm
   // dev stops nothing the first one runs.
   await checkBeforeStart({ root, env, devPort, postgresPort, apps });
-  const appEnv: NodeJS.ProcessEnv = {
-    ...env,
-    ROBKIT_DOMAIN: domain,
-    ROBKIT_CORE_URL: addresses.origin("core"),
-    ROBKIT_APPS: catalogOf(apps),
-    // next dev reads it before it loads any config, so a Next app's own
-    // next.config.ts can't turn its telemetry off. Here it works on Windows
-    // too, where a script's VAR=value prefix doesn't.
-    NEXT_TELEMETRY_DISABLED: "1",
+  const facts: InstallFacts = {
+    domain,
+    coreUrl: addresses.origin("core"),
+    catalog: catalogOf(apps),
   };
-  delete appEnv.ROBKIT_DATABASE_URL;
-  delete appEnv.DATABASE_URL;
-  // An app pnpm dev runs is no test run, even when a test started pnpm
-  // dev. Under VITEST, robkit() in an app's Vite config sets nothing up,
-  // and the app would listen on the wrong port.
-  delete appEnv.VITEST;
+  const shellEnv = shellForApps(env);
 
   // The first reason to stop wins; later signals or exits change nothing.
   let outcome: "interrupted" | "failed" | undefined;
@@ -91,12 +87,7 @@ export async function runDev(
   const start = (app: App, databaseUrl: string | undefined) => {
     const child = spawn("pnpm", ["run", "dev"], {
       cwd: app.dir,
-      env: {
-        ...appEnv,
-        ROBKIT_APP: app.slug,
-        PORT: String(app.port),
-        ...(databaseUrl && { DATABASE_URL: databaseUrl }),
-      },
+      env: { ...shellEnv, ...appSettings(facts, app, databaseUrl) },
       // Its own process group, so stopping it reaches every process it spawns.
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
@@ -131,7 +122,7 @@ export async function runDev(
 
     const databaseUrls = await provisionApps(root, {
       adminUrl,
-      env: appEnv,
+      env: { ...shellEnv, ...sharedSettings(facts) },
       signal: stopController.signal,
     });
 
