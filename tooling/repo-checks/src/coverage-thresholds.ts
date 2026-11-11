@@ -1,5 +1,6 @@
 import { glob, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import ts from "typescript";
 import { type InputProblem, isRecord, problem } from "@robkit/input";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
@@ -53,6 +54,84 @@ export function loweredThresholds(
         ]
       : [];
   });
+}
+
+const scopeFields = ["include", "exclude"] as const;
+
+/**
+ * Which files a Vitest config's coverage measures: its `coverage.include`
+ * and `coverage.exclude` as written, without comments or layout, and the
+ * reasons its `// coverage-scope:` comments give for them.
+ */
+export interface CoverageScope {
+  include: string | undefined;
+  exclude: string | undefined;
+  reasons: string[];
+}
+
+/** Reads what `config`, a Vitest config's source, says coverage measures. */
+export function coverageScopeIn(config: string): CoverageScope {
+  const source = ts.createSourceFile(
+    "vitest.config.ts",
+    config,
+    ts.ScriptTarget.Latest,
+  );
+  const printer = ts.createPrinter({ removeComments: true });
+  const scope: CoverageScope = {
+    include: undefined,
+    exclude: undefined,
+    reasons: [...config.matchAll(/\/\/\s*coverage-scope:(.*)$/gm)].map(
+      ([, reason]) => (reason ?? "").trim(),
+    ),
+  };
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === "coverage" &&
+      ts.isObjectLiteralExpression(node.initializer)
+    ) {
+      for (const property of node.initializer.properties) {
+        if (!ts.isPropertyAssignment(property)) continue;
+        if (!ts.isIdentifier(property.name)) continue;
+        const name = property.name.text;
+        const field = scopeFields.find((f) => f === name);
+        if (field === undefined) continue;
+        scope[field] = printer
+          .printNode(ts.EmitHint.Expression, property.initializer, source)
+          .replaceAll(/\s+/g, "")
+          .replaceAll(/,([\]}])/g, "$1");
+      }
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return scope;
+}
+
+/**
+ * Lists how a config's coverage scope changed from `before` to `after`
+ * without a reason. A changed `include` or `exclude` makes the thresholds
+ * measure other files, so it needs a `// coverage-scope:` comment that
+ * `before` didn't have.
+ */
+export function unexplainedScopeChanges(
+  path: string,
+  before: CoverageScope | undefined,
+  after: CoverageScope | undefined,
+): string[] {
+  if (before === undefined || after === undefined) return [];
+  const explained = after.reasons.some(
+    (reason) => reason !== "" && !before.reasons.includes(reason),
+  );
+  if (explained) return [];
+  return scopeFields
+    .filter((field) => before[field] !== after[field])
+    .map(
+      (field) =>
+        `${path} changes coverage.${field}, so its thresholds would measure other files. Undo it, or say why in a new comment in that file: // coverage-scope: <why>`,
+    );
 }
 
 export interface PackageCoverage {

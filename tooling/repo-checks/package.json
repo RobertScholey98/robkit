@@ -12,9 +12,12 @@
   },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:",
+    "@changesets/git": "catalog:",
+    "@changesets/read": "catalog:",
     "@hono/node-server": "catalog:",
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",
+    "@internal/vitest-config": "workspace:*",
     "@robkit/core": "workspace:*",
     "@robkit/dev": "workspace:*",
     "@robkit/drizzle": "workspace:*",

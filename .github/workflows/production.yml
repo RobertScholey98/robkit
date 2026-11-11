@@ -30,14 +30,14 @@ jobs:
       # next, one scope per app.
       ROBKIT_BUILD_CACHE: type=gha
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: pnpm
       # robkit add checks for Go before it adds the React + Go app.
-      - uses: actions/setup-go@v7
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.27.3"
           cache-dependency-path: |
@@ -46,7 +46,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
       # The docker driver can't export a cache. buildx's own builder can.
-      - uses: docker/setup-buildx-action@v4
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # Hands the build the cache service's URL and token.
-      - uses: crazy-max/ghaction-github-runtime@v4
+      - uses: crazy-max/ghaction-github-runtime@04d248b84655b509d8c44dc1d6f990c879747487 # v4.0.0
       - run: pnpm --filter @internal/e2e test:production

@@ -1,7 +1,9 @@
+import { testDefaults } from "@internal/vitest-config";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    ...testDefaults,
     // It starts with no tests. Thresholds of 100 make its first code
     // bring tests with it.
     passWithNoTests: true,
