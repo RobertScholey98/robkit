@@ -23,6 +23,7 @@
   --color-button: #92400e;
   --color-border: #e2e8f0;
   --color-border-control: #64748b;
+  --color-scrim: #0f172a80;
 
   --font-body: "IBM Plex Sans Variable", system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
@@ -82,6 +83,7 @@
     --color-button: #fbbf24;
     --color-border: #1e293b;
     --color-border-control: #64748b;
+    --color-scrim: #000000b3;
   }
 }
 
@@ -105,6 +107,7 @@
   --color-button: #fbbf24;
   --color-border: #1e293b;
   --color-border-control: #64748b;
+  --color-scrim: #000000b3;
 }
 
 /* Reduced motion: nothing moves. */

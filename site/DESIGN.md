@@ -12,20 +12,21 @@ robkit is something you run yourself, from a terminal. The site reads like a wel
 
 Slate neutrals, one amber accent. Each text colour is at least 4.5 to 1 on every background it sits on, in both themes. The numbers are measured, not rounded up.
 
-| Token                    | Light     | Dark      | Use                                                      |
-| ------------------------ | --------- | --------- | -------------------------------------------------------- |
-| `--color-bg`             | `#FFFFFF` | `#0B1120` | The page                                                 |
-| `--color-surface`        | `#F8FAFC` | `#0F172A` | The sidebar, the header, callouts                        |
-| `--color-raised`         | `#F1F5F9` | `#1E293B` | A hovered row, the current page in the sidebar           |
-| `--color-code-bg`        | `#F1F5F9` | `#111A2E` | Code blocks and inline code                              |
-| `--color-text`           | `#0F172A` | `#F1F5F9` | Body text and headings                                   |
-| `--color-muted`          | `#475569` | `#94A3B8` | Secondary text: captions, the page list, the footer      |
-| `--color-link`           | `#92400E` | `#FCD34D` | Links in running text                                    |
-| `--color-accent`         | `#B45309` | `#FBBF24` | Marks: the current page's bar, the focus ring, a CTA     |
-| `--color-on-accent`      | `#FFFFFF` | `#0B1120` | Text on a filled button                                  |
-| `--color-button`         | `#92400E` | `#FBBF24` | A filled button's fill                                   |
-| `--color-border`         | `#E2E8F0` | `#1E293B` | Dividers that only separate                              |
-| `--color-border-control` | `#64748B` | `#64748B` | The edge of a control a reader must find, 3 to 1 or more |
+| Token                    | Light       | Dark        | Use                                                      |
+| ------------------------ | ----------- | ----------- | -------------------------------------------------------- |
+| `--color-bg`             | `#FFFFFF`   | `#0B1120`   | The page                                                 |
+| `--color-surface`        | `#F8FAFC`   | `#0F172A`   | The sidebar, the header, callouts                        |
+| `--color-raised`         | `#F1F5F9`   | `#1E293B`   | A hovered row, the current page in the sidebar           |
+| `--color-code-bg`        | `#F1F5F9`   | `#111A2E`   | Code blocks and inline code                              |
+| `--color-text`           | `#0F172A`   | `#F1F5F9`   | Body text and headings                                   |
+| `--color-muted`          | `#475569`   | `#94A3B8`   | Secondary text: captions, the page list, the footer      |
+| `--color-link`           | `#92400E`   | `#FCD34D`   | Links in running text                                    |
+| `--color-accent`         | `#B45309`   | `#FBBF24`   | Marks: the current page's bar, the focus ring, a CTA     |
+| `--color-on-accent`      | `#FFFFFF`   | `#0B1120`   | Text on a filled button                                  |
+| `--color-button`         | `#92400E`   | `#FBBF24`   | A filled button's fill                                   |
+| `--color-border`         | `#E2E8F0`   | `#1E293B`   | Dividers that only separate                              |
+| `--color-border-control` | `#64748B`   | `#64748B`   | The edge of a control a reader must find, 3 to 1 or more |
+| `--color-scrim`          | `#0F172A80` | `#000000B3` | The page behind the search dialog, dimmed                |
 
 Code is coloured by Shiki as the site builds, from these tokens, so a block needs no script. The rest of a block takes `--color-text`, and comments and punctuation take `--color-muted`. Amber stays out of code, so it still marks only what you can act on.
 
@@ -138,6 +139,7 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 - Hover changes colour only, in `--duration-fast`.
 - A toggle says its state: the theme toggle is a `button` with `aria-pressed`, named "Dark theme". The menu button has `aria-expanded` and `aria-controls`.
 - The phone menu closes on Escape, on a click outside it and on following a link, and gives focus back to its button.
+- Search opens from the header's search button or the `/` key, in a dialog over the page. The `/` key types a slash when the reader is in a field. The arrow keys move between the box and the results, and Enter in the box opens the first result. It closes on Escape, on its close button and on a click outside it, and gives focus back to what had it. The status line under the box says what search found, to a screen reader too. Without scripts the search button isn't shown.
 
 ## Motion
 
@@ -175,6 +177,6 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 ## Scripts and weight
 
 - A docs page reads, and its links work, with no script at all. Without scripts the list of pages shows in the page at phone width, and the theme toggle and the menu button aren't shown, since they can't work.
-- The site's own small scripts do the rest: the theme and the chosen stack in the head, the toggle, the phone menu, the copy button and the stack switcher. Later: the search key.
+- The site's own small scripts do the rest: the theme and the chosen stack in the head, the toggle, the phone menu, the copy button, the stack switcher and the search key.
 - **Weight limit: the scripts a docs page fetches as it opens, inline and from files, shared ones included, come to at most 10 KB gzipped.** A test measures the built page. The page used 1 KB or so when the limit was set, which leaves room for the copy button, the stack switcher and the search key. What search fetches once a reader opens it is measured on its own.
 - Every request stays on the site's own origin: fonts, scripts, styles and images. No analytics and no cookies.

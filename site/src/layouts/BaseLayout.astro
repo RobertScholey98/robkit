@@ -9,6 +9,7 @@ import "../styles/tokens.css";
 import "../styles/base.css";
 import Footer from "../components/Footer.astro";
 import Header from "../components/Header.astro";
+import Search from "../components/Search.astro";
 
 interface Props {
   title: string;
@@ -54,6 +55,7 @@ const pageTitle = title === "robkit" ? title : `${title} | robkit`;
     <Header menu={menu} />
     <slot />
     <Footer />
+    <Search />
   </body>
 </html>
 
