@@ -18,9 +18,17 @@ interface Props {
   menu?: boolean;
   /** Whether search engines should leave the page out, as the samples page asks. */
   noindex?: boolean;
+  /** Where the page's Markdown copy is, for a docs page. */
+  markdown?: string;
 }
 
-const { title, description, menu = false, noindex = false } = Astro.props;
+const {
+  title,
+  description,
+  menu = false,
+  noindex = false,
+  markdown,
+} = Astro.props;
 const pageTitle = title === "robkit" ? title : `${title} | robkit`;
 ---
 
@@ -32,6 +40,9 @@ const pageTitle = title === "robkit" ? title : `${title} | robkit`;
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
+    {markdown !== undefined && (
+      <link rel="alternate" type="text/markdown" href={markdown} />
+    )}
     <script is:inline>
       document.documentElement.dataset.js = "";
       try {

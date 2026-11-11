@@ -6,6 +6,7 @@
 import type { MarkdownHeading } from "astro";
 import { getCollection } from "astro:content";
 import Icon from "../components/Icon.astro";
+import { markdownHref } from "../markdown-copies.ts";
 import { buildNavigation } from "../navigation.ts";
 import BaseLayout from "./BaseLayout.astro";
 
@@ -36,7 +37,12 @@ if (place === undefined) throw new Error(`${current} isn't in the docs.`);
 const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
 ---
 
-<BaseLayout title={title} description={description} menu>
+<BaseLayout
+  title={title}
+  description={description}
+  markdown={markdownHref(`/docs/${current}/`)}
+  menu
+>
   <div class="docs">
     <nav id="site-nav" class="sidebar" aria-label="Docs">
       {navigation.sections.map((section, index) => (

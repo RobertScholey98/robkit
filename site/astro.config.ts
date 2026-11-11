@@ -3,14 +3,17 @@ import mdx from "@astrojs/mdx";
 import { defineConfig } from "astro/config";
 import { fenceTitle } from "./src/code.ts";
 import { writeSearchIndex } from "./src/search-index.ts";
+import { writeMarkdownCopies } from "./src/markdown-copies.ts";
 
 // Astro reports how it is used unless this is set. The site sends nothing
 // anywhere, and neither does its build. Only where nothing has set it, so
 // the shell decides.
 process.env.ASTRO_TELEMETRY_DISABLED ??= "1";
 
+const site = "https://robkit.dev";
+
 export default defineConfig({
-  site: "https://robkit.dev",
+  site,
   output: "static",
   integrations: [
     mdx(),
@@ -20,6 +23,15 @@ export default defineConfig({
       hooks: {
         "astro:build:done": async ({ dir }) => {
           await writeSearchIndex(fileURLToPath(dir));
+        },
+      },
+    },
+    {
+      // Each docs page's Markdown copy: see markdown-copies.ts.
+      name: "robkit:markdown",
+      hooks: {
+        "astro:build:done": async ({ dir }) => {
+          await writeMarkdownCopies(fileURLToPath(dir));
         },
       },
     },
