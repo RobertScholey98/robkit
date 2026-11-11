@@ -32,7 +32,7 @@ The docs site's builder found this on 2026-11-11 while catching the site up with
 - [x] The changeset for ticket 23's rule says what it lets through
 - [x] `SECURITY.md` lists the way past the lint that this opens
 - [x] `pnpm lint` passes in a Next install after `pnpm dev`, shown in a real install
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -53,3 +53,9 @@ In WSL, in an install made with `pnpm create-install --stack next` from this bra
 - With `dist` and the file removed, the app's `next dev`, which `pnpm dev` runs, wrote the file again. This time it imports `./dist/dev/types/routes.d.ts` and `./dist/dev/types/root-params.d.ts`. `pnpm robkit check` and `pnpm lint` exited 0 again.
 
 I ran `next dev` by hand with `ROBKIT_APP` and `ROBKIT_CORE_URL` set, not through `pnpm dev`, which would also start Postgres and the other apps.
+
+### Merged
+
+Added by the lead. PR 134 merged into `main` on 2026-11-11 as `6cb4ec7c`, with `gate` green on `b31eab4`.
+
+The fix reaches the docs site's branch with the next merge of `main` into `docs-site`. The layer rule page there then needs one sentence for the `.d.ts` file rule, which the builder has been told.
