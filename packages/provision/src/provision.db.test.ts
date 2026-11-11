@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import postgres from "postgres";
 import { afterAll, describe, expect, inject, it } from "vitest";
 import {
@@ -6,9 +8,11 @@ import {
   provisionDatabase,
   provisionDatabases,
 } from "./provision.ts";
+import { scramVerifier } from "./scram.ts";
 import { slug } from "@internal/test-session";
 import type { Slug } from "@robkit/input";
 
+const run = promisify(execFile);
 const adminUrl = inject("adminUrl");
 const clients: postgres.Sql[] = [];
 
@@ -34,6 +38,56 @@ function passwordOf(secret: string, name: Slug): string {
   const result = databasePassword(secret, name);
   if (result.outcome !== "derived") throw new Error(result.error);
   return result.password;
+}
+
+/** Everything the test Postgres has logged so far. */
+async function postgresLog(): Promise<string> {
+  const { stdout, stderr } = await run(
+    "docker",
+    ["logs", inject("postgresContainer")],
+    { maxBuffer: 64 * 1024 * 1024 },
+  );
+  return stdout + stderr;
+}
+
+/**
+ * The password each logged statement that makes or changes `role` gives
+ * it, once the log holds `count` of them. `kind` picks which lines:
+ * `statement:` is how Postgres logs a statement it runs under
+ * `log_statement`, and `STATEMENT:` how it logs one that failed.
+ */
+async function loggedPasswords(
+  role: string,
+  kind: "statement:" | "STATEMENT:",
+  count: number,
+): Promise<string[]> {
+  const pattern = new RegExp(
+    `${kind}\\s+((?:create|alter) role "${role}" with login .*)$`,
+    "gm",
+  );
+  let statements: string[] = [];
+  await expect
+    .poll(async () => {
+      statements = [...(await postgresLog()).matchAll(pattern)].map(
+        ([, statement]) => statement ?? "",
+      );
+      return statements.length;
+    })
+    .toBeGreaterThanOrEqual(count);
+  return statements.map(
+    (statement) => / password E?'([^']*)'$/.exec(statement)?.[1] ?? statement,
+  );
+}
+
+/** Whether `verifier` is the SCRAM-SHA-256 verifier of `password`. */
+function verifies(verifier: string, password: string): boolean {
+  const [, iterations, salt] =
+    /^SCRAM-SHA-256\$(\d+):([^$]+)\$/.exec(verifier) ?? [];
+  if (iterations === undefined || salt === undefined) return false;
+  return (
+    scramVerifier(password, Buffer.from(salt, "base64"), Number(iterations)) ===
+    verifier
+  );
 }
 
 /** The roles named `names`, and whether each is a superuser. */
@@ -108,8 +162,30 @@ describe("provisionDatabase", () => {
     ]);
   });
 
-  // The password goes into DDL, which takes no parameter. robkit's own
-  // callers pass hex, but the argument is anyone's to give.
+  it("writes a verifier into the statements that make and change the role, never the password", async () => {
+    // A superuser whose every DDL statement Postgres logs, as a host that
+    // sets log_statement to ddl logs them.
+    const admin = connect(adminUrl);
+    await admin`create role ddllogger login superuser password 'ddllogger'`;
+    await admin`alter role ddllogger set log_statement = 'ddl'`;
+    const asLogger = new URL(adminUrl);
+    asLogger.username = "ddllogger";
+    asLogger.password = "ddllogger";
+    const password = "plainprobe0123456789abcdef";
+
+    // The first run makes the role, and the second changes it.
+    await provisionDatabase(asLogger.href, slug("logged"), password);
+    await provisionDatabase(asLogger.href, slug("logged"), password);
+
+    const passwords = await loggedPasswords("logged", "statement:", 2);
+    expect(passwords).toHaveLength(2);
+    for (const written of passwords) {
+      expect(verifies(written, password)).toBe(true);
+    }
+    expect(await postgresLog()).not.toContain(password);
+  });
+
+  // robkit's own callers pass hex, but the argument is anyone's to give.
   it("takes a password with a quote and a backslash in it, as written", async () => {
     const password = `it's \\' "odd"; drop role postgres --`;
 
@@ -225,6 +301,60 @@ describe("provisionDatabases", () => {
     const again = connect(url);
     expect(await again`select count(*)::int as n from kept`).toEqual([
       { n: 0 },
+    ]);
+  });
+
+  it("signs a role made with its password in plain text in with the same password, once provisioned again", async () => {
+    const password = passwordOf(secret, slug("oldway"));
+    const admin = connect(adminUrl);
+    // As provisioning made a role before it sent a verifier.
+    await admin.unsafe(
+      `create role oldway with login nosuperuser nocreatedb nocreaterole password '${password}'`,
+    );
+    await provisionDatabases({ adminUrl, secret, slugs: [slug("oldway")] });
+
+    const app = connect(databaseUrl(adminUrl, slug("oldway"), password));
+    expect(await app`select current_user as role`).toEqual([
+      { role: "oldway" },
+    ]);
+  });
+
+  it("leaves no password in Postgres's log when it loses a race and tries again", async () => {
+    const password = passwordOf(secret, slug("racelog"));
+    const holder = postgres(adminUrl, { max: 1, onnotice: () => undefined });
+    const watcher = connect(adminUrl);
+    let provisioning: Promise<unknown> | undefined;
+    try {
+      await holder.begin(async (tx) => {
+        // Another run makes the same role, and commits once this run waits
+        // on it, so this run's create role fails and it tries again.
+        await tx`create role racelog`;
+        provisioning = provisionDatabases({
+          adminUrl,
+          secret,
+          slugs: [slug("racelog")],
+        });
+        await expect
+          .poll(
+            async () =>
+              (
+                await watcher<{ n: number }[]>`
+                  select count(*)::int as n from pg_locks where not granted`
+              )[0]?.n,
+          )
+          .toBe(1);
+      });
+      expect(await provisioning).toMatchObject({ outcome: "provisioned" });
+    } finally {
+      await holder.end();
+    }
+
+    const [failed] = await loggedPasswords("racelog", "STATEMENT:", 1);
+    expect(verifies(failed ?? "", password)).toBe(true);
+    expect(await postgresLog()).not.toContain(password);
+    const app = connect(databaseUrl(adminUrl, slug("racelog"), password));
+    expect(await app`select current_user as role`).toEqual([
+      { role: "racelog" },
     ]);
   });
 
