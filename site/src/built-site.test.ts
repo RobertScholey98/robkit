@@ -99,11 +99,13 @@ describe("the built quickstart", () => {
   const clone = [
     "git clone https://github.com/RobertScholey98/robkit.git",
     "cd robkit",
-    "corepack enable",
     "pnpm install",
     "pnpm create-install ../my-install",
   ].join("\n");
 
+  // The clone's route needs no Corepack, which Node 26 doesn't ship. It
+  // starts the install from the clone's folder, where the reader still is,
+  // so the folder is one up.
   it("leads with the route from a clone until the first release, and drops it after", async () => {
     const terminals = codeBlocks(await built(page))
       .filter(({ label }) => label === "Terminal")
@@ -113,7 +115,7 @@ describe("the built quickstart", () => {
     const expected = (released: boolean) => [
       ...(released ? [] : [clone]),
       "npm create robkit my-install",
-      "cd my-install\npnpm dev",
+      released ? "cd my-install\npnpm dev" : "cd ../my-install\npnpm dev",
     ];
 
     expect(terminals).toEqual(expected(!preRelease));
