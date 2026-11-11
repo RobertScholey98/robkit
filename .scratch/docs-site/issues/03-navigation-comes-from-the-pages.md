@@ -24,7 +24,7 @@
 - [x] A link to a page, an anchor or a local image that doesn't exist fails a test that names the page and the link
 - [x] A test reports how many stubs the site has, and each stub says it isn't written yet
 - [x] Given a changed file, the script prints the pages whose front matter names it
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -54,3 +54,7 @@
 
 - Ticket 34 (`robkit add` finds `pnpm dev` from any terminal) may change what "Your first app" says about running `pnpm robkit add`.
 - Ticket 27 (the templates finished) changes the stacks' templates that the five guide stubs name in `describes`.
+
+### Merged
+
+Added by the lead. PR 103 merged into `docs-site` on 2026-11-11, with `gate` green on `570a8a1`.
