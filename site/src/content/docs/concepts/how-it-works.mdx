@@ -64,7 +64,7 @@ A call from the page, such as a `fetch`, gets a 401 instead of a redirect. [The 
 - A token lasts 15 minutes, and a session 30 days.
 - The guard checks a token with core's public key, so core isn't asked on every request.
 - When an app's token expires, the guard sends the browser through `/refresh` again, and core mints a fresh one while the session lives.
-- Core renews a session only from its own cookie, never from an app's token. So an app can't keep a session alive, or use its token anywhere else.
+- Core mints a fresh token only from its own cookie, never from an app's token. So an app can't keep a session alive, or use its token anywhere else. A session ends 30 days after sign-in, and using it doesn't extend it.
 - Signing out, or revoking a guest's code, ends the session at core. An app the browser opened keeps letting it in until that app's token expires.
 
 [Security](/docs/concepts/security/) says what this protects, and what it doesn't.
