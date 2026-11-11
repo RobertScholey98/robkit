@@ -274,7 +274,10 @@ describe("robkit-dev adding an app while it runs", () => {
   });
 
   it("stops an added app that doesn't answer within the limit, and says to check its port", async () => {
-    const dev = await runningDev({}, undefined, { startLimitMs: 6000 });
+    // Long enough for pnpm to reach the script's first line on a busy
+    // machine, which writes the pid the test reads. A CI runner took more
+    // than six seconds.
+    const dev = await runningDev({}, undefined, { startLimitMs: 15_000 });
     // It runs, and listens nowhere.
     await writeApp(dev.root, "aardvark", {
       dev: `node -e "require('node:fs').writeFileSync('started', String(process.pid)); setInterval(() => {}, 1000)"`,
@@ -285,7 +288,7 @@ describe("robkit-dev adding an app while it runs", () => {
     expect(answer).toMatchObject({
       outcome: "refused",
       message: expect.stringMatching(
-        /^aardvark didn't answer on port \d+ within 0\.1 minutes, so pnpm dev stopped it\. Check that it listens on PORT\.$/,
+        /^aardvark didn't answer on port \d+ within 0\.25 minutes, so pnpm dev stopped it\. Check that it listens on PORT\.$/,
       ) as string,
     });
     expect(
