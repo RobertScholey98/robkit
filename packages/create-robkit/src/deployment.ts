@@ -57,7 +57,8 @@ export async function deploymentOf(
   return apps.map(({ slug, migrates }) => {
     const env: Record<string, DeploymentValue> = {
       ROBKIT_APP: { literal: slug },
-      ROBKIT_DOMAIN: { literal: domain },
+      // Core takes the install's domain from ROBKIT_CORE_URL alone.
+      ...(slug !== "core" && { ROBKIT_DOMAIN: { literal: domain } }),
       ROBKIT_CORE_URL: { literal: addresses.origin("core") },
       PORT: { literal: String(containerPort) },
     };

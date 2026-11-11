@@ -20,7 +20,7 @@ The deploy sets these on each app:
 | Variable          | Value                                                                     |
 | ----------------- | ------------------------------------------------------------------------- |
 | `ROBKIT_APP`      | the app's slug, also a build argument                                     |
-| `ROBKIT_DOMAIN`   | the domain in `coolify.json`. Core doesn't read it                        |
+| `ROBKIT_DOMAIN`   | the domain in `coolify.json`, for every app but core                      |
 | `ROBKIT_CORE_URL` | `https://core.<domain>`. Core takes the install's domain from it          |
 | `PORT`            | `3000`                                                                    |
 | `DATABASE_URL`    | `{{environment.<SLUG>_DATABASE_URL}}`, for an app with a `migrate` script |

@@ -36,11 +36,12 @@ describe("deploymentOf", () => {
       domain: aDomain("robkit.dev"),
     });
 
-    const common = {
-      ROBKIT_DOMAIN: { literal: "robkit.dev" },
+    const address = {
       ROBKIT_CORE_URL: { literal: "https://core.robkit.dev" },
       PORT: { literal: "3000" },
     };
+    // Core reads only ROBKIT_CORE_URL, so only the other apps get the domain.
+    const common = { ROBKIT_DOMAIN: { literal: "robkit.dev" }, ...address };
     expect(apps).toEqual([
       {
         slug: "admin",
@@ -58,7 +59,7 @@ describe("deploymentOf", () => {
         slug: "core",
         env: {
           ROBKIT_APP: { literal: "core" },
-          ...common,
+          ...address,
           DATABASE_URL: { shared: "CORE_DATABASE_URL" },
           ROBKIT_APPS: {
             literal: JSON.stringify([
