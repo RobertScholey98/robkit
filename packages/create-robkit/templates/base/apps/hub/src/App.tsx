@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { getSession, signInWithCode, type Session } from "./core-api.ts";
 import { coreOrigin, returnTo } from "./core-origin.ts";
 import { IntroQuestion, Setup, SignIn } from "./forms.tsx";
+import { forwardedBefore, noteForward } from "./forwarded.ts";
 import { introCode } from "./intro-link.ts";
 import { Launcher } from "./launcher.tsx";
 import { Card } from "./ui.tsx";
@@ -12,7 +13,9 @@ type Screen =
   | { state: "unreachable"; reason: string }
   | { state: "code-refused"; error: string }
   | { state: "intro"; code: string; session: SignedIn }
-  | Session;
+  | Exclude<Session, SignedIn>
+  // With the host of the app that sent a signed-in visitor straight back.
+  | (SignedIn & { sentBackFrom?: string });
 
 type SignedIn = Extract<Session, { state: "signed-in" }>;
 
@@ -42,7 +45,19 @@ function Hub({ core }: { core: string }) {
     // it shouldn't stay in the address bar.
     if (intro !== undefined) history.replaceState(null, "", "/");
     void firstScreen(core, intro).then((first) => {
-      if (current) setScreen(first);
+      if (!current) return;
+      // A visitor already signed in on the way to an app goes there, by the
+      // rule a sign-in follows, unless the hub sent this tab there before:
+      // then the app sent them straight back, and forwarding again would
+      // loop.
+      const next = returnTo(location.href);
+      if (first.state !== "signed-in" || next === undefined) {
+        setScreen(first);
+      } else if (forwardedBefore(next)) {
+        setScreen({ ...first, sentBackFrom: new URL(next).host });
+      } else {
+        forward(next);
+      }
     });
     return () => {
       current = false;
@@ -50,9 +65,11 @@ function Hub({ core }: { core: string }) {
   }, [core, intro]);
 
   // Signing in on the way to an app goes back to it instead of the launcher.
+  // The viewer just signed in, so it goes even if the hub sent this tab there
+  // before.
   const onSignedIn = (session: Session) => {
     const next = returnTo(location.href);
-    if (session.state === "signed-in" && next) location.assign(next);
+    if (session.state === "signed-in" && next) forward(next);
     else setScreen(session);
   };
 
@@ -85,9 +102,19 @@ function Hub({ core }: { core: string }) {
       return <SignIn core={core} onSession={onSignedIn} />;
     case "signed-in":
       return (
-        <Launcher core={core} profile={screen.profile} onSession={setScreen} />
+        <Launcher
+          core={core}
+          profile={screen.profile}
+          sentBackFrom={screen.sentBackFrom}
+          onSession={setScreen}
+        />
       );
   }
+}
+
+function forward(next: string) {
+  noteForward(next);
+  location.assign(next);
 }
 
 /**

@@ -12,10 +12,13 @@ const refreshMs = 30_000;
 export function Launcher({
   core,
   profile,
+  sentBackFrom,
   onSession,
 }: {
   core: string;
   profile: Profile;
+  /** The host of an app that sent the viewer straight back to the hub. */
+  sentBackFrom?: string | undefined;
   onSession: (session: Session) => void;
 }) {
   const { sending, send } = useSend(onSession);
@@ -66,6 +69,11 @@ export function Launcher({
       </header>
       <main className="mx-auto max-w-4xl px-6 py-10">
         <h1 className="sr-only">Your apps</h1>
+        {sentBackFrom !== undefined && (
+          <p role="status" className="mb-6 text-sm text-muted-foreground">
+            {`${sentBackFrom} sent you straight back here. Try opening it again below.`}
+          </p>
+        )}
         {sending.state === "failed" && (
           <div className="mb-6">
             <FormError>{sending.error}</FormError>

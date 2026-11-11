@@ -63,6 +63,7 @@ afterEach(() => {
   cleanup();
   history.replaceState(null, "", "/");
   vi.unstubAllGlobals();
+  sessionStorage.clear();
   vi.restoreAllMocks();
 });
 
@@ -146,5 +147,120 @@ describe("an intro link", () => {
       "That code doesn't work.",
     );
     expect(screen.getByLabelText("Access code")).toBeDefined();
+  });
+});
+
+describe("next", () => {
+  const notes = "https://notes.robkit.test/page?x=1";
+  const toNotes = `/?next=${encodeURIComponent(notes)}`;
+
+  /** Stubs `location.assign`, and returns where the hub sent the browser. */
+  function forwards(): string[] {
+    const sent: string[] = [];
+    vi.spyOn(location, "assign").mockImplementation((url) => {
+      sent.push(String(url));
+    });
+    return sent;
+  }
+
+  it("sends a signed-in visitor to the app it names", async () => {
+    const calls = coreWith(owner);
+    const sent = forwards();
+    openAt(toNotes);
+
+    await vi.waitFor(() => {
+      expect(sent).toEqual([notes]);
+    });
+    expect(calls).toEqual(["GET /session"]);
+    expect(screen.queryByText("Signed in as")).toBeNull();
+  });
+
+  it.each([
+    ["another site", "https://evil.com/"],
+    ["a look-alike domain", "https://notes.robkit.test.evil.com/"],
+    ["an app over http", "http://notes.robkit.test/"],
+  ])("keeps a signed-in visitor on the launcher for %s", async (_, next) => {
+    coreWith(owner);
+    const sent = forwards();
+    openAt(`/?next=${encodeURIComponent(next)}`);
+
+    expect(await signedInAs()).toBe("Signed in as rob");
+    expect(sent).toEqual([]);
+  });
+
+  it("shows the launcher, and says why, when the app sends the visitor back", async () => {
+    coreWith(owner);
+    const sent = forwards();
+    openAt(toNotes);
+    await vi.waitFor(() => {
+      expect(sent).toEqual([notes]);
+    });
+    cleanup();
+
+    openAt(toNotes);
+
+    expect(await signedInAs()).toBe("Signed in as rob");
+    expect(screen.getByRole("status").textContent).toBe(
+      "notes.robkit.test sent you straight back here. Try opening it again below.",
+    );
+    expect(sent).toEqual([notes]);
+  });
+
+  it("keeps a signed-in visitor on the launcher when the tab's storage refuses", async () => {
+    coreWith(owner);
+    const sent = forwards();
+    const refuse = () => {
+      throw new DOMException("Storage is off.", "SecurityError");
+    };
+    vi.stubGlobal("sessionStorage", { getItem: refuse, setItem: refuse });
+    openAt(toNotes);
+
+    expect(await signedInAs()).toBe("Signed in as rob");
+    expect(sent).toEqual([]);
+  });
+
+  it("still forwards to another app after one sent the visitor back", async () => {
+    coreWith(owner);
+    const sent = forwards();
+    openAt(toNotes);
+    await vi.waitFor(() => {
+      expect(sent).toEqual([notes]);
+    });
+    cleanup();
+
+    openAt("/?next=https%3A%2F%2Fadmin.robkit.test%2F");
+
+    await vi.waitFor(() => {
+      expect(sent).toEqual([notes, "https://admin.robkit.test/"]);
+    });
+  });
+
+  it("sends a visitor who signs in to the app, and not again when it sends them back", async () => {
+    coreWith(
+      { state: "signed-out" },
+      { "POST /login": () => ({ body: owner }) },
+    );
+    const sent = forwards();
+    const viewer = userEvent.setup();
+    openAt(toNotes);
+    await viewer.click(
+      await screen.findByRole("button", { name: "I'm the owner" }),
+    );
+    await viewer.type(screen.getByLabelText("Username"), "rob");
+    await viewer.type(screen.getByLabelText("Password"), "correct horse");
+    await viewer.click(screen.getByRole("button", { name: "Sign in" }));
+    await vi.waitFor(() => {
+      expect(sent).toEqual([notes]);
+    });
+    cleanup();
+
+    coreWith(owner);
+    openAt(toNotes);
+
+    expect(await signedInAs()).toBe("Signed in as rob");
+    expect(screen.getByRole("status").textContent).toContain(
+      "sent you straight back here",
+    );
+    expect(sent).toEqual([notes]);
   });
 });
