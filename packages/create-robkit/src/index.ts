@@ -13,8 +13,4 @@ export {
   type DeploymentValue,
 } from "./deployment.ts";
 export { init, type InitOptions, type InitResult } from "./init.ts";
-export {
-  isRobkitCommand,
-  robkitCommands,
-  type RobkitCommand,
-} from "./robkit-commands.ts";
+export { robkitCommands } from "./robkit-commands.ts";
