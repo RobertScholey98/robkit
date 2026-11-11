@@ -24,12 +24,12 @@ const { menu } = Astro.props;
       hidden
     >
       <Icon name="menu" />
-      <span>Menu</span>
+      <span class="label">Menu</span>
     </button>
   )}
   <a class="brand" href="/">
     <Icon name="terminal" size={22} />
-    <span>robkit</span>
+    <span class="name">robkit</span>
   </a>
   <button
     class="control search-button"
@@ -71,6 +71,7 @@ const { menu } = Astro.props;
   }
 
   .brand {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
@@ -124,6 +125,8 @@ const { menu } = Astro.props;
     align-items: center;
     justify-content: center;
     gap: var(--space-2);
+    /* min-width would let a control shrink to it, under its own label. */
+    flex-shrink: 0;
     min-width: var(--target);
     min-height: var(--target);
     padding: 0 var(--space-3);
@@ -165,6 +168,18 @@ const { menu } = Astro.props;
     }
 
     .label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  /* The narrowest phones keep the mark and drop the word, which stays the link's name. */
+  @media (max-width: 23.4rem) {
+    .name {
       position: absolute;
       width: 1px;
       height: 1px;

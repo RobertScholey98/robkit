@@ -180,6 +180,33 @@ describe("the phone menu", () => {
     ).toBe("site-nav");
   });
 
+  it.each(["light", "dark"] as const)(
+    "keeps its button 8 pixels from the name at 375 pixels, in the %s theme",
+    async (theme) => {
+      const { page } = await openPage(site, path, { width: 375, theme });
+      const button = await page.locator("[data-menu-button]").boundingBox();
+      const brand = await page.locator(".brand .icon").boundingBox();
+
+      expect(
+        (brand?.x ?? 0) - ((button?.x ?? 0) + (button?.width ?? 0)),
+      ).toBeGreaterThanOrEqual(8);
+      // The name keeps its word at 375 pixels.
+      expect(
+        (await page.locator(".brand").getByText("robkit").boundingBox())?.width,
+      ).toBeGreaterThan(40);
+      // No control is narrower than what it holds.
+      expect(
+        await page
+          .locator(".header .control:visible")
+          .evaluateAll((controls) =>
+            controls
+              .filter((control) => control.scrollWidth > control.clientWidth)
+              .map((control) => control.textContent.trim()),
+          ),
+      ).toEqual([]);
+    },
+  );
+
   it("is a column at 1280 pixels, with no button", async () => {
     const { page } = await openPage(site, path, { width: 1280 });
 
