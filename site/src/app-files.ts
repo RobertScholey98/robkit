@@ -68,6 +68,7 @@ export const appFiles = {
   "react-hono": serverApp(
     "The Hono server. The guard runs first, then the routes.",
   ),
+  express: serverApp("The Express app. The guard runs first, then the routes."),
 } satisfies Partial<Record<Stack, TreeEntry[]>>;
 
 /** What a list says that a folder's files don't, and the other way round. */
