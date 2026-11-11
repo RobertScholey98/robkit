@@ -15,6 +15,13 @@
  * - `POST /deploy`, `GET /deployments/{uuid}`, whose status is queued,
  *   in_progress, finished, failed or cancelled-by-user:
  *   DeployController.php and app/Enums/ApplicationDeploymentStatus.php
+ * - a deployment's `commit`, which `GET /deployments/{uuid}` returns with
+ *   the rest of its row. It is queued as `HEAD`. As the build starts, the
+ *   job asks the remote where the branch is with `git ls-remote`, saves
+ *   that commit on the deployment and checks out that commit:
+ *   `queue_application_deployment` in bootstrap/helpers/applications.php,
+ *   `check_git_if_build_needed` in app/Jobs/ApplicationDeploymentJob.php
+ *   and `setGitImportSettings` in app/Models/Application.php
  * - `GET /servers`, `GET /github-apps`: ServersController.php and
  *   GithubController.php
  */
@@ -34,6 +41,11 @@ export interface FakeCoolify {
   envs: Map<string, Map<string, Record<string, unknown>>>;
   /** How each deployment ends, by the application's uuid. Finished if unset. */
   outcomes: Record<string, string>;
+  /**
+   * The commit the branch holds, which each deployment says it built. Unset,
+   * a deployment says `HEAD`, as one whose commit Coolify never resolved.
+   */
+  branch?: string;
   /** Every request, in order. */
   requests: { method: string; path: string; body: unknown }[];
   /**
@@ -166,7 +178,10 @@ function handle(
     const uuid = id.replace(/^dep-/, "");
     return {
       status: 200,
-      body: { status: state.outcomes[uuid] ?? "finished" },
+      body: {
+        status: state.outcomes[uuid] ?? "finished",
+        commit: state.branch ?? "HEAD",
+      },
     };
   }
   return { status: 404, body: { message: `no route ${route}` } };

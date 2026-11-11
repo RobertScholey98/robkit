@@ -19,8 +19,8 @@ function saidBy(error: unknown): string {
 }
 
 /**
- * The commit the checkout at `root` is on, which robkit deploy records on
- * each application it deploys.
+ * The commit the checkout at `root` is on, which robkit deploy compares
+ * each application's record with.
  *
  * @throws a {@link CommandProblem} outside a git checkout
  */

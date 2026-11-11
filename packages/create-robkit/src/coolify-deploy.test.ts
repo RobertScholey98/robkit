@@ -26,6 +26,7 @@ const coolify = { url: "https://coolify.example", token: "t" };
 /** Commits in the order they were pushed. Each run deploys from `head` unless a test says otherwise. */
 const earlier = "0".repeat(40);
 const middle = "5".repeat(40);
+const later = "9".repeat(40);
 const head = "a".repeat(40);
 
 /** hub's record after a deploy from `head`: its one variable, ROBKIT_APP=hub. */
@@ -127,13 +128,24 @@ interface RunOptions extends Pick<
 > {
   history?: History;
   deployments?: AppDeployment[];
+  /**
+   * What Coolify says it built: the commit the branch held as each build
+   * started. The checkout's own commit unless a test says otherwise.
+   */
+  built?: string;
 }
 
 async function run(
   state: FakeCoolify,
   choice: "changed" | "all" | readonly string[],
-  { history = checkout(head), deployments = apps, ...options }: RunOptions = {},
+  {
+    history = checkout(head),
+    deployments = apps,
+    built = history.head,
+    ...options
+  }: RunOptions = {},
 ): Promise<{ ok: boolean; log: string[] }> {
+  state.branch = built;
   const log: string[] = [];
   const chosen: Choice =
     choice === "changed" || choice === "all" ? choice : choice.map(slug);
@@ -655,9 +667,7 @@ describe("deploy's decisions", () => {
 
     const { log } = await run(state, "changed");
 
-    expect(log).toContain(
-      "| core | deploy | its variables changed since 0000000 |",
-    );
+    expect(log).toContain("| core | deploy | no record of a finished deploy |");
     expect(log).toContain("- core: deployed, finished");
   });
 
@@ -674,8 +684,33 @@ describe("deploy's decisions", () => {
       history: checkout(head, { [earlier]: ["notes"], [middle]: [] }),
     });
 
-    expect(log).toContain("| notes | deploy | changed since 0000000 |");
+    expect(log).toContain(
+      "| notes | deploy | no record of a finished deploy |",
+    );
     expect(deploysOf(state).at(-1)).toBe("/deploy?uuid=n");
+  });
+
+  it("deploys an app again after a deploy that failed, even when the next push puts its code back", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+    // `middle` changed notes, and robkit gave up on its deploy. Coolify may
+    // have finished it since, so nothing says which code notes runs.
+    state.outcomes = { n: "failed" };
+    await run(state, "changed", {
+      history: checkout(middle, { [earlier]: ["notes"] }),
+    });
+    state.outcomes = {};
+    state.requests.length = 0;
+
+    // `head` puts notes back as it was at `earlier`.
+    const { log } = await run(state, "changed", {
+      history: checkout(head, { [earlier]: [], [middle]: ["notes"] }),
+    });
+
+    expect(log).toContain(
+      "| notes | deploy | no record of a finished deploy |",
+    );
+    expect(deploysOf(state)).toEqual(["/deploy?uuid=n"]);
   });
 
   it("deploys an app again when the branch moved during its deploy, and leaves core's variables matching the newer push", async () => {
@@ -701,6 +736,29 @@ describe("deploy's decisions", () => {
     );
     expect(savedOn(state, "c").ROBKIT_DATABASES).toBe("core,notes");
     expect(recordOn(state, "n")).toMatch(/^robkit deployed commit a{40} /);
+  });
+
+  it("deploys an app again when the branch moved during its deploy, even when the next push puts its code back", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+    // While this run deployed notes from `middle`, `later` changed notes
+    // again, and Coolify built what the branch held by then.
+    const moved = await run(state, "changed", {
+      history: checkout(middle, { [earlier]: ["notes"] }),
+      built: later,
+    });
+    state.requests.length = 0;
+
+    // `head` puts notes back as `middle` had it.
+    const { log } = await run(state, "changed", {
+      history: checkout(head, { [middle]: [], [later]: ["notes"] }),
+    });
+
+    expect(moved.log).toContain(
+      "- notes: deployed, finished. Coolify built 9999999, where the branch was by then",
+    );
+    expect(log).toContain("| notes | deploy | changed since 9999999 |");
+    expect(deploysOf(state)).toEqual(["/deploy?uuid=n"]);
   });
 });
 
@@ -758,7 +816,10 @@ describe("deploy's applications that match no app", () => {
 });
 
 describe("deploy's record", () => {
-  it("saves the commit and the variables on each application once its deploy finished", async () => {
+  /** What hub's description says from before its deploy is queued. */
+  const hubStarted = `robkit started a deploy from commit ${head}`;
+
+  it("takes the last record away before the deploy, then saves the commit and the variables once it finished", async () => {
     const state = host({ applications: all() });
     await deployedOnce(state);
 
@@ -767,49 +828,120 @@ describe("deploy's record", () => {
     expect(ok).toBe(true);
     expect(recordOn(state, "h")).toBe(hubRecord);
     const recorded = state.requests.flatMap(({ method, path, body }, at) =>
-      isRecord(body) && "description" in body ? [{ method, path, at }] : [],
+      isRecord(body) && "description" in body
+        ? [{ method, path, at, description: body.description }]
+        : [],
+    );
+    const queued = state.requests.findIndex(
+      ({ path }) => path === "/deploy?uuid=h",
     );
     const finished = state.requests.findIndex(
       ({ path }) => path === "/deployments/dep-h",
     );
     expect(recorded).toEqual([
-      { method: "PATCH", path: "/applications/h", at: finished + 1 },
+      {
+        method: "PATCH",
+        path: "/applications/h",
+        at: queued - 1,
+        description: hubStarted,
+      },
+      {
+        method: "PATCH",
+        path: "/applications/h",
+        at: finished + 1,
+        description: hubRecord,
+      },
     ]);
   });
 
   it.each(["failed", "cancelled-by-user"])(
-    "leaves the record as it was when the deploy ends %s",
+    "leaves no record of a finished deploy when the deploy ends %s",
     async (outcome) => {
-      const state = host({
-        applications: [{ ...existing("hub", "h"), description: "before" }],
-        outcomes: { h: outcome },
-      });
+      const state = host({ applications: all() });
+      await deployedOnce(state);
+      state.outcomes = { h: outcome };
 
       const { ok } = await run(state, ["hub"]);
 
       expect(ok).toBe(false);
-      expect(recordOn(state, "h")).toBe("before");
+      expect(recordOn(state, "h")).toBe(hubStarted);
     },
   );
 
-  it("leaves the record as it was when the deploy runs out of time", async () => {
-    const state = host({
-      applications: [{ ...existing("hub", "h"), description: "before" }],
-      answer: (route) =>
-        route.startsWith("GET /deployments/") ? "hang" : undefined,
-    });
+  it("leaves no record of a finished deploy when the deploy runs out of time", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+    state.answer = (route) =>
+      route.startsWith("GET /deployments/") ? "hang" : undefined;
 
     const { ok } = await run(state, ["hub"], { timeoutMs: 50 });
 
     expect(ok).toBe(false);
-    expect(recordOn(state, "h")).toBe("before");
+    expect(recordOn(state, "h")).toBe(hubStarted);
+  });
+
+  it("queues no deploy when the last record can't be taken away first", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+    const before = recordOn(state, "h");
+    // The app's settings are saved first, with no description among them.
+    state.answer = (route) => {
+      const body = state.requests.at(-1)?.body;
+      return route === "PATCH /applications/h" &&
+        isRecord(body) &&
+        "description" in body
+        ? { status: 500, body: { message: "Server Error" } }
+        : undefined;
+    };
+
+    const { ok, log } = await run(state, ["hub"]);
+
+    expect(ok).toBe(false);
+    expect(log).toContain(
+      `- hub: failed, taking its last record away before the deploy: HTTP 500 {"message":"Server Error"}. Check Coolify's own log.`,
+    );
+    expect(deploysOf(state)).toEqual([]);
+    expect(recordOn(state, "h")).toBe(before);
+  });
+
+  it.each([
+    // A deployment whose commit Coolify never resolved.
+    ["still says HEAD", { status: "finished", commit: "HEAD" }],
+    ["names no commit", { status: "finished" }],
+  ])(
+    "deploys, but saves no record, when the finished deployment %s",
+    async (_, deployment) => {
+      const state = host({ applications: all() });
+      await deployedOnce(state);
+      state.answer = (route) =>
+        route === "GET /deployments/dep-h"
+          ? { status: 200, body: deployment }
+          : undefined;
+
+      const { ok, log } = await run(state, ["hub"]);
+
+      expect(ok).toBe(true);
+      expect(log).toContain(
+        "- hub: deployed, but Coolify didn't say which commit it built, so the next deploy deploys it again",
+      );
+      expect(recordOn(state, "h")).toBe(hubStarted);
+    },
+  );
+
+  it("reads the commit Coolify built in any case of letters", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+
+    await run(state, ["hub"], { built: head.toUpperCase() });
+
+    expect(recordOn(state, "h")).toBe(hubRecord);
   });
 
   it("fails, and says the next deploy deploys the app again, when the record can't be saved", async () => {
     const state = host({ applications: [existing("hub", "h")] });
     let deployed = false;
     state.answer = (route) => {
-      if (route.startsWith("GET /deployments/")) deployed = true;
+      if (route === "GET /deployments/dep-h") deployed = true;
       return deployed && route === "PATCH /applications/h"
         ? { status: 500, body: { message: "Server Error" } }
         : undefined;
@@ -821,7 +953,36 @@ describe("deploy's record", () => {
     expect(log).toContain(
       `- hub: deployed, but its record wasn't saved, so the next deploy deploys it again: HTTP 500 {"message":"Server Error"}. Check Coolify's own log.`,
     );
-    expect(recordOn(state, "h")).toBeUndefined();
+    expect(recordOn(state, "h")).toBe(hubStarted);
+  });
+
+  it("deploys an app again after its record wasn't saved, even when the next push puts its code back", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+    // `middle` changed notes. Its deploy finished, and saving its record
+    // failed.
+    let deployed = false;
+    state.answer = (route) => {
+      if (route === "GET /deployments/dep-n") deployed = true;
+      return deployed && route === "PATCH /applications/n"
+        ? { status: 500, body: { message: "Server Error" } }
+        : undefined;
+    };
+    await run(state, "changed", {
+      history: checkout(middle, { [earlier]: ["notes"] }),
+    });
+    delete state.answer;
+    state.requests.length = 0;
+
+    // `head` puts notes back as it was at `earlier`.
+    const { log } = await run(state, "changed", {
+      history: checkout(head, { [earlier]: [], [middle]: ["notes"] }),
+    });
+
+    expect(log).toContain(
+      "| notes | deploy | no record of a finished deploy |",
+    );
+    expect(deploysOf(state)).toEqual(["/deploy?uuid=n"]);
   });
 });
 

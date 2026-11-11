@@ -23,7 +23,7 @@ Before it writes anything, it checks that the environment has each shared variab
 
 ## Which apps deploy
 
-Once an app's deploy finishes, `robkit deploy` records it in the application's description on Coolify: the commit it ran from and a hash of the variables it set. Coolify doesn't build or run with the description, so the record changes nothing in the app. Leave the description alone: `robkit deploy` replaces whatever it holds.
+Once an app's deploy finishes, `robkit deploy` records it in the application's description on Coolify: the commit Coolify built and a hash of the variables it set. Coolify doesn't build or run with the description, so the record changes nothing in the app. Leave the description alone: `robkit deploy` replaces whatever it holds.
 
 An app deploys when:
 
@@ -33,9 +33,9 @@ An app deploys when:
 - the variables it is about to get differ from its record. A new app, or one that gains or loses a `migrate` script, changes core's variables, so core deploys too
 - its recorded commit is no longer in the branch's history, as after a force push
 
-A deploy that fails, is cancelled or runs out of time leaves the record as it was, so the next deploy tries again. So does a record that couldn't be saved, and `robkit deploy` fails and says so. The first deploy of an install, or the first after an upgrade that brought records in, deploys every app.
+Before it queues an app's deploy, `robkit deploy` replaces the app's record with a note that a deploy started. So a deploy that fails, is cancelled or runs out of time leaves no record, and the next deploy deploys the app again, whatever its code is by then. Coolify may finish a deploy after `robkit deploy` stopped waiting for it, and nothing else would say which code the app runs. A record that couldn't be saved does the same, and `robkit deploy` fails and says so. If the note itself can't be saved, the app's deploy isn't queued. The first deploy of an install, or the first after an upgrade that brought records in, deploys every app.
 
-Coolify builds what the branch holds when it gets to each app, which can be newer than the commit `robkit deploy` ran from. The run for the newer push then sees the app as changed and deploys it again.
+Coolify builds what the branch holds as each app's build starts, which can be newer than the commit `robkit deploy` ran from. The record names the commit Coolify says it built, and the output says so when that isn't the checkout's. The next deploy compares from there. If Coolify doesn't say which commit it built, `robkit deploy` saves no record and says so, and the next deploy deploys the app again.
 
 `pnpm robkit deploy --all` deploys every app. `--apps notes,hub` deploys the apps named, each app new to Coolify, and core when its record doesn't show the variables it is about to get.
 

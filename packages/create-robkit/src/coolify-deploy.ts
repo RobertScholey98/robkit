@@ -18,7 +18,13 @@ import {
   sharedVariablesOf,
   type Host,
 } from "./coolify-host.ts";
-import { readRecord, recordOf, variablesHash } from "./coolify-record.ts";
+import {
+  fullCommit,
+  readRecord,
+  recordOf,
+  startedOf,
+  variablesHash,
+} from "./coolify-record.ts";
 import type { Changes, History } from "./affected-apps.ts";
 import {
   containerPort,
@@ -165,6 +171,8 @@ function short(commit: string): string {
 /**
  * What an app's record says about it. A record that is missing or can't be
  * read never proves the app unchanged, nor does a commit gone from history.
+ * An app whose last deploy robkit gave up on has none: its record went
+ * before that deploy was queued.
  */
 async function fromRecord(
   app: Desired,
@@ -251,8 +259,8 @@ interface DeployStep {
   action: "deploy";
   uuid: string;
   reason: string;
-  /** What the application's record says once its deploy finished. */
-  record: string;
+  /** The hash of the variables robkit saved, for the app's record. */
+  variables: string;
 }
 
 type Step =
@@ -263,7 +271,6 @@ function plan(
   desired: readonly Desired[],
   decisions: readonly Decision[],
   synced: readonly Synced[],
-  commit: string,
 ): Step[] {
   return synced.map((result, index): Step => {
     const app = result.slug;
@@ -280,7 +287,7 @@ function plan(
       action: "deploy",
       uuid: result.uuid,
       reason: decision.reason,
-      record: recordOf(commit, variablesHash(wanted.envs)),
+      variables: variablesHash(wanted.envs),
     };
   });
 }
@@ -304,13 +311,16 @@ interface WaitOptions {
 
 /**
  * Queues a deploy of `uuid`, then polls it until Coolify says it ended. The
- * deadline bounds the whole wait, a request in flight included.
+ * deadline bounds the whole wait, a request in flight included. A finished
+ * deploy comes with the commit Coolify says it built, when it says one: it
+ * builds wherever the branch is as the build starts, which may be past the
+ * commit robkit runs from.
  */
 async function deployAndWait(
   api: CoolifyApi,
   uuid: string,
   { intervalMs, timeoutMs }: WaitOptions,
-): Promise<{ ok: boolean; detail: string }> {
+): Promise<{ ok: boolean; detail: string; built?: string | undefined }> {
   const deadline = AbortSignal.timeout(timeoutMs);
   const queued = await callCoolify(
     api,
@@ -355,7 +365,13 @@ async function deployAndWait(
     if (result.outcome === "answered") {
       misses = 0;
       last = stringFieldOf(result.body, "status") ?? last;
-      if (last === "finished") return { ok: true, detail: "finished" };
+      if (last === "finished") {
+        return {
+          ok: true,
+          detail: "finished",
+          built: fullCommit(stringFieldOf(result.body, "commit")),
+        };
+      }
       if (last === "failed" || last === "cancelled-by-user") {
         return { ok: false, detail: `${last}. ${whatToCheck.deployment}` };
       }
@@ -418,7 +434,7 @@ export async function deploy({
   );
   const host = await readHost(api, config, sharedVariablesOf(deployments));
   const decisions = await decide(apps, desired, host, history);
-  const logPlan = (rows: readonly Omit<Step, "uuid" | "record">[]) => {
+  const logPlan = (rows: readonly Omit<Step, "uuid" | "variables">[]) => {
     log("| App | Action | Detail |");
     log("| --- | --- | --- |");
     for (const { app, action, reason } of rows) {
@@ -445,24 +461,48 @@ export async function deploy({
     return true;
   }
   const synced = await syncApps(api, host, desired);
-  const steps = plan(desired, decisions, synced, history.head);
+  const steps = plan(desired, decisions, synced);
   logPlan(steps);
   let ok = steps.every(({ action }) => action !== "failed");
+
+  const saveDescription = (uuid: string, description: string) =>
+    callCoolify(api, "PATCH", `/applications/${uuid}`, {
+      body: { description },
+    });
 
   /** Deploys one app and records it, and answers whether it now runs. */
   const deployOne = async ({
     app,
     uuid,
-    record,
+    variables,
   }: DeployStep): Promise<boolean> => {
+    // The last record goes first. Coolify may yet finish a deploy this run
+    // gives up on, or this run may end before it saves the new record, and
+    // then no record may say the app is unchanged.
+    const started = await saveDescription(uuid, startedOf(history.head));
+    if (started.outcome === "failed") {
+      log(
+        `- ${app}: failed, taking its last record away before the deploy: ${describeFailure(started)}`,
+      );
+      return false;
+    }
     const deployed = await deployAndWait(api, uuid, { intervalMs, timeoutMs });
     if (!deployed.ok) {
       log(`- ${app}: failed, ${deployed.detail}`);
       return false;
     }
-    const saved = await callCoolify(api, "PATCH", `/applications/${uuid}`, {
-      body: { description: record },
-    });
+    // Coolify builds the branch, not this checkout's commit, so the record
+    // names the commit Coolify built. Without one it would be a guess.
+    if (deployed.built === undefined) {
+      log(
+        `- ${app}: deployed, but Coolify didn't say which commit it built, so the next deploy deploys it again`,
+      );
+      return true;
+    }
+    const saved = await saveDescription(
+      uuid,
+      recordOf(deployed.built, variables),
+    );
     if (saved.outcome === "failed") {
       log(
         `- ${app}: deployed, but its record wasn't saved, so the next deploy deploys it again: ${describeFailure(saved)}`,
@@ -471,7 +511,11 @@ export async function deploy({
       ok = false;
       return true;
     }
-    log(`- ${app}: deployed, ${deployed.detail}`);
+    log(
+      deployed.built === history.head
+        ? `- ${app}: deployed, ${deployed.detail}`
+        : `- ${app}: deployed, ${deployed.detail}. Coolify built ${short(deployed.built)}, where the branch was by then`,
+    );
     return true;
   };
 
