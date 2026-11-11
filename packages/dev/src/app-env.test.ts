@@ -4,7 +4,12 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { aDomain, slug } from "@internal/test-session";
 import { CommandProblem } from "@robkit/input/command";
-import { appEnv, ownSettings, type InstallFacts } from "./app-env.ts";
+import {
+  appEnv,
+  ownSettings,
+  refusedAppSettings,
+  type InstallFacts,
+} from "./app-env.ts";
 
 const install: InstallFacts = {
   domain: aDomain(),
@@ -181,5 +186,48 @@ describe("Next's telemetry", () => {
     const own = await ownSettings([{ ...notes, dir }]);
 
     expect(own.get(notes.slug)).toEqual({ NEXT_TELEMETRY_DISABLED: "0" });
+  });
+});
+
+describe("refusedAppSettings", () => {
+  it("names what an app's .env can't set", () => {
+    expect(refusedAppSettings).toEqual({
+      decidedForEachApp: [
+        "ROBKIT_DOMAIN",
+        "ROBKIT_CORE_URL",
+        "ROBKIT_APPS",
+        "ROBKIT_APP",
+        "PORT",
+        "HOST",
+        "DATABASE_URL",
+        "ROBKIT_DATABASE_URL",
+        "VITEST",
+      ],
+      prefix: "ROBKIT_",
+      alsoRefused: ["NODE_ENV"],
+    });
+  });
+
+  it("holds each name ownSettings refuses", async () => {
+    const names = [
+      ...refusedAppSettings.decidedForEachApp,
+      `${refusedAppSettings.prefix}SOMETHING_LATER`,
+      ...refusedAppSettings.alsoRefused,
+    ];
+    const dir = await mkdtemp(join(tmpdir(), "robkit-app-env-"));
+    await writeFile(
+      join(dir, ".env"),
+      names.map((name) => `${name}=mine\n`).join(""),
+    );
+
+    const refused = await ownSettings([{ ...notes, dir }]).catch(
+      (error: unknown) => error,
+    );
+
+    expect(
+      (refused as AggregateError).errors.map(
+        (problem: CommandProblem) => /sets (\w+),/.exec(problem.message)?.[1],
+      ),
+    ).toEqual(names.toSorted());
   });
 });
