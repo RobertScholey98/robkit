@@ -17,7 +17,7 @@
 - [x] A provisioning run that loses the race and retries leaves no password in Postgres's log, shown against a real Postgres
 - [x] The verifier has the form Postgres stores for SCRAM-SHA-256, and a test checks it against one Postgres made from the same password, salt and iteration count
 - [x] A changeset names `@robkit/provision`
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -39,3 +39,11 @@ It is a ticket of its own, not a bullet on ticket 30, since it changes `@robkit/
 ### For the docs site
 
 Nothing an owner, a guest or an app's author sees changes. Each app's `DATABASE_URL` and password are as before. Postgres's own log, and `pg_stat_activity`, now show a role's SCRAM-SHA-256 verifier where they showed its password.
+
+### Merged
+
+Added by the lead. PR 106 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `8279eae`. The whole-stack tests failed on the build's own machine, which was too busy for their time limits, and passed in GitHub's run, where every app signs in with a role provisioned this way.
+
+After the merge the lead added a paragraph to `packages/provision/README.md`: the package doesn't run SASLprep, so `provisionDatabase` wants an ASCII password.
+
+The three polls in `provision.db.test.ts` wait one second, Vitest's default, for a lock or a log line. [Ticket 25](25-ci-checks-without-holes.md) gives every poll in the repo a longer default.

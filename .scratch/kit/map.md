@@ -137,7 +137,6 @@ Left open by build tickets 02 to 11, app-sharing ticket 02 and the just-use-it t
 - Any app can send a visiting browser through core's `/refresh` and learn who the visitor is: their id, kind and roles. That is what an app needs to serve them, but an imported app learns it too, for every guest who opens it. (app-sharing 02)
 - Removing an app from a running `pnpm dev` needs a restart of `pnpm dev`. Adding one doesn't. (just-use-it 18)
 - A SIGTERM that arrives while `robkit-core start` provisions or migrates is ignored until Docker kills the container 10 seconds later. A migration cut off that way rolls back. (just-use-it 12)
-- Postgres logs a failed statement whole, so a lost provisioning race writes `create role … password '…'` into Postgres's own log. ([just-use-it ticket 37](../just-use-it/issues/37-a-roles-password-stays-out-of-the-statement.md) closes it)
 - `robkit deploy` writes `http://` domains, so an install needs a Cloudflare tunnel, or another proxy that ends TLS, in front of Coolify. TLS from Coolify's own certificates isn't supported. (just-use-it 22's ticket round)
 - `robkit deploy` hasn't run against a real Coolify since ticket 22 rewrote how it decides. Every test runs against the repo's fake, which follows Coolify's source at 4.7.5. The owner's first deploy, with `--dry-run` first, is the test. (just-use-it 22)
 - `serve()` doesn't close an app's database pool when it stops, so Postgres logs the dropped connections. An owner can pass `onStopped`. (just-use-it 11)
