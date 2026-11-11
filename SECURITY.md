@@ -117,6 +117,7 @@ The known ways past the lint:
 - An absolute path, or a `file:` specifier.
 - A symlinked file. The check reads the file, but works out its relative imports from the link's folder, and Node resolves them from the real file's.
 - A folder's name in another case, such as `./Dist/server.js`, on a file system that ignores case, as macOS's does by default.
+- A `.d.ts` file with code in it. The check lets one `.d.ts` file import another from a folder it doesn't read, as Next's `next-env.d.ts` does, since types don't run. But Node runs a `.d.ts` file that a script imports by path, and whatever that file imports. `tsc` passes such an import when it binds no name, since an install's `skipLibCheck` keeps it from reading the code inside.
 - A cookie name built from pieces, such as `"robkit_" + "session"`.
 
 ### robkit's own packages skip pnpm's one-day wait

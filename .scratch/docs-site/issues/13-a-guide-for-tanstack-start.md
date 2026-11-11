@@ -13,7 +13,7 @@ Start's server functions change what the guide must cover: a test calls the plai
 - [x] The "make it yours" steps were done in an app made from this checkout, and the Proof says so
 - [x] Every fence compiles, or is `nocheck` with its reason in the Proof
 - [x] The guide is no longer a stub
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -48,3 +48,7 @@ Start's server functions change what the guide must cover: a test calls the plai
 **What milestone 4 will change**
 
 Ticket 27 of "Just use it" adds page titles and error states. On Start that likely touches `src/routes/__root.tsx`, `src/routes/index.tsx` or `src/home.tsx`. The template blocks and the tree follow the template. If it changes the `notesOf` and `addNoteAs` pattern the guide copies from `src/visits.ts`, ticket 26 should run the steps again.
+
+### Merged
+
+Added by the lead. PR 125 merged into `docs-site` on 2026-11-11 as `fedb177e`, with `gate` green on `e0907d1`. It went in with the catch-up, PR 131, whose `gate` passed on `e2e773e` for the whole stack on milestone 4's templates.

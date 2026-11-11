@@ -21,7 +21,7 @@ Milestone 4 changes the templates (ticket 27 of "Just use it": page titles and e
 - [x] Every fence compiles, or is `nocheck` with its reason in the Proof
 - [x] The headings are in the ticket's comments
 - [x] The guide is no longer a stub
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -76,3 +76,7 @@ A stack whose template has no separate file for a heading folds it into the next
 **What milestone 4 will change**
 
 Ticket 27 of "Just use it" changes page titles and error states in the templates. The template blocks and the tree come from the template, so the page follows it, and the file-list test fails if a file comes or goes. "Make it yours" adds its routes after `.post("/visits", ...)` and changes the `routes(visits)` signature. If ticket 27 changes either, ticket 26 should run the steps again.
+
+### Merged
+
+Added by the lead. PR 123 merged into `docs-site` on 2026-11-11 as `b0eb0ee0`, with `gate` green on `87c23ff`. It went in with the catch-up, PR 131, whose `gate` passed on `e2e773e` for the whole stack on milestone 4's templates.

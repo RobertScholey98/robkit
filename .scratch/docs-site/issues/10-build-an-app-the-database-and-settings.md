@@ -15,7 +15,7 @@
 - [x] Following the database page in an app made from this checkout adds a table and applies its migration in a running `pnpm dev`, and the Proof says how that was run
 - [x] The settings page gives the order of precedence the code has, and the Proof names where
 - [x] The layer rule page's messages are ones `robkit check` prints
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -62,3 +62,7 @@
 - Ticket 23 of "Just use it" changes what the docs say `robkit check` proves. The layer rule page says what it does on this branch. A changed message fails the page's test.
 - Ticket 32 decides whether robkit does more for a value the browser reads. The page promises nothing.
 - Ticket 27 finishes the templates. A changed line that a part starts or ends on fails the build.
+
+### Merged
+
+Added by the lead. PR 122 merged into `docs-site` on 2026-11-11 as `8eaeb326`, with `gate` green on `d5eaefb`. It went in with the catch-up, PR 131, whose `gate` passed on `e2e773e` for the whole stack on milestone 4's templates.
