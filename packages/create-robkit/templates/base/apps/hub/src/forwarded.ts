@@ -8,15 +8,15 @@ import { reportToConsole } from "@robkit/input/report";
 const prefix = "robkit-hub-forwarded ";
 
 /**
- * Whether the hub has sent this tab to `next` before. If the browser won't
- * say, the answer is yes, so the hub can't loop.
+ * Whether the hub has sent this tab to `next` before, or undefined when the
+ * browser won't say. The hub forwards only on a no, so it can't loop.
  */
-export function forwardedBefore(next: string): boolean {
+export function forwardedBefore(next: string): boolean | undefined {
   try {
     return sessionStorage.getItem(prefix + next) !== null;
   } catch (error) {
     reportToConsole("The hub couldn't read this tab's storage.", error);
-    return true;
+    return undefined;
   }
 }
 

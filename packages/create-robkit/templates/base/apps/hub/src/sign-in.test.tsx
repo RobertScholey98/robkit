@@ -216,6 +216,8 @@ describe("next", () => {
     openAt(toNotes);
 
     expect(await signedInAs()).toBe("Signed in as rob");
+    // No app sent them back, so the launcher doesn't say one did.
+    expect(screen.queryByRole("status")).toBeNull();
     expect(sent).toEqual([]);
   });
 

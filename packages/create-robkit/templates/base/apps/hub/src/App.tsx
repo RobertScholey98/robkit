@@ -53,13 +53,18 @@ function Hub({ core }: { core: string }) {
       const next = returnTo(location.href);
       if (first.state !== "signed-in" || next === undefined) {
         setScreen(first);
-      } else if (forwardedBefore(next)) {
+        return;
+      }
+      const before = forwardedBefore(next);
+      if (before === true) {
         setScreen({ ...first, sentBackFrom: new URL(next).host });
-      } else if (noteForward(next)) {
+      } else if (before === false && noteForward(next)) {
         location.assign(next);
       } else {
-        // The tab kept no note of it, so nothing would stop a second
-        // forward. The launcher lists the app instead.
+        // The tab won't say whether the hub sent it there before, or kept
+        // no note that it is about to. Nothing would stop a second forward,
+        // so the launcher lists the app instead, and says nothing of an app
+        // sending the visitor back.
         setScreen(first);
       }
     });
