@@ -34,6 +34,7 @@ export default defineConfig({
       // helpers. Astro reads content.config.ts and the endpoints under
       // src/pages as it builds, and the built-site tests check what they
       // made. Coverage measures the code the site builds with.
+      // coverage-scope: Astro runs the endpoints under src/pages, which only hand what Astro gives them to code under src, and the built-site tests check what they wrote.
       exclude: [
         "src/scripts/**",
         "src/test/**",
