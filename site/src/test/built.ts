@@ -1,7 +1,7 @@
 // Readers for the built site in dist/, for the tests that check what a
 // page says against the repo.
 
-import { readFile } from "node:fs/promises";
+import { glob, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { repoRoot } from "../repo.ts";
 
@@ -47,3 +47,25 @@ export function codeBlocks(html: string) {
     }),
   );
 }
+
+const dist = join(repoRoot, "site", "dist");
+
+/** The origin the site is built for. */
+export const origin = "https://robkit.dev";
+
+/** Every built HTML page, by its path under dist/, sorted. */
+export async function builtPages(): Promise<string[]> {
+  const pages: string[] = [];
+  for await (const page of glob("**/*.html", { cwd: dist })) {
+    pages.push(page.replaceAll("\\", "/"));
+  }
+  return pages.sort();
+}
+
+/** Whether a built page asks search engines to leave it out. */
+export const isNoindex = (html: string) =>
+  html.includes('<meta name="robots" content="noindex">');
+
+/** Where a built page is served: `docs/a/index.html` is at `/docs/a/`. */
+export const addressOf = (page: string) =>
+  `${origin}/${page.replace(/index\.html$/, "")}`;

@@ -14,13 +14,11 @@ import TemplateFile from "../components/TemplateFile.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { quickstartCommands } from "../readme.ts";
 import { readRepoFile } from "../repo.ts";
-import { docsHome, repoUrl } from "../site.ts";
+import { docsHome, repoUrl, siteDescription } from "../site.ts";
 import { guideHref, switcherStacks } from "../stacks.ts";
 
 const readme = await readRepoFile("README.md");
 const commands = quickstartCommands(readme, "README.md");
-const description =
-  "robkit is a kit for self-hosting small apps for your friends and family.";
 const quickstart = "/docs/get-started/quickstart/";
 const stacks = switcherStacks.map(({ value, label }) => ({
   label,
@@ -28,7 +26,7 @@ const stacks = switcherStacks.map(({ value, label }) => ({
 }));
 ---
 
-<BaseLayout title="robkit" description={description}>
+<BaseLayout title="robkit" description={siteDescription}>
   <main id="main" class="home" tabindex="-1">
     <section class="hero" aria-labelledby="home-title">
       <h1 id="home-title">

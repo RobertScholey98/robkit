@@ -31,3 +31,7 @@ export const editUrl = (path: string) => `${repoUrl}/edit/main/${path}`;
  * 0.1.0 is on npm, and the line goes from every page.
  */
 export const preRelease = true;
+
+/** What robkit is, in a line: the home page's description and llms.txt's. */
+export const siteDescription =
+  "robkit is a kit for self-hosting small apps for your friends and family.";
