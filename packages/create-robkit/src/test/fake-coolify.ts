@@ -1,7 +1,21 @@
 /**
  * An in-memory stand-in for the parts of the Coolify API `robkit deploy`
  * uses, shaped after coollabsio/coolify v4's routes/api.php, as robnet's
- * deploy job tests it.
+ * deploy job tests it. Each route, as read in Coolify 4.7.5:
+ *
+ * - `GET /projects`, `GET /projects/{uuid}/environments` (id, name, uuid):
+ *   app/Http/Controllers/Api/ProjectController.php
+ * - `GET /projects/{uuid}/environments/{name}/envs`, each with its `key`,
+ *   and its `value` only for a token that may read sensitive data:
+ *   SharedEnvironmentVariablesController.php, since Coolify 4.3
+ * - `GET /applications`, each with `environment_id` and `description`;
+ *   `POST /applications/private-github-app`; `PATCH /applications/{uuid}`,
+ *   which takes `description`; `PATCH /applications/{uuid}/envs/bulk`:
+ *   ApplicationsController.php and app/Models/Application.php
+ * - `POST /deploy`, `GET /deployments/{uuid}`, whose status is queued,
+ *   in_progress, finished, failed or cancelled-by-user:
+ *   DeployController.php and app/Enums/ApplicationDeploymentStatus.php
+ * - `GET /servers`, `GET /github-apps`: as robnet's deploy job reads them
  */
 export interface FakeCoolify {
   projects: { uuid: string; name: string }[];
