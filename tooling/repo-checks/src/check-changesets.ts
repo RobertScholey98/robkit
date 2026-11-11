@@ -58,19 +58,36 @@ const changedFilePatterns = await readJsonFile(configFile, (json, source) => {
     : problem(`${source} must list changedFilePatterns.`);
 });
 
-const changed = (
-  await getChangedPackagesSinceRef({
+/** The packages with a changed file that matches one of `patterns`. */
+const changedIn = (patterns: readonly string[]) =>
+  getChangedPackagesSinceRef({
     cwd: root,
     ref: base,
-    changedFilePatterns,
-  })
-)
+    changedFilePatterns: [...patterns],
+  });
+
+// What a release itself writes in a package is its package.json and its
+// changelog, which no pattern names.
+const beyondARelease = new Set(
+  (
+    await changedIn(
+      changedFilePatterns.filter((pattern) => pattern !== "package.json"),
+    )
+  ).map(({ packageJson }) => packageJson.name),
+);
+
+const changed = (await changedIn(changedFilePatterns))
   .filter(({ packageJson }) => packageJson.private !== true)
   // The version pull request bumps each version and spends the changesets,
-  // so a package released in this branch needs no new one.
+  // so a package released in this branch needs no new one for that. A
+  // change to its source or templates in the same branch still does.
   .filter(({ packageJson, dir }) => {
     const was = versionAtBase(dir);
-    return was === undefined || was === packageJson.version;
+    return (
+      was === undefined ||
+      was === packageJson.version ||
+      beyondARelease.has(packageJson.name)
+    );
   })
   .map(({ packageJson }) => packageJson.name);
 const named = new Set(

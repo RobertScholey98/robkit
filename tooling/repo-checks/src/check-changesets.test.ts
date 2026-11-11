@@ -151,6 +151,25 @@ describe("which changes need a changeset", () => {
 
     expect(check("main")).toEqual({ status: 0, output: "" });
   });
+
+  it("still needs one for a source change someone adds to the version pull request", async () => {
+    git("checkout", "-q", "-B", "release-v0.1.0");
+    for (const [dir, name] of Object.entries(packages)) {
+      await write(`${dir}/package.json`, manifest(name, "0.1.0"));
+      await write(`${dir}/CHANGELOG.md`, "# Changelog\n");
+    }
+    git("add", "-A");
+    git("commit", "-q", "--no-verify", "-m", "Version packages as 0.1.0");
+    await change(
+      "packages/core/src/index.ts",
+      "packages/create-robkit/templates/base/README.md",
+    );
+
+    expect(check("main")).toEqual({
+      status: 1,
+      output: unnamed("@robkit/core") + unnamed("create-robkit"),
+    });
+  });
 });
 
 describe("which package a changeset must name", () => {
