@@ -102,6 +102,10 @@ export function Home() {
     void ask("GET");
   }, []);
 
+  // Nothing shows until the first answer, so the heading never changes
+  // under the viewer.
+  if (!visit && !error) return null;
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/50 p-6">
       <Card className="w-full max-w-sm">

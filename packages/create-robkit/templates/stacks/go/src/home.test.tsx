@@ -49,6 +49,14 @@ describe("the page", () => {
     expect(calls).toEqual(["GET", "POST"]);
   });
 
+  it("draws nothing until the server answers", () => {
+    vi.stubGlobal("fetch", () => new Promise<never>(() => undefined));
+
+    const { container } = render(<Home />);
+
+    expect(container.innerHTML).toBe("");
+  });
+
   it("says so when it can't load the visits", async () => {
     serverAnswering({ status: 500 });
     render(<Home />);
