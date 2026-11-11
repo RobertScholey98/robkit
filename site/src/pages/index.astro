@@ -1,30 +1,218 @@
 ---
-// The home page, plain until ticket 06 designs it. It shows the README's
-// quickstart commands, read as the site builds.
+// The home page. A newcomer should know in ten seconds what robkit is, and
+// in a minute whether to try it. The commands come from the README's
+// quickstart, the example from the templates, and the stacks from
+// create-robkit, each read as the site builds.
+import { Code } from "astro:components";
+import CodeFrame from "../components/CodeFrame.astro";
+import Icon from "../components/Icon.astro";
+import InstallDiagram from "../components/InstallDiagram.astro";
+import InstallVersion from "../components/InstallVersion.astro";
 import PreRelease from "../components/PreRelease.astro";
+import TemplateFile from "../components/TemplateFile.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { quickstartCommands } from "../readme.ts";
 import { readRepoFile } from "../repo.ts";
+import { docsHome, repoUrl } from "../site.ts";
+import { guideHref, switcherStacks } from "../stacks.ts";
 
 const readme = await readRepoFile("README.md");
 const commands = quickstartCommands(readme, "README.md");
 const description =
   "robkit is a kit for self-hosting small apps for your friends and family.";
+const quickstart = "/docs/get-started/quickstart/";
+const stacks = switcherStacks.map(({ value, label }) => ({
+  label,
+  href: guideHref(value),
+}));
 ---
 
 <BaseLayout title="robkit" description={description}>
   <main id="main" class="home" tabindex="-1">
-    <h1>robkit</h1>
-    <p>{description}</p>
-    <h2>Start an install</h2>
-    <pre><code>{commands.join("\n")}</code></pre>
-    <PreRelease />
+    <section class="hero" aria-labelledby="home-title">
+      <h1 id="home-title">
+        A kit for self-hosting small apps for your friends and family.
+      </h1>
+      <p class="lead">
+        robkit makes a monorepo, called an install, with sign-in, a launcher, an
+        admin page and one Postgres built in. <code>robkit add</code> drops in
+        apps that already have sign-in, their own database schema and their own
+        subdomain.
+      </p>
+      <div class="ways-in">
+        <a class="button" href={quickstart}>
+          Read the quickstart
+          <Icon name="arrow-right" size={18} />
+        </a>
+        <a class="quiet" href={docsHome}>
+          Docs
+        </a>
+        <a class="quiet" href={repoUrl}>
+          GitHub
+        </a>
+      </div>
+    </section>
+
+    <section aria-labelledby="start">
+      <h2 id="start">Start an install</h2>
+      <p>Three commands make an install and start it.</p>
+      <CodeFrame lang="sh">
+        <Code code={commands.join("\n")} lang="sh" theme="css-variables" />
+      </CodeFrame>
+      <PreRelease />
+    </section>
+
+    <section aria-labelledby="yours">
+      <h2 id="yours">What robkit does, and what you write</h2>
+      <div class="split">
+        <div>
+          <p>
+            For each app <code>robkit add</code> makes, robkit has already done
+            the parts every app needs:
+          </p>
+          <ul>
+            <li>
+              <strong>Sign-in.</strong> The guard checks each request before
+              your handlers run, and hands them the viewer: the owner, a guest
+              with roles, or nobody.
+            </li>
+            <li>
+              <strong>A database.</strong> Its own Postgres schema, and a role
+              that can reach nothing else. Its migrations run each time it
+              starts.
+            </li>
+            <li>
+              <strong>A subdomain.</strong> The app answers on
+              <code>&lt;slug&gt;.&lt;domain&gt;</code>, under{" "}
+              <code>pnpm dev</code>
+              and on Coolify.
+            </li>
+            <li>
+              <strong>A place in the launcher.</strong> The owner picks who may
+              open it in admin.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <p>
+            You write what the app does. This is the example app's page on React
+            + Hono. It reads the viewer the guard set:
+          </p>
+          <TemplateFile
+            path="stacks/react-hono/src/routes.tsx"
+            from={'.get("/", async (c) => {'}
+            to="})"
+          />
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="holds">
+      <h2 id="holds">What an install holds</h2>
+      <div class="split">
+        <InstallDiagram />
+        <ul>
+          <li>
+            <strong>The hub</strong>, where people sign in and open apps.
+          </li>
+          <li>
+            <strong>Admin</strong>, where the owner makes access codes and
+            roles, and picks who may open each app.
+          </li>
+          <li>
+            <strong>Core</strong>, which holds the owner, access codes, sessions
+            and roles, and signs every session token.
+          </li>
+          <li>
+            <strong>Your apps</strong>, each in <code>apps/&lt;slug&gt;</code>{" "}
+            on its own subdomain.
+          </li>
+          <li>
+            <strong>One Postgres</strong>, with core's schema and a schema for
+            each app.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section aria-labelledby="stacks">
+      <h2 id="stacks">Five stacks</h2>
+      <p>
+        Each app picks its own stack, so one install can hold apps on several.
+      </p>
+      <ul class="stacks" data-home-stacks>
+        {stacks.map(({ label, href }) => (
+          <li>
+            <a href={href}>
+              {label}
+              <Icon name="arrow-right" size={16} />
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+
+    <section aria-labelledby="suits">
+      <h2 id="suits">Who it suits</h2>
+      <p>
+        robkit suits you if you want several small apps for people you know,
+        behind one sign-in, on a domain and a server of your own. You write each
+        app, and robkit gives it sign-in, a database and a subdomain.
+      </p>
+      <p>
+        It isn't hosted for you. You run the server and look after it. It isn't
+        made for an app strangers sign up to, either. A guest signs in with an
+        access code the owner gives them.
+      </p>
+    </section>
+
+    <section aria-labelledby="needs">
+      <h2 id="needs">What it needs</h2>
+      <div class="split">
+        <div>
+          <h3>To try it</h3>
+          <ul>
+            <li>
+              Node <InstallVersion tool="node" /> or later, and pnpm
+            </li>
+            <li>Docker, which runs Postgres</li>
+            <li>Linux or macOS. On Windows, WSL</li>
+          </ul>
+          <p>
+            <a href={docsHome}>What you need</a> has the details.
+          </p>
+        </div>
+        <div>
+          <h3>To host it</h3>
+          <ul>
+            <li>A server running Coolify</li>
+            <li>
+              A domain, with <code>*.&lt;domain&gt;</code> pointing at it
+            </li>
+            <li>TLS in front, such as a Cloudflare tunnel</li>
+            <li>The install in a GitHub repository</li>
+          </ul>
+          <p>Coolify is the one host robkit deploys to today.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="last" aria-labelledby="try">
+      <h2 id="try">Try it</h2>
+      <p>
+        The quickstart takes you from nothing to signing in to your own hub.
+      </p>
+      <a class="button" href={quickstart}>
+        Read the quickstart
+        <Icon name="arrow-right" size={18} />
+      </a>
+    </section>
   </main>
 </BaseLayout>
 
 <style>
   .home {
-    max-width: var(--content-width);
+    max-width: 64rem;
     margin: 0 auto;
     padding: var(--space-12) var(--space-4) var(--space-16);
   }
@@ -33,8 +221,133 @@ const description =
     outline: none;
   }
 
+  section {
+    margin-top: var(--space-16);
+  }
+
+  .hero {
+    max-width: var(--content-width);
+    margin-top: 0;
+  }
+
   h1 {
-    margin: 0 0 var(--space-3);
+    margin: 0 0 var(--space-4);
     font-size: var(--text-3xl);
+    line-height: var(--leading-tight);
+    text-wrap: balance;
+  }
+
+  h2 {
+    margin: 0 0 var(--space-4);
+    font-size: var(--text-2xl);
+  }
+
+  h3 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-xl);
+  }
+
+  .lead {
+    margin: 0;
+    font-size: var(--text-lg);
+  }
+
+  .ways-in {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-6);
+    margin-top: var(--space-8);
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--target);
+    padding: 0 var(--space-6);
+    border-radius: var(--radius);
+    background: var(--color-button);
+    color: var(--color-on-accent);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .quiet {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target);
+    color: var(--color-text);
+    font-weight: 500;
+  }
+
+  .split {
+    display: grid;
+    gap: var(--space-8);
+    align-items: start;
+  }
+
+  .split > :global(*) {
+    min-width: 0;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: var(--space-6);
+  }
+
+  li + li {
+    margin-top: var(--space-2);
+  }
+
+  .stacks {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: var(--space-2);
+    padding: 0;
+    list-style: none;
+  }
+
+  .stacks li + li {
+    margin-top: 0;
+  }
+
+  .stacks a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: var(--target);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: background-color var(--duration-fast) var(--ease);
+  }
+
+  .stacks a:hover {
+    background: var(--color-raised);
+  }
+
+  .last {
+    padding: var(--space-8);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+  }
+
+  .last p {
+    margin-top: 0;
+  }
+
+  @media (min-width: 64rem) {
+    .split {
+      grid-template-columns: 1fr 1fr;
+    }
   }
 </style>

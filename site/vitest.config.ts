@@ -19,8 +19,10 @@ export default defineConfig({
         test: {
           name: "browser",
           include: ["src/**/*.browser.test.ts"],
-          testTimeout: 30_000,
-          hookTimeout: 60_000,
+          // A CI runner takes several times as long as a laptop to start
+          // Chromium and run axe.
+          testTimeout: 120_000,
+          hookTimeout: 180_000,
         },
       },
     ],

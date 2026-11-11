@@ -40,16 +40,17 @@ async function openingScriptBytes(page: string): Promise<number> {
 
 describe("a docs page's scripts", () => {
   // The samples page has one of every piece a docs page can use, so it
-  // fetches every script one can.
-  it.each(["docs/get-started/what-you-need/index.html", "samples/index.html"])(
-    "weigh no more than the limit DESIGN.md records, on %s",
-    async (page) => {
-      const bytes = await openingScriptBytes(page);
+  // fetches every script one can. The home page keeps to the same limit.
+  it.each([
+    "docs/get-started/what-you-need/index.html",
+    "samples/index.html",
+    "index.html",
+  ])("weigh no more than the limit DESIGN.md records, on %s", async (page) => {
+    const bytes = await openingScriptBytes(page);
 
-      expect(bytes).toBeGreaterThan(0);
-      expect(bytes).toBeLessThanOrEqual(scriptBudget);
-    },
-  );
+    expect(bytes).toBeGreaterThan(0);
+    expect(bytes).toBeLessThanOrEqual(scriptBudget);
+  });
 
   it("have the limit DESIGN.md says", async () => {
     const guide = await readFile(join(repoRoot, "site", "DESIGN.md"), "utf8");

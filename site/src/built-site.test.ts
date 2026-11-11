@@ -3,23 +3,90 @@
 
 import { glob, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { readyStacks } from "create-robkit";
 import { describe, expect, it } from "vitest";
 import { installGoVersion, installNodeVersion } from "./install.ts";
 import { quickstartCommands } from "./readme.ts";
 import { repoRoot } from "./repo.ts";
 import { docsHome, preRelease, repoUrl } from "./site.ts";
+import { guideHref } from "./stacks.ts";
 
 const built = (path: string) =>
   readFile(join(repoRoot, "site", "dist", path), "utf8");
 
 describe("the built home page", () => {
-  it("shows the three commands from the README's quickstart", async () => {
+  it("shows the three commands from the README's quickstart, in a terminal", async () => {
     const readme = await readFile(join(repoRoot, "README.md"), "utf8");
     const commands = quickstartCommands(readme, "README.md");
-    const html = await built("index.html");
+    const blocks = codeBlocks(await built("index.html"));
 
     expect(commands).toHaveLength(3);
-    for (const command of commands) expect(html).toContain(command);
+    expect(blocks).toContainEqual({
+      label: "Terminal",
+      code: commands.join("\n"),
+    });
+  });
+
+  it("links to each stack robkit can make, by name, at its guide", async () => {
+    const html = await built("index.html");
+    const list = /<ul[^>]*data-home-stacks[^>]*>([\s\S]*?)<\/ul>/.exec(html);
+    const links = [
+      ...(list?.[1] ?? "").matchAll(/<a href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g),
+    ].map(([, href, name = ""]) => ({
+      href,
+      name: name.replaceAll(/<[^>]+>/g, "").trim(),
+    }));
+
+    expect(links.map(({ name }) => name)).toEqual([
+      "TanStack Start",
+      "React + Hono",
+      "React + Express",
+      "Next.js",
+      "React + Go",
+    ]);
+    expect(links.map(({ href }) => href)).toEqual(
+      readyStacks.map((stack) => guideHref(stack)),
+    );
+  });
+
+  it("shows the example app's page from the React + Hono template", async () => {
+    const lines = (
+      await readFile(
+        join(
+          repoRoot,
+          "packages/create-robkit/templates/stacks/react-hono/src/routes.tsx",
+        ),
+        "utf8",
+      )
+    )
+      .replaceAll("\r\n", "\n")
+      .split("\n");
+    const first = lines.findIndex((line) =>
+      line.includes('.get("/", async (c) => {'),
+    );
+    const last = lines.indexOf("      })", first);
+    const handler = lines
+      .slice(first, last + 1)
+      .map((line) => line.slice("      ".length))
+      .join("\n");
+
+    expect(first).toBeGreaterThan(-1);
+    expect(codeBlocks(await built("index.html"))).toContainEqual({
+      label: "apps/example/src/routes.tsx",
+      code: handler,
+    });
+  });
+
+  it("says who it suits, what it needs and where to report a problem", async () => {
+    const html = await built("index.html");
+    const headings = [...html.matchAll(/<h[23][^>]*>([^<]*)<\/h[23]>/g)].map(
+      ([, text]) => text,
+    );
+
+    expect(headings).toEqual(
+      expect.arrayContaining(["Who it suits", "To try it", "To host it"]),
+    );
+    expect(html).toContain(`href="${repoUrl}/issues"`);
   });
 });
 
@@ -65,6 +132,9 @@ function codeBlocks(html: string) {
       .replaceAll("&gt;", ">")
       .replaceAll("&quot;", '"')
       .replaceAll("&#39;", "'")
+      .replaceAll(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
+        String.fromCodePoint(Number.parseInt(hex, 16)),
+      )
       .replaceAll("&amp;", "&");
   return [...html.matchAll(/<figure class="code"[\s\S]*?<\/figure>/g)].map(
     ([figure]) => ({
