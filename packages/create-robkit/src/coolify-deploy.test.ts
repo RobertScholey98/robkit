@@ -45,6 +45,7 @@ function existing(slug: string, uuid: string): Record<string, unknown> {
     uuid,
     name: `robkit-${slug}`,
     git_repository: "https://github.com/RobertScholey98/robkit-dev.git",
+    environment_id: 1,
   };
 }
 
@@ -129,6 +130,35 @@ describe("deploy", () => {
         path: "/applications/old-notes",
       }),
     );
+  });
+
+  it("leaves alone an application in another environment with an app's name", async () => {
+    const staging = {
+      ...existing("notes", "staging-notes"),
+      environment_id: 2,
+    };
+    const state = fakeCoolify({
+      environments: [
+        { id: 1, uuid: "env-production", name: "production" },
+        { id: 2, uuid: "env-staging", name: "staging" },
+      ],
+      applications: [existing("core", "c"), existing("hub", "h"), staging],
+    });
+
+    const { log } = await run(state, "all");
+
+    expect(
+      state.requests.filter(({ path }) => path.includes("staging-notes")),
+    ).toEqual([]);
+    expect(log.join("\n")).not.toContain("staging-notes");
+    expect(
+      state.applications
+        .filter(({ name }) => name === "robkit-notes")
+        .map(({ uuid, environment_id }) => [uuid, environment_id]),
+    ).toEqual([
+      ["staging-notes", 2],
+      ["app4", 1],
+    ]);
   });
 
   it("sends no request that removes or replaces a variable the owner set on the host", async () => {
@@ -373,6 +403,17 @@ describe("deploy's lookups", () => {
     await expect(run(state, [])).rejects.toThrow(
       "No Coolify server named localhost. Found: alpha, beta.",
     );
+  });
+
+  it("names the environment it can't find, and those the project has", async () => {
+    const state = fakeCoolify({
+      environments: [{ id: 2, uuid: "env-staging", name: "staging" }],
+    });
+
+    await expect(run(state, [])).rejects.toThrow(
+      "The Coolify project robkit has no environment named production. Found: staging.",
+    );
+    expect(state.requests.map(({ method }) => method)).not.toContain("POST");
   });
 
   it("takes Coolify's only server, whatever its name", async () => {

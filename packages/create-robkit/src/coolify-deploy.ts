@@ -120,6 +120,34 @@ function pick(list: unknown, name: string, kind: string): string {
   );
 }
 
+/**
+ * The id of the configured environment in the project, which each of its
+ * applications names as its `environment_id`.
+ */
+async function environmentId(
+  api: CoolifyApi,
+  project: string,
+  config: CoolifyConfig,
+): Promise<unknown> {
+  const listed = await readFromCoolify(
+    api,
+    `/projects/${encodeURIComponent(project)}/environments`,
+  );
+  const environments: unknown[] = Array.isArray(listed) ? listed : [];
+  const found = environments.find(
+    (environment) => stringFieldOf(environment, "name") === config.environment,
+  );
+  const id = fieldOf(found, "id");
+  if (id !== undefined) return id;
+  const names =
+    environments
+      .map((environment) => stringFieldOf(environment, "name") ?? "?")
+      .join(", ") || "none";
+  throw new CommandProblem(
+    `The Coolify project ${config.project} has no environment named ${config.environment}. Found: ${names}.`,
+  );
+}
+
 type Synced =
   | { slug: Slug; action: "created" | "synced"; uuid: string }
   | { slug: Slug; action: "failed"; detail: string };
@@ -145,7 +173,12 @@ async function syncApps(
     github_app_uuid: pick(githubApps, config.githubApp, "GitHub App"),
     environment_name: config.environment,
   };
-  const existing: unknown[] = Array.isArray(applications) ? applications : [];
+  const environment = await environmentId(api, target.project_uuid, config);
+  // The token lists every application of its team, so keep to this
+  // install's environment.
+  const existing = (Array.isArray(applications) ? applications : []).filter(
+    (app: unknown) => fieldOf(app, "environment_id") === environment,
+  );
 
   const results: Synced[] = [];
   for (const app of desired) {

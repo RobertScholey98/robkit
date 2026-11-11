@@ -7,6 +7,8 @@ export interface FakeCoolify {
   projects: { uuid: string; name: string }[];
   servers: { uuid: string; name: string }[];
   githubApps: { uuid: string; name: string }[];
+  /** The environments of every project, each with the id an application names. */
+  environments: { id: number; uuid: string; name: string }[];
   applications: Record<string, unknown>[];
   /** Each application's variables, by its uuid. */
   envs: Map<string, Map<string, Record<string, unknown>>>;
@@ -31,6 +33,7 @@ export function fakeCoolify(overrides: Partial<FakeCoolify> = {}): FakeCoolify {
       { uuid: "public", name: "Public GitHub" },
       { uuid: "gh", name: "robkit-coolify" },
     ],
+    environments: [{ id: 1, uuid: "env-production", name: "production" }],
     applications: [],
     envs: new Map(),
     outcomes: {},
@@ -54,6 +57,7 @@ function handle(
   });
   const id = /^\/(?:applications|deployments)\/([^/]+)/.exec(path)?.[1] ?? "";
   const app = state.applications.find((candidate) => candidate.uuid === id);
+  const project = /^\/projects\/([^/]+)/.exec(path)?.[1] ?? "";
   const route = `${method} ${path}`;
   const answered = state.answer?.(route);
   if (answered) return answered;
@@ -67,9 +71,27 @@ function handle(
   if (route === "GET /applications") {
     return { status: 200, body: state.applications };
   }
+  if (route === `GET /projects/${project}/environments`) {
+    if (!state.projects.some(({ uuid }) => uuid === project)) {
+      return { status: 404, body: { message: "Project not found." } };
+    }
+    return { status: 200, body: state.environments };
+  }
   if (route === "POST /applications/private-github-app") {
+    const { environment_name: name, ...fields } = body as Record<
+      string,
+      unknown
+    >;
+    const environment = state.environments.find((env) => env.name === name);
+    if (!environment) {
+      return { status: 404, body: { message: "Environment not found." } };
+    }
     const uuid = `app${String(state.applications.length + 1)}`;
-    state.applications.push({ ...(body as object), uuid });
+    state.applications.push({
+      ...fields,
+      uuid,
+      environment_id: environment.id,
+    });
     return { status: 201, body: { uuid } };
   }
   if (route === `PATCH /applications/${id}`) {
