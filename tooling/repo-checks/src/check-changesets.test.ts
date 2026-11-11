@@ -22,6 +22,19 @@ const packages = {
 const manifest = (name: string, version = "0.0.0", extra = "") =>
   `{ "name": "${name}", "version": "${version}"${extra} }\n`;
 
+/** The root package.json, naming `pnpm` as its package manager, with `extra` fields. */
+const rootManifest = (pnpm: string, extra = "") =>
+  `{ "name": "root", "private": true, "packageManager": "${pnpm}"${extra} }\n`;
+
+/** pnpm's settings, with `catalog` as the catalog. */
+const settings = (catalog: Record<string, string>) =>
+  [
+    "packages:\n  - packages/*\ncatalog:\n",
+    ...Object.entries(catalog).map(
+      ([name, version]) => `  ${name}: ${version}\n`,
+    ),
+  ].join("");
+
 let repo: string;
 
 function git(...args: string[]): void {
@@ -63,8 +76,24 @@ beforeEach(async () => {
   git("init", "-q", "-b", "main");
   git("config", "user.name", "Test");
   git("config", "user.email", "test@example.com");
-  await write("package.json", '{ "name": "root", "private": true }\n');
-  await write("pnpm-workspace.yaml", "packages:\n  - packages/*\n");
+  await write("package.json", rootManifest("pnpm@10.0.0"));
+  await write(
+    "pnpm-workspace.yaml",
+    settings({ astro: "6.0.0", hono: "4.0.0" }),
+  );
+  // What an install takes of those two: pnpm's version, and each catalog
+  // entry a template names. It takes the lint policy with each file that
+  // imports, and no other lint file.
+  await write(
+    "packages/create-robkit/templates/stacks/react-hono/package.json",
+    '{ "name": "app", "dependencies": { "hono": "catalog:" } }\n',
+  );
+  await write(
+    "tooling/eslint/policy.js",
+    'import noBareError from "./no-bare-error.js";\nexport default [noBareError];\n',
+  );
+  await write("tooling/eslint/no-bare-error.js", "export default {};\n");
+  await write("tooling/eslint/package-graph.js", "export default {};\n");
   await mkdir(join(repo, ".changeset"));
   await copyFile(
     join(root, ".changeset/config.json"),
@@ -183,20 +212,23 @@ describe("a file create-robkit's build carries into an install", () => {
   }
   const guard = ["go/session/guarded.go", "package session\n"] as const;
 
-  it.each<readonly [path: string, text: string]>([
-    guard,
-    ["tooling/eslint/layers.js", "export const rules = {};\n"],
+  it.each<readonly [what: string, path: string, text: string]>([
+    ["robkit's Go module", ...guard],
+    ["the lint policy", "tooling/eslint/policy.js", "export default [];\n"],
     [
+      "a file the lint policy imports",
+      "tooling/eslint/no-bare-error.js",
+      "export default { meta: {} };\n",
+    ],
+    [
+      "a catalog entry a template takes",
       "pnpm-workspace.yaml",
-      "packages:\n  - packages/*\ncatalog:\n  hono: 5.0.0\n",
+      settings({ astro: "6.0.0", hono: "5.0.0" }),
     ],
-    [
-      "package.json",
-      '{ "name": "root", "private": true, "packageManager": "pnpm@11.0.0" }\n',
-    ],
+    ["pnpm's version", "package.json", rootManifest("pnpm@11.0.0")],
   ])(
     "needs a changeset naming create-robkit when %s changes",
-    async (path, text) => {
+    async (_what, path, text) => {
       await carry(path, text);
 
       expect(check("main")).toEqual({
@@ -205,6 +237,33 @@ describe("a file create-robkit's build carries into an install", () => {
       });
     },
   );
+
+  // The build reads these too, and no install takes them.
+  it.each<readonly [what: string, path: string, text: string]>([
+    ["a test of the Go module", "go/session/guarded_test.go", guard[1]],
+    [
+      "a lint file the policy doesn't import",
+      "tooling/eslint/package-graph.js",
+      "export default { site: [] };\n",
+    ],
+    [
+      "catalog entries no template takes",
+      "pnpm-workspace.yaml",
+      settings({ astro: "7.0.0", hono: "4.0.0", pagefind: "1.0.0" }),
+    ],
+    [
+      "the root package.json's scripts",
+      "package.json",
+      rootManifest(
+        "pnpm@10.0.0",
+        ', "scripts": { "screenshots": "node a.ts" }',
+      ),
+    ],
+  ])("needs none for a change to %s", async (_what, path, text) => {
+    await carry(path, text);
+
+    expect(check("main")).toEqual({ status: 0, output: "" });
+  });
 
   it("passes with a changeset that names create-robkit", async () => {
     await changeset("guard", "create-robkit");

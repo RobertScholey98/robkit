@@ -8,11 +8,16 @@
 // create-robkit's build also copies files from outside its folder into an
 // install, such as the Go module, so a change to one of those counts as a
 // change to create-robkit. turbo.json names them, as that build's inputs.
+// Only the part of a file an install takes counts: pnpm's version from the
+// root package.json, not its scripts.
 import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { glob } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { getChangedPackagesSinceRef } from "@changesets/git";
 import { readChangesets } from "@changesets/read";
 import { isProblem, isRecord, parseJson, problem } from "@robkit/input";
+import { parse } from "yaml";
 import { readJsonFile } from "./manifest.ts";
 
 const base = process.argv[2];
@@ -37,20 +42,28 @@ const root = execFileSync("git", ["rev-parse", "--show-toplevel"], {
 const forkPoint = git("merge-base", base, "HEAD");
 
 /**
+ * A file's text where the branch left its base, or undefined for a file the
+ * base doesn't have.
+ */
+function atBase(path: string): string | undefined {
+  try {
+    return git("show", `${forkPoint}:${path}`);
+  } catch {
+    // git show fails on a path the base doesn't have.
+    return undefined;
+  }
+}
+
+/**
  * The version a package had where the branch left its base, or undefined
  * for a package the base doesn't have.
  */
 function versionAtBase(dir: string): string | undefined {
   const path = `${relative(root, dir).replaceAll("\\", "/")}/package.json`;
-  try {
-    const parsed = parseJson(git("show", `${forkPoint}:${path}`), path);
-    if (isProblem(parsed) || !isRecord(parsed.json)) return undefined;
-    const { version } = parsed.json;
-    return typeof version === "string" ? version : undefined;
-  } catch {
-    // git show fails on a path the base doesn't have: a new package.
-    return undefined;
-  }
+  const parsed = parseJson(atBase(path) ?? "", path);
+  if (isProblem(parsed) || !isRecord(parsed.json)) return undefined;
+  const { version } = parsed.json;
+  return typeof version === "string" ? version : undefined;
 }
 
 const configFile = join(root, ".changeset/config.json");
@@ -127,9 +140,88 @@ const carried = (
   // Each published package answers for its own package.json, above.
   .filter((glob) => !glob.startsWith("packages/"))
   .map(globShape);
+
+// The build reads more of those files than an install takes, and only what
+// an install takes is a change to create-robkit. Each rule below follows
+// the code in create-robkit that reads the file: readCheckout and
+// readLintPolicy in robkit-repo.ts, installCatalog in generate.ts and
+// readGoModule in go-module.ts. A carried file with no rule counts whole.
+
+/** A file's text in the checkout, or undefined where it has none. */
+const now = (path: string) =>
+  existsSync(join(root, path))
+    ? readFileSync(join(root, path), "utf8")
+    : undefined;
+
+/** The pnpm a root package.json's `text` names, as `packageManager`. */
+function pnpmNamedIn(text: string | undefined): string | undefined {
+  const parsed = parseJson(text ?? "", "package.json");
+  if (isProblem(parsed) || !isRecord(parsed.json)) return undefined;
+  const { packageManager } = parsed.json;
+  return typeof packageManager === "string" ? packageManager : undefined;
+}
+
+/** The catalog in `text`, pnpm's settings, by name. */
+function catalogIn(text: string | undefined): Record<string, unknown> {
+  const settings: unknown = parse(text ?? "");
+  const catalog = isRecord(settings) ? settings.catalog : undefined;
+  return isRecord(catalog) ? catalog : {};
+}
+
+const templates = "packages/create-robkit/templates";
+/** Every dependency a template's package.json takes from the catalog. */
+const takenFromCatalog = new Set<string>();
+for await (const path of glob(`${templates}/**/package.json`, { cwd: root })) {
+  const parsed = parseJson(now(path) ?? "", path);
+  if (isProblem(parsed) || !isRecord(parsed.json)) continue;
+  const { dependencies, devDependencies } = parsed.json;
+  for (const deps of [dependencies, devDependencies]) {
+    for (const [name, spec] of Object.entries(isRecord(deps) ? deps : {})) {
+      if (spec === "catalog:") takenFromCatalog.add(name);
+    }
+  }
+}
+
+const lintDir = "tooling/eslint/";
+/** The lint policy an install takes: policy.js and each file it imports, in turn. */
+const lintPolicy = new Set<string>();
+const toRead = ["policy.js"];
+for (let name = toRead.shift(); name !== undefined; name = toRead.shift()) {
+  if (lintPolicy.has(name)) continue;
+  lintPolicy.add(name);
+  const imports = (now(`${lintDir}${name}`) ?? "").matchAll(
+    /from "\.\/([\w.-]+\.js)"/g,
+  );
+  for (const [, imported] of imports) {
+    if (imported !== undefined) toRead.push(imported);
+  }
+}
+
+const pnpmSettings = "pnpm-workspace.yaml";
+
+/** Whether a change to `file`, one the build carries, reaches an install. */
+function reachesAnInstall(file: string): boolean {
+  if (file === "package.json") {
+    return pnpmNamedIn(atBase(file)) !== pnpmNamedIn(now(file));
+  }
+  if (file === pnpmSettings) {
+    const was = catalogIn(atBase(file));
+    const is = catalogIn(now(file));
+    return [...takenFromCatalog].some((name) => was[name] !== is[name]);
+  }
+  if (file.startsWith(lintDir)) {
+    return lintPolicy.has(file.slice(lintDir.length));
+  }
+  if (file.startsWith("go/")) return !file.endsWith("_test.go");
+  return true;
+}
+
 const carriedChanged = git("diff", "--name-only", forkPoint)
   .split("\n")
-  .some((file) => carried.some((shape) => shape.test(file)));
+  .some(
+    (file) =>
+      carried.some((shape) => shape.test(file)) && reachesAnInstall(file),
+  );
 // The version pull request changes none of them, so nothing excuses this.
 if (carriedChanged && !changed.includes(carrier)) changed.push(carrier);
 
