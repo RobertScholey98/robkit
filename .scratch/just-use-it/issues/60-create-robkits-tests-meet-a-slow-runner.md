@@ -19,7 +19,7 @@ The third run failed the `check` job of a pull request that changes only the doc
 - [x] The failure is reproduced before the fix, shown by the same "Test timed out" with a limit shorter than an install takes to write
 - [x] create-robkit's unit tests have the limit the other packages' slow tests have
 - [x] `check.test.ts` and `generate.test.ts` still pass
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -30,3 +30,7 @@ The third run failed the `check` job of a pull request that changes only the doc
 - The tests still write a whole install each. Sharing one would make them faster, but most of them change a file in theirs, and a test that passes in 20 seconds on CI needs room more than it needs a rewrite.
 - The `pack` tests keep their own limit of five minutes.
 - No changeset. The config file isn't part of what create-robkit publishes.
+
+### Merged
+
+Added by the lead. PR 139 merged into `main` on 2026-11-11 as `26491fd5`, with `gate` green on `6b6d819`. Its first `check` failed on the port test that [ticket 61](61-port-tests-lease-their-ports.md) fixes, and passed when run again.
