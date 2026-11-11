@@ -63,7 +63,7 @@ What isn't covered:
 
 ### Built files are public
 
-An app's server answers its built client files, and the files in its `public` folder, before the guard runs, so anyone who can reach the app can fetch them. That is `/assets` on Hono and Express, `dist/client` on Start, and `/_next/static` on Next, whose `public` files go through the guard. Put nothing in the client's code or in `public` that a viewer shouldn't see.
+An app's server answers its built client files, and the files in its `public` folder, before the guard runs, so anyone who can reach the app can fetch them. That is `/assets` on Hono and Express, `dist/client` on Start, and `/_next/static` on Next, whose `public` files go through the guard. A React + Go app's server puts every file behind the guard. Put nothing in the client's code or in `public` that a viewer shouldn't see.
 
 `@robkit/serve` answers only the folders an adapter names. It never answers the rest of `dist`, such as the server's bundle or Vite's manifest, nor a URL that climbs out of a folder, encoded or not. It does follow a link inside a served folder, so the file a link points at is public too. Every file it answers carries `nosniff`.
 
