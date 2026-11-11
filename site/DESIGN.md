@@ -140,7 +140,7 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 - Hover changes colour only, in `--duration-fast`.
 - A toggle says its state: the theme toggle is a `button` with `aria-pressed`, named "Dark theme". The menu button has `aria-expanded` and `aria-controls`.
 - The phone menu closes on Escape, on a click outside it and on following a link, and gives focus back to its button.
-- Search opens from the header's search button or the `/` key, in a dialog over the page. The `/` key types a slash when the reader is in a field. The arrow keys move between the box and the results, and Enter in the box opens the first result. It closes on Escape, on its close button and on a click outside it, and gives focus back to what had it. The status line under the box says what search found, to a screen reader too. Without scripts the search button isn't shown.
+- Search opens from the header's search button or the `/` key, in a dialog over the page. The `/` key types a slash when the reader is in a field. The arrow keys move between the box and the results, and Enter in the box opens the first result. It closes on Escape, on its close button and on a click outside it, and gives focus back to what had it. The status line under the box says what search found, to a screen reader too. When the index fails to load or takes more than 10 seconds, the status line says so and what to do, and the next key the reader types tries again. A failed load of the dialog's script tries again on the next press. Without scripts the search button isn't shown.
 
 ## Motion
 

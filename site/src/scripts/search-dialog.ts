@@ -1,5 +1,7 @@
 // The search dialog, loaded the first time search opens. It fetches the
 // index once, finds as the reader types, and lists each result as a link.
+// When the index fails or is too slow to come, the status line says so,
+// and the next key the reader types tries again.
 // The arrow keys move between the box and the results, Enter opens the
 // first result from the box, and Escape closes the dialog and gives focus
 // back to where it was.
@@ -20,11 +22,18 @@ const results = document.querySelector<HTMLUListElement>("#search-results");
 const hints = {
   empty: "Type a command, a setting or any word from the docs.",
   loading: "Loading search…",
-  failed: "Search couldn't load. Check your connection, then try again.",
+  failed:
+    "Search couldn't load. Check your connection, then type to try again.",
+  slow: "Search is taking too long to load. Check your connection, then type to try again.",
 };
+
+/** How long the index may take to arrive before search gives up on it. */
+const deadline = 10_000;
 
 let index: SearchIndex | undefined;
 let loading: Promise<void> | undefined;
+/** Why the last load failed, until one works. */
+let failure: "failed" | "slow" = "failed";
 let returnTo: HTMLElement | undefined;
 
 /** A result's link: its page and heading, then its text with each word marked. */
@@ -62,7 +71,7 @@ function show(): void {
   results.replaceChildren();
   const query = input.value.trim();
   if (index === undefined) {
-    status.textContent = loading === undefined ? hints.failed : hints.loading;
+    status.textContent = loading === undefined ? hints[failure] : hints.loading;
     return;
   }
   if (query === "") {
@@ -80,10 +89,25 @@ function show(): void {
 }
 
 async function loadIndex(): Promise<void> {
-  const response = await fetch("/search.json");
+  const response = await fetch("/search.json", {
+    signal: AbortSignal.timeout(deadline),
+  });
   if (!response.ok) throw new Error(`search.json: ${String(response.status)}`);
   const parsed: unknown = await response.json();
   index = orThrow(readSearchIndex(parsed));
+}
+
+/** Loads the index unless it is loaded or loading. A failed load can try again. */
+function load(): void {
+  if (index !== undefined) return;
+  loading ??= loadIndex().then(show, (error: unknown) => {
+    failure =
+      error instanceof DOMException && error.name === "TimeoutError"
+        ? "slow"
+        : "failed";
+    loading = undefined;
+    show();
+  });
 }
 
 /** Opens search, and gives focus back to `from` when it closes. */
@@ -93,10 +117,7 @@ export function open(from: Element | null): void {
   if (!dialog.open) dialog.showModal();
   input.focus();
   input.select();
-  loading ??= loadIndex().then(show, () => {
-    loading = undefined;
-    show();
-  });
+  load();
   show();
 }
 
@@ -110,7 +131,10 @@ if (dialog !== null && input !== null && results !== null) {
     returnTo?.focus();
     returnTo = undefined;
   });
-  input.addEventListener("input", show);
+  input.addEventListener("input", () => {
+    load();
+    show();
+  });
   dialog.querySelector("[data-search-close]")?.addEventListener("click", () => {
     close(true);
   });
