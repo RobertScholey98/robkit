@@ -1,4 +1,4 @@
-import { exec as execCallback, execFile, spawn } from "node:child_process";
+import { exec as execCallback, spawn } from "node:child_process";
 import { appendFile, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -16,7 +16,6 @@ import { defaultChoices, init } from "./index.ts";
 // after this one.
 
 const run = promisify(execCallback);
-const runFile = promisify(execFile);
 
 /** Runs `command` in the install, failing with its output if it fails. */
 async function inInstall(dir: string, command: string): Promise<void> {
@@ -51,15 +50,10 @@ function removeLater(dir: string): void {
  * the key it would answer from cache with.
  */
 async function taskHashes(dir: string): Promise<Record<string, string>> {
-  const { stdout } = await runFile(
-    "pnpm",
-    ["exec", "turbo", "run", "build", "test", "--dry=json"],
-    {
-      cwd: dir,
-      maxBuffer: 16 * 1024 * 1024,
-      shell: process.platform === "win32",
-    },
-  );
+  const { stdout } = await run("pnpm exec turbo run build test --dry=json", {
+    cwd: dir,
+    maxBuffer: 16 * 1024 * 1024,
+  });
   const dry = JSON.parse(stdout.slice(stdout.indexOf("{"))) as {
     tasks: { taskId: string; hash: string }[];
   };
