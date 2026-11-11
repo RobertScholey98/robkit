@@ -27,6 +27,15 @@ Slate neutrals, one amber accent. Each text colour is at least 4.5 to 1 on every
 | `--color-border`         | `#E2E8F0` | `#1E293B` | Dividers that only separate                              |
 | `--color-border-control` | `#64748B` | `#64748B` | The edge of a control a reader must find, 3 to 1 or more |
 
+Code is coloured by Shiki as the site builds, from these tokens, so a block needs no script. The rest of a block takes `--color-text`, and comments and punctuation take `--color-muted`. Amber stays out of code, so it still marks only what you can act on.
+
+| Token                   | Light     | Dark      | Use                                        |
+| ----------------------- | --------- | --------- | ------------------------------------------ |
+| `--color-code-keyword`  | `#9F1239` | `#FDA4AF` | Keywords: `import`, `const`, `func`        |
+| `--color-code-string`   | `#166534` | `#86EFAC` | Strings                                    |
+| `--color-code-function` | `#1D4ED8` | `#93C5FD` | Function names, and commands in a shell    |
+| `--color-code-constant` | `#6D28D9` | `#C4B5FD` | Numbers, `true`, types and other constants |
+
 Measured contrast, light then dark:
 
 | Pair                                 | Light | Dark  |
@@ -40,6 +49,10 @@ Measured contrast, light then dark:
 | Accent on code and raised            | 4.58  | 8.76  |
 | On-accent text on a filled button    | 7.09  | 11.28 |
 | Control edge on the page and surface | 4.55  | 3.75  |
+| Code keyword on code                 | 7.32  | 9.17  |
+| Code string on code                  | 6.51  | 12.35 |
+| Code function on code                | 6.12  | 9.62  |
+| Code constant on code                | 6.49  | 9.39  |
 
 Use the accent for a mark or a focus ring, not for running text. Links use `--color-link`, which is darker in light and lighter in dark, and are underlined so colour isn't the only sign.
 

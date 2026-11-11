@@ -83,6 +83,21 @@ pre {
   line-height: 1.6;
 }
 
+/* Shiki's css-variables theme names these. DESIGN.md says which token each takes. */
+.astro-code {
+  --astro-code-background: var(--color-code-bg);
+  --astro-code-foreground: var(--color-text);
+  --astro-code-token-comment: var(--color-muted);
+  --astro-code-token-punctuation: var(--color-muted);
+  --astro-code-token-keyword: var(--color-code-keyword);
+  --astro-code-token-string: var(--color-code-string);
+  --astro-code-token-string-expression: var(--color-code-string);
+  --astro-code-token-function: var(--color-code-function);
+  --astro-code-token-constant: var(--color-code-constant);
+  --astro-code-token-parameter: var(--color-text);
+  --astro-code-token-link: var(--color-link);
+}
+
 svg {
   flex-shrink: 0;
 }

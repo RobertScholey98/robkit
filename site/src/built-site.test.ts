@@ -50,7 +50,7 @@ describe("the built samples page", () => {
     const docs = await built(`${docsHome.slice(1)}index.html`);
 
     expect(html).toContain('<meta name="robots" content="noindex">');
-    expect(html).toContain('class="language-go"');
+    expect(html).toContain('data-language="go"');
     expect(docs).not.toContain('href="/samples/"');
     expect(await built("index.html")).not.toContain("noindex");
   });
