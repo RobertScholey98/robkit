@@ -6,6 +6,8 @@ Core runs it in production before it migrates, and the dev runner runs it before
 
 It returns what it can refuse as a value, so each command says what to do in its own words: a name that isn't a slug, the role it connects as, a superuser, and a database secret shorter than 32 characters. An app it refuses is left as it was. `provisionDatabases` refuses a short secret before it starts, and stops at the first app it refuses, so the apps before that one are already provisioned.
 
+It never writes a role's password into a statement. The statement that makes or changes the role holds the password's SCRAM-SHA-256 verifier, with a fresh salt each run, and Postgres stores that as it stands. So a statement Postgres logs, such as one that lost a race with another run, shows the verifier and not the password. The verifier is still secret: it lets whoever holds it guess passwords offline.
+
 ## Example
 
 The provision step in production:
