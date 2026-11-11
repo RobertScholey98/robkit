@@ -1,0 +1,74 @@
+---
+title: "@robkit/next"
+description: The Next.js adapter, which runs robkit's guard as Next's proxy and lets server code ask who is asking.
+section: Reference
+order: 6
+describes:
+  - packages/next/src/
+  - packages/next/README.md
+  - packages/next/api-report.md
+---
+
+import PackageLinks from "../../../components/PackageLinks.astro";
+
+`@robkit/next` runs robkit's guard as the proxy Next runs before every page, route handler and server action. Server components, route handlers and server actions then call `viewer()` to learn who is asking. Apps on the Next.js stack use it. It needs Next 16, whose proxy runs on Node.
+
+```ts title="src/proxy.ts"
+import { guarded } from "@robkit/next";
+
+// The rule is the one the owner set for this app in admin.
+export const proxy = guarded();
+
+// Every path but Next's own files. Next reads this where it is written, so
+// it stays a literal here.
+export const config = { matcher: ["/((?!_next/).*)"] };
+```
+
+```ts title="src/app/api/me/route.ts"
+import { viewer } from "@robkit/next";
+
+export async function GET(): Promise<Response> {
+  const asking = await viewer();
+  return Response.json({ kind: asking.kind });
+}
+```
+
+`guarded()` reads `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy` set for every app. When one is missing or won't do, the app prints the problem and exits 1. [The viewer and the guard](/docs/build-an-app/the-viewer-and-the-guard/) says what a viewer is and what the guard answers.
+
+## Options you reach for
+
+`guarded()` takes them all as optional:
+
+- `access`. A fixed access rule, such as `{ kind: "owner" }`, in place of the one the owner sets in admin.
+- `app` and `core`. The app's slug and core's public origin, when you don't want them read from `ROBKIT_APP` and `ROBKIT_CORE_URL`.
+- `onUnavailable`. Called with what failed when the guard can't reach core and answers 503.
+
+`withRobkit()` from `@robkit/next/config` takes the app's own Next settings, and keeps them as given except `distDir` and `agentRules`, which are robkit's. `serve()` from `@robkit/next/serve` takes `name` and `onStopped`, as [`@robkit/serve`](/docs/reference/robkit-serve/) does.
+
+## What it exports
+
+### @robkit/next
+
+- `guarded(options?)`. The proxy. It lets the request through with the viewer passed on, or answers it with a redirect, 401, 403 or 404.
+- `viewer()`. Who is asking, as the proxy passed it on. It throws for a request the proxy didn't guard.
+- `GuardedOptions`. The options above.
+- `Viewer`. The owner, a guest with role ids, or `{ kind: "nobody" }`.
+- `coreOrigin()`. Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core.
+
+### @robkit/next/config
+
+- `withRobkit(config?)`. The whole of an app's `next.config.ts`. It builds to `dist`, lets the dev proxy's host names in under `next dev`, and turns Next's telemetry off where nothing has set it.
+
+### @robkit/next/serve
+
+- `serve(options?)`. Serves the built app in production on `HOST` and `PORT`, until SIGTERM.
+- `ServeOptions`. The options above.
+
+### @robkit/next/testing
+
+- `owner()`, `guest(options?)` and `nobody()`. Build a viewer for a test. There's no stand-in for the guard, so a page hands `await viewer()` to a plain function, and a test calls that function with a built viewer.
+- `GuestOptions`. A guest's `id` and `roles`.
+
+[Testing with a viewer](/docs/build-an-app/testing-with-a-viewer/) shows them in a test.
+
+<PackageLinks dir="packages/next" />

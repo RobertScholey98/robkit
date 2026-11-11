@@ -1,0 +1,55 @@
+---
+title: "@robkit/serve"
+description: What every robkit server does the same way, to listen, answer the client's built files and stop on SIGTERM.
+section: Reference
+order: 11
+describes:
+  - packages/serve/src/
+  - packages/serve/README.md
+  - packages/serve/api-report.md
+---
+
+import PackageLinks from "../../../components/PackageLinks.astro";
+
+`@robkit/serve` reads `HOST` and `PORT`, listens, answers the client's built files, and stops on SIGTERM, the same way for every robkit server. Each Node adapter's `/serve` entry is built on it, the hub serves its page with it, and core serves through it. Reach for it when your app's server isn't one an adapter serves.
+
+```ts title="src/serve.ts"
+import { serve } from "@robkit/serve";
+
+serve(
+  (request, response) => {
+    response.end(`Hello from ${String(request.url)}`);
+  },
+  { files: [{ at: "/assets", folder: "dist/assets" }], name: "hello" },
+);
+```
+
+It listens on `HOST` and `PORT`, 127.0.0.1 and 3000 unless set, and prints `hello listening on 127.0.0.1:3000`. A malformed one stops it with a line that says what to fix, and exit code 1.
+
+Every server it makes does these the same way:
+
+- **Files.** It answers a GET or HEAD for a file in each of `files`, in order, before the app. A URL that climbs out of the folder, a dotfile and a folder get no file, and go on to the app.
+- **`nosniff`.** Every answer carries `X-Content-Type-Options: nosniff`.
+- **Faults.** A handler that throws gets a 500, and the server prints what it couldn't answer, with the error.
+- **The stop.** On SIGTERM or SIGINT it stops taking connections, lets the open requests finish, runs `onStopped`, and exits 0. It waits 8 seconds at most for a connection that won't close.
+
+## Options you reach for
+
+- `files`. Each folder to answer files from, and the path it's under, such as `{ at: "/assets", folder: "dist/assets" }`.
+- `name`. The server's name in the lines it prints, `server` unless you set it.
+- `onStopped`. Run once the server has stopped, such as to close a database.
+- `address`. The `host` and `port` to listen on, in place of `HOST` and `PORT`.
+
+## What it exports
+
+### @robkit/serve
+
+- `serve(app, options?)`. Serves `app`, a Node request handler, behind `files`, until SIGTERM. It returns the Node server.
+- `servePage(options?)`. Serves a built page with no app behind it, as the hub does, with `index.html` for any path that isn't a file.
+- `listenUntilStopped(app, options)`. Serves `app` until SIGTERM or SIGINT, and resolves with the exit code instead of exiting. Core uses it.
+- `ServeOptions`, `PageOptions` and `ListenOptions`. The options of each of the three.
+- `ServerOptions`. `name` and `onStopped`, which each adapter's `serve()` takes too.
+- `Files`. One entry of `files`.
+- `RequestHandler`. A Node request handler, such as an Express app.
+
+<PackageLinks dir="packages/serve" />

@@ -1,0 +1,17 @@
+---
+// The line at the end of a package's page that points to its README and
+// its API report on GitHub, which hold every signature.
+import { repoUrl } from "../site.ts";
+
+interface Props {
+  /** The package's folder from the repo root, such as `packages/hono`. */
+  dir: string;
+}
+
+const at = (file: string) => `${repoUrl}/blob/main/${Astro.props.dir}/${file}`;
+---
+
+<p data-package-links>
+  Every signature is in the package's <a href={at("README.md")}>README</a> and
+  its <a href={at("api-report.md")}>API report</a> on GitHub.
+</p>

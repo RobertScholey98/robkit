@@ -1,0 +1,67 @@
+---
+title: "@robkit/start"
+description: The TanStack Start adapter, which wraps the app's server entry in robkit's guard and hands routes and server functions the viewer.
+section: Reference
+order: 7
+describes:
+  - packages/start/src/
+  - packages/start/README.md
+  - packages/start/api-report.md
+---
+
+import PackageLinks from "../../../components/PackageLinks.astro";
+
+`@robkit/start` wraps a TanStack Start app's server entry, so robkit's guard runs on every page load and server function call. Routes and server functions get the viewer as `context.viewer`. Apps on the TanStack Start stack use it.
+
+```ts title="src/server.ts"
+import { guarded, type GuardedContext } from "@robkit/start";
+import entry from "@tanstack/react-start/server-entry";
+
+// Routes and server functions read the guard's viewer as context.viewer.
+declare module "@tanstack/react-start" {
+  interface Register {
+    server: { requestContext: GuardedContext };
+  }
+}
+
+// The rule is the one the owner set for this app in admin.
+export default guarded(entry);
+```
+
+The `declare module` block stays in `src/server.ts`, since Start's types read it only from there. Pair the guard with `sessionFetch` from [`@robkit/react`](/docs/reference/robkit-react/) in `src/start.ts`, so a server function called after the app's token lapsed sends the browser for a new one.
+
+`guarded(entry)` reads `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy` set for every app. When one is missing or won't do, the app prints the problem and exits 1. [The viewer and the guard](/docs/build-an-app/the-viewer-and-the-guard/) says what a viewer is and what the guard answers.
+
+## Options you reach for
+
+`guarded(entry, options?)` takes them all as optional:
+
+- `access`. A fixed access rule, such as `{ kind: "owner" }`, in place of the one the owner sets in admin.
+- `app` and `core`. The app's slug and core's public origin, when you don't want them read from `ROBKIT_APP` and `ROBKIT_CORE_URL`.
+- `onUnavailable`. Called with what failed when the guard can't reach core and answers 503.
+
+`serve()` from `@robkit/start/serve` takes `client` and `server`, which move the client's folder and the server entry, and `name` and `onStopped`, as [`@robkit/serve`](/docs/reference/robkit-serve/) does.
+
+## What it exports
+
+### @robkit/start
+
+- `guarded(entry, options?)`. Start's server entry with the guard in front. It lets each request through with the viewer as `context.viewer`, or answers it.
+- `GuardedOptions`. The options above.
+- `GuardedContext`. `{ viewer }`, to register as Start's request context.
+- `Viewer`. The owner, a guest with role ids, or `{ kind: "nobody" }`.
+- `coreOrigin()`. Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core.
+
+### @robkit/start/serve
+
+- `serve(options?)`. Serves the built app in production on `HOST` and `PORT`, until SIGTERM. It exits 1, saying to build the app, when there's no build.
+- `ServeOptions`. The options above.
+
+### @robkit/start/testing
+
+- `owner()`, `guest(options?)` and `nobody()`. Build a viewer for a test. There's no stand-in for the guard, so a server function hands `context.viewer` to a plain function, and a test calls that function with a built viewer.
+- `GuestOptions`. A guest's `id` and `roles`.
+
+[Testing with a viewer](/docs/build-an-app/testing-with-a-viewer/) shows them in a test.
+
+<PackageLinks dir="packages/start" />

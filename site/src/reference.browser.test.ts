@@ -19,6 +19,16 @@ describe.each([
   "/docs/reference/npm-create-robkit/",
   "/docs/reference/robkit-command/",
   "/docs/reference/settings/",
+  "/docs/reference/robkit-hono/",
+  "/docs/reference/robkit-express/",
+  "/docs/reference/robkit-next/",
+  "/docs/reference/robkit-start/",
+  "/docs/reference/robkit-drizzle/",
+  "/docs/reference/robkit-react/",
+  "/docs/reference/robkit-vite/",
+  "/docs/reference/robkit-serve/",
+  "/docs/reference/go-module/",
+  "/docs/reference/other-packages/",
 ])("%s", (path) => {
   describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
     it.each(["light", "dark"] as const)(
