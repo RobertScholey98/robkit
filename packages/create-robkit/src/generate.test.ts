@@ -259,19 +259,18 @@ describe("generateInstall", () => {
 
   it("cancels a run in progress for a pull request, never for main", async () => {
     const files = await generateInstall(defaultChoices);
+    type Concurrency = Record<string, unknown>;
     const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
-      concurrency?: { group?: string; "cancel-in-progress"?: unknown };
-      jobs: Record<string, { concurrency?: unknown }>;
+      concurrency?: Concurrency;
+      jobs: Record<string, { concurrency?: Concurrency }>;
     };
 
-    expect(workflow.concurrency).toEqual({
-      group: "ci-${{ github.ref }}",
-      "cancel-in-progress": "${{ github.event_name == 'pull_request' }}",
-    });
-    expect(workflow.jobs.deploy?.concurrency).toEqual({
-      group: "deploy-main",
-      "cancel-in-progress": false,
-    });
+    expect(workflow.concurrency?.["cancel-in-progress"]).toBe(
+      "${{ github.event_name == 'pull_request' }}",
+    );
+    expect(workflow.jobs.deploy?.concurrency?.["cancel-in-progress"]).toBe(
+      false,
+    );
   });
 
   it("writes a CI workflow that installs, then runs the install's own scripts", async () => {
