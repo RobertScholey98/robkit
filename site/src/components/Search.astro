@@ -98,6 +98,13 @@ import Icon from "./Icon.astro";
     font-size: var(--text-lg);
   }
 
+  /* The dialog's close button is the one way out. Chromium and Safari draw
+     their own clear button in a search field, and in their own colour. */
+  .input::-webkit-search-cancel-button {
+    display: none;
+    appearance: none;
+  }
+
   .close {
     display: inline-flex;
     align-items: center;

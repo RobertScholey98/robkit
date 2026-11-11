@@ -145,6 +145,22 @@ describe("search", () => {
     expect(Math.max(...edges)).toBeLessThanOrEqual(375 - 16);
   });
 
+  it("shows one way to close, not the browser's clear button too", async () => {
+    const { page: opened } = await openPage(site, page, { width: 375 });
+
+    const input = opened.locator("#search-input");
+    await searchButton(opened).click();
+    await input.fill("robkit");
+    const asSearch = await input.screenshot();
+
+    // A text field draws no clear button, so the two match without one.
+    await input.evaluate((field) => {
+      field.setAttribute("type", "text");
+    });
+
+    expect((await input.screenshot()).equals(asSearch)).toBe(true);
+  });
+
   it("types a slash into a field", async () => {
     const { page: opened } = await openPage(site, page, { width: 1280 });
     await opened.evaluate(() => {
