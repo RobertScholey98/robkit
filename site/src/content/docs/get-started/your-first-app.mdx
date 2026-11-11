@@ -13,6 +13,7 @@ describes:
   - packages/create-robkit/templates/stacks/
 ---
 
+import Screenshot from "../../../components/Screenshot.astro";
 import StackGuides from "../../../components/StackGuides.astro";
 import StackSwitch from "../../../components/StackSwitch.astro";
 import TemplateFile from "../../../components/TemplateFile.astro";
@@ -45,6 +46,8 @@ When `pnpm dev` can't start the app, `robkit add` says why, and the app's files 
 Go back to the hub, at http://hub.robkit.localhost:3000. Your app is in the launcher, under its emoji and its slug. Reload the hub if it isn't there yet.
 
 Open it. The app's page is on its own subdomain, and its heading says you're signed in as the owner. The app got that from robkit's guard, which checked your session before the app's code ran.
+
+<Screenshot name="app" />
 
 ## Change it
 

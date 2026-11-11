@@ -1,0 +1,93 @@
+---
+// A screenshot `pnpm screenshots` took from a real install, in a frame
+// that names its address. The hub, admin and the apps have only a light
+// theme, so on the site's dark theme the frame shows a light page inside a
+// dark window, as a reader's browser would.
+import type { ImageMetadata } from "astro";
+import { screenshots, type ScreenshotName } from "../screenshots.ts";
+
+interface Props {
+  name: ScreenshotName;
+  /** Loads the picture at once, for one near the top of a page. */
+  eager?: boolean;
+}
+
+const { name, eager = false } = Astro.props;
+const files = import.meta.glob<{ default: ImageMetadata }>(
+  "../screenshots/*.png",
+  { eager: true },
+);
+const file = files[`../screenshots/${name}.png`];
+if (file === undefined) {
+  throw new Error(
+    `${Astro.url.pathname} shows the screenshot ${name}, and src/screenshots has no ${name}.png. Run pnpm screenshots.`,
+  );
+}
+const { src, width, height } = file.default;
+const { address, alt } = screenshots[name];
+---
+
+<figure class="shot">
+  <div class="bar" aria-hidden="true">
+    <span class="dots">
+      <span></span>
+      <span></span>
+      <span></span>
+    </span>
+    <span class="address">{address}</span>
+  </div>
+  <img
+    src={src}
+    width={Math.round(width / 2)}
+    height={Math.round(height / 2)}
+    alt={alt}
+    loading={eager ? "eager" : "lazy"}
+    decoding="async"
+  />
+</figure>
+
+<style>
+  .shot {
+    margin: var(--space-6) 0;
+    overflow: hidden;
+    border: 1px solid var(--color-border-control);
+    border-radius: var(--radius);
+    background: var(--color-raised);
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .dots {
+    display: flex;
+    gap: 6px;
+  }
+
+  .dots span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-border-control);
+  }
+
+  .address {
+    overflow: hidden;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+  }
+</style>

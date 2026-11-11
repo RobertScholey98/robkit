@@ -161,6 +161,12 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 - A callout is a note or a warning, on `--color-surface` with a 4-pixel bar on its left: `--color-border-control` for a note, `--color-accent` for a warning. It says "Note" or "Warning" beside its icon. Use them sparingly, one or two on a page at most.
 - Until robkit is on npm, a page that shows `npm create robkit` carries a note saying it isn't published yet, with the way to make an install from a clone.
 
+## Screenshots
+
+- Screenshots of the hub, admin and an app come from a real install, taken by `pnpm screenshots`. Never edit one by hand. Take them again when the hub or admin changes.
+- They're light only, since the hub and admin have no dark theme. Each sits in a window frame: a bar on `--color-raised` with three dots and the address it was taken at, and a `--color-border-control` edge. On the dark theme, the frame shows a light page in a dark window, as a reader's browser would.
+- Each has words for a reader who can't see it, saying what it shows, and a width and height, so the page doesn't move as it loads. Below the first screen, it loads only when the reader nears it.
+
 ## Icons
 
 - SVG only, drawn inline, 1.5-pixel strokes on a 24-pixel grid, in `currentColor`. No emoji stands in for an icon.

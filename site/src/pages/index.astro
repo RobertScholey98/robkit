@@ -9,6 +9,7 @@ import Icon from "../components/Icon.astro";
 import InstallDiagram from "../components/InstallDiagram.astro";
 import InstallVersion from "../components/InstallVersion.astro";
 import PreRelease from "../components/PreRelease.astro";
+import Screenshot from "../components/Screenshot.astro";
 import TemplateFile from "../components/TemplateFile.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { quickstartCommands } from "../readme.ts";
@@ -132,6 +133,20 @@ const stacks = switcherStacks.map(({ value, label }) => ({
             each app.
           </li>
         </ul>
+      </div>
+    </section>
+
+    <section aria-labelledby="looks">
+      <h2 id="looks">What you and your guests see</h2>
+      <p>
+        These are from a real install, taken by robkit's own command. Each guest
+        signs in with an access code you make, and the launcher shows the apps
+        their roles may open.
+      </p>
+      <Screenshot name="hub-launcher" />
+      <div class="shots">
+        <Screenshot name="hub-sign-in" />
+        <Screenshot name="admin-codes" />
       </div>
     </section>
 
@@ -334,6 +349,12 @@ const stacks = switcherStacks.map(({ value, label }) => ({
     background: var(--color-raised);
   }
 
+  .shots {
+    display: grid;
+    gap: 0 var(--space-6);
+    align-items: start;
+  }
+
   .last {
     padding: var(--space-8);
     border: 1px solid var(--color-border);
@@ -346,7 +367,8 @@ const stacks = switcherStacks.map(({ value, label }) => ({
   }
 
   @media (min-width: 64rem) {
-    .split {
+    .split,
+    .shots {
       grid-template-columns: 1fr 1fr;
     }
   }
