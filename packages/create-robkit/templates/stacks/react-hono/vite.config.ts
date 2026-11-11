@@ -5,13 +5,12 @@ import { defineConfig } from "vite";
 
 // robkit() sets the dev server up behind pnpm dev's proxy. Every request
 // but Vite's own goes through the Hono app, so the guard sees page loads.
+// For vite build, serve names the server's entry: robkit() builds it to
+// dist/serve.js and the stylesheet its page links to dist/assets.
 export default defineConfig({
   plugins: [
-    robkit(),
+    robkit({ serve: "src/serve.ts" }),
     devServer({ entry: "src/server.tsx", injectClientScript: false }),
     tailwindcss(),
   ],
-  // The production build: the server, ready for Node, as dist/serve.js,
-  // and the stylesheet its page links, in dist/assets.
-  build: { ssr: "src/serve.ts", outDir: "dist", ssrEmitAssets: true },
 });

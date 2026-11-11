@@ -1,6 +1,6 @@
 # @robkit/vite
 
-Everything robkit adds to Vite. `robkit()` sets an app's dev server up behind `pnpm dev`'s proxy, so an app's `vite.config.ts` holds only the app's own plugins and build settings. Every Vite app in an install uses it: react-hono, Express, Start, Go's page, the hub and admin.
+Everything robkit adds to Vite. `robkit()` sets an app's dev server up behind `pnpm dev`'s proxy, so an app's `vite.config.ts` holds only the app's own plugins and settings. `robkit({ serve })` also sets the build's layout for an app whose server Vite builds. Every Vite app in an install uses it: react-hono, Express, Start, Go's page, the hub and admin.
 
 An app lists it under `devDependencies`, since only Vite loads it. It is the one robkit package that names `vite`, as a peer, so no production image holds Vite. A repo check (`vite-stays-out.test.ts` in `tooling/repo-checks`) fails any other published package that names it.
 
@@ -26,14 +26,33 @@ Under `pnpm dev`, `robkit()`:
 
 It sends no header: a guarded app's come from its guard. The hub, the one app with no guard, calls `robkit({ guarded: false })`. It skips the check and sends the hub's three headers from the dev server: `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'` and `X-Content-Type-Options: nosniff`, from `@robkit/input/headers`.
 
-For `vite build`, and under Vitest, it changes nothing. Vitest loads an app's `vite.config.ts` with no `pnpm dev` behind it, and sets `VITEST` before it does, so an app's tests need no `vitest.config.ts` and no robkit settings.
+Under Vitest it changes nothing. Vitest loads an app's `vite.config.ts` with no `pnpm dev` behind it, and sets `VITEST` before it does, so an app's tests need no `vitest.config.ts` and no robkit settings.
+
+## The build
+
+`robkit()` changes nothing for `vite build`. The hub, admin, Start and Go's page build their own way.
+
+The React + Hono and Express stacks build their server with Vite, and pass its entry as `serve`:
+
+```ts
+import { robkit } from "@robkit/vite";
+import { defineConfig } from "vite";
+
+export default defineConfig({
+  plugins: [robkit({ serve: "src/serve.ts" })],
+});
+```
+
+`vite build` then writes the server, ready for Node, to `dist/serve.js`, and the stylesheet its page links to `dist/assets`. The app's `start` script runs `dist/serve.js`, and `serve()` answers `dist/assets` under `/assets`. It sets `build.ssr` to the entry, `build.outDir` to `dist` and `build.ssrEmitAssets` to `true`, only for `vite build`: `pnpm dev` and Vitest don't see it.
+
+The app's config needs no `build` block. If it sets `build.ssr` or `build.outDir` to another value, or `build.ssrEmitAssets` to `false`, the build stops with a message that names the setting: remove it from `vite.config.ts`. The same value, as in a `build` block from before the option, builds as before.
 
 ## Exports
 
-| Export             | What it is                                                                                   |
-| ------------------ | -------------------------------------------------------------------------------------------- |
-| `robkit(options?)` | The Vite plugin above                                                                        |
-| `RobkitOptions`    | `guarded`, `true` unless set. `false` is for the hub: no check, and the hub's headers in dev |
+| Export             | What it is                                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `robkit(options?)` | The Vite plugin above                                                                                                                                         |
+| `RobkitOptions`    | `guarded`, `true` unless set. `false` is for the hub: no check, and the hub's headers in dev. `serve`, the server's entry for an app whose server Vite builds |
 
 ### `@robkit/vite/express`
 
@@ -45,8 +64,7 @@ import { expressApp } from "@robkit/vite/express";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  plugins: [robkit(), expressApp("/src/server.tsx")],
-  build: { ssr: "src/serve.ts", outDir: "dist", ssrEmitAssets: true },
+  plugins: [robkit({ serve: "src/serve.ts" }), expressApp("/src/server.tsx")],
 });
 ```
 

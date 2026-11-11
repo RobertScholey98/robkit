@@ -825,6 +825,9 @@ importers:
       '@internal/vitest-config':
         specifier: workspace:*
         version: link:../../tooling/vitest
+      '@tanstack/react-start':
+        specifier: 'catalog:'
+        version: 1.169.4(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.15)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5

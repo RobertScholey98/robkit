@@ -75,6 +75,15 @@ Core knows its own origin from `ROBKIT_CORE_URL`, and works out every other addr
 - CORS lets exactly the hub's and admin's origins call core with the owner's cookie.
 - Only a local install, on `localhost` or a name under it, runs over plain http. Core and every app refuse an http `ROBKIT_CORE_URL` on any other domain, since tokens travel in the URLs of `/refresh`'s redirects, and `pnpm dev` refuses a domain that isn't local.
 
+### The hub asks before an intro link replaces a session
+
+Any app on the install can send a viewer to an intro link, one of its own included. So the hub checks the session before it uses the link's code:
+
+- A browser that isn't signed in signs in with the code, without a question.
+- A browser that is signed in sees who it is signed in as, and is asked whether to sign in with the link instead. The hub sends core the code only on "yes". "No" leaves the session as it was.
+
+The hub sends a browser on to `next` only on an app's exact origin, whether it just signed in or was signed in already. It forwards a tab to a given `next` once a visit, and notes where in its own `sessionStorage`, since the app that sends the browser back writes the address. A browser that comes back with the same `next` stays on the launcher, which says the app sent it back.
+
 ### What an imported app can and can't do
 
 An app the owner installs, whoever wrote it, can:
@@ -133,5 +142,4 @@ The plan, `.scratch/kit/map.md`, lists the gaps we know of. The ones that bear o
 - With many addresses the limit per client stops counting, so the rate of password guesses is whatever the cap of 2 password checks at once allows.
 - A hosted install's setup screen stays open until someone claims it. Claim it as soon as it's up.
 - A state the guard keeps for a trip through core, if read from a log, is good until ten minutes after the last trip that renewed it, in the one browser that holds its cookie. The guard reuses the state a browser holds and renews its ten minutes on each trip, so tabs that share it all arrive.
-- The hub signs a browser in with whatever access code an intro link carries, without asking, even when someone is already signed in. So an app on a sibling subdomain can send a viewer to an intro link of its own and swap their session for a guest's. [Ticket 36](.scratch/just-use-it/issues/36-the-hubs-sign-in-flows.md) makes the hub ask first.
 - `GET /apps/:slug/access` answers anyone, since each app's guard reads its rule there with no cookie. So a stranger can learn which slugs an install has, and who may open each.
