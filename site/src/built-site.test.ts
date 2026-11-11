@@ -13,12 +13,10 @@ import type { TreeEntry } from "./install-tree.ts";
 import { installGoVersion, installNodeVersion } from "./install.ts";
 import { quickstartCommands } from "./readme.ts";
 import { repoRoot } from "./repo.ts";
+import { built, codeBlocks, itemsAfter } from "./test/built.ts";
 import { anchorOf, glossaryTerms } from "./repo-markdown.ts";
 import { docsHome, preRelease, repoUrl } from "./site.ts";
 import { guideHref } from "./stacks.ts";
-
-const built = (path: string) =>
-  readFile(join(repoRoot, "site", "dist", path), "utf8");
 
 describe("the built home page", () => {
   it("shows the three commands from the README's quickstart, in a terminal", async () => {
@@ -559,20 +557,6 @@ describe("the built page on upgrading", () => {
   });
 });
 
-/** The text of each item in the first list after the heading `id`. */
-function itemsAfter(html: string, id: string): string[] {
-  const list = /<ul>[\s\S]*?<\/ul>/.exec(
-    html.slice(html.indexOf(`id="${id}"`)),
-  );
-  return [...(list?.[0] ?? "").matchAll(/<li>([\s\S]*?)<\/li>/g)].map(
-    ([, item = ""]) =>
-      item
-        .replaceAll(/<[^>]+>/g, "")
-        .replaceAll("&lt;", "<")
-        .replaceAll("&gt;", ">"),
-  );
-}
-
 /** Each entry's name, in the order a tree shows them. */
 const treeNames = (entries: readonly TreeEntry[]): string[] =>
   entries.flatMap(({ name, children = [] }) => [name, ...treeNames(children)]);
@@ -725,31 +709,6 @@ describe("the built samples page", () => {
   });
 });
 
-/** Each code block on a built page: the label above it, and its text. */
-function codeBlocks(html: string) {
-  const text = (fragment: string) =>
-    fragment
-      .replaceAll(/<[^>]+>/g, "")
-      .replaceAll("&lt;", "<")
-      .replaceAll("&gt;", ">")
-      .replaceAll("&quot;", '"')
-      .replaceAll("&#39;", "'")
-      .replaceAll(/&#x([0-9a-f]+);/gi, (_, hex: string) =>
-        String.fromCodePoint(Number.parseInt(hex, 16)),
-      )
-      .replaceAll("&amp;", "&");
-  return [...html.matchAll(/<figure class="code"[\s\S]*?<\/figure>/g)].map(
-    ([figure]) => ({
-      label: text(
-        /<span class="label"[^>]*>([\s\S]*?)<\/span><\/span>/.exec(
-          figure,
-        )?.[1] ?? "",
-      ),
-      code: text(/<pre[^>]*>([\s\S]*?)<\/pre>/.exec(figure)?.[1] ?? ""),
-    }),
-  );
-}
-
 describe("the built samples page's template files", () => {
   const template = async (path: string) =>
     (
@@ -815,8 +774,11 @@ describe("the pre-release line", () => {
       const html = await built(page);
       const line = html.includes("data-pre-release");
       // Shiki gives each word of a command its own tag, so read the text.
-      // The line says `npm create robkit` once itself.
-      const text = html.replaceAll(/<[^>]+>/g, "");
+      // The line says `npm create robkit` once itself, and a link in the
+      // sidebar or the pager that names its reference page shows nothing.
+      const text = html
+        .replaceAll(/<nav[\s\S]*?<\/nav>/g, "")
+        .replaceAll(/<[^>]+>/g, "");
       const mentions = text.split("npm create robkit").length - 1;
       pages.push({ page, shows: mentions > (line ? 1 : 0), line });
     }
