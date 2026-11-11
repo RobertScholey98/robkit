@@ -3,7 +3,14 @@ import { once } from "node:events";
 import { createServer } from "node:http";
 import type { AccessRule, Viewer } from "@robkit/guard";
 import type { ConformanceCase } from "@robkit/guard/conformance";
-import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
+import {
+  calculateJwkThumbprint,
+  exportJWK,
+  generateKeyPair,
+  SignJWT,
+  type CryptoKey,
+  type JWK,
+} from "jose";
 import { expect, onTestFinished } from "vitest";
 import type {
   AddressCase,
@@ -80,12 +87,21 @@ export interface TokenOptions {
    * carries the session's id. `null` for none. `app` if absent.
    */
   audience?: string | null;
+  /**
+   * The `kid` its header names: the key's own if absent. A forger names
+   * core's, so the guard checks the signature against core's key.
+   */
+  kid?: string;
 }
 
 /** A key pair standing in for core's signing key. */
 export interface SigningKey {
-  /** The half core serves as its JWKS. */
+  /** The key's thumbprint, which names it, as core's `kid` names core's. */
+  kid: string;
+  /** The public half, to verify with. */
   publicKey: CryptoKey;
+  /** The public half as core serves it in its JWKS. */
+  jwk: JWK;
   /** A session token shaped like core's. */
   token(options?: TokenOptions): Promise<string>;
 }
@@ -118,11 +134,16 @@ export async function signingKey(): Promise<SigningKey> {
     crv: "Ed25519",
     extractable: true,
   });
+  // As core names its key: by its thumbprint, served with what it's for.
+  const publicJwk = await exportJWK(publicKey);
+  const kid = await calculateJwkThumbprint(publicJwk);
+  const jwk = { ...publicJwk, kid, alg: "EdDSA", use: "sig" };
 
   const token = ({
     ageSeconds = 0,
     holder = owner,
     audience = app,
+    kid: named = kid,
   }: TokenOptions = {}) => {
     const iat = Math.floor(Date.now() / 1000) - ageSeconds;
     const roles = holder.kind === "guest" ? { roles: holder.roles } : {};
@@ -131,7 +152,7 @@ export async function signingKey(): Promise<SigningKey> {
     const session =
       audience === "core" || audience === null ? { sid: "session-1" } : {};
     const jwt = new SignJWT({ ...session, kind: holder.kind, ...roles })
-      .setProtectedHeader({ alg: "EdDSA", kid: "key-1" })
+      .setProtectedHeader({ alg: "EdDSA", kid: named })
       .setSubject(holder.id)
       .setIssuedAt(iat)
       .setExpirationTime(iat + sessionTokenLifetimeSeconds);
@@ -140,7 +161,7 @@ export async function signingKey(): Promise<SigningKey> {
     );
   };
 
-  return { publicKey, token };
+  return { kid, publicKey, jwk, token };
 }
 
 /**
@@ -208,11 +229,6 @@ export interface FakeCore {
  */
 export async function fakeCore(): Promise<FakeCore> {
   const key = await signingKey();
-  const jwk = {
-    ...(await exportJWK(key.publicKey)),
-    kid: "key-1",
-    alg: "EdDSA",
-  };
   const server = createServer((req, res) => {
     const path = String(req.url);
     core.fetched.push(`${String(req.headers.host)} ${path}`);
@@ -223,7 +239,8 @@ export async function fakeCore(): Promise<FakeCore> {
     const slug = /^\/apps\/([^/]+)\/access$/.exec(path)?.[1];
     const rule = slug === undefined ? undefined : core.rules[slug];
     if (core.status !== 200) answer(core.status, { error: "Down" });
-    else if (path === "/.well-known/jwks.json") answer(200, { keys: [jwk] });
+    else if (path === "/.well-known/jwks.json")
+      answer(200, { keys: [key.jwk] });
     else if (rule) answer(200, rule);
     else answer(404, { error: "Not found" });
   });
