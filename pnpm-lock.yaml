@@ -840,6 +840,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../tooling/typescript
+      '@robkit/session':
+        specifier: workspace:*
+        version: link:../packages/session
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5

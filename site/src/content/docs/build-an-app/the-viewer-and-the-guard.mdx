@@ -1,0 +1,124 @@
+---
+title: The viewer and the guard
+description: Who is asking, how your code finds out, and what the guard does before your code runs.
+section: Build an app
+order: 6
+describes:
+  - SECURITY.md
+  - packages/session/src/request-guard.ts
+  - packages/session/src/guard-http.ts
+  - packages/guard/src/guard.ts
+  - go/session/http.go
+  - packages/create-robkit/templates/stacks/
+---
+
+import StackSwitch from "../../../components/StackSwitch.astro";
+import TemplateFile from "../../../components/TemplateFile.astro";
+
+Every app robkit makes runs behind the guard. Before any of your code runs, the guard checks who is asking and whether your app's access rule lets them in. Your code gets the answer as the viewer, and never reads a session itself.
+
+## What your code gets
+
+The viewer is one of three:
+
+- The owner, `{ kind: "owner", id }`.
+- A guest, `{ kind: "guest", id, roles }`. The id is their access code's, and `roles` holds the ids of the roles their code has.
+- Nobody, `{ kind: "nobody" }`, someone who isn't signed in. Only an app open to anyone sees one.
+
+Key a viewer's data by their id, as the example app keys its visits. Each stack hands the viewer over its own way:
+
+<StackSwitch>
+  <Fragment slot="start">
+    `src/server.ts` wraps Start's server entry in `guarded` from `@robkit/start`. Routes and server functions read the viewer as `context.viewer`:
+
+    <TemplateFile path="stacks/start/src/routes/index.tsx" from="/** What the page shows whoever" to=");" />
+
+  </Fragment>
+  <Fragment slot="react-hono">
+    `src/server.tsx` puts `guarded` from `@robkit/hono` in front of every route. Handlers read the viewer as `c.var.viewer`:
+
+    <TemplateFile path="stacks/react-hono/src/routes.tsx" from='.get("/", async (c)' to="})" />
+
+  </Fragment>
+  <Fragment slot="express">
+    `src/server.tsx` puts `guarded` from `@robkit/express` in front of every route. Handlers read the viewer as `res.locals.viewer`, typed by `GuardedResponse`:
+
+    <TemplateFile path="stacks/express/src/routes.tsx" from='router.get("/", async' to="});" />
+
+  </Fragment>
+  <Fragment slot="next">
+    `src/proxy.ts` makes `guarded` from `@robkit/next` Next's proxy. Server components, route handlers and server actions read the viewer with `await viewer()`:
+
+    <TemplateFile path="stacks/next/src/app/page.tsx" />
+
+  </Fragment>
+  <Fragment slot="go">
+    `session.Guarded` wraps every handler. Handlers read the viewer with `session.ViewerFrom(r.Context())`, and switch on its type: `guard.Owner`, `guard.Guest` or `guard.Nobody`.
+
+    <TemplateFile path="stacks/go/server.go" from="// viewerID keys a viewer's data" to="^}" />
+
+  </Fragment>
+</StackSwitch>
+
+## Who gets in
+
+You choose who may open an app when you add it, and change it in admin. The guard checks the rule on every request:
+
+- **Only me.** The owner gets in. A guest gets a 404, and someone not signed in is sent to sign in.
+- **Guests with certain roles.** The owner gets in, and so does a guest whose code has one of those roles. Any other guest gets a 404, and someone not signed in is sent to sign in.
+- **Anyone, signed in or not.** Everyone gets in. Someone not signed in is the viewer nobody.
+
+## When the guard answers instead
+
+The guard answers before your code runs:
+
+- **A session your app hasn't seen yet, or one that needs refreshing.** A page load goes through core for a new token and straight back, which the viewer doesn't notice.
+- **Not signed in.** A page load goes to the hub to sign in, then back to the page.
+- **Either of those, on a call or a form.** A call from the page, such as a `fetch`, gets a 401 that says where to send the browser. A form posted to your app gets a page whose link takes the viewer through core and back to the page the form was on.
+- **Signed in, but the rule leaves them out.** A 404, so a guest can't tell an app they may not open from one that isn't there.
+- **Core can't be reached.** A 503. The guard won't guess who is asking.
+
+Make calls from the page with `sessionFetch` from `@robkit/react`. On the guard's 401 it sends the browser through the sign-in or the refresh and back to the page.
+
+## What you leave to the guard
+
+- Never read the session cookie, and never verify a token yourself. The token is your app's own. Core mints it for your app's slug, and neither core nor any other app accepts it.
+- Give no route a path under `/_robkit/`. Those are the guard's.
+
+## Writes come from your own pages
+
+Every app in an install shares one domain, and a browser sends your app's cookie with a form posted from any app beside it. So the guard refuses a write from another origin with a 403, before it reads the session and before your code runs.
+
+`GET`, `HEAD` and `OPTIONS` pass from anywhere.
+
+Any other method is a write: `POST`, `PUT`, `PATCH`, `DELETE`, or one of your own.
+
+The guard can't protect a GET, which a link or an image on another app can send. So change state only on a write, never in a GET handler, a page's render or a loader.
+
+A WebSocket the guard never sees is yours to check. Go's guard sees every handshake, and lets one through only from your app's own origin. On the other stacks a socket is usually upgraded outside your routes, where the guard doesn't run, so check its `Origin` against your app's own before you accept it.
+
+## Who may frame your app
+
+The guard sends `X-Frame-Options: SAMEORIGIN` with every answer it lets through, so only your app's own pages can put it in a frame. A frame from an app beside it would carry the viewer's cookies.
+
+To let another origin frame a page, such as the hub, send `Content-Security-Policy: frame-ancestors 'self' https://hub.<domain>` with it, and a browser follows that instead. To refuse every frame, your app's own included, send `frame-ancestors 'none'`. Don't set `X-Frame-Options` yourself. Use `frame-ancestors`, which works the same on every stack:
+
+<StackSwitch>
+  <Fragment slot="start">
+    Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` from `@tanstack/react-start/server`.
+  </Fragment>
+  <Fragment slot="react-hono">
+    Set it in the handler with `c.header("Content-Security-Policy", ...)`, or with `app.use` after `guarded`.
+  </Fragment>
+  <Fragment slot="express">
+    Set it in the handler with `res.set("Content-Security-Policy", ...)`, or with `app.use` after `guarded`.
+  </Fragment>
+  <Fragment slot="next">
+    A page can't set its own headers, and `src/proxy.ts` is the guard's. So send a page's policy through `headers()` in `next.config.ts`, as `withRobkit({ headers: ... })`. A route handler sets it on its own answer. Next sends the guard's `X-Frame-Options` and drops one of your own.
+  </Fragment>
+  <Fragment slot="go">
+    Set it in the handler with `w.Header().Set("Content-Security-Policy", ...)`, before it writes.
+  </Fragment>
+</StackSwitch>
+
+Files your app serves without the guard, such as its built scripts and styles, carry no framing header. They aren't pages. They are public, so put nothing among them that a viewer shouldn't see.
