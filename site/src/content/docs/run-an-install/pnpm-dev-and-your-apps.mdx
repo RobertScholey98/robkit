@@ -88,7 +88,7 @@ The name is the app's slug. It can't be one of the platform apps, `core`, `hub` 
 
 ### With pnpm dev running
 
-`robkit add` writes the app and installs its dependencies. Then `pnpm dev` gives it a database, migrates it, starts it on a free port and routes its subdomain. Last, it starts a new core so the launcher lists the app. Nobody is signed out, and every other app keeps running. `robkit add` prints the app's address:
+`robkit add` writes the app and installs its dependencies. Then `pnpm dev` gives it a database, migrates it and starts it on a free port. It starts a new core so the launcher lists the app, and last routes the app's subdomain. Nobody is signed out, and every other app keeps running. `robkit add` prints the app's address:
 
 ```text
 Added apps/notes. pnpm dev started notes at http://notes.robkit.localhost:3000.
