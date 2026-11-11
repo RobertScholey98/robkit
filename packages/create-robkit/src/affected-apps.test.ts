@@ -2,8 +2,49 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { CommandProblem } from "@robkit/dev/cli";
-import { affectedApps } from "./affected-apps.ts";
+import { affectedApps, headCommit } from "./affected-apps.ts";
+import { gitEnv } from "./test/git.ts";
+
+const git = promisify(execFile);
+
+/** A repository with one commit, and the environment to run git in it. */
+async function repository(): Promise<{ dir: string; env: NodeJS.ProcessEnv }> {
+  const dir = await mkdtemp(join(tmpdir(), "robkit-history-"));
+  const env = await gitEnv(true);
+  await git("git", ["init", "--quiet"], { cwd: dir, env });
+  await git("git", ["commit", "--quiet", "--allow-empty", "-m", "first"], {
+    cwd: dir,
+    env,
+  });
+  return { dir, env };
+}
+
+describe("headCommit", () => {
+  it("reads the commit the checkout is on", async () => {
+    const { dir, env } = await repository();
+    const { stdout } = await git("git", ["rev-parse", "HEAD"], {
+      cwd: dir,
+      env,
+    });
+
+    expect(await headCommit(dir, env)).toBe(stdout.trim());
+  });
+
+  it("says robkit deploy runs from a git checkout outside one", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-not-git-"));
+    const env = { ...(await gitEnv(true)), GIT_CEILING_DIRECTORIES: tmpdir() };
+
+    const found = headCommit(dir, env);
+
+    await expect(found).rejects.toBeInstanceOf(CommandProblem);
+    await expect(found).rejects.toThrow(
+      /^robkit deploy runs from the install's git checkout, and git couldn't name its commit: .+\. Run it in the install's repository\.$/,
+    );
+  });
+});
 
 /**
  * The environment with a stand-in turbo first on the PATH, which runs

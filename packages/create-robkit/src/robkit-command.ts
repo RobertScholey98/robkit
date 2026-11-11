@@ -10,7 +10,7 @@ import {
   install as addresses,
 } from "@robkit/input/addresses";
 import { addApp, readInstallChoices } from "./add.ts";
-import { affectedApps } from "./affected-apps.ts";
+import { affectedApps, headCommit } from "./affected-apps.ts";
 import { readArgs } from "./args.ts";
 import {
   addCommandFor,
@@ -197,6 +197,7 @@ async function deployInstall(): Promise<number | undefined> {
     config,
     deployments,
     affected,
+    commit: await headCommit(root),
   });
   return ok ? 0 : 1;
 }

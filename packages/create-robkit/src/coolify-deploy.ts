@@ -14,6 +14,7 @@ import {
   type Coolify,
 } from "./coolify-api.ts";
 import type { CoolifyConfig } from "./coolify-config.ts";
+import { recordOf, variablesHash } from "./coolify-record.ts";
 import {
   containerPort,
   whereToFind,
@@ -396,6 +397,8 @@ export interface DeployOptions {
   deployments: AppDeployment[];
   /** The apps whose code changed, by slug, or every app. */
   affected: readonly Slug[] | "all";
+  /** The commit robkit runs from, which each finished deploy records. */
+  commit: string;
   fetch?: typeof fetch;
   log?: (line: string) => void;
   /** How long to wait between polls of a deployment. */
@@ -418,6 +421,7 @@ export async function deploy({
   config,
   deployments,
   affected,
+  commit,
   fetch: fetchImpl = fetch,
   log = console.log,
   intervalMs = 10_000,
@@ -425,10 +429,19 @@ export async function deploy({
   requestTimeoutMs = 30_000,
 }: DeployOptions): Promise<boolean> {
   const api: CoolifyApi = { coolify, fetch: fetchImpl, requestTimeoutMs };
+  const desired = deployments.map((deployment) =>
+    desiredApp(deployment, config),
+  );
+  const records = new Map<string, string>(
+    desired.map(({ slug, envs }) => [
+      slug,
+      recordOf(commit, variablesHash(envs)),
+    ]),
+  );
   const synced = await syncApps(
     api,
     config,
-    deployments.map((deployment) => desiredApp(deployment, config)),
+    desired,
     sharedVariablesOf(deployments),
   );
   const steps = plan(affected, synced);
@@ -437,24 +450,37 @@ export async function deploy({
   for (const { app, action, reason } of steps) {
     log(`| ${app} | ${action} | ${reason} |`);
   }
-  const ok = steps.every(({ action }) => action !== "failed");
+  let ok = steps.every(({ action }) => action !== "failed");
 
   const planned = waves(
     steps.flatMap((step) => (step.action === "deploy" ? [step] : [])),
   );
   for (const [index, wave] of planned.entries()) {
     const outcomes = await Promise.all(
-      wave.map(async ({ app, uuid }) => ({
-        app,
-        ...(await deployAndWait(api, uuid, {
+      wave.map(async ({ app, uuid }) => {
+        const deployed = await deployAndWait(api, uuid, {
           intervalMs,
           timeoutMs,
-        })),
-      })),
+        });
+        if (!deployed.ok) {
+          log(`- ${app}: failed, ${deployed.detail}`);
+          return deployed;
+        }
+        const saved = await callCoolify(api, "PATCH", `/applications/${uuid}`, {
+          body: { description: records.get(app) },
+        });
+        if (saved.outcome === "failed") {
+          log(
+            `- ${app}: deployed, but its record wasn't saved, so the next deploy deploys it again: ${describeFailure(saved)}`,
+          );
+          // The app runs, so the rest can follow, but the command fails.
+          ok = false;
+          return deployed;
+        }
+        log(`- ${app}: deployed, ${deployed.detail}`);
+        return deployed;
+      }),
     );
-    for (const { app, ok: deployed, detail } of outcomes) {
-      log(`- ${app}: ${deployed ? "deployed" : "failed"}, ${detail}`);
-    }
     if (outcomes.every(({ ok: deployed }) => deployed)) continue;
     for (const { app } of planned.slice(index + 1).flat()) {
       log(`- ${app}: not started, an earlier deploy failed`);

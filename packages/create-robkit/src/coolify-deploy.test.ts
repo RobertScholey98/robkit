@@ -7,6 +7,7 @@ import {
   fakeFetch,
   type FakeCoolify,
 } from "./test/fake-coolify.ts";
+import { isRecord } from "@robkit/input";
 import { slug, aDomain } from "@internal/test-session";
 
 const config: CoolifyConfig = {
@@ -20,6 +21,12 @@ const config: CoolifyConfig = {
 };
 
 const coolify = { url: "https://coolify.example", token: "t" };
+
+/** The commit each run deploys from, unless a test says otherwise. */
+const head = "a".repeat(40);
+
+/** hub's record after a deploy from `head`: its one variable, ROBKIT_APP=hub. */
+const hubRecord = `robkit deployed commit ${head} with variables 3811fd08b3de6852509f6f4bd104c62283533ce1457a7745d981ffcce8418272`;
 
 const apps: AppDeployment[] = [
   {
@@ -78,6 +85,7 @@ async function run(
     config,
     deployments: apps,
     affected: affected === "all" ? "all" : affected.map(slug),
+    commit: head,
     fetch: fakeFetch(state),
     log: (line) => log.push(line),
     intervalMs: 0,
@@ -396,6 +404,82 @@ describe("deploy's plan", () => {
       `| hub | failed | updating it: HTTP 500 {"message":"Server Error"}. Check Coolify's own log. |`,
     );
     expect(deploysOf(state)).toEqual(["/deploy?uuid=c", "/deploy?uuid=n"]);
+  });
+});
+
+describe("deploy's record", () => {
+  const recordOn = (state: FakeCoolify, uuid: string) =>
+    state.applications.find((app) => app.uuid === uuid)?.description;
+
+  it("saves the commit and the variables on each application once its deploy finished", async () => {
+    const state = host({
+      applications: [
+        existing("core", "c"),
+        existing("hub", "h"),
+        existing("notes", "n"),
+      ],
+    });
+
+    const { ok } = await run(state, ["hub"]);
+
+    expect(ok).toBe(true);
+    expect(recordOn(state, "h")).toBe(hubRecord);
+    const recorded = state.requests.flatMap(({ method, path, body }, at) =>
+      isRecord(body) && "description" in body ? [{ method, path, at }] : [],
+    );
+    const finished = state.requests.findIndex(
+      ({ path }) => path === "/deployments/dep-h",
+    );
+    expect(recorded).toEqual([
+      { method: "PATCH", path: "/applications/h", at: finished + 1 },
+    ]);
+  });
+
+  it.each(["failed", "cancelled-by-user"])(
+    "leaves the record as it was when the deploy ends %s",
+    async (outcome) => {
+      const state = host({
+        applications: [{ ...existing("hub", "h"), description: "before" }],
+        outcomes: { h: outcome },
+      });
+
+      const { ok } = await run(state, ["hub"]);
+
+      expect(ok).toBe(false);
+      expect(recordOn(state, "h")).toBe("before");
+    },
+  );
+
+  it("leaves the record as it was when the deploy runs out of time", async () => {
+    const state = host({
+      applications: [{ ...existing("hub", "h"), description: "before" }],
+      answer: (route) =>
+        route.startsWith("GET /deployments/") ? "hang" : undefined,
+    });
+
+    const { ok } = await run(state, ["hub"], { timeoutMs: 50 });
+
+    expect(ok).toBe(false);
+    expect(recordOn(state, "h")).toBe("before");
+  });
+
+  it("fails, and says the next deploy deploys the app again, when the record can't be saved", async () => {
+    const state = host({ applications: [existing("hub", "h")] });
+    let deployed = false;
+    state.answer = (route) => {
+      if (route.startsWith("GET /deployments/")) deployed = true;
+      return deployed && route === "PATCH /applications/h"
+        ? { status: 500, body: { message: "Server Error" } }
+        : undefined;
+    };
+
+    const { ok, log } = await run(state, ["hub"]);
+
+    expect(ok).toBe(false);
+    expect(log).toContain(
+      `- hub: deployed, but its record wasn't saved, so the next deploy deploys it again: HTTP 500 {"message":"Server Error"}. Check Coolify's own log.`,
+    );
+    expect(recordOn(state, "h")).toBeUndefined();
   });
 });
 
