@@ -1,6 +1,6 @@
 import { orThrow, readDevServerEnv, readGuardEnv } from "@robkit/input";
 import { securityHeaders } from "@robkit/input/headers";
-import type { Plugin } from "vite";
+import type { Plugin, UserConfig } from "vite";
 
 export interface RobkitOptions {
   /**
@@ -9,6 +9,13 @@ export interface RobkitOptions {
    * the dev server then checks neither and sends the hub's headers itself.
    */
   guarded?: boolean;
+  /**
+   * The entry of a server Vite builds, such as `"src/serve.ts"`. `vite build`
+   * then writes it, ready for Node, to `dist/serve.js`, and the stylesheet
+   * its page links to `dist/assets`, where `serve()` from `@robkit/serve`
+   * looks. Leave it out when the app builds another way.
+   */
+  serve?: string;
 }
 
 /**
@@ -17,14 +24,21 @@ export interface RobkitOptions {
  * host names. A guarded app's settings are checked as the server starts,
  * since the guard is loaded only on the first request.
  *
- * It changes nothing for a build, or under Vitest, which loads the app's
- * config with no `pnpm dev` behind it and sets `VITEST` before it does.
+ * For a build it changes nothing unless `serve` names a server entry. It
+ * changes nothing under Vitest, which loads the app's config with no
+ * `pnpm dev` behind it and sets `VITEST` before it does.
  */
-export function robkit({ guarded = true }: RobkitOptions = {}): Plugin {
+export function robkit({ guarded = true, serve }: RobkitOptions = {}): Plugin {
   return {
     name: "robkit",
     config(_config, { command }) {
-      if (command !== "serve" || process.env.VITEST) return;
+      // Vitest runs Vite's serve command, so only vite build gets here. A
+      // vite build that a test starts inherits VITEST, and still needs the
+      // layout its start script expects.
+      if (command === "build") {
+        return serve === undefined ? undefined : serverBuild(serve);
+      }
+      if (process.env.VITEST) return;
       if (guarded) orThrow(readGuardEnv(process.env));
       const { port, domain } = orThrow(readDevServerEnv(process.env));
       return {
@@ -46,4 +60,9 @@ export function robkit({ guarded = true }: RobkitOptions = {}): Plugin {
       });
     },
   };
+}
+
+/** The server build's layout, merged over the app's config. */
+function serverBuild(serve: string): UserConfig {
+  return { build: { ssr: serve, outDir: "dist", ssrEmitAssets: true } };
 }

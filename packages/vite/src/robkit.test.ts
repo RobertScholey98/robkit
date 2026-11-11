@@ -1,9 +1,17 @@
 import { createServer as createNetServer } from "node:net";
 import { once } from "node:events";
+import { readdir } from "node:fs/promises";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resolveConfig } from "vite";
+import { build, resolveConfig, type Plugin } from "vite";
 import { robkit } from "./index.ts";
-import { answer, devServer, freePort, settings } from "./test/dev-server.ts";
+import {
+  answer,
+  appFolder,
+  devServer,
+  freePort,
+  settings,
+} from "./test/dev-server.ts";
 
 beforeEach(() => {
   // Vitest sets VITEST for its own run. Each test says whether it wants it.
@@ -13,6 +21,14 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
 });
+
+/**
+ * A resolved config's settings, without the functions in it, which differ
+ * between two resolves of the same config.
+ */
+function settled(config: object): unknown {
+  return JSON.parse(JSON.stringify(config));
+}
 
 describe("robkit()", () => {
   it("listens on 127.0.0.1 at PORT and answers the install's host names", async () => {
@@ -79,6 +95,66 @@ describe("robkit()", () => {
       policy: page.headers.get("content-security-policy"),
       sniff: page.headers.get("x-content-type-options"),
     }).toEqual({ frame: null, policy: null, sniff: null });
+  });
+});
+
+describe("robkit({ serve }), for a server Vite builds", () => {
+  it("builds the server to dist/serve.js and the page's stylesheet to dist/assets", async () => {
+    const root = await appFolder({
+      "package.json": '{ "type": "module" }\n',
+      "src/page.css": "p { color: rebeccapurple; }\n",
+      "src/serve.ts":
+        'import "./page.css";\nexport const page = "<p>hi</p>";\n',
+    });
+
+    await build({
+      root,
+      configFile: false,
+      logLevel: "silent",
+      plugins: [robkit({ serve: "src/serve.ts" })],
+    });
+
+    expect({
+      dist: await readdir(join(root, "dist")),
+      assets: (await readdir(join(root, "dist", "assets"))).map((name) =>
+        name.replace(/-[\w-]+\.css$/, ".css"),
+      ),
+    }).toEqual({ dist: ["assets", "serve.js"], assets: ["serve.css"] });
+  });
+
+  it("changes nothing under pnpm dev or Vitest", async () => {
+    const port = await freePort();
+    const devConfig = async (plugin: Plugin) => {
+      const config = await resolveConfig(
+        { configFile: false, logLevel: "silent", plugins: [plugin] },
+        "serve",
+      );
+      return settled({ build: config.build, server: config.server });
+    };
+
+    settings({ PORT: String(port) });
+    const dev = await devConfig(robkit({ serve: "src/serve.ts" }));
+    const devWithout = await devConfig(robkit());
+    settings({ VITEST: "true" });
+    const vitest = await devConfig(robkit({ serve: "src/serve.ts" }));
+    const vitestWithout = await devConfig(robkit());
+
+    expect({ dev, vitest }).toEqual({ dev: devWithout, vitest: vitestWithout });
+  });
+
+  it("still sets the layout for a vite build that a test starts", async () => {
+    settings({ VITEST: "true" });
+
+    const config = await resolveConfig(
+      {
+        configFile: false,
+        logLevel: "silent",
+        plugins: [robkit({ serve: "src/serve.ts" })],
+      },
+      "build",
+    );
+
+    expect(config.build.ssr).toBe("src/serve.ts");
   });
 });
 
