@@ -13,7 +13,7 @@ pnpm lint                    # robkit check, ESLint, then each app's own lint
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm robkit deploy          # deploy to Coolify; see docs/deploy.md
+pnpm robkit deploy           # deploy to Coolify; see docs/deploy.md
 ```
 
 ## Settings for pnpm dev
