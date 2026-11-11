@@ -16,6 +16,7 @@ import {
 } from "./choices.ts";
 import { layerRule } from "./check.ts";
 import {
+  appFiles,
   generateInstall,
   readFolder,
   stackTemplate,
@@ -969,4 +970,57 @@ export const database = appDatabase(schema);
     expect(files.get("apps/example/AGENTS.md")).toBe(template.get("AGENTS.md"));
     expect(files.get("apps/example/CLAUDE.md")).toBe("@AGENTS.md\n");
   });
+});
+
+describe("appFiles", () => {
+  // Where each stack's page sets its title and viewport, as written there.
+  const pages: Record<
+    Stack,
+    { file: string; title: string; viewport: string }
+  > = {
+    "react-hono": {
+      file: "src/routes.tsx",
+      title: "<title>notes</title>",
+      viewport:
+        '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    },
+    express: {
+      file: "src/routes.tsx",
+      title: "<title>notes</title>",
+      viewport:
+        '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    },
+    go: {
+      file: "index.html",
+      title: "<title>notes</title>",
+      viewport:
+        '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    },
+    next: {
+      file: "src/app/layout.tsx",
+      title: 'title: "notes"',
+      viewport:
+        'viewport: Viewport = { width: "device-width", initialScale: 1 }',
+    },
+    start: {
+      file: "src/routes/__root.tsx",
+      title: '{ title: "notes" }',
+      viewport:
+        '{ name: "viewport", content: "width=device-width, initial-scale=1" }',
+    },
+  };
+
+  it.each(readyStacks)(
+    "titles the %s app's page with its slug, and sets a viewport",
+    async (stack) => {
+      const files = appFiles(await stackTemplate(stack), "notes");
+      const { file, title, viewport } = pages[stack];
+
+      expect(files.get(file)).toContain(title);
+      expect(files.get(file)).toContain(viewport);
+      for (const [path, text] of files) {
+        expect(text, path).not.toMatch(/<title>example<|title: "example"/i);
+      }
+    },
+  );
 });

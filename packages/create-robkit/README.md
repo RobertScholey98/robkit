@@ -99,7 +99,7 @@ A failure in either step puts back the five paths upgrade writes, from the last 
 
 - `src/choices.ts` lists the stacks: the ready ones, then the ones coming later, which the wizard shows but can't pick. A new stack is one entry there plus its folder, `templates/stacks/<name>`, and its adapter and tests: [Add a stack](#add-a-stack) lists them. Every install offers every ready stack.
 - `templates/base` is the install itself: core, Compose, turbo, the hub and admin, `packages/core-client`, `packages/theme`, `packages/ui`, the ESLint, Prettier, lint-staged and Husky config, the Dockerfile, the CI workflow and the install's root `AGENTS.md`.
-- `templates/stacks/<name>` is one app, with its Drizzle schema, migrations and `migrate` script, and its own `AGENTS.md`.
+- `templates/stacks/<name>` is one app, with its Drizzle schema, migrations and `migrate` script, and its own `AGENTS.md`. Its page is titled `example`, as `<title>example</title>` or `title: "example"`, and `appFiles` in `src/generate.ts` swaps that for the new app's slug.
 - The templates are an install's own files: the install lints and tests them, so robkit's ESLint and TypeScript skip them.
 - The Dockerfile builds an app in a turbo-pruned workspace, then deletes every `node_modules` and installs only that app's production dependencies, and runs it on the Node image without npm, Yarn or Corepack. So an app's `dependencies` are what its server imports, and what Vite bundles is a dev dependency: the hub's and admin's React, theme and UI kit.
 - The hub and admin call core only through `callCore` from the install's `packages/core-client`, whose `fakeCore` their tests answer from.
