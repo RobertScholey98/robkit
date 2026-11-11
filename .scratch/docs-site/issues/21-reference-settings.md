@@ -17,7 +17,7 @@ Milestone 4 makes `ROBKIT_APPS` required by core (ticket 24 of "Just use it") an
 - [x] Each setting says its default in dev and in production, or that it must be set
 - [x] The refused names on the page are the dev runner's, built from its export, which has a changeset and is in the API report
 - [x] The page says where each kind of setting goes and what wins over what
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -66,3 +66,7 @@ Milestone 4 makes `ROBKIT_APPS` required by core (ticket 24 of "Just use it") an
 
 - Core already refuses to start without `ROBKIT_APPS`, and the page says so. If just-use-it ticket 24 changes what core does with an empty list, update its section.
 - When just-use-it ticket 22 changes what `robkit deploy` sets, `reference-settings.test.ts` fails on any `ROBKIT_` name it adds or drops. A value that changes without a name, such as the production `PORT`, needs a reread of `deploymentOf`.
+
+### Merged
+
+Added by the lead. PR 142 merged into `docs-site` on 2026-11-11 as `e5a7d233`, with `gate` green on `b13a177`.
