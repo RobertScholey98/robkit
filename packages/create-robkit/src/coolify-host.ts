@@ -138,13 +138,21 @@ export async function readHost(
   const environment = await environmentId(api, target.project_uuid, config);
   await requireSharedVariables(api, target.project_uuid, config, shared);
   // The token lists every application of its team, so keep to this
-  // install's environment and repository.
+  // install's environment and repository. Without each one's environment
+  // that can't be told, so nothing is written.
+  const listed: unknown[] = Array.isArray(applications) ? applications : [];
+  if (listed.some((app) => fieldOf(app, "environment_id") == null)) {
+    throw new CommandProblem(
+      "Coolify listed an application without the environment it belongs to, so robkit deploy can't tell which applications are this install's, and wrote nothing. It needs Coolify 4.3 or later.",
+    );
+  }
+  // Coolify's JSON may give an id as a number or a string.
   const repository = normalizeRepo(config.repository);
   return {
     target,
-    applications: (Array.isArray(applications) ? applications : []).filter(
-      (app: unknown) =>
-        fieldOf(app, "environment_id") === environment &&
+    applications: listed.filter(
+      (app) =>
+        String(fieldOf(app, "environment_id")) === String(environment) &&
         normalizeRepo(stringFieldOf(app, "git_repository") ?? "") ===
           repository,
     ),
