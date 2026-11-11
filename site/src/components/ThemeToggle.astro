@@ -1,0 +1,59 @@
+---
+// Switches between the light and the dark theme, and keeps the choice. It
+// stays hidden without scripts, since it can't work then.
+import Icon from "./Icon.astro";
+---
+
+<button
+  class="toggle"
+  type="button"
+  aria-pressed="false"
+  data-theme-toggle
+  hidden
+>
+  <span class="moon">
+    <Icon name="moon" />
+  </span>
+  <span class="sun">
+    <Icon name="sun" />
+  </span>
+  <span class="visually-hidden">Dark theme</span>
+</button>
+
+<style>
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--target);
+    height: var(--target);
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease);
+  }
+
+  .toggle:hover {
+    background: var(--color-raised);
+  }
+
+  .toggle[hidden] {
+    display: none;
+  }
+
+  .toggle > span:not(.visually-hidden) {
+    display: inline-flex;
+  }
+
+  .toggle[aria-pressed="true"] .moon,
+  .toggle[aria-pressed="false"] .sun {
+    display: none;
+  }
+</style>
+
+<script>
+  import "../scripts/theme-toggle.ts";
+</script>

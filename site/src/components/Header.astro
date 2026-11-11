@@ -1,0 +1,131 @@
+---
+// The header on every page: the menu button at phone width on a docs page,
+// the name, the docs and GitHub links, and the theme toggle.
+import { docsHome, repoUrl } from "../site.ts";
+import Icon from "./Icon.astro";
+import ThemeToggle from "./ThemeToggle.astro";
+
+interface Props {
+  menu: boolean;
+}
+
+const { menu } = Astro.props;
+---
+
+<header class="header">
+  {menu && (
+    <button
+      class="control menu-button"
+      type="button"
+      aria-expanded="false"
+      aria-controls="site-nav"
+      data-menu-button
+      hidden
+    >
+      <Icon name="menu" />
+      <span>Menu</span>
+    </button>
+  )}
+  <a class="brand" href="/">
+    <Icon name="terminal" size={22} />
+    <span>robkit</span>
+  </a>
+  <nav class="links" aria-label="Site">
+    <a class="control" href={docsHome}>
+      Docs
+    </a>
+    <a class="control" href={repoUrl}>
+      <Icon name="github" />
+      <span class="label">GitHub</span>
+    </a>
+    <ThemeToggle />
+  </nav>
+</header>
+
+<style>
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: var(--header-height);
+    padding: 0 var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--target);
+    padding: 0 var(--space-1);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .brand .icon {
+    color: var(--color-accent);
+  }
+
+  .links {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+  }
+
+  .control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-width: var(--target);
+    min-height: var(--target);
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease);
+  }
+
+  .control:hover {
+    background: var(--color-raised);
+  }
+
+  .control[hidden] {
+    display: none;
+  }
+
+  @media (max-width: 47.999rem) {
+    .label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .menu-button {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import "../scripts/menu.ts";
+</script>

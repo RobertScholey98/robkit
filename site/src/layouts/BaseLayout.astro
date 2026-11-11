@@ -1,0 +1,71 @@
+---
+// Every page's frame: the head, the header and the footer. The script in
+// the head runs before the body paints, so a stored theme shows with no
+// flash. Without it, tokens.css follows the system setting.
+import "@fontsource-variable/ibm-plex-sans/wght.css";
+import "@fontsource-variable/ibm-plex-sans/wght-italic.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
+import "../styles/tokens.css";
+import "../styles/base.css";
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  /** Whether the header has the button that opens the list of pages. */
+  menu?: boolean;
+}
+
+const { title, description, menu = false } = Astro.props;
+const pageTitle = title === "robkit" ? title : `${title} | robkit`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <script is:inline>
+      document.documentElement.dataset.js = "";
+      try {
+        const theme = localStorage.getItem("robkit-theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.dataset.theme = theme;
+        }
+      } catch (error) {
+        // Storage is off: the page follows the system setting.
+        void error;
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">
+      Skip to the page
+    </a>
+    <Header menu={menu} />
+    <slot />
+    <Footer />
+  </body>
+</html>
+
+<style>
+  .skip-link {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    z-index: 100;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius);
+    background: var(--color-button);
+    color: var(--color-on-accent);
+    font-weight: 600;
+    transform: translateY(-200%);
+  }
+
+  .skip-link:focus-visible {
+    transform: none;
+  }
+</style>

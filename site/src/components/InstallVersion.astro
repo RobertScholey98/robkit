@@ -1,0 +1,17 @@
+---
+// The lowest version of a tool an install needs, read from the templates as
+// the site builds: Node from the install's package.json, Go from the React
+// + Go template's go.mod.
+import { installGoVersion, installNodeVersion } from "../install.ts";
+
+interface Props {
+  tool: "node" | "go";
+}
+
+const version =
+  Astro.props.tool === "node"
+    ? await installNodeVersion()
+    : await installGoVersion();
+---
+
+{version}
