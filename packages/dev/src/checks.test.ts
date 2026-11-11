@@ -3,6 +3,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { createServer, type AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { freePort, freePortBlock } from "@internal/test-postgres";
 import { CommandProblem } from "@robkit/input/command";
 import { afterEach, describe, expect, it } from "vitest";
 import { checkBeforeStart, isTaken, portForNewApp } from "./checks.ts";
@@ -13,23 +14,28 @@ afterEach(() => {
   for (const server of servers.splice(0)) server.close();
 });
 
-/** A port something on 127.0.0.1 holds until the test ends. */
-async function heldPort(): Promise<number> {
-  const server = createServer().listen(0, "127.0.0.1");
+/** Listens on `port` on 127.0.0.1 until the test ends, and returns the port. */
+async function hold(port: number): Promise<number> {
+  const server = createServer().listen(port, "127.0.0.1");
   servers.push(server);
   await once(server, "listening");
   const address = server.address() as AddressInfo;
   return address.port;
 }
 
+/** A port something on 127.0.0.1 holds until the test ends. */
+function heldPort(): Promise<number> {
+  return hold(0);
+}
+
+// A test that needs a port to be free leases it. A port the OS picked for
+// one server sits beside the ports it picks for every other test's, so its
+// neighbours can be taken at any moment. On 2026-11-11 in CI, another
+// test's server held the port three after the proxy's.
 describe("isTaken", () => {
   it("says a port something listens on is taken, and a free one isn't", async () => {
     const held = await heldPort();
-    const freed = createServer().listen(0, "127.0.0.1");
-    await once(freed, "listening");
-    const free = (freed.address() as AddressInfo).port;
-    freed.close();
-    await once(freed, "close");
+    const free = await freePort();
 
     expect(await isTaken(held, "127.0.0.1")).toBe(true);
     expect(await isTaken(free, "127.0.0.1")).toBe(false);
@@ -43,8 +49,9 @@ describe("isTaken", () => {
 
 describe("portForNewApp", () => {
   it("takes the first port after the proxy's that no app holds", async () => {
+    const devPort = await freePortBlock(4);
     // Held, as the proxy holds its own.
-    const devPort = await heldPort();
+    await hold(devPort);
 
     const port = await portForNewApp(devPort, [devPort + 1, devPort + 2]);
 
@@ -52,11 +59,12 @@ describe("portForNewApp", () => {
   });
 
   it("passes over a port something else listens on", async () => {
-    const held = await heldPort();
+    const devPort = await freePortBlock(4);
+    await hold(devPort + 2);
 
-    const port = await portForNewApp(held - 2, [held - 1]);
+    const port = await portForNewApp(devPort, [devPort + 1]);
 
-    expect(port).toBe(held + 1);
+    expect(port).toBe(devPort + 3);
   });
 });
 
