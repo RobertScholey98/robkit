@@ -1,0 +1,45 @@
+---
+title: "@robkit/vite"
+description: Sets an app's Vite dev server up behind pnpm dev, and builds the server of an app whose server Vite bundles.
+section: Reference
+order: 10
+describes:
+  - packages/vite/src/
+  - packages/vite/README.md
+  - packages/vite/api-report.md
+---
+
+import PackageLinks from "../../../components/PackageLinks.astro";
+import TemplateFile from "../../../components/TemplateFile.astro";
+
+`@robkit/vite` sets an app's Vite dev server up behind `pnpm dev`'s proxy, so the app's `vite.config.ts` holds only what is the app's own. Every Vite app in an install uses it, the hub and admin included. List it under `devDependencies`, since only Vite loads it.
+
+This is the React + Hono stack's config, with `robkit()` first:
+
+<TemplateFile path="stacks/react-hono/vite.config.ts" />
+
+Under `pnpm dev`, `robkit()` listens on 127.0.0.1 at `PORT`, answers the install's host names, and checks `ROBKIT_APP` and `ROBKIT_CORE_URL` as the dev server starts. A missing one stops the dev server, and names it. Under Vitest it changes nothing, so an app's tests need no robkit settings.
+
+## Options you reach for
+
+`robkit()` takes them all as optional:
+
+- `serve`. The server's entry, such as `src/serve.ts`, for an app whose server Vite builds, as on the React + Hono and Express stacks. `vite build` then writes the server to `dist/serve.js`.
+- `guarded`. `true` unless you set it. The hub, the one app with no guard, sets it to `false`, which skips the check and sends the hub's headers from the dev server.
+
+An Express app adds `expressApp()` from `@robkit/vite/express`, which loads the app from its entry and hands it each request in dev:
+
+<TemplateFile path="stacks/express/vite.config.ts" />
+
+## What it exports
+
+### @robkit/vite
+
+- `robkit(options?)`. What sets the dev server up, and the build when you give `serve`.
+- `RobkitOptions`. The options above.
+
+### @robkit/vite/express
+
+- `expressApp(entry)`. Serves the app `entry` exports as its default under Vite's dev server, after Vite's own files.
+
+<PackageLinks dir="packages/vite" />

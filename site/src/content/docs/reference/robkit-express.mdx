@@ -1,0 +1,67 @@
+---
+title: "@robkit/express"
+description: The Express adapter, which runs robkit's guard on every request and hands each handler the viewer.
+section: Reference
+order: 5
+describes:
+  - packages/express/src/
+  - packages/express/README.md
+  - packages/express/api-report.md
+---
+
+import PackageLinks from "../../../components/PackageLinks.astro";
+
+`@robkit/express` runs robkit's guard in front of an Express app's routes, and hands each handler the viewer as `res.locals.viewer`. Apps on the React + Express stack use it.
+
+```ts title="src/server.tsx"
+import { guarded, type GuardedResponse } from "@robkit/express";
+import express from "express";
+
+const app = express();
+
+// The rule is the one the owner set for this app in admin.
+app.use(guarded());
+
+app.get("/", (_req, res: GuardedResponse) => {
+  const { viewer } = res.locals;
+  res.send(viewer.kind === "nobody" ? "Not signed in" : viewer.id);
+});
+```
+
+`guarded()` reads `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy` set for every app. When one is missing or won't do, the app prints the problem and exits 1. The guard reads the request's path, query and headers, never its body, so a body parser such as `express.json()` can come after it. [The viewer and the guard](/docs/build-an-app/the-viewer-and-the-guard/) says what a viewer is and what the guard answers.
+
+## Options you reach for
+
+`guarded()` takes them all as optional:
+
+- `access`. A fixed access rule, such as `{ kind: "owner" }`, in place of the one the owner sets in admin.
+- `app` and `core`. The app's slug and core's public origin, when you don't want them read from `ROBKIT_APP` and `ROBKIT_CORE_URL`.
+- `onUnavailable`. Called with what failed when the guard can't reach core and answers 503.
+
+`serve()` from `@robkit/express/serve` takes `assets` and `public`, which move the folders it answers files from, and `name` and `onStopped`, as [`@robkit/serve`](/docs/reference/robkit-serve/) does.
+
+## What it exports
+
+### @robkit/express
+
+- `guarded(options?)`. Runs the guard on each request. It lets the request through with `res.locals.viewer` set, or answers it with a redirect, 401, 403 or 404.
+- `GuardedOptions`. The options above.
+- `GuardedLocals`. What `guarded` puts on `res.locals`, which is `{ viewer }`.
+- `GuardedResponse`. The response a handler behind `guarded` gets, which types `res.locals.viewer`.
+- `Viewer`. The owner, a guest with role ids, or `{ kind: "nobody" }`.
+- `coreOrigin()`. Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core.
+
+### @robkit/express/serve
+
+- `serve(app, options?)`. Serves the app in production on `HOST` and `PORT`, with the client's built files under `/assets` and the app's `public` folder at the root, until SIGTERM.
+- `ServeOptions`. The options above.
+
+### @robkit/express/testing
+
+- `guardedAs(viewer)`. A stand-in for `guarded()` in a test, which serves every request as `viewer`. It serves only in a test run.
+- `owner()`, `guest(options?)` and `nobody()`. Build a viewer for a test.
+- `GuestOptions`. A guest's `id` and `roles`.
+
+[Testing with a viewer](/docs/build-an-app/testing-with-a-viewer/) shows them in a test.
+
+<PackageLinks dir="packages/express" />

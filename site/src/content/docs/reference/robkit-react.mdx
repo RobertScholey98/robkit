@@ -1,0 +1,41 @@
+---
+title: "@robkit/react"
+description: sessionFetch, a fetch for calls from the page to its own app that gets a new token when the old one lapses.
+section: Reference
+order: 9
+describes:
+  - packages/react/src/
+  - packages/react/README.md
+  - packages/react/api-report.md
+---
+
+import PackageLinks from "../../../components/PackageLinks.astro";
+
+`@robkit/react` gives the page `sessionFetch`, a `fetch` for calls to its own app. When the guard says the app's token has lapsed, it sends the browser for a new one, or to the hub to sign in, and back to the same page. Every other answer goes to the caller as it came.
+
+```ts title="src/notes.ts"
+import { sessionFetch } from "@robkit/react";
+
+const response = await sessionFetch("/api/notes");
+```
+
+A call that finds the token lapsed never settles, because the page is leaving, so don't show an error for it. Apps on the TanStack Start stack hand it to Start for their server functions, and a React + Go app's page calls its Go server with it. Any app whose page calls its own server can use it.
+
+```ts title="src/start.ts"
+import { sessionFetch } from "@robkit/react";
+import { createStart } from "@tanstack/react-start";
+
+// A server function called once the session has lapsed sends the browser
+// through core's refresh and back, rather than failing.
+export const startInstance = createStart(() => ({
+  serverFns: { fetch: sessionFetch },
+}));
+```
+
+## What it exports
+
+### @robkit/react
+
+- `sessionFetch`. A `fetch`. It acts only on the guard's 401, which carries the `Robkit-Session` header, and returns every other answer.
+
+<PackageLinks dir="packages/react" />

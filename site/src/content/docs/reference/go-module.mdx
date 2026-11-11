@@ -1,0 +1,83 @@
+---
+title: The Go module
+description: robkit's guard for an app whose server is Go, and the viewer and access rule types it hands over.
+section: Reference
+order: 12
+describes:
+  - go/session/
+  - go/guard/
+  - go/README.md
+---
+
+`github.com/RobertScholey98/robkit/go` is robkit's guard for an app whose server is Go, as on the React + Go stack. It imports nothing outside Go's standard library, and decides as the TypeScript guard does.
+
+The module isn't on a Go module proxy. An app's `go.mod` reaches it with a `replace` directive, to `vendor/robkit/go` in the install, which init and `robkit add` write with the first Go app. In an install made with `--link`, it points at the robkit checkout instead.
+
+```go title="main.go"
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+
+	"github.com/RobertScholey98/robkit/go/guard"
+	"github.com/RobertScholey98/robkit/go/session"
+)
+
+func main() {
+	// Reads ROBKIT_APP and ROBKIT_CORE_URL, which pnpm dev and robkit deploy set.
+	guarded, err := session.Guarded(session.Options{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/me", func(w http.ResponseWriter, r *http.Request) {
+		switch viewer := session.ViewerFrom(r.Context()).(type) {
+		case guard.Owner:
+			fmt.Fprintf(w, "Hello, owner %s", viewer.ID)
+		case guard.Guest:
+			fmt.Fprintf(w, "Hello, guest %s with roles %v", viewer.ID, viewer.Roles)
+		case guard.Nobody:
+			fmt.Fprint(w, "Hello, whoever you are")
+		}
+	})
+	log.Fatal(http.ListenAndServe("127.0.0.1:3000", guarded(mux)))
+}
+```
+
+When `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing or won't do, `session.Guarded` returns an error that says how to fix each. [The React + Go guide](/docs/build-an-app/react-go/) shows the stack's whole server.
+
+## Options you reach for
+
+`session.Options` are all optional:
+
+- `Access`. A fixed access rule, such as `guard.OwnerRule{}`, in place of the one the owner sets in admin.
+- `App` and `Core`. The app's slug and core's public origin, when you don't want them read from `ROBKIT_APP` and `ROBKIT_CORE_URL`.
+- `OnUnavailable`. Called with a `Fault` when the guard can't reach core and answers 503.
+- `Now`. The clock the guard checks tokens against, for a test.
+
+## What it exports
+
+### github.com/RobertScholey98/robkit/go/session
+
+- `Guarded(options)`. The guard, as a `func(http.Handler) http.Handler`. It answers robkit's own paths itself, refuses a write from another origin, and hands every other request on with the viewer in its context.
+- `Options`. The options above.
+- `ReadGuardEnv(getenv)`. `Options` read from `ROBKIT_APP` and `ROBKIT_CORE_URL`, as `Guarded` reads them.
+- `ViewerFrom(ctx)`. Who is asking, a `guard.Viewer`. It panics for a request that didn't come through `Guarded`.
+- `WithViewer(ctx, viewer)`. A context that carries a viewer, for testing a handler.
+- `Fault`. What `OnUnavailable` hears.
+- `Failed`, `FailedCoreKey`, `FailedAccessRule` and `FailedNetwork`. What failed: core's key, the access rule, or the network.
+- `AccessRuleFailure`, `UnknownApp`, `BadAnswer`, `InvalidJSON` and `InterruptedBody`. How core's answer for the access rule failed.
+
+### github.com/RobertScholey98/robkit/go/guard
+
+- `Viewer`, `SignedInViewer`, `Owner`, `Guest` and `Nobody`. Who is asking. Each marshals to JSON as the TypeScript guard hands it over.
+- `RoleID` and `CodeID`. A role's id, and an access code's id.
+- `AccessRule`, `OpenRule`, `RolesRule` and `OwnerRule`. Who may open an app.
+- `ReadAccessRule(data)`. Reads a rule core sent as JSON.
+- `SessionState`, `SignedIn`, `SignedOut`, `Expired` and `Unknown`. What the app knows of who is asking.
+- `Decide(rule, session)`. The decision table the TypeScript guard shares.
+- `Decision`, `Allow`, `Login`, `Refresh` and `NotFound`. What `Decide` returns.
+
+`go doc` prints every signature, and the module's [README](https://github.com/RobertScholey98/robkit/blob/main/go/README.md) on GitHub says what each package must never do.
