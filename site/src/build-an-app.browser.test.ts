@@ -19,6 +19,7 @@ afterAll(async () => {
 describe.each([
   "/docs/build-an-app/the-viewer-and-the-guard/",
   "/docs/build-an-app/testing-with-a-viewer/",
+  "/docs/build-an-app/the-database/",
 ])("%s", (path) => {
   describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
     it.each(["light", "dark"] as const)(
