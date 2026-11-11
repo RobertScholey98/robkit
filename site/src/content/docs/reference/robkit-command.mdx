@@ -43,6 +43,8 @@ It refuses:
 
 - A name that isn't a slug, one of the platform apps `core`, `hub` and `admin`, or an app the install already has.
 - A stack, an access rule or a role list it doesn't take. `--access roles` needs `--roles` with at least one role, and `--roles` goes only with `--access roles`.
+- An `--icon` an app's `package.json` couldn't hold, by the same rule `pnpm dev` reads it with.
+- A React + Go app on a machine with no Go, before it writes anything.
 
 [pnpm dev and your apps](/docs/run-an-install/pnpm-dev-and-your-apps/#add-an-app) says what happens with and without `pnpm dev` running, and how to use a template of your own.
 
