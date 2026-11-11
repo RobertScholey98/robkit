@@ -38,7 +38,7 @@ On top of ESLint's recommended rules and typescript-eslint's `strictTypeChecked`
 The rows today:
 
 - `@robkit/input`, `@robkit/session` and `@robkit/guard` import no framework (Hono, React, TanStack and the like).
-- `@robkit/input` and `@robkit/guard` import no Node built-in and uses no `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` or `process`.
+- `@robkit/input` and `@robkit/guard` import no Node built-in and use no `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource` or `process`, by name or through the global object, such as `globalThis.fetch`. They may read another property of `globalThis`, `window`, `self` or `global`, such as `globalThis.crypto`, but not pass one of them around, destructure it or index it with a name the rule can't read.
 - `coreRows()` adds a row for each package that `package-graph.js` doesn't let take `@robkit/core`. That package may not import it, or reach into `packages/core` with a relative path.
 
 Apart from the rows, the rule fails a relative import that leaves its workspace, in every package under `packages/` and `tooling/`.
