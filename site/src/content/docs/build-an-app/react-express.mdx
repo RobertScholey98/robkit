@@ -1,12 +1,286 @@
 ---
 title: React + Express
-description: Build an app on React + Express.
+description: The app robkit add writes on React + Express, file by file, and a table and two routes of your own.
 section: Build an app
 order: 3
 describes:
   - packages/create-robkit/src/choices.ts
   - packages/create-robkit/templates/stacks/express/
-stub: true
 ---
 
-`pnpm robkit add <slug> --stack express` makes an app on React + Express. Like an app on any stack, it gets the viewer from robkit, its own Postgres schema and its own subdomain.
+import InstallTree from "../../../components/InstallTree.astro";
+import TemplateFile from "../../../components/TemplateFile.astro";
+import { appFiles } from "../../../app-files.ts";
+
+An app on React + Express is an Express app that renders React to HTML, run by Vite. `robkit add` writes a small working app: a table, routes that read and write it as the viewer, a page that shows it, and a test. This guide walks through those files, then adds a table and two routes of your own.
+
+It has the same files as an app on [React + Hono](/docs/build-an-app/react-hono/), and the same table, queries and page. Here is where they differ:
+
+- The routes are an Express `Router`, and a handler reads the viewer as `res.locals.viewer`.
+- The guard never reads a request's body. A route that takes a form or JSON parses it itself.
+- The test serves the routes on a loopback port and calls them with `fetch`. A Hono test calls the app in memory.
+
+## Add the app
+
+With `pnpm dev` running, in the install's folder:
+
+```sh
+pnpm robkit add notes --stack express
+```
+
+It asks who may open the app and which emoji the hub's launcher shows for it, then writes `apps/notes` and starts it at `http://notes.robkit.localhost:3000`. The folder's name is the app's slug. It names the subdomain, and the Postgres schema and role too.
+
+## What robkit add writes
+
+<InstallTree entries={appFiles.express} label="An app on React + Express" />
+
+The rest of this guide is about the files you edit: the table, the queries, the routes, the server and the test.
+
+## The table
+
+`src/schema.ts` declares the app's tables with Drizzle. The example keeps one row per visit:
+
+<TemplateFile path="stacks/express/src/schema.ts" app="notes" />
+
+A table named without a schema lands in the app's own. `src/database.ts` connects to it, as the app's own Postgres role, the first time a query runs.
+
+## The queries
+
+`src/visits.ts` holds the example's queries, behind an interface the routes take as an argument:
+
+<TemplateFile path="stacks/express/src/visits.ts" app="notes" />
+
+The server passes `visits`, and a test passes a list of its own, so the routes run in a test with no database.
+
+## The routes
+
+`src/routes.tsx` builds the app's routes on an Express `Router`:
+
+<TemplateFile
+  path="stacks/express/src/routes.tsx"
+  from="export function routes"
+  to="^}"
+  app="notes"
+/>
+
+Each handler reads who is asking as `res.locals.viewer`, which the guard set. Typing `res` as `GuardedResponse` gives the viewer its type. The page changes nothing, and the form posts to `/visits`, which records the visit. The guard refuses a write from another app's page, but it can't refuse a `GET`, which a link can send. So the app changes state only on a `POST`. The rest of the file is the `Page` component, which uses the install's shared UI kit from `@internal/ui`.
+
+## The server
+
+`src/server.tsx` puts the guard in front of the routes:
+
+<TemplateFile path="stacks/express/src/server.tsx" app="notes" />
+
+`guarded()` reads the app's slug and core's address from the settings `pnpm dev` sets, and asks core for the app's access rule. Anyone the rule leaves out never reaches a route. Under `pnpm dev`, `expressApp()` in `vite.config.ts` hands the app each request Vite doesn't answer itself, and loads it again after each change. In production, `src/serve.ts` serves it with Node.
+
+## The test
+
+`src/routes.test.tsx` mounts the routes behind `guardedAs(viewer)` in place of `guarded()`, so each request comes from the viewer the test chose. `appAs` serves them on a port of its own and closes it when the test ends:
+
+<TemplateFile path="stacks/express/src/routes.test.tsx" app="notes" />
+
+Run it in the app's folder:
+
+```sh app
+pnpm test
+```
+
+## Make it yours
+
+These steps give each viewer notes of their own: a table, its migration, the queries, two routes and their tests.
+
+### Add a table
+
+Declare it in `src/schema.ts`, below the example's `visit`. The file already imports these names.
+
+```ts title="apps/notes/src/schema.ts"
+import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+
+/** One row per note, by the viewer who wrote it. */
+export const note = pgTable("note", {
+  id: serial().primaryKey(),
+  author: text().notNull(),
+  body: text().notNull(),
+  at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+```
+
+Then write its migration, in the app's folder:
+
+```sh app
+pnpm db:generate
+```
+
+It writes the next file in `drizzle/`. Commit it.
+
+### Apply the migration
+
+In the install's folder, while `pnpm dev` runs:
+
+```sh
+pnpm robkit migrate notes
+```
+
+The app keeps running, and the table is there for its next query.
+
+### Add the queries
+
+Add `src/notes.ts`, which follows `src/visits.ts`:
+
+```ts nocheck title="apps/notes/src/notes.ts"
+import { desc, eq } from "drizzle-orm";
+import { database } from "./database.ts";
+import { note } from "./schema.ts";
+
+/** What the routes store notes through. A test passes its own. */
+export interface Notes {
+  /** Adds a note by `author`. */
+  add(author: string, body: string): Promise<void>;
+  /** The notes `author` wrote, newest first. */
+  list(author: string): Promise<string[]>;
+}
+
+/** Notes in the app's database. */
+export const notes: Notes = {
+  async add(author, body) {
+    await database().insert(note).values({ author, body });
+  },
+  async list(author) {
+    const rows = await database()
+      .select({ body: note.body })
+      .from(note)
+      .where(eq(note.author, author))
+      .orderBy(desc(note.at));
+    return rows.map((row) => row.body);
+  },
+};
+```
+
+### Add the routes
+
+In `src/routes.tsx`, import `express` for its form parser, and take the notes as a second argument:
+
+```tsx nocheck title="apps/notes/src/routes.tsx"
+import express, { Router } from "express";
+import type { Notes } from "./notes.ts";
+
+export function routes(visits: Visits, notes: Notes): Router {
+```
+
+Then add two routes after `router.post("/visits", ...)`. A `GET` lists the viewer's notes as JSON, and a `POST` adds one from a form field named `body`. `express.urlencoded()` parses the form for this route only:
+
+```tsx nocheck title="apps/notes/src/routes.tsx"
+  // The viewer's notes, newest first.
+  router.get("/notes", async (_req, res: GuardedResponse) => {
+    res.json(await notes.list(visitorId(res.locals.viewer)));
+  });
+
+  // Adds a note from a form field named body. The guard never reads a
+  // request's body, so the route parses the form itself.
+  router.post(
+    "/notes",
+    express.urlencoded(),
+    async (req, res: GuardedResponse) => {
+      const form: unknown = req.body;
+      const body =
+        typeof form === "object" && form !== null && "body" in form
+          ? form.body
+          : undefined;
+      if (typeof body !== "string" || body.trim() === "") {
+        res.status(400).json({ error: "Send the note in a field named body." });
+        return;
+      }
+      await notes.add(visitorId(res.locals.viewer), body);
+      res.status(201).json({ body });
+    },
+  );
+```
+
+Express types `req.body` as `any`, so the route checks what it got before it uses it. Each note is keyed by the viewer's id, so one viewer never reads another's. In an app open to anyone, everyone not signed in shares the id `nobody`. Pass the notes in `src/server.tsx`:
+
+```tsx nocheck title="apps/notes/src/server.tsx"
+import { notes } from "./notes.ts";
+
+app.use(routes(visits, notes));
+```
+
+### Test them
+
+In `src/routes.test.tsx`, keep notes in a list, as the test keeps visits, and hand them to the routes. Add `notesInMemory`, and give `appAs` the notes:
+
+```tsx nocheck title="apps/notes/src/routes.test.tsx"
+import type { Notes } from "./notes.ts";
+
+/** Notes kept in a list, in place of the database. */
+function notesInMemory(): Notes {
+  const kept: { author: string; body: string }[] = [];
+  return {
+    add: (author, body) => {
+      kept.unshift({ author, body });
+      return Promise.resolve();
+    },
+    list: (author) =>
+      Promise.resolve(
+        kept.filter((each) => each.author === author).map((each) => each.body),
+      ),
+  };
+}
+
+async function appAs(viewer: Viewer, visits: Visits, notes = notesInMemory()) {
+  const app = express();
+  app.use(guardedAs(viewer));
+  app.use(routes(visits, notes));
+```
+
+The rest of `appAs` stays as it is. Then test the routes as the owner and as a guest:
+
+```tsx nocheck title="apps/notes/src/routes.test.tsx"
+describe("notes", () => {
+  it("keeps each viewer's notes, newest first, from the others", async () => {
+    const notes = notesInMemory();
+    const owners = await appAs(owner(), visitsInMemory(), notes);
+    const guests = await appAs(
+      guest({ roles: ["family"] }),
+      visitsInMemory(),
+      notes,
+    );
+
+    for (const body of ["Buy milk", "Call the vet"]) {
+      const added = await owners("/notes", {
+        method: "POST",
+        body: new URLSearchParams({ body }),
+      });
+      expect(added.status).toBe(201);
+    }
+
+    expect(await (await owners("/notes")).text()).toBe(
+      '["Call the vet","Buy milk"]',
+    );
+    expect(await (await guests("/notes")).text()).toBe("[]");
+  });
+
+  it("refuses a note with no body", async () => {
+    const ask = await appAs(owner(), visitsInMemory());
+
+    const res = await ask("/notes", {
+      method: "POST",
+      body: new URLSearchParams({ body: " " }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+});
+```
+
+Run `pnpm test` in the app's folder again, and `pnpm lint` in the install's.
+
+## Read more
+
+- [The viewer and the guard](/docs/build-an-app/the-viewer-and-the-guard/), for who gets in and what the guard answers instead.
+- [Testing with a viewer](/docs/build-an-app/testing-with-a-viewer/), for the owner, a guest and nobody in a test.
+- [The database](/docs/build-an-app/the-database/), for what your app's role can reach and how migrations run.
+- [Settings](/docs/build-an-app/settings/), for your app's own `.env`.
+- [The layer rule](/docs/build-an-app/the-layer-rule/), for what your app may import.
+- [Express's docs](https://expressjs.com/en/5x/api.html), for routers, `req`, `res` and body parsers.
+- [Vite's guide](https://vite.dev/guide/), for the dev server and the build.
+- [Drizzle's docs](https://orm.drizzle.team/docs/overview), for tables and queries.

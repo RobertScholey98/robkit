@@ -245,16 +245,15 @@ describe("the built page on the layer rule", () => {
   }, 60_000);
 });
 
-describe("the built guide for React + Hono", () => {
-  const page = "docs/build-an-app/react-hono/index.html";
+describe.each([
+  { name: "React + Hono", stack: "react-hono", guide: "react-hono" },
+  { name: "React + Express", stack: "express", guide: "react-express" },
+])("the built guide for $name", ({ name, stack, guide }) => {
+  const page = `docs/build-an-app/${guide}/index.html`;
   const file = async (path: string) =>
     (
       await readFile(
-        join(
-          repoRoot,
-          "packages/create-robkit/templates/stacks/react-hono",
-          path,
-        ),
+        join(repoRoot, "packages/create-robkit/templates/stacks", stack, path),
         "utf8",
       )
     )
@@ -285,7 +284,7 @@ describe("the built guide for React + Hono", () => {
 
   it("lists every file the app gets, and is written, not a stub", async () => {
     const html = await built(page);
-    const start = html.indexOf('aria-label="An app on React + Hono"');
+    const start = html.indexOf(`aria-label="An app on ${name}"`);
     const tree = html.slice(start, html.indexOf("<h2", start));
     const names = [
       ...tree.matchAll(/<li[^>]*>\s*<code[^>]*>([^<]+)<\/code>/g),
