@@ -23,7 +23,7 @@ Each stack's adapter has a `/testing` entry for tests only. `owner()`, `guest({ 
 
 <StackSwitch>
   <Fragment slot="start">
-    A server function runs only inside Start, so the test can't call one. Instead each handler hands `context.viewer` to a plain function in `src/visits.ts`, and the test calls that function with a viewer from `@robkit/start/testing`:
+    A server function runs only inside Start, so the test can't call one. Instead each handler hands `context.viewer` to a plain function in `src/visits.ts`, and the test calls that function with a viewer from `@robkit/start/testing`. It also draws the card in happy-dom and presses its button, with a stand-in for the server function:
 
     <TemplateFile path="stacks/start/src/home.test.tsx" />
 
