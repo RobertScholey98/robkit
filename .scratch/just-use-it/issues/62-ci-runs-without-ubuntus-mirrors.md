@@ -26,10 +26,30 @@ The following NEW packages will be installed:
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The failure is on record, with the lines the three failed runs printed
-- [ ] `ci.yml`, `production.yml` and `release.yml` install Chromium without `--with-deps`
-- [ ] A repo check fails a workflow line that installs a system package, and passes the workflows as they are
-- [ ] Every test passes in CI without the nine font packages, shown by this PR's own `check`
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The failure is on record, with the lines the three failed runs printed
+- [x] `ci.yml`, `production.yml` and `release.yml` install Chromium without `--with-deps`
+- [x] A repo check fails a workflow line that installs a system package, and passes the workflows as they are
+- [x] Every test passes in CI without the nine font packages, shown by this PR's own `check`
+- [x] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### Chosen in the build, 2026-11-11
+
+- **The failure couldn't be reproduced on my machine**, where Ubuntu's mirrors resolved all along. The three failed runs are the record: pull request 148's `check`, in run 43035275234, at 14:06, 16:05 and 16:17 UTC.
+- **I dropped `--with-deps` rather than falling back when it fails.** A step that falls back would run the tests with other fonts on the day the mirrors are out, and would take ten minutes to get there, since apt retries each host. Now every run installs the same thing.
+- **The repo check** is `systemPackageInstalls` in `tooling/repo-checks/src/workflows.ts`. It fails `--with-deps`, `playwright install-deps`, and `apt install` or `apt-get install`, and lets a comment name one. It reads the template's workflows too, which install no system package.
+- **What this gives up.** If GitHub's image drops a library Chromium needs, Chromium won't start, and Playwright's message names the library. Install that one package in the step then, and let the check pass that line.
+- **`production.yml` and `release.yml`** have the same step on the same image. Neither ran here.
+- No changeset. Workflows, a repo check and this ticket changed.
+
+### Proof
+
+- **Red, then green.** In WSL, the check's five cases failed against a stub. Once written, the check failed on the three workflows and named each line. With the workflows changed, the repo checks passed, 383 tests in 39 files.
+- **Pull request 149's `check`** installed Chromium in ten seconds, with no call to apt, and every test passed without the nine font packages.
+
+### Merged
+
+Added by the lead. PR 149 merged into `main` on 2026-11-11 as `1285381c`, with `gate` green on `8b9c8d5`. This note reaches `main` with the docs site's branch, to save a CI run of its own.
