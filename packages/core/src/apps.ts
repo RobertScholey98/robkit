@@ -18,7 +18,7 @@ import {
   type ListedApp,
   readListedApp,
 } from "@robkit/input/manifest";
-import { asc, eq, inArray, notInArray } from "drizzle-orm";
+import { asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { appRoles, apps, roles } from "./schema.ts";
@@ -88,6 +88,11 @@ export function readListedApps(env: Env): ListedApp[] | InputProblem {
  * if the owner has none of that name. So a slug that comes back is a new
  * app. An app core knows keeps the rule the owner gave it, and takes the
  * icon it declares now.
+ *
+ * Several cores can start at once, as in a rolling deploy. Each applies
+ * its whole list in one transaction that locks the table, so they apply
+ * one after the other and the last one's list is the catalog. Reads of the
+ * catalog go on meanwhile.
  */
 const owner: ManifestAccess = { kind: "owner" };
 
@@ -97,6 +102,9 @@ export async function registerApps(
 ): Promise<void> {
   const slugs = declared.map((app) => app.slug);
   await db.transaction(async (tx) => {
+    // Exclusive mode lets reads through and holds off every change, this
+    // lock taken by another core included, until this transaction ends.
+    await tx.execute(sql`lock table core.apps in exclusive mode`);
     await tx
       .delete(apps)
       .where(slugs.length === 0 ? undefined : notInArray(apps.slug, slugs));
@@ -111,9 +119,7 @@ export async function registerApps(
           .where(eq(apps.slug, slug));
         continue;
       }
-      // Another core starting at the same moment may have just added it.
-      // Then this insert does nothing and returns no row, and that core
-      // adds the rule's roles, so this one leaves them alone.
+      // A slug listed twice is added once, with the first one's rule.
       const [added] = await tx
         .insert(apps)
         .values({ slug, name: slug, access: access.kind, icon: icon ?? null })

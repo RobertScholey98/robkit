@@ -296,6 +296,58 @@ describe("core's catalog as core starts", () => {
     expect(await slugsIn(databaseUrl)).toEqual([]);
   }, 60_000);
 
+  // As when a deploy replaces core's container. Another session holds
+  // core.apps until both cores wait on it, so they apply their lists at
+  // the same moment.
+  it("leaves the catalog holding exactly one list when two cores start together", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    await registerApps(catalog(databaseUrl), [{ slug: slug("old") }]);
+    const lines = logged();
+    const other = postgres(databaseUrl, { max: 2, onnotice: () => undefined });
+    onTestFinished(() => other.end());
+    const { promise: locked, resolve: lock } = Promise.withResolvers();
+    const { promise: released, resolve: release } = Promise.withResolvers();
+    const held = other.begin(async (sql) => {
+      await sql`lock table core.apps in access exclusive mode`;
+      lock(undefined);
+      await released;
+    });
+    onTestFinished(async () => {
+      release(undefined);
+      await held;
+    });
+    await locked;
+
+    const cores = [
+      await startCore(
+        databaseUrl,
+        '[{"slug":"notes"},{"slug":"diary"}]',
+        lines,
+      ),
+      await startCore(databaseUrl, '[{"slug":"recipes"}]', lines),
+    ];
+    await expect
+      .poll(
+        async () => {
+          const [row] = await other<{ waiting: number }[]>`
+            select count(*)::int as waiting from pg_locks
+            where not granted and relation = 'core.apps'::regclass`;
+          return row?.waiting;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(2);
+    release(undefined);
+    await held;
+    await Promise.all(cores.map((core) => core.listening));
+    await stopAll(...cores);
+
+    expect([["diary", "notes"], ["recipes"]]).toContainEqual(
+      await slugsIn(databaseUrl),
+    );
+  }, 60_000);
+
   it("isn't applied again by a core already serving when another starts", async () => {
     const databaseUrl = await freshDatabase();
     await migrate(databaseUrl);
