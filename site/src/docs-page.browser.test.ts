@@ -215,12 +215,16 @@ describe("with reduced motion", () => {
 
 describe("the sidebar", () => {
   it("marks the page the reader is on, and only that one", async () => {
-    const { page } = await openPage(site, path, { width: 1280 });
+    const { page } = await openPage(site, "/docs/get-started/quickstart/", {
+      width: 1280,
+    });
     const current = page
       .getByRole("navigation", { name: "Docs" })
       .locator('[aria-current="page"]');
 
-    expect(await current.allTextContents()).toEqual(["What you need"]);
-    expect(await current.getAttribute("href")).toBe(path);
+    expect(await current.allTextContents()).toEqual(["Quickstart"]);
+    expect(await current.getAttribute("href")).toBe(
+      "/docs/get-started/quickstart/",
+    );
   });
 });

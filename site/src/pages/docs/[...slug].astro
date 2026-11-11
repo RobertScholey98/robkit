@@ -22,6 +22,7 @@ const { Content, headings } = await render(entry);
   description={entry.data.description}
   headings={headings}
   current={entry.id}
+  stub={entry.data.stub}
 >
   <Content />
 </DocsLayout>

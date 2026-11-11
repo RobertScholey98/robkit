@@ -13,9 +13,11 @@ interface Props {
   headings: MarkdownHeading[];
   /** The page's id in the docs collection, such as `get-started/what-you-need`. */
   current: string;
+  /** Whether the page isn't written yet. */
+  stub: boolean;
 }
 
-const { title, description, headings, current } = Astro.props;
+const { title, description, headings, current, stub } = Astro.props;
 
 const navigation = buildNavigation(
   (await getCollection("docs")).map(({ id, data }) => ({
@@ -74,6 +76,11 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
         </nav>
       )}
       <div class="prose">
+        {stub && (
+          <p class="stub" data-stub>
+            This page isn't written yet.
+          </p>
+        )}
         <slot />
       </div>
     </main>
@@ -303,5 +310,14 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
 
   .prose :global(> :first-child) {
     margin-top: 0;
+  }
+
+  .stub {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-left: 3px solid var(--color-accent);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    font-weight: 600;
   }
 </style>

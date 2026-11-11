@@ -14,6 +14,8 @@ const docs = defineCollection({
     section: z.enum(sections),
     /** Its place in its section. A page with none comes after those with one. */
     order: z.number().int().optional(),
+    /** Not written yet: the page shows its first paragraph and says so. */
+    stub: z.boolean().default(false),
   }),
 });
 
