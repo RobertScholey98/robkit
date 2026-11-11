@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { writeSearchIndex } from "./search-index.ts";
 
 const page = (title: string, prose: string) =>
-  `<main><h1>${title}</h1><div class="prose">${prose}</div><footer class="page-foot"></footer></main>`;
+  `<main><h1>${title}</h1><p class="lead">About it.</p><div class="prose">${prose}</div><footer class="page-foot"></footer></main>`;
 
 async function site(files: Record<string, string>): Promise<string> {
   const dist = await mkdtemp(join(tmpdir(), "site-search-"));

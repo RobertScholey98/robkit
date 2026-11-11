@@ -3,6 +3,7 @@
 // HTML with patterns, not a DOM, so the build and the browser share it.
 
 import { type InputProblem, isRecord, problem } from "@robkit/input";
+import { docsPageOf } from "./docs-page.ts";
 
 /** One part of a page: its heading, its address and its text. */
 export interface Section {
@@ -61,14 +62,14 @@ export function sectionsOf(
   html: string,
   href: string,
 ): { title: string; sections: Section[] } | undefined {
-  // Up to the page's own footer, and without what a reader doesn't see
-  // as text: scripts, styles, and the words on buttons.
-  const prose =
-    /<div class="prose"[^>]*>([\s\S]*)<\/div>\s*<footer class="page-foot"/
-      .exec(html)?.[1]
-      ?.replaceAll(/<(script|style|button)\b[\s\S]*?<\/\1>/g, "");
-  const title = /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1];
-  if (prose === undefined || title === undefined) return undefined;
+  const page = docsPageOf(html);
+  if (page === undefined) return undefined;
+  // Without what a reader doesn't see as text: scripts, styles, and the
+  // words on buttons.
+  const prose = page.prose.replaceAll(
+    /<(script|style|button)\b[\s\S]*?<\/\1>/g,
+    "",
+  );
   if (prose.includes("data-stub")) return undefined;
   const parts = prose.split(/(?=<h[23] id=")/);
   const sections = parts.flatMap((part): Section[] => {
@@ -85,7 +86,7 @@ export function sectionsOf(
       },
     ];
   });
-  return { title: textOf(title), sections };
+  return { title: textOf(page.title), sections };
 }
 
 /**
