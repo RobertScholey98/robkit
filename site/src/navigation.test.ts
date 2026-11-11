@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNavigation, type PageInfo } from "./navigation.ts";
+import { buildNavigation, docsFolders, type PageInfo } from "./navigation.ts";
 
 const page = (
   id: string,
@@ -90,5 +90,43 @@ describe("buildNavigation", () => {
     expect(buildNavigation([page("only", "Deploy")]).places).toEqual({
       only: { section: "Deploy", previous: undefined, next: undefined },
     });
+  });
+});
+
+describe("docsFolders", () => {
+  const folders = (pages: PageInfo[]) =>
+    docsFolders(buildNavigation(pages)).map(({ href, title, first }) => [
+      href,
+      title,
+      first.href,
+    ]);
+
+  it("leads /docs/ and each folder to its first page in reading order", () => {
+    expect(
+      folders([
+        page("deploy/coolify", "Deploy", 2),
+        page("get-started/quickstart", "Get started", 2),
+        page("deploy/kamal", "Deploy", 1),
+        page("get-started/what-you-need", "Get started", 1),
+      ]),
+    ).toEqual([
+      ["/docs/", "Docs", "/docs/get-started/what-you-need/"],
+      ["/docs/get-started/", "Get started", "/docs/get-started/what-you-need/"],
+      ["/docs/deploy/", "Deploy", "/docs/deploy/kamal/"],
+    ]);
+  });
+
+  it("gives every folder above a deeper page, and none to a page at the top", () => {
+    expect(
+      folders([page("about", "Concepts", 1), page("a/b/c", "Concepts", 2)]),
+    ).toEqual([
+      ["/docs/", "Docs", "/docs/about/"],
+      ["/docs/a/", "Concepts", "/docs/a/b/c/"],
+      ["/docs/a/b/", "Concepts", "/docs/a/b/c/"],
+    ]);
+  });
+
+  it("has none with no pages", () => {
+    expect(folders([])).toEqual([]);
   });
 });

@@ -130,6 +130,7 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 - Below 48rem (768 px) the header's controls show their icons only, "Menu" too, and keep their words for a screen reader. No control shrinks below what it holds, and the menu button sits 8 px or more from the name. Below 375 px the name drops its word and keeps its mark.
 - From 80rem (1280 px) the page's headings are a column, no taller than the window under the header, which scrolls on its own when the list is longer. A long name breaks after an underscore or a slash. Below it, they sit at the top of the page, folded under "On this page" until the reader opens them. The fold is a `details`, so it opens from the keyboard and with no script.
 - At 375 px nothing scrolls sideways but a code block, which scrolls on its own.
+- `/docs/` and each section's folder, such as `/docs/get-started/`, send the reader to their first page at once, through a page with a meta refresh, since a static host would answer a folder with no page with the 404. Search engines skip those pages, and so do the sitemap, search, the Markdown copies and `llms.txt`.
 - A skip link is the first thing a keyboard reaches. It goes to the page's main content.
 
 ## Controls

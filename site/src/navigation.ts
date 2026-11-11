@@ -80,3 +80,36 @@ export function buildNavigation(pages: PageInfo[]): Navigation {
     places,
   };
 }
+
+/** A folder above the docs pages, and the page it leads to. */
+export interface Folder {
+  /** Its address, such as `/docs/` or `/docs/get-started/`. */
+  href: string;
+  /** "Docs" for /docs/, else the section of the page it leads to. */
+  title: string;
+  /** Its first page in reading order. */
+  first: NavLink;
+}
+
+/**
+ * `/docs/` and every folder above a docs page, each with its first page
+ * in reading order. A static host answers a folder with no page of its
+ * own with the 404 page, so the site builds one that leads on.
+ */
+export function docsFolders({ sections }: Navigation): Folder[] {
+  const reading = sections.flatMap(({ title, pages }) =>
+    pages.map((page) => ({ title, page })),
+  );
+  const folders = new Map<string, Folder>();
+  for (const { title, page } of reading) {
+    if (folders.size === 0) {
+      folders.set("/docs/", { href: "/docs/", title: "Docs", first: page });
+    }
+    const parts = page.id.split("/");
+    for (let depth = 1; depth < parts.length; depth++) {
+      const href = `/docs/${parts.slice(0, depth).join("/")}/`;
+      if (!folders.has(href)) folders.set(href, { href, title, first: page });
+    }
+  }
+  return [...folders.values()];
+}

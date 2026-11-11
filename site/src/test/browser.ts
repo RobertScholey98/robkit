@@ -43,6 +43,12 @@ export interface View {
   reducedMotion?: boolean;
   /** A theme the reader chose before, as the toggle stores it. */
   stored?: "light" | "dark";
+  /**
+   * An address to answer with 204 No Content, which leaves the browser on
+   * the page it was on. A page that sends the reader on at once then stays
+   * to be checked.
+   */
+  stay?: string | undefined;
 }
 
 export interface Opened {
@@ -61,6 +67,7 @@ export async function openPage(
     scripts = true,
     reducedMotion = false,
     stored,
+    stay,
   }: View,
 ): Promise<Opened> {
   const context = await site.browser.newContext({
@@ -74,6 +81,11 @@ export async function openPage(
     await context.addInitScript((value) => {
       localStorage.setItem("robkit-theme", value);
     }, stored);
+  }
+  if (stay !== undefined) {
+    await context.route(`${site.origin}${stay}`, (route) =>
+      route.fulfill({ status: 204 }),
+    );
   }
   const page = await context.newPage();
   const requests: string[] = [];
