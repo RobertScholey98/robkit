@@ -17,6 +17,7 @@ Each app in your install stands on its own, and reaches core only over HTTP. `ro
 - A shared package imports only its own files, `@robkit/*` packages and other shared packages. It never imports an app.
 - An app or a shared package reaches core over HTTP only, never through `@robkit/core`. Only `apps/core` depends on it.
 - Handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.
+- An app or a shared package imports no file under `node_modules`, `dist`, `build`, a dot-folder or a symlinked folder, since `robkit check` doesn't read them. Import a package by its name.
 
 Postgres keeps the same rule for data. An app's role can reach its own schema and nothing else.
 
@@ -28,9 +29,10 @@ Run it in the install's folder:
 pnpm robkit check
 ```
 
-It prints a line for each place a file breaks the rule, with the file, its line and column, and the rule it breaks, and exits 1. In an install with four such files it prints:
+It prints a line for each place a file breaks the rule, with the file, its line and column, and the rule it breaks, and exits 1. In an install with five such files it prints:
 
 ```text title="What it prints"
+apps/example/src/built.ts:1:8  Layer rule: an app or shared package imports no file under node_modules, dist, build, a dot-folder or a symlinked folder, since robkit check doesn't read them. Keep source out of those folders, and import a package by its name.
 apps/example/src/core.ts:1:28  Layer rule: an app or shared package reaches core over HTTP only, never through @robkit/core.
 apps/example/src/reach.ts:1:8  Layer rule: an app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.
 apps/example/src/token.ts:1:27  Layer rule: handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.
@@ -45,3 +47,5 @@ When every file keeps to the rule, it prints nothing and exits 0.
 - **`@robkit/core`.** Call core over HTTP from your server, at `ROBKIT_CORE_URL`. The guard already asks core for what it needs.
 - **The session or a token.** Take the viewer from your stack's adapter. [The viewer and the guard](/docs/build-an-app/the-viewer-and-the-guard/) shows how on each stack.
 - **An app, from a shared package.** Move the code the package needs into it, or into another shared package.
+- **A file `robkit check` doesn't read.** Import a package by its name, never by a path into `node_modules`. Keep your own source out of `dist`, `build`, dot-folders and symlinked folders.
+
