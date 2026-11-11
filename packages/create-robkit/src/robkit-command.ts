@@ -10,7 +10,7 @@ import {
   install as addresses,
 } from "@robkit/input/addresses";
 import { addApp, readInstallChoices } from "./add.ts";
-import { affectedApps } from "./affected-apps.ts";
+import { gitHistory } from "./affected-apps.ts";
 import { readArgs } from "./args.ts";
 import {
   addCommandFor,
@@ -71,9 +71,11 @@ ROBKIT_DB_SECRET.
 Usage: robkit deploy [--all | --apps <list>] [--dry-run]
 
 Brings the install's applications on Coolify in line with the install, as
-coolify.json describes it, then deploys core and the apps that changed
-since TURBO_SCM_BASE. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run,
-prints each app's variables and contacts nothing.`;
+coolify.json describes it, then deploys, core first, each app that is new,
+changed since the commit its last finished deploy recorded, or getting new
+variables. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run, reads Coolify,
+writes nothing to it, and prints what each app would do and why. Without
+COOLIFY_URL, --dry-run prints each app's variables instead.`;
 
 process.exitCode = await runCommand(async () => {
   requireInstall(process.cwd());
@@ -154,7 +156,7 @@ async function deployInstall(): Promise<number | undefined> {
   const root = process.cwd();
   await readInstallChoices(root);
   const dryRun = values["dry-run"];
-  const coolify = dryRun ? undefined : readCoolify(process.env);
+  const coolify = readCoolify(process.env);
   if (isProblem(coolify)) throw new CommandProblem(coolify.error);
   // An install's CI deploys from its first push, before Coolify is set up.
   if (!coolify && !dryRun) {
@@ -184,19 +186,24 @@ async function deployInstall(): Promise<number | undefined> {
         console.log(`  ${key}=${shown}`);
       }
     }
+    console.log(
+      "Set COOLIFY_URL and COOLIFY_TOKEN to see which apps would deploy and why: the reasons need the host.",
+    );
     return;
   }
-  const affected = values.all
+  const apps = values.all
     ? "all"
     : values.apps === undefined
-      ? await affectedApps(root)
+      ? "changed"
       : readAppList(values.apps);
-  if (isProblem(affected)) throw new CommandProblem(affected.error);
+  if (isProblem(apps)) throw new CommandProblem(apps.error);
   const ok = await deploy({
     coolify,
     config,
     deployments,
-    affected,
+    apps,
+    history: await gitHistory(root),
+    dryRun,
   });
   return ok ? 0 : 1;
 }
