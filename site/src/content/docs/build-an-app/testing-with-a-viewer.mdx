@@ -62,6 +62,8 @@ Each stack's adapter has a `/testing` entry for tests only. `owner()`, `guest({ 
 
     It calls `routes` without `session.Guarded`, so it covers none of the guard's work, such as the session, the access rule or a write from another origin.
 
+    The page has a test of its own. `src/home.test.tsx` draws it in happy-dom and stubs `fetch` with what the server answers. `pnpm test` runs `go test`, then Vitest.
+
   </Fragment>
 </StackSwitch>
 
