@@ -42,15 +42,7 @@ export interface InitResult {
   notes: string[];
 }
 export const readyStacks: Stack[];
-export const robkitCommands: readonly [
-  "add",
-  "check",
-  "migrate",
-  "upgrade",
-  "vendor",
-  "database-urls",
-  "deploy",
-];
+export const robkitCommands: readonly string[];
 export type Stack = Ready["value"];
 export function stackFrom(value: string): Stack;
 export const stacks: readonly [
