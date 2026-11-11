@@ -5,9 +5,12 @@
 import type { Stack } from "create-robkit";
 import { treePaths, type TreeEntry } from "./install-tree.ts";
 
-/** Each stack's files, from the app's folder, as its guide lists them. */
-export const appFiles = {
-  "react-hono": [
+/**
+ * An app on React and a Node server that Vite runs, as `robkit add` writes
+ * it. `server` says what `src/server.tsx` holds.
+ */
+function serverApp(server: string): TreeEntry[] {
+  return [
     {
       name: "src/",
       about: "The app's code.",
@@ -26,10 +29,7 @@ export const appFiles = {
           name: "routes.test.tsx",
           about: "Tests the routes as the owner and as a guest.",
         },
-        {
-          name: "server.tsx",
-          about: "The Hono server. The guard runs first, then the routes.",
-        },
+        { name: "server.tsx", about: server },
         { name: "serve.ts", about: "Serves the built app in production." },
         {
           name: "styles.css",
@@ -60,7 +60,14 @@ export const appFiles = {
       about: "How the app works, for a coding agent, and for you.",
     },
     { name: "CLAUDE.md", about: "Points Claude Code at AGENTS.md." },
-  ],
+  ];
+}
+
+/** Each stack's files, from the app's folder, as its guide lists them. */
+export const appFiles = {
+  "react-hono": serverApp(
+    "The Hono server. The guard runs first, then the routes.",
+  ),
 } satisfies Partial<Record<Stack, TreeEntry[]>>;
 
 /** What a list says that a folder's files don't, and the other way round. */
