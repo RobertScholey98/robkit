@@ -1,5 +1,6 @@
 // A page's front matter says where it belongs. A page that leaves out its
-// title or section stops the build, and the message names the page's file.
+// title, its section or a description stops the build, and the message
+// names the page's file.
 // Each case runs `astro sync` on a throwaway copy of the site's config.
 
 import { execFile } from "node:child_process";
@@ -90,6 +91,16 @@ describe("a page's front matter", { timeout: 60_000 }, () => {
     // Astro words the two differently: a section must be one of a list.
     ["section", "title: No section\ndescription: A page.", "section: Invalid"],
     ["title", "description: A page.\nsection: Concepts", "title: Required"],
+    [
+      "description",
+      "title: No description\nsection: Concepts",
+      "description: Required",
+    ],
+    [
+      "description that says anything",
+      "title: Empty\ndescription: ''\nsection: Concepts",
+      "description: Too small",
+    ],
   ])(
     "stops the build without a %s, naming the file",
     async (field, data, message) => {
