@@ -432,7 +432,10 @@ export async function deploy({
   const desired = deployments.map((deployment) =>
     desiredApp(deployment, config),
   );
-  const host = await readHost(api, config, sharedVariablesOf(deployments));
+  const host = await readHost(api, config, {
+    shared: sharedVariablesOf(deployments),
+    names: desired.map(({ settings }) => String(settings.name)),
+  });
   const decisions = await decide(apps, desired, host, history);
   const logPlan = (rows: readonly Omit<Step, "uuid" | "variables">[]) => {
     log("| App | Action | Detail |");

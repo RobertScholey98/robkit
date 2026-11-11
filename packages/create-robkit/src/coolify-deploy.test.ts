@@ -1089,6 +1089,53 @@ describe("deploy's lookups", () => {
     );
   });
 
+  /** An application for `slug` from before the repository moved. */
+  const fromBefore = (slug: string, uuid: string) => ({
+    ...existing(slug, uuid),
+    git_repository: "https://github.com/RobertScholey98/old-name.git",
+  });
+
+  it("writes nothing when another repository's application has an app's name", async () => {
+    const state = host({
+      applications: [
+        existing("core", "c"),
+        fromBefore("hub", "h"),
+        fromBefore("notes", "n"),
+      ],
+    });
+
+    await expect(run(state, "all")).rejects.toThrow(
+      [
+        "Coolify's production environment has applications with this install's names, built from another repository, so robkit deploy wrote nothing:",
+        "- robkit-hub, built from https://github.com/RobertScholey98/old-name.git",
+        "- robkit-notes, built from https://github.com/RobertScholey98/old-name.git",
+        "coolify.json names RobertScholey98/robkit-dev. If the repository moved, change each application's repository to that in Coolify, then deploy again. If they are another install's, give this install its own project or environment in coolify.json.",
+      ].join("\n"),
+    );
+    expect(state.requests.map(({ method }) => method)).toEqual(
+      state.requests.map(() => "GET"),
+    );
+  });
+
+  it("adopts its own application when another repository's shares its name", async () => {
+    const state = host({
+      applications: [
+        existing("core", "c"),
+        existing("hub", "h"),
+        existing("notes", "n"),
+        fromBefore("hub", "other-hub"),
+      ],
+    });
+
+    const { ok } = await run(state, "all");
+
+    expect(ok).toBe(true);
+    expect(
+      state.requests.filter(({ path }) => path.includes("other-hub")),
+    ).toEqual([]);
+    expect(state.applications).toHaveLength(4);
+  });
+
   it("takes Coolify's only server, whatever its name", async () => {
     const state = host({ servers: [{ uuid: "only", name: "box" }] });
 

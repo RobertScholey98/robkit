@@ -116,13 +116,46 @@ export interface Host {
 }
 
 /**
- * Reads where the install deploys, refuses an environment that lacks a
- * shared variable in `shared`, and lists this install's applications.
+ * Refuses, before anything is written, an environment where an application
+ * built from another repository has one of the install's `names`, and the
+ * install has none by that name. The install would otherwise create a
+ * second application with the first one's name and domain. That happens
+ * to every app when `repository` changes in coolify.json, since none of
+ * the applications is the install's any more.
+ */
+function requireNamesFree(
+  config: CoolifyConfig,
+  names: readonly string[],
+  ours: readonly unknown[],
+  others: readonly unknown[],
+): void {
+  const held = new Set(ours.map((app) => stringFieldOf(app, "name")));
+  const taken = others.filter((app) => {
+    const name = stringFieldOf(app, "name");
+    return name !== undefined && names.includes(name) && !held.has(name);
+  });
+  if (taken.length === 0) return;
+  throw new CommandProblem(
+    [
+      `Coolify's ${config.environment} environment has applications with this install's names, built from another repository, so robkit deploy wrote nothing:`,
+      ...taken.map(
+        (app) =>
+          `- ${stringFieldOf(app, "name") ?? "?"}, built from ${stringFieldOf(app, "git_repository") ?? "no repository"}`,
+      ),
+      `coolify.json names ${config.repository}. If the repository moved, change each application's repository to that in Coolify, then deploy again. If they are another install's, give this install its own project or environment in coolify.json.`,
+    ].join("\n"),
+  );
+}
+
+/**
+ * Reads where the install deploys and lists this install's applications.
+ * It refuses an environment that lacks a shared variable in `shared`, or
+ * where another repository's application has a name in `names`.
  */
 export async function readHost(
   api: CoolifyApi,
   config: CoolifyConfig,
-  shared: readonly string[],
+  { shared, names }: { shared: readonly string[]; names: readonly string[] },
 ): Promise<Host> {
   const [projects, servers, githubApps, applications] = await Promise.all(
     ["/projects", "/servers", "/github-apps", "/applications"].map((path) =>
@@ -147,16 +180,20 @@ export async function readHost(
     );
   }
   // Coolify's JSON may give an id as a number or a string.
+  const here = listed.filter(
+    (app) => String(fieldOf(app, "environment_id")) === String(environment),
+  );
   const repository = normalizeRepo(config.repository);
-  return {
-    target,
-    applications: listed.filter(
-      (app) =>
-        String(fieldOf(app, "environment_id")) === String(environment) &&
-        normalizeRepo(stringFieldOf(app, "git_repository") ?? "") ===
-          repository,
-    ),
-  };
+  const isOurs = (app: unknown) =>
+    normalizeRepo(stringFieldOf(app, "git_repository") ?? "") === repository;
+  const ours = here.filter(isOurs);
+  requireNamesFree(
+    config,
+    names,
+    ours,
+    here.filter((app) => !isOurs(app)),
+  );
+  return { target, applications: ours };
 }
 
 function normalizeRepo(repository: string): string {
