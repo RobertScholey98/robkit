@@ -18,7 +18,7 @@ The hub changes in milestone 4 of "Just use it" (its ticket 27). Ticket 26 runs 
 - [x] The record beside the screenshots names the commit and the command
 - [x] Each screenshot on the site has a text alternative that says what it shows
 - [x] The home page stays under the script size ticket 02 recorded, and its images don't shift the layout as they load
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -52,3 +52,7 @@ The hub changes in milestone 4 of "Just use it" (its ticket 27). Ticket 26 runs 
 **What milestone 4 will change on these pages.**
 
 - Its ticket 27 changes the hub. Ticket 26 runs `pnpm screenshots` again then, and fixes the words in `screenshots.ts` to match.
+
+### Merged
+
+Added by the lead. PR 120 merged into `docs-site` on 2026-11-11 as `09d18442`, with `gate` green on `2f20b9a`. It went in with the catch-up, PR 131, whose `gate` passed on `e2e773e` for the whole stack on milestone 4's templates.

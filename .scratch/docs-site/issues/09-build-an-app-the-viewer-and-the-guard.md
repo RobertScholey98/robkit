@@ -16,7 +16,7 @@ Each page follows "The words" in the [PRD](../PRD.md). The sources are each stac
 - [x] The testing page shows a test file from each of the five stacks' templates, and says for each what it doesn't cover
 - [x] The pages agree with `SECURITY.md` on what the guard does and doesn't do, and the Proof names the passages checked
 - [x] The page on writes names the methods the guard treats as writes, from the code
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -57,3 +57,7 @@ Each page follows "The words" in the [PRD](../PRD.md). The sources are each stac
 
 - Ticket 27 of "Just use it" finishes the templates, each stack's page and test among them. A part whose first or last line changes fails the build, so this page names the file to fix.
 - Ticket 27 also notes that `next/image` can't show a file from `public` behind the guard. If it changes how Next serves `public`, check the line on built files here.
+
+### Merged
+
+Added by the lead. PR 121 merged into `docs-site` on 2026-11-11 as `98ef5ec0`, with `gate` green on `1a7294d`. It went in with the catch-up, PR 131, whose `gate` passed on `e2e773e` for the whole stack on milestone 4's templates.
