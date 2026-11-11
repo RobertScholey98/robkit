@@ -24,7 +24,7 @@
 - [x] Changing a file outside `site/` that the site reads makes turbo run the site's build again
 - [x] CI's `check` job has the built site as an artifact
 - [x] `CONTRIBUTING.md` says how to build and serve the site, and how to view the artifact
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -50,3 +50,10 @@
 - `astro check` runs `astro sync`, which writes `.astro/`. `lint` doesn't need it yet, because no `.ts` file imports an `astro:` module. Once one does, the site's `lint` must run after `astro sync`.
 - `findRepoRoot` starts from the working folder, which pnpm sets to `site/`. Astro bundles each page before it runs it, so a page can't find the repo from `import.meta.url`.
 - `pnpm --filter @internal/site preview` serves `site/dist` on port 4321.
+
+### Merged
+
+Added by the lead. PR 100 merged into `docs-site` on 2026-11-11, with `gate` green on `5fc4b74`. Two earlier runs failed on things outside the site:
+
+- `vendor.pack.test.ts` in `create-robkit` passed its 120 second limit. Its two tests each build and pack every package, and they ran side by side. They now run one after the other (`52cada4c`).
+- Docker Hub answered 502 when `tooling/test-postgres` pulled `postgres:18-alpine`. A re-run of the failed job passed.

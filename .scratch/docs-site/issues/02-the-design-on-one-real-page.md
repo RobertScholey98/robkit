@@ -26,7 +26,7 @@
 - [x] The page makes no request to another origin
 - [x] The page's Node version is read from the templates, and a test fails if the page and the templates differ
 - [x] A test holds the page's scripts under the recorded size
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -62,3 +62,7 @@
 
 - If R answers yes on ticket 21 (`pnpm dev` on native Windows), "Linux or macOS, or WSL on Windows" no longer holds, and the page drops the WSL steps.
 - "Before the first release" goes once robkit is on npm, in ticket 26.
+
+### Merged
+
+Added by the lead. PR 101 merged into `docs-site` on 2026-11-11, with `gate` green on `561803d`.
