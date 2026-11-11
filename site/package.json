@@ -24,6 +24,7 @@
     "@internal/tsconfig": "workspace:*",
     "@internal/vitest-config": "workspace:*",
     "@robkit/dev": "workspace:*",
+    "@robkit/input": "workspace:*",
     "@robkit/session": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
