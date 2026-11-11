@@ -40,11 +40,9 @@ Open the hub's address to sign in. When any app exits, `pnpm dev` stops the rest
 
 `pnpm dev` reads its settings from a `.env` file at the install's root, which git ignores. Docker Compose reads the same file, so Postgres and `pnpm dev` move together. A value you export in the shell wins over the file's.
 
-| Setting                | Default            | What it sets                                                                                   |
-| ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------- |
-| `ROBKIT_DEV_PORT`      | `3000`             | The proxy's port. The apps take the ports after it, one each, so moving it moves them too.     |
-| `ROBKIT_POSTGRES_PORT` | `54320`            | Where Postgres listens on your machine.                                                        |
-| `ROBKIT_DOMAIN`        | `robkit.localhost` | The domain each app's subdomain is under. It must be `localhost` or a name under it.           |
+- `ROBKIT_DEV_PORT`, `3000` by default. The proxy's port. The apps take the ports after it, one each, so moving it moves them too.
+- `ROBKIT_POSTGRES_PORT`, `54320` by default. Where Postgres listens on your machine.
+- `ROBKIT_DOMAIN`, `robkit.localhost` by default. The domain each app's subdomain is under. It must be `localhost` or a name under it.
 
 Your apps' own settings go in each app's `.env`, as [Settings](/docs/build-an-app/settings/) says.
 
@@ -81,12 +79,10 @@ It also refuses when the socket's path is 100 bytes or more. Make a folder only 
 pnpm robkit add notes --stack react-hono --access owner --icon 📝
 ```
 
-| Option                  | What it sets                                                                                           | Default         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------ | --------------- |
-| `--stack <stack>`       | The stack: `start`, `react-hono`, `express`, `next` or `go`.                                           | `start`         |
-| `--access <rule>`       | Who may open it: `owner` for only you, `open` for anyone, signed in or not, or `roles` for some guests. | `owner`         |
-| `--roles <role,...>`    | The guest roles that may open it. It goes only with `--access roles`, and needs at least one.          | none            |
-| `--icon <emoji>`        | The emoji the hub's launcher shows for it.                                                             | 📦              |
+- `--stack <stack>`. The stack, one of `start`, `react-hono`, `express`, `next` or `go`. By default, `start`.
+- `--access <rule>`. Who may open it, `owner` for only you, `open` for anyone signed in or not, or `roles` for some guests. By default, `owner`.
+- `--roles <role,...>`. The guest roles that may open it. It goes only with `--access roles`, and needs at least one. By default, none.
+- `--icon <emoji>`. The emoji the hub's launcher shows for it. By default, 📦.
 
 The name is the app's slug. It can't be one of the platform apps, `core`, `hub` or `admin`, or an app the install already has. After asking, `robkit add` prints the same command with options, to add the app again without the questions.
 

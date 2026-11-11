@@ -262,26 +262,23 @@ describe("the built page on pnpm dev and your apps", () => {
     }).stderr;
   };
 
-  /** The text in each cell of each body row of the table after `heading`. */
-  const rowsAfter = (html: string, heading: string) => {
-    const table = /<table[\s\S]*?<\/table>/.exec(
+  /** The text of each item in the list after `heading`. */
+  const itemsAfter = (html: string, heading: string) => {
+    const list = /<ul>[\s\S]*?<\/ul>/.exec(
       html.slice(html.indexOf(`id="${heading}"`)),
     );
-    return [...(table?.[0] ?? "").matchAll(/<tr>([\s\S]*?)<\/tr>/g)]
-      .slice(1)
-      .map(([, row = ""]) =>
-        [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(([, cell = ""]) =>
-          cell
-            .replaceAll(/<[^>]+>/g, "")
-            .replaceAll("&lt;", "<")
-            .replaceAll("&gt;", ">"),
-        ),
-      );
+    return [...(list?.[0] ?? "").matchAll(/<li>([\s\S]*?)<\/li>/g)].map(
+      ([, item = ""]) =>
+        item
+          .replaceAll(/<[^>]+>/g, "")
+          .replaceAll("&lt;", "<")
+          .replaceAll("&gt;", ">"),
+    );
   };
 
   it("names each option robkit add takes, with its default", async () => {
     const usage = await addUsage();
-    const rows = rowsAfter(await built(page), "add-an-app");
+    const items = itemsAfter(await built(page), "add-an-app");
     const defaults =
       /stack defaults to (\S+), access to (\S+) only, and the icon\s+to (\S+)\./.exec(
         usage,
@@ -289,17 +286,17 @@ describe("the built page on pnpm dev and your apps", () => {
 
     const line = /^Usage: robkit add .*$/m.exec(usage)?.[0] ?? "";
 
-    expect(rows.map(([option = ""]) => option.split(" ")[0])).toEqual(
+    expect(items.map((item) => /^--[a-z]+/.exec(item)?.[0])).toEqual(
       line.match(/(?<=\[)--[a-z]+/g),
     );
-    expect(rows.map((row) => row[2])).toEqual([
+    expect(items.map((item) => /By default, (.+)\.$/.exec(item)?.[1])).toEqual([
       defaults?.[1],
       defaults?.[2],
       "none",
       defaults?.[3]?.replace(/\.$/, ""),
     ]);
-    expect(rows[0]?.[1]).toBe(
-      `The stack: ${readyStacks.slice(0, -1).join(", ")} or ${String(readyStacks.at(-1))}.`,
+    expect(/one of (.+?)\.\s/.exec(items[0] ?? "")?.[1]).toBe(
+      `${readyStacks.slice(0, -1).join(", ")} or ${String(readyStacks.at(-1))}`,
     );
   });
 

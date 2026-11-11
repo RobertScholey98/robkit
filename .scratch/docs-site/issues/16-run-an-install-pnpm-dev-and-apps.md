@@ -27,9 +27,9 @@ Milestone 4 also changes how the commands find a running `pnpm dev` from another
   - Core takes an app whose folder is gone out of its catalog as it starts, so it leaves the launcher and admin. Its schema and role stay, and the page gives the command from the install's `AGENTS.md` that drops both.
   - The socket is in `~/.robkit/run`, for every terminal.
 - The checks list follows `runDev` and `checkBeforeStart`, in the order they run. It also covers the socket folder checks from `requests.ts`. The quickstart's shorter list stays as it is and covers the first run.
-- The `robkit add` table gives each option, what it sets and its default. The page links to "Your first app" for the questions rather than repeating them.
+- The `robkit add` options are a list, each with what it sets and its default. So are the settings. As tables they made the page 437 pixels wide on a 375-pixel phone, and `site/DESIGN.md` has no table style yet. The page links to "Your first app" for the questions rather than repeating them.
 - "Your own template" covers `robkit/templates/<stack>`, which `add.ts` uses in place of robkit's template.
-- `ROBKIT_DATABASE_URL` is left off the settings table. Ticket 21's settings reference is the place for it.
+- `ROBKIT_DATABASE_URL` is left off the settings list. Ticket 21's settings reference is the place for it.
 
 **Proof**
 
@@ -47,11 +47,14 @@ Milestone 4 also changes how the commands find a running `pnpm dev` from another
     - I stopped `pnpm dev`, deleted `apps/notes` and started it again. The launcher showed only the example, and admin no longer listed notes. Postgres still had the schema, the role and both tables.
     - The page's `drop owned by notes; drop role notes;` command dropped both.
     - `robkit add photos --stack go` with no `pnpm dev` printed the page's "Added apps/photos. Next:" block.
-- The site's build, lint, typecheck and all 232 tests pass at 100% coverage. Of the repo checks, all but the six gofmt tests pass on Windows, which has no Go. This page has no Go fences.
+- A new `run-an-install.browser.test.ts` runs axe on the page at 375 and 1280 pixels in both themes, and checks it doesn't scroll sideways at 375 pixels. It failed at 437 pixels with the tables, and passes with the lists.
+- The site's build, lint, typecheck and all 237 tests pass at 100% coverage. Of the repo checks, all but the six gofmt tests pass on Windows, which has no Go. This page has no Go fences.
 
 **What the next tickets need**
 
-- `built-site.test.ts` has a `rowsAfter(html, heading)` helper inside this page's `describe` that reads a table's body rows after a heading's id. Move it out if another page's test needs it.
+- `built-site.test.ts` has an `itemsAfter(html, heading)` helper inside this page's `describe` that reads the items of the first list after a heading's id. Move it out if another page's test needs it.
+- The site has no table style. A page that needs a table needs one in `site/DESIGN.md` first, or it scrolls sideways on a phone.
+- Add each new Run an install page to `run-an-install.browser.test.ts`.
 - `run16.sh` and `run16-drive.mjs` in the scratchpad drive the hub and admin as the owner from WSL. Ticket 17 can reuse them for guests and access codes.
 
 **What milestone 4 changed**
