@@ -6,7 +6,13 @@
 
 The first deploy after this upgrade deploys every app, since none has a record yet.
 
-`robkit upgrade` doesn't change `.github`, so change your install's `.github/workflows/ci.yml` by hand:
+A change to the `Dockerfile` or `.dockerignore` alone used to deploy nothing, since turbo counted no app as changed. A new install's `turbo.json` names both as `globalDependencies`, so either deploys every app. `robkit upgrade` doesn't change `turbo.json`, so add this line to your install's, above `"tasks"`:
+
+```json
+"globalDependencies": ["Dockerfile", ".dockerignore"],
+```
+
+`robkit upgrade` doesn't change `.github` either, so change your install's `.github/workflows/ci.yml` by hand:
 
 - In the top-level `concurrency`, replace `cancel-in-progress: true` with `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`, so a push to `main` never cancels a run in progress.
 - In the deploy job's `pnpm robkit deploy` step, delete the `TURBO_SCM_BASE` line under `env`. `robkit deploy` ignores it now, and works out what changed from each app's record.

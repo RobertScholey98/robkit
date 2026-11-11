@@ -30,6 +30,7 @@ An app deploys when:
 - it is new to Coolify
 - it has no record, or one `robkit deploy` can't read
 - its code, or a package it uses, changed since its recorded commit
+- the `Dockerfile` or `.dockerignore` changed since then, since every app's image is built with them. `turbo.json` names both as `globalDependencies`, which is how turbo knows
 - the variables it is about to get differ from its record. A new app, or one that gains or loses a `migrate` script, changes core's variables, so core deploys too
 - its recorded commit isn't in the checkout's history, as after a force push, or when Coolify built a commit newer than the checkout
 
