@@ -113,7 +113,9 @@ async function startInstall(): Promise<Running> {
     cwd: dir,
     env: {
       ...process.env,
-      ROBKIT_POSTGRES_PORT: String(await freePostgresPort()),
+      // A port the shell sets wins, for a machine that keeps some free.
+      ROBKIT_POSTGRES_PORT:
+        process.env.ROBKIT_POSTGRES_PORT ?? String(await freePostgresPort()),
     },
     // Its own process group, as a terminal's job, so SIGINT stops it all.
     detached: true,

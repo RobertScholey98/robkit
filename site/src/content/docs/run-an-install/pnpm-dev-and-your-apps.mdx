@@ -88,7 +88,7 @@ The name is the app's slug. It can't be one of the platform apps, `core`, `hub` 
 
 ### With pnpm dev running
 
-`robkit add` writes the app and installs its dependencies. Then `pnpm dev` gives it a database, migrates it, starts it on a free port and routes its subdomain. Last, it starts a new core so the launcher lists the app. Nobody is signed out, and every other app keeps running. `robkit add` prints the app's address:
+`robkit add` writes the app and installs its dependencies. Then `pnpm dev` gives it a database, migrates it and starts it on a free port. It starts a new core so the launcher lists the app, and last routes the app's subdomain. Nobody is signed out, and every other app keeps running. `robkit add` prints the app's address:
 
 ```text
 Added apps/notes. pnpm dev started notes at http://notes.robkit.localhost:3000.
@@ -138,6 +138,6 @@ The app's data stays. Its Postgres schema and role are still there, and a new ap
 docker compose exec postgres psql -U postgres -d robkit -c 'drop owned by notes; drop role notes;'
 ```
 
-A slug that comes back is a new app, whether you add one with that slug or bring the folder back, such as by switching to a branch that has it. Core gives it the rule its `package.json` declares, or owner only, and none of the old roles, so set its rule in admin again.
+A slug that comes back is a new app, whether you add one with that slug or bring the folder back, such as by switching to a branch that has it. Core gives it the rule its `package.json` declares, or owner only, and not the rule you last set in admin, so set that again.
 
 In production, deleting the folder doesn't stop the app. `robkit deploy` redeploys core, which takes the app out, but its container runs until you delete its application in Coolify. The install's `docs/deploy.md` says how.

@@ -20,7 +20,7 @@ Two more tests in the file expect a port they don't hold to be free: "passes ove
 - [x] The failure is reproduced before the fix, shown by the same assertion with another server on the port the test expects
 - [x] The three tests lease each port they expect to be free
 - [x] `checks.test.ts` passes
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -31,3 +31,7 @@ Two more tests in the file expect a port they don't hold to be free: "passes ove
 - A test still takes a port from the OS when it only needs one that is held, since nobody else can get a port it holds.
 - `portForNewApp` and `isTaken` don't change. Only the tests counted on a port they didn't hold.
 - No changeset. Only a test file changed.
+
+### Merged
+
+Added by the lead. PR 140 merged into `main` on 2026-11-11 as `ca801c8d`, with `gate` green on `6703f46`.

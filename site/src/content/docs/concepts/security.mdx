@@ -33,7 +33,7 @@ The rules come from robkit's `SECURITY.md`, and the known gaps at the end of thi
 
 **Sign-in is limited.** Wrong access codes are limited per visitor and across the whole install, so guessing a code takes years. The same page gives the numbers.
 
-**Your built files are public.** An app serves its built scripts, styles and `public` files before the guard runs, so anyone who can reach the app can fetch them. Put nothing there that a viewer shouldn't see.
+**Your built files are public.** An app serves its built scripts and styles before the guard runs, so anyone who can reach the app can fetch them. So are its `public` files, on every stack but Next.js, whose `public` files go through the guard. Put nothing there that a viewer shouldn't see.
 
 **robkit's own packages skip pnpm's one-day wait.** An install's catalog pins each of robkit's packages to one exact version, so an install made on the day of a release still installs. Every other package waits its day. `SECURITY.md` says how to keep the wait for robkit's packages too.
 
