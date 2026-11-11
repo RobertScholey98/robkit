@@ -4,17 +4,19 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 import { publishedPackages } from "./published.ts";
+import { sitePageGlobs } from "./site-pages.ts";
 
 /** The checkout's root folder. */
 export const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
-/** The docs whose examples must compile, relative to the root. */
+/** The docs whose examples must compile, relative to the root: the repo's markdown and the site's pages. */
 const docGlobs = [
   "README.md",
   "CONTRIBUTING.md",
   "AGENTS.md",
   "docs/**/*.md",
   "packages/*/README.md",
+  ...sitePageGlobs,
 ];
 
 /** One TypeScript fence in a doc. */
