@@ -18,6 +18,7 @@ afterAll(async () => {
 describe.each([
   "/docs/reference/npm-create-robkit/",
   "/docs/reference/robkit-command/",
+  "/docs/reference/settings/",
 ])("%s", (path) => {
   describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
     it.each(["light", "dark"] as const)(
