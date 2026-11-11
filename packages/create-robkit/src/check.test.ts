@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +18,8 @@ const overHttp =
   "Layer rule: an app or shared package reaches core over HTTP only, never through @robkit/core.";
 const viewerFromAdapter =
   "Layer rule: handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.";
+const readFolders =
+  "Layer rule: an app or shared package imports no file under node_modules, dist, build, a dot-folder or a symlinked folder, since robkit check doesn't read them. Keep source out of those folders, and import a package by its name.";
 
 /** A written install, without its dependencies: the check reads files only. */
 async function freshInstall(): Promise<string> {
@@ -256,6 +258,86 @@ describe("checkInstall", () => {
       expect.objectContaining({ file: "apps/example/src/reach.tsx", line: 1 }),
     ]);
   });
+
+  it.each([
+    ["node_modules", "apps/example/src", "./node_modules/dep/index.js"],
+    ["dist", "apps/example/src", "../dist/server.js"],
+    ["build", "apps/example/src", "./build/server.js"],
+    ["a dot-folder", "apps/example/src", "./.cache/server.js"],
+    ["dist, from a shared package", "packages/ui/src", "../dist/index.js"],
+  ])(
+    "refuses a relative import into %s, which it doesn't read",
+    async (_, folder, specifier) => {
+      const dir = await installWith(
+        `${folder}/reach.ts`,
+        `// Hidden from the check.\nimport "${specifier}";\n`,
+      );
+      const hidden = join(dir, folder, specifier);
+      await mkdir(dirname(hidden), { recursive: true });
+      await writeFile(hidden, 'require("@robkit/core");\n');
+
+      expect(await checkInstall(dir)).toEqual([
+        { file: `${folder}/reach.ts`, line: 2, column: 8, rule: readFolders },
+      ]);
+    },
+  );
+
+  it.each([
+    ["the folder it imports", "./linked", "linked"],
+    ["the first folder along its path", "./linked/server.ts", "linked"],
+    ["a folder part-way along its path", "./a/linked/server.ts", "a/linked"],
+  ])(
+    "refuses a relative import through a symlink at %s",
+    async (_, specifier, linked) => {
+      const dir = await installWith(
+        "apps/example/src/reach.ts",
+        `import "${specifier}";\n`,
+      );
+      await mkdir(join(dir, "elsewhere"));
+      await writeFile(
+        join(dir, "elsewhere/server.ts"),
+        'import "@robkit/core";\n',
+      );
+      await writeFile(
+        join(dir, "elsewhere/index.ts"),
+        'import "@robkit/core";\n',
+      );
+      const link = join(dir, "apps/example/src", linked);
+      await mkdir(dirname(link), { recursive: true });
+      // A junction on Windows, which needs no admin rights; a symlink elsewhere.
+      await symlink(join(dir, "elsewhere"), link, "junction");
+
+      expect(await checkInstall(dir)).toEqual([
+        {
+          file: "apps/example/src/reach.ts",
+          line: 1,
+          column: 8,
+          rule: readFolders,
+        },
+      ]);
+    },
+  );
+
+  it("names only the rule for leaving the app when an import leaves the install", async () => {
+    const path = "apps/example/src/reach.ts";
+    const dir = await installWith(path, 'import "../../../../.cache/x.ts";\n');
+
+    expect(
+      (await checkInstall(dir)).map((violation) => violation.rule),
+    ).toEqual([otherApp]);
+  });
+
+  it("lets an app import a file named like a folder it skips", async () => {
+    const dir = await installWith(
+      "apps/example/src/reach.ts",
+      'import "./build.ts";\nimport "./dist-names/x.ts";\nimport "./build.ts/x.ts";\n',
+    );
+    await writeFile(join(dir, "apps/example/src/build.ts"), "");
+    await mkdir(join(dir, "apps/example/src/dist-names"));
+    await writeFile(join(dir, "apps/example/src/dist-names/x.ts"), "");
+
+    expect(await checkInstall(dir)).toEqual([]);
+  });
 });
 
 describe("robkit check", () => {
@@ -275,6 +357,19 @@ describe("robkit check", () => {
     expect(await drive(bin, dir, ["check"])).toEqual({
       code: 1,
       output: `apps/example/src/reach.ts:2:28  ${overHttp}\n`,
+    });
+  });
+
+  it("says where an import into a skipped folder is, and what to do", async () => {
+    const dir = await installWith(
+      "apps/example/src/reach.ts",
+      'import "./dist/server.js";\n',
+    );
+
+    expect(await drive(bin, dir, ["check"])).toEqual({
+      code: 1,
+      output:
+        "apps/example/src/reach.ts:1:8  Layer rule: an app or shared package imports no file under node_modules, dist, build, a dot-folder or a symlinked folder, since robkit check doesn't read them. Keep source out of those folders, and import a package by its name.\n",
     });
   });
 });

@@ -69,6 +69,7 @@ An app's own settings, such as an API key, go in `apps/<slug>/.env`, which git i
 - A shared package imports only its own files, @robkit/* packages and other shared packages/*. It never imports an app.
 - An app or shared package reaches core over HTTP only, never through @robkit/core. Only `apps/core` depends on it. Postgres keeps the data side: an app's role can reach its own schema and nothing else.
 - Handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.
+- An app or shared package imports no file under node_modules, dist, build, a dot-folder or a symlinked folder, since robkit check doesn't read them. Keep source out of those folders, and import a package by its name.
 
 ## Databases
 
