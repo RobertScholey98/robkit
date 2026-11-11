@@ -28,7 +28,7 @@ A role's password in Postgres's own log is [ticket 37](37-a-roles-password-stays
 - [x] A database error beneath an error of another kind, and one inside an `AggregateError`, is scrubbed the same way
 - [x] A fault reported through a route's `logError`, and one at core's start-up, gets the same treatment, with a test for each
 - [x] An error with no database error in its chain is logged as it is today
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -69,3 +69,7 @@ The tests read what `console.error` prints, stack and causes included. `error-lo
 ### For the docs site
 
 An owner reading core's log after a database fault sees `QueryError: Failed query: <SQL>`, then "Core leaves its parameters out of the log.", and beneath it `PostgresError: Postgres refused a query with <SQLSTATE>.` with the code, severity and names. Before, it showed `DrizzleQueryError` with `params:` and Postgres's own message and detail. The same holds for a fault at core's start-up, printed under "robkit hit a bug". Nothing a guest sees changes, and no command or file in an install changes.
+
+### Merged
+
+Added by the lead. PR 107 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `84caac5`. The build got no clean full gate on its own machine, which was too busy for other packages' time limits, so GitHub's run was the full gate.
