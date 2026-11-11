@@ -150,6 +150,17 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 - Only `opacity` and `transform` animate.
 - With reduced motion set, both durations are 0 and nothing animates or scrolls smoothly.
 
+## Code and callouts
+
+- Every code block sits in a frame with a bar above the code. The bar names the file the code is from, says "Terminal" for commands, or names the language.
+- A command block puts a `$` prompt before each line, in `--color-muted`. The prompt can't be selected or copied with the command.
+- Every block has a copy button at the end of its bar, `--target` tall. It says "Copied" for 2 seconds, on the button and to a screen reader through a status region. When the browser refuses the clipboard, it says "Couldn't copy" and asks the reader to select the code. Without scripts it isn't shown.
+- A block wider than the page scrolls on its own. Code isn't wrapped.
+- A file from an install is read from create-robkit's templates as the site builds, never pasted, and its bar names it as the install does.
+- A sample that differs by stack shows one stack at a time, under tabs named after robkit's stacks. The chosen tab has an accent underline. The choice holds on every page. Without scripts, every stack's sample shows under its name.
+- A callout is a note or a warning, on `--color-surface` with a 4-pixel bar on its left: `--color-border-control` for a note, `--color-accent` for a warning. It says "Note" or "Warning" beside its icon. Use them sparingly, one or two on a page at most.
+- Until robkit is on npm, a page that shows `npm create robkit` carries a note saying it isn't published yet, with the way to make an install from a clone.
+
 ## Icons
 
 - SVG only, drawn inline, 1.5-pixel strokes on a 24-pixel grid, in `currentColor`. No emoji stands in for an icon.
@@ -158,6 +169,6 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 ## Scripts and weight
 
 - A docs page reads, and its links work, with no script at all. Without scripts the list of pages shows in the page at phone width, and the theme toggle and the menu button aren't shown, since they can't work.
-- The site's own small scripts do the rest: the theme in the head, the toggle, and the phone menu. Later: the copy button, the stack switcher and the search key.
+- The site's own small scripts do the rest: the theme and the chosen stack in the head, the toggle, the phone menu, the copy button and the stack switcher. Later: the search key.
 - **Weight limit: the scripts a docs page fetches as it opens, inline and from files, shared ones included, come to at most 10 KB gzipped.** A test measures the built page. The page used 1 KB or so when the limit was set, which leaves room for the copy button, the stack switcher and the search key. What search fetches once a reader opens it is measured on its own.
 - Every request stays on the site's own origin: fonts, scripts, styles and images. No analytics and no cookies.
