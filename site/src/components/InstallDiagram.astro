@@ -1,11 +1,13 @@
 ---
 // What an install holds, drawn in the style guide's tokens so it follows
 // the theme. The list beside it on the home page says the same in words.
+// The view box holds the drawing and no margin, so it draws as large as
+// its column allows.
 ---
 
 <figure class="diagram">
   <svg
-    viewBox="0 0 360 384"
+    viewBox="8 0 344 384"
     role="img"
     aria-labelledby="install-diagram-title install-diagram-desc"
   >
@@ -64,7 +66,7 @@
       hub
     </text>
     <text class="note" x="95" y="174">
-      sign-in and launcher
+      sign-in, launcher
     </text>
 
     <rect class="box" x="190" y="132" width="150" height="56" rx="6"></rect>
@@ -121,8 +123,19 @@
 
 <style>
   .diagram {
-    max-width: 30rem;
+    max-width: 28rem;
     margin: 0;
+  }
+
+  /*
+   * The drawing is 344 units wide and its smallest words 12. On a phone it
+   * takes half of each gutter, so at 375 pixels it draws a little over 1:1
+   * and no word is under 12 pixels.
+   */
+  @media (max-width: 27.999rem) {
+    .diagram {
+      margin-inline: calc(-1 * var(--space-2));
+    }
   }
 
   svg {
@@ -152,7 +165,7 @@
 
   .note {
     fill: var(--color-muted);
-    font-size: 11px;
+    font-size: 12px;
     text-anchor: middle;
   }
 
