@@ -26,7 +26,7 @@ A medium-effort worker builds this. If a bullet turns out to change how sign-in 
 - [x] The Next stack's `AGENTS.md` says which images work, and a test holds it in a built Next app
 - [x] The changeset names `create-robkit` and lists what an existing install copies by hand
 - [x] axe still passes on every page in the whole-stack test
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -91,3 +91,12 @@ Chosen in the build:
 - **Admin's screen:** when the browser refuses the clipboard, the code's row shows "Couldn't copy the link. Select it and copy it yourself." No other screen changed: the hub, admin's layout and each example's card look the same. The Go card shows nothing until /api/me answers, as before, and its heading is "Your visits" only when that first call fails.
 - **The install's `AGENTS.md`** has a turbo bullet under "Dev tools" on the `transit` task, and `turbo.json` changed.
 - **Upgrading:** the changeset lists what an existing install copies by hand.
+
+### Merged
+
+Added by the lead. PR 118 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` and `production` green on `508010b9`. The lead read the diff and changed nothing.
+
+Two small things the lead saw and left, for the round on the finished site or a later tidy:
+
+- Admin's "Couldn't copy the link" message sits in the same row as the link and its button, so on a narrow screen the row gets tight.
+- `tooling/e2e/src/next-images.ts` makes the example's `public` folder itself and removes it after. If the Next template ever ships a `public` folder, that test fails on `mkdir` and has to change.
