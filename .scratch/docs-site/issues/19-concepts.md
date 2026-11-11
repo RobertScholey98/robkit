@@ -43,7 +43,7 @@ Milestone 4 changes `SECURITY.md` in several places (tickets 23, 27, 29 and 31 o
 - After merging `docs-site` with just-use-it ticket 42, the security page lists "A `.d.ts` file with code in it" with no edit.
 - `turbo.json` has `GLOSSARY.md`, `SECURITY.md` and `docs/architecture.md` among the inputs of the site's build, test and test:unit. `turbo-inputs.test.ts` passes.
 - `concepts.browser.test.ts` runs axe on the three pages at 375 and 1280 pixels in both themes, and checks none scrolls sideways at 375 pixels. I looked at screenshots of the diagram in both themes, and moved label 7 off its arrowhead.
-- The site's build, lint, typecheck and all 300 tests pass at 100% coverage. The repo's glossary test passes.
+- The site's build, lint, typecheck and all 301 tests pass at 100% coverage. The repo's glossary test passes.
 
 **What the next tickets need**
 
