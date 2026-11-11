@@ -225,8 +225,8 @@ describe("fakeCore", () => {
 
     const { body } = await get(core.origin, "/.well-known/jwks.json");
     const { keys } = body as { keys: Record<string, string>[] };
-    const { kty, crv, x } = keys[0] ?? {};
-    const kid = await calculateJwkThumbprint({ kty, crv, x });
+    const { x = "" } = keys[0] ?? {};
+    const kid = await calculateJwkThumbprint({ kty: "OKP", crv: "Ed25519", x });
 
     expect(keys).toEqual([
       { kty: "OKP", crv: "Ed25519", x, kid, alg: "EdDSA", use: "sig" },
