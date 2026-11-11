@@ -56,6 +56,58 @@ describe("the built samples page", () => {
   });
 });
 
+/** Each code block on a built page: the label above it, and its text. */
+function codeBlocks(html: string) {
+  const text = (fragment: string) =>
+    fragment
+      .replaceAll(/<[^>]+>/g, "")
+      .replaceAll("&lt;", "<")
+      .replaceAll("&gt;", ">")
+      .replaceAll("&quot;", '"')
+      .replaceAll("&#39;", "'")
+      .replaceAll("&amp;", "&");
+  return [...html.matchAll(/<figure class="code"[\s\S]*?<\/figure>/g)].map(
+    ([figure]) => ({
+      label: text(
+        /<span class="label"[^>]*>([\s\S]*?)<\/span><\/span>/.exec(
+          figure,
+        )?.[1] ?? "",
+      ),
+      code: text(/<pre[^>]*>([\s\S]*?)<\/pre>/.exec(figure)?.[1] ?? ""),
+    }),
+  );
+}
+
+describe("the built samples page's template files", () => {
+  const template = async (path: string) =>
+    (
+      await readFile(
+        join(repoRoot, "packages/create-robkit/templates", path),
+        "utf8",
+      )
+    ).replaceAll("\r\n", "\n");
+
+  it("show a template file as the templates hold it, under its name in an install", async () => {
+    const blocks = codeBlocks(await built("samples/index.html"));
+
+    expect(blocks).toContainEqual({
+      label: "apps/example/go.mod",
+      code: (await template("stacks/go/go.mod")).trimEnd(),
+    });
+  });
+
+  it("show part of one, from its first line to its last", async () => {
+    const blocks = codeBlocks(await built("samples/index.html"));
+    const main = await template("stacks/go/main.go");
+    const start = main.indexOf("func main() {");
+
+    expect(blocks).toContainEqual({
+      label: "apps/example/main.go",
+      code: main.slice(start, main.indexOf("\n}\n", start) + 2),
+    });
+  });
+});
+
 describe("the built docs pages", () => {
   it("link to the pages before and after them in the sidebar's order", async () => {
     const page = (href: string) => built(`${href.slice(1)}index.html`);

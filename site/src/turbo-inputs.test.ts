@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { matchesGlob } from "node:path/posix";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./repo.ts";
+import { templatesRoot } from "./templates.ts";
 
 interface Task {
   inputs?: string[];
@@ -19,7 +20,10 @@ const turbo = JSON.parse(
 const inputsOf = (task: string) =>
   turbo.tasks[`@internal/site#${task}`]?.inputs ?? [];
 
-/** Each repo path a file in src reads with `readRepoFile("...")`. */
+/**
+ * Each repo path a file in src reads: with `readRepoFile("...")`, or as
+ * a template a page shows with `<TemplateFile path="...">`.
+ */
 async function pathsRead(): Promise<string[]> {
   const paths = new Set<string>();
   for await (const file of glob("src/**/*.{ts,astro,mdx}", {
@@ -29,6 +33,11 @@ async function pathsRead(): Promise<string[]> {
     const text = await readFile(join(repoRoot, "site", file), "utf8");
     for (const [, path] of text.matchAll(/readRepoFile\(\s*"([^"]+)"/g)) {
       if (path !== undefined) paths.add(path);
+    }
+    for (const [, path] of text.matchAll(
+      /<TemplateFile\b[^>]*\bpath="([^"]+)"/g,
+    )) {
+      if (path !== undefined) paths.add(`${templatesRoot}/${path}`);
     }
   }
   return [...paths].sort();
@@ -48,6 +57,7 @@ describe("the site's turbo inputs", () => {
     const read = await pathsRead();
 
     expect(read).toContain("README.md");
+    expect(read).toContain(`${templatesRoot}/stacks/go/main.go`);
     expect(
       read.filter(
         (path) => !outside.some((pattern) => matchesGlob(path, pattern)),

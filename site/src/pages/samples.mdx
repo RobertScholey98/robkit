@@ -1,4 +1,5 @@
 import CodeBlock from "../components/CodeBlock.astro";
+import TemplateFile from "../components/TemplateFile.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
 export const components = { pre: CodeBlock };
@@ -64,6 +65,14 @@ func main() {
 	_ = http.ListenAndServe(":3000", nil)
 }
 ```
+
+## A file from the templates
+
+<TemplateFile path="stacks/go/go.mod" />
+
+## Part of a file from the templates
+
+<TemplateFile path="stacks/go/main.go" from="func main()" to="^}" />
 
 </main>
 </BaseLayout>
