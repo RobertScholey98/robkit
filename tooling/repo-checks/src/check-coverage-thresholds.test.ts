@@ -89,6 +89,79 @@ describe("check-coverage-thresholds", () => {
     expect(check("main")).toEqual({ status: 0, output: "" });
   });
 
+  describe("what coverage measures", () => {
+    /** A config measuring `scope`, with `comment` above it. */
+    const scoped = (scope: string, comment = "") =>
+      `export default { test: { coverage: {\n${comment}${scope}\nthresholds: { lines: 90 } } } };\n`;
+    const start = 'include: ["src/**"], exclude: ["src/test/**"],';
+
+    beforeEach(async () => {
+      await write(guard, scoped(start));
+      git("commit", "-q", "-am", "Measure src");
+    });
+
+    it.each([
+      [
+        "narrowing include",
+        'include: ["src/index.ts"], exclude: ["src/test/**"],',
+        "include",
+      ],
+      [
+        "widening exclude",
+        'include: ["src/**"], exclude: ["src/test/**", "src/hard.ts"],',
+        "exclude",
+      ],
+      ["removing include", 'exclude: ["src/test/**"],', "include"],
+      ["removing exclude", 'include: ["src/**"],', "exclude"],
+    ])("fails %s without a reason", async (_, scope, field) => {
+      await write(guard, scoped(scope));
+
+      expect(check("main")).toEqual({
+        status: 1,
+        output: `${guard} changes coverage.${field}, so its thresholds would measure other files. Undo it, or say why in a new comment in that file: // coverage-scope: <why>\n`,
+      });
+    });
+
+    it("passes a change with a reason", async () => {
+      await write(
+        guard,
+        scoped(
+          'include: ["src/**"], exclude: ["src/test/**", "src/main.ts"],',
+          "// coverage-scope: main.ts only starts the server; tests spawn it.\n",
+        ),
+      );
+
+      expect(check("main")).toEqual({ status: 0, output: "" });
+    });
+
+    it("doesn't count a reason the base already had", async () => {
+      const reason = "// coverage-scope: main.ts only starts the server.\n";
+      await write(
+        guard,
+        scoped('include: ["src/**"], exclude: ["src/main.ts"],', reason),
+      );
+      git("commit", "-q", "-am", "Leave main.ts out");
+      git("switch", "-q", "-c", "change");
+      await write(
+        guard,
+        scoped('include: ["src/**"], exclude: ["src/*.ts"],', reason),
+      );
+
+      expect(check("main").status).toBe(1);
+    });
+
+    it("passes the same scope written another way", async () => {
+      await write(
+        guard,
+        scoped(
+          'include: [\n  "src/**",\n],\n// Helpers.\nexclude: ["src/test/**"],',
+        ),
+      );
+
+      expect(check("main")).toEqual({ status: 0, output: "" });
+    });
+  });
+
   it("prints its usage without a base", () => {
     expect(check()).toEqual({
       status: 2,

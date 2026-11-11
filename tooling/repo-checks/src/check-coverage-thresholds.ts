@@ -5,8 +5,10 @@ import { execFileSync } from "node:child_process";
 import { existsSync, globSync, readFileSync } from "node:fs";
 import { dirname, join, matchesGlob } from "node:path";
 import {
+  coverageScopeIn,
   loweredThresholds,
   thresholdsIn,
+  unexplainedScopeChanges,
   vitestConfigs,
 } from "./coverage-thresholds.ts";
 
@@ -35,12 +37,21 @@ const problems = [...new Set([...before, ...after])].sort().flatMap((path) => {
   // A package that's gone takes its thresholds with it.
   if (!existsSync(join(root, dirname(path), "package.json"))) return [];
   const was = before.includes(path)
-    ? thresholdsIn(git("show", `${base}:${path}`))
+    ? git("show", `${base}:${path}`)
     : undefined;
   const is = existsSync(join(root, path))
-    ? thresholdsIn(readFileSync(join(root, path), "utf8"))
+    ? readFileSync(join(root, path), "utf8")
     : undefined;
-  return loweredThresholds(path, was, is);
+  const read = <T>(config: string | undefined, reader: (text: string) => T) =>
+    config === undefined ? undefined : reader(config);
+  return [
+    ...loweredThresholds(path, read(was, thresholdsIn), read(is, thresholdsIn)),
+    ...unexplainedScopeChanges(
+      path,
+      read(was, coverageScopeIn),
+      read(is, coverageScopeIn),
+    ),
+  ];
 });
 
 for (const problem of problems) console.error(problem);
