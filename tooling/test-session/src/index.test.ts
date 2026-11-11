@@ -1,7 +1,13 @@
 import { once } from "node:events";
 import { request, type IncomingMessage } from "node:http";
 import { conformanceCases } from "@robkit/guard/conformance";
-import { createLocalJWKSet, decodeJwt, jwtVerify } from "jose";
+import {
+  calculateJwkThumbprint,
+  createLocalJWKSet,
+  decodeJwt,
+  decodeProtectedHeader,
+  jwtVerify,
+} from "jose";
 import { describe, expect, it } from "vitest";
 import { isProblem, readCoreUrl } from "@robkit/input";
 import {
@@ -128,6 +134,15 @@ describe("signingKey", () => {
     expect(await read(core.publicKey, await forger.token())).toBeUndefined();
   });
 
+  it("signs a token naming another key's kid, as a forger would", async () => {
+    const [core, forger] = await Promise.all([signingKey(), signingKey()]);
+
+    const forged = await forger.token({ kid: core.kid });
+
+    expect(decodeProtectedHeader(forged).kid).toBe(core.kid);
+    expect(await read(core.publicKey, forged)).toBeUndefined();
+  });
+
   it("gives each conformance case's visitor the cookie they'd send", async () => {
     const core = await fakeCore();
 
@@ -203,6 +218,23 @@ describe("fakeCore", () => {
     expect(core.fetched).toEqual([
       `${new URL(core.origin).host} /.well-known/jwks.json`,
     ]);
+  });
+
+  it("serves its key as core does, named by its thumbprint, the kid each token carries", async () => {
+    const core = await fakeCore();
+
+    const { body } = await get(core.origin, "/.well-known/jwks.json");
+    const { keys } = body as { keys: Record<string, string>[] };
+    const { x = "" } = keys[0] ?? {};
+    const kid = await calculateJwkThumbprint({ kty: "OKP", crv: "Ed25519", x });
+
+    expect(keys).toEqual([
+      { kty: "OKP", crv: "Ed25519", x, kid, alg: "EdDSA", use: "sig" },
+    ]);
+    expect(decodeProtectedHeader(await core.key.token())).toEqual({
+      alg: "EdDSA",
+      kid,
+    });
   });
 
   it("serves each app's rule from its catalog, and 404 for an app it lacks", async () => {

@@ -1,7 +1,12 @@
 import { once } from "node:events";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import {
+  calculateJwkThumbprint,
+  exportJWK,
+  generateKeyPair,
+  SignJWT,
+} from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { coreKeys } from "./core-keys.ts";
 import { readAppToken } from "./index.ts";
@@ -26,7 +31,10 @@ async function fakeCore() {
   const { privateKey, publicKey } = await generateKeyPair("EdDSA", {
     crv: "Ed25519",
   });
-  const jwk = { ...(await exportJWK(publicKey)), kid: "key-1", alg: "EdDSA" };
+  // Named and served as core names and serves its key.
+  const publicJwk = await exportJWK(publicKey);
+  const kid = await calculateJwkThumbprint(publicJwk);
+  const jwk = { ...publicJwk, kid, alg: "EdDSA", use: "sig" };
   const hosts: string[] = [];
   const answer = { status: 200 };
   const server = createServer((req, res) => {
@@ -46,7 +54,7 @@ async function fakeCore() {
       .setIssuedAt(iat)
       .setExpirationTime(iat + 900)
       .sign(privateKey);
-  return { port, hosts, answer, token: await sign("key-1"), sign };
+  return { port, hosts, answer, token: await sign(kid), sign };
 }
 
 describe("coreKeys", () => {

@@ -18,14 +18,14 @@ This was part of ticket 26, and moved here so it wouldn't collide with milestone
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each fake's JWK has the same fields as real core's, and the Go and TypeScript guards' tests pass against them
-- [ ] A fake's tokens carry the `kid` its JWK has, and no test names a fixed `kid`
-- [ ] The contract test fails if core's `/refresh` refuses a `next` the request cases expect a guard to send, with a deliberate mismatch shown failing in the Proof
-- [ ] It fails if core's redirect differs from `callbackFor`, signed in or signed out, with a deliberate mismatch shown failing in the Proof
-- [ ] It fails if core's app token lacks a claim a fake's has, or has another audience
-- [ ] The package graph allows the test's imports, with any new edge listed
+- [x] Each fake's JWK has the same fields as real core's, and the Go and TypeScript guards' tests pass against them
+- [x] A fake's tokens carry the `kid` its JWK has, and no test names a fixed `kid`
+- [x] The contract test fails if core's `/refresh` refuses a `next` the request cases expect a guard to send, with a deliberate mismatch shown failing in the Proof
+- [x] It fails if core's redirect differs from `callbackFor`, signed in or signed out, with a deliberate mismatch shown failing in the Proof
+- [x] It fails if core's app token lacks a claim a fake's has, or has another audience
+- [x] The package graph allows the test's imports, with any new edge listed
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -40,3 +40,17 @@ Taken:
 - Sol: a criterion for the callback's shape, not only for `next`.
 
 Order: this merges after tickets 30 and 24, which edit `packages/core`'s coverage thresholds too.
+
+### Chosen in the build, 2026-11-11
+
+- The contract test is `packages/core/src/fake-core.db.test.ts`. Core already lists `@internal/test-session` under `devDependencies`, so the graph needed no new edge.
+- Each fake names its key by its RFC 7638 thumbprint, as core does, and serves `use: "sig"`. TypeScript's `signingKey()` now gives `kid` and `jwk` beside `publicKey`. Go's `fakecore.NewKey` takes no `kid` now, and its thumbprint is checked against RFC 8037's worked example.
+- A token can still name another key's `kid`: `token({ kid })` in TypeScript, `TokenOptions.Kid` in Go, which Go had already. The two forger tests (`request-guard.test.ts` and Go's `guarded_test.go`) name core's `kid`, so they still reach the signature check rather than the unknown-key path.
+- The contract test builds the refresh URL itself and checks it against `refreshLocation` and against each row's expected answer, so the helpers keep their shape and gain no export.
+- The pages it checks are each `address` row that isn't signed out and each `cookies` row the guard doesn't read, once per core and page: seven pages over two cores. The refusals change one page per core to another app, the hub, core, the other scheme and another port.
+- Go's fake can't reach real core from Go's tests. Go's own test pins its JWK to the field list core serves, and a comment in the contract test points to it.
+- The three tests that make a key of their own: `packages/session/src/core-keys.test.ts` runs a small JWKS server standing in for core, so its `kid` now comes from the key and it serves `use`. Its `"key-2"` stays: it's the input naming a key core doesn't have. `packages/core/src/mint-token.test.ts` and `packages/session/src/session-token.test.ts` keep `"key-1"`: each is only the input the test hands over, and nothing looks a key up by it.
+
+### For the docs site
+
+Nothing. This changes tests and test helpers only. An owner, a guest and an app's author see no difference.
