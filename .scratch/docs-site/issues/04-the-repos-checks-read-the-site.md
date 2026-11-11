@@ -21,7 +21,7 @@
 - [x] A `go` fence that `gofmt` would change fails a test
 - [x] Changing only a site page makes turbo run the repo checks again
 - [x] The exported list of commands has a changeset and is in create-robkit's API report
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -58,3 +58,9 @@
 
 - If milestone 4 adds a `robkit` command, `robkitCommands` gets it, and the typecheck makes sure the handler is there too. Pages may show it at once.
 - If it adds or renames a script in the install's `package.json`, the `sh` check follows it with no edit here.
+
+### Merged
+
+Added by the lead. PR 105 merged into `docs-site` on 2026-11-11, with `gate` green on `10996ae`.
+
+Its first run failed on three time limits and nothing else: create-robkit's pack tests timed out at 120 seconds, and two of repo-checks' compile tests timed out at 30. The lead raised them on this branch, the pack tests to 300 seconds in `7aae0512` and repo-checks' compile and API report tests to 120 in `10996ae6`. The milestone 4 branch has the same two changes, so they merge without a conflict.

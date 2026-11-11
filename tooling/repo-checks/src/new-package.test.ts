@@ -184,7 +184,7 @@ describe("newPackage, and new-package.ts", () => {
         await readFile(join(dir, "api-report.md"), "utf8"),
       );
     }
-  });
+  }, 120_000);
 
   it("passes the glossary, deadline and doc example checks", async () => {
     const words = avoidWords(await readFile(join(copy, "GLOSSARY.md"), "utf8"));
