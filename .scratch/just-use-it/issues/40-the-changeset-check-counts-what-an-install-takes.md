@@ -22,7 +22,7 @@ A changeset written to pass the check would put a line that means nothing to an 
 - [x] A change to pnpm's version, to a catalog entry a template takes, to the lint policy or a file it imports, or to the Go module still needs a changeset naming create-robkit
 - [x] A change to the root `package.json`'s scripts, to catalog entries no template takes, to a lint file the policy doesn't import, or to a test of the Go module needs none
 - [x] The check's row in `tooling/repo-checks/README.md` and the map say what it counts now
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -33,3 +33,9 @@ A changeset written to pass the check would put a line that means nothing to an 
 - It counts every template's `package.json`, where `installCatalog` reads the base and the ready stacks. A stack that isn't ready yet reaches no install, so the check asks for one changeset more than it must there.
 - `turbo.json` still lists the whole files, since the build reads them whole and its cache must miss when one changes.
 - The four new tests failed on the old check before the change, and the five that need a changeset passed before and after.
+
+### Merged
+
+Added by the lead. PR 128 merged into `main` on 2026-11-11 as `5694b8ed`, with `gate` green on `06cc371`.
+
+After the merge the lead ran the check on the docs site's open stack, tickets 08 to 14, against `docs-site`. That stack adds a script to the root `package.json` and changes `tooling/eslint/package-graph.js`. The check passed, where the one before it asked for a changeset naming create-robkit.
