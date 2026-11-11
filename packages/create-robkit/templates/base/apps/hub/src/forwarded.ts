@@ -20,11 +20,17 @@ export function forwardedBefore(next: string): boolean {
   }
 }
 
-/** Notes that the hub is sending this tab to `next`. */
-export function noteForward(next: string): void {
+/**
+ * Notes that the hub is sending this tab to `next`, and answers whether the
+ * browser kept the note. A full storage reads and refuses each write, and
+ * without the note the next visit would forward again.
+ */
+export function noteForward(next: string): boolean {
   try {
     sessionStorage.setItem(prefix + next, "");
+    return true;
   } catch (error) {
     reportToConsole("The hub couldn't write to this tab's storage.", error);
+    return false;
   }
 }

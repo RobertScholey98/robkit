@@ -82,7 +82,7 @@ Any app on the install can send a viewer to an intro link, one of its own includ
 - A browser that isn't signed in signs in with the code, without a question.
 - A browser that is signed in sees who it is signed in as, and is asked whether to sign in with the link instead. The hub sends core the code only on "yes". "No" leaves the session as it was.
 
-The hub sends a browser on to `next` only on an app's exact origin, whether it just signed in or was signed in already. It forwards a tab to a given `next` once a visit, and notes where in its own `sessionStorage`, since the app that sends the browser back writes the address. A browser that comes back with the same `next` stays on the launcher, which says the app sent it back.
+The hub sends a browser on to `next` only on an app's exact origin, whether it just signed in or was signed in already. It forwards a tab to a given `next` once a visit, and notes where in its own `sessionStorage`, since the app that sends the browser back writes the address. A browser that comes back with the same `next` stays on the launcher, which says the app sent it back. A browser that won't let the hub read or keep the note stays on the launcher too, so only a person signing in sends it on.
 
 ### What an imported app can and can't do
 

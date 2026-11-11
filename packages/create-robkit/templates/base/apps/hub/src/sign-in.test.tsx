@@ -219,6 +219,24 @@ describe("next", () => {
     expect(sent).toEqual([]);
   });
 
+  it("keeps a signed-in visitor on the launcher when the tab's storage takes no note", async () => {
+    coreWith(owner);
+    const sent = forwards();
+    // A full storage reads, and refuses each write.
+    vi.stubGlobal("sessionStorage", {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException("The quota is full.", "QuotaExceededError");
+      },
+    });
+    openAt(toNotes);
+
+    expect(await signedInAs()).toBe("Signed in as rob");
+    // The app didn't send them back, so the launcher doesn't say it did.
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(sent).toEqual([]);
+  });
+
   it("still forwards to another app after one sent the visitor back", async () => {
     coreWith(owner);
     const sent = forwards();

@@ -55,8 +55,12 @@ function Hub({ core }: { core: string }) {
         setScreen(first);
       } else if (forwardedBefore(next)) {
         setScreen({ ...first, sentBackFrom: new URL(next).host });
+      } else if (noteForward(next)) {
+        location.assign(next);
       } else {
-        forward(next);
+        // The tab kept no note of it, so nothing would stop a second
+        // forward. The launcher lists the app instead.
+        setScreen(first);
       }
     });
     return () => {
@@ -66,11 +70,16 @@ function Hub({ core }: { core: string }) {
 
   // Signing in on the way to an app goes back to it instead of the launcher.
   // The viewer just signed in, so it goes even if the hub sent this tab there
-  // before.
+  // before, or the tab keeps no note of it: a person signs in each time, so
+  // it can't loop.
   const onSignedIn = (session: Session) => {
     const next = returnTo(location.href);
-    if (session.state === "signed-in" && next) forward(next);
-    else setScreen(session);
+    if (session.state === "signed-in" && next) {
+      noteForward(next);
+      location.assign(next);
+    } else {
+      setScreen(session);
+    }
   };
 
   switch (screen.state) {
@@ -110,11 +119,6 @@ function Hub({ core }: { core: string }) {
         />
       );
   }
-}
-
-function forward(next: string) {
-  noteForward(next);
-  location.assign(next);
 }
 
 /**
