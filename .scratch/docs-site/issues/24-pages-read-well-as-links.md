@@ -16,7 +16,7 @@
 - [x] The sitemap lists every page but the 404, the samples page and stubs, and `robots.txt` names the sitemap
 - [x] The Markdown of a page that uses a stack switcher, a template file, a callout and the pre-release line holds each one's text, every stack under its name, and no import or JSX
 - [x] `llms.txt` lists every docs page, and a new page appears there with no other edit
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -74,3 +74,7 @@
 **What milestone 4 and ticket 26 change**
 
 - Nothing here. When ticket 26 turns `preRelease` off, the pre-release line goes from the Markdown copies too, and `markdown-copies.test.ts` expects that.
+
+### Merged
+
+Added by the lead. PR 146 merged into `docs-site` on 2026-11-11 as `31de5e51`, with `gate` green on `82e7ff4`. Its first `pull-request` job failed on the coverage check, which asked why `src/pages` left the site's coverage. The builder moved the endpoint's logic into `llms.ts` and added the comment the check asks for.
