@@ -120,7 +120,15 @@ export const appFiles = {
       children: [
         {
           name: "main.tsx",
+          about: "Draws Home from src/home.tsx.",
+        },
+        {
+          name: "home.tsx",
           about: "The page, in React. It calls the API with sessionFetch.",
+        },
+        {
+          name: "home.test.tsx",
+          about: "Tests the page in happy-dom, with fetch stubbed.",
         },
         {
           name: "styles.css",
