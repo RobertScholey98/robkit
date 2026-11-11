@@ -10,10 +10,11 @@ When the two terminals disagree:
 
 What to change:
 
-- **The runner records where its socket is.** Once it listens, it writes the socket's path to a file in the install's `.robkit/` folder, which git already ignores, and removes the file when it stops. The socket itself stays outside the install, since an install on a Windows drive under WSL can't hold one. A plain file is fine there.
-- **The commands read that file first.** `askDev` and `devRunning` use the path it gives, and work the path out as today when the file is missing.
-- **The path in the file gets no more trust than one worked out.** The commands check the folder it names with `socketFolderIsOwn`, as they do now. The install's files are the owner's, so the file adds no way in that editing the install's code doesn't already give.
-- **A file a killed run left is harmless.** Nothing answers at its path, which already means no `pnpm dev` is running. The next `pnpm dev` writes over it.
+- **The folder doesn't depend on the terminal.** The runner and the commands work the socket's path out from the account and the install alone, and never from `XDG_RUNTIME_DIR` or `TMPDIR`. So any two terminals of one account agree, with no file to record where the socket is and nothing for a killed run to leave behind.
+- **Which folder.** One that is the account's own and that another account can't make first: a folder under the account's home, such as `~/.robkit/run`. The temp folder's fixed path, `/tmp`, is shared, and another account could take `robkit-<uid>` there before the owner does. Choose, and say why in ADR 0020.
+- **The same checks.** The runner still makes the folder with mode 0700, and it and the commands still refuse one that isn't a folder, that another account owns, or that others can open (`socketFolderIsOwn`). The socket's name is still a hash of the install's real path, so two installs never share one, and a copy of an install never reaches the original's runner.
+- **A path too long for a socket.** A home folder with a long path can pass the limit. The message says so, names the path, and gives the owner a way out that every terminal still agrees on. Say what that is in the ADR.
+- **Docs.** The install's `AGENTS.md`, `packages/dev/README.md` and ADR 0020 say where the socket is and why.
 
 Where the socket is belongs to one robkit version: in an install, the runner and the commands come from the same one. So this can ship after 0.1.0 without breaking an install on it.
 
@@ -23,10 +24,11 @@ Where the socket is belongs to one robkit version: in an install, the runner and
 
 - [ ] With `pnpm dev` running, `robkit add` from a shell whose `XDG_RUNTIME_DIR` and `TMPDIR` differ from the runner's starts the app in the running `pnpm dev`
 - [ ] From such a shell, `robkit migrate` migrates in the running `pnpm dev`, and `robkit upgrade` refuses
-- [ ] The file is gone once `pnpm dev` has stopped, and a file a killed run left reads as no `pnpm dev` running
-- [ ] A file that names a socket in a folder another account owns, or others can open, is refused as such a folder is today
-- [ ] `git status` in the install shows nothing for the file, so `robkit upgrade`'s clean-tree check is unchanged
-- [ ] The install's `AGENTS.md`, `packages/dev/README.md` and ADR 0020 say how the commands find the socket
+- [ ] Two installs, one a copy of the other, each reach only their own runner
+- [ ] A folder another account owns, or others can open, is refused as today, by the runner and by each command
+- [ ] A socket path over the limit stops `pnpm dev` with a message that names the path and what to do
+- [ ] Nothing new is written inside the install, so `robkit upgrade`'s clean-tree check is unchanged
+- [ ] The install's `AGENTS.md`, `packages/dev/README.md` and ADR 0020 say where the socket is
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -40,3 +42,20 @@ A second `pnpm dev` started from such a terminal is already refused: the proxy's
 ### From milestone 3, added by the lead
 
 The docs site, built beside this milestone on the `docs-site` branch, has a page on adding an app (docs-site ticket 16) that describes how the `robkit` commands find a running `pnpm dev` today. Say in this ticket's comments what an owner sees differently afterwards. The docs site's last build ticket (26) works from that.
+
+### From the ticket round, 2026-11-11
+
+The ticket first had the runner write its socket's path to a file in `.robkit/`, which the commands read.
+
+Taken:
+
+- Opus: a simpler shape. The two terminals disagree only because the folder comes from variables each terminal sets (`devSocket` in `packages/dev/src/requests.ts`). A folder that doesn't depend on them needs no file.
+- Sol: a file that names a socket ties the commands to an account's folder, not to an install. A copy of an install, `.robkit/` and all, would send its commands to the original's runner. With no file, the socket's name stays a hash of the install's real path, and the criteria now test a copied install.
+
+Not needed once there is no file: Sol's rules for writing it in one step, for not following a link, and for removing only the runner's own record.
+
+Chosen by the lead: a folder under the account's home over `/tmp/robkit-<uid>`, which Opus offered first. `/tmp` is shared, so another account can make that folder before the owner does, and the owner's `pnpm dev` would then refuse it for good.
+
+This changes ADR 0020's choice of `XDG_RUNTIME_DIR`. That ADR's status line already says the build's choices await R's review.
+
+Order: this merges after ticket 24, which edits the same section of the install's `AGENTS.md`.

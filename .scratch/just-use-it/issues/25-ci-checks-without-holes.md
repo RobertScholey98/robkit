@@ -2,22 +2,32 @@
 
 **What to build:** Several checks pass changes they exist to catch ([review](../research/review-2026-11-09.md), "Tooling, CI and publishing"). Each fix comes with the test that shows the hole first. Where the review marks a finding unconfirmed, confirm it before fixing, and record what you found.
 
-- **Changesets.** CI fails when a published package's source changed and no new changeset names that package. Today one changeset for any package passes. `changedFilePatterns` also covers each package's `package.json`, `packages/guard/conformance.json` and `packages/core/drizzle/**`.
-- **Coverage.** The threshold check fails a change to `coverage.include` or `coverage.exclude` unless it is excused in the file with a reason, and compares against the merge base, not the base branch's tip.
+- **Changesets.** CI fails when a published package's source changed and no new changeset names that package, or when a template changed and no changeset names `create-robkit`. Today one changeset for any package passes. Every package is released at one version, so the name decides only whose changelog gets the words, and `robkit upgrade` prints `create-robkit`'s alone. `changedFilePatterns` also covers each package's `package.json`, `conformance.json` in `packages/guard` and `drizzle/**` in `packages/core`. Its patterns are read from each package's own folder, so write them that way, and keep the ones that leave tests out.
+- **Coverage.** The threshold check fails a change to `coverage.include` or `coverage.exclude` unless it is excused in the file with a reason, and compares against the merge base, not the base branch's tip. A reason that was already there doesn't excuse a later change.
 - **Go formatting.** `lint` fails on an unformatted Go file, in `go/` and in the Go template, with a fixture that proves it.
 - **Two lint rules.** The "does no I/O" row also catches `globalThis.fetch` and its like. `no-bare-error` catches `throw Error("…")` without `new`.
-- **Workflows.** Every action in the repo's workflows and in the template's is named by commit, with its version in a comment. `check` and `pull-request` have `timeout-minutes`. CI tests the oldest Go the docs promise as well as the newest, or the docs promise only what CI tests.
+- **Workflows.** Every action in the repo's workflows and in the template's is named by commit, with its version in a comment, and a repo check fails on one named by tag, as `release-workflow.test.ts` does for `release.yml`. The `check` and `pull-request` jobs have `timeout-minutes`.
+- **The Go version.** `CONTRIBUTING.md` and the install's docs say Go 1.26 or later, `go.mod` says 1.26.0, and CI runs 1.27.3. CI tests the oldest Go the docs promise as well as the newest, or the docs promise only what CI tests.
+- **Tests that call git.** They run with no global git identity, as CI's runner does: `GIT_CONFIG_GLOBAL` pointed at an empty file and `user.useConfigOnly` on, set where every machine gets it. A test that commits in a clone it didn't configure then fails on any machine, not only in CI.
+- **One slow test.** `packages/create-robkit/src/vendor.pack.test.ts` passed its 120-second limit in CI on `main`. Find where its time goes and make the work smaller: run its pnpm steps one after another, or share one install between tests. Don't raise the limit, and don't add a retry.
+- **A wrong comment.** The comment on `isCoreOrigin` in `go/session/options.go` says an address in code is judged as one from settings. It isn't: Go refuses a trailing slash that TypeScript drops. Correct the comment. Don't change either port.
 
 **Blocked by:** 14, 22
 
 **Status:** ready-for-agent
 
 - [ ] Each hole has a test that fails before its fix
-- [ ] A pull request that changes `@robkit/core`'s source with a changeset naming only `@robkit/input` fails CI
-- [ ] Narrowing a package's coverage `include` without a reason fails the threshold check
+- [ ] A pull request that changes `@robkit/core`'s source with a changeset naming only `@robkit/input` fails CI, and so does a template change with no changeset naming `create-robkit`
+- [ ] A change to a package's `package.json`, to `packages/guard/conformance.json` or to a file under `packages/core/drizzle` needs a changeset, shown through the real changeset check, and a test file still needs none
+- [ ] Narrowing a package's coverage `include`, widening its `exclude`, or removing either, fails the threshold check without a reason, and passes with one
+- [ ] The threshold check gives the same answer after the base branch gains an unrelated commit
 - [ ] An unformatted `.go` file fails `pnpm lint` in `go/` and in a Go app
 - [ ] `globalThis.fetch(…)` in `@robkit/guard` fails lint, and so does `throw Error("fixed text")`
-- [ ] Every workflow's actions are pinned by commit, and long jobs have a timeout
+- [ ] A repo check fails on any workflow, the template's included, that names an action by tag
+- [ ] The `check` and `pull-request` jobs each have a timeout
+- [ ] CI runs Go's tests on the oldest Go the docs promise and on the newest, or the docs name one version
+- [ ] A test that commits without setting an identity in its own clone fails on a machine that has a global one
+- [ ] The Proof gives `vendor.pack.test.ts`'s time in CI before and after, and its limit is unchanged
 - [ ] `tooling/eslint/README.md` and `tooling/repo-checks/README.md` describe each rule and check as it now is
 - [ ] The PR's CI `gate` job passes on GitHub
 
@@ -54,3 +64,29 @@ On top of the notes above, which were written as milestone 3 was built:
 - **The Go version.** Ticket 20 found the three places disagree: `CONTRIBUTING.md` and the install's docs say Go 1.26 or later, `go.mod` says 1.26.0, and CI runs 1.27.3. That is this ticket's last bullet.
 - **One more test on a time limit.** `packages/create-robkit/src/vendor.pack.test.ts` timed out at 120 seconds in CI on `main`, on the merge of milestone 3 (run 42927115992). It was the run's only failure. The same tree had passed on the pull request an hour before. The lead re-ran the job.
 - **A comment can fail the glossary check.** Milestone 3's code round wrote "a group of its own" in a comment in `packages/dev/src/exec.ts`, and the check failed in WSL after the unit tests had passed. It passed once "process group" sat on one line. The check is right. A contributor meets it late, since `pnpm check` runs it among 300 other tests.
+
+### From the ticket round, 2026-11-11
+
+The round was asked which of the comments above belong in the ticket. Taken as bullets:
+
+- **Git identity** (both). It is concrete, and CI found it only by failing.
+- **`vendor.pack.test.ts`** (Sol). It failed `main` again on the day of the round.
+- **The comment on `isCoreOrigin`** (Opus).
+
+Taken into the bullets that were there:
+
+- Opus: every package is released at one version (`fixed` in `.changeset/config.json`), so the changeset rule is about whose changelog gets the words. `robkit upgrade` prints `create-robkit`'s alone.
+- Sol: `changedFilePatterns` are read from each package's folder. Copying the review's paths from the repo's root would match nothing.
+- Sol: criteria for `exclude`, for removing either field, and for the base branch moving. `check-coverage-thresholds.ts` reads the base it is given.
+- Opus: pinning needs a check that stays.
+- Sol: the timeout criterion names the two jobs.
+
+Not taken, with the comment each answers:
+
+- **A check that fails a test over half its time limit.** Both said no gate: a test's usual time has no steady value on a shared runner, so the gate would fail by itself. Opus offered a report in the job's summary. The lead left it out, since nobody would read it until a test had already failed.
+- **Unit tests run with no network.** Both said drop it. The two tests that reached npm have a fake pnpm now.
+- **`coreAddress` rows for an address with letters outside ASCII, or a trailing slash.** Sol asked for rows that hold both ports to one answer. Opus said drop it, and the lead agrees: Go is the stricter port, robkit's tools never write such an address, and one answer means changing what a port accepts, which is session protocol work for no owner to notice.
+- **Stale port leases.** Both said not here. It never reaches CI. It is noted on [ticket 21](21-native-windows.md), which wants the same lease files changed.
+- **Making the other slow tests smaller, version strings in tests, and the glossary check met late.** Each is done, or its limit fits now.
+
+Sol would keep this ticket at high effort and Opus at medium. It stays high: it changes what CI lets into a release.
