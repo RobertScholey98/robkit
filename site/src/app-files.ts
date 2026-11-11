@@ -5,6 +5,33 @@
 import type { Stack } from "create-robkit";
 import { treePaths, type TreeEntry } from "./install-tree.ts";
 
+/** The migrations, and drizzle-kit's settings, for an app on Drizzle. */
+const drizzleFiles: TreeEntry[] = [
+  {
+    name: "drizzle/",
+    about: "The migrations. pnpm db:generate writes the next one.",
+  },
+  {
+    name: "drizzle.config.ts",
+    about: "Where drizzle-kit finds the tables and writes the migrations.",
+  },
+];
+
+/** The files at the top of an app's folder on a Node stack. */
+const appRootFiles: TreeEntry[] = [
+  {
+    name: "package.json",
+    about:
+      "The app's scripts and packages, its emoji, and the access rule core starts from.",
+  },
+  { name: "tsconfig.json", about: "TypeScript's settings." },
+  {
+    name: "AGENTS.md",
+    about: "How the app works, for a coding agent, and for you.",
+  },
+  { name: "CLAUDE.md", about: "Points Claude Code at AGENTS.md." },
+];
+
 /**
  * An app on React and a Node server that Vite runs, as `robkit add` writes
  * it. `server` says what `src/server.tsx` holds.
@@ -37,29 +64,12 @@ function serverApp(server: string): TreeEntry[] {
         },
       ],
     },
-    {
-      name: "drizzle/",
-      about: "The migrations. pnpm db:generate writes the next one.",
-    },
-    {
-      name: "drizzle.config.ts",
-      about: "Where drizzle-kit finds the tables and writes the migrations.",
-    },
+    ...drizzleFiles,
     {
       name: "vite.config.ts",
       about: "Runs the app under pnpm dev, and builds it for production.",
     },
-    {
-      name: "package.json",
-      about:
-        "The app's scripts and packages, its emoji, and the access rule core starts from.",
-    },
-    { name: "tsconfig.json", about: "TypeScript's settings." },
-    {
-      name: "AGENTS.md",
-      about: "How the app works, for a coding agent, and for you.",
-    },
-    { name: "CLAUDE.md", about: "Points Claude Code at AGENTS.md." },
+    ...appRootFiles,
   ];
 }
 
