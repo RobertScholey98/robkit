@@ -1,6 +1,10 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { layers } from "@internal/eslint-config/layers";
+import { isRecord } from "@robkit/input";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import {
   cycles,
   importProblems,
@@ -14,6 +18,7 @@ import {
   type WorkspacePackage,
 } from "./graph-check.ts";
 import {
+  packageFolders,
   packageGraph,
   type PackageGraph,
 } from "@internal/eslint-config/package-graph";
@@ -300,6 +305,19 @@ describe("layerConflicts", () => {
 });
 
 describe("the robkit workspace", () => {
+  it("reads every JavaScript package pnpm-workspace.yaml lists", async () => {
+    const workspace: unknown = parse(
+      await readFile(join(root, "pnpm-workspace.yaml"), "utf8"),
+    );
+    const listed =
+      isRecord(workspace) && Array.isArray(workspace.packages)
+        ? workspace.packages
+        : [];
+
+    // go/ is the Go module, which has no JavaScript for these checks.
+    expect([...packageFolders, "go"].sort()).toEqual(listed.sort());
+  });
+
   it("keeps every package but the repo checks off core, as the layer ESLint rule does", async () => {
     const packages = await readWorkspace(root);
     const forbidden = layerForbids(packages, layers);

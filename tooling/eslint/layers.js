@@ -3,7 +3,7 @@ import { builtinModules } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
 import { matchesGlob, dirname as posixDirname } from "node:path/posix";
 import { fileURLToPath } from "node:url";
-import { packageGraph } from "./package-graph.js";
+import { packageFolders, packageGraph } from "./package-graph.js";
 
 export const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -70,7 +70,7 @@ function workspaceFolders() {
   /** @type {Map<string, string>} */
   const folders = new Map();
   for (const path of globSync(
-    ["packages/*/package.json", "tooling/*/package.json"],
+    packageFolders.map((folder) => `${folder}/package.json`),
     { cwd: repoRoot },
   )) {
     const manifest = JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
