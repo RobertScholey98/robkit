@@ -19,7 +19,7 @@
 - [x] The option changes nothing under `pnpm dev` or Vitest
 - [x] `@robkit/vite`'s API report has the option, and a changeset names `@robkit/vite` and `create-robkit`
 - [x] `packages/vite/README.md` and the two stacks' `AGENTS.md` say where the build's layout comes from
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -94,3 +94,9 @@ export default defineConfig({
   ],
 });
 ```
+
+### Merged
+
+Added by the lead. PR 110 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` and the `production` job green on `170b905`. The lead read the diff and changed nothing.
+
+The map's line on platform wiring now says that `robkit({ serve })` sets the server build's layout for the React + Hono and Express stacks, and that this reverses ticket 10 for those two.
