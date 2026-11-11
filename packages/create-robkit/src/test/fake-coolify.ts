@@ -15,7 +15,8 @@
  * - `POST /deploy`, `GET /deployments/{uuid}`, whose status is queued,
  *   in_progress, finished, failed or cancelled-by-user:
  *   DeployController.php and app/Enums/ApplicationDeploymentStatus.php
- * - `GET /servers`, `GET /github-apps`: as robnet's deploy job reads them
+ * - `GET /servers`, `GET /github-apps`: ServersController.php and
+ *   GithubController.php
  */
 export interface FakeCoolify {
   projects: { uuid: string; name: string }[];
