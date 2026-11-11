@@ -13,20 +13,20 @@
 
 **Blocked by:** 14, 22
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each hole has a test that fails before its fix
-- [ ] A pull request that changes `@robkit/core`'s source with a changeset naming only `@robkit/input` fails CI, and so does a template change with no changeset naming `create-robkit`
-- [ ] A change to a package's `package.json`, to `packages/guard/conformance.json` or to a file under `packages/core/drizzle` needs a changeset, shown through the real changeset check, and a test file still needs none
-- [ ] Narrowing a package's coverage `include`, widening its `exclude`, or removing either, fails the threshold check without a reason, and passes with one
-- [ ] The threshold check gives the same answer after the base branch gains an unrelated commit
-- [ ] An unformatted `.go` file fails `pnpm lint` in `go/` and in a Go app
-- [ ] `globalThis.fetch(…)` in `@robkit/guard` fails lint, and so does `throw Error("fixed text")`
-- [ ] A repo check fails on any workflow, the template's included, that names an action by tag
-- [ ] The `check` and `pull-request` jobs each have a timeout
-- [ ] CI runs Go's tests on the oldest Go the docs promise and on the newest, or the docs name one version
-- [ ] A test that commits without setting an identity in its own clone fails on a machine that has a global one
-- [ ] `tooling/eslint/README.md` and `tooling/repo-checks/README.md` describe each rule and check as it now is
+- [x] Each hole has a test that fails before its fix
+- [x] A pull request that changes `@robkit/core`'s source with a changeset naming only `@robkit/input` fails CI, and so does a template change with no changeset naming `create-robkit`
+- [x] A change to a package's `package.json`, to `packages/guard/conformance.json` or to a file under `packages/core/drizzle` needs a changeset, shown through the real changeset check, and a test file still needs none
+- [x] Narrowing a package's coverage `include`, widening its `exclude`, or removing either, fails the threshold check without a reason, and passes with one
+- [x] The threshold check gives the same answer after the base branch gains an unrelated commit
+- [x] An unformatted `.go` file fails `pnpm lint` in `go/` and in a Go app
+- [x] `globalThis.fetch(…)` in `@robkit/guard` fails lint, and so does `throw Error("fixed text")`
+- [x] A repo check fails on any workflow, the template's included, that names an action by tag
+- [x] The `check` and `pull-request` jobs each have a timeout
+- [x] CI runs Go's tests on the oldest Go the docs promise and on the newest, or the docs name one version
+- [x] A test that commits without setting an identity in its own clone fails on a machine that has a global one
+- [x] `tooling/eslint/README.md` and `tooling/repo-checks/README.md` describe each rule and check as it now is
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -88,3 +88,35 @@ Not taken, with the comment each answers:
 - **Making the other slow tests smaller, version strings in tests, and the glossary check met late.** Each is done, or its limit fits now.
 
 Sol would keep this ticket at high effort and Opus at medium. It stays high: it changes what CI lets into a release.
+
+### Added by the lead during the build, 2026-11-11
+
+- **`expect.poll` gives up after one second unless told otherwise.** About 30 polls in the repo used that default while they waited for a process to listen, a lock to be taken or a log line to appear: `serve-core.db.test.ts` gave core one second to start, and `migrate.db.test.ts`'s wait on a lock took 9.3 seconds on the lead's machine under load and 336 ms alone. These failed the gates of tickets 30, 34, 36 and 37's workers on 2026-11-11, each passing when rerun alone. Every package's tests now poll for up to 30 seconds. A poll that states its own limit, such as `{ timeout: 2_000 }` in `listen.test.ts`, keeps it.
+
+### From the build, 2026-11-11
+
+Each hole had a failing test first. What was found and chosen:
+
+- **Changesets.** `changeset status` failed only when no changeset at all came with a change; with `@robkit/core` changed and a changeset naming `@robkit/input`, it passed. CI's `pull-request` job now runs `tooling/repo-checks/src/check-changesets.ts` in its place. It finds changed packages with changesets' own `@changesets/git` and new changesets with `@changesets/read`, so `changedFilePatterns` match exactly as the CLI matches them, and it fails each changed published package that no changeset added in the branch names. `check-changesets.test.ts` (renamed from `changeset-config.test.ts`) runs it on a scratch repo with the real config. The new patterns are `package.json`, `conformance.json` and `drizzle/**`, read from each package's folder.
+- **Chosen in the build: the version pull request.** With `package.json` counted, `pnpm release:version`'s pull request, which bumps every version and deletes the changesets, would fail the check. A package whose `version` the branch changes needs no new changeset. A test makes a version pull request and expects a pass.
+- **A cost of counting `package.json`.** A change to a dev dependency alone, as this ticket made in every package, needs a changeset naming each published package. This ticket's `.changeset/shared-test-settings.md` names fourteen, and says nothing changes for an app. If that is noise, a later ticket could count only the fields that ship.
+- **Coverage.** `check-coverage-thresholds.ts` compares against `git merge-base <base> HEAD`. It reads `coverage.include` and `coverage.exclude` through TypeScript's parser, without comments or layout, and fails a change, removal or addition of either unless the config gains a `// coverage-scope: <why>` comment that the base didn't have. Chosen in the build: any change needs the reason, a widening too, since telling a narrowing from a widening of two glob lists can't be done in general.
+- **Go formatting: the finding was wrong.** `gofmt -d` exits 1 when a file's formatting differs (Go's source returns `errFormattingDiffers` for `-d`), on 1.26.0 and 1.27.3, on Windows and Linux. So `lint` already failed an unformatted file. `go-lint.test.ts` runs both lint scripts on a scratch file and pins it; it went red when the script was changed to `gofmt -l .`.
+- **Lint rules.** The layer rule's "does no I/O" rows now also fail `globalThis.fetch`, `window.fetch`, `self.…`, `global.…`, `globalThis["fetch"]`, and a global object that is destructured, indexed by a name the rule can't read, or passed around. Reading another property, such as `globalThis.crypto`, passes. `no-bare-error` now fails `throw Error("…")` without `new`.
+- **Workflows.** Each action in `ci.yml`, `production.yml` and the template's `ci.yml` is now named by the commit its major tag pointed to on 2026-11-11, the same as `release.yml`'s. `workflows.test.ts` fails an action named by tag or branch in any of them, and a `check` or `pull-request` job without `timeout-minutes`. Chosen in the build: `check` gets 45 minutes (it takes 13 to 17) and `pull-request` 15 (it takes about one).
+- **The Go version. Chosen in the build: CI tests both.** A `go-oldest` job runs `go vet` and `go test` on `go/` and on the Go template, on the version `go/go.mod` names (1.26.0), and the gate needs it. Both passed on 1.26.0 locally. `check` still tests 1.27.3. `go-version.test.ts` fails if `go/go.mod`, the template's `go.mod`, `CONTRIBUTING.md`, the templates' `AGENTS.md` and dev's "Go isn't installed" message disagree, or if no job reads `go/go.mod`.
+- **Git identity and the poll limit: one place.** No file already sat in every package's test run, so this ticket made one: `@internal/vitest-config` in `tooling/vitest`, which joins the package graph's `toolchain` list, so it needs no edges. Each `vitest.config` puts `...testDefaults` first in `test`. It sets `GIT_CONFIG_GLOBAL` to `tooling/vitest/no-git-identity.gitconfig`, which holds only `user.useConfigOnly = true`, and `expect.poll.timeout` to 30 seconds. `test-defaults.test.ts` shows a commit with no identity of its own failing under a home whose `.gitconfig` has one, and a poll that needs three seconds passing; both failed before. It also fails a `vitest.config` that doesn't spread the defaults, and `pnpm new:package` writes them in. The package has no lint of its own: its lint would take eslint-config, whose tests take it, and turbo refuses the cycle.
+- **`isCoreOrigin`.** The comment now says `ReadGuardEnv` cuts the setting to its origin first and `Guarded` doesn't, so Go refuses a trailing slash in code that TypeScript drops. No test can show a comment wrong.
+
+### For the docs site
+
+What a contributor sees differently:
+
+- CI's `pull-request` job fails a branch that changes a published package without a changeset naming it, and names each package left out. A change to a package's `package.json`, to `packages/guard/conformance.json` or under `packages/core/drizzle` now needs one too.
+- The coverage threshold check fails a change to `coverage.include` or `coverage.exclude` without a new `// coverage-scope: <why>` comment, and compares against the commit the branch left its base at.
+- Lint fails `globalThis.fetch` and its like in the guard and input, and `throw Error("…")` without `new`.
+- CI tests Go on 1.26.0 as well as 1.27.3, in a new `go-oldest` job the gate needs.
+- Tests run with no git identity of the machine's own, and `expect.poll` waits 30 seconds, from `@internal/vitest-config`.
+- New repo checks: `workflows.test.ts`, `go-lint.test.ts`, `go-version.test.ts`, `test-defaults.test.ts`.
+
+What an owner sees differently: the install's `.github/workflows/ci.yml` names each action by commit, with its version in a comment, so `robkit upgrade` shows those lines changed.
