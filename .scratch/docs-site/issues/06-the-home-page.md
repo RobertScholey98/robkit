@@ -27,7 +27,7 @@ Design it with `/ui-ux-pro-max` from `site/DESIGN.md`. Each page follows "The wo
 - [x] axe finds nothing in light or dark, at 375 and at 1280 pixels wide
 - [x] With scripts off, everything on the page but the copy buttons works
 - [x] The page stays under the script size ticket 02 recorded
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -81,3 +81,14 @@ Design it with `/ui-ux-pro-max` from `site/DESIGN.md`. Each page follows "The wo
 - A change to the react-hono `.get("/")` handler changes the example. If the handler loses that line, the build fails.
 - If robkit deploys to a second host, "What it needs" and "Coolify is the one host robkit deploys to today" need rewriting.
 - Ticket 26 turns `preRelease` off, which takes the line off the home page.
+
+### Merged
+
+Added by the lead. PR 114 merged into `docs-site` on 2026-11-11, with `gate` green on `5c4d1ab`. The lead read the diff and changed nothing.
+
+Two small things the lead saw and left for the round on the finished site:
+
+- The heading "Five stacks" is written out, and the list under it comes from `readyStacks`. A sixth stack would make the heading wrong with no test to say so.
+- The diagram's notes are 11 px in a drawing 360 wide, so at phone width they show a little under 11 px. The list beside the diagram says the same in words.
+
+The first run of `gate` failed on one test this pull request did not touch, `tooling/e2e/src/browser.test.ts`, which pins a Playwright bug that depends on timing. The lead re-ran the job, and it passed. The test now gets three more tries, in `3a11bab5` on this branch.

@@ -20,7 +20,7 @@ Each page follows "The words" in the [PRD](../PRD.md). Read each message from th
 - [x] The folder tree matches what `npm create robkit` writes, and a test fails when a folder it names is gone from the templates
 - [x] With the pre-release switch off, the quickstart shows `npm create robkit` first and no checkout route
 - [x] The quickstart and "Your first app" are no longer stubs
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -77,3 +77,9 @@ Each page follows "The words" in the [PRD](../PRD.md). Read each message from th
 - Ticket 34 of "Just use it" changes how `robkit add` finds a running `pnpm dev` from another terminal. "Your first app" says only that `robkit add` asks the running `pnpm dev` to start the app, so check that sentence then.
 - Ticket 26 turns `preRelease` off. The quickstart then leads with `npm create robkit` and drops the clone route.
 - A change to the templates' `case "owner":` lines, or to the hub's set-up form, changes these pages. A lost `case "owner":` line fails the build.
+
+### Merged
+
+Added by the lead. PR 116 merged into `docs-site` on 2026-11-11, with `gate` green on `5d14858`. The lead read the diff and changed nothing.
+
+The lead checked these of the pages' claims against the code: the folder `my-robkit`, the three refusals before init writes, the two port settings and their messages in `packages/dev/src/checks.ts`, the 12-character password and the "Create owner" button in the hub's form, the access code `test` (core reads a code in any case), the four questions `robkit add` asks, and what it says when `pnpm dev` can't start the app. Each matches.
