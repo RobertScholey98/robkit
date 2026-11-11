@@ -3,6 +3,7 @@ import { setTimeout } from "node:timers/promises";
 import postgres from "postgres";
 import { isProblem, readSlug, type Slug } from "@robkit/input";
 import { lostRace } from "./lost-race.ts";
+import { scramVerifier } from "./scram.ts";
 
 /** The database secret is too short to derive passwords from. */
 export interface ShortSecret {
@@ -157,16 +158,6 @@ export async function provisionDatabase(
 const raceAttempts = 10;
 
 /**
- * `text` as a string constant in SQL. A statement that makes or alters a
- * role takes no parameter, so the password is written into it. The `E`
- * form reads a backslash the same way whatever the server's
- * `standard_conforming_strings` says.
- */
-function literal(text: string): string {
-  return `E'${text.replaceAll("\\", "\\\\").replaceAll("'", "''")}'`;
-}
-
-/**
  * One try at an app's role and schema, in one transaction: the check of
  * `pg_roles` and what it decides go together, so a race shows up as an
  * error rather than a role made twice.
@@ -197,8 +188,12 @@ async function provisionInOne(
     };
   }
   const verb = existing ? "alter" : "create";
+  // A statement that makes or alters a role takes no parameter, and Postgres
+  // logs one that fails, whole. So it holds the password's SCRAM-SHA-256
+  // verifier, which Postgres stores as it stands, and never the password.
+  // The verifier is base64, so it needs no escaping.
   await tx.unsafe(
-    `${verb} role ${role} with login nosuperuser nocreatedb nocreaterole password ${literal(password)}`,
+    `${verb} role ${role} with login nosuperuser nocreatedb nocreaterole password '${scramVerifier(password)}'`,
   );
   const [{ database } = { database: "" }] = await tx<
     { database: string }[]
