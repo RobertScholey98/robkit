@@ -154,6 +154,7 @@ A deploy prints the same table, then a line for each app it deployed. These line
 
 It stops before it writes anything to Coolify when:
 
+- `coolify.json` names a project, environment, server or GitHub App that Coolify doesn't have. It lists the names Coolify has.
 - the environment lacks a shared variable the apps need. It names each one and where its value comes from.
 - an application with one of your apps' names is built from another repository, as after you rename or move the repository. Change each application's repository in Coolify to match `coolify.json`, then deploy again.
 - Coolify lists an application without its environment, which means a Coolify older than 4.3.
@@ -179,7 +180,7 @@ You set these in your shell, or as the repository's secrets for CI. `robkit depl
 
 ### Shared variables on the host
 
-You set these once, in the Coolify environment, in step 6. `robkit deploy` checks each one's name is there before it writes anything, and never reads their values.
+You set these once, in the Coolify environment, in step 6. `robkit deploy` checks each one's name is there before it writes anything, and uses only their names.
 
 - `ROBKIT_ADMIN_DATABASE_URL`, the internal URL of the environment's Postgres
 - `ROBKIT_DB_SECRET`, the install's database secret
