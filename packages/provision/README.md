@@ -8,6 +8,8 @@ It returns what it can refuse as a value, so each command says what to do in its
 
 It never writes a role's password into a statement. The statement that makes or changes the role holds the password's SCRAM-SHA-256 verifier, with a fresh salt each run, and Postgres stores that as it stands. So a statement Postgres logs, such as one that lost a race with another run, shows the verifier and not the password. The verifier is still secret: it lets whoever holds it guess passwords offline.
 
+Postgres runs a password through SASLprep before it salts it, and this package doesn't. The two agree on every ASCII password, as each of robkit's own is. Give `provisionDatabase` an ASCII password: one that SASLprep would change, such as one with a no-break space, makes a role that some clients can't sign in to.
+
 ## Example
 
 The provision step in production:
