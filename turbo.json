@@ -53,16 +53,31 @@
     "@internal/site#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/README.md"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/packages/create-robkit/templates/base/package.json",
+        "$TURBO_ROOT$/packages/create-robkit/templates/stacks/go/go.mod"
+      ]
     },
     "@internal/site#test": {
       "dependsOn": ["^build", "build"],
       "outputs": ["coverage/**"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/README.md"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/packages/create-robkit/templates/base/package.json",
+        "$TURBO_ROOT$/packages/create-robkit/templates/stacks/go/go.mod"
+      ]
     },
     "@internal/site#test:unit": {
       "dependsOn": ["^build", "build"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/README.md"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/packages/create-robkit/templates/base/package.json",
+        "$TURBO_ROOT$/packages/create-robkit/templates/stacks/go/go.mod"
+      ]
     },
     "@internal/go#test": {
       "inputs": [
