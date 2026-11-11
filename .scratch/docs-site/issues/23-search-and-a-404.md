@@ -31,7 +31,7 @@ Design both with `/ui-ux-pro-max`.
   - **How it ranks.** A section must have every word of the search. A word in its heading counts most, then one in its page's title, then one in its text, and the whole search together counts more. It shows 8 results at most, each with the page, the heading and about 200 characters of text with the words marked.
 - `@robkit/input` reads `search.json` in the dialog, as the input convention asks for parsed JSON. So the site takes it as a dev dependency, allowed in the package graph in its own commit.
 - **What loads when.** Only `search-key.ts` loads with every page, 1.2 KB gzipped. It shows the search buttons and listens for `/`. The dialog's script and the index load the first time search opens.
-  - **Search limit.** I recorded a limit of 100 KB gzipped for that first open in DESIGN.md, held by `weight.test.ts`. Today it is 2.1 KB of script and 57 KB of index. The index grows with the docs.
+  - **Search limit.** I recorded a limit of 100 KB gzipped for that first open in DESIGN.md, held by `weight.test.ts`. Today it is 2.1 KB of script and 53 KB of index. The index grows with the docs.
 - **The dialog.** It is a `<dialog>`, so focus stays in it and the page behind can't be reached.
   - The arrow keys move between the box and the results, and Enter in the box opens the first result.
   - Escape, the close button and a click outside close it, and give focus back to what had it.
@@ -53,6 +53,7 @@ Design both with `/ui-ux-pro-max`.
   - axe finds nothing on the open dialog at 375 and 1280 pixels, in both themes.
   - `/docs/one/two/three/not-a-page/` answers 404 from the local static server, with the heading, a link home and a working search button. axe finds nothing on it in either theme.
 - `weight.test.ts` still holds every page's opening scripts under 10 KB, and holds search's first open under its own limit.
+- Writing ticket 24's Markdown copies showed the index ran on past the page to the site's footer, and took in the copy button's script and its "Copy" label. Both could show in an excerpt. The index now stops at the page's own footer and leaves out scripts, styles and buttons, with a test, and the built `search.json` holds no script text.
 - I looked at screenshots of the open dialog and the 404 at 1280 light and 375 dark. They showed two faults, now fixed with tests. Excerpts ran a sentence into a name that starts with a dot, such as `.gitignore`, and the header overflowed at 375.
 - In `site/`, `pnpm build`, `pnpm lint`, `pnpm typecheck` and `pnpm test` pass, with 446 tests and the 2 Go tests skipped on Windows. The repo's glossary and graph-check tests pass.
 
