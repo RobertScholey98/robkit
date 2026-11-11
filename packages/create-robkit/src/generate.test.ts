@@ -1023,4 +1023,13 @@ describe("appFiles", () => {
       }
     },
   );
+  it.each(readyStacks)(
+    "gives the %s app an AGENTS.md about this app, not the example",
+    async (stack) => {
+      const agents = (await stackTemplate(stack)).get("AGENTS.md") ?? "";
+
+      expect(agents).not.toMatch(/\bthe example\b/i);
+      expect(agents).not.toMatch(/\ba `app\./);
+    },
+  );
 });
