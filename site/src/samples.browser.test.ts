@@ -212,3 +212,16 @@ describe("the stack switcher", () => {
     }
   });
 });
+
+describe("the callouts", () => {
+  it("say their kind in words, not by colour alone", async () => {
+    const { page } = await openPage(site, path, { width: 375 });
+    const notes = page.getByRole("note");
+
+    expect(await notes.count()).toBe(2);
+    expect(await notes.first().locator("p").first().textContent()).toBe("Note");
+    expect(await notes.last().locator("p").first().textContent()).toBe(
+      "Warning",
+    );
+  });
+});

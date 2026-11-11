@@ -1,4 +1,5 @@
 import CodeBlock from "../components/CodeBlock.astro";
+import Callout from "../components/Callout.astro";
 import StackSwitch from "../components/StackSwitch.astro";
 import TemplateFile from "../components/TemplateFile.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
@@ -114,6 +115,20 @@ pnpm robkit add notes --stack go
 
 </Fragment>
 </StackSwitch>
+
+## Callouts
+
+<Callout>
+
+Every new install has an access code, `test`, for signing in as a guest. It works only while the install runs on a `.localhost` domain.
+
+</Callout>
+
+<Callout kind="warning">
+
+`robkit deploy` sets its own variables in Coolify. Don't give one of yours a name from its table, or the next deploy replaces its value.
+
+</Callout>
 
 </main>
 </BaseLayout>
