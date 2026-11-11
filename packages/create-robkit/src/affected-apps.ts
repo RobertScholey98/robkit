@@ -71,6 +71,34 @@ export async function gitHistory(
   };
 }
 
+/**
+ * Whether the checkout's commit is on `branch` as some remote holds it,
+ * which is what Coolify builds. A remote's branch may be ahead of it.
+ */
+export async function pushedTo(
+  root: string,
+  branch: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<boolean> {
+  const git = (...args: string[]) =>
+    promisify(execFile)("git", args, { cwd: root, env });
+  const { stdout } = await git("remote");
+  for (const remote of stdout.split("\n").filter(Boolean)) {
+    try {
+      await git(
+        "merge-base",
+        "--is-ancestor",
+        "HEAD",
+        `refs/remotes/${remote.trim()}/${branch}`,
+      );
+      return true;
+    } catch {
+      // Not on this remote's branch, or the remote hasn't one: try the next.
+    }
+  }
+  return false;
+}
+
 async function changedSince(
   root: string,
   commit: string,

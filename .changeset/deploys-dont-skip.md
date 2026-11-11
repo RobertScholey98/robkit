@@ -6,6 +6,8 @@
 
 The first deploy after this upgrade deploys every app, since none has a record yet.
 
+`robkit deploy` now runs only from a commit pushed to the branch `coolify.json` names, since Coolify builds the branch, not the checkout. From a commit not pushed it stops before it reaches Coolify and says to push. CI's checkout of a push to `main` passes as it is.
+
 `robkit upgrade` doesn't change `.github`, so change your install's `.github/workflows/ci.yml` by hand:
 
 - In the top-level `concurrency`, replace `cancel-in-progress: true` with `cancel-in-progress: ${{ github.event_name == 'pull_request' }}`, so a push to `main` never cancels a run in progress.

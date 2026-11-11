@@ -1,13 +1,16 @@
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { reportFaultsAt, runCommand } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { appFiles } from "./generate.ts";
 import { init } from "./init.ts";
 import { drive, keys, questionsAsked } from "./test/drive.ts";
+import { gitEnv } from "./test/git.ts";
 import { pathWith } from "./test/path.ts";
 
 const bin = fileURLToPath(new URL("robkit-command.ts", import.meta.url));
@@ -459,6 +462,32 @@ describe("robkit deploy", () => {
       /^robkit deploy runs from the install's git checkout, and git couldn't name its commit: .+ Run it in the install's repository\.\n$/,
     );
   });
+
+  it.each([[["--all"]], [["--dry-run"]]])(
+    "refuses a commit not pushed to the deploy branch, before it reaches Coolify, with %s",
+    async (flags) => {
+      const dir = await freshInstall();
+      await writeFile(join(dir, "coolify.json"), coolifyJson);
+      const env = await gitEnv(true);
+      const git = (...args: string[]) =>
+        promisify(execFile)("git", args, { cwd: dir, env });
+      await git("init", "--quiet");
+      await git("add", ".");
+      await git("commit", "--quiet", "-m", "first");
+      const head = (await git("rev-parse", "HEAD")).stdout.trim();
+
+      const { code, output } = await drive(bin, dir, ["deploy", ...flags], [], {
+        COOLIFY_URL: "https://coolify.example",
+        COOLIFY_TOKEN: "t",
+      });
+
+      expect({ code, output }).toEqual({
+        code: 1,
+        output: `Coolify builds main as GitHub holds it, not this checkout, so robkit deploy runs only from a commit pushed to main. From any other it would record a build that never happened. This checkout's commit, ${head.slice(0, 7)}, isn't on main at any remote. Push it, or fetch if it's pushed already, then deploy again.
+`,
+      });
+    },
+  );
 
   it("deploys nothing until COOLIFY_URL is set", async () => {
     const dir = await freshInstall();

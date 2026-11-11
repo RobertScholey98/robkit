@@ -10,7 +10,7 @@ import {
   install as addresses,
 } from "@robkit/input/addresses";
 import { addApp, readInstallChoices } from "./add.ts";
-import { gitHistory } from "./affected-apps.ts";
+import { gitHistory, pushedTo } from "./affected-apps.ts";
 import { readArgs } from "./args.ts";
 import {
   addCommandFor,
@@ -73,9 +73,11 @@ Usage: robkit deploy [--all | --apps <list>] [--dry-run]
 Brings the install's applications on Coolify in line with the install, as
 coolify.json describes it, then deploys, core first, each app that is new,
 changed since the commit its last finished deploy recorded, or getting new
-variables. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run, reads Coolify,
-writes nothing to it, and prints what each app would do and why. Without
-COOLIFY_URL, --dry-run prints each app's variables instead.`;
+variables. Runs only from a commit pushed to the branch coolify.json names,
+since that is what Coolify builds. Reads COOLIFY_URL and COOLIFY_TOKEN. With
+--dry-run, reads Coolify, writes nothing to it, and prints what each app
+would do and why. Without COOLIFY_URL, --dry-run prints each app's variables
+instead.`;
 
 process.exitCode = await runCommand(async () => {
   requireInstall(process.cwd());
@@ -197,12 +199,19 @@ async function deployInstall(): Promise<number | undefined> {
       ? "changed"
       : readAppList(values.apps);
   if (isProblem(apps)) throw new CommandProblem(apps.error);
+  const history = await gitHistory(root);
+  if (!(await pushedTo(root, config.branch))) {
+    const { branch } = config;
+    throw new CommandProblem(
+      `Coolify builds ${branch} as GitHub holds it, not this checkout, so robkit deploy runs only from a commit pushed to ${branch}. From any other it would record a build that never happened. This checkout's commit, ${history.head.slice(0, 7)}, isn't on ${branch} at any remote. Push it, or fetch if it's pushed already, then deploy again.`,
+    );
+  }
   const ok = await deploy({
     coolify,
     config,
     deployments,
     apps,
-    history: await gitHistory(root),
+    history,
     dryRun,
   });
   return ok ? 0 : 1;
