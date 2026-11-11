@@ -70,6 +70,8 @@ beforeEach(async () => {
     join(root, ".changeset/config.json"),
     join(repo, ".changeset/config.json"),
   );
+  // It names the files create-robkit's build carries into an install.
+  await copyFile(join(root, "turbo.json"), join(repo, "turbo.json"));
   for (const [dir, name] of Object.entries(packages)) {
     await write(`${dir}/package.json`, manifest(name));
   }
@@ -169,6 +171,76 @@ describe("which changes need a changeset", () => {
       status: 1,
       output: unnamed("@robkit/core") + unnamed("create-robkit"),
     });
+  });
+});
+
+describe("a file create-robkit's build carries into an install", () => {
+  /** Commits `text` as the file at `path`. */
+  async function carry(path: string, text: string) {
+    await write(path, text);
+    git("add", "-A");
+    git("commit", "-q", "--no-verify", "-m", "Change it");
+  }
+  const guard = ["go/session/guarded.go", "package session\n"] as const;
+
+  it.each<readonly [path: string, text: string]>([
+    guard,
+    ["tooling/eslint/layers.js", "export const rules = {};\n"],
+    [
+      "pnpm-workspace.yaml",
+      "packages:\n  - packages/*\ncatalog:\n  hono: 5.0.0\n",
+    ],
+    [
+      "package.json",
+      '{ "name": "root", "private": true, "packageManager": "pnpm@11.0.0" }\n',
+    ],
+  ])(
+    "needs a changeset naming create-robkit when %s changes",
+    async (path, text) => {
+      await carry(path, text);
+
+      expect(check("main")).toEqual({
+        status: 1,
+        output: unnamed("create-robkit"),
+      });
+    },
+  );
+
+  it("passes with a changeset that names create-robkit", async () => {
+    await changeset("guard", "create-robkit");
+    await carry(...guard);
+
+    expect(check("main")).toEqual({ status: 0, output: "" });
+  });
+
+  it("still needs one in the version pull request", async () => {
+    git("checkout", "-q", "-B", "release-v0.1.0");
+    for (const [dir, name] of Object.entries(packages)) {
+      await write(`${dir}/package.json`, manifest(name, "0.1.0"));
+    }
+    await carry(...guard);
+
+    expect(check("main")).toEqual({
+      status: 1,
+      output: unnamed("create-robkit"),
+    });
+  });
+
+  it("needs none for a file at the root that no build carries", async () => {
+    await carry("README.md", "# robkit\n");
+
+    expect(check("main")).toEqual({ status: 0, output: "" });
+  });
+
+  it("stops when turbo.json doesn't list the build's inputs", async () => {
+    await carry("turbo.json", '{ "tasks": {} }\n');
+
+    const { status, output } = check("main");
+
+    expect(status).toBe(1);
+    expect(output).toContain(
+      "turbo.json must list the inputs of create-robkit#build.",
+    );
   });
 });
 
