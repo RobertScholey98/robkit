@@ -125,6 +125,26 @@ describe("a code block", () => {
     expect(await block.getByRole("button").textContent()).toBe("Couldn't copy");
   });
 
+  it("has a copy button only where a reader would paste, not on what a command prints", async () => {
+    const { page } = await openPage(site, "/docs/reference/robkit-command/", {
+      width: 1280,
+    });
+    const blocks = await page
+      .locator("figure.code")
+      .evaluateAll((figures) =>
+        figures.map((figure) => [
+          figure.querySelector(".label")?.textContent.trim(),
+          figure.querySelector("[data-copy]:not([hidden])") !== null,
+        ]),
+      );
+
+    expect(blocks).toContainEqual(["What it prints", false]);
+    expect(blocks).toContainEqual(["Terminal", true]);
+    expect(
+      blocks.filter(([label, copy]) => copy === (label === "What it prints")),
+    ).toEqual([]);
+  });
+
   it("has no copy button without scripts, and its code still shows", async () => {
     const { page } = await openPage(site, path, {
       width: 375,

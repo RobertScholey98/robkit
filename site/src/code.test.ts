@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codeLabel, fenceTitle, isCommand } from "./code.ts";
+import { codeLabel, fenceTitle, isCommand, isOutput } from "./code.ts";
 
 describe("fenceTitle", () => {
   it("reads title from a fence's meta, in double or single quotes", () => {
@@ -55,5 +55,17 @@ describe("codeLabel", () => {
 
   it("is empty for code with no language", () => {
     expect(codeLabel("")).toBe("");
+  });
+});
+
+describe("isOutput", () => {
+  it("is true for a text block, which shows what a command prints", () => {
+    expect(["text", "sh", "ts", "dotenv", ""].map(isOutput)).toEqual([
+      true,
+      false,
+      false,
+      false,
+      false,
+    ]);
   });
 });

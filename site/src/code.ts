@@ -12,6 +12,12 @@ const shells = new Set(["sh", "bash", "shell"]);
 /** Whether a block in `lang` holds commands to type, not a file's text. */
 export const isCommand = (lang: string): boolean => shells.has(lang);
 
+/**
+ * Whether a block in `lang` shows what a command prints, which nobody
+ * pastes, so it has no copy button. A `text` fence holds output.
+ */
+export const isOutput = (lang: string): boolean => lang === "text";
+
 const languages = new Map([
   ["ts", "TypeScript"],
   ["tsx", "TSX"],
