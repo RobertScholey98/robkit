@@ -83,12 +83,12 @@ export function createApp({
   origin,
   now = () => new Date(),
   trustedProxy,
-  logError: report = reportToConsole,
+  logError = reportToConsole,
   signingKey: loaded,
   signInLimits,
 }: CoreOptions): Hono {
   // The one reporter onError and every route use.
-  const logError = withoutQueryValues(report);
+  const report = withoutQueryValues(logError);
   const app = new Hono();
   // Hono's own answer to a route that throws. The cause stays in core's log
   // and the caller gets a generic error, with a request id that finds the
@@ -96,7 +96,7 @@ export function createApp({
   app.onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
     const requestId = randomUUID();
-    logError(
+    report(
       `${c.req.method} ${c.req.path} failed (request ${requestId}).`,
       error,
     );
@@ -165,13 +165,13 @@ export function createApp({
       atOnce: limits.passwordChecksAtOnce,
       waiting: limits.passwordChecksWaiting,
       onFull: () => {
-        logError(
+        report(
           `Password checks: ${String(limits.passwordChecksAtOnce)} running and ${String(limits.passwordChecksWaiting)} waiting, the most core allows. Core answers more 429 until one finishes.`,
         );
       },
     }),
     trustedProxy,
-    logError,
+    logError: report,
     signInLimits: limits,
   };
   app.route("/", statusRoutes(context));
