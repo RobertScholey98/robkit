@@ -14,32 +14,35 @@ export interface InstallFacts {
   catalog: string;
 }
 
+const decidedForEachApp = [
+  "ROBKIT_DOMAIN",
+  "ROBKIT_CORE_URL",
+  "ROBKIT_APPS",
+  "ROBKIT_APP",
+  "PORT",
+  "HOST",
+  "DATABASE_URL",
+  "ROBKIT_DATABASE_URL",
+  "VITEST",
+] as const;
+
+type DecidedName = (typeof decidedForEachApp)[number];
+
 /**
  * The names an app's `.env` can't set: each one `pnpm dev` decides for
  * every app, any name that starts with `prefix`, and `NODE_ENV`, which
- * decides whether a test helper such as `guardedAs()` serves.
+ * decides whether a test helper such as `guardedAs()` serves. Published as
+ * plain lists, so a name added here changes no type.
  */
-export const refusedAppSettings = {
-  decidedForEachApp: [
-    "ROBKIT_DOMAIN",
-    "ROBKIT_CORE_URL",
-    "ROBKIT_APPS",
-    "ROBKIT_APP",
-    "PORT",
-    "HOST",
-    "DATABASE_URL",
-    "ROBKIT_DATABASE_URL",
-    "VITEST",
-  ],
+export const refusedAppSettings: {
+  readonly decidedForEachApp: readonly string[];
+  readonly prefix: string;
+  readonly alsoRefused: readonly string[];
+} = {
+  decidedForEachApp,
   prefix: "ROBKIT_",
   alsoRefused: ["NODE_ENV"],
-} as const satisfies {
-  decidedForEachApp: readonly string[];
-  prefix: string;
-  alsoRefused: readonly string[];
 };
-
-type DecidedName = (typeof refusedAppSettings.decidedForEachApp)[number];
 
 /**
  * What `robkit-dev` decides for one app and its `migrate` script, over the
@@ -117,13 +120,13 @@ export function appEnv(
  */
 function whyRefused(name: string): string | undefined {
   const { decidedForEachApp, prefix, alsoRefused } = refusedAppSettings;
-  if ((decidedForEachApp as readonly string[]).includes(name)) {
+  if (decidedForEachApp.includes(name)) {
     return `which pnpm dev decides for each app. Remove it from the file.`;
   }
   if (name.startsWith(prefix)) {
     return `and a name that starts ${prefix} is robkit's own. Remove it from the file. robkit's settings for pnpm dev go in the .env at the install's root.`;
   }
-  if ((alsoRefused as readonly string[]).includes(name)) {
+  if (alsoRefused.includes(name)) {
     return `which decides whether a test helper such as guardedAs() serves. Remove it from the file.`;
   }
   return undefined;

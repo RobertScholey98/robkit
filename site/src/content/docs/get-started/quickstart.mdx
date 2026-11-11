@@ -39,12 +39,11 @@ Until robkit is on npm, you make an install from a clone of robkit's repository.
 ```sh checkout
 git clone https://github.com/RobertScholey98/robkit.git
 cd robkit
-corepack enable
 pnpm install
 pnpm create-install ../my-install
 ```
 
-`corepack enable` gives you the pnpm version robkit pins. `pnpm create-install` makes the install in `my-install`, beside the clone. The install's robkit packages are links to the clone, so keep the clone where it is.
+If `pnpm` isn't found, [What you need](/docs/get-started/what-you-need/#pnpm) says how to get it. `pnpm create-install` makes the install in `my-install`, beside the clone. The install's robkit packages are links to the clone, so keep the clone where it is.
 
 Once robkit is on npm, one command will make an install, with no clone:
 
@@ -86,10 +85,25 @@ When Docker is missing, it still makes the install, and warns that `pnpm dev` ne
 
 ## Start it
 
+<BeforeRelease>
+
+The install is beside the clone, so go up a folder to reach it:
+
+```sh
+cd ../my-install
+pnpm dev
+```
+
+</BeforeRelease>
+
+<AfterRelease>
+
 ```sh
 cd my-install
 pnpm dev
 ```
+
+</AfterRelease>
 
 `pnpm dev` starts Postgres in Docker, then core, the hub, admin and the example app, each on its own subdomain of `robkit.localhost`. It runs until you press Ctrl+C, which stops each app and Postgres.
 
@@ -117,7 +131,7 @@ You're signed in as the owner. The hub is your launcher, and it shows the exampl
 
 <Screenshot name="hub-first-launcher" />
 
-Admin, at http://admin.robkit.localhost:3000, is where you make access codes for guests and say which apps they may open. Every new install has the access code `test`, for signing in as a guest. It works only while the install runs on a `.localhost` domain.
+Admin, at http://admin.robkit.localhost:3000, is where you make access codes for guests and say which apps they may open. Every new install has the access code `test`, for signing in as a guest. It works only while the install runs on a `.localhost` domain. The picture shows admin after the owner made three more codes.
 
 <Screenshot name="admin-codes" />
 

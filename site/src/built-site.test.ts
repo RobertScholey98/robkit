@@ -13,7 +13,7 @@ import type { TreeEntry } from "./install-tree.ts";
 import { installGoVersion, installNodeVersion } from "./install.ts";
 import { quickstartCommands } from "./readme.ts";
 import { repoRoot } from "./repo.ts";
-import { built, codeBlocks, itemsAfter } from "./test/built.ts";
+import { built, codeBlocks, itemsAfter, origin } from "./test/built.ts";
 import { anchorOf, glossaryTerms } from "./repo-markdown.ts";
 import { docsHome, preRelease, repoUrl } from "./site.ts";
 import { guideHref } from "./stacks.ts";
@@ -99,11 +99,13 @@ describe("the built quickstart", () => {
   const clone = [
     "git clone https://github.com/RobertScholey98/robkit.git",
     "cd robkit",
-    "corepack enable",
     "pnpm install",
     "pnpm create-install ../my-install",
   ].join("\n");
 
+  // The clone's route needs no Corepack, which Node 26 doesn't ship. It
+  // starts the install from the clone's folder, where the reader still is,
+  // so the folder is one up.
   it("leads with the route from a clone until the first release, and drops it after", async () => {
     const terminals = codeBlocks(await built(page))
       .filter(({ label }) => label === "Terminal")
@@ -113,7 +115,7 @@ describe("the built quickstart", () => {
     const expected = (released: boolean) => [
       ...(released ? [] : [clone]),
       "npm create robkit my-install",
-      "cd my-install\npnpm dev",
+      released ? "cd my-install\npnpm dev" : "cd ../my-install\npnpm dev",
     ];
 
     expect(terminals).toEqual(expected(!preRelease));
@@ -737,6 +739,48 @@ describe("the built samples page", () => {
   });
 });
 
+describe("the built docs folders", () => {
+  const leadsTo = (html: string) =>
+    /<meta http-equiv="refresh" content="0; url=([^"]+)">/.exec(html)?.[1];
+
+  it("lead /docs/ and each folder to its first page in the sidebar's order", async () => {
+    const docs = await built(`${docsHome.slice(1)}index.html`);
+    const order = [
+      ...(/<nav id="site-nav"[\s\S]*?<\/nav>/.exec(docs)?.[0] ?? "").matchAll(
+        /href="([^"]+)"/g,
+      ),
+    ].map(([, href = ""]) => href);
+    const folders = new Set(["/docs/"]);
+    for (const href of order) {
+      folders.add(href.replace(/[^/]+\/$/, ""));
+    }
+    expect(folders.size).toBeGreaterThan(5);
+
+    for (const folder of folders) {
+      const html = await built(`${folder.slice(1)}index.html`);
+
+      expect(leadsTo(html), folder).toBe(
+        order.find((href) => href.startsWith(folder)),
+      );
+      expect(html, folder).toContain('<meta name="robots" content="noindex">');
+    }
+    expect(leadsTo(await built("docs/index.html"))).toBe(docsHome);
+  });
+
+  it("stay out of search, llms.txt and the Markdown copies", async () => {
+    const search = await built("search.json");
+    const llms = await built("llms.txt");
+
+    for (const folder of ["/docs/", "/docs/get-started/"]) {
+      expect(search).not.toContain(`"href":"${folder}"`);
+      expect(llms).not.toContain(`(${origin}${folder.replace(/\/$/, ".md")})`);
+      await expect(
+        built(folder.replace(/^\/|\/$/g, "") + ".md"),
+      ).rejects.toThrow();
+    }
+  });
+});
+
 describe("the built samples page's template files", () => {
   const template = async (path: string) =>
     (
@@ -794,12 +838,33 @@ describe("the built pages' images", () => {
 });
 
 describe("the pre-release line", () => {
+  /** The pre-release line's words on a built page, its link as written. */
+  const line = async (page: string) =>
+    /<div data-pre-release>[\s\S]*?<p>([\s\S]*?)<\/p>\s*<\/div>/.exec(
+      await built(page),
+    )?.[1];
+
+  it.skipIf(!preRelease)(
+    "sends a reader to the quickstart, but on the quickstart to the steps below",
+    async () => {
+      expect(await line("docs/reference/npm-create-robkit/index.html")).toMatch(
+        /which needs git\. <a href="\/docs\/get-started\/quickstart\/#make-an-install">The quickstart<\/a> shows how\.$/,
+      );
+      expect(await line("docs/get-started/quickstart/index.html")).toMatch(
+        /which needs git\. The steps below show how\.$/,
+      );
+    },
+  );
+
   it("is on each page that shows npm create robkit while preRelease is on, and on none when it's off", async () => {
     const pages: { page: string; shows: boolean; line: boolean }[] = [];
     for await (const page of glob("**/*.html", {
       cwd: join(repoRoot, "site", "dist"),
     })) {
       const html = await built(page);
+      // A docs folder's page names the page it sends the reader to, which
+      // may be npm create robkit's, and shows no command.
+      if (html.includes('<meta http-equiv="refresh"')) continue;
       const line = html.includes("data-pre-release");
       // Shiki gives each word of a command its own tag, so read the text.
       // The line says `npm create robkit` once itself, and a link in the

@@ -59,6 +59,8 @@ describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
     const { page, requests } = await openPage(site, path, { width });
     await page.getByRole("button", { name: "Dark theme" }).click();
     if (width === 375) await page.getByRole("button", { name: "Menu" }).click();
+    // A script could ask for something after the page has loaded.
+    await page.waitForLoadState("networkidle");
 
     expect(requests.length).toBeGreaterThan(1);
     expect(requests.filter((url) => !url.startsWith(site.origin))).toEqual([]);
@@ -180,6 +182,33 @@ describe("the phone menu", () => {
     ).toBe("site-nav");
   });
 
+  it.each(["light", "dark"] as const)(
+    "keeps its button 8 pixels from the name at 375 pixels, in the %s theme",
+    async (theme) => {
+      const { page } = await openPage(site, path, { width: 375, theme });
+      const button = await page.locator("[data-menu-button]").boundingBox();
+      const brand = await page.locator(".brand .icon").boundingBox();
+
+      expect(
+        (brand?.x ?? 0) - ((button?.x ?? 0) + (button?.width ?? 0)),
+      ).toBeGreaterThanOrEqual(8);
+      // The name keeps its word at 375 pixels.
+      expect(
+        (await page.locator(".brand").getByText("robkit").boundingBox())?.width,
+      ).toBeGreaterThan(40);
+      // No control is narrower than what it holds.
+      expect(
+        await page
+          .locator(".header .control:visible")
+          .evaluateAll((controls) =>
+            controls
+              .filter((control) => control.scrollWidth > control.clientWidth)
+              .map((control) => control.textContent.trim()),
+          ),
+      ).toEqual([]);
+    },
+  );
+
   it("is a column at 1280 pixels, with no button", async () => {
     const { page } = await openPage(site, path, { width: 1280 });
 
@@ -286,5 +315,66 @@ describe("On this page", () => {
     expect(
       await heading.evaluate((element) => element.getBoundingClientRect().top),
     ).toBeGreaterThanOrEqual(0);
+  });
+
+  it("fits a long list under the header at 1280 pixels, and scrolls it on its own", async () => {
+    const { page } = await openPage(site, "/docs/reference/settings/", {
+      width: 1280,
+    });
+    const toc = page.getByRole("navigation", { name: "On this page" });
+    const last = toc.getByRole("link").last();
+
+    const box = await toc.boundingBox();
+    expect(box?.y).toBeGreaterThanOrEqual(56);
+    expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(800);
+
+    await last.evaluate((link) => {
+      link.scrollIntoView({ block: "nearest", behavior: "instant" });
+    });
+    const lastBox = await last.boundingBox();
+    expect((lastBox?.y ?? 0) + (lastBox?.height ?? 0)).toBeLessThanOrEqual(800);
+    // The page itself stayed at its top.
+    expect(await page.evaluate(() => scrollY)).toBe(0);
+  });
+
+  describe.each([true, false])("at 375 pixels, scripts on: %s", (scripts) => {
+    // The longest list of headings in the docs.
+    const long = "/docs/reference/settings/";
+
+    it("starts folded to one line", async () => {
+      const { page } = await openPage(site, long, { width: 375, scripts });
+      const toc = page.getByRole("navigation", { name: "On this page" });
+
+      expect(
+        await toc
+          .getByRole("link", { name: "Where each setting goes" })
+          .isVisible(),
+      ).toBe(false);
+      expect((await toc.boundingBox())?.height).toBeLessThan(50);
+      // Without scripts the list of pages sits above the text, by design.
+      if (scripts) {
+        const text = page.locator(".prose > p").first();
+        expect((await text.boundingBox())?.y).toBeLessThan(800);
+      }
+    });
+
+    it("opens and shuts from the keyboard", async () => {
+      const { page } = await openPage(site, long, { width: 375, scripts });
+      const toc = page.getByRole("navigation", { name: "On this page" });
+      const fold = toc.locator("summary");
+      const link = toc.getByRole("link", { name: "Where each setting goes" });
+
+      await fold.focus();
+      await page.keyboard.press("Enter");
+      expect(await link.isVisible()).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(
+        await page.evaluate(() => document.activeElement?.textContent),
+      ).toBe("Where each setting goes");
+
+      await fold.focus();
+      await page.keyboard.press("Space");
+      expect(await link.isVisible()).toBe(false);
+    });
   });
 });

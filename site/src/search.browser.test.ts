@@ -50,6 +50,8 @@ describe("search", () => {
     const { page: opened, requests } = await openPage(site, page, {
       width: 1280,
     });
+    // An eager fetch could come after the page has loaded.
+    await opened.waitForLoadState("networkidle");
 
     expect(searchFetches(requests)).toEqual([]);
 
@@ -143,6 +145,74 @@ describe("search", () => {
 
     expect(edges.length).toBeGreaterThanOrEqual(6);
     expect(Math.max(...edges)).toBeLessThanOrEqual(375 - 16);
+  });
+
+  it("loads its script again on the next press after it failed", async () => {
+    const { page: opened } = await openPage(site, page, { width: 1280 });
+    let refused = 0;
+    await opened.route(/search-dialog/, async (route) => {
+      refused++;
+      await route.abort();
+    });
+
+    await opened.keyboard.press("/");
+    await expect.poll(() => refused).toBe(1);
+    expect(await opened.locator("dialog#search").isVisible()).toBe(false);
+
+    await opened.unrouteAll();
+    await slash(opened);
+  });
+
+  it("says when the index fails to load, and loads it when the reader types again", async () => {
+    const { page: opened } = await openPage(site, page, { width: 1280 });
+    const status = opened.locator("#search-status");
+    await opened.route("**/search.json", (route) => route.abort());
+
+    await slash(opened);
+    await expect
+      .poll(() => status.textContent())
+      .toBe(
+        "Search couldn't load. Check your connection, then type to try again.",
+      );
+
+    await opened.unrouteAll();
+    await opened.locator("#search-input").fill("robkit add");
+    await firstResult(opened).waitFor();
+  });
+
+  it("stops waiting for an index that doesn't come, and says what to do", async () => {
+    const { page: opened } = await openPage(site, page, { width: 1280 });
+    const status = opened.locator("#search-status");
+    // Never answered.
+    await opened.route("**/search.json", () => undefined);
+
+    await slash(opened);
+    expect(await status.textContent()).toBe("Loading search…");
+    await expect
+      .poll(() => status.textContent(), { timeout: 20_000 })
+      .toBe(
+        "Search is taking too long to load. Check your connection, then type to try again.",
+      );
+
+    await opened.unrouteAll({ behavior: "ignoreErrors" });
+    await opened.locator("#search-input").fill("robkit add");
+    await firstResult(opened).waitFor();
+  });
+
+  it("shows one way to close, not the browser's clear button too", async () => {
+    const { page: opened } = await openPage(site, page, { width: 375 });
+
+    const input = opened.locator("#search-input");
+    await searchButton(opened).click();
+    await input.fill("robkit");
+    const asSearch = await input.screenshot();
+
+    // A text field draws no clear button, so the two match without one.
+    await input.evaluate((field) => {
+      field.setAttribute("type", "text");
+    });
+
+    expect((await input.screenshot()).equals(asSearch)).toBe(true);
   });
 
   it("types a slash into a field", async () => {

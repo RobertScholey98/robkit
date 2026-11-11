@@ -38,6 +38,22 @@ describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
     );
   });
 
+  it("draws the diagram's words 12 pixels tall at least", async () => {
+    const { page } = await openPage(site, "/", { width });
+
+    const sizes = await page.locator(".diagram svg").evaluate((svg) => {
+      if (!(svg instanceof SVGSVGElement)) return [];
+      const scale =
+        svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+      return [...svg.querySelectorAll("text")].map(
+        (text) => Number.parseFloat(getComputedStyle(text).fontSize) * scale,
+      );
+    });
+
+    expect(sizes.length).toBeGreaterThan(10);
+    expect(Math.min(...sizes)).toBeGreaterThanOrEqual(12);
+  });
+
   it.each(["light", "dark"] as const)(
     "has nothing axe finds in the %s theme",
     async (theme) => {

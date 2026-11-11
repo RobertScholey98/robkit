@@ -19,7 +19,11 @@ import { sessionFetch } from "@robkit/react";
 const response = await sessionFetch("/api/notes");
 ```
 
-A call that finds the token lapsed never settles, because the page is leaving, so don't show an error for it. Apps on the TanStack Start stack hand it to Start for their server functions, and a React + Go app's page calls its Go server with it. Any app whose page calls its own server can use it.
+A call that finds the token lapsed never settles, because the page is leaving, so don't show an error for it.
+
+A call that gets no answer within 30 seconds fails with a `TimeoutError`. The 30 seconds include reading the body, so a response that streams for longer is cut off. A `signal` you pass still stops the call sooner.
+
+Apps on the TanStack Start stack hand it to Start for their server functions, and a React + Go app's page calls its Go server with it. Any app whose page calls its own server can use it.
 
 ```ts title="src/start.ts"
 import { sessionFetch } from "@robkit/react";

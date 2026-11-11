@@ -9,6 +9,33 @@ import { openPage, openSite, type Site } from "./test/browser.ts";
 
 const path = "/samples/";
 
+/**
+ * Each piece of the text in `selector`, split where `between` matches,
+ * that the page draws across two lines.
+ */
+const brokenWords = (page: Page, selector: string, between: RegExp) =>
+  page.locator(selector).evaluateAll((elements, pattern) => {
+    const split = new RegExp(pattern);
+    const range = document.createRange();
+    const broken: string[] = [];
+    for (const element of elements) {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        let start = 0;
+        for (const piece of (node.textContent ?? "").split(split)) {
+          range.setStart(node, start);
+          range.setEnd(node, start + piece.length);
+          const lines = new Set(
+            [...range.getClientRects()].map(({ top }) => Math.round(top)),
+          );
+          if (lines.size > 1) broken.push(piece);
+          start += piece.length;
+        }
+      }
+    }
+    return broken;
+  }, between.source);
+
 let site: Site;
 
 beforeAll(async () => {
@@ -123,6 +150,35 @@ describe("a code block", () => {
       .poll(() => block.getByRole("status").textContent())
       .toBe("Your browser didn't allow copying. Select the code to copy it.");
     expect(await block.getByRole("button").textContent()).toBe("Couldn't copy");
+  });
+
+  it("has a copy button only where a reader would paste, not on what a command prints", async () => {
+    const { page } = await openPage(site, "/docs/reference/robkit-command/", {
+      width: 1280,
+    });
+    const blocks = await page
+      .locator("figure.code")
+      .evaluateAll((figures) =>
+        figures.map((figure) => [
+          figure.querySelector(".label")?.textContent.trim(),
+          figure.querySelector("[data-copy]:not([hidden])") !== null,
+        ]),
+      );
+
+    expect(blocks).toContainEqual(["What it prints", false]);
+    expect(blocks).toContainEqual(["Terminal", true]);
+    expect(
+      blocks.filter(([label, copy]) => copy === (label === "What it prints")),
+    ).toEqual([]);
+  });
+
+  it("breaks a long file name in its bar only after a slash, at 375 pixels", async () => {
+    const { page } = await openPage(site, "/docs/build-an-app/react-hono/", {
+      width: 375,
+    });
+
+    expect(await page.locator(".code .label").count()).toBeGreaterThan(3);
+    expect(await brokenWords(page, ".code .label", /(?<=\/)/)).toEqual([]);
   });
 
   it("has no copy button without scripts, and its code still shows", async () => {

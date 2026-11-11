@@ -42,6 +42,12 @@ It asks the registry your pnpm uses which versions of robkit it has, so a mirror
 
 The upgrade runs in two steps. The robkit your install has checks everything, moves `create-robkit` alone to the new version and installs it, then hands over to the new robkit, which does the rest.
 
+An install made with `--link` takes robkit's packages from a clone, so an upgrade has nothing to move there, and it says to pull the clone. One that ran `robkit vendor` gets this line instead:
+
+```text title="What it prints"
+This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. Vendor again from a newer robkit checkout to update them.
+```
+
 ## What it changes
 
 It writes these and nothing else:
@@ -89,3 +95,20 @@ pnpm install
 ```
 
 When the upgrade can't put the files back itself, it prints the same commands.
+
+## Undo an upgrade
+
+An upgrade starts from a clean commit and writes only in the install's folder, so git can undo it.
+
+Before you commit what it changed, run the three commands under [If it stops partway](#if-it-stops-partway).
+
+After you commit it, revert that commit and install again:
+
+```sh
+git revert <the upgrade's commit>
+pnpm install
+```
+
+`pnpm robkit upgrade` itself never goes back. It refuses a version older than the install's.
+
+Git puts back files, not the database. If `pnpm dev` ran after the upgrade, the new core may have migrated its tables, and the older core runs against them as they are.

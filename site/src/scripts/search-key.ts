@@ -8,7 +8,11 @@ import type * as SearchDialog from "./search-dialog.ts";
 let dialog: Promise<typeof SearchDialog> | undefined;
 
 function openSearch(from: Element | null): void {
-  dialog ??= import("./search-dialog.ts");
+  // A failed load isn't kept, so the next press tries again.
+  dialog ??= import("./search-dialog.ts").catch((error: unknown) => {
+    dialog = undefined;
+    throw new Error("Search's script didn't load.", { cause: error });
+  });
   void dialog.then(({ open }) => {
     open(from);
   });

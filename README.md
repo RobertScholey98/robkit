@@ -21,8 +21,7 @@ robkit's packages aren't on npm until its first release. Until then, or to work 
 ```sh
 git clone https://github.com/RobertScholey98/robkit.git
 cd robkit
-corepack enable                                   # gives you the pnpm version robkit pins
-pnpm install
+pnpm install                                      # no pnpm? npm install -g pnpm gets it
 pnpm create-install ../my-install --stack start   # or leave out the arguments, and it asks
 cd ../my-install
 pnpm dev

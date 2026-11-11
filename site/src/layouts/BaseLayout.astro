@@ -19,6 +19,8 @@ interface Props {
   menu?: boolean;
   /** Whether search engines should leave the page out, as the samples page asks. */
   noindex?: boolean;
+  /** Where to send the reader at once, for a page that only leads on. */
+  refresh?: string;
   /** Where the page's Markdown copy is, for a docs page. */
   markdown?: string;
 }
@@ -29,6 +31,7 @@ const {
   menu = false,
   noindex = false,
   markdown,
+  refresh,
 } = Astro.props;
 const pageTitle = title === "robkit" ? title : `${title} | robkit`;
 // Addresses in a link preview are absolute, on the site's own origin.
@@ -44,6 +47,9 @@ const preview = String(new URL(previewImage.path, Astro.site));
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
+    {refresh !== undefined && (
+      <meta http-equiv="refresh" content={`0; url=${refresh}`} />
+    )}
     {!noindex && <link rel="canonical" href={canonical} />}
     {markdown !== undefined && (
       <link rel="alternate" type="text/markdown" href={markdown} />

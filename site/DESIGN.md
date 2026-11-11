@@ -127,8 +127,10 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 
 - A docs page has a header, the list of pages on the left, the page in the middle, its headings on the right, and a footer.
 - From 64rem (1024 px) wide the list of pages is a column. Below it, the list is behind a "Menu" button in the header, and opens over the page.
-- From 80rem (1280 px) the page's headings are a column. Below it, they sit at the top of the page.
+- Below 48rem (768 px) the header's controls show their icons only, "Menu" too, and keep their words for a screen reader. No control shrinks below what it holds, and the menu button sits 8 px or more from the name. Below 375 px the name drops its word and keeps its mark.
+- From 80rem (1280 px) the page's headings are a column, no taller than the window under the header, which scrolls on its own when the list is longer. A long name breaks after an underscore or a slash. Below it, they sit at the top of the page, folded under "On this page" until the reader opens them. The fold is a `details`, so it opens from the keyboard and with no script.
 - At 375 px nothing scrolls sideways but a code block, which scrolls on its own.
+- `/docs/` and each section's folder, such as `/docs/get-started/`, send the reader to their first page at once, through a page with a meta refresh, since a static host would answer a folder with no page with the 404. Search engines skip those pages, and so do the sitemap, search, the Markdown copies and `llms.txt`.
 - A skip link is the first thing a keyboard reaches. It goes to the page's main content.
 
 ## Controls
@@ -139,7 +141,7 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 - Hover changes colour only, in `--duration-fast`.
 - A toggle says its state: the theme toggle is a `button` with `aria-pressed`, named "Dark theme". The menu button has `aria-expanded` and `aria-controls`.
 - The phone menu closes on Escape, on a click outside it and on following a link, and gives focus back to its button.
-- Search opens from the header's search button or the `/` key, in a dialog over the page. The `/` key types a slash when the reader is in a field. The arrow keys move between the box and the results, and Enter in the box opens the first result. It closes on Escape, on its close button and on a click outside it, and gives focus back to what had it. The status line under the box says what search found, to a screen reader too. Without scripts the search button isn't shown.
+- Search opens from the header's search button or the `/` key, in a dialog over the page. The `/` key types a slash when the reader is in a field. The arrow keys move between the box and the results, and Enter in the box opens the first result. It closes on Escape, on its close button and on a click outside it, and gives focus back to what had it. The status line under the box says what search found, to a screen reader too. When the index fails to load or takes more than 10 seconds, the status line says so and what to do, and the next key the reader types tries again. A failed load of the dialog's script tries again on the next press. Without scripts the search button isn't shown.
 
 ## Motion
 
@@ -154,9 +156,9 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 
 ## Code and callouts
 
-- Every code block sits in a frame with a bar above the code. The bar names the file the code is from, says "Terminal" for commands, or names the language.
+- Every code block sits in a frame with a bar above the code. The bar names the file the code is from, says "Terminal" for commands, or names the language. A long path in the bar breaks after a slash, never inside a name.
 - A command block puts a `$` prompt before each line, in `--color-muted`. The prompt can't be selected or copied with the command.
-- Every block has a copy button at the end of its bar, `--target` tall. It says "Copied" for 2 seconds, on the button and to a screen reader through a status region. When the browser refuses the clipboard, it says "Couldn't copy" and asks the reader to select the code. Without scripts it isn't shown.
+- Every block a reader would paste has a copy button at the end of its bar, `--target` tall. A block that shows what a command prints, a `text` fence, has none. It says "Copied" for 2 seconds, on the button and to a screen reader through a status region. When the browser refuses the clipboard, it says "Couldn't copy" and asks the reader to select the code. Without scripts it isn't shown.
 - A block wider than the page scrolls on its own. Code isn't wrapped.
 - A file from an install is read from create-robkit's templates as the site builds, never pasted, and its bar names it as the install does.
 - A sample that differs by stack shows one stack at a time, under tabs named after robkit's stacks. The chosen tab has an accent underline. The choice holds on every page. Without scripts, every stack's sample shows under its name.

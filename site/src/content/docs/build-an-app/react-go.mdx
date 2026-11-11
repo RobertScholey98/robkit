@@ -24,7 +24,7 @@ You need Go <InstallVersion tool="go" /> or later on your `PATH`, as [What you n
 pnpm robkit add notes --stack go
 ```
 
-With `--stack` given, it asks nothing. It writes `apps/notes`, open to the owner alone and with the default icon, and starts it at `http://notes.robkit.localhost:3000`. Add `--access` and `--icon` to choose who may open it and its emoji, or leave out every option to be asked. The folder's name is the app's slug. It names the subdomain, and the Postgres schema and role too.
+With `--stack` given, it asks nothing. It writes `apps/notes`, open to the owner alone and with the default icon, and starts it at `http://notes.robkit.localhost:3000`. Add `--access` and `--icon` to choose who may open it and its emoji, or leave out every option to be asked. [robkit add](/docs/reference/robkit-command/#robkit-add) lists each option, with `--roles` for an app some guests may open. The folder's name is the app's slug. It names the subdomain, and the Postgres schema and role too.
 
 ## What robkit add writes
 
@@ -34,7 +34,9 @@ robkit's guard for Go isn't on a module proxy. `robkit add` copies it to the ins
 
 <TemplateFile path="stacks/go/go.mod" app="notes" />
 
-`pnpm robkit upgrade` replaces `vendor/robkit/go` whole, so don't edit it. The rest of this guide is about the files you edit: the table, the queries, the routes, the server and the test.
+An install made from a clone of robkit links to the clone, as the quickstart's does until the first release. There, `go.mod` points at the clone's `go` folder, and the install has no `vendor/robkit/go`.
+
+`pnpm robkit upgrade` replaces `vendor/robkit/go` whole, so don't edit it. In a linked install it has nothing to replace, and pulling the clone updates the module. The rest of this guide is about the files you edit: the table, the queries, the routes, the server and the test.
 
 ## The table
 
@@ -334,6 +336,7 @@ Run `pnpm test` in the app's folder again, and `pnpm lint` in the install's. `pn
 - [Testing with a viewer](/docs/build-an-app/testing-with-a-viewer/), for the owner, a guest and nobody in a test.
 - [The database](/docs/build-an-app/the-database/), for what your app's role can reach and how migrations run.
 - [Settings](/docs/build-an-app/settings/), for your app's own `.env`.
+- [The UI kit](/docs/build-an-app/the-ui-kit/), for the shared components, and how to add one.
 - [The layer rule](/docs/build-an-app/the-layer-rule/), for what your app may import.
 - [Go's `net/http`](https://pkg.go.dev/net/http), for `ServeMux` and its patterns.
 - [pgx](https://pkg.go.dev/github.com/jackc/pgx/v5), for queries.
