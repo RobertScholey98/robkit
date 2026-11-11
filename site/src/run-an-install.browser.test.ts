@@ -15,34 +15,34 @@ afterAll(async () => {
   await site.close();
 });
 
-describe.each(["/docs/run-an-install/pnpm-dev-and-your-apps/"])(
-  "%s",
-  (path) => {
-    describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
-      it.each(["light", "dark"] as const)(
-        "has nothing axe finds in the %s theme",
-        async (theme) => {
-          const { page } = await openPage(site, path, { width, theme });
-          const { violations } = await new AxeBuilder({ page }).analyze();
+describe.each([
+  "/docs/run-an-install/pnpm-dev-and-your-apps/",
+  "/docs/run-an-install/guests-and-access/",
+])("%s", (path) => {
+  describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
+    it.each(["light", "dark"] as const)(
+      "has nothing axe finds in the %s theme",
+      async (theme) => {
+        const { page } = await openPage(site, path, { width, theme });
+        const { violations } = await new AxeBuilder({ page }).analyze();
 
-          expect(violations.map(({ id, nodes }) => [id, nodes.length])).toEqual(
-            [],
-          );
-        },
-      );
+        expect(violations.map(({ id, nodes }) => [id, nodes.length])).toEqual(
+          [],
+        );
+      },
+    );
+  });
+
+  it("scrolls sideways at 375 pixels only inside a code block", async () => {
+    const { page } = await openPage(site, path, {
+      width: 375,
+      theme: "light",
     });
 
-    it("scrolls sideways at 375 pixels only inside a code block", async () => {
-      const { page } = await openPage(site, path, {
-        width: 375,
-        theme: "light",
-      });
+    const pageWidth = await page.evaluate(
+      () => document.documentElement.scrollWidth,
+    );
 
-      const pageWidth = await page.evaluate(
-        () => document.documentElement.scrollWidth,
-      );
-
-      expect(pageWidth).toBe(375);
-    });
-  },
-);
+    expect(pageWidth).toBe(375);
+  });
+});
