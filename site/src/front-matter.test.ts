@@ -42,6 +42,8 @@ async function syncPage(name: string, frontMatter: string) {
     "src/built.ts",
     "src/repo-markdown.ts",
     "src/repo.ts",
+    "src/search.ts",
+    "src/search-index.ts",
     "src/site.ts",
   ]) {
     await cp(join(site, source), join(root, source));
