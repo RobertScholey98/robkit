@@ -154,7 +154,7 @@ A deploy prints the same table, then a line for each app it deployed. These line
 
 It stops before it writes anything to Coolify when:
 
-- `coolify.json` names a project, environment, server or GitHub App that Coolify doesn't have. It lists the names Coolify has.
+- `coolify.json` names an environment the project doesn't have, or a project, server or GitHub App that Coolify doesn't have. It lists the names Coolify has. When Coolify has only one project, server or GitHub App, `robkit deploy` takes that one, whatever name you gave.
 - the environment lacks a shared variable the apps need. It names each one and where its value comes from.
 - an application with one of your apps' names is built from another repository, as after you rename or move the repository. Change each application's repository in Coolify to match `coolify.json`, then deploy again.
 - Coolify lists an application without its environment, which means a Coolify older than 4.3.
