@@ -662,6 +662,59 @@ describe("deploy's decisions", () => {
   });
 });
 
+describe("deploy's applications that match no app", () => {
+  const gone =
+    '- robkit-notes matches no app in this install, so robkit deploy left it alone. To remove it, see "Removing an app\'s application" in docs/deploy.md.';
+
+  it("deploys core with the shorter catalog when an app's folder is deleted, and names the app's application", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state, beforeNotesMigrated);
+    // Core's catalog no longer names notes.
+    const [core, hub] = beforeNotesMigrated;
+    const withoutNotes: AppDeployment[] = [
+      { slug: "core", env: { ...core?.env, ROBKIT_APPS: { literal: "[]" } } },
+      ...(hub ? [hub] : []),
+    ];
+
+    const { ok, log } = await run(state, "changed", {
+      deployments: withoutNotes,
+    });
+
+    expect(ok).toBe(true);
+    expect(log).toContain(
+      "| core | deploy | its variables changed since 0000000 |",
+    );
+    expect(log).toContain(gone);
+    expect(
+      state.requests.filter(({ path }) => path.includes("/applications/n")),
+    ).toEqual([]);
+  });
+
+  it("names none from another environment or another repository", async () => {
+    const state = host({
+      environments: [
+        { id: 1, uuid: "env-production", name: "production" },
+        { id: 2, uuid: "env-staging", name: "staging" },
+      ],
+      applications: [
+        existing("core", "c"),
+        existing("hub", "h"),
+        { ...existing("notes", "staging-notes"), environment_id: 2 },
+        {
+          ...existing("blog", "owners-blog"),
+          git_repository: "https://github.com/RobertScholey98/blog.git",
+        },
+      ],
+    });
+
+    const { log } = await run(state, "all", {
+      deployments: beforeNotesMigrated.slice(0, 2),
+    });
+
+    expect(log.filter((line) => line.includes("matches no app"))).toEqual([]);
+  });
+});
+
 describe("deploy's record", () => {
   it("saves the commit and the variables on each application once its deploy finished", async () => {
     const state = host({ applications: all() });

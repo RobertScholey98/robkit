@@ -96,3 +96,9 @@ Open `https://hub.<domain>` straight away and claim the install: whoever sets it
 ## Adding an app
 
 `pnpm robkit add` writes the app. If it has a database, run `pnpm robkit database-urls` again and add its new `<SLUG>_DATABASE_URL` shared variable before you push. The next deploy creates its application, redeploys core with it, then starts it.
+
+## Removing an app's application
+
+Deleting an app's folder takes the app out of core's catalog, so the next deploy redeploys core without it. `robkit deploy` never deletes an application. It names the old one as matching no app, and leaves it running.
+
+To remove it, open the application `<project>-<slug>` in Coolify, stop it, and delete it. Its schema and role stay in Postgres, and its `<SLUG>_DATABASE_URL` shared variable stays in the environment, until you delete them yourself.

@@ -285,6 +285,18 @@ function plan(
   });
 }
 
+/**
+ * The names of this install's applications that match no app, such as one
+ * whose folder was deleted.
+ */
+function unmatched(host: Host, desired: readonly Desired[]): string[] {
+  const names = new Set(desired.map(({ settings }) => settings.name));
+  return host.applications.flatMap((application) => {
+    const name = stringFieldOf(application, "name") ?? "?";
+    return names.has(name) ? [] : [name];
+  });
+}
+
 interface WaitOptions {
   intervalMs: number;
   timeoutMs: number;
@@ -409,6 +421,11 @@ export async function deploy({
   log("| --- | --- | --- |");
   for (const { app, action, reason } of steps) {
     log(`| ${app} | ${action} | ${reason} |`);
+  }
+  for (const name of unmatched(host, desired)) {
+    log(
+      `- ${name} matches no app in this install, so robkit deploy left it alone. To remove it, see "Removing an app's application" in docs/deploy.md.`,
+    );
   }
   let ok = steps.every(({ action }) => action !== "failed");
 
