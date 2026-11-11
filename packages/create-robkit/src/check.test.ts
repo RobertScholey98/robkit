@@ -282,6 +282,47 @@ describe("checkInstall", () => {
     },
   );
 
+  it("passes a .d.ts file's import of .d.ts files in dist, as Next's next-env.d.ts has", async () => {
+    // What Next writes to an app's folder once it has built or served it.
+    const dir = await installWith(
+      "apps/example/next-env.d.ts",
+      [
+        '/// <reference types="next" />',
+        '/// <reference types="next/image-types/global" />',
+        'import "./dist/types/routes.d.ts";',
+        'import "./dist/types/root-params.d.ts";',
+        "",
+      ].join("\n"),
+    );
+    await mkdir(join(dir, "apps/example/dist/types"), { recursive: true });
+    for (const name of ["routes.d.ts", "root-params.d.ts"]) {
+      await writeFile(
+        join(dir, "apps/example/dist/types", name),
+        "export {};\n",
+      );
+    }
+
+    expect(await checkInstall(dir)).toEqual([]);
+  });
+
+  it.each([
+    [
+      "a script's import of a .d.ts file",
+      "reach.ts",
+      "./dist/types/routes.d.ts",
+    ],
+    ["a .d.ts file's import of a script", "reach.d.ts", "./dist/server.js"],
+  ])("still refuses %s in dist", async (_, name, specifier) => {
+    const dir = await installWith(
+      `apps/example/${name}`,
+      `import "${specifier}";\n`,
+    );
+
+    expect(await checkInstall(dir)).toEqual([
+      { file: `apps/example/${name}`, line: 1, column: 8, rule: readFolders },
+    ]);
+  });
+
   it.each([
     ["the folder it imports", "./linked", "linked"],
     ["the first folder along its path", "./linked/server.ts", "linked"],
