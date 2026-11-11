@@ -9,8 +9,9 @@ export default defineConfig({
     // that shares an install only reads it.
     sequence: { concurrent: true },
     // Many tests write a whole install to disk, which takes seconds on
-    // Windows while lint and typecheck run beside them.
-    testTimeout: 30_000,
+    // Windows while lint and typecheck run beside them, and has taken over
+    // thirty on a slow CI runner.
+    testTimeout: 120_000,
     // A `*.pack.test.ts` file builds and packs robkit's own packages, which
     // takes most of a minute under load, and has taken over two on a slow
     // CI runner. `test:unit` runs the `unit` project alone, so `pnpm check`
