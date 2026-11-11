@@ -200,10 +200,10 @@ async function deployInstall(): Promise<number | undefined> {
       : readAppList(values.apps);
   if (isProblem(apps)) throw new CommandProblem(apps.error);
   const history = await gitHistory(root);
-  if (!(await pushedTo(root, config.branch))) {
-    const { branch } = config;
+  if (!(await pushedTo(root, config))) {
+    const { branch, repository } = config;
     throw new CommandProblem(
-      `Coolify builds ${branch} as GitHub holds it, not this checkout, so robkit deploy runs only from a commit pushed to ${branch}. From any other it would record a build that never happened. This checkout's commit, ${history.head.slice(0, 7)}, isn't on ${branch} at any remote. Push it, or fetch if it's pushed already, then deploy again.`,
+      `Coolify builds ${branch} as ${repository} holds it, not this checkout, so robkit deploy runs only from a commit pushed there. This checkout's commit, ${history.head.slice(0, 7)}, isn't on ${branch} at a remote for ${repository}. Push it, or fetch if it's pushed already, then deploy again. A remote counts when its URL ends in ${repository}.`,
     );
   }
   const ok = await deploy({

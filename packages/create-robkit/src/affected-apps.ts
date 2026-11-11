@@ -72,24 +72,44 @@ export async function gitHistory(
 }
 
 /**
- * Whether the checkout's commit is on `branch` as some remote holds it,
- * which is what Coolify builds. A remote's branch may be ahead of it.
+ * A repository's `owner/name` in lower case, from its short name or from a
+ * URL in any form git takes: https, `git@host:owner/name.git` or ssh.
+ */
+function repositoryName(repository: string): string {
+  return repository
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\.git$/, "")
+    .split(/[/:]/)
+    .slice(-2)
+    .join("/")
+    .toLowerCase();
+}
+
+/**
+ * Whether the checkout's commit is on `branch` of `repository` as a remote
+ * of the checkout holds it, which is what Coolify builds. The branch may be
+ * ahead of the commit. A remote counts only when its URL names
+ * `repository`: a push to a fork or a backup isn't one Coolify sees.
  */
 export async function pushedTo(
   root: string,
-  branch: string,
+  { repository, branch }: { repository: string; branch: string },
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<boolean> {
-  const git = (...args: string[]) =>
-    promisify(execFile)("git", args, { cwd: root, env });
-  const { stdout } = await git("remote");
-  for (const remote of stdout.split("\n").filter(Boolean)) {
+  const git = async (...args: string[]) =>
+    (await promisify(execFile)("git", args, { cwd: root, env })).stdout.trim();
+  const wanted = repositoryName(repository);
+  for (const remote of (await git("remote")).split("\n").filter(Boolean)) {
     try {
+      if (repositoryName(await git("remote", "get-url", remote)) !== wanted) {
+        continue;
+      }
       await git(
         "merge-base",
         "--is-ancestor",
         "HEAD",
-        `refs/remotes/${remote.trim()}/${branch}`,
+        `refs/remotes/${remote}/${branch}`,
       );
       return true;
     } catch {

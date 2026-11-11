@@ -483,7 +483,7 @@ describe("robkit deploy", () => {
 
       expect({ code, output }).toEqual({
         code: 1,
-        output: `Coolify builds main as GitHub holds it, not this checkout, so robkit deploy runs only from a commit pushed to main. From any other it would record a build that never happened. This checkout's commit, ${head.slice(0, 7)}, isn't on main at any remote. Push it, or fetch if it's pushed already, then deploy again.
+        output: `Coolify builds main as RobertScholey98/robkit-dev holds it, not this checkout, so robkit deploy runs only from a commit pushed there. This checkout's commit, ${head.slice(0, 7)}, isn't on main at a remote for RobertScholey98/robkit-dev. Push it, or fetch if it's pushed already, then deploy again. A remote counts when its URL ends in RobertScholey98/robkit-dev.
 `,
       });
     },

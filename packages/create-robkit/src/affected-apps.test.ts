@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -155,15 +155,36 @@ describe.skipIf(process.platform === "win32")("gitHistory's changes", () => {
 });
 
 describe("pushedTo", () => {
-  /** A repository with a bare one as its `origin`. */
-  async function withRemote(): Promise<Awaited<ReturnType<typeof repository>>> {
-    const checkout = await repository();
-    const remote = await mkdtemp(join(tmpdir(), "robkit-remote-"));
+  /** What coolify.json names: the repository and branch Coolify builds. */
+  const built = { repository: "Owner/Install", branch: "main" };
+
+  type Checkout = Awaited<ReturnType<typeof repository>>;
+
+  /**
+   * Gives `checkout` a bare repository as the remote `name`, at a path
+   * ending in `fullName`, such as owner/install.
+   */
+  async function addRemote(
+    checkout: Checkout,
+    name: string,
+    fullName: string,
+  ): Promise<void> {
+    const remote = join(
+      await mkdtemp(join(tmpdir(), "robkit-remote-")),
+      `${fullName}.git`,
+    );
+    await mkdir(remote, { recursive: true });
     await run("git", ["init", "--quiet", "--bare"], {
       cwd: remote,
       env: checkout.env,
     });
-    await checkout.git("remote", "add", "origin", remote);
+    await checkout.git("remote", "add", name, remote);
+  }
+
+  /** A repository with a bare one as its `origin`, which is the one Coolify builds. */
+  async function withRemote(): Promise<Checkout> {
+    const checkout = await repository();
+    await addRemote(checkout, "origin", "owner/install");
     return checkout;
   }
 
@@ -171,7 +192,7 @@ describe("pushedTo", () => {
     const { dir, env, git } = await withRemote();
     await git("push", "--quiet", "origin", "HEAD:refs/heads/main");
 
-    expect(await pushedTo(dir, "main", env)).toBe(true);
+    expect(await pushedTo(dir, built, env)).toBe(true);
   });
 
   it("finds a commit not pushed yet missing", async () => {
@@ -179,20 +200,45 @@ describe("pushedTo", () => {
     await git("push", "--quiet", "origin", "HEAD:refs/heads/main");
     await commit(git, "not pushed");
 
-    expect(await pushedTo(dir, "main", env)).toBe(false);
+    expect(await pushedTo(dir, built, env)).toBe(false);
   });
 
   it("finds a commit pushed only to another branch missing", async () => {
     const { dir, env, git } = await withRemote();
     await git("push", "--quiet", "origin", "HEAD:refs/heads/feature");
 
-    expect(await pushedTo(dir, "main", env)).toBe(false);
+    expect(await pushedTo(dir, built, env)).toBe(false);
   });
 
   it("finds a commit in a checkout with no remote missing", async () => {
     const { dir, env } = await repository();
 
-    expect(await pushedTo(dir, "main", env)).toBe(false);
+    expect(await pushedTo(dir, built, env)).toBe(false);
+  });
+
+  it("finds a commit pushed only to another repository missing", async () => {
+    const checkout = await withRemote();
+    const { dir, env, git } = checkout;
+    await git("push", "--quiet", "origin", "HEAD:refs/heads/main");
+    await addRemote(checkout, "backup", "owner/backup");
+    await commit(git, "pushed to the backup alone");
+    await git("push", "--quiet", "backup", "HEAD:refs/heads/main");
+
+    expect(await pushedTo(dir, built, env)).toBe(false);
+  });
+
+  it.each([
+    "https://github.com/Owner/Install",
+    "https://github.com/owner/install.git",
+    "git@github.com:Owner/Install.git",
+    "ssh://git@github.com/Owner/Install.git/",
+  ])("counts a remote at %s as the repository", async (url) => {
+    const { dir, env, git } = await repository();
+    await git("remote", "add", "origin", url);
+    // As a fetch leaves it, with no network.
+    await git("update-ref", "refs/remotes/origin/main", "HEAD");
+
+    expect(await pushedTo(dir, built, env)).toBe(true);
   });
 
   it("finds the checkout's commit when the remote's branch is ahead of it", async () => {
@@ -201,6 +247,6 @@ describe("pushedTo", () => {
     await git("push", "--quiet", "origin", "HEAD:refs/heads/main");
     await git("reset", "--quiet", "--hard", "HEAD~1");
 
-    expect(await pushedTo(dir, "main", env)).toBe(true);
+    expect(await pushedTo(dir, built, env)).toBe(true);
   });
 });

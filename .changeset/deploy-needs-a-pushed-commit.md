@@ -2,9 +2,9 @@
 "create-robkit": patch
 ---
 
-`robkit deploy` runs only from a commit on the deploy branch as a remote holds it. Coolify builds the branch from GitHub, not your checkout, so a deploy from a commit you haven't pushed would record a build that never happened. Before it reaches Coolify, it now checks that the checkout's commit is on the branch `coolify.json` names at some remote, and `--dry-run` checks too. If not, it stops with:
+`robkit deploy` runs only from a commit on the deploy branch as the repository in `coolify.json` holds it. Coolify builds the branch from that repository, not your checkout, so a deploy from a commit you haven't pushed would give the apps this checkout's variables and build without its code. Before it reaches Coolify, it now checks that the checkout's commit is on the branch at a remote for that repository, and `--dry-run` checks too. A remote counts when its URL ends in the repository's name, so a push to a fork or a backup doesn't. If the commit isn't there, it stops with:
 
-> Coolify builds main as GitHub holds it, not this checkout, so robkit deploy runs only from a commit pushed to main. From any other it would record a build that never happened. This checkout's commit, 1a2b3c4, isn't on main at any remote. Push it, or fetch if it's pushed already, then deploy again.
+> Coolify builds main as you/your-install holds it, not this checkout, so robkit deploy runs only from a commit pushed there. This checkout's commit, 1a2b3c4, isn't on main at a remote for you/your-install. Push it, or fetch if it's pushed already, then deploy again. A remote counts when its URL ends in you/your-install.
 
 Push, then deploy again. A remote branch ahead of your checkout is fine, and CI's checkout of a push to `main` passes as it is.
 
