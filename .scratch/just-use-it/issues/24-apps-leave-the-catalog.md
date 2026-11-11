@@ -21,7 +21,7 @@
 - [x] `ROBKIT_APPS=[]` starts core and removes every app
 - [x] A missing, blank or malformed `ROBKIT_APPS` stops core with a message, and changes nothing in the catalog
 - [x] The install's `AGENTS.md` has "Removing an app", with what removal doesn't do and that a slug that comes back is a new app
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -88,3 +88,14 @@ ROBKIT_APPS is not set. pnpm dev and robkit deploy set it from each app's manife
 ```
 
 A malformed one prints, as before, `ROBKIT_APPS isn't valid JSON (<the parser's reason>). Fix its syntax.`, or `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`, or the problem with one app, such as `ROBKIT_APPS[0].icon must be one emoji, such as "📝".` Each stops core before it touches the catalog.
+
+### Merged
+
+Added by the lead. PR 112 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `2b8a22e`. The lead read the diff and changed nothing.
+
+The lead checked that every way robkit starts core sets `ROBKIT_APPS`. `pnpm dev` sets it through `catalogOf`. `robkit deploy` sets it through `deploymentOf`, for core, whatever the install holds. A shorter list changes core's variables, so `robkit deploy` redeploys core when an app's folder is gone.
+
+For R to know:
+
+- An app missing from the list for one start of core loses the rule the owner set in admin. Deploying from a branch without the app's folder does that.
+- A removed app still running in production answers 503 with "Can't reach core to check who may open this app.", though core answered. The map lists it as a known gap with no ticket.
