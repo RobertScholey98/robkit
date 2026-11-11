@@ -20,6 +20,7 @@ describe.each([
   "/docs/build-an-app/tanstack-start/",
   "/docs/build-an-app/react-hono/",
   "/docs/build-an-app/react-express/",
+  "/docs/build-an-app/nextjs/",
   "/docs/build-an-app/the-viewer-and-the-guard/",
   "/docs/build-an-app/testing-with-a-viewer/",
   "/docs/build-an-app/the-database/",
