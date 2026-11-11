@@ -6,7 +6,196 @@ order: 3
 describes:
   - packages/dev/src/app-env.ts
   - packages/dev/src/env.ts
-stub: true
+  - packages/input/src/env.ts
+  - packages/input/src/app-env.ts
+  - packages/input/src/addresses.ts
+  - packages/core/src/env.ts
+  - packages/core/src/apps.ts
+  - packages/core/src/client.ts
+  - packages/core/src/robkit-core.ts
+  - packages/provision/src/env.ts
+  - packages/create-robkit/src/env.ts
+  - packages/create-robkit/src/deployment.ts
+  - packages/create-robkit/src/coolify-host.ts
+  - packages/create-robkit/templates/base/compose.yaml
+  - packages/create-robkit/templates/base/Dockerfile
+  - go/session/options.go
 ---
 
-Every setting an owner sets, every one robkit sets for an app, and the names an app's `.env` can't set, each with where it goes and its default.
+import RefusedSettings from "../../../components/RefusedSettings.astro";
+
+robkit reads three kinds of setting. You set some, for `pnpm dev`, for production and for `robkit deploy`. robkit sets the rest for each app, which reads them and doesn't choose them. And there are names an app's own `.env` can't set at all.
+
+## Where each setting goes
+
+- **For `pnpm dev`**, in the `.env` at the install's root, which git ignores, or exported in the shell. `pnpm dev` reads only the names that start `ROBKIT_` from the file, and a value in the shell wins over the file's. Docker Compose reads the same file, so Postgres and `pnpm dev` move together.
+- **For your app**, in `apps/<slug>/.env`. [Settings](/docs/build-an-app/settings/) says how `pnpm dev` hands them to the app.
+- **In production**, on the host. You set a few shared variables there once, and `robkit deploy` sets each app's variables from them and from the install. Each deploy writes its own names again, and leaves alone any other variable you set on an app.
+- **For `robkit deploy` and `robkit database-urls`**, in the shell or the CI job that runs them. They read no `.env`.
+
+When `pnpm dev` starts an app, the app gets the first of these that has the name:
+
+1. What `pnpm dev` sets for each app.
+2. A value exported in the shell that started `pnpm dev`.
+3. The app's `.env`.
+4. A default `pnpm dev` sets only when neither the shell nor the file has the name. `NEXT_TELEMETRY_DISABLED` is `1` this way.
+
+## Settings you set for pnpm dev
+
+### `ROBKIT_DEV_PORT`
+
+The port `pnpm dev`'s proxy listens on. Each app takes a port after it, so moving it moves them too.
+
+- **Who sets it.** You, in the install's root `.env` or the shell.
+- **In dev.** `3000` unless you set it.
+- **In production.** Nothing reads it.
+
+### `ROBKIT_POSTGRES_PORT`
+
+The port on your machine where Docker Compose publishes the install's Postgres, and where `pnpm dev` reaches it.
+
+- **Who sets it.** You, in the install's root `.env` or the shell.
+- **In dev.** `54320` unless you set it.
+- **In production.** Nothing reads it.
+
+### `ROBKIT_DOMAIN`
+
+The domain every app is a subdomain of. `pnpm dev` serves plain http, so in dev it must be `localhost` or a name under it.
+
+- **Who sets it.** You, in the install's root `.env` or the shell, and `pnpm dev` gives it to every app. In production, `robkit deploy` sets it on every app but core, from the `domain` in `coolify.json`.
+- **In dev.** `robkit.localhost` unless you set it.
+- **In production.** The `domain` in `coolify.json`. Core takes the domain from `ROBKIT_CORE_URL` instead.
+
+### `ROBKIT_DATABASE_URL`
+
+A superuser URL for the Postgres `pnpm dev` gives each app its database in. Set it to use a Postgres other than the one Compose runs. `pnpm dev` takes it out of each app's environment.
+
+- **Who sets it.** You, in the install's root `.env` or the shell.
+- **In dev.** Compose's Postgres, `postgres://postgres:postgres@127.0.0.1:54320/robkit`, with `ROBKIT_POSTGRES_PORT` as its port.
+- **In production.** Nothing reads it. Core's provision step uses `ROBKIT_ADMIN_DATABASE_URL`.
+
+## Settings you set for production
+
+### `ROBKIT_ADMIN_DATABASE_URL`
+
+A superuser URL for the host's Postgres. Core's provision step uses it to give each app in `ROBKIT_DATABASES` its database, and `robkit database-urls` uses it to print each app's URL.
+
+- **Who sets it.** You, once, as a shared variable on the host. `robkit deploy` sets it on core from there. To run `robkit database-urls`, set it in your shell too.
+- **In dev.** Nothing reads it. `pnpm dev` uses `ROBKIT_DATABASE_URL`.
+- **In production.** It must be set. `robkit deploy` deploys nothing while the host lacks it. Core run with neither it nor `ROBKIT_DB_SECRET` skips the provision step, and with only one of them stops.
+
+### `ROBKIT_DB_SECRET`
+
+The install's database secret, at least 32 characters. Every app's database password comes from it, so `robkit database-urls` prints the same URLs core's provision step makes.
+
+- **Who sets it.** You, once, as a shared variable on the host, such as the output of `openssl rand -hex 32`. `robkit deploy` sets it on core from there. To run `robkit database-urls`, set it in your shell too.
+- **In dev.** Nothing reads it.
+- **In production.** It must be set, as `ROBKIT_ADMIN_DATABASE_URL` must.
+
+### `<SLUG>_DATABASE_URL`
+
+One for each app with a `migrate` script, core's included, such as `CORE_DATABASE_URL` and `NOTES_DATABASE_URL`. Each holds that app's database URL. `robkit database-urls` prints them.
+
+- **Who sets it.** You, once for each app, as a shared variable on the host. `robkit deploy` sets each app's `DATABASE_URL` from its own.
+- **In dev.** Nothing reads it.
+- **In production.** It must be set. `robkit deploy` deploys nothing while the host lacks one, and names each it lacks.
+
+### `ROBKIT_TRUSTED_PROXY`
+
+A proxy further out than the host's own, which names each visitor to core. Its one value is `cloudflare`, for a host that only a Cloudflare tunnel reaches.
+
+- **Who sets it.** You, as `trustedProxy` in `coolify.json`. `robkit deploy` sets it on core from there.
+- **In dev.** Unset.
+- **In production.** Unset unless `coolify.json` has `trustedProxy`.
+
+## Settings you set for robkit deploy
+
+### `COOLIFY_URL`
+
+Your Coolify's address, such as `https://coolify.example.com`.
+
+- **Who sets it.** You, in the shell or the CI job that runs `robkit deploy`.
+- **In dev.** Nothing reads it.
+- **In production.** No default. Without it, `robkit deploy` deploys nothing and says so.
+
+### `COOLIFY_TOKEN`
+
+A Coolify API token that may deploy.
+
+- **Who sets it.** You, beside `COOLIFY_URL`.
+- **In dev.** Nothing reads it.
+- **In production.** No default. It must be set when `COOLIFY_URL` is.
+
+### `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`
+
+The client ID and secret that let `robkit deploy` past Cloudflare Access, for a Coolify that Cloudflare Access guards.
+
+- **Who sets it.** You, beside `COOLIFY_URL`, both or neither.
+- **In dev.** Nothing reads them.
+- **In production.** Unset unless Cloudflare Access guards your Coolify.
+
+## Settings robkit sets for each app
+
+An app reads these and doesn't choose them. `pnpm dev` sets them in dev, and `robkit deploy` on the host. Your app's `.env` can't set any of them.
+
+### `ROBKIT_APP`
+
+The app's slug. Its guard accepts only a token core made for this slug.
+
+- **Who sets it.** `pnpm dev`, and `robkit deploy`, which also hands it to the image's build.
+- **In dev.** The app's slug.
+- **In production.** The app's slug. An app's guard won't start without it.
+
+### `ROBKIT_CORE_URL`
+
+Core's public origin, which each app's guard asks for its keys and its access rule. Core takes the install's domain, protocol and port from it.
+
+- **Who sets it.** `pnpm dev`, and `robkit deploy`.
+- **In dev.** `http://core.robkit.localhost:3000`, from `ROBKIT_DOMAIN` and `ROBKIT_DEV_PORT`.
+- **In production.** `https://core.<domain>`. It must be https unless the domain is local.
+
+### `ROBKIT_APPS`
+
+The install's apps as each one's manifest declares it, as a JSON list. Core's catalog holds exactly these.
+
+- **Who sets it.** `pnpm dev`, for every app, and `robkit deploy`, for core.
+- **In dev.** Each app in `apps/`.
+- **In production.** Each app in `apps/`, on core only. Core won't start without it.
+
+### `ROBKIT_DATABASES`
+
+The apps core's provision step gives a database, by slug, with commas between them.
+
+- **Who sets it.** `robkit deploy`, for core.
+- **In dev.** Unset. `pnpm dev` gives each app its database itself.
+- **In production.** Each app with a `migrate` script.
+
+### `PORT`
+
+The port the app listens on.
+
+- **Who sets it.** `pnpm dev`, and `robkit deploy`.
+- **In dev.** A port after `ROBKIT_DEV_PORT`, one for each app.
+- **In production.** `3000`, in each app's own container.
+
+### `HOST`
+
+The address the app listens on.
+
+- **Who sets it.** `pnpm dev`, and in production the install's `Dockerfile`.
+- **In dev.** `127.0.0.1`, so only the proxy reaches each app.
+- **In production.** `0.0.0.0`, so the host's proxy reaches the container.
+
+### `DATABASE_URL`
+
+The app's own database, for an app with a `migrate` script.
+
+- **Who sets it.** `pnpm dev`, and `robkit deploy`, from the app's `<SLUG>_DATABASE_URL`.
+- **In dev.** The database `pnpm dev` made for the app. An app with no `migrate` script gets none, even when the shell has one.
+- **In production.** The host's `<SLUG>_DATABASE_URL` for the app. Core won't start without its own.
+
+## Names an app's .env can't set
+
+A file that sets one of these stops `pnpm dev`, which names the file and the setting. Put robkit's settings for `pnpm dev` in the `.env` at the install's root instead.
+
+<RefusedSettings />

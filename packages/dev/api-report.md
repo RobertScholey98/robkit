@@ -23,6 +23,21 @@ export function appManifestFileIn(
 ): Promise<AppManifestFile | undefined>;
 export function catalogOf(apps: readonly App[]): string;
 export function discoverApps(root: string, firstPort?: number): Promise<App[]>;
+export const refusedAppSettings: {
+  readonly decidedForEachApp: readonly [
+    "ROBKIT_DOMAIN",
+    "ROBKIT_CORE_URL",
+    "ROBKIT_APPS",
+    "ROBKIT_APP",
+    "PORT",
+    "HOST",
+    "DATABASE_URL",
+    "ROBKIT_DATABASE_URL",
+    "VITEST",
+  ];
+  readonly prefix: "ROBKIT_";
+  readonly alsoRefused: readonly ["NODE_ENV"];
+};
 ```
 
 ## @robkit/dev/cli

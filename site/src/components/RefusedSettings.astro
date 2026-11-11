@@ -1,0 +1,25 @@
+---
+// The names an app's .env can't set, from @robkit/dev's own list as the
+// site builds, so the page lists what pnpm dev refuses.
+import { refusedAppSettings } from "@robkit/dev";
+
+const { decidedForEachApp, prefix, alsoRefused } = refusedAppSettings;
+---
+
+<ul data-refused>
+  {decidedForEachApp.map((name) => (
+    <li>
+      <code>{name}</code>, which <code>pnpm dev</code> sets or removes for each
+      app.
+    </li>
+  ))}
+  <li>
+    Any name that starts <code>{prefix}</code>, which is robkit's own.
+  </li>
+  {alsoRefused.map((name) => (
+    <li>
+      <code>{name}</code>, which decides whether a test helper such as
+      <code>guardedAs()</code> serves.
+    </li>
+  ))}
+</ul>
