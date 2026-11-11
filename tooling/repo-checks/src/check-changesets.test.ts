@@ -15,7 +15,12 @@ const packages = {
   "packages/create-robkit": "create-robkit",
   "packages/core": "@robkit/core",
   "packages/input": "@robkit/input",
+  "packages/guard": "@robkit/guard",
 };
+
+/** A package.json for the package `name`, with `extra` fields. */
+const manifest = (name: string, version = "0.0.0", extra = "") =>
+  `{ "name": "${name}", "version": "${version}"${extra} }\n`;
 
 let repo: string;
 
@@ -66,10 +71,7 @@ beforeEach(async () => {
     join(repo, ".changeset/config.json"),
   );
   for (const [dir, name] of Object.entries(packages)) {
-    await write(
-      `${dir}/package.json`,
-      `{ "name": "${name}", "version": "0.0.0" }\n`,
-    );
+    await write(`${dir}/package.json`, manifest(name));
   }
   await write(
     "packages/private/package.json",
@@ -100,9 +102,52 @@ describe("which changes need a changeset", () => {
     "packages/create-robkit/src/test/fake.ts",
     "packages/create-robkit/templates/base/apps/hub/src/app.test.ts",
     "packages/private/src/index.ts",
+    "packages/core/src/session.test.ts",
     "README.md",
   ])("needs none for a change to %s", async (path) => {
     await change(path);
+
+    expect(check("main")).toEqual({ status: 0, output: "" });
+  });
+
+  it.each([
+    "packages/guard/conformance.json",
+    "packages/core/drizzle/0001_add_codes.sql",
+    "packages/core/drizzle/meta/_journal.json",
+  ])("needs one for a change to %s", async (path) => {
+    await write(path, "{}\n");
+    git("add", "-A");
+    git("commit", "-q", "--no-verify", "-m", "Change it");
+
+    expect(check("main").status).toBe(1);
+  });
+
+  it("needs one for a change to a package's package.json", async () => {
+    await write(
+      "packages/core/package.json",
+      manifest("@robkit/core", "0.0.0", ', "bin": "core.js"'),
+    );
+    git("commit", "-q", "--no-verify", "-am", "Add a bin");
+
+    expect(check("main")).toEqual({
+      status: 1,
+      output: unnamed("@robkit/core"),
+    });
+  });
+
+  it("needs none in the version pull request, which bumps each version", async () => {
+    git("checkout", "-q", "main");
+    await changeset("earlier", "@robkit/core");
+    git("add", "-A");
+    git("commit", "-q", "--no-verify", "-m", "Add a changeset");
+    git("checkout", "-q", "-B", "release-v0.1.0");
+    await rm(join(repo, ".changeset/earlier.md"));
+    for (const [dir, name] of Object.entries(packages)) {
+      await write(`${dir}/package.json`, manifest(name, "0.1.0"));
+      await write(`${dir}/CHANGELOG.md`, "# Changelog\n");
+    }
+    git("add", "-A");
+    git("commit", "-q", "--no-verify", "-m", "Version packages as 0.1.0");
 
     expect(check("main")).toEqual({ status: 0, output: "" });
   });
