@@ -30,7 +30,8 @@ type Use =
       target: string | undefined;
       /**
        * Whether the target sits under a folder the scan doesn't read, which
-       * only a relative import can reach.
+       * only a relative import can reach. Never set for one `.d.ts` file's
+       * import of another.
        */
       unread: boolean;
     }
@@ -183,6 +184,28 @@ async function unreadTarget(root: string, target: string): Promise<boolean> {
     if (entry?.link === true && entry.folder) return true;
   }
   return false;
+}
+
+/** Whether `path` names a `.d.ts` file, which holds types, not code. */
+function isTypesFile(path: string): boolean {
+  return /\.d\.[cm]?ts$/.test(path);
+}
+
+/**
+ * Whether `file` hides source from the scan by importing `target`, a
+ * relative import's target from `root`. A `.d.ts` file that imports
+ * another is let through, wherever the other is, since types don't run.
+ * Next writes such a file, `next-env.d.ts`, to an app's folder, with
+ * imports of the types it generated in the build's folder. `SECURITY.md`
+ * lists the way past the check that this leaves.
+ */
+async function hidesSource(
+  root: string,
+  file: string,
+  target: string,
+): Promise<boolean> {
+  if (isTypesFile(file) && isTypesFile(target)) return false;
+  return unreadTarget(root, target);
 }
 
 /**
@@ -356,7 +379,7 @@ export async function checkInstall(root: string): Promise<Violation[]> {
           placed.use.kind === "import" && placed.use.target !== undefined
             ? {
                 ...placed.use,
-                unread: await unreadTarget(root, placed.use.target),
+                unread: await hidesSource(root, file, placed.use.target),
               }
             : placed.use;
         for (const row of rows) {
