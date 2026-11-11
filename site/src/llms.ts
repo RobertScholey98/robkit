@@ -3,28 +3,35 @@
 // sidebar's order. See https://llmstxt.org.
 
 import { markdownHref } from "./markdown-copies.ts";
+import { buildNavigation, type PageInfo } from "./navigation.ts";
 
+/** A docs page as the docs collection holds it. */
 export interface LlmsPage {
-  /** The page's address, such as `/docs/get-started/quickstart/`. */
-  href: string;
-  title: string;
-  description: string;
+  id: string;
+  data: Omit<PageInfo, "id"> & { description: string };
 }
 
-export interface LlmsInput {
-  /** The site's origin, such as `https://robkit.dev`. */
-  origin: string;
-  description: string;
-  sections: { title: string; pages: LlmsPage[] }[];
-}
-
-export function llmsText({ origin, description, sections }: LlmsInput): string {
+/**
+ * llms.txt for the site at `site`, from what robkit is and the docs
+ * pages, which it puts in the sidebar's order.
+ */
+export function llmsText(
+  site: URL | undefined,
+  description: string,
+  pages: readonly LlmsPage[],
+): string {
+  const descriptions = new Map(
+    pages.map(({ id, data }) => [id, data.description]),
+  );
+  const { sections } = buildNavigation(
+    pages.map(({ id, data }) => ({ id, ...data })),
+  );
   const lists = sections.map(
-    ({ title, pages }) =>
-      `## ${title}\n\n${pages
+    ({ title, pages: inSection }) =>
+      `## ${title}\n\n${inSection
         .map(
           (page) =>
-            `- [${page.title}](${origin}${markdownHref(page.href)}): ${page.description}`,
+            `- [${page.title}](${String(new URL(markdownHref(page.href), site))}): ${String(descriptions.get(page.id))}`,
         )
         .join("\n")}\n`,
   );

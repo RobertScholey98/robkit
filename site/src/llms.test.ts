@@ -5,37 +5,38 @@ import { built, origin } from "./test/built.ts";
 
 describe("llmsText", () => {
   it("lists each page's Markdown copy with its description, by section in reading order", () => {
-    const text = llmsText({
-      origin: "https://robkit.dev",
-      description: "robkit is a kit for self-hosting small apps.",
-      sections: [
+    const text = llmsText(
+      new URL("https://robkit.dev"),
+      "robkit is a kit for self-hosting small apps.",
+      [
         {
-          title: "Get started",
-          pages: [
-            {
-              href: "/docs/get-started/what-you-need/",
-              title: "What you need",
-              description: "Node, pnpm and Docker.",
-            },
-            {
-              href: "/docs/get-started/quickstart/",
-              title: "Quickstart",
-              description: "Make an install.",
-            },
-          ],
+          id: "reference/settings",
+          data: {
+            title: "Every setting",
+            description: "Each setting robkit reads.",
+            section: "Reference",
+          },
         },
         {
-          title: "Reference",
-          pages: [
-            {
-              href: "/docs/reference/settings/",
-              title: "Every setting",
-              description: "Each setting robkit reads.",
-            },
-          ],
+          id: "get-started/quickstart",
+          data: {
+            title: "Quickstart",
+            description: "Make an install.",
+            section: "Get started",
+            order: 2,
+          },
+        },
+        {
+          id: "get-started/what-you-need",
+          data: {
+            title: "What you need",
+            description: "Node, pnpm and Docker.",
+            section: "Get started",
+            order: 1,
+          },
         },
       ],
-    });
+    );
 
     expect(text).toBe(`# robkit
 
