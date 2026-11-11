@@ -35,6 +35,9 @@ const navigation = buildNavigation(
 const place = navigation.places[current];
 if (place === undefined) throw new Error(`${current} isn't in the docs.`);
 const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
+// A long name, such as ROBKIT_ADMIN_DATABASE_URL or a Go import path, may
+// break after an underscore or a slash, and nowhere else inside a word.
+const breakable = (text: string) => text.split(/(?<=[_/])/);
 ---
 
 <BaseLayout
@@ -84,7 +87,11 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
             <ul>
               {onThisPage.map((heading) => (
                 <li class={`depth-${String(heading.depth)}`}>
-                  <a href={`#${heading.slug}`}>{heading.text}</a>
+                  <a href={`#${heading.slug}`}>
+                    {breakable(heading.text).map((part, at) =>
+                      at === 0 ? part : [<wbr />, part],
+                    )}
+                  </a>
                 </li>
               ))}
             </ul>
@@ -337,6 +344,8 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
     padding: var(--space-1) 0;
     color: var(--color-muted);
     text-decoration: none;
+    /* A name too long for the column even at its breaks still wraps. */
+    overflow-wrap: anywhere;
   }
 
   .toc a:hover {
@@ -373,8 +382,13 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
       grid-column: 2;
       grid-row: 1 / span 3;
       align-self: start;
+      /* A long list scrolls on its own, under the header. */
+      max-height: calc(100vh - var(--header-height) - 2 * var(--space-8));
+      overflow-y: auto;
+      overscroll-behavior: contain;
       margin: 0;
-      padding: 0 0 0 var(--space-4);
+      /* Room for the focus ring, which the scrolling box would cut. */
+      padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
       border: 0;
       border-left: 1px solid var(--color-border);
       border-radius: 0;

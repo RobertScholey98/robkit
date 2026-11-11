@@ -127,7 +127,7 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 
 - A docs page has a header, the list of pages on the left, the page in the middle, its headings on the right, and a footer.
 - From 64rem (1024 px) wide the list of pages is a column. Below it, the list is behind a "Menu" button in the header, and opens over the page.
-- From 80rem (1280 px) the page's headings are a column. Below it, they sit at the top of the page, folded under "On this page" until the reader opens them. The fold is a `details`, so it opens from the keyboard and with no script.
+- From 80rem (1280 px) the page's headings are a column, no taller than the window under the header, which scrolls on its own when the list is longer. A long name breaks after an underscore or a slash. Below it, they sit at the top of the page, folded under "On this page" until the reader opens them. The fold is a `details`, so it opens from the keyboard and with no script.
 - At 375 px nothing scrolls sideways but a code block, which scrolls on its own.
 - A skip link is the first thing a keyboard reaches. It goes to the page's main content.
 

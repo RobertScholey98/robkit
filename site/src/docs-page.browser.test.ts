@@ -288,6 +288,26 @@ describe("On this page", () => {
     ).toBeGreaterThanOrEqual(0);
   });
 
+  it("fits a long list under the header at 1280 pixels, and scrolls it on its own", async () => {
+    const { page } = await openPage(site, "/docs/reference/settings/", {
+      width: 1280,
+    });
+    const toc = page.getByRole("navigation", { name: "On this page" });
+    const last = toc.getByRole("link").last();
+
+    const box = await toc.boundingBox();
+    expect(box?.y).toBeGreaterThanOrEqual(56);
+    expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(800);
+
+    await last.evaluate((link) => {
+      link.scrollIntoView({ block: "nearest", behavior: "instant" });
+    });
+    const lastBox = await last.boundingBox();
+    expect((lastBox?.y ?? 0) + (lastBox?.height ?? 0)).toBeLessThanOrEqual(800);
+    // The page itself stayed at its top.
+    expect(await page.evaluate(() => scrollY)).toBe(0);
+  });
+
   describe.each([true, false])("at 375 pixels, scripts on: %s", (scripts) => {
     // The longest list of headings in the docs.
     const long = "/docs/reference/settings/";

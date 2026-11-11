@@ -1,6 +1,6 @@
 // Every built page in Chromium, found from dist/ so a new page needs no
 // edit here: axe at both widths in both themes, and nothing but a code
-// block wider than a phone.
+// block wider than the screen at either width.
 
 import { AxeBuilder } from "@axe-core/playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -43,16 +43,16 @@ describe.each(paths)("%s", (path) => {
     );
   });
 
-  it("scrolls sideways at 375 pixels only inside a code block", async () => {
-    const { page } = await openPage(site, path, {
-      width: 375,
-      theme: "light",
-    });
+  it.each([375, 1280] as const)(
+    "scrolls sideways at %i pixels only inside a code block",
+    async (width) => {
+      const { page } = await openPage(site, path, { width, theme: "light" });
 
-    const pageWidth = await page.evaluate(
-      () => document.documentElement.scrollWidth,
-    );
+      const pageWidth = await page.evaluate(
+        () => document.documentElement.scrollWidth,
+      );
 
-    expect(pageWidth).toBe(375);
-  });
+      expect(pageWidth).toBe(width);
+    },
+  );
 });
