@@ -29,7 +29,7 @@ Where the socket is belongs to one robkit version: in an install, the runner and
 - [x] A socket path over the limit stops `pnpm dev` with a message that names the path and what to do
 - [x] Nothing new is written inside the install, so `robkit upgrade`'s clean-tree check is unchanged
 - [x] The install's `AGENTS.md`, `packages/dev/README.md` and ADR 0020 say where the socket is
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -80,3 +80,11 @@ Order: this merges after ticket 24, which edits the same section of the install'
 - Changed message for a folder another account owns: "... which another account owns. Remove it, with sudo if you need to, then run pnpm dev again."
 - Changed message for a folder it can't make: "... and couldn't make that folder (<code>). Make it yourself, with mode 700, then run pnpm dev again."
 - The install's `AGENTS.md` line under "Adding and removing apps" names `~/.robkit/run`. Nothing new is written in the install.
+
+### Merged
+
+Added by the lead. PR 108 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `7944946`. The build got no clean full gate on its own machine, which was too busy for the Docker tests' time limits, so GitHub's run was the full gate.
+
+It merged before ticket 24, not after it as "Order" above says, so ticket 24 takes this ticket's line in the install's `AGENTS.md` as it finds it.
+
+For R: the way out for a home too long for a socket is a link at `~/.robkit/run`, which the runner and the commands follow and check. The ticket left that way out to the build.
