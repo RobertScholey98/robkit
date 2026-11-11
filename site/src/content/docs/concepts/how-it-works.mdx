@@ -1,0 +1,70 @@
+---
+title: How it works
+description: The parts of an install, and how a sign-in becomes a token each app checks by itself.
+section: Concepts
+order: 1
+describes:
+  - docs/architecture.md
+  - packages/guard/src/guard.ts
+  - packages/session/src/request-guard.ts
+  - packages/core/src/routes/
+---
+
+import SignInDiagram from "../../../components/SignInDiagram.astro";
+
+An install is one domain with core, the hub, admin and your apps, each on its own subdomain behind one proxy. Core keeps every session. Each app checks who is asking by itself, with a token core gave it for that app alone, so no app can act as you in another.
+
+## The parts
+
+- **The proxy** sends each subdomain to its app. On your machine it is `pnpm dev`'s proxy, and in production Traefik, behind Coolify.
+- **Core** keeps the sessions, the access codes, the roles and the list of apps, and holds the key that signs every token. It is the only code that reads or writes those tables.
+- **The hub** is where people sign in, and the launcher that lists their apps.
+- **Admin** is where you make access codes and roles, and choose who may open each app.
+- **Your apps**, each on `<slug>.<domain>`. Each runs a guard in front of its own code, and reaches core over HTTP only.
+- **Postgres**, one for the install. Core has its own schema, and each app has a schema and a role of its own that reach nothing else.
+
+## From sign-in to an app token
+
+Here is what happens the first time someone opens an app that needs them signed in. The browser moves between the four parts, and each arrow is a redirect or a call:
+
+<SignInDiagram />
+
+1. The browser opens an app.
+2. The app's guard has no token for it yet, so it sends the browser to core's `/refresh`.
+3. Core finds nobody signed in, and sends the browser back to the app with no token. The guard notes that nobody is signed in.
+4. The app's rule needs someone signed in, so the guard sends the browser to the hub.
+5. They sign in at the hub, with an access code, or as the owner with a password. The hub passes it to core.
+6. Core starts a session, and puts its own token in a cookie on core's host.
+7. The hub sends the browser back to the app.
+8. The guard still has no token, so it sends the browser to core's `/refresh` again.
+9. This time core has a session. It mints a token for this app alone and sends the browser back with it, and the guard keeps it in a cookie on the app's host.
+10. The guard lets the request through, and the app serves the page, knowing who is asking.
+
+An app open to anyone skips steps 4 to 9 for someone not signed in. The guard keeps core's word that nobody is signed in for a minute, and lets the visitor in as nobody.
+
+## What the guard decides
+
+On every request, the guard reads the app's token, checks core's signature on it, and gets the app's access rule from core, at most once a minute. Then it decides one of four things:
+
+- **Allow.** The request reaches your code, with the [viewer](/docs/concepts/glossary/#viewer), who is asking.
+- **Refresh.** There's no token yet, or it has expired, so the browser goes through core's `/refresh` for a new one.
+- **Login.** Nobody is signed in and the rule needs someone, so the browser goes to the hub.
+- **Not found.** The viewer may not open this app. The app answers 404, as it would for an app that doesn't exist, so a guest can't tell the two apart.
+
+Who may open an app depends on its rule:
+
+- An app open to anyone lets in everyone, signed in or not.
+- An app for some roles lets in you, and guests with one of its roles.
+- An app for you only lets in nobody else.
+
+A call from the page, such as a `fetch`, gets a 401 instead of a redirect. [The viewer and the guard](/docs/build-an-app/the-viewer-and-the-guard/) shows how your app handles it.
+
+## Tokens and sessions
+
+- A token lasts 15 minutes, and a session 30 days.
+- The guard checks a token with core's public key, so core isn't asked on every request.
+- When an app's token expires, the guard sends the browser through `/refresh` again, and core mints a fresh one while the session lives.
+- Core renews a session only from its own cookie, never from an app's token. So an app can't keep a session alive, or use its token anywhere else.
+- Signing out, or revoking a guest's code, ends the session at core. An app the browser opened keeps letting it in until that app's token expires.
+
+[Security](/docs/concepts/security/) says what this protects, and what it doesn't.

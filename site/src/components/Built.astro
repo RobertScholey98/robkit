@@ -1,0 +1,20 @@
+---
+// A part of a page built from one of the repo's own files as the site
+// builds, such as SECURITY.md's known gaps. built.ts says what each is.
+import { getEntry, render } from "astro:content";
+import type { BuiltId } from "../built.ts";
+
+interface Props {
+  id: BuiltId;
+}
+
+const entry = await getEntry("built", Astro.props.id);
+if (entry === undefined) {
+  throw new Error(
+    `${Astro.url.pathname} shows the built part "${Astro.props.id}", which the built collection doesn't have.`,
+  );
+}
+const { Content } = await render(entry);
+---
+
+<Content />

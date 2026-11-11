@@ -13,6 +13,7 @@ import type { TreeEntry } from "./install-tree.ts";
 import { installGoVersion, installNodeVersion } from "./install.ts";
 import { quickstartCommands } from "./readme.ts";
 import { repoRoot } from "./repo.ts";
+import { anchorOf, glossaryTerms } from "./repo-markdown.ts";
 import { docsHome, preRelease, repoUrl } from "./site.ts";
 import { guideHref } from "./stacks.ts";
 
@@ -219,11 +220,15 @@ describe("the built page on the layer rule", () => {
     "apps/example/src/built.ts": 'import "../dist/serve.js";\n',
     "packages/ui/src/reach.ts": 'import "../../../apps/example/visits.ts";\n',
   };
+  /** A .d.ts file's import of another under dist, as next-env.d.ts has. */
+  const types = {
+    "apps/example/next-env.d.ts": 'import "./dist/dev/types/routes.d.ts";\n',
+  };
 
   it("shows what robkit check prints for an install that breaks each rule", async () => {
     const dir = join(await mkdtemp(join(tmpdir(), "site-check-")), "install");
     await init(defaultChoices, dir, { install: false });
-    for (const [path, text] of Object.entries(breaks)) {
+    for (const [path, text] of Object.entries({ ...breaks, ...types })) {
       await writeFile(join(dir, path), text);
     }
     const bin = join(repoRoot, "packages/create-robkit/src/robkit-command.ts");
@@ -245,7 +250,24 @@ describe("the built page on the layer rule", () => {
       code: checked.stdout.trimEnd(),
     });
     expect(checked.stdout.trimEnd().split("\n")).toHaveLength(5);
+    expect(checked.stdout).not.toContain("next-env.d.ts");
   }, 60_000);
+
+  it("says what the install's AGENTS.md says of a .d.ts file", async () => {
+    const agents = await readFile(
+      join(repoRoot, "packages/create-robkit/templates/base/AGENTS.md"),
+      "utf8",
+    );
+    const sentence = /A `\.d\.ts` file may import [^\n]*?not code\./.exec(
+      agents,
+    )?.[0];
+    const page = (await built("docs/build-an-app/the-layer-rule/index.html"))
+      .replaceAll(/<[^>]+>/g, "")
+      .replaceAll("’", "'");
+
+    expect(sentence).toBeDefined();
+    expect(page).toContain(String(sentence).replaceAll("`", ""));
+  });
 });
 
 describe("the built page on pnpm dev and your apps", () => {
@@ -354,6 +376,121 @@ describe("the built page on guests and access", () => {
     expect(
       await built("docs/run-an-install/guests-and-access/index.html"),
     ).not.toContain("data-stub");
+  });
+});
+
+describe("the built glossary", () => {
+  const page = "docs/concepts/glossary/index.html";
+
+  it("has a heading with an anchor for every term in GLOSSARY.md", async () => {
+    const glossary = await readFile(join(repoRoot, "GLOSSARY.md"), "utf8");
+    const html = await built(page);
+    const headings = [...html.matchAll(/<h3 id="([^"]+)">([^<]+)<\/h3>/g)];
+
+    expect(headings.map(([, , term]) => term?.replaceAll("’", "'"))).toEqual(
+      glossaryTerms(glossary),
+    );
+    expect(headings.map(([, id]) => id)).toEqual(
+      glossaryTerms(glossary).map(anchorOf),
+    );
+  });
+
+  it("links each term it names in a meaning to that term's heading", async () => {
+    const html = await built(page);
+    const ids = new Set(
+      [...html.matchAll(/ id="([^"]+)"/g)].map(([, id]) => id),
+    );
+    const targets = [...html.matchAll(/href="#([^"]+)"/g)].map(([, id]) => id);
+
+    expect(targets).toContain("cores-origin");
+    expect(targets.filter((id) => !ids.has(id))).toEqual([]);
+  });
+
+  it("names GLOSSARY.md as the file to edit", async () => {
+    expect(await built(page)).toContain(`${repoUrl}/edit/main/GLOSSARY.md`);
+  });
+});
+
+describe("the built page on how it works", () => {
+  const page = "docs/concepts/how-it-works/index.html";
+
+  it("draws the sign-in as an image with a text alternative, and lists each step it numbers", async () => {
+    const html = await built(page);
+    const svg = /<svg[^>]*role="img"[\s\S]*?<\/svg>/.exec(html)?.[0] ?? "";
+    const [labelledBy = ""] =
+      /aria-labelledby="([^"]+)"/.exec(svg)?.slice(1) ?? [];
+    const alternative = labelledBy
+      .split(" ")
+      .map((id) =>
+        new RegExp(`id="${id}"[^>]*>([^<]+)<`).exec(svg)?.[1]?.trim(),
+      );
+    const arrows = svg.match(/marker-end=/g) ?? [];
+    const steps =
+      /<ol>([\s\S]*?)<\/ol>/
+        .exec(html.slice(html.indexOf(svg)))?.[1]
+        ?.match(/<li>/g) ?? [];
+
+    expect(alternative).toHaveLength(2);
+    expect(alternative[0]).toBe("From sign-in to an app token");
+    expect(alternative[1]).toMatch(/^Ten numbered steps between the browser/);
+    expect(arrows).toHaveLength(10);
+    expect(steps).toHaveLength(arrows.length);
+  });
+});
+
+describe("the built page on security", () => {
+  const page = "docs/concepts/security/index.html";
+  const security = () => readFile(join(repoRoot, "SECURITY.md"), "utf8");
+  /** The items of the list in `markdown`'s block that starts with `start`. */
+  const itemsIn = (markdown: string, start: string) =>
+    markdown
+      .replaceAll("\r\n", "\n")
+      .split(/\n{2,}/)
+      .find((block) => block.startsWith(start))
+      ?.split("\n")
+      .filter(Boolean) ?? [];
+
+  it("lists each of SECURITY.md's known gaps, linking to GitHub", async () => {
+    const gaps = itemsIn(
+      (await security()).split("### Known gaps")[1] ?? "",
+      "- ",
+    );
+    const html = await built(page);
+    const items = itemsAfter(html, "known-gaps");
+
+    expect(gaps.length).toBeGreaterThan(5);
+    expect(items).toHaveLength(gaps.length);
+    expect(items[0]).toBe(
+      gaps[0]?.slice(2).replaceAll("'", "’").replaceAll("`", ""),
+    );
+    expect(html).toContain(
+      `href="${repoUrl}/blob/main/.scratch/just-use-it/issues/29-access-codes-at-least-five.md"`,
+    );
+  });
+
+  it("lists each way past the lint SECURITY.md gives", async () => {
+    const ways = (await security())
+      .split("The known ways past the lint:\n\n")[1]
+      ?.split("\n\n")[0]
+      ?.split("\n");
+
+    const html = await built(page);
+    const list = /<ul>[\s\S]*?<\/ul>/.exec(
+      html.slice(html.indexOf("in these ways and maybe others")),
+    )?.[0];
+
+    expect(ways).toContain("- `createRequire`.");
+    expect(list?.match(/<li>/g)).toHaveLength(ways?.length ?? -1);
+    expect(list).toContain("<code>createRequire</code>");
+  });
+
+  it("gives the way to report a vulnerability that SECURITY.md gives", async () => {
+    const reporting = /private vulnerability reporting\]\((\S+)\)/.exec(
+      await security(),
+    )?.[1];
+
+    expect(reporting).toMatch(/^https:\/\/github\.com\/.+\/security\//);
+    expect(await built(page)).toContain(`href="${String(reporting)}"`);
   });
 });
 

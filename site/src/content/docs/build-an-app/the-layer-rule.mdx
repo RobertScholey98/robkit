@@ -17,7 +17,7 @@ Each app in your install stands on its own, and reaches core only over HTTP. `ro
 - A shared package imports only its own files, `@robkit/*` packages and other shared packages. It never imports an app.
 - An app or a shared package reaches core over HTTP only, never through `@robkit/core`. Only `apps/core` depends on it.
 - Handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.
-- An app or a shared package imports no file under `node_modules`, `dist`, `build`, a dot-folder or a symlinked folder, since `robkit check` doesn't read them. Import a package by its name.
+- An app or a shared package imports no file under `node_modules`, `dist`, `build`, a dot-folder or a symlinked folder, since `robkit check` doesn't read them. Import a package by its name. A `.d.ts` file may import another from one of them, as Next's `next-env.d.ts` does, since it holds types, not code.
 
 Postgres keeps the same rule for data. An app's role can reach its own schema and nothing else.
 
@@ -51,7 +51,7 @@ When every file keeps to the rule, it prints nothing and exits 0.
 
 ## What it doesn't stop
 
-`robkit check` is a lint, not a boundary. It reads your source and catches an app that breaks the rule by mistake, not one written to get past it. So read an app's code before you add it to your install. Three things hold an app at runtime:
+`robkit check` is a lint, not a boundary. It reads your source and catches an app that breaks the rule by mistake, not one written to get past it. So read an app's code before you add it to your install. [Security](/docs/concepts/security/#what-an-app-you-install-can-and-cant-do) lists the ways past it that robkit knows of. Three things hold an app at runtime:
 
 - Its database role reaches its own schema and nothing else.
 - Its app token names its own slug, and no other app or core accepts it.
