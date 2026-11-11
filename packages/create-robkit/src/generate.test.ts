@@ -248,13 +248,29 @@ describe("generateInstall", () => {
       "pnpm install --frozen-lockfile",
       "pnpm robkit deploy",
     ]);
+    // robkit deploy sets turbo's base from each application's record.
     expect(Object.keys(deploy?.steps.at(-1)?.env ?? {})).toEqual([
-      "TURBO_SCM_BASE",
       "COOLIFY_URL",
       "COOLIFY_TOKEN",
       "CF_ACCESS_CLIENT_ID",
       "CF_ACCESS_CLIENT_SECRET",
     ]);
+  });
+
+  it("cancels a run in progress for a pull request, never for main", async () => {
+    const files = await generateInstall(defaultChoices);
+    type Concurrency = Record<string, unknown>;
+    const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+      concurrency?: Concurrency;
+      jobs: Record<string, { concurrency?: Concurrency }>;
+    };
+
+    expect(workflow.concurrency?.["cancel-in-progress"]).toBe(
+      "${{ github.event_name == 'pull_request' }}",
+    );
+    expect(workflow.jobs.deploy?.concurrency?.["cancel-in-progress"]).toBe(
+      false,
+    );
   });
 
   it("writes a CI workflow that installs, then runs the install's own scripts", async () => {

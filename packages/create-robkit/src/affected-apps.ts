@@ -1,4 +1,4 @@
-import { exec } from "node:child_process";
+import { exec, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { CommandProblem } from "@robkit/dev/cli";
 import {
@@ -9,15 +9,98 @@ import {
 } from "@robkit/input";
 import { readAffectedApps } from "./env.ts";
 
+/** What a failed child process said, without its trailing full stop. */
+function saidBy(error: unknown): string {
+  const said =
+    error instanceof Error && "stderr" in error
+      ? String(error.stderr).trim()
+      : String(error);
+  return said.replace(/\.$/, "");
+}
+
 /**
- * The apps turbo finds changed since TURBO_SCM_BASE, by slug.
+ * The commit the checkout at `root` is on, which robkit deploy records on
+ * each application it deploys.
  *
- * @throws a {@link CommandProblem} with turbo's own message when
- *   `turbo ls` fails, such as outside a git repository
+ * @throws a {@link CommandProblem} outside a git checkout
  */
-export async function affectedApps(
+async function headCommit(
   root: string,
   env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  try {
+    const { stdout } = await promisify(execFile)("git", ["rev-parse", "HEAD"], {
+      cwd: root,
+      env,
+    });
+    return stdout.trim();
+  } catch (error) {
+    throw new CommandProblem(
+      `robkit deploy runs from the install's git checkout, and git couldn't name its commit: ${saidBy(error)}. Run it in the install's repository.`,
+      { cause: error },
+    );
+  }
+}
+
+/** What changed in the checkout since a commit. */
+export type Changes =
+  | { outcome: "changed"; apps: readonly Slug[] }
+  /** The commit isn't in the history of the commit robkit runs from. */
+  | { outcome: "not-in-history" };
+
+/** The checkout robkit deploy runs from, as the deploy asks about it. */
+export interface History {
+  /** The commit it runs from. */
+  head: string;
+  changedSince(commit: string): Promise<Changes>;
+}
+
+/**
+ * The checkout at `root`. turbo finds what changed since each commit asked
+ * about, whatever TURBO_SCM_BASE in `env` says.
+ *
+ * @throws a {@link CommandProblem} outside a git checkout
+ */
+export async function gitHistory(
+  root: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<History> {
+  return {
+    head: await headCommit(root, env),
+    changedSince: (commit) => changedSince(root, commit, env),
+  };
+}
+
+async function changedSince(
+  root: string,
+  commit: string,
+  env: NodeJS.ProcessEnv,
+): Promise<Changes> {
+  try {
+    await promisify(execFile)(
+      "git",
+      ["merge-base", "--is-ancestor", commit, "HEAD"],
+      { cwd: root, env },
+    );
+  } catch {
+    // git says no, or doesn't have the commit, as after a force push or in
+    // a shallow clone: either way the app deploys.
+    return { outcome: "not-in-history" };
+  }
+  const apps = await appsTurboFinds(root, { ...env, TURBO_SCM_BASE: commit });
+  if (isProblem(apps)) throw new CommandProblem(apps.error);
+  return { outcome: "changed", apps };
+}
+
+/**
+ * The apps turbo finds changed since TURBO_SCM_BASE in `env`, by slug.
+ *
+ * @throws a {@link CommandProblem} with turbo's own message when
+ *   `turbo ls` fails
+ */
+async function appsTurboFinds(
+  root: string,
+  env: NodeJS.ProcessEnv,
 ): Promise<Slug[] | InputProblem> {
   let stdout: string;
   try {
@@ -26,12 +109,8 @@ export async function affectedApps(
       env,
     }));
   } catch (error) {
-    const said =
-      error instanceof Error && "stderr" in error
-        ? String(error.stderr).trim()
-        : String(error);
     throw new CommandProblem(
-      `turbo ls --affected couldn't find the apps that changed: ${said.replace(/\.$/, "")}. Name the apps to deploy with --apps, or deploy them all with --all.`,
+      `turbo ls --affected couldn't find the apps that changed: ${saidBy(error)}. Name the apps to deploy with --apps, or deploy them all with --all.`,
       { cause: error },
     );
   }
