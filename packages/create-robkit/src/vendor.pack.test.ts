@@ -19,7 +19,10 @@ async function overridesOf(dir: string): Promise<Record<string, string>> {
   return workspace.overrides ?? {};
 }
 
-describe("vendorPackages", () => {
+// One after the other: each test builds and packs every package, and two
+// at once take twice as long each, which on a busy CI runner passes the
+// limit.
+describe("vendorPackages", { concurrent: false }, () => {
   it("packs each linked package into vendor/robkit and points the install at the tarballs", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
     await init(defaultChoices, dir, { link: true, install: false });
