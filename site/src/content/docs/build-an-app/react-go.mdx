@@ -1,12 +1,340 @@
 ---
 title: React + Go
-description: Build an app on React + Go.
+description: The app robkit add writes on React + Go, file by file, and a table and two routes of your own.
 section: Build an app
 order: 5
 describes:
   - packages/create-robkit/src/choices.ts
   - packages/create-robkit/templates/stacks/go/
-stub: true
+  - go/
 ---
 
-`pnpm robkit add <slug> --stack go` makes an app with a React page and a Go server. Building and running it needs Go.
+import InstallTree from "../../../components/InstallTree.astro";
+import InstallVersion from "../../../components/InstallVersion.astro";
+import TemplateFile from "../../../components/TemplateFile.astro";
+import { appFiles } from "../../../app-files.ts";
+
+An app on React + Go is a Go server with a React page, built by Vite. The server guards every request, answers an API under `/api`, and serves the page. `robkit add` writes a small working app: a table, an API that reads and writes it as the viewer, a page that calls it, and a test. This guide walks through those files, then adds a table and two routes of your own.
+
+## Add the app
+
+You need Go <InstallVersion tool="go" /> or later on your `PATH`, as [What you need](/docs/get-started/what-you-need/) says. `robkit add` says how to install it when it's missing. With `pnpm dev` running, in the install's folder:
+
+```sh
+pnpm robkit add notes --stack go
+```
+
+It asks who may open the app and which emoji the hub's launcher shows for it, then writes `apps/notes` and starts it at `http://notes.robkit.localhost:3000`. The folder's name is the app's slug. It names the subdomain, and the Postgres schema and role too.
+
+## What robkit add writes
+
+<InstallTree entries={appFiles.go} label="An app on React + Go" />
+
+robkit's guard for Go isn't on a module proxy. `robkit add` copies it to the install's `vendor/robkit/go`, and `go.mod` points there:
+
+<TemplateFile path="stacks/go/go.mod" app="notes" />
+
+`pnpm robkit upgrade` replaces `vendor/robkit/go` whole, so don't edit it. The rest of this guide is about the files you edit: the table, the queries, the routes, the server and the test.
+
+## The table
+
+The app's tables are in plain SQL, in `migrations/`. The example keeps one row per visit:
+
+<TemplateFile path="stacks/go/migrations/0001_init.sql" app="notes" />
+
+robkit's Drizzle files don't apply to a Go app. `migrate.go` is its migrator. It applies each file in `migrations/` that hasn't run, in name order, and records it in the `schema_migrations` table. The files are built into the server, so the binary needs nothing beside it. A table named without a schema lands in the app's own.
+
+## The queries
+
+`visits.go` holds the example's queries, with pgx:
+
+<TemplateFile path="stacks/go/visits.go" app="notes" />
+
+The routes take a `visitStore`. The server passes `visitsIn(db)`, and a test passes a map of its own, so the routes run in a test with no database.
+
+## The routes
+
+`routes` in `server.go` is the API under `/api`, and the page for every other `GET`:
+
+<TemplateFile
+  path="stacks/go/server.go"
+  from="func routes("
+  to="^}"
+  app="notes"
+/>
+
+Each handler reads who is asking with `session.ViewerFrom(r.Context())`, which the guard set. `GET /api/me` changes nothing, and `POST /api/me` records a visit. The guard refuses a write from another app's page, but it can't refuse a `GET`, which a link can send. So the app changes state only on a `POST`.
+
+The page is `Home`, in `src/home.tsx`, which `src/main.tsx` draws. `me` calls the API with `sessionFetch` from `@robkit/react`:
+
+<TemplateFile
+  path="stacks/go/src/home.tsx"
+  from="async function me("
+  to="^}"
+  app="notes"
+/>
+
+When the session has lapsed, the guard answers the call, not the page. `sessionFetch` then sends the browser to sign in, and back to the page. A call gives up after 30 seconds. When one fails, the page says so and keeps the last count.
+
+## The server
+
+`serve` in `server.go` puts the guard in front of the routes:
+
+<TemplateFile
+  path="stacks/go/server.go"
+  from="func serve("
+  to="^}"
+  app="notes"
+/>
+
+`session.Guarded` reads the app's slug and core's address from the settings `pnpm dev` sets, and asks core for the app's access rule. Anyone the rule leaves out never reaches a route. When a setting is missing, it returns an error that says what to fix, and the server stops.
+
+`main.go` runs the server with no command, as the app's container does. `pnpm dev` runs `go run . dev`, which serves the same way and passes every request beyond the API to a Vite dev server for the page. Vite reloads the page's own changes, but restart `pnpm dev` after you change Go code.
+
+## The test
+
+`server_test.go` hands the routes a viewer with `session.WithViewer`, as the guard would, and keeps visits in a map:
+
+<TemplateFile path="stacks/go/server_test.go" app="notes" />
+
+It calls `routes` with no guard in front, so it covers none of the guard's work. Run it in the app's folder:
+
+```sh app
+pnpm test
+```
+
+It runs `go test ./...`, then Vitest. The page has a test of its own, `src/home.test.tsx`, which draws it in happy-dom and stubs `fetch` with what the server answers.
+
+## Make it yours
+
+These steps give each viewer notes of their own: a table, the queries, two routes and their tests.
+
+### Add a table
+
+Add the next migration to `migrations/`, named so it sorts after the last:
+
+```sql title="apps/notes/migrations/0002_add_notes.sql"
+-- One row per note, by the viewer who wrote it.
+create table note (
+  id serial primary key,
+  author text not null,
+  body text not null,
+  at timestamptz not null default now()
+);
+```
+
+Commit it, and never edit a migration that has run.
+
+### Apply the migration
+
+In the install's folder, while `pnpm dev` runs:
+
+```sh
+pnpm robkit migrate notes
+```
+
+The app keeps running, and the table is there for its next query.
+
+### Add the queries
+
+Add `notes.go`, which follows `visits.go`:
+
+```go title="apps/notes/notes.go"
+package main
+
+import (
+	"context"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// noteStore is what the routes store notes through. The server passes the
+// database's, from notesIn, and a test passes its own.
+type noteStore interface {
+	// add adds a note by author.
+	add(ctx context.Context, author, body string) error
+	// list is the notes author wrote, newest first.
+	list(ctx context.Context, author string) ([]string, error)
+}
+
+// databaseNotes stores notes in db's note table, which
+// migrations/0002_add_notes.sql makes.
+type databaseNotes struct{ db *pgxpool.Pool }
+
+// notesIn is the store the server hands the routes.
+func notesIn(db *pgxpool.Pool) databaseNotes {
+	return databaseNotes{db}
+}
+
+func (n databaseNotes) add(ctx context.Context, author, body string) error {
+	_, err := n.db.Exec(ctx, "insert into note (author, body) values ($1, $2)", author, body)
+	return err
+}
+
+func (n databaseNotes) list(ctx context.Context, author string) ([]string, error) {
+	rows, _ := n.db.Query(ctx, "select body from note where author = $1 order by at desc, id desc", author)
+	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+```
+
+### Add the routes
+
+In `server.go`, take the notes as a third argument to `routes`:
+
+```go title="apps/notes/server.go"
+func routes(page http.Handler, visits visitStore, notes noteStore) http.Handler {
+	mux := http.NewServeMux()
+	// ...
+	return mux
+}
+```
+
+Then add two routes before `mux.Handle("/api/", ...)`. `GET /api/notes` lists the viewer's notes as JSON, and `POST /api/notes` adds one from a form field named `body`, then answers the same:
+
+```go title="apps/notes/server.go"
+mux.HandleFunc("GET /api/notes", func(w http.ResponseWriter, r *http.Request) {
+	listNotes(w, r, notes)
+})
+mux.HandleFunc("POST /api/notes", func(w http.ResponseWriter, r *http.Request) {
+	body := r.FormValue("body")
+	if strings.TrimSpace(body) == "" {
+		http.Error(w, "Send the note in a field named body.", http.StatusBadRequest)
+		return
+	}
+	id := viewerID(session.ViewerFrom(r.Context()))
+	if err := notes.add(r.Context(), id, body); err != nil {
+		log.Printf("couldn't add a note by %s: %v", id, err)
+		http.Error(w, "Couldn't add the note.", http.StatusInternalServerError)
+		return
+	}
+	listNotes(w, r, notes)
+})
+```
+
+Add `listNotes` below `me`:
+
+```go title="apps/notes/server.go"
+// listNotes answers the notes the viewer wrote, newest first.
+func listNotes(w http.ResponseWriter, r *http.Request, notes noteStore) {
+	id := viewerID(session.ViewerFrom(r.Context()))
+	written, err := notes.list(r.Context(), id)
+	if err != nil {
+		log.Printf("couldn't list the notes by %s: %v", id, err)
+		http.Error(w, "Couldn't list the notes.", http.StatusInternalServerError)
+		return
+	}
+	if written == nil {
+		written = []string{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(written)
+}
+```
+
+Each note is keyed by the viewer's id, so one viewer never reads another's. In an app open to anyone, everyone not signed in shares the id `nobody`. In `serve`, hand the routes the notes:
+
+```go title="apps/notes/server.go"
+server := &http.Server{
+	Handler:           guarded(routes(page, visitsIn(db), notesIn(db))),
+	ReadHeaderTimeout: 10 * time.Second,
+}
+```
+
+Restart `pnpm dev` to run the new routes. Call them from `src/home.tsx` with `sessionFetch`, as `me` does.
+
+### Test them
+
+`routes` now takes three arguments, so in `server_test.go` hand it an empty store in `answerWith`:
+
+```go title="apps/notes/server_test.go"
+routes(page, visits, notesInMemory{}).ServeHTTP(recorder, req.WithContext(session.WithViewer(req.Context(), viewer)))
+```
+
+Then add `notes_test.go`, which keeps notes in a map and calls the routes as the owner and as a guest:
+
+```go title="apps/notes/notes_test.go"
+package main
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/RobertScholey98/robkit/go/guard"
+	"github.com/RobertScholey98/robkit/go/session"
+)
+
+// notesInMemory keeps each author's notes, newest first, in place of the
+// database.
+type notesInMemory map[string][]string
+
+func (n notesInMemory) add(_ context.Context, author, body string) error {
+	n[author] = append([]string{body}, n[author]...)
+	return nil
+}
+
+func (n notesInMemory) list(_ context.Context, author string) ([]string, error) {
+	return n[author], nil
+}
+
+// answerNotes is what routes answers req, as the guard hands it viewer,
+// storing notes in notes.
+func answerNotes(t *testing.T, req *http.Request, viewer guard.Viewer, notes notesInMemory) *httptest.ResponseRecorder {
+	t.Helper()
+	recorder := httptest.NewRecorder()
+	routes(http.NotFoundHandler(), visitsInMemory{}, notes).ServeHTTP(recorder, req.WithContext(session.WithViewer(req.Context(), viewer)))
+	return recorder
+}
+
+// postNote is a POST to /api/notes with body in its form.
+func postNote(body string) *http.Request {
+	req := httptest.NewRequest("POST", "/api/notes", strings.NewReader(url.Values{"body": {body}}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	return req
+}
+
+func TestNotesKeepsEachViewersNotesNewestFirst(t *testing.T) {
+	notes := notesInMemory{}
+	owner := guard.Owner{ID: "owner-1"}
+	for _, body := range []string{"Buy milk", "Call the vet"} {
+		if got := answerNotes(t, postNote(body), owner, notes); got.Code != 200 {
+			t.Fatalf("POST /api/notes answered %d %q, want 200", got.Code, got.Body)
+		}
+	}
+
+	mine := answerNotes(t, httptest.NewRequest("GET", "/api/notes", nil), owner, notes)
+	guests := answerNotes(t, httptest.NewRequest("GET", "/api/notes", nil), guard.Guest{ID: "code-1"}, notes)
+
+	if want := `["Call the vet","Buy milk"]` + "\n"; mine.Body.String() != want {
+		t.Errorf("the owner's notes are %q, want %q", mine.Body, want)
+	}
+	if want := "[]\n"; guests.Body.String() != want {
+		t.Errorf("a guest's notes are %q, want %q", guests.Body, want)
+	}
+}
+
+func TestNotesRefusesANoteWithNoBody(t *testing.T) {
+	got := answerNotes(t, postNote(" "), guard.Owner{ID: "owner-1"}, notesInMemory{})
+
+	if got.Code != 400 {
+		t.Errorf("POST /api/notes with no body answered %d, want 400", got.Code)
+	}
+}
+```
+
+Run `pnpm test` in the app's folder again, and `pnpm lint` in the install's. `pnpm lint` runs `gofmt` on the app.
+
+## Read more
+
+- [The viewer and the guard](/docs/build-an-app/the-viewer-and-the-guard/), for who gets in and what the guard answers instead.
+- [Testing with a viewer](/docs/build-an-app/testing-with-a-viewer/), for the owner, a guest and nobody in a test.
+- [The database](/docs/build-an-app/the-database/), for what your app's role can reach and how migrations run.
+- [Settings](/docs/build-an-app/settings/), for your app's own `.env`.
+- [The layer rule](/docs/build-an-app/the-layer-rule/), for what your app may import.
+- [Go's `net/http`](https://pkg.go.dev/net/http), for `ServeMux` and its patterns.
+- [pgx](https://pkg.go.dev/github.com/jackc/pgx/v5), for queries.
+- [Vite's guide](https://vite.dev/guide/), for the page's dev server and its build.

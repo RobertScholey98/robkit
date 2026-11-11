@@ -306,6 +306,22 @@ describe.each([
     ],
     parts: [],
   },
+  {
+    name: "React + Go",
+    stack: "go",
+    guide: "react-go",
+    whole: [
+      "go.mod",
+      "migrations/0001_init.sql",
+      "visits.go",
+      "server_test.go",
+    ],
+    parts: [
+      { path: "server.go", from: "func routes(" },
+      { path: "src/home.tsx", from: "async function me(" },
+      { path: "server.go", from: "func serve(" },
+    ],
+  },
 ] as const)(
   "the built guide for $name",
   ({ name, stack, guide, whole, parts }) => {
