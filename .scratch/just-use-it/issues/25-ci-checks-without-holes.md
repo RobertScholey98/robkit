@@ -27,7 +27,7 @@
 - [x] CI runs Go's tests on the oldest Go the docs promise and on the newest, or the docs name one version
 - [x] A test that commits without setting an identity in its own clone fails on a machine that has a global one
 - [x] `tooling/eslint/README.md` and `tooling/repo-checks/README.md` describe each rule and check as it now is
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -120,3 +120,20 @@ What a contributor sees differently:
 - New repo checks: `workflows.test.ts`, `go-lint.test.ts`, `go-version.test.ts`, `test-defaults.test.ts`.
 
 What an owner sees differently: the install's `.github/workflows/ci.yml` names each action by commit, with its version in a comment, so `robkit upgrade` shows those lines changed.
+
+### Merged
+
+Added by the lead. PR 113 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `8ae1007`. The lead read the diff and changed nothing.
+
+What the lead checked:
+
+- Each of the seven pinned actions against its upstream tag, with `gh api repos/<owner>/<action>/commits/<tag>`. All seven commits match.
+- The time limits against CI's last runs. `check` took 13 to 18 minutes and has 45. `pull-request` took under a minute and has 15.
+- `go-oldest` and `pull-request`, the job that runs the new changeset check, both passed on this pull request's own run.
+
+What follows from it:
+
+- A branch cut before this merged has no `check-changesets.ts`, and CI's workflow now calls it. Such a branch merges the milestone's branch in before its `pull-request` job can pass.
+- The docs site's `site/vitest.config.ts` is outside the glob `test-defaults.test.ts` reads, so nothing fails there. It can take `testDefaults` when `main` merges into `docs-site`.
+
+Not taken, for a later ticket if R wants it: the changeset check counts every change to a package's `package.json`, so a dev dependency alone needs a changeset naming the package. `.changeset/shared-test-settings.md` names fourteen for that reason, and each one's changelog gets a line that says nothing changes for an app. Counting only the fields that ship would end that.
