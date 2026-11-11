@@ -17,7 +17,7 @@ const drizzleFiles: TreeEntry[] = [
   },
 ];
 
-/** The files at the top of an app's folder on a Node stack. */
+/** The files at the top of every app's folder, Go's included. */
 const appRootFiles: TreeEntry[] = [
   {
     name: "package.json",
@@ -75,6 +75,65 @@ function serverApp(server: string): TreeEntry[] {
 
 /** Each stack's files, from the app's folder, as its guide lists them. */
 export const appFiles = {
+  go: [
+    {
+      name: "main.go",
+      about: "The server's commands: serve, dev and migrate.",
+    },
+    {
+      name: "server.go",
+      about:
+        "The server: the guard in front, then the API under /api, then the page.",
+    },
+    { name: "visits.go", about: "The example's queries, in SQL with pgx." },
+    {
+      name: "server_test.go",
+      about: "Tests the API as the owner, a guest and nobody.",
+    },
+    {
+      name: "migrate.go",
+      about:
+        "The migrator. It applies each migration in migrations/ that hasn't run.",
+    },
+    {
+      name: "migrations/",
+      about: "The migrations, one .sql file each, run in name order.",
+    },
+    {
+      name: "dev.go",
+      about: "Runs Vite behind the server under pnpm dev.",
+    },
+    { name: "dev_test.go", about: "Tests what dev passes on from Vite." },
+    {
+      name: "go.mod",
+      about:
+        "The Go version, and robkit's Go module from the install's vendor/robkit/go.",
+    },
+    {
+      name: "go.sum",
+      about: "The checksums of the Go modules the server uses.",
+    },
+    { name: "index.html", about: "The page's HTML, which loads src/main.tsx." },
+    {
+      name: "src/",
+      about: "The page.",
+      children: [
+        {
+          name: "main.tsx",
+          about: "The page, in React. It calls the API with sessionFetch.",
+        },
+        {
+          name: "styles.css",
+          about: "Tailwind, with the install's shared UI kit and look.",
+        },
+      ],
+    },
+    {
+      name: "vite.config.ts",
+      about: "Serves the page under pnpm dev, and builds it into dist/public.",
+    },
+    ...appRootFiles,
+  ],
   next: [
     {
       name: "src/",
