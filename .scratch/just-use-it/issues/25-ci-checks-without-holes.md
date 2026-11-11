@@ -9,7 +9,6 @@
 - **Workflows.** Every action in the repo's workflows and in the template's is named by commit, with its version in a comment, and a repo check fails on one named by tag, as `release-workflow.test.ts` does for `release.yml`. The `check` and `pull-request` jobs have `timeout-minutes`.
 - **The Go version.** `CONTRIBUTING.md` and the install's docs say Go 1.26 or later, `go.mod` says 1.26.0, and CI runs 1.27.3. CI tests the oldest Go the docs promise as well as the newest, or the docs promise only what CI tests.
 - **Tests that call git.** They run with no global git identity, as CI's runner does: `GIT_CONFIG_GLOBAL` pointed at an empty file and `user.useConfigOnly` on, set where every machine gets it. A test that commits in a clone it didn't configure then fails on any machine, not only in CI.
-- **One slow test.** `packages/create-robkit/src/vendor.pack.test.ts` passed its 120-second limit in CI on `main`. Find where its time goes and make the work smaller: run its pnpm steps one after another, or share one install between tests. Don't raise the limit, and don't add a retry.
 - **A wrong comment.** The comment on `isCoreOrigin` in `go/session/options.go` says an address in code is judged as one from settings. It isn't: Go refuses a trailing slash that TypeScript drops. Correct the comment. Don't change either port.
 
 **Blocked by:** 14, 22
@@ -27,7 +26,6 @@
 - [ ] The `check` and `pull-request` jobs each have a timeout
 - [ ] CI runs Go's tests on the oldest Go the docs promise and on the newest, or the docs name one version
 - [ ] A test that commits without setting an identity in its own clone fails on a machine that has a global one
-- [ ] The Proof gives `vendor.pack.test.ts`'s time in CI before and after, and its limit is unchanged
 - [ ] `tooling/eslint/README.md` and `tooling/repo-checks/README.md` describe each rule and check as it now is
 - [ ] The PR's CI `gate` job passes on GitHub
 
@@ -70,7 +68,7 @@ On top of the notes above, which were written as milestone 3 was built:
 The round was asked which of the comments above belong in the ticket. Taken as bullets:
 
 - **Git identity** (both). It is concrete, and CI found it only by failing.
-- **`vendor.pack.test.ts`** (Sol). It failed `main` again on the day of the round.
+- **`vendor.pack.test.ts`** (Sol). It failed `main` on the day of the round, and then pull request 100, so the lead fixed it that day and it isn't a bullet here. Its two tests each build and pack every package, and ran side by side. They now run one after the other, which took each from 16 seconds to 10 on the lead's machine. In a green CI run they had taken 75 seconds each, against a limit of 120.
 - **The comment on `isCoreOrigin`** (Opus).
 
 Taken into the bullets that were there:
