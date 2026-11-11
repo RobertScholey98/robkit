@@ -11,9 +11,11 @@
 3. **Which commands the home page shows before the first release.** Built: the three `npm create robkit` commands, with a line saying they work after the release and a link to the checkout route that works today. The other choice is to show the checkout route's commands until the release.
 4. **The look.** The first screen's order, the colours and the type. Say what to change, or that it's good.
 
+5. **The screenshots.** The council's review found two things that need new pictures, which nobody has taken. The hub's launcher picture is two-thirds empty space. The sign-in and admin pictures are small on a 1280-pixel screen. Say whether to retake them cropped closer, or leave them.
+
 **Blocked by:** 06
 
 **Status:** needs-info
 
-- [ ] R has answered the four questions
+- [ ] R has answered the five questions
 - [ ] What R asked for is done, or R has said it can wait
