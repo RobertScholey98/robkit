@@ -220,11 +220,15 @@ describe("the built page on the layer rule", () => {
     "apps/example/src/built.ts": 'import "../dist/serve.js";\n',
     "packages/ui/src/reach.ts": 'import "../../../apps/example/visits.ts";\n',
   };
+  /** A .d.ts file's import of another under dist, as next-env.d.ts has. */
+  const types = {
+    "apps/example/next-env.d.ts": 'import "./dist/dev/types/routes.d.ts";\n',
+  };
 
   it("shows what robkit check prints for an install that breaks each rule", async () => {
     const dir = join(await mkdtemp(join(tmpdir(), "site-check-")), "install");
     await init(defaultChoices, dir, { install: false });
-    for (const [path, text] of Object.entries(breaks)) {
+    for (const [path, text] of Object.entries({ ...breaks, ...types })) {
       await writeFile(join(dir, path), text);
     }
     const bin = join(repoRoot, "packages/create-robkit/src/robkit-command.ts");
@@ -246,7 +250,24 @@ describe("the built page on the layer rule", () => {
       code: checked.stdout.trimEnd(),
     });
     expect(checked.stdout.trimEnd().split("\n")).toHaveLength(5);
+    expect(checked.stdout).not.toContain("next-env.d.ts");
   }, 60_000);
+
+  it("says what the install's AGENTS.md says of a .d.ts file", async () => {
+    const agents = await readFile(
+      join(repoRoot, "packages/create-robkit/templates/base/AGENTS.md"),
+      "utf8",
+    );
+    const sentence = /A `\.d\.ts` file may import [^\n]*?not code\./.exec(
+      agents,
+    )?.[0];
+    const page = (await built("docs/build-an-app/the-layer-rule/index.html"))
+      .replaceAll(/<[^>]+>/g, "")
+      .replaceAll("’", "'");
+
+    expect(sentence).toBeDefined();
+    expect(page).toContain(String(sentence).replaceAll("`", ""));
+  });
 });
 
 describe("the built page on pnpm dev and your apps", () => {
