@@ -212,3 +212,79 @@ describe("with reduced motion", () => {
     expect((await motion(false)).moving).toBeGreaterThan(0);
   });
 });
+
+describe("the sidebar", () => {
+  it("marks the page the reader is on, and only that one", async () => {
+    const { page } = await openPage(site, "/docs/get-started/quickstart/", {
+      width: 1280,
+    });
+    const current = page
+      .getByRole("navigation", { name: "Docs" })
+      .locator('[aria-current="page"]');
+
+    expect(await current.allTextContents()).toEqual(["Quickstart"]);
+    expect(await current.getAttribute("href")).toBe(
+      "/docs/get-started/quickstart/",
+    );
+  });
+});
+
+describe("On this page", () => {
+  const marked = (page: import("playwright").Page) =>
+    page
+      .getByRole("navigation", { name: "On this page" })
+      .locator('[aria-current="true"]')
+      .allTextContents();
+
+  it("marks the heading in view as the page scrolls", async () => {
+    const { page } = await openPage(site, path, { width: 1280 });
+    expect(await marked(page)).toEqual(["On your machine"]);
+
+    await page.getByRole("heading", { name: "Docker" }).evaluate((heading) => {
+      heading.scrollIntoView({ behavior: "instant" });
+    });
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-toc] [aria-current="true"]')
+          ?.textContent === "Docker",
+    );
+    expect(await marked(page)).toEqual(["Docker"]);
+
+    await page.evaluate(() => {
+      scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: "instant",
+      });
+    });
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-toc] [aria-current="true"]')
+          ?.textContent === "What you should know",
+    );
+  });
+
+  it("works as plain links with scripts off", async () => {
+    const { page } = await openPage(site, path, {
+      width: 1280,
+      scripts: false,
+    });
+    expect(await marked(page)).toEqual([]);
+
+    await page
+      .getByRole("navigation", { name: "On this page" })
+      .getByRole("link", { name: "Docker" })
+      .click();
+    await page.waitForURL(/#docker$/);
+    // The page scrolls smoothly, so wait for the heading to come to rest
+    // below the header. waitForFunction needs the page's scripts.
+    const heading = page.getByRole("heading", { name: "Docker" });
+    await expect
+      .poll(() =>
+        heading.evaluate((element) => element.getBoundingClientRect().top),
+      )
+      .toBeLessThan(200);
+    expect(
+      await heading.evaluate((element) => element.getBoundingClientRect().top),
+    ).toBeGreaterThanOrEqual(0);
+  });
+});

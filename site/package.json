@@ -8,6 +8,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "pages-to-reread": "node scripts/pages-to-reread.ts",
     "lint": "astro sync && eslint .",
     "typecheck": "astro check && tsc",
     "test": "vitest run --coverage",
@@ -32,6 +33,7 @@
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   }
 }
