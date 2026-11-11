@@ -1,4 +1,4 @@
-# 35: The example app's test prints no React warning
+# 38: The example app's test prints no React warning
 
 **What to build:** `pnpm test` in a new React + Hono or React + Express app passes, and prints React's warning once for each test that renders the page:
 
