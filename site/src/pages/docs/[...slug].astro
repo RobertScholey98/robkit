@@ -1,0 +1,42 @@
+---
+import type { GetStaticPaths, InferGetStaticPropsType } from "astro";
+import { getCollection, render } from "astro:content";
+import CodeBlock from "../../components/CodeBlock.astro";
+import DocsLayout from "../../layouts/DocsLayout.astro";
+import { editUrl } from "../../site.ts";
+
+export const getStaticPaths = (async () => {
+  const docs = await getCollection("docs");
+  return docs.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}) satisfies GetStaticPaths;
+
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+
+const { entry } = Astro.props;
+const page = await render(entry);
+// A part built from a repo file with the page's own id ends the page, as
+// the glossary's terms end its page.
+const ending = (await getCollection("built")).find(({ id }) => id === entry.id);
+const end = ending === undefined ? undefined : await render(ending);
+const headings = [...page.headings, ...(end?.headings ?? [])];
+const { Content } = page;
+const End = end?.Content;
+// A page built from another file, as the glossary is, names that file in
+// `source`. Every other page is its own MDX file, under site/.
+const file = entry.data.source ?? `site/${String(entry.filePath)}`;
+---
+
+<DocsLayout
+  title={entry.data.title}
+  description={entry.data.description}
+  headings={headings}
+  current={entry.id}
+  stub={entry.data.stub}
+  edit={editUrl(file)}
+>
+  <Content components={{ pre: CodeBlock }} />
+  {End && <End />}
+</DocsLayout>

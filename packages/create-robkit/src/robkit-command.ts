@@ -24,6 +24,7 @@ import { deploy } from "./coolify-deploy.ts";
 import { databaseUrls, deploymentOf } from "./deployment.ts";
 import { readAppList, readCoolify, readDatabaseUrlsConfig } from "./env.ts";
 import { readRobkitRepo } from "./robkit-repo.ts";
+import { isRobkitCommand, type RobkitCommand } from "./robkit-commands.ts";
 import { finishInstall, installDependencies } from "./set-up.ts";
 import { finishUpgrade, upgrade } from "./upgrade.ts";
 import { vendorDir, vendorPackages } from "./vendor.ts";
@@ -82,15 +83,19 @@ instead.`;
 process.exitCode = await runCommand(async () => {
   requireInstall(process.cwd());
   const [command] = process.argv.slice(2);
-  const commands: Record<string, () => Promise<number | undefined>> = {
+  const commands = {
+    add,
     check,
     migrate: migrateApp,
     upgrade: upgradeInstall,
     vendor,
     "database-urls": printDatabaseUrls,
     deploy: deployInstall,
-  };
-  return (commands[command ?? ""] ?? add)();
+  } satisfies Record<RobkitCommand, () => Promise<number | undefined>>;
+  // add() answers anything else with the usage text.
+  return (
+    command !== undefined && isRobkitCommand(command) ? commands[command] : add
+  )();
 });
 
 /** Refuses a folder with no `robkit.json` in one line, whatever the command. */

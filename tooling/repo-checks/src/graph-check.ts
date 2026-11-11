@@ -4,7 +4,10 @@ import { matchesGlob } from "node:path/posix";
 import ts from "typescript";
 import type { PackageGraph } from "@internal/eslint-config/package-graph";
 import { reachesOutside } from "@internal/eslint-config/layers";
-import { toolchain } from "@internal/eslint-config/package-graph";
+import {
+  packageFolders,
+  toolchain,
+} from "@internal/eslint-config/package-graph";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
 type Deps = Record<string, string> | undefined;
@@ -38,7 +41,7 @@ const graphFile = "tooling/eslint/package-graph.js";
 export async function readWorkspace(root: string): Promise<WorkspacePackage[]> {
   const found: WorkspacePackage[] = [];
   for await (const path of glob(
-    ["packages/*/package.json", "tooling/*/package.json"],
+    packageFolders.map((folder) => `${folder}/package.json`),
     { cwd: root },
   )) {
     const manifest = await readJsonFile(join(root, path), readNamedManifest);

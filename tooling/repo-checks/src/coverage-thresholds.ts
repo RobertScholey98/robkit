@@ -1,7 +1,8 @@
 import { glob, readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import ts from "typescript";
+import { packageFolders } from "@internal/eslint-config/package-graph";
 import { type InputProblem, isRecord, problem } from "@robkit/input";
+import ts from "typescript";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
 const metrics = ["statements", "branches", "functions", "lines"] as const;
@@ -9,7 +10,7 @@ const metrics = ["statements", "branches", "functions", "lines"] as const;
 export type Thresholds = Partial<Record<(typeof metrics)[number], number>>;
 
 /** Where a workspace package's Vitest config sits, from the workspace root. */
-export const vitestConfigs = "{packages,tooling}/*/vitest.config.{ts,js}";
+export const vitestConfigs = `{${packageFolders.join(",")}}/vitest.config.{ts,js}`;
 
 /**
  * Reads the coverage thresholds a Vitest config sets, written as a literal
@@ -150,9 +151,10 @@ export async function readWorkspaceCoverage(
     configs.set(dirname(path), await readFile(join(root, path), "utf8"));
   }
   const packages: PackageCoverage[] = [];
-  for await (const path of glob("{packages,tooling}/*/package.json", {
-    cwd: root,
-  })) {
+  for await (const path of glob(
+    packageFolders.map((folder) => `${folder}/package.json`),
+    { cwd: root },
+  )) {
     const json = await readJsonFile(join(root, path), readNamedManifest);
     const test = json.scripts?.test;
     if (test === undefined) continue;

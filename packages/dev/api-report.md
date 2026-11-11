@@ -23,6 +23,11 @@ export function appManifestFileIn(
 ): Promise<AppManifestFile | undefined>;
 export function catalogOf(apps: readonly App[]): string;
 export function discoverApps(root: string, firstPort?: number): Promise<App[]>;
+export const refusedAppSettings: {
+  readonly decidedForEachApp: readonly string[];
+  readonly prefix: string;
+  readonly alsoRefused: readonly string[];
+};
 ```
 
 ## @robkit/dev/cli

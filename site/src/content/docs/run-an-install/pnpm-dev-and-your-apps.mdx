@@ -1,0 +1,156 @@
+---
+title: pnpm dev and your apps
+description: What pnpm dev starts and checks, and how to add and remove apps.
+section: Run an install
+order: 1
+describes:
+  - packages/dev/src/
+  - packages/input/src/slug.ts
+  - packages/create-robkit/src/add.ts
+  - packages/create-robkit/src/add-wizard.ts
+  - packages/create-robkit/src/choices.ts
+  - packages/create-robkit/src/dev-answers.ts
+  - packages/create-robkit/src/robkit-command.ts
+  - packages/create-robkit/templates/base/AGENTS.md
+---
+
+`pnpm dev` runs your install on your machine: Postgres in Docker, then core, the hub, admin and every app in `apps/`, each on its own subdomain. Run it in the install's folder and leave it running while you work. Ctrl+C stops every app, then Postgres.
+
+## What it starts
+
+In order:
+
+1. **Postgres**, with `docker compose up`. Its data stays in a Docker volume from one run to the next.
+2. **Each app's database.** For each app with a `migrate` script, it makes a Postgres schema and role named after the app's slug, then runs the script as that role. It sets a new password each time it starts.
+3. **A proxy on port 3000**, which sends each subdomain to its app.
+4. **Every app in `apps/`**, core, the hub and admin among them. Each runs its own `pnpm run dev`, on a port after 3000, and its output reaches your terminal with its slug in front.
+
+It prints each app's address once the app answers, in the order they answer:
+
+```text title="What it prints"
+admin is ready at http://admin.robkit.localhost:3000
+example is ready at http://example.robkit.localhost:3000
+hub is ready at http://hub.robkit.localhost:3000
+core is ready at http://core.robkit.localhost:3000
+```
+
+Open the hub's address to sign in. When any app exits, `pnpm dev` stops the rest and Postgres too, and exits with 1. Its output above says why the app stopped.
+
+## Its settings
+
+`pnpm dev` reads its settings from a `.env` file at the install's root, which git ignores. Docker Compose reads the same file, so Postgres and `pnpm dev` move together. A value you export in the shell wins over the file's.
+
+- `ROBKIT_DEV_PORT`, `3000` by default. The proxy's port. The apps take the ports after it, one each, so moving it moves them too.
+- `ROBKIT_POSTGRES_PORT`, `54320` by default. Where Postgres listens on your machine.
+- `ROBKIT_DOMAIN`, `robkit.localhost` by default. The domain each app's subdomain is under. It must be `localhost` or a name under it.
+
+Your apps' own settings go in each app's `.env`, as [Settings](/docs/build-an-app/settings/) says.
+
+## When pnpm dev stops at the start
+
+Before it starts anything, `pnpm dev` checks the install, its settings, Docker and the ports it needs. When one won't do, it starts nothing, says what to do and exits with 1. A second `pnpm dev` stops nothing the first one runs.
+
+- **The folder has no `robkit.json`.** Run `pnpm dev` in an install's folder.
+- **A setting won't do.** It names the setting and what it must be. A port is a whole number from 1 to 65535, and `ROBKIT_DOMAIN` must be local, since `pnpm dev` serves plain http. To serve a real domain, deploy.
+- **A folder in `apps/` isn't a slug.** It checks each folder with a `package.json`, and skips one without. A slug is lowercase letters and digits, starts with a letter, and isn't `public` or `postgres`. Rename the folder.
+- **Go isn't installed.** An app with a `go.mod` needs Go on your `PATH`. `pnpm dev` says where to get it. Install it, open a new terminal, then run `pnpm dev` again.
+- **Docker isn't installed, or isn't answering.** Install or start Docker, then run `pnpm dev` again. When Docker said why, `pnpm dev` adds what it said.
+- **Port 3000 is taken.** If `pnpm dev` is already running in this install, use that one, or stop it. Otherwise free the port, or set `ROBKIT_DEV_PORT` to another.
+- **An app's port is taken.** Free it, or set `ROBKIT_DEV_PORT`, which moves every app's port.
+- **Postgres's port is taken.** Free it, or set `ROBKIT_POSTGRES_PORT` to another port. Postgres left running by this install doesn't count.
+
+When more than one of the apps' and Postgres's ports is taken, it names each.
+
+### Its socket
+
+`pnpm dev` listens for `robkit add` and `robkit migrate` on a socket file in `~/.robkit/run`, so every terminal of yours finds it. It makes the folder for you alone. It checks `~/.robkit` and the socket's folder, and refuses to start when one of them:
+
+- Isn't a folder. Remove it, then run `pnpm dev` again.
+- Is another account's. Remove it, with `sudo` if you need to, then run `pnpm dev` again.
+- Can be opened by others. Run the `chmod 700` it prints, then run `pnpm dev` again.
+
+It also refuses when the socket's path is 100 bytes or more. Make a folder only you can open at a shorter path, link `~/.robkit/run` to it, then run `pnpm dev` again. The `robkit` commands refuse a folder that fails these checks too.
+
+## Start again with an empty database
+
+`pnpm dev` keeps Postgres's data in a Docker volume, so the owner, the codes and each app's data last from one run to the next. To start again with an empty database, stop `pnpm dev`, then run this in the install's folder:
+
+```sh
+docker compose down --volumes
+pnpm dev
+```
+
+It deletes every app's data along with the owner, the codes and the roles. You claim the install again on the hub.
+
+robkit can't reset the owner's password. On your machine, starting again is the way back from a lost one, and it costs the data.
+
+## Add an app
+
+`pnpm robkit add` writes a new app to `apps/<slug>`. With no options it asks for each, as [Your first app](/docs/get-started/your-first-app/) shows. With any option it asks nothing, and needs the app's name:
+
+```sh
+pnpm robkit add notes --stack react-hono --access owner --icon 📝
+```
+
+- `--stack <stack>`. The stack, one of `start`, `react-hono`, `express`, `next` or `go`. By default, `start`.
+- `--access <rule>`. Who may open it, `owner` for only you, `open` for anyone signed in or not, or `roles` for some guests. By default, `owner`.
+- `--roles <role,...>`. The guest roles that may open it. It goes only with `--access roles`, and needs at least one. By default, none.
+- `--icon <emoji>`. The emoji the hub's launcher shows for it. By default, 📦.
+
+The name is the app's slug. It can't be one of the platform apps, `core`, `hub` or `admin`, or an app the install already has. After asking, `robkit add` prints the same command with options, to add the app again without the questions.
+
+### With pnpm dev running
+
+`robkit add` writes the app and installs its dependencies. Then `pnpm dev` gives it a database, migrates it and starts it on a free port. It starts a new core so the launcher lists the app, and last routes the app's subdomain. Nobody is signed out, and every other app keeps running. `robkit add` prints the app's address:
+
+```text
+Added apps/notes. pnpm dev started notes at http://notes.robkit.localhost:3000.
+```
+
+When `pnpm dev` can't start the app, `robkit add` prints why, and the app's files stay in `apps/<slug>`. An app that doesn't answer on its port within five minutes is stopped, so check that it listens on `PORT`. Fix what it says, then stop `pnpm dev` and start it again, which starts every app in `apps/`.
+
+### With no pnpm dev running
+
+`robkit add` writes the app and installs its dependencies, then says what to run:
+
+```text
+Added apps/photos. Next:
+
+  pnpm dev
+
+Then open http://photos.robkit.localhost:3000.
+```
+
+`pnpm dev` gives the app its database as it starts, like every other app. In an install whose dependencies aren't in yet, it says to run `pnpm install` first.
+
+### Your own template
+
+An install can keep its own template for a stack in `robkit/templates/<stack>`, such as `robkit/templates/react-hono`. `robkit add` then uses it in place of robkit's, whole. It needs a `package.json`. Delete the folder to use robkit's template again.
+
+### Apply a new migration
+
+While `pnpm dev` runs, apply an app's new migration with:
+
+```sh
+pnpm robkit migrate notes
+```
+
+`pnpm dev` runs the app's `migrate` script as the app's own role, so its password stays the same. With no `pnpm dev` running, start it. It migrates every app as it starts.
+
+## Remove an app
+
+1. Stop `pnpm dev` with Ctrl+C. It doesn't notice a deleted folder while it runs.
+2. Delete `apps/<slug>`.
+3. Start `pnpm dev` again.
+
+As core starts, it takes out each app whose folder is gone. The app leaves the hub's launcher and admin, core gives it no new token, and the rule you set for it in admin goes too. A token the app already holds for a viewer lasts until it expires, at most 15 minutes.
+
+The app's data stays. Its Postgres schema and role are still there, and a new app with the same slug finds them. To drop both, run this in the install's folder with the app's slug in place of `notes`:
+
+```sh
+docker compose exec postgres psql -U postgres -d robkit -c 'drop owned by notes; drop role notes;'
+```
+
+A slug that comes back is a new app, whether you add one with that slug or bring the folder back, such as by switching to a branch that has it. Core gives it the rule its `package.json` declares, or owner only, and not the rule you last set in admin, so set that again.
+
+In production, deleting the folder doesn't stop the app. `robkit deploy` redeploys core, which takes the app out, but its container runs until you delete its application in Coolify. The install's `docs/deploy.md` says how.

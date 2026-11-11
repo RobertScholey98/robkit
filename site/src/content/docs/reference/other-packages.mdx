@@ -1,0 +1,44 @@
+---
+title: The other packages
+description: The published packages an app rarely imports from, what each is for, and where its README is.
+section: Reference
+order: 13
+describes:
+  - packages/create-robkit/README.md
+  - packages/core/README.md
+  - packages/dev/README.md
+  - packages/provision/README.md
+  - packages/input/README.md
+  - packages/guard/README.md
+  - packages/session/README.md
+---
+
+An app's own code rarely imports these. Each is published because an install runs it, or because another robkit package is built on it.
+
+## create-robkit
+
+What makes an install, and the `robkit` command each install runs. Every install takes it as a dev dependency, and runs `robkit` through its `pnpm robkit` script. The reference pages on [making an install](/docs/reference/npm-create-robkit/) and [the robkit command](/docs/reference/robkit-command/) cover what you run. Its [README](https://github.com/RobertScholey98/robkit/blob/main/packages/create-robkit/README.md) lists its exports.
+
+## @robkit/core
+
+Core, the Hono app that holds the owner, the access codes, the sessions, the roles, the catalog and the signing key. Only an install's `apps/core` depends on it, and runs it with its `robkit-core` command. Every other app reaches core over HTTP, as [the layer rule](/docs/build-an-app/the-layer-rule/) says. Its [README](https://github.com/RobertScholey98/robkit/blob/main/packages/core/README.md) lists its exports.
+
+## @robkit/dev
+
+The runner behind `pnpm dev`. It finds each app, starts Postgres, gives each app with a `migrate` script its database, starts every app, and puts the proxy in front. [pnpm dev and your apps](/docs/run-an-install/pnpm-dev-and-your-apps/) says what it does for you. Its [README](https://github.com/RobertScholey98/robkit/blob/main/packages/dev/README.md) lists its exports.
+
+## @robkit/provision
+
+Gives each app its own Postgres schema, and a role that can touch nothing else, both named after the app's slug. `pnpm dev` runs it before it starts the apps, and core runs it in production before it migrates. Its [README](https://github.com/RobertScholey98/robkit/blob/main/packages/provision/README.md) lists its exports.
+
+## @robkit/input
+
+Readers for what comes from outside robkit's own code, such as settings, JSON, a slug and an app's manifest. Each returns the value or a problem that says what to fix. Every robkit package and every app may import it, and it imports nothing, so the browser can load it too. The hub and admin import it. Its [README](https://github.com/RobertScholey98/robkit/blob/main/packages/input/README.md) lists its exports.
+
+## @robkit/guard
+
+The decision of who may open an app, from its access rule and what the app knows of who is asking. You won't call it yourself, since each adapter runs it for you. A new adapter proves it decides the same way with the cases in its `conformance.json`. Admin imports it, to show and edit each app's rule. Its [README](https://github.com/RobertScholey98/robkit/blob/main/packages/guard/README.md) lists its exports.
+
+## @robkit/session
+
+The tokens core signs, and the guard each adapter wraps. It reads and checks a token, and runs the guard on a web-standard `Request`. An app's own code takes the viewer from its adapter instead. Its [README](https://github.com/RobertScholey98/robkit/blob/main/packages/session/README.md) lists its exports.

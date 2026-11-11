@@ -1,0 +1,53 @@
+---
+title: "@robkit/drizzle"
+description: Gives an app its Drizzle database as its own Postgres role, and applies its migrations.
+section: Reference
+order: 8
+describes:
+  - packages/drizzle/src/
+  - packages/drizzle/README.md
+  - packages/drizzle/api-report.md
+---
+
+import PackageLinks from "../../../components/PackageLinks.astro";
+
+`@robkit/drizzle` gives an app its Drizzle database, connected as the app's own Postgres role, and applies its migrations in the app's own schema. Every stack but React + Go uses it, and core migrates through it too.
+
+```ts title="src/database.ts"
+import { appDatabase } from "@robkit/drizzle";
+import { pgTable, serial, text } from "drizzle-orm/pg-core";
+
+const note = pgTable("note", {
+  id: serial().primaryKey(),
+  body: text().notNull(),
+});
+
+export const database = appDatabase({ note });
+
+// In a handler:
+const notes = await database().select().from(note);
+console.log(notes);
+```
+
+An app keeps its tables in `src/schema.ts`, and passes them all as `appDatabase(schema)`. `appDatabase` reads `DATABASE_URL` and connects on the first call of the function it returns, never as the module loads. When `DATABASE_URL` is missing or isn't a `postgres://` URL, that first call prints what to fix and exits 1. [The database](/docs/build-an-app/the-database/) shows a table from schema to migration.
+
+An app's `migrate` script is `robkit-migrate`, which this package installs. It applies the migrations in the app's `drizzle` folder that haven't run, as the app's role, and prints `migrated`. Give it another folder, as `robkit-migrate db/migrations`, when `drizzle.config.ts` sets `out` to one.
+
+## Options you reach for
+
+- `appDatabase(schema, options?)` takes postgres.js's options second. The pool opens once for each process, with at most 2 connections unless they say otherwise.
+- `migrate(options)` takes the `databaseUrl`, the `folder` of migrations, and a `schema` for Drizzle's journal table, by default the role's own.
+
+## What it exports
+
+### @robkit/drizzle
+
+- `appDatabase(schema, options?)`. A function that gives the app's Drizzle database, connected on its first call from `DATABASE_URL`.
+- `AppDatabase`. What that function returns.
+- `PoolOptions`. postgres.js's options, which `appDatabase` takes second.
+- `migrate(options)`. Applies the migrations in a folder that haven't run. `robkit-migrate` calls it.
+- `MigrateOptions`. The options above.
+
+`drizzle-orm` and `postgres` are peer dependencies, so the app installs its own copies.
+
+<PackageLinks dir="packages/drizzle" />

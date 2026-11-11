@@ -1,0 +1,111 @@
+---
+title: Your first app
+description: Add an app of your own to a running install, open it from the launcher, and change it.
+section: Get started
+order: 4
+describes:
+  - packages/create-robkit/src/add.ts
+  - packages/create-robkit/src/add-wizard.ts
+  - packages/create-robkit/src/robkit-command.ts
+  - packages/create-robkit/src/dev-answers.ts
+  - packages/dev/src/runner.ts
+  - packages/create-robkit/templates/base/apps/hub/src/launcher.tsx
+  - packages/create-robkit/templates/stacks/
+---
+
+import Screenshot from "../../../components/Screenshot.astro";
+import StackGuides from "../../../components/StackGuides.astro";
+import StackSwitch from "../../../components/StackSwitch.astro";
+import TemplateFile from "../../../components/TemplateFile.astro";
+
+`pnpm robkit add` adds an app to your install while `pnpm dev` runs. It asks a few questions, writes the app to `apps/<slug>`, and `pnpm dev` starts it on its own subdomain, with its own database. Then it's in your launcher.
+
+You need an install with `pnpm dev` running, and to be signed in to its hub as the owner. [The quickstart](/docs/get-started/quickstart/) gets you there.
+
+## Add the app
+
+Leave `pnpm dev` running. In another terminal, in the install's folder, run:
+
+```sh
+pnpm robkit add
+```
+
+It asks four questions, and a fifth when you choose guests with roles.
+
+1. **Which stack?** TanStack Start, React + Hono, React + Express, Next.js or React + Go. Each has a guide, linked at the end of this page.
+2. **What's the app called?** This is its slug, such as `notes`: lowercase letters and digits, starting with a letter. The slug names the app's folder, `apps/notes`, its subdomain, `notes.robkit.localhost`, and its database schema.
+3. **Who can open it?** Only you, anyone whether signed in or not, or guests with the roles you name. For the last, it then asks which roles, separated by commas. You can change it later in admin.
+4. **Which emoji should the launcher show?** Press Enter for 📦.
+
+It writes the app and installs its dependencies. Then the running `pnpm dev` gives the app its database, migrates it and starts it, and restarts core so the launcher lists it. Nobody is signed out. `robkit add` prints the app's address, such as http://notes.robkit.localhost:3000, and the command that adds the same app without the questions.
+
+When `pnpm dev` can't start the app, `robkit add` says why, and the app's files stay in `apps/<slug>`. Fix what it says, then stop `pnpm dev` and start it again. When `pnpm dev` isn't running, `robkit add` still writes the app, and says to start `pnpm dev`.
+
+## Open it from the launcher
+
+Go back to the hub, at http://hub.robkit.localhost:3000. Your app is in the launcher, under its emoji and its slug. Reload the hub if it isn't there yet.
+
+Open it. The app's page is on its own subdomain, and its heading says you're signed in as the owner. The app got that from robkit's guard, which checked your session before the app's code ran.
+
+<Screenshot name="app" />
+
+## Change it
+
+Open this file in your app's folder. For an app called `notes`, it's in `apps/notes`.
+
+<StackSwitch>
+  <Fragment slot="start">
+    <TemplateFile
+      path="stacks/start/src/home.tsx"
+      app="notes"
+      from={'case "owner":'}
+      to="Signed in as the owner"
+    />
+  </Fragment>
+  <Fragment slot="react-hono">
+    <TemplateFile
+      path="stacks/react-hono/src/routes.tsx"
+      app="notes"
+      from={'case "owner":'}
+      to="Signed in as the owner"
+    />
+  </Fragment>
+  <Fragment slot="express">
+    <TemplateFile
+      path="stacks/express/src/routes.tsx"
+      app="notes"
+      from={'case "owner":'}
+      to="Signed in as the owner"
+    />
+  </Fragment>
+  <Fragment slot="next">
+    <TemplateFile
+      path="stacks/next/src/home.tsx"
+      app="notes"
+      from={'case "owner":'}
+      to="Signed in as the owner"
+    />
+  </Fragment>
+  <Fragment slot="go">
+    <TemplateFile
+      path="stacks/go/src/home.tsx"
+      app="notes"
+      from={'case "owner":'}
+      to="Signed in as the owner"
+    />
+  </Fragment>
+</StackSwitch>
+
+Change the words in quotes to your own, such as `Hello from my first app`, and save the file. Reload the app's page, and its heading shows your words. `pnpm dev` runs the app's dev server, which serves your changed code on the next request.
+
+The app's test looks for the old words, so `pnpm test` fails until you change them there too. The test is `src/home.test.tsx`, or `src/routes.test.tsx` on React + Hono and React + Express.
+
+## Where next
+
+To share your app with a guest, make an access code and a role in admin, and let that role open the app. [Guests, access codes and roles](/docs/run-an-install/guests-and-access/) shows how.
+
+To build the app out, read the guide for its stack:
+
+<StackGuides />
+
+To learn what `pnpm dev` checks and starts, and how to add and remove apps, read [pnpm dev and your apps](/docs/run-an-install/pnpm-dev-and-your-apps/).

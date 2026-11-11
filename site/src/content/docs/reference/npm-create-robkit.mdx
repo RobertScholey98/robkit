@@ -1,0 +1,61 @@
+---
+title: npm create robkit
+description: What npm create robkit makes, its options, what it prints and what makes it refuse.
+section: Reference
+order: 1
+describes:
+  - packages/create-robkit/src/create-robkit-command.ts
+  - packages/create-robkit/src/init-command.ts
+  - packages/create-robkit/src/usage.ts
+  - packages/create-robkit/src/init.ts
+  - packages/create-robkit/src/wizard.ts
+  - packages/create-robkit/src/write.ts
+  - packages/create-robkit/src/toolchain.ts
+---
+
+import PreRelease from "../../../components/PreRelease.astro";
+
+`npm create robkit` makes an install in a new folder: core, the hub, admin, an example app and one Postgres. Then it installs the dependencies with pnpm and makes the first commit.
+
+<PreRelease />
+
+```sh
+npm create robkit my-install -- --stack react-hono
+```
+
+With no `--stack`, it asks for the folder and the example app's stack, then prints the same command with options, to make the install again without the questions. With `--stack`, it asks nothing, and needs the folder.
+
+## Options
+
+npm passes on only what comes after `--`, so put the options there.
+
+- `--stack <name>`. The example app's stack, one of `start`, `react-hono`, `express`, `next` or `go`.
+- `--no-install`. Write the files only, and skip `pnpm install` and the first commit.
+- `--link`. Link robkit's packages to the robkit checkout this runs from, instead of installing them from npm. It's for trying a change to robkit itself.
+
+## What it prints
+
+Once the install is made, it prints the steps to start it:
+
+```text title="What it prints"
+Made a robkit install in /home/you/my-install. Next:
+
+  cd my-install
+  pnpm dev
+
+Then open http://hub.robkit.localhost:3000 and claim the install.
+```
+
+Before the steps, it prints a note when Docker is missing, which only `pnpm dev` needs, and when it couldn't make the first commit. With `--no-install`, it prints neither note, and `pnpm install` comes before `pnpm dev`.
+
+## When it refuses
+
+It checks everything before it writes a file, and refuses:
+
+- Node older than 24.
+- A folder that isn't empty. When it asks for the folder, it also refuses a name with characters other than letters, digits, spaces, dots, dashes, underscores and slashes. With `--stack`, it takes the name as you typed it.
+- A stack it can't make, or `--stack` with no folder.
+- No pnpm on your `PATH`, or one that can't run the pnpm version the install pins, unless you pass `--no-install`. [What you need](/docs/get-started/what-you-need/) says how to get it.
+- The React + Go stack with no Go on your `PATH`.
+
+When `pnpm install` fails after the files are written, it says so, and that `pnpm install` in the folder finishes the job.

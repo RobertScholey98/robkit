@@ -1,0 +1,143 @@
+import CodeBlock from "../components/CodeBlock.astro";
+import Callout from "../components/Callout.astro";
+import PreRelease from "../components/PreRelease.astro";
+import StackSwitch from "../components/StackSwitch.astro";
+import TemplateFile from "../components/TemplateFile.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+export const components = { pre: CodeBlock };
+
+<BaseLayout
+  title="Code samples"
+  description="One code sample of each kind the docs show, kept here so the repo's checks test them."
+  noindex
+>
+<main id="main" tabindex="-1" style="max-width: var(--content-width); margin: 0 auto; padding: var(--space-12) var(--space-4) var(--space-16);">
+
+# Code samples
+
+This page holds one code sample of each kind the docs show. The repo's checks read it, so you can see what they test.
+
+## TypeScript
+
+```ts title="addresses.ts"
+import { installAt } from "@robkit/input/addresses";
+
+const core = installAt("http://hub.robkit.localhost:3000/", "hub")?.origin(
+  "core",
+);
+console.log(core);
+```
+
+## React
+
+```tsx
+import { useState } from "react";
+
+export function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    <button type="button" onClick={() => setCount(count + 1)}>
+      Clicked {count} times
+    </button>
+  );
+}
+```
+
+## Shell
+
+```sh
+pnpm robkit add notes
+pnpm dev
+```
+
+## Go
+
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+func main() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "hello")
+	})
+	_ = http.ListenAndServe(":3000", nil)
+}
+```
+
+## A file from the templates
+
+<TemplateFile path="stacks/go/go.mod" />
+
+## Part of a file from the templates
+
+<TemplateFile path="stacks/go/main.go" from="func main()" to="^}" />
+
+## A sample for each stack
+
+<StackSwitch>
+<Fragment slot="start">
+
+```sh
+pnpm robkit add notes --stack start
+```
+
+</Fragment>
+<Fragment slot="react-hono">
+
+```sh
+pnpm robkit add notes --stack react-hono
+```
+
+</Fragment>
+<Fragment slot="express">
+
+```sh
+pnpm robkit add notes --stack express
+```
+
+</Fragment>
+<Fragment slot="next">
+
+```sh
+pnpm robkit add notes --stack next
+```
+
+</Fragment>
+<Fragment slot="go">
+
+```sh
+pnpm robkit add notes --stack go
+```
+
+</Fragment>
+</StackSwitch>
+
+## Callouts
+
+<Callout>
+
+Every new install has an access code, `test`, for signing in as a guest. It works only while the install runs on a `.localhost` domain.
+
+</Callout>
+
+<Callout kind="warning">
+
+`robkit deploy` sets its own variables in Coolify. Don't give one of yours a name from its table, or the next deploy replaces its value.
+
+</Callout>
+
+## A command before the first release
+
+```sh
+npm create robkit my-install
+```
+
+<PreRelease />
+
+</main>
+</BaseLayout>

@@ -1,0 +1,201 @@
+---
+// The header on every page: the menu button at phone width on a docs page,
+// the name, the search button, the docs and GitHub links, and the theme
+// toggle.
+import { docsHome, repoUrl } from "../site.ts";
+import Icon from "./Icon.astro";
+import ThemeToggle from "./ThemeToggle.astro";
+
+interface Props {
+  menu: boolean;
+}
+
+const { menu } = Astro.props;
+---
+
+<header class="header">
+  {menu && (
+    <button
+      class="control menu-button"
+      type="button"
+      aria-expanded="false"
+      aria-controls="site-nav"
+      data-menu-button
+      hidden
+    >
+      <Icon name="menu" />
+      <span class="label">Menu</span>
+    </button>
+  )}
+  <a class="brand" href="/">
+    <Icon name="terminal" size={22} />
+    <span class="name">robkit</span>
+  </a>
+  <button
+    class="control search-button"
+    type="button"
+    aria-haspopup="dialog"
+    aria-controls="search"
+    aria-keyshortcuts="/"
+    data-search-button
+    hidden
+  >
+    <Icon name="search" />
+    <span class="label">Search</span>
+    <kbd class="key" aria-hidden="true" set:text="/" />
+  </button>
+  <nav class="links" aria-label="Site">
+    <a class="control" href={docsHome}>
+      Docs
+    </a>
+    <a class="control" href={repoUrl}>
+      <Icon name="github" />
+      <span class="label">GitHub</span>
+    </a>
+    <ThemeToggle />
+  </nav>
+</header>
+
+<style>
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    height: var(--header-height);
+    padding: 0 var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+  }
+
+  .brand {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--target);
+    padding: 0 var(--space-1);
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .brand .icon {
+    color: var(--color-accent);
+  }
+
+  .links {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .search-button {
+    margin-left: auto;
+    color: var(--color-muted);
+  }
+
+  .key {
+    padding: 0 var(--space-1);
+    border: 1px solid var(--color-border-control);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+
+  @media (min-width: 48rem) {
+    .search-button {
+      min-width: 12rem;
+      justify-content: flex-start;
+      border: 1px solid var(--color-border-control);
+    }
+
+    .search-button .key {
+      margin-left: auto;
+    }
+  }
+
+  .control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    /* min-width would let a control shrink to it, under its own label. */
+    flex-shrink: 0;
+    min-width: var(--target);
+    min-height: var(--target);
+    padding: 0 var(--space-3);
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease);
+  }
+
+  .control:hover {
+    background: var(--color-raised);
+  }
+
+  .control[hidden] {
+    display: none;
+  }
+
+  @media (max-width: 47.999rem) {
+    .header {
+      gap: var(--space-1);
+    }
+
+    .links {
+      gap: 0;
+    }
+
+    .control {
+      padding: 0 var(--space-2);
+    }
+
+    .key {
+      display: none;
+    }
+
+    .label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  /* The narrowest phones keep the mark and drop the word, which stays the link's name. */
+  @media (max-width: 23.4rem) {
+    .name {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .menu-button {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  import "../scripts/menu.ts";
+</script>

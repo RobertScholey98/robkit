@@ -6,7 +6,7 @@ Every app under `apps/` runs in its own container on Coolify, built from the ins
 
 `robkit deploy` needs something in front of Coolify that terminates TLS, and is written for one arrangement: a Cloudflare tunnel, which takes https from visitors and carries plain http to Coolify's Traefik. So it gives each application an `http://` domain with force-HTTPS off.
 
-Without a TLS terminator in front, visitors reach the apps over plain http. Core's sign-in cookie is only sent over https, so nobody can sign in, and every app's address in `ROBKIT_CORE_URL` and the catalog points at an https address nothing answers.
+Without a TLS terminator in front, visitors reach the apps over plain http. Core's sign-in cookie is only sent over https, so nobody can sign in, and each app takes core's address and its own from `ROBKIT_CORE_URL`, an https address nothing answers.
 
 Coolify's own certificates aren't supported yet. Traefik issues them only for an `https://` domain, and `robkit deploy` writes `http://` ones.
 

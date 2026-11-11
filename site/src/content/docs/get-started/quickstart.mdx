@@ -1,0 +1,146 @@
+---
+title: Quickstart
+description: Make an install, start it, and claim it as its owner.
+section: Get started
+order: 2
+describes:
+  - README.md
+  - package.json
+  - packages/create-robkit/src/create-robkit-command.ts
+  - packages/create-robkit/src/init-command.ts
+  - packages/create-robkit/src/init.ts
+  - packages/create-robkit/src/wizard.ts
+  - packages/create-robkit/src/toolchain.ts
+  - packages/create-robkit/src/write.ts
+  - packages/dev/src/checks.ts
+  - packages/create-robkit/templates/base/README.md
+  - packages/create-robkit/templates/base/apps/hub/src/forms.tsx
+---
+
+import AfterRelease from "../../../components/AfterRelease.astro";
+import BeforeRelease from "../../../components/BeforeRelease.astro";
+import InstallTree from "../../../components/InstallTree.astro";
+import InstallVersion from "../../../components/InstallVersion.astro";
+import PreRelease from "../../../components/PreRelease.astro";
+import Screenshot from "../../../components/Screenshot.astro";
+
+The quickstart makes an install, starts it with `pnpm dev`, and has you claim it in the hub as its owner. You finish signed in to your own hub, with the example app in its launcher.
+
+Before you start, check you have what [What you need](/docs/get-started/what-you-need/) lists. That's Node <InstallVersion tool="node" /> or later, pnpm and Docker, on Linux or macOS, or in WSL on Windows.
+
+<PreRelease />
+
+## Make an install
+
+<BeforeRelease>
+
+Until robkit is on npm, you make an install from a clone of robkit's repository. Run these in the folder you want the install to sit in:
+
+```sh checkout
+git clone https://github.com/RobertScholey98/robkit.git
+cd robkit
+pnpm install
+pnpm create-install ../my-install
+```
+
+If `pnpm` isn't found, [What you need](/docs/get-started/what-you-need/#pnpm) says how to get it. `pnpm create-install` makes the install in `my-install`, beside the clone. The install's robkit packages are links to the clone, so keep the clone where it is.
+
+Once robkit is on npm, one command will make an install, with no clone:
+
+```sh
+npm create robkit my-install
+```
+
+</BeforeRelease>
+
+<AfterRelease>
+
+Run this in the folder you want the install to sit in:
+
+```sh
+npm create robkit my-install
+```
+
+</AfterRelease>
+
+### What it asks
+
+It asks which stack the example app uses. Each app picks its own stack, so this choice is only the example's. When you don't name a folder, it asks for one first, with `my-robkit` as the answer if you just press Enter.
+
+Then it prints the command that makes the same install without the questions.
+
+### What it does
+
+It writes the install, installs its dependencies, and makes the install a git repository with a first commit. With no git, or no name and email set in git, you get the install without the commit, and it says why. It ends with your next steps, and the address of the hub.
+
+### When it stops
+
+It checks what it needs before it writes anything.
+
+- **Node is too old.** It needs Node <InstallVersion tool="node" /> or later, and says to install it from nodejs.org.
+- **pnpm is missing, or can't run the install's version.** It says to run `corepack enable`, or `npm install -g pnpm` when your Node has no Corepack. Then run it again.
+- **The folder isn't empty.** Choose a new folder.
+
+When Docker is missing, it still makes the install, and warns that `pnpm dev` needs Docker.
+
+## Start it
+
+<BeforeRelease>
+
+The install is beside the clone, so go up a folder to reach it:
+
+```sh
+cd ../my-install
+pnpm dev
+```
+
+</BeforeRelease>
+
+<AfterRelease>
+
+```sh
+cd my-install
+pnpm dev
+```
+
+</AfterRelease>
+
+`pnpm dev` starts Postgres in Docker, then core, the hub, admin and the example app, each on its own subdomain of `robkit.localhost`. It runs until you press Ctrl+C, which stops each app and Postgres.
+
+### When pnpm dev stops at the start
+
+Before it starts anything, `pnpm dev` checks that Docker answers and that the ports it needs are free. When one isn't, it stops and says what to do.
+
+- **Docker isn't installed, or isn't on your PATH.** Install it, then run `pnpm dev` again.
+- **Docker isn't answering.** Start Docker, then run `pnpm dev` again. It adds what Docker said, when Docker said something.
+- **Port 3000 is taken.** `pnpm dev` serves every app through port 3000. If `pnpm dev` is already running in this install, use that one, or stop it. Otherwise free the port, or set `ROBKIT_DEV_PORT` in the install's `.env` to another port.
+- **An app's port is taken.** Each app listens on a port after `ROBKIT_DEV_PORT`. Free it, or set `ROBKIT_DEV_PORT` to move every app's port.
+- **Postgres's port is taken.** Free it, or set `ROBKIT_POSTGRES_PORT` in the install's `.env` to another port.
+
+## Claim the install
+
+Open http://hub.robkit.localhost:3000. A new install asks you to set it up, and whoever does that first becomes its owner.
+
+1. Pick a username.
+2. Pick a password of at least 12 characters, and type it again.
+3. Select **Create owner**.
+
+<Screenshot name="hub-set-up" />
+
+You're signed in as the owner. The hub is your launcher, and it shows the example app. Open it from there.
+
+<Screenshot name="hub-first-launcher" />
+
+Admin, at http://admin.robkit.localhost:3000, is where you make access codes for guests and say which apps they may open. Every new install has the access code `test`, for signing in as a guest. It works only while the install runs on a `.localhost` domain. The picture shows admin after the owner made three more codes.
+
+<Screenshot name="admin-codes" />
+
+## What you got
+
+<InstallTree />
+
+`pnpm dev` keeps Postgres's data in a Docker volume, so the owner, the access codes and each app's data last from one run to the next.
+
+## Next
+
+[Your first app](/docs/get-started/your-first-app/) adds an app of your own to the running install.

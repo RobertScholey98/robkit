@@ -83,6 +83,7 @@ describe("the layer rule", () => {
     ["packages/session", "@robkit/session"],
     ["packages/dev", "@robkit/dev"],
     ["tooling/e2e", "@internal/e2e"],
+    ["site", "@internal/site"],
   ])("keeps %s off @robkit/core, as the package graph does", (folder, name) => {
     expect(lint(folder, 'import { app } from "@robkit/core";')).toEqual([
       offCore(name),
@@ -116,6 +117,7 @@ describe("the layer rule", () => {
     ["packages/hono", "../../../tooling/test-session/src/index.ts"],
     ["tooling/test-session", "../../../packages/guard/src/guard.ts"],
     ["tooling/e2e", "../../../package.json"],
+    ["site", "../../README.md"],
   ])(
     "catches a relative import out of %s, with graph-check's message",
     (workspace, specifier) => {
@@ -128,6 +130,7 @@ describe("the layer rule", () => {
   it("lets a relative import stay inside its workspace", () => {
     expect(lint("packages/guard", 'import "../package.json";')).toEqual([]);
     expect(lint("packages/guard", 'import "./test/slug.ts";')).toEqual([]);
+    expect(lint("site", 'import "../package.json";')).toEqual([]);
   });
 
   it.each([

@@ -1,0 +1,30 @@
+---
+// The line every page that shows `npm create robkit` carries until robkit
+// is on npm. `preRelease` in site.ts turns it off everywhere at once. It
+// points to the quickstart's steps, or on the quickstart to the steps below.
+import { preRelease } from "../site.ts";
+import Callout from "./Callout.astro";
+
+const quickstart = "/docs/get-started/quickstart/";
+const onQuickstart = Astro.url.pathname === quickstart;
+---
+
+{preRelease && (
+  <div data-pre-release>
+    <Callout>
+      <p>
+        robkit isn't on npm yet, so <code>npm create robkit</code> won't work
+        until its first release. Until then, make an install from a clone of the
+        repo, which needs git.{" "}
+        {onQuickstart ? (
+          "The steps below show how."
+        ) : (
+          <>
+            <a href={`${quickstart}#make-an-install`}>The quickstart</a> shows
+            how.
+          </>
+        )}
+      </p>
+    </Callout>
+  </div>
+)}

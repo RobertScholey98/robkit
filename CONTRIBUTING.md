@@ -94,6 +94,39 @@ Every test in `@internal/e2e` and `@internal/test-postgres` needs Docker and Lin
 
 A package's `test` script measures coverage and fails below the thresholds in its `vitest.config`. When your change raises coverage, raise the thresholds with it, to what CI measures. CI fails a pull request that lowers one, and fails a threshold more than 2 points under what CI measured, naming the number to set. The `check` job's `coverage` artifact has CI's reports.
 
+### Build the docs site
+
+The docs site, robkit.dev, is the `site/` package. Astro builds it to static files in `site/dist`, and both gates build it before they test it. It needs no Docker.
+
+```sh
+pnpm --filter @internal/site build     # build it into site/dist
+pnpm --filter @internal/site preview   # serve site/dist at http://localhost:4321
+pnpm --filter @internal/site dev       # serve it from its source, and reload on each change
+```
+
+CI keeps the site each pull request built. To look at it, download the `site` artifact from the run into `site/dist`, then serve it:
+
+```sh
+gh run download <run-id> --name site --dir site/dist
+pnpm --filter @internal/site preview
+```
+
+Serve the folder rather than opening a page as a file. The site's links start at its root, so they break from a file.
+
+The site's screenshots of the hub, admin and an app are in `site/src/screenshots`, and `record.json` beside them names the commit and the command that took them. To take them again after the hub or admin changes, run this from the repo's root, then commit what changed:
+
+```sh
+pnpm screenshots
+```
+
+It makes an install, starts `pnpm dev` in it on port 3000, signs in as the owner, and stops and removes it all when it's done. Like the whole-stack test, it needs Docker, Linux and Chromium, and port 3000 must be free. Every name and code in it is fixed, so two runs give the same pictures. The gates don't run it.
+
+A docs page can name the repo files it describes, under `describes` in its front matter. After you change robkit, this lists the pages to read again. It fails nothing:
+
+```sh
+git diff --name-only origin/main | pnpm --filter @internal/site pages-to-reread
+```
+
 ### What each check does
 
 When a check refuses your change, its message says what to do. For more:

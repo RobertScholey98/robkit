@@ -1,0 +1,111 @@
+---
+// Every page's frame: the head, the header and the footer. The script in
+// the head runs before the body paints, so a stored theme shows with no
+// flash. Without it, tokens.css follows the system setting.
+import "@fontsource-variable/ibm-plex-sans/wght.css";
+import "@fontsource-variable/ibm-plex-sans/wght-italic.css";
+import "@fontsource-variable/jetbrains-mono/wght.css";
+import "../styles/tokens.css";
+import "../styles/base.css";
+import Footer from "../components/Footer.astro";
+import Header from "../components/Header.astro";
+import Search from "../components/Search.astro";
+import { previewImage } from "../site.ts";
+
+interface Props {
+  title: string;
+  description: string;
+  /** Whether the header has the button that opens the list of pages. */
+  menu?: boolean;
+  /** Whether search engines should leave the page out, as the samples page asks. */
+  noindex?: boolean;
+  /** Where to send the reader at once, for a page that only leads on. */
+  refresh?: string;
+  /** Where the page's Markdown copy is, for a docs page. */
+  markdown?: string;
+}
+
+const {
+  title,
+  description,
+  menu = false,
+  noindex = false,
+  markdown,
+  refresh,
+} = Astro.props;
+const pageTitle = title === "robkit" ? title : `${title} | robkit`;
+// Addresses in a link preview are absolute, on the site's own origin.
+const canonical = String(new URL(Astro.url.pathname, Astro.site));
+const preview = String(new URL(previewImage.path, Astro.site));
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+    {refresh !== undefined && (
+      <meta http-equiv="refresh" content={`0; url=${refresh}`} />
+    )}
+    {!noindex && <link rel="canonical" href={canonical} />}
+    {markdown !== undefined && (
+      <link rel="alternate" type="text/markdown" href={markdown} />
+    )}
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="robkit" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    {!noindex && <meta property="og:url" content={canonical} />}
+    <meta property="og:image" content={preview} />
+    <meta property="og:image:width" content={String(previewImage.width)} />
+    <meta property="og:image:height" content={String(previewImage.height)} />
+    <meta property="og:image:alt" content={previewImage.alt} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script is:inline>
+      document.documentElement.dataset.js = "";
+      try {
+        const theme = localStorage.getItem("robkit-theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.dataset.theme = theme;
+        }
+        // The stack switchers' choice, so the chosen sample paints first.
+        const stack = localStorage.getItem("robkit-stack");
+        if (stack !== null) document.documentElement.dataset.stack = stack;
+      } catch (error) {
+        // Storage is off: the page follows the system setting.
+        void error;
+      }
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">
+      Skip to the page
+    </a>
+    <Header menu={menu} />
+    <slot />
+    <Footer />
+    <Search />
+  </body>
+</html>
+
+<style>
+  .skip-link {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    z-index: 100;
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius);
+    background: var(--color-button);
+    color: var(--color-on-accent);
+    font-weight: 600;
+    transform: translateY(-200%);
+  }
+
+  .skip-link:focus-visible {
+    transform: none;
+  }
+</style>

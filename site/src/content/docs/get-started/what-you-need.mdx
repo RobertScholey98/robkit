@@ -1,0 +1,80 @@
+---
+title: What you need
+description: The tools a robkit install needs on your machine, how to check each one, and what you should know before you start.
+section: Get started
+order: 1
+describes:
+  - packages/create-robkit/templates/base/package.json
+  - packages/create-robkit/templates/stacks/go/go.mod
+  - packages/create-robkit/src/toolchain.ts
+  - packages/dev/src/checks.ts
+  - packages/dev/src/process-group.ts
+---
+
+import InstallVersion from "../../../components/InstallVersion.astro";
+import PreRelease from "../../../components/PreRelease.astro";
+
+A robkit install runs on Linux or macOS, with Node, pnpm and Docker. On Windows, you run it in WSL. An app on React + Go needs Go as well.
+
+<PreRelease />
+
+## On your machine
+
+### Node
+
+An install needs Node <InstallVersion tool="node" /> or later. Check which Node you have:
+
+```sh
+node --version
+```
+
+The number after the `v` must be <InstallVersion tool="node" /> or more. If it isn't, install a newer Node from [nodejs.org](https://nodejs.org). `npm create robkit` stops on an older Node and says so.
+
+### pnpm
+
+An install names the pnpm version it runs on. Before `npm create robkit` writes anything, it checks that your pnpm can run that version, and tells you what to run if it can't.
+
+The simplest way to get pnpm is Corepack, if your Node has it:
+
+```sh
+corepack enable
+pnpm --version
+```
+
+If `corepack` isn't found, run `npm install -g pnpm` instead.
+
+### Docker
+
+`pnpm dev` runs the install's Postgres in Docker, with Docker Compose. On macOS or Windows, install Docker Desktop. On Linux, install Docker Engine with its Compose plugin. Then check that both answer:
+
+```sh
+docker version
+docker compose version
+```
+
+When Docker isn't running, `docker version` ends with an error that it can't connect. `pnpm dev` checks Docker before it starts anything, and stops and says so when Docker isn't installed or isn't answering.
+
+### Linux or macOS, or WSL on Windows
+
+`pnpm dev` runs on Linux and macOS. It stops each app through its process group, which Windows doesn't have. On Windows, run everything in WSL:
+
+1. In PowerShell, run `wsl --install` to install WSL with Ubuntu.
+2. Install Docker Desktop, and turn on its WSL integration for Ubuntu in Settings, Resources, WSL integration.
+3. Install Node in Ubuntu, then do everything in Ubuntu's terminal.
+4. Keep your install in Ubuntu's own file system, such as your home folder there, not under `/mnt/c`. Across the two file systems it runs much slower.
+
+### Go, for a React + Go app
+
+An app on React + Go builds and runs with Go <InstallVersion tool="go" /> or later. You need Go only for that stack. Check which Go you have:
+
+```sh
+go version
+```
+
+`npm create robkit`, `robkit add` and `pnpm dev` each stop and say so when an app is on React + Go and Go isn't on your `PATH`.
+
+## What you should know
+
+- How to run commands in a terminal.
+- git. `npm create robkit` makes the install a git repository with a first commit, if git is installed.
+- One of the stacks an app can be built on: TanStack Start, React with Hono, React with Express, Next.js, or React with a Go server. Each app in an install can use a different one.

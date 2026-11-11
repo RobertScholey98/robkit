@@ -3,12 +3,16 @@ packages:
   - tooling/*
   # The Go module, so the gates run Go's own tools on it.
   - go
+  # robkit.dev, the docs site. Private, never published.
+  - site
 
 # Every external version lives here. Package manifests use `catalog:`.
 catalogMode: strict
 
 catalog:
   "@arethetypeswrong/core": 0.18.5
+  "@astrojs/check": 0.9.12
+  "@astrojs/mdx": 8.1.3
   "@axe-core/playwright": 4.14.0
   "@base-ui/react": 1.9.0
   "@changesets/cli": 3.0.3
@@ -18,6 +22,8 @@ catalog:
   "@eslint-community/eslint-plugin-eslint-comments": 4.8.1
   "@eslint/js": 10.0.1
   "@fontsource-variable/geist": 5.3.0
+  "@fontsource-variable/ibm-plex-sans": 5.3.0
+  "@fontsource-variable/jetbrains-mono": 5.3.0
   "@hono/node-server": 2.1.5
   "@hono/vite-dev-server": 0.26.1
   "@tailwindcss/postcss": 4.3.3
@@ -34,24 +40,35 @@ catalog:
   "@types/serve-static": 2.2.0
   "@vitejs/plugin-react": 6.1.2
   "@vitest/coverage-v8": 5.0.5
+  # The site's. Astro needs a newer Vite than `vite` below, which every
+  # install's catalog takes, so Astro brings its own.
+  astro: 7.4.8
   class-variance-authority: 0.7.1
   cn: 0.5.2
   drizzle-kit: 0.31.11
   drizzle-orm: 0.45.4
   eslint: 10.13.0
+  eslint-plugin-astro: 3.2.1
   express: 5.3.0
   globals: 17.13.0
   happy-dom: 21.0.4
+  # The site's, for the Markdown copy of each docs page.
+  hast-util-from-html: 2.0.3
+  hast-util-to-mdast: 10.1.2
   hono: 4.13.14
   husky: 9.1.7
   jose: 6.2.13
   knip: 6.44.1
   lint-staged: 17.6.0
   lucide-react: 1.66.0
+  # The site's, for the Markdown copy of each docs page.
+  mdast-util-gfm: 3.1.0
+  mdast-util-to-markdown: 2.2.0
   next: 16.4.5
   playwright: 1.64.1
   postgres: 3.4.9
   prettier: 3.9.10
+  prettier-plugin-astro: 1.1.2
   publint: 0.3.25
   react: 19.3.1
   react-dom: 19.3.1

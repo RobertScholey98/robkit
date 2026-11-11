@@ -1,0 +1,72 @@
+---
+title: Testing with a viewer
+description: Test your app's code as the owner, a guest or nobody, with no core, no database and no pnpm dev.
+section: Build an app
+order: 7
+describes:
+  - packages/hono/README.md
+  - packages/express/README.md
+  - packages/start/README.md
+  - packages/next/README.md
+  - go/README.md
+  - packages/create-robkit/templates/stacks/
+---
+
+import StackSwitch from "../../../components/StackSwitch.astro";
+import TemplateFile from "../../../components/TemplateFile.astro";
+
+A test of your app's code runs as a viewer the test builds. It needs no core, no database and no `pnpm dev`. Run `pnpm test` in the app's folder.
+
+Each TypeScript adapter has a `/testing` entry for tests only. Its `owner()`, `guest({ roles })` and `nobody()` build a viewer, so a test never makes up an id. Go has none, so a Go test builds a `guard.Owner`, `guard.Guest` or `guard.Nobody` itself. The example app's test shows how your stack hands it to your code, and keeps its visits in a list in place of the database.
+
+## Your stack's test
+
+<StackSwitch>
+  <Fragment slot="start">
+    A server function runs only inside Start, so the test can't call one. Instead each handler hands `context.viewer` to a plain function in `src/visits.ts`, and the test calls that function with a viewer from `@robkit/start/testing`. It also draws the card in happy-dom and presses its button, with a stand-in for the server function:
+
+    <TemplateFile path="stacks/start/src/home.test.tsx" />
+
+    It doesn't run the server functions, so it covers neither the guard in front of them nor a write's `method: "POST"`.
+
+  </Fragment>
+  <Fragment slot="react-hono">
+    The test mounts the routes behind `guardedAs(viewer)` from `@robkit/hono/testing`, where the server puts `guarded()`, and sends them requests:
+
+    <TemplateFile path="stacks/react-hono/src/routes.test.tsx" />
+
+    `guardedAs` checks nothing, so the test covers none of the guard's work, such as the session, the access rule or a write from another origin. It imports `src/routes.tsx`, never `src/server.tsx`, whose `guarded()` stops the run without the app's settings.
+
+  </Fragment>
+  <Fragment slot="express">
+    The test mounts the routes behind `guardedAs(viewer)` from `@robkit/express/testing`, where the server puts `guarded()`, and sends them requests on a loopback port:
+
+    <TemplateFile path="stacks/express/src/routes.test.tsx" />
+
+    `guardedAs` checks nothing, so the test covers none of the guard's work, such as the session, the access rule or a write from another origin. It imports `src/routes.tsx`, never `src/server.tsx`, whose `guarded()` stops the run without the app's settings.
+
+  </Fragment>
+  <Fragment slot="next">
+    `viewer()` reads headers Next sets only while it serves a request, so the test can't call it. Instead the page reads the viewer once and hands it to `Home` in `src/home.tsx`, and the test calls `Home` with a viewer from `@robkit/next/testing`:
+
+    <TemplateFile path="stacks/next/src/home.test.tsx" />
+
+    It doesn't cover `src/app/page.tsx` or the server action, `viewer()`, or the proxy that guards them.
+
+  </Fragment>
+  <Fragment slot="go">
+    The test hands the routes a viewer with `session.WithViewer`, as the guard does, and a map in place of the database:
+
+    <TemplateFile path="stacks/go/server_test.go" from="// answerWith is what routes answers" to="^}" />
+    <TemplateFile path="stacks/go/server_test.go" from="func TestMeSaysWhoIsAsking" to="^}" />
+
+    It calls `routes` without `session.Guarded`, so it covers none of the guard's work, such as the session, the access rule or a write from another origin.
+
+    The page has a test of its own. `src/home.test.tsx` draws it in happy-dom and stubs `fetch` with what the server answers. `pnpm test` runs `go test`, then Vitest.
+
+  </Fragment>
+</StackSwitch>
+
+## What covers the guard
+
+Your app's test takes the guard as given. The guard has tests of its own. Every adapter, and Go's, runs the same cases, so each decides alike. robkit's whole-stack tests run a real install in a browser, and check what a viewer sees from sign-in to a refused write.

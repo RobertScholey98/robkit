@@ -1,0 +1,60 @@
+---
+title: Settings
+description: Your app's own settings in its .env, what wins over what, and a value the browser reads.
+section: Build an app
+order: 9
+describes:
+  - packages/dev/src/app-env.ts
+  - packages/dev/src/env.ts
+  - packages/create-robkit/templates/base/AGENTS.md
+  - packages/create-robkit/templates/stacks/
+---
+
+import StackSwitch from "../../../components/StackSwitch.astro";
+
+Your app's own settings, such as an API key, go in `apps/<slug>/.env`, which git ignores. `pnpm dev` reads the file as it starts, and gives its settings to that app and its `migrate` script, and to no other app. Commit an `.env.example` beside it that names each setting without its value.
+
+```dotenv title="apps/notes/.env"
+WEATHER_API_KEY=your-key
+```
+
+An edit to the file takes effect at the next `pnpm dev`. `.env` is the only file `pnpm dev` loads. A stack that loads files of its own, as Next does with `.env.local`, still does.
+
+## What wins
+
+When a name is set in more than one place, your app gets the first of these:
+
+1. What `pnpm dev` sets for each app, such as `PORT`, `DATABASE_URL` and `ROBKIT_APP`.
+2. A value exported in the shell that started `pnpm dev`.
+3. Your app's `.env`.
+4. A default `pnpm dev` sets only when neither the shell nor the file has the name, such as `NEXT_TELEMETRY_DISABLED`.
+
+Every app gets the rest of the shell's environment too, except `VITEST` and `ROBKIT_DATABASE_URL`, which `pnpm dev` removes.
+
+## What the file can't set
+
+Your app's `.env` can't set a name `pnpm dev` sets for each app, any name that starts `ROBKIT_`, or `NODE_ENV`. A file that tries stops `pnpm dev`, which names the file and the setting. `ROBKIT_` names are robkit's own, and the install's settings for `pnpm dev` go in the `.env` at the install's root. `NODE_ENV` decides whether a test helper such as `guardedAs()` serves.
+
+[Every setting](/docs/reference/settings/) lists each name.
+
+## In a test
+
+A test runs with no `pnpm dev` behind it, so nothing loads your app's `.env` for it. A test that needs a setting sets it:
+
+<StackSwitch>
+  <Fragment slot="start">With `vi.stubEnv`, from Vitest.</Fragment>
+  <Fragment slot="react-hono">With `vi.stubEnv`, from Vitest.</Fragment>
+  <Fragment slot="express">With `vi.stubEnv`, from Vitest.</Fragment>
+  <Fragment slot="next">With `vi.stubEnv`, from Vitest.</Fragment>
+  <Fragment slot="go">With `t.Setenv`. `go test` loads no `.env`.</Fragment>
+</StackSwitch>
+
+## In production
+
+The owner sets an app's settings on the host, and no image holds an `.env`. [An app's own settings](/docs/deploy/coolify/#an-apps-own-settings) says where.
+
+## A value the browser reads
+
+Vite writes a `VITE_*` value into the page when it builds your app, and Next a `NEXT_PUBLIC_*` one. Under `pnpm dev` they work. But Docker builds the image without your app's `.env`, so in production the page doesn't have the value.
+
+Read the setting on the server instead, and hand it to the page in the HTML your server renders, or in its answer to a call from the page.

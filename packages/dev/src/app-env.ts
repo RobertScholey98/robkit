@@ -14,17 +14,47 @@ export interface InstallFacts {
   catalog: string;
 }
 
+const decidedForEachApp = [
+  "ROBKIT_DOMAIN",
+  "ROBKIT_CORE_URL",
+  "ROBKIT_APPS",
+  "ROBKIT_APP",
+  "PORT",
+  "HOST",
+  "DATABASE_URL",
+  "ROBKIT_DATABASE_URL",
+  "VITEST",
+] as const;
+
+type DecidedName = (typeof decidedForEachApp)[number];
+
+/**
+ * The names an app's `.env` can't set: each one `pnpm dev` decides for
+ * every app, any name that starts with `prefix`, and `NODE_ENV`, which
+ * decides whether a test helper such as `guardedAs()` serves. Published as
+ * plain lists, so a name added here changes no type.
+ */
+export const refusedAppSettings: {
+  readonly decidedForEachApp: readonly string[];
+  readonly prefix: string;
+  readonly alsoRefused: readonly string[];
+} = {
+  decidedForEachApp,
+  prefix: "ROBKIT_",
+  alsoRefused: ["NODE_ENV"],
+};
+
 /**
  * What `robkit-dev` decides for one app and its `migrate` script, over the
- * shell's environment. A name without a value is one it removes. Every name
- * an app's environment gets from the runner rather than the shell is a key
- * here.
+ * shell's environment. A name without a value is one it removes. Its keys
+ * are `refusedAppSettings.decidedForEachApp`, so a name the runner decides
+ * is one an app's `.env` can't set.
  */
 export function appSettings(
   install: InstallFacts,
   app: Pick<App, "slug" | "port">,
   databaseUrl?: string,
-): Record<string, string | undefined> {
+): Record<DecidedName, string | undefined> {
   return {
     ROBKIT_DOMAIN: install.domain,
     ROBKIT_CORE_URL: install.coreUrl,
@@ -88,18 +118,15 @@ export function appEnv(
  * decides whether `guardedAs()` serves, so a file that set it would open
  * the app.
  */
-function whyRefused(
-  install: InstallFacts,
-  app: Pick<App, "slug" | "port">,
-  name: string,
-): string | undefined {
-  if (Object.hasOwn(appSettings(install, app), name)) {
+function whyRefused(name: string): string | undefined {
+  const { decidedForEachApp, prefix, alsoRefused } = refusedAppSettings;
+  if (decidedForEachApp.includes(name)) {
     return `which pnpm dev decides for each app. Remove it from the file.`;
   }
-  if (name.startsWith("ROBKIT_")) {
-    return `and a name that starts ROBKIT_ is robkit's own. Remove it from the file. robkit's settings for pnpm dev go in the .env at the install's root.`;
+  if (name.startsWith(prefix)) {
+    return `and a name that starts ${prefix} is robkit's own. Remove it from the file. robkit's settings for pnpm dev go in the .env at the install's root.`;
   }
-  if (name === "NODE_ENV") {
+  if (alsoRefused.includes(name)) {
     return `which decides whether a test helper such as guardedAs() serves. Remove it from the file.`;
   }
   return undefined;
@@ -113,7 +140,6 @@ function whyRefused(
  *   decides, several in an AggregateError
  */
 export async function ownSettings(
-  install: InstallFacts,
   apps: readonly Pick<App, "slug" | "port" | "dir">[],
 ): Promise<Map<Slug, Record<string, string>>> {
   const refused: CommandProblem[] = [];
@@ -121,7 +147,7 @@ export async function ownSettings(
   for (const app of apps) {
     const settings = await readEnvFile(join(app.dir, ".env"));
     for (const name of Object.keys(settings)) {
-      const why = whyRefused(install, app, name);
+      const why = whyRefused(name);
       if (why !== undefined) {
         refused.push(
           new CommandProblem(`apps/${app.slug}/.env sets ${name}, ${why}`),

@@ -97,7 +97,11 @@ describe("the robkit workspace", () => {
     );
 
     expect(packages.map((p) => p.name)).toEqual(
-      expect.arrayContaining(["@robkit/core", "@internal/go"]),
+      expect.arrayContaining([
+        "@robkit/core",
+        "@internal/go",
+        "@internal/site",
+      ]),
     );
     expect(scriptProblems(packages)).toEqual([]);
   });

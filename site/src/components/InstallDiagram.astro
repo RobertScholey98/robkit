@@ -1,0 +1,191 @@
+---
+// What an install holds, drawn in the style guide's tokens so it follows
+// the theme. The list beside it on the home page says the same in words.
+// The view box holds the drawing and no margin, so it draws as large as
+// its column allows.
+---
+
+<figure class="diagram">
+  <svg
+    viewBox="8 0 344 384"
+    role="img"
+    aria-labelledby="install-diagram-title install-diagram-desc"
+  >
+    <title id="install-diagram-title">What an install holds</title>
+    <desc id="install-diagram-desc">
+      A browser reaches the proxy, which sends each subdomain to the hub, admin,
+      core or one of your apps. The hub, admin and your apps call core over
+      HTTP. Core and your apps keep their data in one Postgres, in a schema
+      each.
+    </desc>
+    <defs>
+      <marker
+        id="install-arrow"
+        viewBox="0 0 8 8"
+        refX="7"
+        refY="4"
+        markerWidth="8"
+        markerHeight="8"
+        orient="auto"
+      >
+        <path class="head" d="M0 0 8 4 0 8Z"></path>
+      </marker>
+    </defs>
+
+    <g class="line">
+      <path d="M180 44v20" marker-end="url(#install-arrow)"></path>
+      <path d="M180 104v14M10 118h340"></path>
+      <path d="M95 118v12" marker-end="url(#install-arrow)"></path>
+      <path d="M265 118v12" marker-end="url(#install-arrow)"></path>
+      <path d="M10 118v122h8" marker-end="url(#install-arrow)"></path>
+      <path d="M350 118v122h-8" marker-end="url(#install-arrow)"></path>
+      <path d="M95 268v28" marker-end="url(#install-arrow)"></path>
+      <path d="M265 268v28" marker-end="url(#install-arrow)"></path>
+    </g>
+    <g class="line http">
+      <path d="M95 188v20" marker-end="url(#install-arrow)"></path>
+      <path d="M190 188 172 208" marker-end="url(#install-arrow)"></path>
+      <path d="M190 240h-16" marker-end="url(#install-arrow)"></path>
+    </g>
+
+    <rect class="box" x="120" y="8" width="120" height="36" rx="6"></rect>
+    <text class="name" x="180" y="31">
+      Browser
+    </text>
+
+    <rect class="box" x="20" y="64" width="320" height="40" rx="6"></rect>
+    <text class="name" x="180" y="82">
+      Proxy
+    </text>
+    <text class="note" x="180" y="97">
+      a subdomain for each app
+    </text>
+
+    <rect class="box" x="20" y="132" width="150" height="56" rx="6"></rect>
+    <text class="name" x="95" y="156">
+      hub
+    </text>
+    <text class="note" x="95" y="174">
+      sign-in, launcher
+    </text>
+
+    <rect class="box" x="190" y="132" width="150" height="56" rx="6"></rect>
+    <text class="name" x="265" y="156">
+      admin
+    </text>
+    <text class="note" x="265" y="174">
+      codes, roles, apps
+    </text>
+
+    <rect class="box" x="20" y="212" width="150" height="56" rx="6"></rect>
+    <text class="name" x="95" y="236">
+      core
+    </text>
+    <text class="note" x="95" y="254">
+      sessions and roles
+    </text>
+
+    <rect
+      class="box yours"
+      x="190"
+      y="212"
+      width="150"
+      height="56"
+      rx="6"
+    ></rect>
+    <text class="name" x="265" y="236">
+      your apps
+    </text>
+    <text class="note" x="265" y="254">
+      a subdomain each
+    </text>
+
+    <rect class="box" x="20" y="300" width="320" height="48" rx="6"></rect>
+    <text class="name" x="180" y="321">
+      Postgres
+    </text>
+    <text class="note" x="180" y="338">
+      a schema for each app
+    </text>
+
+    <g class="key">
+      <path class="line" d="M24 370h24"></path>
+      <text class="note start" x="54" y="374">
+        a request
+      </text>
+      <path class="line http" d="M150 370h24"></path>
+      <text class="note start" x="180" y="374">
+        a call over HTTP
+      </text>
+    </g>
+  </svg>
+</figure>
+
+<style>
+  .diagram {
+    max-width: 28rem;
+    margin: 0;
+  }
+
+  /*
+   * The drawing is 344 units wide and its smallest words 12. On a phone it
+   * takes half of each gutter, so at 375 pixels it draws a little over 1:1
+   * and no word is under 12 pixels.
+   */
+  @media (max-width: 27.999rem) {
+    .diagram {
+      margin-inline: calc(-1 * var(--space-2));
+    }
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-mono);
+  }
+
+  .box {
+    fill: var(--color-surface);
+    stroke: var(--color-border-control);
+    stroke-width: 1;
+  }
+
+  .box.yours {
+    stroke: var(--color-accent);
+    stroke-width: 2;
+  }
+
+  .name {
+    fill: var(--color-text);
+    font-size: 14px;
+    font-weight: 600;
+    text-anchor: middle;
+  }
+
+  .note {
+    fill: var(--color-muted);
+    font-size: 12px;
+    text-anchor: middle;
+  }
+
+  .note.start {
+    text-anchor: start;
+  }
+
+  .line,
+  .line path {
+    fill: none;
+    stroke: var(--color-muted);
+    stroke-width: 1.5;
+  }
+
+  .http,
+  .http path {
+    stroke-dasharray: 4 3;
+  }
+
+  .head {
+    fill: var(--color-muted);
+  }
+</style>

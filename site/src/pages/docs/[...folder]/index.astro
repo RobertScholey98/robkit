@@ -1,0 +1,58 @@
+---
+// /docs/ and each folder above a docs page, such as /docs/get-started/. A
+// static host answers a folder with no page of its own with the 404, so
+// this page sends the reader on to the folder's first page at once, with
+// or without scripts. It asks search engines to leave it out, so the
+// sitemap does too. It isn't a docs page, so search, the Markdown copies
+// and llms.txt leave it out as well.
+import type { GetStaticPaths, InferGetStaticPropsType } from "astro";
+import { getCollection } from "astro:content";
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import { buildNavigation, docsFolders } from "../../../navigation.ts";
+
+export const getStaticPaths = (async () => {
+  const navigation = buildNavigation(
+    (await getCollection("docs")).map(({ id, data }) => ({
+      id,
+      title: data.title,
+      section: data.section,
+      order: data.order,
+    })),
+  );
+  return docsFolders(navigation).map((folder) => ({
+    // Undefined for /docs/ itself.
+    params: { folder: folder.href.slice("/docs/".length, -1) || undefined },
+    props: { folder },
+  }));
+}) satisfies GetStaticPaths;
+
+type Props = InferGetStaticPropsType<typeof getStaticPaths>;
+
+const { folder } = Astro.props;
+---
+
+<BaseLayout
+  title={folder.title}
+  description={`Taking you to ${folder.first.title}.`}
+  refresh={folder.first.href}
+  noindex
+>
+  <main id="main" class="lead-on" tabindex="-1">
+    <h1>{folder.title}</h1>
+    <p>
+      Taking you to <a href={folder.first.href}>{folder.first.title}</a>.
+    </p>
+  </main>
+</BaseLayout>
+
+<style>
+  .lead-on {
+    max-width: var(--content-width);
+    margin: 0 auto;
+    padding: var(--space-16) var(--space-4);
+  }
+
+  .lead-on:focus {
+    outline: none;
+  }
+</style>

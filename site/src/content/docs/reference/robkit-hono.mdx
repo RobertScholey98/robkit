@@ -1,0 +1,66 @@
+---
+title: "@robkit/hono"
+description: The Hono adapter, which runs robkit's guard on every request and hands each handler the viewer.
+section: Reference
+order: 4
+describes:
+  - packages/hono/src/
+  - packages/hono/README.md
+  - packages/hono/api-report.md
+---
+
+import PackageLinks from "../../../components/PackageLinks.astro";
+
+`@robkit/hono` runs robkit's guard in front of a Hono app's routes, and hands each handler the viewer as `c.var.viewer`. Apps on the React + Hono stack use it, and so does admin.
+
+```ts title="src/server.tsx"
+import { guarded, type GuardedEnv } from "@robkit/hono";
+import { Hono } from "hono";
+
+const app = new Hono<GuardedEnv>();
+
+// The rule is the one the owner set for this app in admin.
+app.use(guarded());
+
+app.get("/", (c) => {
+  const { viewer } = c.var;
+  return c.text(viewer.kind === "nobody" ? "Not signed in" : viewer.id);
+});
+```
+
+`guarded()` reads `ROBKIT_APP` and `ROBKIT_CORE_URL`, which `pnpm dev` and `robkit deploy` set for every app. When one is missing or won't do, the app prints the problem and exits 1. [The viewer and the guard](/docs/build-an-app/the-viewer-and-the-guard/) says what a viewer is and what the guard answers.
+
+## Options you reach for
+
+`guarded()` takes them all as optional:
+
+- `access`. A fixed access rule, such as `{ kind: "owner" }`, in place of the one the owner sets in admin. Admin uses it, so only the owner may open admin.
+- `app` and `core`. The app's slug and core's public origin, when you don't want them read from `ROBKIT_APP` and `ROBKIT_CORE_URL`.
+- `onUnavailable`. Called with what failed when the guard can't reach core and answers 503.
+
+`serve()` from `@robkit/hono/serve` takes `assets` and `public`, which move the folders it answers files from, and `name` and `onStopped`, as [`@robkit/serve`](/docs/reference/robkit-serve/) does.
+
+## What it exports
+
+### @robkit/hono
+
+- `guarded(options?)`. Runs the guard on each request. It lets the request through with `c.var.viewer` set, or answers it with a redirect, 401, 403 or 404.
+- `GuardedOptions`. The options above.
+- `GuardedEnv`. The Hono env that types `c.var.viewer`.
+- `Viewer`. The owner, a guest with role ids, or `{ kind: "nobody" }`.
+- `coreOrigin()`. Core's public origin, from `ROBKIT_CORE_URL`, for a page that calls core.
+
+### @robkit/hono/serve
+
+- `serve(app, options?)`. Serves the app in production on `HOST` and `PORT`, with the client's built files under `/assets` and the app's `public` folder at the root, until SIGTERM.
+- `ServeOptions`. The options above.
+
+### @robkit/hono/testing
+
+- `guardedAs(viewer)`. A stand-in for `guarded()` in a test, which serves every request as `viewer`. It serves only in a test run.
+- `owner()`, `guest(options?)` and `nobody()`. Build a viewer for a test.
+- `GuestOptions`. A guest's `id` and `roles`.
+
+[Testing with a viewer](/docs/build-an-app/testing-with-a-viewer/) shows them in a test.
+
+<PackageLinks dir="packages/hono" />

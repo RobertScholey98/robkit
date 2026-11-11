@@ -1,0 +1,88 @@
+---
+title: Guests, access codes and roles
+description: Who gets in, and which apps each guest may open.
+section: Run an install
+order: 2
+describes:
+  - SECURITY.md
+  - packages/core/src/access-codes.ts
+  - packages/core/src/roles.ts
+  - packages/core/src/apps.ts
+  - packages/core/src/sign-in-limits.ts
+  - packages/core/src/session-claims.ts
+  - packages/create-robkit/templates/base/apps/admin/
+  - packages/create-robkit/templates/base/apps/hub/src/
+---
+
+A guest signs in to your install with an access code you make in admin. The roles you give them decide which apps they may open. You, the owner, can open every app.
+
+## Claim the install
+
+The first person to open a new install's hub becomes its owner. The hub asks for a username and a password of at least 12 characters, then signs you in. Keep the password somewhere safe, because robkit can't reset it. [The quickstart](/docs/get-started/quickstart/) walks through it. Claim an install as soon as it's up, since the set-up screen stays open until someone does.
+
+## Make an access code
+
+Open admin, at http://admin.robkit.localhost:3000, and fill in **Mint a code**:
+
+- **Guest's name**, from 1 to 80 characters. Admin shows it beside the code, and the guest sees it once they sign in.
+- **Code**, which you can leave blank. Then robkit picks 5 characters from 31 letters and digits, with no look-alikes such as `0` and `O`. A code of your own is 3 to 32 letters or digits, and case doesn't matter.
+- **Last day**, which you can leave blank too. The code works to the end of that day, in your time zone. With no last day, it never expires.
+
+Select **Mint code**. The code joins the **Access codes** table, with its intro link, its last day and its standing:
+
+- **Live** works.
+- **Revoked** and **Expired** don't.
+- **Local only** is the test code on an install that isn't on `localhost`.
+
+Give the guest the code, or send them its intro link. **Copy** copies the link.
+
+Every install has a test code, `TEST`, which holds every role. It works only on a local install, so you can try a guest's view under `pnpm dev`.
+
+## Give guests roles
+
+A role is a set of guests you name, such as a family or a book club. Every install starts with **Family** and **Friends**. To make another, fill in **Create a role** under **Roles** with a name of 1 to 40 characters and the guests who hold it. To change who holds a role later, select **Edit guests** on it.
+
+A role can't be renamed or deleted yet. An app can also name a role in its `package.json`, and core makes the role when it first sees the app.
+
+## Choose who may open each app
+
+Admin's **Apps** section lists each app, with who may open it:
+
+- **Anyone**, signed in or not.
+- **Guests with a role**, and you tick the roles.
+- **Only me**, the owner.
+
+Select **Save access**. Each app picks the change up within a minute.
+
+An app's first rule comes from its `package.json`, which `robkit add` writes from your answer to "Who can open it?". An app that names no rule is yours only. Once core knows an app, the rule you save in admin wins over the one in `package.json`.
+
+## What a guest sees
+
+An intro link looks like `http://hub.robkit.localhost:3000/i/K7QRM`, with the guest's code at the end. In a browser that isn't signed in, it signs the guest in at once. A guest can also type their code into the hub's sign-in page, under **Access code**. A code that doesn't match any live one gets "That code doesn't work."
+
+Once signed in, the guest sees the hub's launcher, with their name and only the apps they may open. A guest with none sees "No apps yet." An app they may not open answers "Not found", so it doesn't say the app is there.
+
+A browser that's already signed in asks first. Any app on your install can send a viewer to an intro link, so the hub shows who the browser is signed in as and asks "Sign in with this link instead?". It uses the code only if they choose **Sign in with the link**.
+
+A guest stays signed in for 30 days, or until they sign out.
+
+## Take a code back
+
+Select **Revoke** on a live code. Its standing turns to **Revoked**, and nobody can sign in with it again.
+
+A guest signed in with it is signed out of the hub within 30 seconds while their launcher is open, and at once when they next load it. An app they already opened keeps them for up to 15 minutes, until its token expires. Signing out works the same way.
+
+## What protects sign-in
+
+Core limits wrong codes, so a code can't be guessed by trying them all:
+
+- Each visitor gets 10 tries every 15 minutes.
+- The whole install takes 20 wrong codes an hour, from all visitors together. After that, nobody can sign in with a code until the hour is up. The hub says "Too many attempts" and how long to wait.
+
+A generated code is one of about 28.6 million. With one live code, someone guessing at 20 an hour expects a hit after about 82 years. With 20 live codes, it is about 8 years, a 12% chance in any one year.
+
+What the limit costs is that someone can stop new code sign-ins for up to an hour, and again for as long as they keep at it. Guests already signed in, and your own password sign-in, carry on.
+
+A short code of your own is far weaker. A 3-character code can be guessed in weeks, so let robkit generate codes, or make yours at least 5 characters.
+
+Your password sign-in has a limit of its own, 5 tries per visitor every 15 minutes. robkit's `SECURITY.md` lists what else protects an install, and the gaps it knows of.

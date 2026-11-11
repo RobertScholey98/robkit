@@ -1,0 +1,64 @@
+---
+title: The UI kit
+description: Draw your app's screens with the install's shadcn components, add one, and change the look of every app at once.
+section: Build an app
+order: 10
+describes:
+  - packages/create-robkit/templates/base/packages/ui/
+  - packages/create-robkit/templates/base/packages/theme/
+  - packages/create-robkit/templates/base/AGENTS.md
+  - packages/create-robkit/templates/stacks/
+---
+
+import TemplateFile from "../../../components/TemplateFile.astro";
+
+Your install's UI kit is `packages/ui`, which holds shadcn's components on Base UI in its `src/components/ui`. The look they draw with is in `packages/theme/theme.css`. Both are the install's own code, so the owner may change either.
+
+## Use a component
+
+`pnpm robkit add` gives every new app the kit. The app's `package.json` lists `"@internal/ui": "workspace:*"`, and its stylesheet, `src/styles.css`, imports `@internal/ui/styles.css`. That brings in Tailwind and the theme, so your own markup can use Tailwind's classes too.
+
+A page imports each component from `@internal/ui/components/ui/<name>`, as the example app does:
+
+<TemplateFile
+  path="stacks/start/src/home.tsx"
+  from="import { Button }"
+  to='from "@internal/ui/components/ui/card"'
+/>
+
+## Add a component
+
+When the kit lacks a component you need, add it to the kit, from the install's folder:
+
+```sh
+cd packages/ui
+pnpm exec shadcn add switch
+```
+
+shadcn fetches the component from its registry and writes it into the kit's `src/components/ui`, as the kit's `components.json` says. Any app then imports it from `@internal/ui/components/ui/switch`.
+
+If the component needs a package the kit doesn't have, shadcn installs it in `packages/ui`. The install keeps every version in the catalog in `pnpm-workspace.yaml`, so pnpm adds the package's version there.
+
+shadcn writes the file in its own style. Run `pnpm format` and then `pnpm typecheck` at the install's root. The install's TypeScript is stricter than shadcn's, with settings such as `exactOptionalPropertyTypes`, so a component can need a small fix before it passes.
+
+## Change the look
+
+`packages/theme/theme.css` holds the install's look:
+
+- Colour variables, such as `--background` and `--primary`, set once for the light theme and once for the dark.
+- `--radius`, which every corner's size comes from.
+- `--font-sans`, the font. It is Geist to start with.
+
+Tailwind names a class after each, such as `bg-primary`. The kit's components, the hub, admin and every app draw with those classes, so a change to this file restyles them all. The values start as shadcn's defaults, and [shadcn's page on theming](https://ui.shadcn.com/docs/theming) says what each variable colours.
+
+## The hub and admin
+
+The hub draws every control through its own `apps/hub/src/ui.tsx`, and admin through `apps/admin/src/client/ui.tsx`. Their screens never import the kit directly. To restyle a control in the hub or admin alone, change it there. A change to a component in `packages/ui` reaches every app, the hub and admin included.
+
+## Read more
+
+The kit's components and classes are shadcn's and Tailwind's, and their docs cover them:
+
+- [shadcn's docs](https://ui.shadcn.com/docs), for each component and its options.
+- [Base UI's docs](https://base-ui.com/react/overview/quick-start), for the parts under shadcn's components.
+- [Tailwind's docs](https://tailwindcss.com/docs), for its classes and how a theme names them.
