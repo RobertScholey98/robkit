@@ -36,7 +36,7 @@ Set it in the handler, with `w.Header().Set("Content-Security-Policy", ...)` bef
 ## Serving
 
 - `pnpm dev` runs `go run . dev`. The Go server listens on `PORT` and guards everything, as in production. It starts Vite on a port of its own and passes it every request beyond the API: the page, its modules, and Vite's hot updates over a WebSocket. Restart `pnpm dev` after changing Go code; Vite reloads the page's own changes.
-- `pnpm build` runs `vite build`, which writes the page to `dist/public`, then `go build`, which writes the server to `dist/server`. The built server serves each file in `dist/public` and `index.html` for any other path, so the page can have routes of its own.
+- `pnpm build` runs `vite build`, which writes the page to `dist/public`, then `go build`, which writes the server to `dist/server`. The built server serves each file in `dist/public` and `index.html` for any other path, a folder such as `/assets/` included, so the page can have routes of its own and no folder is listed.
 - The production image runs the `start` script, which migrates and then serves. The image runs the binary alone, so the server needs nothing from `node_modules`, and the page's packages are all `devDependencies`.
 - `pnpm lint` runs `gofmt -d .`, `pnpm typecheck` runs `go vet` and `tsc`, and `pnpm test` runs `go test`. `go test` loads no `.env`, so a test that needs a setting sets it with `t.Setenv`.
 
