@@ -1,89 +1,125 @@
-import { mkdir, mkdtemp, symlink } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp, mkdir, mkdtemp, symlink } from "node:fs/promises";
+import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { isProblem } from "@robkit/input";
 import { CommandProblem } from "@robkit/input/command";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { devSocket, readDevRequest } from "./requests.ts";
 
-/** A new folder only this account can open, as XDG_RUNTIME_DIR often is. */
-async function runtimeDir(): Promise<string> {
-  return mkdtemp(join(tmpdir(), "robkit-run-"));
+/** A home folder of the test's own, so nothing reads or writes the real one. */
+async function home(): Promise<string> {
+  return mkdtemp(join(tmpdir(), "robkit-home-"));
 }
-
-/** The name of this account's own folder, in whichever folder holds it. */
-const own = `robkit-${String(process.getuid?.())}`;
 
 async function installDir(): Promise<string> {
   return mkdtemp(join(tmpdir(), "robkit-install-"));
 }
 
+const socketName = /^[0-9a-f]{16}\.sock$/;
+
 describe.skipIf(process.platform === "win32")("devSocket", () => {
-  it("puts the socket in a folder of this account's own in XDG_RUNTIME_DIR, named after the install", async () => {
-    const run = await runtimeDir();
+  it("puts the socket in .robkit/run in the account's home, named after the install", async () => {
+    const HOME = await home();
     const root = await installDir();
 
-    const socket = await devSocket(root, { XDG_RUNTIME_DIR: run });
+    const socket = await devSocket(root, { HOME });
 
-    const folder = join(run, own);
-    expect({ folder: socket.folder, setBy: socket.setBy }).toEqual({
-      folder,
-      setBy: "XDG_RUNTIME_DIR",
+    expect({ parent: socket.parent, folder: socket.folder }).toEqual({
+      parent: join(HOME, ".robkit"),
+      folder: join(HOME, ".robkit", "run"),
     });
-    expect(socket.path).toMatch(
-      new RegExp(`^${folder}/robkit-[0-9a-f]{16}\\.sock$`),
-    );
+    expect(socket.path.slice(socket.folder.length + 1)).toMatch(socketName);
   });
 
-  it("puts the socket in a folder of this account's own under the temp folder without XDG_RUNTIME_DIR", async () => {
+  it("finds the same socket from terminals whose XDG_RUNTIME_DIR and TMPDIR differ", async () => {
+    const HOME = await home();
+    const root = await installDir();
+    vi.stubEnv("TMPDIR", await mkdtemp(join(tmpdir(), "robkit-tmp-")));
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+    const runner = await devSocket(root, {
+      HOME,
+      XDG_RUNTIME_DIR: "/mnt/wslg/runtime-dir",
+    });
+    vi.stubEnv("TMPDIR", "/var/folders/xy/T");
+
+    const command = await devSocket(root, { HOME });
+
+    expect(command).toEqual(runner);
+  });
+
+  it("uses the account's own home where HOME isn't set", async () => {
     const root = await installDir();
 
     const socket = await devSocket(root, {});
 
-    const folder = join(tmpdir(), own);
-    expect({ folder: socket.folder, setBy: socket.setBy }).toEqual({
-      folder,
-      setBy: "TMPDIR",
-    });
-    expect(socket.path).toMatch(
-      new RegExp(`^${folder}/robkit-[0-9a-f]{16}\\.sock$`),
-    );
+    expect(socket.parent).toBe(join(userInfo().homedir, ".robkit"));
   });
 
   it("gives one install one path, however its folder is reached", async () => {
-    const run = await runtimeDir();
+    const HOME = await home();
     const root = await installDir();
     const link = join(await installDir(), "link");
     await symlink(root, link);
 
-    const direct = await devSocket(root, { XDG_RUNTIME_DIR: run });
-    const linked = await devSocket(link, { XDG_RUNTIME_DIR: run });
+    const direct = await devSocket(root, { HOME });
+    const linked = await devSocket(link, { HOME });
 
     expect(linked.path).toBe(direct.path);
   });
 
-  it("gives two installs two paths", async () => {
-    const run = await runtimeDir();
+  it("gives two installs two paths, though one is a copy of the other", async () => {
+    const HOME = await home();
+    const original = await installDir();
+    const copy = join(await installDir(), "copy");
+    await mkdir(join(original, ".robkit"));
+    await cp(original, copy, { recursive: true });
 
-    const first = await devSocket(await installDir(), { XDG_RUNTIME_DIR: run });
-    const second = await devSocket(await installDir(), {
-      XDG_RUNTIME_DIR: run,
-    });
+    const first = await devSocket(original, { HOME });
+    const second = await devSocket(copy, { HOME });
 
-    expect(first.path).not.toBe(second.path);
+    expect(second.folder).toBe(first.folder);
+    expect(second.path).not.toBe(first.path);
   });
 
-  it("refuses a path of 100 bytes or more, naming the variable to change", async () => {
-    const run = join(await runtimeDir(), "a".repeat(80));
-    await mkdir(run);
+  it("puts the socket in the folder run links to", async () => {
+    const HOME = await home();
+    const shorter = await mkdtemp(join(tmpdir(), "r-"));
+    await mkdir(join(HOME, ".robkit"));
+    await symlink(shorter, join(HOME, ".robkit", "run"));
+
+    const socket = await devSocket(await installDir(), { HOME });
+
+    expect({ parent: socket.parent, folder: socket.folder }).toEqual({
+      parent: join(HOME, ".robkit"),
+      folder: shorter,
+    });
+    expect(socket.path.slice(shorter.length + 1)).toMatch(socketName);
+  });
+
+  it("puts the socket in the folder run links to while that folder isn't there", async () => {
+    const HOME = await home();
+    const gone = join(await mkdtemp(join(tmpdir(), "r-")), "gone");
+    await mkdir(join(HOME, ".robkit"));
+    await symlink(gone, join(HOME, ".robkit", "run"));
+
+    const socket = await devSocket(await installDir(), { HOME });
+
+    expect(socket.folder).toBe(gone);
+  });
+
+  it("refuses a path of 100 bytes or more, naming it and the link that shortens it", async () => {
+    const HOME = join(await home(), "a".repeat(80));
     const root = await installDir();
 
-    const socket = devSocket(root, { XDG_RUNTIME_DIR: run });
+    const socket = devSocket(root, { HOME });
 
+    const run = join(HOME, ".robkit", "run");
     await expect(socket).rejects.toThrow(CommandProblem);
     await expect(socket).rejects.toThrow(
       new RegExp(
-        `^pnpm dev keeps its socket at ${run}/${own}/robkit-[0-9a-f]{16}\\.sock, which is \\d+ bytes, and a socket's path must be under 100\\. Point XDG_RUNTIME_DIR at a shorter folder, then run pnpm dev again\\.$`,
+        `^pnpm dev keeps its socket at ${run}/[0-9a-f]{16}\\.sock, which is \\d+ bytes, and a socket's path must be under 100\\. Make a folder only you can open at a shorter path, link ${run} to it, then run pnpm dev again\\.$`,
       ),
     );
   });

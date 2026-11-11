@@ -30,8 +30,25 @@ Before it starts anything, `pnpm dev` checks that Docker answers and that these 
 
 - `pnpm robkit add` works while `pnpm dev` runs. Once the app's files are written and installed, `pnpm dev` gives it a database, migrates it, starts it on a port no running app holds and routes its subdomain, then restarts core so the launcher lists it. Nobody is signed out. `robkit add` prints the app's address, or the problem if it can't start, and every other app keeps running.
 - `pnpm robkit migrate <slug>` applies an app's new migration while `pnpm dev` runs, as the app's own role, so its password stays the same. With no `pnpm dev` running, start it: it migrates every app as it starts.
-- Removing an app needs a restart. Stop `pnpm dev`, delete `apps/<slug>`, then start `pnpm dev` again.
-- `pnpm dev` hears these commands over a socket file in a folder it makes for you alone: `robkit-<uid>`, in `XDG_RUNTIME_DIR` or in the temp folder where that isn't set. It refuses to start if others can open that folder or another account owns it, and the `robkit` commands refuse to use one.
+- `pnpm dev` hears these commands over a socket file in `~/.robkit/run`, which it makes for you alone, so every terminal finds it. It refuses to start if others can open that folder or another account owns it, and the `robkit` commands refuse to use one.
+
+### Removing an app
+
+Delete `apps/<slug>`, then restart `pnpm dev`, or deploy. `pnpm dev` doesn't notice a deleted folder while it runs. As core starts, it takes each app whose folder is gone out of its catalog: the app leaves the launcher and admin, core gives it no new token, and the rule you set for it in admin goes too. In production that happens when core deploys, and `robkit deploy` redeploys core when an app's folder is gone.
+
+Removing an app doesn't:
+
+- Stop it in production. Its container runs until you delete its application: see "Removing an app's application" in [docs/deploy.md](docs/deploy.md#removing-an-apps-application). Within a minute of core's deploy, its guard answers every request with a 503, since core no longer knows the app.
+- Take back a token the app already holds for a viewer. That lasts until it expires, at most 15 minutes.
+- Delete the app's data. Its Postgres schema and role stay. To drop both, run this as Postgres's admin, with the app's slug in place of `notes`:
+
+  ```sh
+  docker compose exec postgres psql -U postgres -d robkit -c 'drop owned by notes; drop role notes;'
+  ```
+
+  In production, run the same two statements with `psql` and the URL you set as `ROBKIT_ADMIN_DATABASE_URL`.
+
+A slug that comes back is a new app, whether you add one with that slug or bring back the folder, as when you switch to a branch that still has it. Core gives it the rule its manifest declares, or owner only, and none of the old roles, so set its rule in admin again. It finds the old app's schema and data unless you dropped them.
 
 ## Upgrading robkit
 
@@ -56,6 +73,7 @@ An app's own settings, such as an API key, go in `apps/<slug>/.env`, which git i
 
 - `apps/<slug>` is an app. Its folder name is its slug, its subdomain (`<slug>.robkit.localhost` locally) and its Postgres role and schema. A slug is lowercase letters and digits, starting with a letter. Each app has its own `AGENTS.md` for its stack.
 - `apps/core` runs core: its scripts run `robkit-core`, from `@robkit/core`, and it has no source of its own. `apps/hub` and `apps/admin` are the platform's own apps.
+- The hub is yours to change, but keep what it does at sign-in. It asks a signed-in browser before an intro link replaces its session, since any app can send a viewer to one. It sends a signed-in visitor on to an app's `next` once a visit, so an app that sends them straight back can't loop. And the launcher checks the session as it polls, so signing out in another tab shows the sign-in page. `apps/hub/src/sign-in.test.tsx` and `launcher.test.tsx` cover each.
 - `packages/` holds code the apps share, such as `packages/core-client`, which the hub and admin call core through.
 - `packages/theme/theme.css` holds the install's look: its colour, radius and font variables. The hub and admin draw with Tailwind classes named after them, such as `bg-primary`, so changing a variable restyles both. Every control they draw comes from their own `ui.tsx`, which draws with the install's UI kit: shadcn on Base UI, in `packages/ui`, with its own `AGENTS.md`. Every app draws with it too.
 - `robkit.json` marks this folder as a robkit install, and records the stack init gave the example app. The `robkit` commands refuse a folder without it.

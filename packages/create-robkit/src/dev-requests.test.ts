@@ -16,14 +16,14 @@ const bin = fileURLToPath(new URL("robkit-command.ts", import.meta.url));
 /**
  * A written install with its dependencies in, as far as robkit add can
  * tell, and the environment robkit runs in: a pnpm that installs nothing,
- * and an XDG_RUNTIME_DIR of the test's own for pnpm dev's socket.
+ * and a home of the test's own for pnpm dev's socket.
  */
 async function installedInstall() {
   const dir = join(await mkdtemp(join(tmpdir(), "robkit-")), "install");
   await init(defaultChoices, dir, { install: false });
   await mkdir(join(dir, "node_modules"));
   const env = await pathAhead({ pnpm: await installsPnpm() }, process.env);
-  env.XDG_RUNTIME_DIR = await mkdtemp(join(tmpdir(), "robkit-run-"));
+  env.HOME = await mkdtemp(join(tmpdir(), "robkit-home-"));
   return { dir, env };
 }
 

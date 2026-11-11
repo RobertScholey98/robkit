@@ -20,6 +20,7 @@
     "typescript-eslint": "catalog:"
   },
   "devDependencies": {
+    "@internal/vitest-config": "workspace:*",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "vite": "catalog:",

@@ -18,7 +18,7 @@ import {
   type ListedApp,
   readListedApp,
 } from "@robkit/input/manifest";
-import { asc, eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { appRoles, apps, roles } from "./schema.ts";
@@ -52,11 +52,16 @@ export function readAccess(
 /**
  * Reads `ROBKIT_APPS`: a JSON list of the install's apps as they declare
  * themselves, which the dev runner and robkit deploy write from each app's
- * manifest. Empty or unset means none.
+ * manifest. `[]` means none. Unset or blank is a problem, not an empty
+ * list, since core takes out of its catalog every app the list leaves out.
  */
 export function readListedApps(env: Env): ListedApp[] | InputProblem {
   const text = env.ROBKIT_APPS;
-  if (text === undefined || text.trim() === "") return [];
+  if (text === undefined || text.trim() === "") {
+    return problem(
+      "ROBKIT_APPS is not set. pnpm dev and robkit deploy set it from each app's manifest. Set it to [] for an install with no apps of its own.",
+    );
+  }
   const parsed = parseJson(text, "ROBKIT_APPS");
   if (isProblem(parsed)) return parsed;
   const { json } = parsed;
@@ -75,12 +80,19 @@ export function readListedApps(env: Env): ListedApp[] | InputProblem {
 }
 
 /**
- * Adds each app core doesn't know yet, named after its slug, with the rule
- * it declares, or owner-only. A rule's roles are found by name, and created
- * if the owner has none of that name. An app core knows keeps the rule the
- * owner gave it, and takes the icon it declares now. Several cores can run
- * it at once, as in a rolling deploy: the one whose insert adds an app adds
- * its roles, and the rest leave that app alone.
+ * Makes core's catalog hold exactly the apps `declared` lists, as core
+ * does once as it starts. An app it no longer lists is deleted, and its
+ * rule's links to roles go with it; the roles stay. An app it lists that
+ * core doesn't know is added, named after its slug, with the rule it
+ * declares, or owner-only. A rule's roles are found by name, and created
+ * if the owner has none of that name. So a slug that comes back is a new
+ * app. An app core knows keeps the rule the owner gave it, and takes the
+ * icon it declares now.
+ *
+ * Several cores can start at once, as in a rolling deploy. Each applies
+ * its whole list in one transaction that locks the table, so they apply
+ * one after the other and the last one's list is the catalog. Reads of the
+ * catalog go on meanwhile.
  */
 const owner: ManifestAccess = { kind: "owner" };
 
@@ -88,20 +100,16 @@ export async function registerApps(
   db: Database,
   declared: readonly ListedApp[],
 ): Promise<void> {
-  if (declared.length === 0) return;
+  const slugs = declared.map((app) => app.slug);
   await db.transaction(async (tx) => {
+    // Exclusive mode lets reads through and holds off every change, this
+    // lock taken by another core included, until this transaction ends.
+    await tx.execute(sql`lock table core.apps in exclusive mode`);
+    await tx
+      .delete(apps)
+      .where(slugs.length === 0 ? undefined : notInArray(apps.slug, slugs));
     const known = new Set(
-      (
-        await tx
-          .select({ slug: apps.slug })
-          .from(apps)
-          .where(
-            inArray(
-              apps.slug,
-              declared.map((app) => app.slug),
-            ),
-          )
-      ).map((row) => row.slug),
+      (await tx.select({ slug: apps.slug }).from(apps)).map((row) => row.slug),
     );
     for (const { slug, access = owner, icon } of declared) {
       if (known.has(slug)) {
@@ -111,9 +119,7 @@ export async function registerApps(
           .where(eq(apps.slug, slug));
         continue;
       }
-      // Another core starting at the same moment may have just added it.
-      // Then this insert does nothing and returns no row, and that core
-      // adds the rule's roles, so this one leaves them alone.
+      // A slug listed twice is added once, with the first one's rule.
       const [added] = await tx
         .insert(apps)
         .values({ slug, name: slug, access: access.kind, icon: icon ?? null })

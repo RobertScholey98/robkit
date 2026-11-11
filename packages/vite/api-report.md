@@ -5,9 +5,10 @@ Generated from the built declarations by `tooling/repo-checks`. A change to the 
 ## @robkit/vite
 
 ```ts
-export function robkit({ guarded }?: RobkitOptions): Plugin;
+export function robkit({ guarded, serve }?: RobkitOptions): Plugin;
 export interface RobkitOptions {
   guarded?: boolean;
+  serve?: string;
 }
 ```
 

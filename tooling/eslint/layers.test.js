@@ -180,6 +180,27 @@ describe("the layer rule", () => {
     },
   );
 
+  it.each([
+    "globalThis.fetch(url);",
+    'globalThis["fetch"](url);',
+    "window.fetch(url);",
+    "self.XMLHttpRequest;",
+    "global.process.env;",
+    "globalThis.globalThis.fetch(url);",
+    "const { fetch: get } = globalThis;",
+    "globalThis[name];",
+    'Reflect.get(globalThis, "fetch");',
+  ])("keeps `%s` out of @robkit/guard and @robkit/input", (code) => {
+    expect(lint("packages/guard", code)).toEqual([noIo]);
+    expect(lint("packages/input", code)).toEqual([inputNoIo]);
+    expect(lint("packages/dev", code)).toEqual([]);
+  });
+
+  it("lets the guard read a global that does no I/O through globalThis", () => {
+    expect(lint("packages/guard", "globalThis.crypto.subtle;")).toEqual([]);
+    expect(lint("packages/guard", 'globalThis["URL"];')).toEqual([]);
+  });
+
   it("lets the guard shadow a banned global with its own name", () => {
     expect(lint("packages/guard", "const fetch = 1; fetch;")).toEqual([]);
     expect(lint("packages/guard", "fetch;")).toEqual([noIo]);

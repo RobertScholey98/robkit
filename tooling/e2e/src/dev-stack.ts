@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import {
   freePortBlock,
   freePostgresPort,
+  homeOfItsOwn,
   removeWhenGone,
   testComposeFiles,
   testTag,
@@ -114,6 +115,9 @@ export function useDevStack(
   let devPort = 0;
   let addresses: Install | undefined;
   let postgresPort = 0;
+  // pnpm dev's socket goes in this home, not the real one, and robkit
+  // add finds it there.
+  let home: NodeJS.ProcessEnv = {};
   let output = "";
   let isStarted: Promise<void> | undefined;
   let isAdded: Promise<string | undefined> | undefined;
@@ -192,7 +196,9 @@ export function useDevStack(
 
   const added = () =>
     (isAdded ??= startedUp().then(() =>
-      exampleStack ? addTheApp(dirOf(), exampleStack) : undefined,
+      exampleStack
+        ? addTheApp(dirOf(), exampleStack, { ...process.env, ...home })
+        : undefined,
     ));
 
   const up = () =>
@@ -228,6 +234,7 @@ export function useDevStack(
     devPort = await freePortBlock(1 + apps + (adds ? 1 : 0));
     addresses = install({ domain: defaultDomain, port: devPort });
     postgresPort = await freePostgresPort();
+    home = await homeOfItsOwn();
     const tag = testTag();
     removeWhenGone({ tagged: tag }, { docker: project });
     dev = spawn("pnpm", ["run", "dev"], {
@@ -236,6 +243,7 @@ export function useDevStack(
         // This suite's VITEST goes along. robkit-dev keeps it from each
         // app, whose robkit() would set nothing up under it.
         ...process.env,
+        ...home,
         ROBKIT_DEV_PORT: String(devPort),
         ROBKIT_POSTGRES_PORT: String(postgresPort),
         COMPOSE_FILE: testComposeFiles(),

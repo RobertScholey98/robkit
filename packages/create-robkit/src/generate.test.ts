@@ -339,7 +339,7 @@ describe("generateInstall", () => {
 
     expect(setUpGo).toEqual({
       if: "hashFiles('apps/*/go.mod') != ''",
-      uses: "actions/setup-go@v7",
+      uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
       with: {
         "go-version": goVersionIn(
           files.get("Dockerfile") ?? "",
@@ -395,12 +395,19 @@ describe("generateInstall", () => {
     const configs = [...files].filter(([path]) =>
       /(^|\/)(vite|vitest|next)\.config\.ts$/.test(path),
     );
+    // The two stacks whose server Vite builds take its layout from serve.
+    const serverBuilds = [
+      "stacks/express/vite.config.ts",
+      "stacks/react-hono/vite.config.ts",
+    ];
     const call = (path: string) =>
       path.endsWith("next.config.ts")
         ? "export default withRobkit();"
         : path.endsWith("hub/vite.config.ts")
           ? "robkit({ guarded: false })"
-          : "robkit()";
+          : serverBuilds.includes(path)
+            ? 'robkit({ serve: "src/serve.ts" })'
+            : "robkit()";
 
     expect(configs.map(([path]) => path).sort()).toEqual([
       "base/apps/admin/vite.config.ts",
@@ -425,6 +432,9 @@ describe("generateInstall", () => {
           ? []
           : [path],
       ),
+    ).toEqual([]);
+    expect(
+      serverBuilds.filter((path) => files.get(path)?.includes("build:")),
     ).toEqual([]);
   });
 

@@ -1,9 +1,9 @@
 import { request } from "node:http";
 import { createServer as createNetServer } from "node:net";
 import { once } from "node:events";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { onTestFinished, vi } from "vitest";
 import {
   createServer,
@@ -39,7 +39,10 @@ export async function freePort(): Promise<number> {
   return address.port;
 }
 
-/** A folder with an `index.html`, and `files` beside it, removed after the test. */
+/**
+ * A folder with an `index.html`, and `files` at their paths in it, removed
+ * after the test.
+ */
 export async function appFolder(
   files: Record<string, string> = {},
 ): Promise<string> {
@@ -47,6 +50,7 @@ export async function appFolder(
   onTestFinished(() => rm(root, { recursive: true, force: true }));
   await writeFile(join(root, "index.html"), "<p>the page</p>\n");
   for (const [name, text] of Object.entries(files)) {
+    await mkdir(dirname(join(root, name)), { recursive: true });
     await writeFile(join(root, name), text);
   }
   return root;
