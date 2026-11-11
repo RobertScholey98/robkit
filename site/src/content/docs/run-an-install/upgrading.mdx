@@ -1,0 +1,91 @@
+---
+title: Upgrading robkit
+description: What pnpm robkit upgrade changes, what it never touches, and how to undo one.
+section: Run an install
+order: 3
+describes:
+  - packages/create-robkit/src/upgrade.ts
+  - packages/create-robkit/src/upgrade-handover.ts
+  - packages/create-robkit/src/robkit-command.ts
+  - packages/create-robkit/templates/base/README.md
+---
+
+import BeforeRelease from "../../../components/BeforeRelease.astro";
+import Callout from "../../../components/Callout.astro";
+
+`pnpm robkit upgrade` moves your install to a newer robkit. It changes robkit's own files, the catalog and the lint policy among them, and never your apps. It needs every change committed, so `git diff` shows what it did and git can undo it.
+
+<BeforeRelease>
+
+<Callout>
+
+robkit isn't on npm yet, so there's no newer robkit to move to. An install made from a clone links to robkit's packages in the clone, and `pnpm robkit upgrade` there prints one line:
+
+```text title="What it prints"
+This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.
+```
+
+</Callout>
+
+</BeforeRelease>
+
+## Run it
+
+Commit your changes and stop `pnpm dev`, then run one of these in the install's folder:
+
+```sh
+pnpm robkit upgrade         # to the newest robkit
+pnpm robkit upgrade 0.2.0   # to the version given
+```
+
+It asks the registry your pnpm uses which versions of robkit it has, so a mirror set in `.npmrc` works as it does for `pnpm install`. When your install is on the newest already, it says so and changes nothing.
+
+The upgrade runs in two steps. The robkit your install has checks everything, moves `create-robkit` alone to the new version and installs it, then hands over to the new robkit, which does the rest.
+
+## What it changes
+
+It writes these and nothing else:
+
+- `pnpm-workspace.yaml`. robkit's packages in the catalog move to the new version. It adds each catalog entry the new robkit needs and raises each one that's lower. It never lowers or removes an entry, and keeps your comments.
+- `pnpm-lock.yaml`, which pnpm writes as it installs.
+- `package.json`, where it raises `packageManager` when the new robkit pins a newer pnpm.
+- `tooling/eslint`, robkit's lint policy, which it replaces whole.
+- `vendor/robkit/go`, robkit's Go module, which it replaces whole. It writes this only when your install has a Go app.
+
+The new robkit installs again only when it changed the catalog or `packageManager`.
+
+## What it never changes
+
+An upgrade doesn't reach the files robkit copied into the install for you to own: your apps, the hub, admin, `packages/`, the `Dockerfile`, `compose.yaml`, `turbo.json` and `.github`.
+
+When a new robkit changes one of those, its changelog says what to change by hand. The upgrade prints what it changed, then the changelog for every version after yours up to the new one, then what to do next:
+
+```text title="Its last line"
+Next, read git diff, run pnpm lint, pnpm typecheck and pnpm test, then commit.
+```
+
+## When it refuses
+
+It checks everything before it changes a file. Each refusal says how to fix it:
+
+- **A change not committed.** It lists each file that is changed or untracked. An install with no commit gets the commands that make one. A machine with no git is told to install it.
+- **`pnpm dev` running.** An upgrade replaces the packages under every running app.
+- **A link** at a file it writes, at `tooling/eslint` or `vendor/robkit/go`, or at a folder above one. Through a link it would write outside the install, where git can't put the files back.
+- **Something that isn't a version**, such as `latest`. Give one such as `0.2.0`, or none for the newest.
+- **A version the registry doesn't have.** It names the newest it has.
+- **The version your install is on, or an older one.** An upgrade moves forward only. To go back, revert the commit that moved the install up.
+- **A registry it can't reach.** It says what pnpm said. Check your network and `pnpm config get registry`.
+
+## If it stops partway
+
+If `pnpm install` fails, or you stop the upgrade with Ctrl+C, it puts back every file it changed. Run `pnpm install` to put `node_modules` back too.
+
+If an upgrade was stopped any other way, such as a closed terminal, put its files back yourself:
+
+```sh
+git restore --source=HEAD --staged --worktree -- .
+git clean -fd -- tooling/eslint vendor/robkit/go
+pnpm install
+```
+
+When the upgrade can't put the files back itself, it prints the same commands.

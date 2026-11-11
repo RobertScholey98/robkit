@@ -18,6 +18,7 @@ afterAll(async () => {
 describe.each([
   "/docs/run-an-install/pnpm-dev-and-your-apps/",
   "/docs/run-an-install/guests-and-access/",
+  "/docs/run-an-install/upgrading/",
 ])("%s", (path) => {
   describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
     it.each(["light", "dark"] as const)(
