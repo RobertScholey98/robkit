@@ -248,6 +248,66 @@ describe("the built page on the layer rule", () => {
   }, 60_000);
 });
 
+describe("the built page on pnpm dev and your apps", () => {
+  const page = "docs/run-an-install/pnpm-dev-and-your-apps/index.html";
+
+  /** What `robkit add` prints for an option it doesn't take. */
+  const addUsage = async () => {
+    const dir = await mkdtemp(join(tmpdir(), "site-add-"));
+    await writeFile(join(dir, "robkit.json"), '{"exampleStack":"start"}\n');
+    const bin = join(repoRoot, "packages/create-robkit/src/robkit-command.ts");
+    return spawnSync(process.execPath, [bin, "add", "notes", "--nope"], {
+      cwd: dir,
+      encoding: "utf8",
+    }).stderr;
+  };
+
+  /** The text in each cell of each body row of the table after `heading`. */
+  const rowsAfter = (html: string, heading: string) => {
+    const table = /<table[\s\S]*?<\/table>/.exec(
+      html.slice(html.indexOf(`id="${heading}"`)),
+    );
+    return [...(table?.[0] ?? "").matchAll(/<tr>([\s\S]*?)<\/tr>/g)]
+      .slice(1)
+      .map(([, row = ""]) =>
+        [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(([, cell = ""]) =>
+          cell
+            .replaceAll(/<[^>]+>/g, "")
+            .replaceAll("&lt;", "<")
+            .replaceAll("&gt;", ">"),
+        ),
+      );
+  };
+
+  it("names each option robkit add takes, with its default", async () => {
+    const usage = await addUsage();
+    const rows = rowsAfter(await built(page), "add-an-app");
+    const defaults =
+      /stack defaults to (\S+), access to (\S+) only, and the icon\s+to (\S+)\./.exec(
+        usage,
+      );
+
+    const line = /^Usage: robkit add .*$/m.exec(usage)?.[0] ?? "";
+
+    expect(rows.map(([option = ""]) => option.split(" ")[0])).toEqual(
+      line.match(/(?<=\[)--[a-z]+/g),
+    );
+    expect(rows.map((row) => row[2])).toEqual([
+      defaults?.[1],
+      defaults?.[2],
+      "none",
+      defaults?.[3]?.replace(/\.$/, ""),
+    ]);
+    expect(rows[0]?.[1]).toBe(
+      `The stack: ${readyStacks.slice(0, -1).join(", ")} or ${String(readyStacks.at(-1))}.`,
+    );
+  });
+
+  it("is written, not a stub", async () => {
+    expect(await built(page)).not.toContain("data-stub");
+  });
+});
+
 /** Each entry's name, in the order a tree shows them. */
 const treeNames = (entries: readonly TreeEntry[]): string[] =>
   entries.flatMap(({ name, children = [] }) => [name, ...treeNames(children)]);
