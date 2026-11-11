@@ -17,7 +17,7 @@ Milestone 4 changes `SECURITY.md` in several places (tickets 23, 27, 29 and 31 o
 - [x] The page gives the way to report a vulnerability that `SECURITY.md` gives
 - [x] The diagram has a text alternative that says what it shows
 - [x] `GLOSSARY.md`, `SECURITY.md` and `docs/architecture.md` are among the site's turbo inputs
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -55,3 +55,7 @@ Milestone 4 changes `SECURITY.md` in several places (tickets 23, 27, 29 and 31 o
 **What milestone 4 and ticket 26 change**
 
 - Milestone 4 is merged. The built parts follow `SECURITY.md` by themselves, tickets 23, 27, 29 and 31 included. Ticket 26 reads the written parts of Security and How it works again against the release.
+
+### Merged
+
+Added by the lead. PR 138 merged into `docs-site` on 2026-11-11 as `8125db1d`, with `gate` green on `b9487cb`.
