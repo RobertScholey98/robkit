@@ -95,3 +95,11 @@ Chosen in the build, awaiting R's review.
 ### Merged
 
 Added by the lead. PR 75 merged into `m1-the-subdomain-boundary` on 2026-11-09, with `gate` green on `8458f43`.
+
+### A port two tests shared, 2026-11-11
+
+Added by the lead, from a CI failure on milestone 4's pull request (PR 119).
+
+CI's `check` failed once on `6ec738ed`. In `packages/core/src/robkit-core.db.test.ts` a request to core answered 201 where the test expected 200. `freePort()` asked the system for an unused port, closed it and handed the number back. Before core listened there, another package's test server took the same port, so the request reached that server. The job passed when re-run.
+
+`freePort()` now leases its port the way `freePortBlock` does, from 20000 to 29999 with a lease file in the temp folder, so no two tests on one machine get the same port (`a646c8c8`). Every caller keeps its call.

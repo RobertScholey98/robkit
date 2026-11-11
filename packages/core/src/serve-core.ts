@@ -19,8 +19,8 @@ const queryLimit = 1;
 
 /**
  * Serves core from its environment until SIGTERM or SIGINT: loads its
- * signing key, adds the apps in `ROBKIT_APPS` it doesn't know, then
- * listens on `HOST` and `PORT`. Core's schema must be migrated first.
+ * signing key, makes its catalog hold exactly the apps in `ROBKIT_APPS`,
+ * then listens on `HOST` and `PORT`. Core's schema must be migrated first.
  *
  * @returns the exit code once core has stopped
  */
@@ -32,8 +32,9 @@ export async function serveCore(env: Env): Promise<number> {
     try {
       // Loaded before core listens, so no sign-in waits on it.
       const signingKey = await ensureSigningKey(db);
-      // The owner's apps, as each declares itself. Core adds any it
-      // doesn't know, with the rule it declares or as owner-only.
+      // The owner's apps, as each declares itself. Core adds the new ones
+      // and deletes the ones the list leaves out. Only here, once: a core
+      // already serving leaves the catalog to the one that starts after it.
       await registerApps(db, config.apps);
       return createApp({
         db,

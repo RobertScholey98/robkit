@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type ComponentProps,
   type SubmitEvent,
@@ -302,23 +303,48 @@ function CodeRow({
   );
 }
 
+/**
+ * Copies `text`, and says "Copied" for two seconds. A browser can refuse
+ * the clipboard, such as on a page over plain http, and the button says
+ * so instead.
+ */
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copying, setCopying] = useState<"idle" | "copied" | "refused">("idle");
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // A row that goes, such as on a revoke, takes its timer with it.
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  async function copy() {
+    clearTimeout(timer.current);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (cause) {
+      console.error(cause);
+      setCopying("refused");
+      return;
+    }
+    setCopying("copied");
+    timer.current = setTimeout(() => {
+      setCopying("idle");
+    }, 2000);
+  }
+
   return (
-    <Button
-      look="outline"
-      type="button"
-      onClick={() => {
-        void navigator.clipboard.writeText(text).then(() => {
-          setCopied(true);
-          setTimeout(() => {
-            setCopied(false);
-          }, 2000);
-        });
-      }}
-    >
-      {copied ? "Copied" : "Copy"}
-    </Button>
+    <>
+      <Button look="outline" type="button" onClick={() => void copy()}>
+        {copying === "copied" ? "Copied" : "Copy"}
+      </Button>
+      {copying === "refused" && (
+        <FormError>
+          Couldn't copy the link. Select it and copy it yourself.
+        </FormError>
+      )}
+    </>
   );
 }
 

@@ -1,7 +1,9 @@
+import { testDefaults } from "@internal/vitest-config";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    ...testDefaults,
     // The API report and pack checks read built packages, which takes
     // seconds while turbo runs lint and typecheck beside them.
     testTimeout: 30_000,

@@ -14,38 +14,45 @@ import {
   socketFolderIsOwn,
 } from "./requests.ts";
 
+/** Makes `folder` for this account alone, unless something is there. */
+async function makeOwn(folder: string): Promise<void> {
+  try {
+    await mkdir(folder, { mode: 0o700 });
+  } catch (error) {
+    if (hasCode(error, "EEXIST")) return;
+    // The folder it goes in is missing, or isn't this account's to write
+    // in, as a home can be for an account that runs a daemon.
+    const code =
+      error instanceof Error &&
+      "code" in error &&
+      typeof error.code === "string"
+        ? error.code
+        : "no error code";
+    throw new CommandProblem(
+      `pnpm dev keeps its socket in ${folder}, and couldn't make that folder (${code}). Make it yourself, with mode 700, then run pnpm dev again.`,
+      { cause: error },
+    );
+  }
+}
+
 /**
- * Makes the folder `socket` is in, for this account alone, unless it is
- * there, and checks that only this account can open it, as
- * {@link socketFolderIsOwn} does for the commands that ask.
+ * Makes `.robkit` in the account's home, and the folder `socket` is in,
+ * each for this account alone, unless it is there, and checks that only
+ * this account can open them, as {@link socketFolderIsOwn} does for the
+ * commands that ask.
  *
- * @param owner the account that must own it, this process's by default
+ * @param owner the account that must own them, this process's by default
  * @throws a {@link CommandProblem} for a folder it can't make, that isn't
  *   one, that another account owns, or that others can open
  */
 export async function privateFolder(
-  socket: Pick<DevSocket, "folder" | "setBy">,
+  socket: Pick<DevSocket, "parent" | "folder">,
   options: { owner?: number | undefined } = {},
 ): Promise<void> {
-  const { folder, setBy } = socket;
-  try {
-    await mkdir(folder, { mode: 0o700 });
-  } catch (error) {
-    if (!hasCode(error, "EEXIST")) {
-      // The folder it goes in is missing, or isn't this account's to
-      // write in, as XDG_RUNTIME_DIR isn't after `su`.
-      const code =
-        error instanceof Error &&
-        "code" in error &&
-        typeof error.code === "string"
-          ? error.code
-          : "no error code";
-      throw new CommandProblem(
-        `pnpm dev keeps its socket in ${folder}, and couldn't make that folder (${code}). Point ${setBy} at a folder you can write to, then run pnpm dev again.`,
-        { cause: error },
-      );
-    }
-  }
+  await makeOwn(socket.parent);
+  // `.robkit` first, before anything goes in it.
+  await socketFolderIsOwn(socket, options);
+  await makeOwn(socket.folder);
   await socketFolderIsOwn(socket, options);
 }
 

@@ -126,16 +126,39 @@ export function stackTemplate(stack: Stack): Promise<Files> {
 export const defaultIcon = "📦";
 
 /**
+ * A stack's page titles itself with the example's slug, in one of these
+ * forms: an HTML or JSX `<title>`, or a `title` that Next's metadata or
+ * Start's head names.
+ */
+const titledExample = new RegExp(
+  `<title>${exampleSlug}</title>|title: "${exampleSlug}"`,
+  "g",
+);
+
+/** `text` with the page's title, the example's slug, swapped for `slug`. */
+function titledWith(text: string, slug: string): string {
+  return text.replace(titledExample, (title) =>
+    title.replace(exampleSlug, slug),
+  );
+}
+
+/**
  * The files of an app at `apps/<slug>` made from a stack's template, by
  * their path from the app's folder. Its manifest is named after the slug,
- * and carries what the app declares, if anything.
+ * and carries what the app declares, if anything. Its page is titled with
+ * the slug.
  */
 export function appFiles<Content extends string | Uint8Array>(
   template: Map<string, Content>,
   slug: string,
   manifest: AppManifest = {},
 ): Map<string, Content | string> {
-  const files = new Map<string, Content | string>(template);
+  const files = new Map<string, Content | string>(
+    [...template].map(([path, content]) => [
+      path,
+      typeof content === "string" ? titledWith(content, slug) : content,
+    ]),
+  );
   editJson(files, "package.json", (json) => ({
     name: `@internal/${slug}-app`,
     ...json,

@@ -14,7 +14,9 @@ export type A11yJourney = Record<string, string[]>;
 
 /**
  * Opens the hub signed out, then signs in as the owner and opens the
- * launcher, admin, the example app and the app robkit add made. axe checks
+ * launcher, the hub's question for an intro link, the launcher an app sent
+ * the owner back to, admin, the example app and the app robkit add made.
+ * axe checks
  * each page as it stands. With `screenshots`, each page is saved there too,
  * named `<prefix>-<page>.png`.
  */
@@ -56,6 +58,26 @@ export async function a11yJourney({
     await page.getByText("Loading apps…").waitFor({ state: "detached" });
     await check(page, "launcher");
 
+    // An intro link while signed in asks first. Staying sends core nothing.
+    await page.goto(`${install.origin("hub")}/i/a11ycheck`);
+    await page
+      .getByRole("heading", { name: "Sign in with this link instead?" })
+      .waitFor();
+    await check(page, "hub-intro-question");
+    await page
+      .getByRole("button", { name: `Stay signed in as ${username}` })
+      .click();
+    await page.getByRole("button", { name: "Sign out" }).waitFor();
+
+    // The hub forwards to a next once; coming back with it shows the line.
+    const toExample = `${install.origin("hub")}/?next=${encodeURIComponent(at(exampleSlug))}`;
+    await page.goto(toExample);
+    await page.waitForURL(at(exampleSlug));
+    await page.goto(toExample);
+    await page.getByRole("status").waitFor();
+    await page.getByText("Loading apps…").waitFor({ state: "detached" });
+    await check(page, "launcher-sent-back");
+
     await page.goto(at("admin"));
     await page.getByRole("heading", { name: "Access codes" }).waitFor();
     await page.getByRole("heading", { name: "Roles" }).waitFor();
@@ -92,6 +114,8 @@ export function testA11yJourney(dev: DevStack, prefix: string): void {
     expect(journey).toEqual({
       "hub-sign-in": [],
       launcher: [],
+      "hub-intro-question": [],
+      "launcher-sent-back": [],
       admin: [],
       example: [],
       added: [],

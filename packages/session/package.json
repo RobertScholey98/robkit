@@ -51,6 +51,7 @@
     "@internal/eslint-config": "workspace:*",
     "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
+    "@internal/vitest-config": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",

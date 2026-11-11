@@ -5,7 +5,7 @@
     "dev": "go run . dev",
     "typecheck": "go vet ./... && tsc",
     "lint": "gofmt -d .",
-    "test": "go test ./...",
+    "test": "go test ./... && vitest run",
     "build": "vite build && go build -o dist/server .",
     "start": "./dist/server migrate && ./dist/server",
     "migrate": "go run . migrate"
@@ -16,14 +16,19 @@
     "@robkit/react": "catalog:",
     "@robkit/vite": "catalog:",
     "@tailwindcss/vite": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "happy-dom": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "vitest": "catalog:"
   }
 }

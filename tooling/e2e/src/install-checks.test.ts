@@ -6,6 +6,7 @@ import { readyStacks } from "create-robkit";
 import { describe, expect, inject, it } from "vitest";
 import { freePortBlock } from "@internal/test-postgres";
 import { cleanPath } from "./clean-path.ts";
+import { nextImageAnswers } from "./next-images.ts";
 import { ownCiSteps, runOwnCi } from "./own-ci.ts";
 
 const run = promisify(execFile);
@@ -83,6 +84,25 @@ describe("the next install's example under next dev", () => {
     await expect(dev).rejects.toMatchObject({
       killed: false,
       stderr: expect.stringContaining("ROBKIT_APP is not set.") as string,
+    });
+  });
+});
+
+// Next's optimizer fetches a `public` file through its own server with
+// no cookie, so the guard refuses it. The Next stack's AGENTS.md says which
+// images work; this holds it, in the example after its CI built it.
+describe("the next install's example, built and behind the guard", () => {
+  it("serves an imported image and a public file, but not a public file through the optimizer", async () => {
+    const app = join(inject("checkInstalls").next, "apps", "example");
+
+    const answers = await nextImageAnswers(app);
+
+    const image = { status: 200, type: "image/png" };
+    expect(answers).toEqual({
+      publicFile: image,
+      publicFileSignedOut: { status: 401, type: "application/json" },
+      optimizedPublicFile: { status: 401, type: null },
+      optimizedImport: image,
     });
   });
 });

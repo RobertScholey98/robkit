@@ -5,6 +5,7 @@ import {
   CardFooter,
   CardHeader,
 } from "@internal/ui/components/ui/card";
+import { useState } from "react";
 import type { Shown } from "./visits.ts";
 
 function headingFor(kind: Shown["kind"]): string {
@@ -18,14 +19,35 @@ function headingFor(kind: Shown["kind"]): string {
   }
 }
 
-/** The page's card: who is asking, their visits, and a button for another. */
+/**
+ * The page's card: who is asking, their visits, and a button that records
+ * another with `visitAgain`. A failed call says so and keeps the last
+ * count, and the button is off while a call is out.
+ */
 export function HomeCard({
-  shown,
-  onVisitAgain,
+  first,
+  visitAgain,
 }: {
-  shown: Shown;
-  onVisitAgain: () => void;
+  first: Shown;
+  visitAgain: () => Promise<Shown>;
 }) {
+  const [shown, setShown] = useState(first);
+  const [sending, setSending] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function onVisitAgain() {
+    setSending(true);
+    try {
+      setShown(await visitAgain());
+      setFailed(false);
+    } catch (cause) {
+      console.error(cause);
+      setFailed(true);
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/50 p-6">
       <Card className="w-full max-w-sm">
@@ -42,9 +64,18 @@ export function HomeCard({
             </code>
           </p>
           <p data-testid="visits">{`Visits: ${String(shown.visits)}`}</p>
+          {failed && (
+            <p role="alert" className="text-destructive">
+              Couldn't record your visit. Try again.
+            </p>
+          )}
         </CardContent>
         <CardFooter>
-          <Button type="button" onClick={onVisitAgain}>
+          <Button
+            type="button"
+            disabled={sending}
+            onClick={() => void onVisitAgain()}
+          >
             Visit again
           </Button>
         </CardFooter>

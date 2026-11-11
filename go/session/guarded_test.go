@@ -326,9 +326,10 @@ func TestGuardRefusesAnotherOriginBeforeItReadsTheSession(t *testing.T) {
 
 func TestGuardTreatsATokenCoreDidntSignAsNoToken(t *testing.T) {
 	core := fakecore.Start(t)
-	forger := fakecore.NewKey(t, "key-1")
+	forger := fakecore.NewKey(t)
 
-	res := ownerOnly(t, core).get(core.Page, navigate, cookie(forger.Token(fakecore.TokenOptions{})))
+	// Naming core's kid, so the guard checks the signature against core's key.
+	res := ownerOnly(t, core).get(core.Page, navigate, cookie(forger.Token(fakecore.TokenOptions{Kid: core.Key.Kid})))
 
 	if res.status != 302 || !isRefreshLocation(res.location(), core.Page, core.Origin) {
 		t.Errorf("got %d %q, want a refresh redirect", res.status, res.location())
@@ -923,7 +924,7 @@ func TestGuardFetchesCoresKeysAgainForATokenWithAKeyItDoesntHold(t *testing.T) {
 	now := realClock()
 	open := guarded(t, core, session.Options{Access: guard.OwnerRule{}, Now: now.Now})
 	open.get(core.Page, navigate, cookie(core.Key.Token(fakecore.TokenOptions{Now: now.Now()})))
-	rotated := fakecore.NewKey(t, "key-2")
+	rotated := fakecore.NewKey(t)
 	core.Rotate(rotated)
 	now.advance(31 * time.Second)
 
@@ -939,7 +940,7 @@ func TestGuardWaitsHalfAMinuteBeforeFetchingCoresKeysAgain(t *testing.T) {
 	now := realClock()
 	open := guarded(t, core, session.Options{Access: guard.OwnerRule{}, Now: now.Now})
 	open.get(core.Page, navigate, cookie(core.Key.Token(fakecore.TokenOptions{Now: now.Now()})))
-	stranger := fakecore.NewKey(t, "key-2")
+	stranger := fakecore.NewKey(t)
 
 	for range 3 {
 		res := open.get(core.Page, navigate, cookie(stranger.Token(fakecore.TokenOptions{Now: now.Now()})))
@@ -998,7 +999,7 @@ func TestGuardReadsSomethingThatIsntATokenAsNoToken(t *testing.T) {
 		parts[0] + "." + parts[1],
 		parts[0] + "." + parts[1] + "." + parts[2] + "x",
 		parts[0] + "=." + parts[1] + "." + parts[2],
-		core.Key.Sign(map[string]any{"alg": "EdDSA", "kid": "key-1"}, "a string"),
+		core.Key.Sign(map[string]any{"alg": "EdDSA", "kid": core.Key.Kid}, "a string"),
 		core.Key.Sign("a string", map[string]any{}),
 	} {
 		res := open.open(http.MethodPost, core.Page, cookie(value))

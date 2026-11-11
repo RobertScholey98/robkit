@@ -111,7 +111,7 @@ sequenceDiagram
   A-->>B: checks the state, sets the app token cookie, 302 to next
 ```
 
-Core mints a token at `/refresh` only when `next` is on the exact origin of admin or an app in its catalog: protocol, host and port, which core works out from its own origin, `ROBKIT_CORE_URL`. The hub sends the browser back after sign-in only to an app's exact origin too.
+Core mints a token at `/refresh` only when `next` is on the exact origin of admin or an app in its catalog: protocol, host and port, which core works out from its own origin, `ROBKIT_CORE_URL`. The hub sends the browser on to `next` only on an app's exact origin too, after a sign-in or when it is signed in already, and to each `next` once in a tab's visit, so an app that sends a signed-in browser straight back can't loop it.
 
 If the app is open to anyone and nobody is signed in, the guard keeps core's word that nobody is signed in for a minute and lets the visitor in as nobody.
 
