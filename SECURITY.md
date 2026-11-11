@@ -8,7 +8,7 @@ Say what you found, how to reproduce it, and what an attacker could do with it. 
 
 ## The trust model
 
-An install trusts core, the hub, admin and the proxy in front of them. It trusts each app only with what that app needs to serve its own viewers. [docs/architecture.md](docs/architecture.md) shows the flows, and [docs/adr/](docs/adr/README.md) the reasons.
+An install trusts core, the hub, admin and the proxy in front of them. It trusts each app only with what that app needs to serve its own viewers. [docs/architecture.md](docs/architecture.md) shows the flows, and [docs/adr/](docs/adr/README.md) the reasons. Core's log holds no query parameters: a failed query is logged as its SQL with Postgres's code and names, so no access code, password hash or signing key reaches it.
 
 ### Only the proxy reaches core
 
