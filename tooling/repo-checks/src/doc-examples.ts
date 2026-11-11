@@ -29,7 +29,43 @@ export interface DocExample {
   code: string;
 }
 
+/** One fenced code block in a doc, whatever its language. */
+export interface Fence {
+  /** The doc, relative to the root, with forward slashes. */
+  file: string;
+  /** The doc's line that holds the fence's first line of code. */
+  line: number;
+  /** The fence's language, such as `ts` or `sh`, or `""` for none. */
+  lang: string;
+  /** The words after the language, such as `nocheck`. */
+  flags: string[];
+  code: string;
+}
+
 const fence = /^( *)(`{3,}|~{3,})\s*(.*)$/;
+
+/** Every fence in a markdown or MDX file, with a list item's indent taken off. */
+export function fencesIn(file: string, markdown: string): Fence[] {
+  const fences: Fence[] = [];
+  const lines = markdown.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const open = fence.exec(lines[i] ?? "");
+    if (!open) continue;
+    const [, indent = "", marker = "", info = ""] = open;
+    const end = lines.findIndex((text, j) => j > i && text.trim() === marker);
+    const close = end === -1 ? lines.length : end;
+    const [lang = "", ...flags] = info.trim().split(/\s+/);
+    const code = lines
+      .slice(i + 1, close)
+      .map((text) =>
+        text.startsWith(indent) ? text.slice(indent.length) : text,
+      )
+      .join("\n");
+    fences.push({ file, line: i + 2, lang, flags, code: `${code}\n` });
+    i = close;
+  }
+  return fences;
+}
 
 /**
  * Every `ts` and `tsx` fence in a markdown file, with a list item's indent
@@ -40,30 +76,11 @@ export function examplesIn(
   markdown: string,
   { nocheck = false }: { nocheck?: boolean } = {},
 ): DocExample[] {
-  const examples: DocExample[] = [];
-  const lines = markdown.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const open = fence.exec(lines[i] ?? "");
-    if (!open) continue;
-    const [, indent = "", marker = "", info = ""] = open;
-    const end = lines.findIndex((text, j) => j > i && text.trim() === marker);
-    const close = end === -1 ? lines.length : end;
-    const [lang, ...flags] = info.trim().split(/\s+/);
-    if (
-      (lang === "ts" || lang === "tsx") &&
-      (nocheck || !flags.includes("nocheck"))
-    ) {
-      const code = lines
-        .slice(i + 1, close)
-        .map((text) =>
-          text.startsWith(indent) ? text.slice(indent.length) : text,
-        )
-        .join("\n");
-      examples.push({ file, line: i + 2, lang, code: `${code}\n` });
-    }
-    i = close;
-  }
-  return examples;
+  return fencesIn(file, markdown).flatMap(({ line, lang, flags, code }) =>
+    (lang === "ts" || lang === "tsx") && (nocheck || !flags.includes("nocheck"))
+      ? [{ file, line, lang, code }]
+      : [],
+  );
 }
 
 /** The TypeScript examples in every doc the check covers. */
