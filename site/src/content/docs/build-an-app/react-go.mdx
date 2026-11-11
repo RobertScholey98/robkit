@@ -34,7 +34,9 @@ robkit's guard for Go isn't on a module proxy. `robkit add` copies it to the ins
 
 <TemplateFile path="stacks/go/go.mod" app="notes" />
 
-`pnpm robkit upgrade` replaces `vendor/robkit/go` whole, so don't edit it. The rest of this guide is about the files you edit: the table, the queries, the routes, the server and the test.
+An install made from a clone of robkit links to the clone, as the quickstart's does until the first release. There, `go.mod` points at the clone's `go` folder, and the install has no `vendor/robkit/go`.
+
+`pnpm robkit upgrade` replaces `vendor/robkit/go` whole, so don't edit it. In a linked install it has nothing to replace, and pulling the clone updates the module. The rest of this guide is about the files you edit: the table, the queries, the routes, the server and the test.
 
 ## The table
 
