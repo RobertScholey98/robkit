@@ -1,12 +1,12 @@
 // The weight limit in DESIGN.md: what a docs page's scripts weigh as it
 // opens, measured on the built page.
 
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { repoRoot } from "./repo.ts";
-import { scriptBudget } from "./site.ts";
+import { scriptBudget, searchBudget } from "./site.ts";
 
 const dist = join(repoRoot, "site", "dist");
 
@@ -57,6 +57,29 @@ describe("a docs page's scripts", () => {
 
     expect(guide).toContain(
       `come to at most ${String(scriptBudget / 1024)} KB gzipped`,
+    );
+  });
+});
+
+describe("what search fetches when it opens", () => {
+  it("weighs no more than the limit DESIGN.md records", async () => {
+    const files = await readdir(join(dist, "_astro"));
+    const dialog = files.filter((file) => /^search-dialog\..+\.js$/.test(file));
+    const bodies = await Promise.all([
+      readFile(join(dist, "search.json"), "utf8"),
+      ...dialog.map((file) => readFile(join(dist, "_astro", file), "utf8")),
+    ]);
+    const bytes = bodies.reduce((sum, body) => sum + gzipSync(body).length, 0);
+
+    expect(dialog).toHaveLength(1);
+    expect(bytes).toBeLessThanOrEqual(searchBudget);
+  });
+
+  it("has the limit DESIGN.md says", async () => {
+    const guide = await readFile(join(repoRoot, "site", "DESIGN.md"), "utf8");
+
+    expect(guide).toContain(
+      `search fetches the first time it opens, the dialog's script and the index, comes to at most ${String(searchBudget / 1024)} KB gzipped`,
     );
   });
 });

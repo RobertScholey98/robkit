@@ -8,6 +8,13 @@ export const repoUrl = "https://github.com/RobertScholey98/robkit";
  */
 export const scriptBudget = 10 * 1024;
 
+/**
+ * The most search may fetch the first time it opens, gzipped, in bytes:
+ * the dialog's script and the index. DESIGN.md records it, and
+ * `weight.test.ts` holds the build to it.
+ */
+export const searchBudget = 100 * 1024;
+
 /** The first docs page, where the header's "Docs" link goes. */
 export const docsHome = "/docs/get-started/what-you-need/";
 
