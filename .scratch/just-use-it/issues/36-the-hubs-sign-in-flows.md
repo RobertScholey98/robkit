@@ -25,7 +25,7 @@ The words on the question and on the "sent you back" line are the worker's, in t
 - [x] With core unreachable the launcher shows a failure to retry, not the sign-in page
 - [x] `SECURITY.md`'s known gaps no longer list the intro link, and the changeset says what an existing install copies
 - [x] axe still passes on every hub page in the whole-stack test
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -68,3 +68,11 @@ What a guest or an owner sees differently:
 - **Core can't be reached while the launcher is open.** The launcher stays, with core's sentence, such as "Couldn't reach core at https://core.example.com.", and a "Try again" button. Before, it showed the same sentence with no button.
 
 An app's author sees no change, and core's routes are the same.
+
+### Merged
+
+Added by the lead. PR 109 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `aba1446`. The lead read the diff and changed nothing.
+
+The map no longer lists the intro link among the known gaps.
+
+One thing for R to know, not a fault: the launcher now makes two calls to core at each poll, one for the session and one for the apps, where it made one.
