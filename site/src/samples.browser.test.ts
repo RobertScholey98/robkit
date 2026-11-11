@@ -216,12 +216,9 @@ describe("the stack switcher", () => {
 describe("the callouts", () => {
   it("say their kind in words, not by colour alone", async () => {
     const { page } = await openPage(site, path, { width: 375 });
-    const notes = page.getByRole("note");
+    const kinds = page.getByRole("note").locator(":scope > p:first-child");
 
-    expect(await notes.count()).toBe(2);
-    expect(await notes.first().locator("p").first().textContent()).toBe("Note");
-    expect(await notes.last().locator("p").first().textContent()).toBe(
-      "Warning",
-    );
+    // A note, a warning, then the pre-release line, which is a note.
+    expect(await kinds.allTextContents()).toEqual(["Note", "Warning", "Note"]);
   });
 });

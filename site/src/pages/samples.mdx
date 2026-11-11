@@ -1,5 +1,6 @@
 import CodeBlock from "../components/CodeBlock.astro";
 import Callout from "../components/Callout.astro";
+import PreRelease from "../components/PreRelease.astro";
 import StackSwitch from "../components/StackSwitch.astro";
 import TemplateFile from "../components/TemplateFile.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
@@ -129,6 +130,14 @@ Every new install has an access code, `test`, for signing in as a guest. It work
 `robkit deploy` sets its own variables in Coolify. Don't give one of yours a name from its table, or the next deploy replaces its value.
 
 </Callout>
+
+## A command before the first release
+
+```sh
+npm create robkit my-install
+```
+
+<PreRelease />
 
 </main>
 </BaseLayout>
