@@ -50,6 +50,8 @@ describe("search", () => {
     const { page: opened, requests } = await openPage(site, page, {
       width: 1280,
     });
+    // An eager fetch could come after the page has loaded.
+    await opened.waitForLoadState("networkidle");
 
     expect(searchFetches(requests)).toEqual([]);
 

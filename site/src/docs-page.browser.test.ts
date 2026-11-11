@@ -59,6 +59,8 @@ describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
     const { page, requests } = await openPage(site, path, { width });
     await page.getByRole("button", { name: "Dark theme" }).click();
     if (width === 375) await page.getByRole("button", { name: "Menu" }).click();
+    // A script could ask for something after the page has loaded.
+    await page.waitForLoadState("networkidle");
 
     expect(requests.length).toBeGreaterThan(1);
     expect(requests.filter((url) => !url.startsWith(site.origin))).toEqual([]);
