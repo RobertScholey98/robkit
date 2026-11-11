@@ -21,3 +21,9 @@ Found while writing the docs site's tickets 11 and 12, in apps `robkit add notes
 - [ ] The same holds for React + Express
 - [ ] The page links the stylesheet under `pnpm dev` and in the built app, as now
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### Still open after milestone 4, 2026-11-11
+
+I renumbered this ticket from 35, which milestone 4 gave to `35-robkit-sets-a-server-builds-layout.md`. Milestone 4 didn't fix the warning. In a React + Hono app that `robkit add notes` made from `docs-site` at `9b37e9d3`, `pnpm test` still prints it once for each test that renders the page. `src/routes.tsx` still links `styles` with `<link rel="stylesheet" href={styles} />`, and so does React + Express.
