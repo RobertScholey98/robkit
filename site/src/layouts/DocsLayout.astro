@@ -1,9 +1,10 @@
 ---
-// A docs page: the list of pages, the page, and its headings. The list is
-// a column from 64rem wide, and the phone menu below that. Without
-// scripts it stays in the page, so every link works with none.
+// A docs page: the sidebar, the page and its headings. The sidebar is a
+// column from 64rem wide and the phone menu below that. Without scripts
+// it stays in the page, so every link works with none.
 import type { MarkdownHeading } from "astro";
 import { getCollection } from "astro:content";
+import { buildNavigation } from "../navigation.ts";
 import BaseLayout from "./BaseLayout.astro";
 
 interface Props {
@@ -16,35 +17,45 @@ interface Props {
 
 const { title, description, headings, current } = Astro.props;
 
-// Ticket 03 builds the sections and their order from each page's front
-// matter. Until then every page is under "Get started".
-const pages = (await getCollection("docs")).map((entry) => ({
-  id: entry.id,
-  title: entry.data.title,
-  href: `/docs/${entry.id}/`,
-}));
+const navigation = buildNavigation(
+  (await getCollection("docs")).map(({ id, data }) => ({
+    id,
+    title: data.title,
+    section: data.section,
+    order: data.order,
+  })),
+);
+const place = navigation.places[current];
+if (place === undefined) throw new Error(`${current} isn't in the docs.`);
 const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
 ---
 
 <BaseLayout title={title} description={description} menu>
   <div class="docs">
     <nav id="site-nav" class="sidebar" aria-label="Docs">
-      <p class="section">Get started</p>
-      <ul>
-        {pages.map((page) => (
-          <li>
-            <a
-              href={page.href}
-              aria-current={page.id === current ? "page" : undefined}
-            >
-              {page.title}
-            </a>
-          </li>
-        ))}
-      </ul>
+      {navigation.sections.map((section, index) => (
+        <div class="section">
+          <p class="section-title" id={`section-${String(index)}`}>
+            {section.title}
+          </p>
+          <ul aria-labelledby={`section-${String(index)}`}>
+            {section.pages.map((page) => (
+              <li>
+                <a
+                  href={page.href}
+                  aria-current={page.id === current ? "page" : undefined}
+                >
+                  {page.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </nav>
     <main id="main" class="page" tabindex="-1">
       <header class="page-head">
+        <p class="eyebrow">{place.section}</p>
         <h1>{title}</h1>
         <p class="lead">{description}</p>
       </header>
@@ -88,7 +99,11 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
     list-style: none;
   }
 
-  .section {
+  .section + .section {
+    margin-top: var(--space-6);
+  }
+
+  .section-title {
     margin: 0 0 var(--space-2);
     padding: 0 var(--space-3);
     color: var(--color-muted);
@@ -183,6 +198,14 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
     .page {
       padding-inline: var(--space-8);
     }
+  }
+
+  .eyebrow {
+    margin: 0 0 var(--space-2);
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 600;
   }
 
   .page-head h1 {
