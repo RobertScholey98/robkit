@@ -774,8 +774,11 @@ describe("the pre-release line", () => {
       const html = await built(page);
       const line = html.includes("data-pre-release");
       // Shiki gives each word of a command its own tag, so read the text.
-      // The line says `npm create robkit` once itself.
-      const text = html.replaceAll(/<[^>]+>/g, "");
+      // The line says `npm create robkit` once itself, and a link in the
+      // sidebar or the pager that names its reference page shows nothing.
+      const text = html
+        .replaceAll(/<nav[\s\S]*?<\/nav>/g, "")
+        .replaceAll(/<[^>]+>/g, "");
       const mentions = text.split("npm create robkit").length - 1;
       pages.push({ page, shows: mentions > (line ? 1 : 0), line });
     }
