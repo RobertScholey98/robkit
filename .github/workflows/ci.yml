@@ -40,8 +40,10 @@ jobs:
             go/go.mod
             packages/create-robkit/templates/stacks/go/go.sum
       - run: pnpm install --frozen-lockfile
-      # The end-to-end journey drives the stack in Chromium.
-      - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
+      # The end-to-end journey drives the stack in Chromium. The browser
+      # alone: the runner's image has its libraries, and the fonts apt would
+      # add come from Ubuntu's mirrors, which a run can't always reach.
+      - run: pnpm --filter @internal/e2e exec playwright install chromium
       - run: pnpm check:all
         env:
           # Turbo writes each task's times to .turbo/runs/, for the summary.
