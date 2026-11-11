@@ -12,6 +12,8 @@
   },
   "devDependencies": {
     "@arethetypeswrong/core": "catalog:",
+    "@changesets/git": "catalog:",
+    "@changesets/read": "catalog:",
     "@hono/node-server": "catalog:",
     "@internal/eslint-config": "workspace:*",
     "@internal/tsconfig": "workspace:*",

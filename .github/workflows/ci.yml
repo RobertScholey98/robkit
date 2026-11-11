@@ -86,8 +86,8 @@ jobs:
       # The same check the commit-msg hook runs, on every commit but merges.
       - run: node tooling/repo-checks/src/check-commit-subjects.ts --range "$BASE..HEAD"
       - run: node tooling/repo-checks/src/check-coverage-thresholds.ts "$BASE"
-      # Fails when a published package's source changed without a changeset.
-      - run: pnpm changeset status --since="$BASE"
+      # Fails when a published package changed and no new changeset names it.
+      - run: node tooling/repo-checks/src/check-changesets.ts "$BASE"
       # Builds and packs every package as the release would publish it, and
       # checks the tarballs. It makes no call to npm.
       - run: pnpm release:dry-run

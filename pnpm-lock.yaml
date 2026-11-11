@@ -15,6 +15,12 @@ catalogs:
     '@changesets/cli':
       specifier: 3.0.3
       version: 3.0.3
+    '@changesets/git':
+      specifier: 4.0.1
+      version: 4.0.1
+    '@changesets/read':
+      specifier: 1.0.1
+      version: 1.0.1
     '@clack/prompts':
       specifier: 1.8.1
       version: 1.8.1
@@ -883,6 +889,12 @@ importers:
       '@arethetypeswrong/core':
         specifier: 'catalog:'
         version: 0.18.5
+      '@changesets/git':
+        specifier: 'catalog:'
+        version: 4.0.1
+      '@changesets/read':
+        specifier: 'catalog:'
+        version: 1.0.1
       '@hono/node-server':
         specifier: 'catalog:'
         version: 2.1.5(hono@4.13.14)

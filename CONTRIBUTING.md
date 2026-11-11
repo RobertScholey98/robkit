@@ -141,7 +141,7 @@ For a typo or a broken link, a ticket can be a few lines.
 - One branch and one pull request per ticket. Name the branch after the ticket, such as `22-app-slugs-checked-at-start`.
 - Open the pull request against `main`, or against the branch it builds on if it stacks on another ticket's.
 - Fill in the template, `.github/pull_request_template.md`: the ticket (CI checks that it names the ticket's file under `.scratch/`), what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
-- A change to a published package's `src`, or to create-robkit's `templates` (tests aside), needs a changeset. Run `pnpm changeset`, pick the packages and `patch`, and commit the file it writes.
+- A change to a published package's `src`, or to create-robkit's `templates` (tests aside), needs a changeset that names that package. Run `pnpm changeset`, pick each package you changed and `patch`, and commit the file it writes. A template change names create-robkit. CI fails a branch whose new changesets leave a changed package out, and names it.
 - A change an owner must do something about names create-robkit in its changeset too, and says what to do, such as "Add `ROBKIT_CORE_URL` to your install's `.env`". That holds for a change in any package, and in any file an install copies. `robkit upgrade` prints create-robkit's changelog between two versions, and a changeset writes only to the changelogs of the packages it names.
 - Before 1.0.0, a change that breaks an install is `minor`, never `major`. Every package releases at one version, so one `major` changeset would release 1.0.0, and a repo check fails on it.
 - CI's `gate` job passes only when every other job does. It is the one check a pull request needs.
