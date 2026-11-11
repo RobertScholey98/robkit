@@ -1,6 +1,6 @@
 import { readyStacks } from "create-robkit";
 import { describe, expect, it } from "vitest";
-import { missingStacks, switcherStacks } from "./stacks.ts";
+import { missingStacks, switcherStacks, type SwitcherStack } from "./stacks.ts";
 
 describe("switcherStacks", () => {
   it("are create-robkit's ready stacks, in its order, with their names", () => {
@@ -16,7 +16,7 @@ describe("switcherStacks", () => {
 });
 
 describe("missingStacks", () => {
-  const stacks = [
+  const stacks: SwitcherStack[] = [
     { value: "start", label: "TanStack Start" },
     { value: "go", label: "React + Go" },
   ];

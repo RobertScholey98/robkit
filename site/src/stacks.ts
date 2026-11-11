@@ -2,18 +2,23 @@
 // sixth stack shows up in every switcher, and a switcher without a sample
 // for it fails the build.
 
-import { readyStacks, stacks } from "create-robkit";
+import { readyStacks, stacks, type Stack } from "create-robkit";
 
 export interface SwitcherStack {
   /** What `--stack` takes, such as `react-hono`. */
-  value: string;
+  value: Stack;
   /** Its name, such as "React + Hono". */
   label: string;
 }
 
+const isReady = (value: string): value is Stack =>
+  (readyStacks as string[]).includes(value);
+
 /** The stacks robkit can make, in the order it offers them. */
 export const switcherStacks: SwitcherStack[] = stacks
-  .filter(({ value }) => (readyStacks as string[]).includes(value))
+  .filter((stack): stack is typeof stack & { value: Stack } =>
+    isReady(stack.value),
+  )
   .map(({ value, label }) => ({ value, label }));
 
 /**
