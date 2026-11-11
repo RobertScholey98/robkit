@@ -289,6 +289,22 @@ describe.each([
     ],
     parts: [],
   },
+  {
+    name: "Next.js",
+    stack: "next",
+    guide: "nextjs",
+    whole: [
+      "src/schema.ts",
+      "src/visits.ts",
+      "src/app/page.tsx",
+      "src/app/actions.ts",
+      "src/proxy.ts",
+      "next.config.ts",
+      "src/home.tsx",
+      "src/home.test.tsx",
+    ],
+    parts: [],
+  },
 ] as const)(
   "the built guide for $name",
   ({ name, stack, guide, whole, parts }) => {
@@ -318,7 +334,8 @@ describe.each([
         });
       }
       for (const { path, from } of parts) {
-        const text = await file(path);
+        // A part may end on the file's last line, which file() trims.
+        const text = `${await file(path)}\n`;
         const start = text.indexOf(from);
         expect(blocks).toContainEqual({
           label: `apps/notes/${path}`,

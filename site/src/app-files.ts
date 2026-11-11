@@ -75,6 +75,85 @@ function serverApp(server: string): TreeEntry[] {
 
 /** Each stack's files, from the app's folder, as its guide lists them. */
 export const appFiles = {
+  next: [
+    {
+      name: "src/",
+      about: "The app's code.",
+      children: [
+        {
+          name: "app/",
+          about:
+            "Next's app router. Each folder is a path, and its page.tsx the page there.",
+          children: [
+            {
+              name: "layout.tsx",
+              about: "The document every page sits in, and the stylesheet.",
+            },
+            {
+              name: "page.tsx",
+              about:
+                "The home page. It reads the viewer and draws src/home.tsx.",
+            },
+            {
+              name: "actions.ts",
+              about: "The server action that records a visit.",
+            },
+            {
+              name: "visit-again.tsx",
+              about: "The visit count and its button, as a client component.",
+            },
+            {
+              name: "visits/",
+              about: "The page at /visits.",
+              children: [
+                { name: "page.tsx", about: "The viewer's latest visits." },
+              ],
+            },
+          ],
+        },
+        { name: "schema.ts", about: "The app's tables." },
+        {
+          name: "database.ts",
+          about: "Connects to the app's own schema, on first use.",
+        },
+        {
+          name: "visits.ts",
+          about:
+            "The example's queries, and the plain function the action calls.",
+        },
+        {
+          name: "home.tsx",
+          about:
+            "The home page as a plain function of the viewer, which a test can call.",
+        },
+        {
+          name: "home.test.tsx",
+          about: "Tests the home page as the owner and as a guest.",
+        },
+        {
+          name: "proxy.ts",
+          about:
+            "Next's proxy. The guard runs here, before every page and action.",
+        },
+        { name: "serve.ts", about: "Serves the built app in production." },
+        {
+          name: "styles.css",
+          about: "Tailwind, with the install's shared UI kit and look.",
+        },
+      ],
+    },
+    ...drizzleFiles,
+    {
+      name: "next.config.ts",
+      about: "withRobkit(), with your own Next settings in its argument.",
+    },
+    { name: "postcss.config.js", about: "Runs Tailwind as a PostCSS plugin." },
+    {
+      name: ".gitignore",
+      about: "Leaves out next-env.d.ts, which next dev and next build write.",
+    },
+    ...appRootFiles,
+  ],
   start: [
     {
       name: "src/",
