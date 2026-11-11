@@ -49,3 +49,10 @@ When every file keeps to the rule, it prints nothing and exits 0.
 - **An app, from a shared package.** Move the code the package needs into it, or into another shared package.
 - **A file `robkit check` doesn't read.** Import a package by its name, never by a path into `node_modules`. Keep your own source out of `dist`, `build`, dot-folders and symlinked folders.
 
+## What it doesn't stop
+
+`robkit check` is a lint, not a boundary. It reads your source and catches an app that breaks the rule by mistake, not one written to get past it. So read an app's code before you add it to your install. Three things hold an app at runtime:
+
+- Its database role reaches its own schema and nothing else.
+- Its app token names its own slug, and no other app or core accepts it.
+- Its container's environment holds its own `DATABASE_URL` and none of core's secrets.
