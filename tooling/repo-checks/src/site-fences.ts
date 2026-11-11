@@ -1,5 +1,6 @@
 // The docs site's sh and go fences: each pnpm command a page shows is one
-// an install has, and each Go sample is as gofmt writes it.
+// an install has, or robkit's checkout has in a fence marked `checkout`,
+// and each Go sample is as gofmt writes it.
 
 import { spawnSync } from "node:child_process";
 import { glob, readFile } from "node:fs/promises";
@@ -44,6 +45,8 @@ export interface InstallCommands {
   robkit: readonly string[];
   /** The scripts the install's package.json has. */
   scripts: readonly string[];
+  /** The scripts robkit's own package.json has, for a fence marked `checkout`. */
+  checkout: readonly string[];
 }
 
 /** Each shell command in a fence, one per line, split at `&&`, `||`, `;` and `|`. */
@@ -59,7 +62,9 @@ function commandsIn(code: string): { offset: number; words: string[] }[] {
 
 /**
  * Each `pnpm robkit <command>` in an `sh` fence whose command `robkit`
- * doesn't run, and each `pnpm <script>` the install has no script for.
+ * doesn't run, and each `pnpm <script>` the install has no script for. A
+ * fence marked `checkout` runs in a clone of robkit, so its scripts are
+ * robkit's own.
  */
 export function commandProblems(
   fences: readonly Fence[],
@@ -67,28 +72,33 @@ export function commandProblems(
 ): string[] {
   return fences
     .filter(({ lang }) => lang === "sh")
-    .flatMap(({ file, line, code }) =>
-      commandsIn(code).flatMap(({ offset, words: [first, name, sub] }) => {
-        const at = `${file}:${String(line + offset)}`;
-        if (first !== "pnpm" || name === undefined || name.startsWith("-")) {
-          return [];
-        }
-        if (name === "robkit") {
-          return sub !== undefined && install.robkit.includes(sub)
+    .flatMap(({ file, line, code, flags }) => {
+      const [scripts, owner] = flags.includes("checkout")
+        ? [install.checkout, "robkit's own package.json"]
+        : [install.scripts, "an install's package.json"];
+      return commandsIn(code).flatMap(
+        ({ offset, words: [first, name, sub] }) => {
+          const at = `${file}:${String(line + offset)}`;
+          if (first !== "pnpm" || name === undefined || name.startsWith("-")) {
+            return [];
+          }
+          if (name === "robkit") {
+            return sub !== undefined && install.robkit.includes(sub)
+              ? []
+              : [
+                  `${at}: robkit has no ${sub === undefined ? "command there" : `${sub} command`}. Its commands are ${install.robkit.join(", ")}.`,
+                ];
+          }
+          const script = name === "run" ? sub : name;
+          if (name !== "run" && pnpmCommands.has(name)) return [];
+          return script !== undefined && scripts.includes(script)
             ? []
             : [
-                `${at}: robkit has no ${sub === undefined ? "command there" : `${sub} command`}. Its commands are ${install.robkit.join(", ")}.`,
+                `${at}: ${owner} has no ${String(script)} script, and it isn't one of pnpm's own commands. Its scripts are ${scripts.join(", ")}.`,
               ];
-        }
-        const script = name === "run" ? sub : name;
-        if (name !== "run" && pnpmCommands.has(name)) return [];
-        return script !== undefined && install.scripts.includes(script)
-          ? []
-          : [
-              `${at}: an install's package.json has no ${String(script)} script, and it isn't one of pnpm's own commands. Its scripts are ${install.scripts.join(", ")}.`,
-            ];
-      }),
-    );
+        },
+      );
+    });
 }
 
 /**

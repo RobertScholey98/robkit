@@ -9,17 +9,23 @@ import {
   siteFences,
 } from "./site-fences.ts";
 
-const fence = (lang: string, code: string, line = 10): Fence => ({
+const fence = (
+  lang: string,
+  code: string,
+  line = 10,
+  flags: string[] = [],
+): Fence => ({
   file: "site/src/content/docs/a.mdx",
   line,
   lang,
-  flags: [],
+  flags,
   code,
 });
 
 const install = {
   robkit: ["add", "check"],
   scripts: ["dev", "lint", "robkit"],
+  checkout: ["build", "create-install"],
 };
 
 describe("commandProblems", () => {
@@ -70,6 +76,26 @@ describe("commandProblems", () => {
   });
 });
 
+describe("commandProblems on a fence marked checkout", () => {
+  it("reads its scripts from robkit's own package.json", () => {
+    expect(
+      commandProblems(
+        [
+          fence(
+            "sh",
+            "pnpm install\npnpm create-install ../my-install\npnpm dev\n",
+            20,
+            ["checkout"],
+          ),
+        ],
+        install,
+      ),
+    ).toEqual([
+      "site/src/content/docs/a.mdx:22: robkit's own package.json has no dev script, and it isn't one of pnpm's own commands. Its scripts are build, create-install.",
+    ]);
+  });
+});
+
 describe("goFormatProblems", () => {
   it("passes Go as gofmt writes it, and names Go it would change or can't read", () => {
     const formatted =
@@ -93,22 +119,25 @@ describe("goFormatProblems", () => {
 
 describe("the site's pages", async () => {
   const fences = await siteFences(repoRoot);
-  const { scripts } = JSON.parse(
-    await readFile(
-      join(repoRoot, "packages/create-robkit/templates/base/package.json"),
-      "utf8",
-    ),
-  ) as { scripts: Record<string, string> };
+  const scriptsOf = async (path: string) =>
+    Object.keys(
+      (
+        JSON.parse(await readFile(join(repoRoot, path), "utf8")) as {
+          scripts: Record<string, string>;
+        }
+      ).scripts,
+    );
+  const scripts = await scriptsOf(
+    "packages/create-robkit/templates/base/package.json",
+  );
+  const checkout = await scriptsOf("package.json");
 
   it("show only commands robkit runs and scripts an install has", () => {
     expect(fences.filter(({ lang }) => lang === "sh").length).toBeGreaterThan(
       0,
     );
     expect(
-      commandProblems(fences, {
-        robkit: robkitCommands,
-        scripts: Object.keys(scripts),
-      }),
+      commandProblems(fences, { robkit: robkitCommands, scripts, checkout }),
     ).toEqual([]);
   });
 
