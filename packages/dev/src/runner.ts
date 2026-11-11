@@ -102,7 +102,7 @@ export async function runDev(
     coreUrl: addresses.origin("core"),
     catalog: catalogOf(apps),
   };
-  const own = await ownSettings(facts, apps);
+  const own = await ownSettings(apps);
   // An app with a go.mod runs on Go. Say so before anything starts.
   if (apps.some((app) => existsSync(join(app.dir, "go.mod")))) {
     await requireGo(env);
@@ -285,7 +285,7 @@ export async function runDev(
       manifest: file.manifest,
     };
     const about = { ...facts, catalog: catalogOf([...apps, app]) };
-    own.set(slug, (await ownSettings(about, [app])).get(slug) ?? {});
+    own.set(slug, (await ownSettings([app])).get(slug) ?? {});
     const provisioned = await provisionApps([app], {
       adminUrl,
       envFor: (each, databaseUrl) => envFor(each, databaseUrl, about),

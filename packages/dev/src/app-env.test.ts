@@ -70,7 +70,7 @@ describe("an app's own settings", () => {
     await writeFile(join(dir, ".env"), "NOTES_TEST_SETTING=set\n");
     const before = { ...process.env };
 
-    const own = await ownSettings(install, [{ ...notes, dir }]);
+    const own = await ownSettings([{ ...notes, dir }]);
 
     expect(own.get(notes.slug)).toEqual({ NOTES_TEST_SETTING: "set" });
     expect(process.env).toEqual(before);
@@ -79,7 +79,7 @@ describe("an app's own settings", () => {
   it("gives an app without a .env no settings of its own", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-app-env-"));
 
-    const own = await ownSettings(install, [{ ...notes, dir }]);
+    const own = await ownSettings([{ ...notes, dir }]);
 
     expect(own.get(notes.slug)).toEqual({});
   });
@@ -104,7 +104,7 @@ describe("what an app's .env can't set", () => {
   ])("refuses %s, which pnpm dev decides for each app", async (name) => {
     const app = await appWith(`${name}=mine\n`);
 
-    await expect(ownSettings(install, [app])).rejects.toEqual(
+    await expect(ownSettings([app])).rejects.toEqual(
       new CommandProblem(
         `apps/notes/.env sets ${name}, which pnpm dev decides for each app. Remove it from the file.`,
       ),
@@ -116,7 +116,7 @@ describe("what an app's .env can't set", () => {
     async (name) => {
       const app = await appWith(`${name}=mine\n`);
 
-      await expect(ownSettings(install, [app])).rejects.toEqual(
+      await expect(ownSettings([app])).rejects.toEqual(
         new CommandProblem(
           `apps/notes/.env sets ${name}, and a name that starts ROBKIT_ is robkit's own. Remove it from the file. robkit's settings for pnpm dev go in the .env at the install's root.`,
         ),
@@ -127,7 +127,7 @@ describe("what an app's .env can't set", () => {
   it("refuses NODE_ENV, which decides whether a test helper serves", async () => {
     const app = await appWith("NODE_ENV=test\n");
 
-    await expect(ownSettings(install, [app])).rejects.toEqual(
+    await expect(ownSettings([app])).rejects.toEqual(
       new CommandProblem(
         "apps/notes/.env sets NODE_ENV, which decides whether a test helper such as guardedAs() serves. Remove it from the file.",
       ),
@@ -140,7 +140,7 @@ describe("what an app's .env can't set", () => {
     await writeFile(join(dir, ".env"), "NODE_ENV=test\n");
     const ledger = { slug: slug("ledger"), port: 3005, dir };
 
-    const refused = await ownSettings(install, [notesApp, ledger]).catch(
+    const refused = await ownSettings([notesApp, ledger]).catch(
       (error: unknown) => error,
     );
 
@@ -178,7 +178,7 @@ describe("Next's telemetry", () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-app-env-"));
     await writeFile(join(dir, ".env"), "NEXT_TELEMETRY_DISABLED=0\n");
 
-    const own = await ownSettings(install, [{ ...notes, dir }]);
+    const own = await ownSettings([{ ...notes, dir }]);
 
     expect(own.get(notes.slug)).toEqual({ NEXT_TELEMETRY_DISABLED: "0" });
   });
