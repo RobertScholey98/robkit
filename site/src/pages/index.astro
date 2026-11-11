@@ -1,0 +1,32 @@
+---
+// The home page, plain until the site has a design. It shows the README's
+// quickstart commands, read as the site builds.
+import { quickstartCommands } from "../readme.ts";
+import { readRepoFile } from "../repo.ts";
+
+const readme = await readRepoFile("README.md");
+const commands = quickstartCommands(readme, "README.md");
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>robkit</title>
+    <meta
+      name="description"
+      content="robkit is a kit for self-hosting small apps for your friends and family."
+    />
+  </head>
+  <body>
+    <main>
+      <h1>robkit</h1>
+      <p>
+        robkit is a kit for self-hosting small apps for your friends and family.
+      </p>
+      <h2>Start an install</h2>
+      <pre><code>{commands.join("\n")}</code></pre>
+    </main>
+  </body>
+</html>

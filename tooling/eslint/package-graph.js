@@ -31,7 +31,7 @@ export const toolchain = ["@internal/eslint-config", "@internal/tsconfig"];
  * lists part.
  * @type {readonly string[]}
  */
-export const packageFolders = ["packages/*", "tooling/*"];
+export const packageFolders = ["packages/*", "tooling/*", "site"];
 
 /** @type {PackageGraph} */
 export const packageGraph = {
@@ -133,6 +133,8 @@ export const packageGraph = {
     dependencies: [],
     devDependencies: ["@robkit/guard", "@robkit/input"],
   },
+  // robkit.dev, the docs site. Private, and built to static files.
+  "@internal/site": { dependencies: [], devDependencies: [] },
   // Packs and checks every published package.
   "@internal/repo-checks": {
     dependencies: [],

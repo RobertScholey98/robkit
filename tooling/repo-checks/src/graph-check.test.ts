@@ -305,7 +305,7 @@ describe("layerConflicts", () => {
 });
 
 describe("the robkit workspace", () => {
-  it("reads every JavaScript package pnpm-workspace.yaml lists", async () => {
+  it("reads every JavaScript package pnpm-workspace.yaml lists, the site among them", async () => {
     const workspace: unknown = parse(
       await readFile(join(root, "pnpm-workspace.yaml"), "utf8"),
     );
@@ -316,6 +316,9 @@ describe("the robkit workspace", () => {
 
     // go/ is the Go module, which has no JavaScript for these checks.
     expect([...packageFolders, "go"].sort()).toEqual(listed.sort());
+    expect((await readWorkspace(root)).map(({ folder }) => folder)).toContain(
+      "site",
+    );
   });
 
   it("keeps every package but the repo checks off core, as the layer ESLint rule does", async () => {

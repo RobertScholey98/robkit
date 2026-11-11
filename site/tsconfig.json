@@ -1,0 +1,13 @@
+{
+  "extends": "@internal/tsconfig/base.json",
+  "compilerOptions": {
+    // Astro bundles the site, so imports resolve as Vite resolves them.
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2024", "dom", "dom.iterable"],
+    "jsx": "preserve",
+    "types": ["node"]
+  },
+  "include": [".astro/types.d.ts", "src", "*.ts", "*.js"],
+  "exclude": ["dist"]
+}

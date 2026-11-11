@@ -1,0 +1,33 @@
+{
+  "name": "@internal/site",
+  "version": "0.0.0",
+  "private": true,
+  "description": "robkit.dev, the docs site. Astro builds it to static files in dist.",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "lint": "eslint .",
+    "typecheck": "astro check && tsc",
+    "test": "vitest run --coverage",
+    "test:unit": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@astrojs/check": "catalog:",
+    "@astrojs/mdx": "catalog:",
+    "@internal/eslint-config": "workspace:*",
+    "@internal/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "astro": "catalog:",
+    "eslint": "catalog:",
+    "eslint-plugin-astro": "catalog:",
+    "prettier": "catalog:",
+    "prettier-plugin-astro": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

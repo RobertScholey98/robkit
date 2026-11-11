@@ -118,13 +118,16 @@ export const layers = [
   ...coreRows(packageGraph, folders),
 ];
 
-/** The workspace a file belongs to, such as `packages/guard`. */
+/**
+ * The workspace a file belongs to: one folder deep, such as `site`, or
+ * two, such as `packages/guard`.
+ */
 export function workspaceOf(/** @type {string} */ filename) {
-  return relative(repoRoot, filename)
+  const segments = relative(repoRoot, filename)
     .replaceAll("\\", "/")
-    .split("/")
-    .slice(0, 2)
-    .join("/");
+    .split("/");
+  const [first = ""] = segments;
+  return workspaces.has(first) ? first : segments.slice(0, 2).join("/");
 }
 
 /** @param {string} specifier */

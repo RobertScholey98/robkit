@@ -50,6 +50,20 @@
         "$TURBO_ROOT$/pnpm-workspace.yaml"
       ]
     },
+    "@internal/site#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/README.md"]
+    },
+    "@internal/site#test": {
+      "dependsOn": ["^build", "build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/README.md"]
+    },
+    "@internal/site#test:unit": {
+      "dependsOn": ["^build", "build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/README.md"]
+    },
     "@internal/go#test": {
       "inputs": [
         "$TURBO_DEFAULT$",
