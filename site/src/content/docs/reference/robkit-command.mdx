@@ -1,0 +1,125 @@
+---
+title: The robkit command
+description: Every robkit command an install runs, with its options, an example of what it prints, and what makes it refuse.
+section: Reference
+order: 2
+describes:
+  - packages/create-robkit/src/robkit-command.ts
+  - packages/create-robkit/src/robkit-commands.ts
+  - packages/create-robkit/src/add-wizard.ts
+  - packages/create-robkit/src/add.ts
+  - packages/create-robkit/src/dev-answers.ts
+  - packages/create-robkit/src/upgrade.ts
+  - packages/create-robkit/src/check.ts
+  - packages/create-robkit/src/vendor.ts
+  - packages/create-robkit/src/deployment.ts
+  - packages/create-robkit/src/env.ts
+---
+
+Each install has a `robkit` command for its apps and its upgrades. Run it with `pnpm robkit <command>` in the install's folder:
+
+```sh
+pnpm robkit add notes
+```
+
+Every command refuses a folder with no `robkit.json`, which init writes, and says to run it in an install's folder. A command given an option it doesn't take, or more arguments than it takes, prints the usage text of every command and exits 1. So does `pnpm robkit` with a command it doesn't have.
+
+## robkit add
+
+Adds an app to `apps/<name>`, from a stack's template or your install's own. With no options it asks for each, and then prints the same command with options. With any option it asks nothing, and needs the name.
+
+- `--stack <stack>`. The stack, one of `start`, `react-hono`, `express`, `next` or `go`. By default, `start`.
+- `--access <rule>`. Who may open the app, `owner` for only you, `open` for anyone signed in or not, or `roles` for some guests. By default, `owner`.
+- `--roles <role,...>`. The guest roles that may open it, with `--access roles` only.
+- `--icon <emoji>`. The emoji the hub's launcher shows for it. By default, 📦.
+
+With `pnpm dev` running, `pnpm dev` starts the new app at once:
+
+```text title="What it prints"
+Added apps/notes. pnpm dev started notes at http://notes.robkit.localhost:3000.
+```
+
+It refuses:
+
+- A name that isn't a slug, one of the platform apps `core`, `hub` and `admin`, or an app the install already has.
+- A stack, an access rule or a role list it doesn't take. `--access roles` needs `--roles` with at least one role, and `--roles` goes only with `--access roles`.
+
+[pnpm dev and your apps](/docs/run-an-install/pnpm-dev-and-your-apps/#add-an-app) says what happens with and without `pnpm dev` running, and how to use a template of your own.
+
+## robkit migrate
+
+Asks the `pnpm dev` running in the install to run an app's migrate script, so a new migration applies with no restart. It takes the app's slug.
+
+```text title="What it prints"
+pnpm dev migrated notes.
+```
+
+It refuses:
+
+- No slug, or a name that isn't one.
+- No `pnpm dev` running in the install. Start `pnpm dev`, which migrates every app as it starts.
+- An app `pnpm dev` isn't running, or one with no migrate script when `pnpm dev` started it.
+
+## robkit upgrade
+
+Moves the install to a newer robkit, the newest or the version you give. It updates robkit's catalog entries, its lint policy and its Go module, and never your apps.
+
+It takes one version, such as `0.2.0`, or none for the newest. An install made from a clone links to robkit's packages there, so it has nothing to move:
+
+```text title="What it prints"
+This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.
+```
+
+It refuses a change that isn't committed, a running `pnpm dev`, a link where it writes, and a version that isn't newer than the install's. [Upgrading robkit](/docs/run-an-install/upgrading/) has each refusal, what it changes and how to undo one.
+
+## robkit check
+
+Checks that every app and shared package in the install keeps to [the layer rule](/docs/build-an-app/the-layer-rule/). It takes no options. It prints nothing and exits 0 when every file keeps to it, and otherwise prints a line for each place one breaks it, and exits 1:
+
+```text title="What it prints"
+apps/example/src/core.ts:1:28  Layer rule: an app or shared package reaches core over HTTP only, never through @robkit/core.
+```
+
+`pnpm lint` runs it first, so a break stops the lint too.
+
+## robkit vendor
+
+In an install made with `--link`, packs the robkit packages it links to into `vendor/robkit`, and points the install at them, so it builds without the checkout. It copies robkit's Go module there too. It takes no options.
+
+```text title="What it prints"
+Packed robkit's packages into vendor/robkit. Commit it with the install.
+```
+
+It refuses an install that doesn't link to a robkit checkout, and one whose checkout lacks a package or the Go module it links to.
+
+## robkit database-urls
+
+Prints the `DATABASE_URL` of each app with a migrate script, core included, as `KEY=value` lines to set once as shared variables on your host. It reads the host's Postgres admin URL from `ROBKIT_ADMIN_DATABASE_URL`, and the install's database secret from `ROBKIT_DB_SECRET`. It takes no options.
+
+```text title="What it prints"
+CORE_DATABASE_URL=postgres://core:<the password robkit derives>@db.example.com:5432/postgres
+EXAMPLE_DATABASE_URL=postgres://example:<the password robkit derives>@db.example.com:5432/postgres
+```
+
+It refuses an admin URL that isn't a `postgres://` URL, and a secret that's missing or shorter than 32 characters.
+
+## robkit deploy
+
+Brings the install's applications on Coolify in line with the install, as `coolify.json` describes it, then deploys them, core first. It reads `COOLIFY_URL` and `COOLIFY_TOKEN`. By default it deploys each app that is new, changed since its last deploy, or getting new variables.
+
+- `--all`. Deploy every app.
+- `--apps <list>`. Deploy the apps named, by slug, with commas between them.
+- `--dry-run`. Read Coolify and write nothing to it, and print what each app would do and why. With no `COOLIFY_URL`, print each app's variables instead.
+
+With no `COOLIFY_URL` and no `--dry-run`, it deploys nothing, as in an install's CI before Coolify is set up:
+
+```text title="What it prints"
+COOLIFY_URL is not set, so nothing was deployed.
+```
+
+It refuses:
+
+- An install with no `coolify.json`.
+- A `COOLIFY_URL` that isn't a web address, or no `COOLIFY_TOKEN` with it.
+- A commit that isn't pushed to the branch `coolify.json` names, since that is what Coolify builds.
+- An `--apps` list with a name that isn't a slug.

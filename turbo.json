@@ -62,6 +62,7 @@
         "$TURBO_ROOT$/GLOSSARY.md",
         "$TURBO_ROOT$/SECURITY.md",
         "$TURBO_ROOT$/docs/architecture.md",
+        "$TURBO_ROOT$/packages/create-robkit/src/**",
         "$TURBO_ROOT$/packages/create-robkit/templates/**"
       ]
     },
@@ -74,6 +75,7 @@
         "$TURBO_ROOT$/GLOSSARY.md",
         "$TURBO_ROOT$/SECURITY.md",
         "$TURBO_ROOT$/docs/architecture.md",
+        "$TURBO_ROOT$/packages/create-robkit/src/**",
         "$TURBO_ROOT$/packages/create-robkit/templates/**"
       ]
     },
@@ -85,6 +87,7 @@
         "$TURBO_ROOT$/GLOSSARY.md",
         "$TURBO_ROOT$/SECURITY.md",
         "$TURBO_ROOT$/docs/architecture.md",
+        "$TURBO_ROOT$/packages/create-robkit/src/**",
         "$TURBO_ROOT$/packages/create-robkit/templates/**"
       ]
     },
