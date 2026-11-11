@@ -15,9 +15,11 @@ interface Props {
   description: string;
   /** Whether the header has the button that opens the list of pages. */
   menu?: boolean;
+  /** Whether search engines should leave the page out, as the samples page asks. */
+  noindex?: boolean;
 }
 
-const { title, description, menu = false } = Astro.props;
+const { title, description, menu = false, noindex = false } = Astro.props;
 const pageTitle = title === "robkit" ? title : `${title} | robkit`;
 ---
 
@@ -28,6 +30,7 @@ const pageTitle = title === "robkit" ? title : `${title} | robkit`;
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
     <script is:inline>
       document.documentElement.dataset.js = "";
       try {

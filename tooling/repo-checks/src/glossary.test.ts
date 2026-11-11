@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, onTestFinished } from "vitest";
 import {
@@ -167,6 +167,33 @@ describe("readScannedFiles", () => {
         'packages/create-robkit/templates/base/apps/hub/src/intro.ts:1 says "magic link", which GLOSSARY.md avoids. Say "Intro link" instead.',
       ],
     );
+  });
+});
+
+describe("readScannedFiles on the site", () => {
+  it("reads its MDX and .astro pages, and not its style guide", async () => {
+    const fixture = await mkdtemp(join(tmpdir(), "robkit-glossary-"));
+    onTestFinished(() => rm(fixture, { recursive: true, force: true }));
+    const files = {
+      "site/src/content/docs/get-started/a.mdx": "Send a magic link.\n",
+      "site/src/pages/index.astro": "<p>A magic link.</p>\n",
+      "site/DESIGN.md": "A magic link.\n",
+    };
+    for (const [path, text] of Object.entries(files)) {
+      await mkdir(dirname(join(fixture, path)), { recursive: true });
+      await writeFile(join(fixture, path), text);
+    }
+
+    expect(
+      glossaryProblems(
+        await readScannedFiles(fixture),
+        avoidWords(glossary),
+        noExceptions,
+      ),
+    ).toEqual([
+      'site/src/content/docs/get-started/a.mdx:1 says "magic link", which GLOSSARY.md avoids. Say "Intro link" instead.',
+      'site/src/pages/index.astro:1 says "magic link", which GLOSSARY.md avoids. Say "Intro link" instead.',
+    ]);
   });
 });
 

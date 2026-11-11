@@ -33,16 +33,18 @@
     "tooling/repo-checks": {
       // Not imported: listed so turbo builds them before the packed-package
       // and API report checks read their dist.
-      // The rest are imported only by the docs' examples, which
-      // doc-examples.test.ts compiles from here.
+      // The rest are imported only by the docs' and the site's examples,
+      // which doc-examples.test.ts compiles from here.
       "ignoreDependencies": [
         "@robkit/*",
         "@hono/node-server",
         "@tanstack/react-start",
         "@types/express",
+        "@types/react",
         "drizzle-orm",
         "express",
         "hono",
+        "react",
       ],
     },
   },
