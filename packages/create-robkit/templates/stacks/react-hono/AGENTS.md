@@ -32,7 +32,7 @@ Set it in the handler, with `c.header("Content-Security-Policy", ...)`, or in mi
 ## Serving
 
 - `pnpm dev` runs Vite. `devServer()` in `vite.config.ts` hands every request Vite doesn't answer itself to the Hono app in `src/server.tsx`. Don't listen in `src/server.tsx`.
-- `pnpm build` builds `src/serve.ts` into `dist/serve.js`, and the stylesheet the page links into `dist/assets`. The production image runs the `start` script, which migrates and then runs it.
+- `pnpm build` builds `src/serve.ts` into `dist/serve.js`, and the stylesheet the page links into `dist/assets`. `robkit({ serve: "src/serve.ts" })` in `vite.config.ts` sets that layout, so the config has no `build` block. Leave out `build.ssr`, `build.outDir` and `build.ssrEmitAssets`: another value stops the build with a message that names the setting. The production image runs the `start` script, which migrates and then runs it.
 - `src/serve.ts` calls `serve(server)` from `@robkit/hono/serve`. It listens on `HOST` and `PORT`, answers `dist/assets` under `/assets` and this app's `public` folder at the root, hands every other request to the app, and stops on SIGTERM. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
 - Built files are public. `serve` answers `dist/assets`, and every file in `public`, before the guard runs, so put nothing there that a viewer shouldn't see.
 - `dependencies` are what the server imports when it runs. The production image installs only those, so a package the server needs that sits in `devDependencies` is missing there.
@@ -55,7 +55,7 @@ The guard already asks core for what it needs: core's public key and this app's 
 
 The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes no settings. When one is missing or won't do, it prints what to fix and stops the app. Don't read them for the guard yourself.
 
-`vite.config.ts` calls `robkit()` from `@robkit/vite` first, which sets the dev server up for `pnpm dev`: it listens on `PORT`, answers `<slug>.<domain>`, and stops the dev server as it starts, with the same message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. It changes nothing under Vitest or for a build. The rest of the config, such as Tailwind and `build`, is the app's own.
+`vite.config.ts` calls `robkit()` from `@robkit/vite` first, which sets the dev server up for `pnpm dev`: it listens on `PORT`, answers `<slug>.<domain>`, and stops the dev server as it starts, with the same message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. It changes nothing under Vitest, and for a build it sets only the layout `serve` names. The rest of the config, such as Tailwind, is the app's own.
 
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
