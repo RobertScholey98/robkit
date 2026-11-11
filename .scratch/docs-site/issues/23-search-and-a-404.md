@@ -19,7 +19,7 @@ Design both with `/ui-ux-pro-max`.
 - [x] Until the reader opens search, the page fetches no search code and no index, and stays under the size ticket 02 recorded
 - [x] A path that doesn't exist gets the 404 page, with search and a link home
 - [x] axe finds nothing on the open search or the 404 page, in either theme
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -66,3 +66,7 @@ Design both with `/ui-ux-pro-max`.
 **What milestone 4 and ticket 26 change**
 
 - Nothing. A new page or section shows up in the index at the next build.
+
+### Merged
+
+Added by the lead. PR 145 merged into `docs-site` on 2026-11-11 as `431f47e4`, with `gate` green on `bd24ce6`.
