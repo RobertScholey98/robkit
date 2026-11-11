@@ -138,6 +138,6 @@ The app's data stays. Its Postgres schema and role are still there, and a new ap
 docker compose exec postgres psql -U postgres -d robkit -c 'drop owned by notes; drop role notes;'
 ```
 
-A slug that comes back is a new app, whether you add one with that slug or bring the folder back, such as by switching to a branch that has it. Core gives it the rule its `package.json` declares, or owner only, and none of the old roles, so set its rule in admin again.
+A slug that comes back is a new app, whether you add one with that slug or bring the folder back, such as by switching to a branch that has it. Core gives it the rule its `package.json` declares, or owner only, and not the rule you last set in admin, so set that again.
 
 In production, deleting the folder doesn't stop the app. `robkit deploy` redeploys core, which takes the app out, but its container runs until you delete its application in Coolify. The install's `docs/deploy.md` says how.
