@@ -5,6 +5,33 @@
 import type { Stack } from "create-robkit";
 import { treePaths, type TreeEntry } from "./install-tree.ts";
 
+/** The migrations, and drizzle-kit's settings, for an app on Drizzle. */
+const drizzleFiles: TreeEntry[] = [
+  {
+    name: "drizzle/",
+    about: "The migrations. pnpm db:generate writes the next one.",
+  },
+  {
+    name: "drizzle.config.ts",
+    about: "Where drizzle-kit finds the tables and writes the migrations.",
+  },
+];
+
+/** The files at the top of an app's folder on a Node stack. */
+const appRootFiles: TreeEntry[] = [
+  {
+    name: "package.json",
+    about:
+      "The app's scripts and packages, its emoji, and the access rule core starts from.",
+  },
+  { name: "tsconfig.json", about: "TypeScript's settings." },
+  {
+    name: "AGENTS.md",
+    about: "How the app works, for a coding agent, and for you.",
+  },
+  { name: "CLAUDE.md", about: "Points Claude Code at AGENTS.md." },
+];
+
 /**
  * An app on React and a Node server that Vite runs, as `robkit add` writes
  * it. `server` says what `src/server.tsx` holds.
@@ -37,34 +64,81 @@ function serverApp(server: string): TreeEntry[] {
         },
       ],
     },
-    {
-      name: "drizzle/",
-      about: "The migrations. pnpm db:generate writes the next one.",
-    },
-    {
-      name: "drizzle.config.ts",
-      about: "Where drizzle-kit finds the tables and writes the migrations.",
-    },
+    ...drizzleFiles,
     {
       name: "vite.config.ts",
       about: "Runs the app under pnpm dev, and builds it for production.",
     },
-    {
-      name: "package.json",
-      about:
-        "The app's scripts and packages, its emoji, and the access rule core starts from.",
-    },
-    { name: "tsconfig.json", about: "TypeScript's settings." },
-    {
-      name: "AGENTS.md",
-      about: "How the app works, for a coding agent, and for you.",
-    },
-    { name: "CLAUDE.md", about: "Points Claude Code at AGENTS.md." },
+    ...appRootFiles,
   ];
 }
 
 /** Each stack's files, from the app's folder, as its guide lists them. */
 export const appFiles = {
+  start: [
+    {
+      name: "src/",
+      about: "The app's code.",
+      children: [
+        {
+          name: "routes/",
+          about: "One file for each route. Start reads the routes from here.",
+          children: [
+            {
+              name: "__root.tsx",
+              about:
+                "The document every page sits in: its head, the stylesheet and Start's scripts.",
+            },
+            {
+              name: "index.tsx",
+              about: "The page, its loader, and the server functions it calls.",
+            },
+          ],
+        },
+        { name: "schema.ts", about: "The app's tables." },
+        {
+          name: "database.ts",
+          about: "Connects to the app's own schema, on first use.",
+        },
+        {
+          name: "visits.ts",
+          about:
+            "The example's queries, and the plain functions the server functions call.",
+        },
+        { name: "home.tsx", about: "The page's card, in React." },
+        {
+          name: "home.test.tsx",
+          about: "Tests what the page shows the owner and a guest.",
+        },
+        {
+          name: "server.ts",
+          about: "Start's server, with the guard in front.",
+        },
+        {
+          name: "start.ts",
+          about:
+            "Sends server function calls through sessionFetch, so a lapsed session refreshes.",
+        },
+        { name: "router.tsx", about: "Makes the router from the route tree." },
+        {
+          name: "routeTree.gen.ts",
+          about:
+            "The route tree. Start writes it from src/routes, so don't edit it.",
+        },
+        { name: "serve.ts", about: "Serves the built app in production." },
+        {
+          name: "styles.css",
+          about: "Tailwind, with the install's shared UI kit and look.",
+        },
+      ],
+    },
+    ...drizzleFiles,
+    {
+      name: "vite.config.ts",
+      about: "Runs Start under pnpm dev, and builds it for production.",
+    },
+    ...appRootFiles,
+  ],
   "react-hono": serverApp(
     "The Hono server. The guard runs first, then the routes.",
   ),

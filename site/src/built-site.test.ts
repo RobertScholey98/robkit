@@ -8,6 +8,8 @@ import { join } from "node:path";
 import { requestGuard } from "@robkit/session";
 import { defaultChoices, init, readyStacks } from "create-robkit";
 import { describe, expect, it } from "vitest";
+import { appFiles } from "./app-files.ts";
+import type { TreeEntry } from "./install-tree.ts";
 import { installGoVersion, installNodeVersion } from "./install.ts";
 import { quickstartCommands } from "./readme.ts";
 import { repoRoot } from "./repo.ts";
@@ -245,74 +247,100 @@ describe("the built page on the layer rule", () => {
   }, 60_000);
 });
 
+/** Each entry's name, in the order a tree shows them. */
+const treeNames = (entries: readonly TreeEntry[]): string[] =>
+  entries.flatMap(({ name, children = [] }) => [name, ...treeNames(children)]);
+
+/** The files a Node server's guide shows whole, and the part it shows. */
+const serverGuide = {
+  whole: [
+    "src/schema.ts",
+    "src/visits.ts",
+    "src/server.tsx",
+    "src/routes.test.tsx",
+  ],
+  parts: [{ path: "src/routes.tsx", from: "export function routes" }],
+};
+
 describe.each([
-  { name: "React + Hono", stack: "react-hono", guide: "react-hono" },
-  { name: "React + Express", stack: "express", guide: "react-express" },
-])("the built guide for $name", ({ name, stack, guide }) => {
-  const page = `docs/build-an-app/${guide}/index.html`;
-  const file = async (path: string) =>
-    (
-      await readFile(
-        join(repoRoot, "packages/create-robkit/templates/stacks", stack, path),
-        "utf8",
-      )
-    )
-      .replaceAll("\r\n", "\n")
-      .trimEnd();
-
-  it("shows the files it walks through as the template holds them", async () => {
-    const blocks = codeBlocks(await built(page));
-    const routes = await file("src/routes.tsx");
-    const start = routes.indexOf("export function routes");
-
-    for (const path of [
+  {
+    name: "React + Hono",
+    stack: "react-hono",
+    guide: "react-hono",
+    ...serverGuide,
+  },
+  {
+    name: "React + Express",
+    stack: "express",
+    guide: "react-express",
+    ...serverGuide,
+  },
+  {
+    name: "TanStack Start",
+    stack: "start",
+    guide: "tanstack-start",
+    whole: [
       "src/schema.ts",
       "src/visits.ts",
-      "src/server.tsx",
-      "src/routes.test.tsx",
-    ]) {
-      expect(blocks).toContainEqual({
-        label: `apps/notes/${path}`,
-        code: await file(path),
-      });
-    }
-    expect(blocks).toContainEqual({
-      label: "apps/notes/src/routes.tsx",
-      code: routes.slice(start, routes.indexOf("\n}\n", start) + 2),
+      "src/routes/index.tsx",
+      "src/server.ts",
+      "src/start.ts",
+      "src/home.test.tsx",
+    ],
+    parts: [],
+  },
+] as const)(
+  "the built guide for $name",
+  ({ name, stack, guide, whole, parts }) => {
+    const page = `docs/build-an-app/${guide}/index.html`;
+    const file = async (path: string) =>
+      (
+        await readFile(
+          join(
+            repoRoot,
+            "packages/create-robkit/templates/stacks",
+            stack,
+            path,
+          ),
+          "utf8",
+        )
+      )
+        .replaceAll("\r\n", "\n")
+        .trimEnd();
+
+    it("shows the files it walks through as the template holds them", async () => {
+      const blocks = codeBlocks(await built(page));
+
+      for (const path of whole) {
+        expect(blocks).toContainEqual({
+          label: `apps/notes/${path}`,
+          code: await file(path),
+        });
+      }
+      for (const { path, from } of parts) {
+        const text = await file(path);
+        const start = text.indexOf(from);
+        expect(blocks).toContainEqual({
+          label: `apps/notes/${path}`,
+          code: text.slice(start, text.indexOf("\n}\n", start) + 2),
+        });
+      }
     });
-  });
 
-  it("lists every file the app gets, and is written, not a stub", async () => {
-    const html = await built(page);
-    const start = html.indexOf(`aria-label="An app on ${name}"`);
-    const tree = html.slice(start, html.indexOf("<h2", start));
-    const names = [
-      ...tree.matchAll(/<li[^>]*>\s*<code[^>]*>([^<]+)<\/code>/g),
-    ].map(([, name = ""]) => name);
+    it("lists every file the app gets, and is written, not a stub", async () => {
+      const html = await built(page);
+      const start = html.indexOf(`aria-label="An app on ${name}"`);
+      const tree = html.slice(start, html.indexOf("<h2", start));
+      const names = [
+        ...tree.matchAll(/<li[^>]*>\s*<code[^>]*>([^<]+)<\/code>/g),
+      ].map(([, each = ""]) => each);
 
-    expect(start).toBeGreaterThan(-1);
-
-    expect(names).toEqual([
-      "src/",
-      "schema.ts",
-      "database.ts",
-      "visits.ts",
-      "routes.tsx",
-      "routes.test.tsx",
-      "server.tsx",
-      "serve.ts",
-      "styles.css",
-      "drizzle/",
-      "drizzle.config.ts",
-      "vite.config.ts",
-      "package.json",
-      "tsconfig.json",
-      "AGENTS.md",
-      "CLAUDE.md",
-    ]);
-    expect(html).not.toContain("data-stub");
-  });
-});
+      expect(start).toBeGreaterThan(-1);
+      expect(names).toEqual(treeNames(appFiles[stack]));
+      expect(html).not.toContain("data-stub");
+    });
+  },
+);
 
 describe("the built header", () => {
   it("links Docs to a page the build made, and GitHub to the repository", async () => {
