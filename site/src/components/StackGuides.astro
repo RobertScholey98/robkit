@@ -1,0 +1,13 @@
+---
+// A link to each stack's guide, by its name, for every stack robkit can
+// make.
+import { guideHref, switcherStacks } from "../stacks.ts";
+---
+
+<ul data-stack-guides>
+  {switcherStacks.map(({ value, label }) => (
+    <li>
+      <a href={guideHref(value)}>{label}</a>
+    </li>
+  ))}
+</ul>
