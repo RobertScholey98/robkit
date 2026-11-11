@@ -42,7 +42,7 @@ The branch `docs-14b-catch-up-with-main` merged `docs-site` at `7bc45f2a`, which
 - **The rest of the content tickets' lists**, not checked in the catch-up: ticket 02's native Windows item (just-use-it ticket 21), ticket 06's home page items, and ticket 07's set-up form and `case "owner":` items. The build would have failed on a lost `case "owner":` line, and it didn't.
 - **This ticket's own steps.** Ticket 03's script over the files milestone 4 changed, the stub count and its test, axe on every page, the commit of `main` the site describes, and `preRelease` once robkit is on npm.
 
-### Built in PR for this ticket, on `docs-26-matches-the-release`
+### Built on `docs-26-matches-the-release`
 
 #### What I chose
 
@@ -118,4 +118,4 @@ The branch `docs-14b-catch-up-with-main` merged `docs-site` at `7bc45f2a`, which
 #### For the lead
 
 - The first box waits on your merge of `main` into `docs-site`. It brings only the two ticket files.
-- `preRelease` goes off once robkit is on npm. The quickstart, the home page, the Markdown copies and step 10 of the deploy guide follow it. Step 10 also needs checking against `docs/deploy.md` then.
+- `preRelease` goes off once robkit is on npm, and the quickstart, the home page and the Markdown copies follow it. Step 10 of the deploy guide doesn't, so check it against `docs/deploy.md` then.
