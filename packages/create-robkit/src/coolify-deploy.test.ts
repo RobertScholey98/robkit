@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { isRecord } from "@robkit/input";
+import { slug, aDomain } from "@internal/test-session";
+import type { Changes, History } from "./affected-apps.ts";
 import type { CoolifyConfig } from "./coolify-config.ts";
-import { deploy, type DeployOptions } from "./coolify-deploy.ts";
+import { deploy, type Choice, type DeployOptions } from "./coolify-deploy.ts";
 import type { AppDeployment } from "./deployment.ts";
 import {
   fakeCoolify,
   fakeFetch,
   type FakeCoolify,
 } from "./test/fake-coolify.ts";
-import { isRecord } from "@robkit/input";
-import { slug, aDomain } from "@internal/test-session";
 
 const config: CoolifyConfig = {
   project: "robkit",
@@ -22,18 +23,22 @@ const config: CoolifyConfig = {
 
 const coolify = { url: "https://coolify.example", token: "t" };
 
-/** The commit each run deploys from, unless a test says otherwise. */
+/** Commits in the order they were pushed. Each run deploys from `head` unless a test says otherwise. */
+const earlier = "0".repeat(40);
+const middle = "5".repeat(40);
 const head = "a".repeat(40);
 
 /** hub's record after a deploy from `head`: its one variable, ROBKIT_APP=hub. */
 const hubRecord = `robkit deployed commit ${head} with variables 3811fd08b3de6852509f6f4bd104c62283533ce1457a7745d981ffcce8418272`;
 
+/** The install: core, the hub, and notes, whose database core provisions. */
 const apps: AppDeployment[] = [
   {
     slug: "core",
     env: {
       ROBKIT_APP: { literal: "core" },
       DATABASE_URL: { shared: "CORE_DATABASE_URL" },
+      ROBKIT_DATABASES: { literal: "core,notes" },
       ROBKIT_ADMIN_DATABASE_URL: { shared: "ROBKIT_ADMIN_DATABASE_URL" },
       ROBKIT_DB_SECRET: { shared: "ROBKIT_DB_SECRET" },
     },
@@ -46,6 +51,16 @@ const apps: AppDeployment[] = [
       DATABASE_URL: { shared: "NOTES_DATABASE_URL" },
     },
   },
+];
+
+/** The install before notes had a `migrate` script. */
+const beforeNotesMigrated: AppDeployment[] = [
+  {
+    slug: "core",
+    env: { ...apps[0]?.env, ROBKIT_DATABASES: { literal: "core" } },
+  },
+  { slug: "hub", env: { ROBKIT_APP: { literal: "hub" } } },
+  { slug: slug("notes"), env: { ROBKIT_APP: { literal: "notes" } } },
 ];
 
 /**
@@ -74,18 +89,60 @@ function existing(slug: string, uuid: string): Record<string, unknown> {
   };
 }
 
+/** Every app Coolify already has, as a sync made them. */
+const all = () => [
+  existing("core", "c"),
+  existing("hub", "h"),
+  existing("notes", "n"),
+];
+
+/**
+ * A checkout at `at`, in which `changed` lists the apps changed since each
+ * commit, or says the commit is gone. It notes each commit it is asked
+ * about.
+ */
+function checkout(
+  at: string,
+  changed: Record<string, readonly string[] | "gone"> = {},
+): History & { asked: string[] } {
+  const asked: string[] = [];
+  return {
+    head: at,
+    asked,
+    changedSince: (commit) => {
+      asked.push(commit);
+      const found = changed[commit] ?? [];
+      return Promise.resolve<Changes>(
+        found === "gone"
+          ? { outcome: "not-in-history" }
+          : { outcome: "changed", apps: found.map(slug) },
+      );
+    },
+  };
+}
+
+interface RunOptions extends Pick<
+  DeployOptions,
+  "requestTimeoutMs" | "timeoutMs"
+> {
+  history?: History;
+  deployments?: AppDeployment[];
+}
+
 async function run(
   state: FakeCoolify,
-  affected: readonly string[] | "all",
-  options: Pick<DeployOptions, "requestTimeoutMs" | "timeoutMs"> = {},
+  choice: "changed" | "all" | readonly string[],
+  { history = checkout(head), deployments = apps, ...options }: RunOptions = {},
 ): Promise<{ ok: boolean; log: string[] }> {
   const log: string[] = [];
+  const chosen: Choice =
+    choice === "changed" || choice === "all" ? choice : choice.map(slug);
   const ok = await deploy({
     coolify,
     config,
-    deployments: apps,
-    affected: affected === "all" ? "all" : affected.map(slug),
-    commit: head,
+    deployments,
+    apps: chosen,
+    history,
     fetch: fakeFetch(state),
     log: (line) => log.push(line),
     intervalMs: 0,
@@ -93,6 +150,39 @@ async function run(
   });
   return { ok, log };
 }
+
+/**
+ * Deploys every app once from `earlier`, so each has a record, then forgets
+ * the requests that took.
+ */
+async function deployedOnce(
+  state: FakeCoolify,
+  deployments: AppDeployment[] = apps,
+): Promise<void> {
+  const { ok } = await run(state, "all", {
+    history: checkout(earlier),
+    deployments,
+  });
+  expect(ok).toBe(true);
+  state.requests.length = 0;
+}
+
+const deploysOf = (state: FakeCoolify) =>
+  state.requests
+    .filter(({ path }) => path.startsWith("/deploy?"))
+    .map(({ path }) => path);
+
+const recordOn = (state: FakeCoolify, uuid: string) =>
+  state.applications.find((app) => app.uuid === uuid)?.description;
+
+/** The variables Coolify holds for an application, by name. */
+const savedOn = (state: FakeCoolify, uuid: string): Record<string, unknown> =>
+  Object.fromEntries(
+    [...(state.envs.get(uuid)?.values() ?? [])].map(({ key, value }) => [
+      String(key),
+      value,
+    ]),
+  );
 
 describe("deploy", () => {
   it("creates each app Coolify lacks from the one Dockerfile, with its variables", async () => {
@@ -235,23 +325,7 @@ describe("deploy", () => {
         .filter(({ path }) => path.startsWith("/deploy?"))
         .map(({ path }) => path),
     ).toEqual(["/deploy?uuid=c", "/deploy?uuid=n"]);
-    expect(log).toContain("| hub | skip | unchanged |");
-  });
-
-  it("deploys a new app, and core with it, since the app catalog changed", async () => {
-    const state = host({
-      applications: [existing("core", "c"), existing("hub", "h")],
-    });
-
-    const { log } = await run(state, []);
-
-    expect(log).toContain("| core | deploy | the app catalog changed |");
-    expect(log).toContain("| notes | deploy | new on Coolify |");
-    expect(
-      state.requests
-        .filter(({ path }) => path.startsWith("/deploy?"))
-        .map(({ path }) => path),
-    ).toEqual(["/deploy?uuid=c", "/deploy?uuid=app3"]);
+    expect(log).toContain("| hub | skip | not named with --apps |");
   });
 
   it("stops before the other apps when core's deploy fails", async () => {
@@ -326,41 +400,36 @@ describe("deploy", () => {
 });
 
 describe("deploy's plan", () => {
-  /** Every app Coolify already has, as a sync made them. */
-  const all = () => [
-    existing("core", "c"),
-    existing("hub", "h"),
-    existing("notes", "n"),
-  ];
-
-  const deploysOf = (state: FakeCoolify) =>
-    state.requests
-      .filter(({ path }) => path.startsWith("/deploy?"))
-      .map(({ path }) => path);
-
-  it("deploys nothing and logs only the plan when no app changed", async () => {
+  it("deploys nothing and logs only the plan when no app changed since its record", async () => {
     const state = host({ applications: all() });
+    await deployedOnce(state);
+    const history = checkout(head);
 
-    const { ok, log } = await run(state, []);
+    const { ok, log } = await run(state, "changed", { history });
 
     expect(ok).toBe(true);
     expect(deploysOf(state)).toEqual([]);
+    expect(history.asked).toEqual([earlier]);
     expect(log).toEqual([
       "| App | Action | Detail |",
       "| --- | --- | --- |",
-      "| core | skip | unchanged |",
-      "| hub | skip | unchanged |",
-      "| notes | skip | unchanged |",
+      "| core | skip | unchanged since 0000000 |",
+      "| hub | skip | unchanged since 0000000 |",
+      "| notes | skip | unchanged since 0000000 |",
     ]);
   });
 
-  it("deploys the changed apps together when core is unchanged", async () => {
+  it("deploys the apps changed since their record together when core is unchanged", async () => {
     const state = host({ applications: all() });
+    await deployedOnce(state);
 
-    const { ok, log } = await run(state, ["hub", "notes"]);
+    const { ok, log } = await run(state, "changed", {
+      history: checkout(head, { [earlier]: ["hub", "notes"] }),
+    });
 
     expect(ok).toBe(true);
-    expect(log).toContain("| core | skip | unchanged |");
+    expect(log).toContain("| core | skip | unchanged since 0000000 |");
+    expect(log).toContain("| hub | deploy | changed since 0000000 |");
     // One wave: both are queued before either is polled.
     expect(
       state.requests
@@ -378,14 +447,29 @@ describe("deploy's plan", () => {
   it("deploys every app with all, core first", async () => {
     const state = host({ applications: all() });
 
-    const { ok } = await run(state, "all");
+    const { ok, log } = await run(state, "all");
 
     expect(ok).toBe(true);
+    expect(log).toContain("| hub | deploy | --all |");
     expect(deploysOf(state)).toEqual([
       "/deploy?uuid=c",
       "/deploy?uuid=h",
       "/deploy?uuid=n",
     ]);
+  });
+
+  it("deploys the apps named with --apps, and core when its record doesn't show its variables", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state, beforeNotesMigrated);
+
+    const { log } = await run(state, ["hub"]);
+
+    expect(log).toContain(
+      "| core | deploy | its variables changed since 0000000 |",
+    );
+    expect(log).toContain("| hub | deploy | named with --apps |");
+    expect(log).toContain("| notes | skip | not named with --apps |");
+    expect(deploysOf(state)).toEqual(["/deploy?uuid=c", "/deploy?uuid=h"]);
   });
 
   it("still deploys the others when one app fails to sync, and reports failure", async () => {
@@ -407,18 +491,161 @@ describe("deploy's plan", () => {
   });
 });
 
-describe("deploy's record", () => {
-  const recordOn = (state: FakeCoolify, uuid: string) =>
-    state.applications.find((app) => app.uuid === uuid)?.description;
-
-  it("saves the commit and the variables on each application once its deploy finished", async () => {
-    const state = host({
-      applications: [
-        existing("core", "c"),
-        existing("hub", "h"),
-        existing("notes", "n"),
-      ],
+describe("deploy's decisions", () => {
+  it("asks turbo once for each distinct recorded commit", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+    await run(state, ["hub"], {
+      history: checkout(middle, { [earlier]: ["hub"] }),
     });
+    const history = checkout(head, { [middle]: ["hub"] });
+
+    const { log } = await run(state, "changed", { history });
+
+    expect(history.asked.sort()).toEqual([earlier, middle]);
+    expect(log).toContain("| hub | deploy | changed since 5555555 |");
+    expect(log).toContain("| notes | skip | unchanged since 0000000 |");
+  });
+
+  it("deploys an app with no record, and one whose record it can't read", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+    const [, hub, notes] = state.applications;
+    if (hub) hub.description = "";
+    if (notes) notes.description = "Notes, by the owner";
+
+    const { log } = await run(state, "changed");
+
+    expect(log).toContain("| core | skip | unchanged since 0000000 |");
+    expect(log).toContain("| hub | deploy | no record of a finished deploy |");
+    expect(log).toContain("| notes | deploy | its record can't be read |");
+  });
+
+  it("deploys each app whose recorded commit is no longer in history, as after a force push", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+
+    const { log } = await run(state, "changed", {
+      history: checkout(head, { [earlier]: "gone" }),
+    });
+
+    expect(log).toContain(
+      "| hub | deploy | 0000000 is no longer in the branch's history |",
+    );
+    expect(deploysOf(state)).toEqual([
+      "/deploy?uuid=c",
+      "/deploy?uuid=h",
+      "/deploy?uuid=n",
+    ]);
+  });
+
+  it("deploys core when an app gains a migrate script, since core's variables change", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state, beforeNotesMigrated);
+
+    const { log } = await run(state, "changed");
+
+    expect(log).toContain(
+      "| core | deploy | its variables changed since 0000000 |",
+    );
+    expect(log).toContain(
+      "| notes | deploy | its variables changed since 0000000 |",
+    );
+    expect(log).toContain("| hub | skip | unchanged since 0000000 |");
+    expect(savedOn(state, "c").ROBKIT_DATABASES).toBe("core,notes");
+  });
+
+  it("deploys a new app, and core with it, since core's variables name it", async () => {
+    const state = host({
+      applications: [existing("core", "c"), existing("hub", "h")],
+    });
+    await deployedOnce(state, beforeNotesMigrated.slice(0, 2));
+
+    const { log } = await run(state, "changed");
+
+    expect(log).toContain(
+      "| core | deploy | its variables changed since 0000000 |",
+    );
+    expect(log).toContain("| notes | deploy | new on Coolify |");
+    expect(deploysOf(state)).toEqual(["/deploy?uuid=c", "/deploy?uuid=app3"]);
+  });
+
+  it("deploys core on the re-run after its first deploy failed", async () => {
+    const state = host({ outcomes: { app1: "failed" } });
+    await run(state, "changed");
+    state.outcomes = {};
+
+    const { ok, log } = await run(state, "changed");
+
+    expect(ok).toBe(true);
+    expect(log).toContain("| core | deploy | no record of a finished deploy |");
+    expect(log).toContain("- core: deployed, finished");
+    // Core gives notes its database and role as it starts.
+    expect(savedOn(state, "app1").ROBKIT_DATABASES).toBe("core,notes");
+  });
+
+  it("deploys core again when its last deploy failed after its variables were saved", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state, beforeNotesMigrated);
+    state.outcomes = { c: "failed" };
+    await run(state, "changed");
+    state.outcomes = {};
+
+    const { log } = await run(state, "changed");
+
+    expect(log).toContain(
+      "| core | deploy | its variables changed since 0000000 |",
+    );
+    expect(log).toContain("- core: deployed, finished");
+  });
+
+  it("deploys what a push changed on the next push, when the push's own run failed", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
+    state.outcomes = { n: "failed" };
+    await run(state, "changed", {
+      history: checkout(middle, { [earlier]: ["notes"] }),
+    });
+    state.outcomes = {};
+
+    const { log } = await run(state, "changed", {
+      history: checkout(head, { [earlier]: ["notes"], [middle]: [] }),
+    });
+
+    expect(log).toContain("| notes | deploy | changed since 0000000 |");
+    expect(deploysOf(state).at(-1)).toBe("/deploy?uuid=n");
+  });
+
+  it("deploys an app again when the branch moved during its deploy, and leaves core's variables matching the newer push", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state, beforeNotesMigrated);
+    // While this run deployed notes from `middle`, `head` gave notes a
+    // migrate script, and Coolify built what the branch held by then.
+    await run(state, "changed", {
+      history: checkout(middle, { [earlier]: ["notes"] }),
+      deployments: beforeNotesMigrated,
+    });
+    state.requests.length = 0;
+
+    const { log } = await run(state, "changed", {
+      history: checkout(head, { [middle]: ["notes"], [earlier]: [] }),
+    });
+
+    expect(log).toContain(
+      "| notes | deploy | its variables changed since 5555555 |",
+    );
+    expect(log).toContain(
+      "| core | deploy | its variables changed since 0000000 |",
+    );
+    expect(savedOn(state, "c").ROBKIT_DATABASES).toBe("core,notes");
+    expect(recordOn(state, "n")).toMatch(/^robkit deployed commit a{40} /);
+  });
+});
+
+describe("deploy's record", () => {
+  it("saves the commit and the variables on each application once its deploy finished", async () => {
+    const state = host({ applications: all() });
+    await deployedOnce(state);
 
     const { ok } = await run(state, ["hub"]);
 

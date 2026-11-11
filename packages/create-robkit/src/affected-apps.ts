@@ -24,7 +24,7 @@ function saidBy(error: unknown): string {
  *
  * @throws a {@link CommandProblem} outside a git checkout
  */
-export async function headCommit(
+async function headCommit(
   root: string,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
@@ -42,15 +42,65 @@ export async function headCommit(
   }
 }
 
+/** What changed in the checkout since a commit. */
+export type Changes =
+  | { outcome: "changed"; apps: readonly Slug[] }
+  /** The commit isn't in the history of the commit robkit runs from. */
+  | { outcome: "not-in-history" };
+
+/** The checkout robkit deploy runs from, as the deploy asks about it. */
+export interface History {
+  /** The commit it runs from. */
+  head: string;
+  changedSince(commit: string): Promise<Changes>;
+}
+
 /**
- * The apps turbo finds changed since TURBO_SCM_BASE, by slug.
+ * The checkout at `root`. turbo finds what changed since each commit asked
+ * about, whatever TURBO_SCM_BASE in `env` says.
  *
- * @throws a {@link CommandProblem} with turbo's own message when
- *   `turbo ls` fails, such as outside a git repository
+ * @throws a {@link CommandProblem} outside a git checkout
  */
-export async function affectedApps(
+export async function gitHistory(
   root: string,
   env: NodeJS.ProcessEnv = process.env,
+): Promise<History> {
+  return {
+    head: await headCommit(root, env),
+    changedSince: (commit) => changedSince(root, commit, env),
+  };
+}
+
+async function changedSince(
+  root: string,
+  commit: string,
+  env: NodeJS.ProcessEnv,
+): Promise<Changes> {
+  try {
+    await promisify(execFile)(
+      "git",
+      ["merge-base", "--is-ancestor", commit, "HEAD"],
+      { cwd: root, env },
+    );
+  } catch {
+    // git says no, or doesn't have the commit, as after a force push or in
+    // a shallow clone: either way the app deploys.
+    return { outcome: "not-in-history" };
+  }
+  const apps = await appsTurboFinds(root, { ...env, TURBO_SCM_BASE: commit });
+  if (isProblem(apps)) throw new CommandProblem(apps.error);
+  return { outcome: "changed", apps };
+}
+
+/**
+ * The apps turbo finds changed since TURBO_SCM_BASE in `env`, by slug.
+ *
+ * @throws a {@link CommandProblem} with turbo's own message when
+ *   `turbo ls` fails
+ */
+async function appsTurboFinds(
+  root: string,
+  env: NodeJS.ProcessEnv,
 ): Promise<Slug[] | InputProblem> {
   let stdout: string;
   try {

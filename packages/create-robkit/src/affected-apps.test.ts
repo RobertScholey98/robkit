@@ -1,83 +1,155 @@
+import { execFile } from "node:child_process";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { describe, expect, it } from "vitest";
 import { CommandProblem } from "@robkit/dev/cli";
-import { affectedApps, headCommit } from "./affected-apps.ts";
+import { gitHistory } from "./affected-apps.ts";
 import { gitEnv } from "./test/git.ts";
 
-const git = promisify(execFile);
+const run = promisify(execFile);
 
 /** A repository with one commit, and the environment to run git in it. */
-async function repository(): Promise<{ dir: string; env: NodeJS.ProcessEnv }> {
+async function repository(): Promise<{
+  dir: string;
+  env: NodeJS.ProcessEnv;
+  git: (...args: string[]) => Promise<string>;
+}> {
   const dir = await mkdtemp(join(tmpdir(), "robkit-history-"));
   const env = await gitEnv(true);
-  await git("git", ["init", "--quiet"], { cwd: dir, env });
-  await git("git", ["commit", "--quiet", "--allow-empty", "-m", "first"], {
-    cwd: dir,
-    env,
-  });
-  return { dir, env };
+  const git = async (...args: string[]) =>
+    (await run("git", args, { cwd: dir, env })).stdout.trim();
+  await git("init", "--quiet");
+  await git("commit", "--quiet", "--allow-empty", "-m", "first");
+  return { dir, env, git };
 }
 
-describe("headCommit", () => {
-  it("reads the commit the checkout is on", async () => {
-    const { dir, env } = await repository();
-    const { stdout } = await git("git", ["rev-parse", "HEAD"], {
-      cwd: dir,
-      env,
-    });
+/** Commits nothing, and answers the new commit. */
+async function commit(
+  git: (...args: string[]) => Promise<string>,
+  message: string,
+): Promise<string> {
+  await git("commit", "--quiet", "--allow-empty", "-m", message);
+  return git("rev-parse", "HEAD");
+}
 
-    expect(await headCommit(dir, env)).toBe(stdout.trim());
+/**
+ * `env` with a stand-in turbo first on the PATH, which runs `script`.
+ */
+async function withTurbo(
+  env: NodeJS.ProcessEnv,
+  script: string,
+): Promise<NodeJS.ProcessEnv> {
+  const standIn = await mkdtemp(join(tmpdir(), "turbo-stand-in-"));
+  await writeFile(join(standIn, "turbo"), `#!/bin/sh\n${script}\n`, {
+    mode: 0o755,
+  });
+  return { ...env, PATH: `${standIn}:${String(env.PATH)}` };
+}
+
+describe("gitHistory", () => {
+  it("names the commit the checkout is on", async () => {
+    const { dir, env, git } = await repository();
+
+    const history = await gitHistory(dir, env);
+
+    expect(history.head).toBe(await git("rev-parse", "HEAD"));
   });
 
   it("says robkit deploy runs from a git checkout outside one", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-not-git-"));
-    const env = { ...(await gitEnv(true)), GIT_CEILING_DIRECTORIES: tmpdir() };
+    const env = {
+      ...(await gitEnv(true)),
+      GIT_CEILING_DIRECTORIES: tmpdir(),
+    };
 
-    const found = headCommit(dir, env);
+    const found = gitHistory(dir, env);
 
     await expect(found).rejects.toBeInstanceOf(CommandProblem);
     await expect(found).rejects.toThrow(
       /^robkit deploy runs from the install's git checkout, and git couldn't name its commit: .+\. Run it in the install's repository\.$/,
     );
   });
+
+  it("finds a commit a force push took out of the branch gone from history", async () => {
+    const { dir, env, git } = await repository();
+    const first = await git("rev-parse", "HEAD");
+    const pushed = await commit(git, "pushed, then pushed over");
+    await git("reset", "--quiet", "--hard", first);
+    await commit(git, "pushed with --force");
+
+    const history = await gitHistory(dir, env);
+
+    expect(await history.changedSince(pushed)).toEqual({
+      outcome: "not-in-history",
+    });
+  });
+
+  it("finds a commit the checkout doesn't have gone from history", async () => {
+    const { dir, env } = await repository();
+
+    const history = await gitHistory(dir, env);
+
+    expect(await history.changedSince("b".repeat(40))).toEqual({
+      outcome: "not-in-history",
+    });
+  });
 });
 
-/**
- * The environment with a stand-in turbo first on the PATH, which runs
- * `script`.
- */
-async function withTurbo(script: string): Promise<NodeJS.ProcessEnv> {
-  const standIn = await mkdtemp(join(tmpdir(), "turbo-stand-in-"));
-  await writeFile(join(standIn, "turbo"), `#!/bin/sh\n${script}\n`, {
-    mode: 0o755,
-  });
-  return { ...process.env, PATH: `${standIn}:${String(process.env.PATH)}` };
-}
-
 // The stand-in turbo is a shell script, which Windows can't run.
-describe.skipIf(process.platform === "win32")("affectedApps", () => {
-  it("reads the apps turbo ls found changed", async () => {
-    const env = await withTurbo(
-      `echo '{"packages":{"items":[{"path":"apps/notes"},{"path":"packages/ui"}]}}'`,
+describe.skipIf(process.platform === "win32")("gitHistory's changes", () => {
+  it("asks turbo what changed since the commit asked about, whatever TURBO_SCM_BASE says", async () => {
+    const { dir, env, git } = await repository();
+    const recorded = await git("rev-parse", "HEAD");
+    const failedRun = await commit(git, "a push whose run failed");
+    await commit(git, "the next push");
+    const turbo = await withTurbo(
+      { ...env, TURBO_SCM_BASE: failedRun },
+      [
+        `if [ "$TURBO_SCM_BASE" = "${recorded}" ]; then`,
+        `  echo '{"packages":{"items":[{"path":"apps/notes"},{"path":"apps/hub"},{"path":"packages/ui"}]}}'`,
+        "else",
+        `  echo '{"packages":{"items":[{"path":"apps/hub"}]}}'`,
+        "fi",
+      ].join("\n"),
     );
 
-    expect(await affectedApps(tmpdir(), env)).toEqual(["notes"]);
+    const history = await gitHistory(dir, turbo);
+
+    expect(await history.changedSince(recorded)).toEqual({
+      outcome: "changed",
+      apps: ["notes", "hub"],
+    });
   });
 
   it("throws turbo's own message as a problem when turbo ls fails", async () => {
-    const env = await withTurbo(
-      "echo '  x No git repository found.' >&2\nexit 1",
+    const { dir, env, git } = await repository();
+    const recorded = await git("rev-parse", "HEAD");
+    await commit(git, "next");
+    const turbo = await withTurbo(
+      env,
+      "echo '  x No package manager found.' >&2\nexit 1",
     );
 
-    const found = affectedApps(tmpdir(), env);
+    const found = (await gitHistory(dir, turbo)).changedSince(recorded);
 
     await expect(found).rejects.toBeInstanceOf(CommandProblem);
     await expect(found).rejects.toThrow(
-      "turbo ls --affected couldn't find the apps that changed: x No git repository found. Name the apps to deploy with --apps, or deploy them all with --all.",
+      "turbo ls --affected couldn't find the apps that changed: x No package manager found. Name the apps to deploy with --apps, or deploy them all with --all.",
+    );
+  });
+
+  it("says when turbo prints JSON robkit can't read", async () => {
+    const { dir, env, git } = await repository();
+    const recorded = await git("rev-parse", "HEAD");
+    await commit(git, "next");
+    const turbo = await withTurbo(env, `echo '{"packages":{}}'`);
+
+    await expect(
+      (await gitHistory(dir, turbo)).changedSince(recorded),
+    ).rejects.toThrow(
+      "turbo ls --affected printed JSON robkit can't read. Name the apps to deploy with --apps, or deploy them all with --all.",
     );
   });
 });

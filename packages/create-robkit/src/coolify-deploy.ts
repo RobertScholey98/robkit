@@ -18,7 +18,8 @@ import {
   sharedVariablesOf,
   type Host,
 } from "./coolify-host.ts";
-import { recordOf, variablesHash } from "./coolify-record.ts";
+import { readRecord, recordOf, variablesHash } from "./coolify-record.ts";
+import type { Changes, History } from "./affected-apps.ts";
 import {
   containerPort,
   type AppDeployment,
@@ -144,33 +145,141 @@ async function syncApps(
   return results;
 }
 
-type Step =
-  | { app: string; action: "deploy"; uuid: string; reason: string }
-  | { app: string; action: "skip" | "failed"; reason: string };
+/** Which apps a deploy considers deploying. */
+export type Choice =
+  | "changed"
+  | "all"
+  /** The apps named with `--apps`. */
+  | readonly Slug[];
+
+/** Whether an app deploys in this run, and why, before anything is written. */
+interface Decision {
+  deploy: boolean;
+  reason: string;
+}
+
+function short(commit: string): string {
+  return commit.slice(0, 7);
+}
 
 /**
- * Deploys each affected app and each app new on Coolify. A new app also
- * changes core's catalog and the apps it provisions, so core deploys too.
+ * What an app's record says about it. A record that is missing or can't be
+ * read never proves the app unchanged, nor does a commit gone from history.
  */
-function plan(affected: readonly Slug[] | "all", synced: Synced[]): Step[] {
-  const catalogChanged = synced.some(({ action }) => action === "created");
-  return synced.map((result): Step => {
+async function fromRecord(
+  app: Desired,
+  existing: unknown,
+  history: History,
+  changes: (commit: string) => Promise<Changes>,
+  { variablesOnly }: { variablesOnly: boolean },
+): Promise<Decision> {
+  const record = readRecord(fieldOf(existing, "description"));
+  if (record.outcome === "none") {
+    return { deploy: true, reason: "no record of a finished deploy" };
+  }
+  if (record.outcome === "unreadable") {
+    return { deploy: true, reason: "its record can't be read" };
+  }
+  const since = short(record.commit);
+  if (record.variables !== variablesHash(app.envs)) {
+    return { deploy: true, reason: `its variables changed since ${since}` };
+  }
+  if (variablesOnly) {
+    return { deploy: false, reason: "not named with --apps" };
+  }
+  if (record.commit === history.head) {
+    return { deploy: false, reason: `unchanged since ${since}` };
+  }
+  const changed = await changes(record.commit);
+  if (changed.outcome === "not-in-history") {
+    return {
+      deploy: true,
+      reason: `${since} is no longer in the branch's history`,
+    };
+  }
+  return changed.apps.includes(app.slug)
+    ? { deploy: true, reason: `changed since ${since}` }
+    : { deploy: false, reason: `unchanged since ${since}` };
+}
+
+/**
+ * Decides, from what Coolify holds, which apps deploy. A new app always
+ * does. With `--apps`, the apps named do, and core does when its record
+ * doesn't show the variables it is about to get, since core gives the apps
+ * their databases. Otherwise each app's record decides, and turbo is asked
+ * once for each distinct recorded commit.
+ */
+async function decide(
+  choice: Choice,
+  desired: readonly Desired[],
+  host: Host,
+  history: History,
+): Promise<Decision[]> {
+  const asked = new Map<string, Promise<Changes>>();
+  const changes = (commit: string): Promise<Changes> => {
+    const known = asked.get(commit) ?? history.changedSince(commit);
+    asked.set(commit, known);
+    return known;
+  };
+  return Promise.all(
+    desired.map(async (app): Promise<Decision> => {
+      const existing = findApp(host, String(app.settings.name));
+      if (existing === undefined) {
+        return { deploy: true, reason: "new on Coolify" };
+      }
+      if (choice === "all") return { deploy: true, reason: "--all" };
+      if (choice === "changed") {
+        return fromRecord(app, existing, history, changes, {
+          variablesOnly: false,
+        });
+      }
+      if (choice.includes(app.slug)) {
+        return { deploy: true, reason: "named with --apps" };
+      }
+      if (app.slug !== "core") {
+        return { deploy: false, reason: "not named with --apps" };
+      }
+      return fromRecord(app, existing, history, changes, {
+        variablesOnly: true,
+      });
+    }),
+  );
+}
+
+type Step =
+  | {
+      app: string;
+      action: "deploy";
+      uuid: string;
+      reason: string;
+      record: string;
+    }
+  | { app: string; action: "skip" | "failed"; reason: string };
+
+/** Each app's step: what was decided, unless its sync failed. */
+function plan(
+  desired: readonly Desired[],
+  decisions: readonly Decision[],
+  synced: readonly Synced[],
+  commit: string,
+): Step[] {
+  return synced.map((result, index): Step => {
     const app = result.slug;
+    const decision = decisions[index];
+    const wanted = desired[index];
     if (result.action === "failed") {
       return { app, action: "failed", reason: result.detail };
     }
-    const deploy = (reason: string): Step => ({
+    if (!decision?.deploy || !wanted) {
+      return { app, action: "skip", reason: decision?.reason ?? "" };
+    }
+    return {
       app,
       action: "deploy",
       uuid: result.uuid,
-      reason,
-    });
-    if (result.action === "created") return deploy("new on Coolify");
-    if (affected === "all" || affected.includes(app)) return deploy("changed");
-    if (app === "core" && catalogChanged) {
-      return deploy("the app catalog changed");
-    }
-    return { app, action: "skip", reason: "unchanged" };
+      reason: decision.reason,
+      record: recordOf(commit, variablesHash(wanted.envs)),
+    };
   });
 }
 
@@ -263,10 +372,10 @@ export interface DeployOptions {
   coolify: Coolify;
   config: CoolifyConfig;
   deployments: AppDeployment[];
-  /** The apps whose code changed, by slug, or every app. */
-  affected: readonly Slug[] | "all";
-  /** The commit robkit runs from, which each finished deploy records. */
-  commit: string;
+  /** Which apps to consider: those changed since their record, all, or the apps named. */
+  apps: Choice;
+  /** The checkout robkit runs from, and what changed in it since a commit. */
+  history: History;
   fetch?: typeof fetch;
   log?: (line: string) => void;
   /** How long to wait between polls of a deployment. */
@@ -288,8 +397,8 @@ export async function deploy({
   coolify,
   config,
   deployments,
-  affected,
-  commit,
+  apps,
+  history,
   fetch: fetchImpl = fetch,
   log = console.log,
   intervalMs = 10_000,
@@ -300,15 +409,10 @@ export async function deploy({
   const desired = deployments.map((deployment) =>
     desiredApp(deployment, config),
   );
-  const records = new Map<string, string>(
-    desired.map(({ slug, envs }) => [
-      slug,
-      recordOf(commit, variablesHash(envs)),
-    ]),
-  );
   const host = await readHost(api, config, sharedVariablesOf(deployments));
+  const decisions = await decide(apps, desired, host, history);
   const synced = await syncApps(api, host, desired);
-  const steps = plan(affected, synced);
+  const steps = plan(desired, decisions, synced, history.head);
   log("| App | Action | Detail |");
   log("| --- | --- | --- |");
   for (const { app, action, reason } of steps) {
@@ -321,7 +425,7 @@ export async function deploy({
   );
   for (const [index, wave] of planned.entries()) {
     const outcomes = await Promise.all(
-      wave.map(async ({ app, uuid }) => {
+      wave.map(async ({ app, uuid, record }) => {
         const deployed = await deployAndWait(api, uuid, {
           intervalMs,
           timeoutMs,
@@ -331,7 +435,7 @@ export async function deploy({
           return deployed;
         }
         const saved = await callCoolify(api, "PATCH", `/applications/${uuid}`, {
-          body: { description: records.get(app) },
+          body: { description: record },
         });
         if (saved.outcome === "failed") {
           log(
