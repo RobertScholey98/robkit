@@ -65,7 +65,7 @@ It refuses:
 
 ## robkit upgrade
 
-Moves the install to a newer robkit, the newest or the version you give. It updates robkit's catalog entries and its lint policy, and its Go module in an install with a Go app. It never changes your apps.
+Moves the install to a newer robkit, the newest or the version you give. It moves robkit's packages in the catalog to the new version, and adds or raises each other catalog entry the new robkit needs. It raises `packageManager` when the new robkit pins a newer pnpm. It replaces robkit's lint policy, and its Go module in an install with a Go app. It never changes your apps.
 
 It takes one version, such as `0.2.0`, or none for the newest. An install made from a clone links to robkit's packages there, so it has nothing to move:
 
