@@ -81,6 +81,15 @@ It puts the build in `dist`, lets the dev proxy's host reach Next's dev server, 
 
 `pnpm dev` loads the app's `.env`. Next also loads `.env.local` and its other `.env` files itself, and `pnpm dev` neither loads nor blocks them. Keep your settings in `.env`, as [Settings](/docs/build-an-app/settings/) says. In production, `src/serve.ts` serves the built app with Node.
 
+## Images
+
+`<Image>` from `next/image` can't optimize a file in `public`. Files in `public` go through the guard, and Next's image optimizer fetches the file through your app's own server with no cookie. So the guard refuses it with a 401, and `<Image src="/logo.png">` shows a broken image. Either of these works:
+
+- **Import the image**, as `import logo from "./logo.png"`, then draw it with `<Image src={logo} alt="..." />`. Next builds it into `/_next/static`, which the guard leaves out, and optimizes it.
+- **Draw a file in `public`** with `<img src="/logo.png" alt="..." />`, or with `<Image src="/logo.png" unoptimized ... />`. The browser asks for it with the viewer's cookie, so the guard lets it through to whoever may open the app.
+
+Leave the matcher in `src/proxy.ts` as it is. Letting the optimizer through would serve `public` to anyone.
+
 ## The test
 
 `viewer()` reads the request's headers, which exist only while Next serves a request, so a test can't render `src/app/page.tsx`. It calls `Home` and `visitAgainAs` with a viewer from `@robkit/next/testing` instead:
