@@ -155,7 +155,7 @@ Left open by build tickets 02 to 11, app-sharing ticket 02 and the just-use-it t
 
 ## Not yet specified
 
-- The later deployment cookbook, for hosts other than Coolify. The robkit.dev website has a plan now: [the docs-site PRD](../docs-site/PRD.md) says what it holds, under `site/` in this repo, built with Astro (R, 2026-11-09). Where it is hosted, and when it publishes, wait for R on [its ticket 27](../docs-site/issues/27-where-robkit-dev-is-hosted.md). R reads the design and the home page's words before it goes live, on [its ticket 28](../docs-site/issues/28-r-reads-the-design.md).
+- The later deployment cookbook, for hosts other than Coolify. The robkit.dev website is built and on `main`, under `site/` in this repo, with Astro (R, 2026-11-09). [The docs-site PRD](../docs-site/PRD.md) says what it holds, and it merged on 2026-11-11 in pull request 152. It isn't live. Where it is hosted, and when it publishes, wait for R on [its ticket 27](../docs-site/issues/27-where-robkit-dev-is-hosted.md). R reads the design and the home page's words before it goes live, on [its ticket 28](../docs-site/issues/28-r-reads-the-design.md).
 - Backups, observability and secret rotation for a running install.
 
 ## Out of scope
