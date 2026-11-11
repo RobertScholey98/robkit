@@ -20,6 +20,8 @@ catalog:
   "@eslint-community/eslint-plugin-eslint-comments": 4.8.1
   "@eslint/js": 10.0.1
   "@fontsource-variable/geist": 5.3.0
+  "@fontsource-variable/ibm-plex-sans": 5.3.0
+  "@fontsource-variable/jetbrains-mono": 5.3.0
   "@hono/node-server": 2.1.5
   "@hono/vite-dev-server": 0.26.1
   "@tailwindcss/postcss": 4.3.3

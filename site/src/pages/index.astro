@@ -1,32 +1,38 @@
 ---
-// The home page, plain until the site has a design. It shows the README's
+// The home page, plain until ticket 06 designs it. It shows the README's
 // quickstart commands, read as the site builds.
+import BaseLayout from "../layouts/BaseLayout.astro";
 import { quickstartCommands } from "../readme.ts";
 import { readRepoFile } from "../repo.ts";
 
 const readme = await readRepoFile("README.md");
 const commands = quickstartCommands(readme, "README.md");
+const description =
+  "robkit is a kit for self-hosting small apps for your friends and family.";
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>robkit</title>
-    <meta
-      name="description"
-      content="robkit is a kit for self-hosting small apps for your friends and family."
-    />
-  </head>
-  <body>
-    <main>
-      <h1>robkit</h1>
-      <p>
-        robkit is a kit for self-hosting small apps for your friends and family.
-      </p>
-      <h2>Start an install</h2>
-      <pre><code>{commands.join("\n")}</code></pre>
-    </main>
-  </body>
-</html>
+<BaseLayout title="robkit" description={description}>
+  <main id="main" class="home" tabindex="-1">
+    <h1>robkit</h1>
+    <p>{description}</p>
+    <h2>Start an install</h2>
+    <pre><code>{commands.join("\n")}</code></pre>
+  </main>
+</BaseLayout>
+
+<style>
+  .home {
+    max-width: var(--content-width);
+    margin: 0 auto;
+    padding: var(--space-12) var(--space-4) var(--space-16);
+  }
+
+  .home:focus {
+    outline: none;
+  }
+
+  h1 {
+    margin: 0 0 var(--space-3);
+    font-size: var(--text-3xl);
+  }
+</style>

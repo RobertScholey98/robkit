@@ -1,0 +1,284 @@
+---
+// A docs page: the list of pages, the page, and its headings. The list is
+// a column from 64rem wide, and the phone menu below that. Without
+// scripts it stays in the page, so every link works with none.
+import type { MarkdownHeading } from "astro";
+import { getCollection } from "astro:content";
+import BaseLayout from "./BaseLayout.astro";
+
+interface Props {
+  title: string;
+  description: string;
+  headings: MarkdownHeading[];
+  /** The page's id in the docs collection, such as `get-started/what-you-need`. */
+  current: string;
+}
+
+const { title, description, headings, current } = Astro.props;
+
+// Ticket 03 builds the sections and their order from each page's front
+// matter. Until then every page is under "Get started".
+const pages = (await getCollection("docs")).map((entry) => ({
+  id: entry.id,
+  title: entry.data.title,
+  href: `/docs/${entry.id}/`,
+}));
+const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
+---
+
+<BaseLayout title={title} description={description} menu>
+  <div class="docs">
+    <nav id="site-nav" class="sidebar" aria-label="Docs">
+      <p class="section">Get started</p>
+      <ul>
+        {pages.map((page) => (
+          <li>
+            <a
+              href={page.href}
+              aria-current={page.id === current ? "page" : undefined}
+            >
+              {page.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+    <main id="main" class="page" tabindex="-1">
+      <header class="page-head">
+        <h1>{title}</h1>
+        <p class="lead">{description}</p>
+      </header>
+      {onThisPage.length > 0 && (
+        <nav class="toc" aria-labelledby="toc-heading">
+          <p id="toc-heading" class="toc-heading">
+            On this page
+          </p>
+          <ul>
+            {onThisPage.map((heading) => (
+              <li class={`depth-${String(heading.depth)}`}>
+                <a href={`#${heading.slug}`}>{heading.text}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+      <div class="prose">
+        <slot />
+      </div>
+    </main>
+  </div>
+</BaseLayout>
+
+<style>
+  .docs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 90rem;
+    margin: 0 auto;
+  }
+
+  .sidebar {
+    padding: var(--space-6) var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  .sidebar ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .section {
+    margin: 0 0 var(--space-2);
+    padding: 0 var(--space-3);
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .sidebar a {
+    display: flex;
+    align-items: center;
+    min-height: var(--target);
+    padding: 0 var(--space-3);
+    border-left: 2px solid transparent;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    color: var(--color-text);
+    text-decoration: none;
+    transition: background-color var(--duration-fast) var(--ease);
+  }
+
+  .sidebar a:hover {
+    background: var(--color-raised);
+  }
+
+  .sidebar a[aria-current="page"] {
+    border-left-color: var(--color-accent);
+    background: var(--color-raised);
+    font-weight: 600;
+  }
+
+  /* At phone width with scripts, the list opens over the page. */
+  @media (max-width: 63.999rem) {
+    :global(html[data-js]) .sidebar {
+      position: fixed;
+      inset: var(--header-height) 0 0;
+      z-index: 20;
+      overflow-y: auto;
+      border-top: 1px solid var(--color-border);
+      background: var(--color-bg);
+      visibility: hidden;
+      opacity: 0;
+      transform: translateY(-0.5rem);
+      transition:
+        opacity var(--duration) var(--ease),
+        transform var(--duration) var(--ease),
+        visibility 0s linear var(--duration);
+    }
+
+    :global(html[data-js]) .sidebar[data-open] {
+      visibility: visible;
+      opacity: 1;
+      transform: none;
+      transition-delay: 0s;
+    }
+
+    /* Without scripts, the list sits above the page, after a divider. */
+    :global(html:not([data-js])) .sidebar {
+      border-bottom: 1px solid var(--color-border);
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .docs {
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: var(--header-height);
+      align-self: start;
+      max-height: calc(100vh - var(--header-height));
+      overflow-y: auto;
+      border-right: 1px solid var(--color-border);
+    }
+  }
+
+  .page {
+    display: grid;
+    grid-template-columns: minmax(0, var(--content-width));
+    align-content: start;
+    column-gap: var(--space-12);
+    padding: var(--space-8) var(--space-4) var(--space-16);
+  }
+
+  .page:focus {
+    outline: none;
+  }
+
+  @media (min-width: 48rem) {
+    .page {
+      padding-inline: var(--space-8);
+    }
+  }
+
+  .page-head h1 {
+    margin: 0 0 var(--space-3);
+    font-size: var(--text-3xl);
+  }
+
+  .lead {
+    margin: 0 0 var(--space-6);
+    color: var(--color-muted);
+    font-size: var(--text-lg);
+  }
+
+  .toc {
+    margin-bottom: var(--space-6);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    font-size: var(--text-sm);
+  }
+
+  .toc-heading {
+    margin: 0 0 var(--space-2);
+    font-family: var(--font-mono);
+    font-weight: 600;
+  }
+
+  .toc ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .toc a {
+    display: inline-block;
+    padding: var(--space-1) 0;
+    color: var(--color-muted);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    color: var(--color-text);
+    text-decoration: underline;
+  }
+
+  .toc .depth-3 {
+    padding-left: var(--space-4);
+  }
+
+  @media (min-width: 80rem) {
+    .page {
+      grid-template-columns:
+        minmax(0, var(--content-width))
+        var(--toc-width);
+    }
+
+    .page-head,
+    .prose {
+      grid-column: 1;
+    }
+
+    .toc {
+      position: sticky;
+      top: calc(var(--header-height) + var(--space-8));
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      align-self: start;
+      margin: 0;
+      padding: 0 0 0 var(--space-4);
+      border: 0;
+      border-left: 1px solid var(--color-border);
+      border-radius: 0;
+    }
+  }
+
+  .prose :global(h2) {
+    margin: var(--space-12) 0 var(--space-3);
+    font-size: var(--text-2xl);
+  }
+
+  .prose :global(h3) {
+    margin: var(--space-8) 0 var(--space-2);
+    font-size: var(--text-xl);
+  }
+
+  .prose :global(p),
+  .prose :global(ul),
+  .prose :global(ol) {
+    margin: 0 0 var(--space-4);
+  }
+
+  .prose :global(li + li) {
+    margin-top: var(--space-1);
+  }
+
+  .prose :global(> :first-child) {
+    margin-top: 0;
+  }
+</style>

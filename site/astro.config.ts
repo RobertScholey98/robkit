@@ -10,4 +10,7 @@ export default defineConfig({
   site: "https://robkit.dev",
   output: "static",
   integrations: [mdx()],
+  // Ticket 05 colours code from the style guide's tokens. Until then code
+  // is plain, in the tokens' colours, rather than in Shiki's own theme.
+  markdown: { syntaxHighlight: false },
 });
