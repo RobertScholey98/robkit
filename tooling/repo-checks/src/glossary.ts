@@ -1,6 +1,7 @@
 import { glob, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { matchesGlob } from "node:path/posix";
+import { sitePageGlobs } from "./site-pages.ts";
 
 /** A word `GLOSSARY.md` tells you not to use for one of its terms. */
 export interface AvoidWord {
@@ -137,6 +138,18 @@ export const exceptions: Exceptions = {
       word: "backend",
       text: "BuildKit cache backend",
       why: "BuildKit's word.",
+    },
+    {
+      word: "plugin",
+      file: "site/src/{content,pages}/**",
+      text: "Compose plugin",
+      why: "Docker's name for how Docker Engine gets Compose.",
+    },
+    {
+      word: "integration",
+      file: "site/src/{content,pages}/**",
+      text: "WSL integration",
+      why: "Docker Desktop's name for the setting that lets WSL reach it.",
     },
     {
       word: "JWT",
@@ -367,7 +380,7 @@ export function unusedExceptions(
 /**
  * The files the check reads: each published package's source and README,
  * the Go module's source and README, create-robkit's templates, `docs/`,
- * `README.md` and `AGENTS.md`.
+ * `README.md`, `AGENTS.md` and the docs site's pages.
  * Snapshots and drizzle-kit's migrations are generated, so it skips them.
  */
 export async function readScannedFiles(root: string): Promise<ScannedFile[]> {
@@ -383,6 +396,7 @@ export async function readScannedFiles(root: string): Promise<ScannedFile[]> {
       "docs/**/*.md",
       "README.md",
       "AGENTS.md",
+      ...sitePageGlobs,
     ],
     {
       cwd: root,
