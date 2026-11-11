@@ -18,7 +18,7 @@ import {
   type ListedApp,
   readListedApp,
 } from "@robkit/input/manifest";
-import { asc, eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray, notInArray } from "drizzle-orm";
 import { isUuid } from "./access-codes.ts";
 import type { Database } from "./database.ts";
 import { appRoles, apps, roles } from "./schema.ts";
@@ -80,12 +80,14 @@ export function readListedApps(env: Env): ListedApp[] | InputProblem {
 }
 
 /**
- * Adds each app core doesn't know yet, named after its slug, with the rule
- * it declares, or owner-only. A rule's roles are found by name, and created
- * if the owner has none of that name. An app core knows keeps the rule the
- * owner gave it, and takes the icon it declares now. Several cores can run
- * it at once, as in a rolling deploy: the one whose insert adds an app adds
- * its roles, and the rest leave that app alone.
+ * Makes core's catalog hold exactly the apps `declared` lists, as core
+ * does once as it starts. An app it no longer lists is deleted, and its
+ * rule's links to roles go with it; the roles stay. An app it lists that
+ * core doesn't know is added, named after its slug, with the rule it
+ * declares, or owner-only. A rule's roles are found by name, and created
+ * if the owner has none of that name. So a slug that comes back is a new
+ * app. An app core knows keeps the rule the owner gave it, and takes the
+ * icon it declares now.
  */
 const owner: ManifestAccess = { kind: "owner" };
 
@@ -93,20 +95,13 @@ export async function registerApps(
   db: Database,
   declared: readonly ListedApp[],
 ): Promise<void> {
-  if (declared.length === 0) return;
+  const slugs = declared.map((app) => app.slug);
   await db.transaction(async (tx) => {
+    await tx
+      .delete(apps)
+      .where(slugs.length === 0 ? undefined : notInArray(apps.slug, slugs));
     const known = new Set(
-      (
-        await tx
-          .select({ slug: apps.slug })
-          .from(apps)
-          .where(
-            inArray(
-              apps.slug,
-              declared.map((app) => app.slug),
-            ),
-          )
-      ).map((row) => row.slug),
+      (await tx.select({ slug: apps.slug }).from(apps)).map((row) => row.slug),
     );
     for (const { slug, access = owner, icon } of declared) {
       if (known.has(slug)) {

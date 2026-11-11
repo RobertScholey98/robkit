@@ -205,3 +205,113 @@ describe("serveCore", () => {
     ).rejects.toThrow(/EADDRINUSE/);
   });
 });
+
+/** Who may open `slug`, as the core on `port` answers. */
+async function accessStatus(port: number, slug: string): Promise<number> {
+  const res = await fetch(
+    `http://127.0.0.1:${String(port)}/apps/${slug}/access`,
+    { signal: AbortSignal.timeout(10_000) },
+  );
+  return res.status;
+}
+
+/**
+ * Starts core on the database at `databaseUrl` with `apps` as its
+ * `ROBKIT_APPS`. `listening` resolves once it listens, and `served` once
+ * a SIGTERM has stopped it.
+ */
+async function startCore(
+  databaseUrl: string,
+  apps: string,
+  lines: () => unknown[],
+): Promise<{
+  port: number;
+  listening: Promise<void>;
+  served: Promise<number>;
+}> {
+  const port = await freePort();
+  const served = serveCore({
+    DATABASE_URL: databaseUrl,
+    ROBKIT_CORE_URL: coreUrl,
+    ROBKIT_APPS: apps,
+    PORT: String(port),
+  });
+  const listening = expect
+    .poll(lines, { timeout: 30_000 })
+    .toContain(`core listening on 127.0.0.1:${String(port)}`);
+  return { port, listening, served };
+}
+
+/** Stops every core this process serves, and waits until each has. */
+async function stopAll(...cores: { served: Promise<number> }[]) {
+  process.emit("SIGTERM", "SIGTERM");
+  expect(await Promise.all(cores.map((core) => core.served))).toEqual(
+    cores.map(() => 0),
+  );
+}
+
+describe("core's catalog as core starts", () => {
+  it("follows ROBKIT_APPS, so an app it no longer lists is gone after a restart", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    const lines = logged();
+    const first = await startCore(
+      databaseUrl,
+      '[{"slug":"notes"},{"slug":"diary"}]',
+      lines,
+    );
+    await first.listening;
+    const before = await accessStatus(first.port, "diary");
+    await stopAll(first);
+
+    const second = await startCore(databaseUrl, '[{"slug":"notes"}]', lines);
+    await second.listening;
+    const after = {
+      notes: await accessStatus(second.port, "notes"),
+      diary: await accessStatus(second.port, "diary"),
+    };
+    await stopAll(second);
+
+    expect(before).toBe(200);
+    expect(after).toEqual({ notes: 200, diary: 404 });
+  }, 60_000);
+
+  it("starts with ROBKIT_APPS=[] and takes out every app", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    await registerApps(catalog(databaseUrl), [
+      { slug: slug("notes") },
+      { slug: slug("diary") },
+    ]);
+    const lines = logged();
+
+    const core = await startCore(databaseUrl, "[]", lines);
+    await core.listening;
+    const status = await fetch(`http://127.0.0.1:${String(core.port)}/status`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    await stopAll(core);
+
+    expect(status.status).toBe(200);
+    expect(await slugsIn(databaseUrl)).toEqual([]);
+  }, 60_000);
+
+  it("isn't applied again by a core already serving when another starts", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    const lines = logged();
+    const serving = await startCore(databaseUrl, '[{"slug":"notes"}]', lines);
+    await serving.listening;
+
+    const next = await startCore(databaseUrl, '[{"slug":"diary"}]', lines);
+    await next.listening;
+    const answers = {
+      notes: await accessStatus(serving.port, "notes"),
+      diary: await accessStatus(serving.port, "diary"),
+    };
+    await stopAll(serving, next);
+
+    expect(await slugsIn(databaseUrl)).toEqual(["diary"]);
+    expect(answers).toEqual({ notes: 404, diary: 200 });
+  }, 60_000);
+});

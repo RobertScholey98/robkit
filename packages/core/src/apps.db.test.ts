@@ -127,6 +127,128 @@ describe("registerApps", () => {
   });
 });
 
+describe("an app ROBKIT_APPS no longer lists", () => {
+  it("is gone from the launcher, admin's list and its access", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [{ slug: slug("notes") }, { slug: slug("diary") }]);
+
+    await registerApps(db, [{ slug: slug("notes") }]);
+
+    const launcher = await app.request("/launcher", {
+      headers: withSession(owner),
+    });
+    const listed = await app.request("/apps", { headers: withSession(owner) });
+    expect({
+      launcher: await launcher.json(),
+      admin: await listed.json(),
+      diary: await accessOf(app, "diary"),
+    }).toEqual({
+      launcher: { apps: [{ slug: "notes", name: "notes", icon: null }] },
+      admin: {
+        apps: [
+          {
+            slug: "notes",
+            name: "notes",
+            icon: null,
+            access: { kind: "owner" },
+          },
+        ],
+      },
+      diary: { status: 404, body: { error: "Not found" } },
+    });
+  });
+
+  it("gets no token from /refresh, and a change to its access answers unknown app", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [{ slug: slug("diary") }]);
+    const refresh = () =>
+      app.request(
+        `/refresh?next=${encodeURIComponent("https://diary.robkit.test/")}&state=${"s".repeat(43)}`,
+        { headers: withSession(owner) },
+      );
+    const before = await refresh();
+
+    await registerApps(db, []);
+
+    const after = await refresh();
+    const changed = await setAccess(app, owner, "diary", { kind: "open" });
+    expect(before.status).toBe(302);
+    expect({ status: after.status, body: await after.json() }).toEqual({
+      status: 400,
+      body: { error: "Send next, a URL on one of this install's apps." },
+    });
+    expect({ status: changed.status, body: await changed.json() }).toEqual({
+      status: 404,
+      body: { error: "Not found" },
+    });
+  });
+
+  it("comes back as a new app, with the rule its manifest declares and none of its old roles", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [{ slug: slug("recipes") }]);
+    const { Family, Friends } = await roleIdsByName(app, owner);
+    await setAccess(app, owner, "recipes", { kind: "roles", roles: [Friends] });
+
+    await registerApps(db, []);
+    await registerApps(db, [
+      {
+        slug: slug("recipes"),
+        access: { kind: "roles", roleNames: ["Family"] },
+      },
+    ]);
+
+    expect((await accessOf(app, "recipes")).body).toEqual({
+      kind: "roles",
+      roles: [Family],
+    });
+  });
+
+  it("comes back owner only when its manifest declares no rule, whatever the owner set", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [{ slug: slug("notes") }]);
+    await setAccess(app, owner, "notes", { kind: "open" });
+
+    await registerApps(db, [{ slug: slug("diary") }]);
+    await registerApps(db, [{ slug: slug("notes") }]);
+
+    expect((await accessOf(app, "notes")).body).toEqual({ kind: "owner" });
+  });
+
+  it("goes with every other app when the list is empty", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [{ slug: slug("notes") }, { slug: slug("diary") }]);
+
+    await registerApps(db, []);
+
+    const res = await app.request("/apps", { headers: withSession(owner) });
+    expect(await res.json()).toEqual({ apps: [] });
+  });
+
+  it("leaves the roles themselves, which other apps and codes may hold", async () => {
+    const { app, db } = await freshCore();
+    const owner = await claim(app);
+    await registerApps(db, [
+      {
+        slug: slug("recipes"),
+        access: { kind: "roles", roleNames: ["Cooks"] },
+      },
+    ]);
+
+    await registerApps(db, []);
+
+    expect(Object.keys(await roleIdsByName(app, owner)).sort()).toEqual([
+      "Cooks",
+      "Family",
+      "Friends",
+    ]);
+  });
+});
+
 describe("GET /apps/:slug/access", () => {
   it("answers 404 for an app core doesn't know", async () => {
     const { app } = await freshCore();
