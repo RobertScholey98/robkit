@@ -1,0 +1,7 @@
+---
+// What a page says once robkit is on npm, in place of what <BeforeRelease>
+// says until then. `preRelease` in site.ts is the switch.
+import { preRelease } from "../site.ts";
+---
+
+{!preRelease && <slot />}

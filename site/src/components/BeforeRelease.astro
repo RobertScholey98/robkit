@@ -1,0 +1,7 @@
+---
+// What a page says only until robkit is on npm, such as the route from a
+// clone. `preRelease` in site.ts turns it off everywhere at once.
+import { preRelease } from "../site.ts";
+---
+
+{preRelease && <slot />}

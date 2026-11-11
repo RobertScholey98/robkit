@@ -1,7 +1,7 @@
 ---
 // The line every page that shows `npm create robkit` carries until robkit
 // is on npm. `preRelease` in site.ts turns it off everywhere at once.
-import { preRelease, repoUrl } from "../site.ts";
+import { preRelease } from "../site.ts";
 import Callout from "./Callout.astro";
 ---
 
@@ -12,7 +12,10 @@ import Callout from "./Callout.astro";
         robkit isn't on npm yet, so <code>npm create robkit</code> won't work
         until its first release. Until then, make an install from a clone of the
         repo, which needs git.{" "}
-        <a href={`${repoUrl}#quickstart`}>The README's quickstart</a> shows how.
+        <a href="/docs/get-started/quickstart/#make-an-install">
+          The quickstart
+        </a>{" "}
+        shows how.
       </p>
     </Callout>
   </div>
