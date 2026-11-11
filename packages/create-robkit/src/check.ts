@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { lstat, readdir, readFile, stat } from "node:fs/promises";
 import { extname, join, posix } from "node:path";
 import { appManifestFileIn } from "@robkit/dev";
 import { CommandProblem, isMissing } from "@robkit/dev/cli";
@@ -28,6 +28,11 @@ type Use =
       specifier: string;
       /** For a relative import, its target from the install root. */
       target: string | undefined;
+      /**
+       * Whether the target sits under a folder the scan doesn't read, which
+       * only a relative import can reach.
+       */
+      unread: boolean;
     }
   | { kind: "string"; value: string };
 
@@ -91,6 +96,11 @@ export const layerRule: readonly LayerRow[] = [
         (use.target !== undefined && inside(use.target, "apps/core"))),
   },
   {
+    rule: "Layer rule: an app or shared package imports no file under node_modules, dist, build, a dot-folder or a symlinked folder, since robkit check doesn't read them. Keep source out of those folders, and import a package by its name.",
+    applies: () => true,
+    breaks: (use) => use.kind === "import" && use.unread,
+  },
+  {
     rule: "Layer rule: handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.",
     applies: notCore,
     breaks: (use) =>
@@ -124,6 +134,56 @@ const scriptKinds: Record<string, ts.ScriptKind> = {
 
 /** Folders that hold no code the install's author wrote. */
 const skipped = new Set(["node_modules", "dist", "build"]);
+
+/** Whether the scan skips a folder by its name. */
+function skips(name: string): boolean {
+  return skipped.has(name) || name.startsWith(".");
+}
+
+/** What is at a path on disk. */
+interface Entry {
+  /** Whether it is a folder, following a symlink. */
+  folder: boolean;
+  link: boolean;
+}
+
+/** What is at `path`, from `root`, or undefined when nothing is. */
+async function entryAt(root: string, path: string): Promise<Entry | undefined> {
+  try {
+    const link = (await lstat(join(root, path))).isSymbolicLink();
+    const folder = (await stat(join(root, path))).isDirectory();
+    return { folder, link };
+  } catch (error) {
+    // A part along the path that is a file, or a link to nothing.
+    if (isMissing(error) || (isRecord(error) && error.code === "ENOTDIR")) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Whether `target`, a relative import's target from `root`, is or sits
+ * under a folder the scan skips. It looks at each folder along the path on
+ * disk, so a symlink part-way along counts. A target above the install is
+ * another rule's.
+ */
+async function unreadTarget(root: string, target: string): Promise<boolean> {
+  if (target === ".." || target.startsWith("../")) return false;
+  const parts = target.split("/");
+  let onDisk = true;
+  for (const [i, name] of parts.entries()) {
+    const entry: Entry | undefined = onDisk
+      ? await entryAt(root, parts.slice(0, i + 1).join("/"))
+      : undefined;
+    onDisk = entry !== undefined;
+    // Its last part may be a file, such as `build.ts`, which the scan reads.
+    const folder = i < parts.length - 1 || entry?.folder === true;
+    if (folder && skips(name)) return true;
+    if (entry?.link === true && entry.folder) return true;
+  }
+  return false;
+}
 
 /**
  * The `name` in a shared package's `package.json`, or undefined when the
@@ -194,7 +254,7 @@ async function scriptsIn(root: string, dir: string): Promise<string[]> {
   for (const entry of entries) {
     const path = `${dir}/${entry.name}`;
     if (entry.isDirectory()) {
-      if (!skipped.has(entry.name) && !entry.name.startsWith(".")) {
+      if (!skips(entry.name)) {
         files.push(...(await scriptsIn(root, path)));
       }
     } else if (
@@ -247,7 +307,7 @@ function usesIn(file: string, text: string): Placed[] {
     const target = /^\.\.?(\/|$)/.test(specifier)
       ? posix.join(posix.dirname(file), specifier)
       : undefined;
-    add({ kind: "import", specifier, target }, node);
+    add({ kind: "import", specifier, target, unread: false }, node);
   };
   const visit = (node: ts.Node): void => {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
@@ -290,7 +350,15 @@ export async function checkInstall(root: string): Promise<Violation[]> {
     const rows = layerRule.filter((row) => row.applies(area));
     for (const file of await scriptsIn(root, area.folder)) {
       const text = await readFile(join(root, file), "utf8");
-      for (const { use, line, column } of usesIn(file, text)) {
+      for (const placed of usesIn(file, text)) {
+        const { line, column } = placed;
+        const use =
+          placed.use.kind === "import" && placed.use.target !== undefined
+            ? {
+                ...placed.use,
+                unread: await unreadTarget(root, placed.use.target),
+              }
+            : placed.use;
         for (const row of rows) {
           if (row.breaks(use, area, areas)) {
             violations.push({ file, line, column, rule: row.rule });
