@@ -8,6 +8,6 @@
     "jsx": "preserve",
     "types": ["node"]
   },
-  "include": [".astro/types.d.ts", "src", "*.ts", "*.js"],
+  "include": [".astro/types.d.ts", "src", "scripts", "*.ts", "*.js"],
   "exclude": ["dist"]
 }

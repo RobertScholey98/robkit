@@ -113,6 +113,12 @@ pnpm --filter @internal/site preview
 
 Serve the folder rather than opening a page as a file. The site's links start at its root, so they break from a file.
 
+A docs page can name the repo files it describes, under `describes` in its front matter. After you change robkit, this lists the pages to read again. It fails nothing:
+
+```sh
+git diff --name-only origin/main | pnpm --filter @internal/site pages-to-reread
+```
+
 ### What each check does
 
 When a check refuses your change, its message says what to do. For more:
