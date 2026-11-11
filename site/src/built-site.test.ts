@@ -390,6 +390,62 @@ describe("the built glossary", () => {
   });
 });
 
+describe("the built page on security", () => {
+  const page = "docs/concepts/security/index.html";
+  const security = () => readFile(join(repoRoot, "SECURITY.md"), "utf8");
+  /** The items of the list in `markdown`'s block that starts with `start`. */
+  const itemsIn = (markdown: string, start: string) =>
+    markdown
+      .replaceAll("\r\n", "\n")
+      .split(/\n{2,}/)
+      .find((block) => block.startsWith(start))
+      ?.split("\n")
+      .filter(Boolean) ?? [];
+
+  it("lists each of SECURITY.md's known gaps, linking to GitHub", async () => {
+    const gaps = itemsIn(
+      (await security()).split("### Known gaps")[1] ?? "",
+      "- ",
+    );
+    const html = await built(page);
+    const items = itemsAfter(html, "known-gaps");
+
+    expect(gaps.length).toBeGreaterThan(5);
+    expect(items).toHaveLength(gaps.length);
+    expect(items[0]).toBe(
+      gaps[0]?.slice(2).replaceAll("'", "’").replaceAll("`", ""),
+    );
+    expect(html).toContain(
+      `href="${repoUrl}/blob/main/.scratch/just-use-it/issues/29-access-codes-at-least-five.md"`,
+    );
+  });
+
+  it("lists each way past the lint SECURITY.md gives", async () => {
+    const ways = (await security())
+      .split("The known ways past the lint:\n\n")[1]
+      ?.split("\n\n")[0]
+      ?.split("\n");
+
+    const html = await built(page);
+    const list = /<ul>[\s\S]*?<\/ul>/.exec(
+      html.slice(html.indexOf("in these ways and maybe others")),
+    )?.[0];
+
+    expect(ways).toContain("- `createRequire`.");
+    expect(list?.match(/<li>/g)).toHaveLength(ways?.length ?? -1);
+    expect(list).toContain("<code>createRequire</code>");
+  });
+
+  it("gives the way to report a vulnerability that SECURITY.md gives", async () => {
+    const reporting = /private vulnerability reporting\]\((\S+)\)/.exec(
+      await security(),
+    )?.[1];
+
+    expect(reporting).toMatch(/^https:\/\/github\.com\/.+\/security\//);
+    expect(await built(page)).toContain(`href="${String(reporting)}"`);
+  });
+});
+
 describe("the built page on upgrading", () => {
   const page = "docs/run-an-install/upgrading/index.html";
   const source = (path: string) => readFile(join(repoRoot, path), "utf8");

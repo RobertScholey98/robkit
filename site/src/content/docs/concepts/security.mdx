@@ -1,0 +1,71 @@
+---
+title: Security
+description: What robkit protects, what an app you install can and can't do, and the gaps robkit knows of.
+section: Concepts
+order: 2
+describes:
+  - SECURITY.md
+---
+
+import Built from "../../../components/Built.astro";
+
+robkit keeps each app to its own data and its own sign-in, so an app you install can't act as you anywhere else on the install. It doesn't vet an app's code for you. Read an app before you install it, as you would any program.
+
+The rules come from robkit's `SECURITY.md`, and the known gaps at the end of this page are built from it.
+
+## What robkit protects
+
+**Core is the only holder of the keys.** Core signs every session token with a key only it holds, and only core reads or writes its own tables. Your apps reach core over HTTP, like any visitor.
+
+**Each app holds only its own token.** Core's token sits in a cookie on core's own host. Each app, admin included, holds an app token for its own slug in a cookie on its own host, and its guard accepts no other. No cookie goes on the install's domain as a whole, so one app's token is no use to another.
+
+**No other app can plant a session cookie.** Every subdomain of an install counts as one site to a browser, so an app could try to set a cookie for its neighbours. On an https install each session cookie is named with the `__Host-` prefix, and a browser sets one of those only for the host that sent it.
+
+**No other app can write as your viewer.** A browser sends an app's cookie with a form posted from any other subdomain. So the guard refuses a write from another origin with a 403, before any of your code runs. A GET from another app still passes, since a link or an image can send one, so change state only on POST, PUT, PATCH or DELETE, never on a GET. A WebSocket on a Node stack is usually upgraded where the guard doesn't run, so check its `Origin` yourself.
+
+**No other origin can frame an app.** Each guarded app, admin included, tells the browser not to show it in a frame from another origin, and core and the hub can't be framed at all. That stops a page on one subdomain from tricking a click in admin through a frame. A new window is still possible, so don't take admin's clicks as safe from every trick.
+
+**Only the proxy reaches core.** Core counts sign-in attempts per visitor from the address the proxy forwards. Anything that reaches core directly could forge that address, so in production nothing but the proxy should reach the host.
+
+**Core checks whole addresses.** Core hands a token only to admin or an app in its catalog, matching protocol, host and port, never the host alone. Only a local install runs over plain http.
+
+**An intro link asks first.** In a browser that is already signed in, the hub shows who it is signed in as and asks before an intro link replaces the session. [Guests, access codes and roles](/docs/run-an-install/guests-and-access/) has what a guest sees.
+
+**Sign-in is limited.** Wrong access codes are limited per visitor and across the whole install, so guessing a code takes years. The same page gives the numbers.
+
+**Your built files are public.** An app serves its built scripts, styles and `public` files before the guard runs, so anyone who can reach the app can fetch them. Put nothing there that a viewer shouldn't see.
+
+**robkit's own packages skip pnpm's one-day wait.** An install's catalog pins each of robkit's packages to one exact version, so an install made on the day of a release still installs. Every other package waits its day. `SECURITY.md` says how to keep the wait for robkit's packages too.
+
+## What an app you install can and can't do
+
+An app you install, whoever wrote it, can:
+
+- Learn who each visitor is, whether they're you or a guest, and their roles, so it can serve them.
+- Read and write its own Postgres schema.
+- Reach core over HTTP, as any visitor could.
+
+It can't:
+
+- Open admin or another app as your viewer. Its app token is good only for its own slug, and core never renews a session from it.
+- Post to another app as your viewer. The other app's guard refuses a write from another origin.
+- Frame admin or another app, unless that app allows it.
+- Read core's tables or another app's schema. Its database role reaches its own schema and nothing else.
+
+Three things hold an app, whatever its code does: its database role, its app token's audience, and its container's environment, which holds its own database URL and none of core's secrets. Its image isn't one of them. The install's `Dockerfile` builds an app's image with every workspace package the app's `package.json` names.
+
+`robkit check` is a lint, not a wall. It catches an app that breaks [the layer rule](/docs/build-an-app/the-layer-rule/) by mistake. An app written to get past it can, in these ways and maybe others:
+
+<Built id="ways-past-the-lint" />
+
+## Known gaps
+
+These are the gaps robkit knows of that bear on security, as `SECURITY.md` lists them:
+
+<Built id="known-gaps" />
+
+## Report a vulnerability
+
+Report a vulnerability privately, through GitHub's [private vulnerability reporting](https://github.com/RobertScholey98/robkit/security/advisories/new) for robkit's repository. Don't open a public issue for it.
+
+Say what you found, how to reproduce it, and what an attacker could do with it. robkit is pre-release and has no supported versions yet, so fixes land on `main`.
