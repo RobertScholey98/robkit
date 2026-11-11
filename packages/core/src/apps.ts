@@ -52,11 +52,16 @@ export function readAccess(
 /**
  * Reads `ROBKIT_APPS`: a JSON list of the install's apps as they declare
  * themselves, which the dev runner and robkit deploy write from each app's
- * manifest. Empty or unset means none.
+ * manifest. `[]` means none. Unset or blank is a problem, not an empty
+ * list, since core takes out of its catalog every app the list leaves out.
  */
 export function readListedApps(env: Env): ListedApp[] | InputProblem {
   const text = env.ROBKIT_APPS;
-  if (text === undefined || text.trim() === "") return [];
+  if (text === undefined || text.trim() === "") {
+    return problem(
+      "ROBKIT_APPS is not set. pnpm dev and robkit deploy set it from each app's manifest. Set it to [] for an install with no apps of its own.",
+    );
+  }
   const parsed = parseJson(text, "ROBKIT_APPS");
   if (isProblem(parsed)) return parsed;
   const { json } = parsed;

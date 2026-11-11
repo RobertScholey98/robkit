@@ -4,11 +4,26 @@ import { freePort } from "@internal/test-postgres";
 import { CommandProblem } from "@robkit/input/command";
 import postgres from "postgres";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { slug } from "@internal/test-session";
+import { listApps, registerApps } from "./apps.ts";
+import { createDatabase, type Database } from "./database.ts";
 import { migrate } from "./migrate.ts";
 import { serveCore } from "./serve-core.ts";
 import { freshDatabase } from "./test/fresh-database.ts";
 
 const coreUrl = "https://core.robkit.test";
+
+/** Core's catalog in the database at `databaseUrl`, closed when the test ends. */
+function catalog(databaseUrl: string): Database {
+  const db = createDatabase(databaseUrl);
+  onTestFinished(() => db.$client.end());
+  return db;
+}
+
+/** The slugs in the catalog, in order. */
+async function slugsIn(databaseUrl: string): Promise<string[]> {
+  return (await listApps(catalog(databaseUrl))).map((app) => app.slug);
+}
 
 /** What `console.log` prints from here to the test's end, one entry per call. */
 function logged(): () => unknown[] {
@@ -31,6 +46,7 @@ describe("serveCore", () => {
     const served = serveCore({
       DATABASE_URL: databaseUrl,
       ROBKIT_CORE_URL: coreUrl,
+      ROBKIT_APPS: "[]",
       PORT: String(port),
     });
     const listening = `core listening on 127.0.0.1:${String(port)}`;
@@ -64,6 +80,7 @@ describe("serveCore", () => {
     const served = serveCore({
       DATABASE_URL: databaseUrl,
       ROBKIT_CORE_URL: coreUrl,
+      ROBKIT_APPS: "[]",
       PORT: String(port),
     });
     const listening = `core listening on 127.0.0.1:${String(port)}`;
@@ -120,6 +137,7 @@ describe("serveCore", () => {
       serveCore({
         DATABASE_URL: "postgres://core:pw@db:5432/robkit",
         ROBKIT_CORE_URL: coreUrl,
+        ROBKIT_APPS: "[]",
       }),
     ).rejects.toEqual(
       new CommandProblem(
@@ -128,11 +146,38 @@ describe("serveCore", () => {
     );
   });
 
+  // Core takes out every app the list leaves out, so a list it can't read
+  // must stop it before it touches the catalog.
+  it.each([
+    ["missing", undefined, /^ROBKIT_APPS is not set\./],
+    ["blank", " ", /^ROBKIT_APPS is not set\./],
+    ["malformed", "notes", /^ROBKIT_APPS isn't valid JSON/],
+  ])(
+    "stops with a message when ROBKIT_APPS is %s, and changes nothing in the catalog",
+    async (_, apps, message) => {
+      const databaseUrl = await freshDatabase();
+      await migrate(databaseUrl);
+      await registerApps(catalog(databaseUrl), [{ slug: slug("notes") }]);
+
+      const served = serveCore({
+        DATABASE_URL: databaseUrl,
+        ROBKIT_CORE_URL: coreUrl,
+        PORT: String(await freePort()),
+        ...(apps !== undefined && { ROBKIT_APPS: apps }),
+      });
+
+      await expect(served).rejects.toBeInstanceOf(CommandProblem);
+      await expect(served).rejects.toThrow(message);
+      expect(await slugsIn(databaseUrl)).toEqual(["notes"]);
+    },
+  );
+
   it("throws what went wrong before it listens, such as a schema not migrated", async () => {
     await expect(
       serveCore({
         DATABASE_URL: await freshDatabase(),
         ROBKIT_CORE_URL: coreUrl,
+        ROBKIT_APPS: "[]",
         PORT: String(await freePort()),
       }),
     ).rejects.toThrow(/signing_keys/);
@@ -154,6 +199,7 @@ describe("serveCore", () => {
       serveCore({
         DATABASE_URL: databaseUrl,
         ROBKIT_CORE_URL: coreUrl,
+        ROBKIT_APPS: "[]",
         PORT: String(port),
       }),
     ).rejects.toThrow(/EADDRINUSE/);
