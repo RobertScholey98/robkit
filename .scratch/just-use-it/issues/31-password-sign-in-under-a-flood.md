@@ -27,3 +27,9 @@ What it does and doesn't touch:
 - [ ] With the ordinary queue full, a `/login` that carries a valid cookie is still checked, and one that carries a forged or expired one gets 429
 - [ ] The cookie signs nobody in by itself, and a guest's sign-in never sets it
 - [ ] `SECURITY.md`'s known gap says a flood stops only browsers that have never signed in as the owner
+
+## Comments
+
+### From milestone 4's ticket round, 2026-11-11
+
+Both reviewers agree with the recommendation: say it in `SECURITY.md` and build nothing more. Sol adds, for the second choice: a queue of its own isn't enough if both queues feed the same two running checks. The cookie's requests would need a place among the running checks that a flood can't take.
