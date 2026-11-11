@@ -16,7 +16,9 @@ const page = (prose: string, { stub = false } = {}) => `<!doctype html>
 <nav class="toc"><a href="#add">robkit add</a></nav>
 <div class="prose">${stub ? '<p class="stub" data-stub>This page isn&#39;t written yet.</p>' : ""}${prose}</div>
 <footer class="page-foot"><a href="/edit">Edit this page</a></footer>
-</main></body></html>`;
+</main></div>
+<footer class="footer"><p>Not indexed either.</p></footer>
+</body></html>`;
 
 describe("sectionsOf", () => {
   it("splits a page's prose at each h2 and h3, with the text under each", () => {
@@ -67,6 +69,16 @@ describe("sectionsOf", () => {
     expect(sectionsOf(html, "/docs/a/")?.sections[0]?.text).toBe(
       "Runs Tailwind. .gitignore",
     );
+  });
+
+  it("reads only what a reader sees: no scripts, styles or buttons", () => {
+    const html = page(
+      '<figure><figcaption><span>Terminal</span><button type="button">Copy</button></figcaption><pre><code>pnpm dev</code></pre></figure><script type="module">for (const e of x) {}</script><style>.a{color:red}</style>',
+    );
+
+    expect(sectionsOf(html, "/docs/a/")?.sections).toEqual([
+      { heading: undefined, href: "/docs/a/", text: "Terminal pnpm dev" },
+    ]);
   });
 
   it("leaves out a stub, and a page with no docs prose", () => {

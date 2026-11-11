@@ -61,9 +61,12 @@ export function sectionsOf(
   html: string,
   href: string,
 ): { title: string; sections: Section[] } | undefined {
-  const prose = /<div class="prose"[^>]*>([\s\S]*)<\/div>\s*<footer/.exec(
-    html,
-  )?.[1];
+  // Up to the page's own footer, and without what a reader doesn't see
+  // as text: scripts, styles, and the words on buttons.
+  const prose =
+    /<div class="prose"[^>]*>([\s\S]*)<\/div>\s*<footer class="page-foot"/
+      .exec(html)?.[1]
+      ?.replaceAll(/<(script|style|button)\b[\s\S]*?<\/\1>/g, "");
   const title = /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1];
   if (prose === undefined || title === undefined) return undefined;
   if (prose.includes("data-stub")) return undefined;
