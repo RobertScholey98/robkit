@@ -30,7 +30,7 @@ const steps: { from: Lane; to: Lane; label: string }[] = [
 const xOf = (lane: Lane) => lanes.find(({ name }) => name === lane)?.x ?? 0;
 const top = 48;
 const gap = 30;
-const rowY = (index: number) => top + 30 + index * gap;
+const rowY = (index: number) => top + gap + index * gap;
 const bottom = rowY(steps.length - 1) + 20;
 ---
 
