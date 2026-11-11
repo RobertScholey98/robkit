@@ -2,7 +2,7 @@ import { reportToConsole } from "@robkit/input/report";
 import { useEffect, useState } from "react";
 import { getSession, signInWithCode, type Session } from "./core-api.ts";
 import { coreOrigin, returnTo } from "./core-origin.ts";
-import { Setup, SignIn } from "./forms.tsx";
+import { IntroQuestion, Setup, SignIn } from "./forms.tsx";
 import { introCode } from "./intro-link.ts";
 import { Launcher } from "./launcher.tsx";
 import { Card } from "./ui.tsx";
@@ -11,7 +11,10 @@ type Screen =
   | { state: "checking" }
   | { state: "unreachable"; reason: string }
   | { state: "code-refused"; error: string }
+  | { state: "intro"; code: string; session: SignedIn }
   | Session;
+
+type SignedIn = Extract<Session, { state: "signed-in" }>;
 
 export function App() {
   let core: string;
@@ -35,28 +38,12 @@ function Hub({ core }: { core: string }) {
 
   useEffect(() => {
     let current = true;
-    if (intro === undefined) {
-      void getSession(core).then((result) => {
-        if (!current) return;
-        setScreen(
-          result.outcome === "ok"
-            ? result.value
-            : { state: "unreachable", reason: result.error },
-        );
-      });
-    } else {
-      // An intro link signs the guest in once; a reload shouldn't send the
-      // code again, and it shouldn't stay in the address bar.
-      history.replaceState(null, "", "/");
-      void signInWithCode(core, intro).then((result) => {
-        if (!current) return;
-        setScreen(
-          result.outcome === "ok"
-            ? result.value
-            : { state: "code-refused", error: result.error },
-        );
-      });
-    }
+    // An intro link is used once; a reload shouldn't use the code again, and
+    // it shouldn't stay in the address bar.
+    if (intro !== undefined) history.replaceState(null, "", "/");
+    void firstScreen(core, intro).then((first) => {
+      if (current) setScreen(first);
+    });
     return () => {
       current = false;
     };
@@ -80,6 +67,18 @@ function Hub({ core }: { core: string }) {
       return <Unreachable reason={screen.reason} />;
     case "unclaimed":
       return <Setup core={core} onSession={onSignedIn} />;
+    case "intro":
+      return (
+        <IntroQuestion
+          core={core}
+          onSession={onSignedIn}
+          code={screen.code}
+          profile={screen.session.profile}
+          onStay={() => {
+            setScreen(screen.session);
+          }}
+        />
+      );
     case "code-refused":
       return <SignIn core={core} onSession={onSignedIn} error={screen.error} />;
     case "signed-out":
@@ -89,6 +88,30 @@ function Hub({ core }: { core: string }) {
         <Launcher core={core} profile={screen.profile} onSession={setScreen} />
       );
   }
+}
+
+/**
+ * What the hub shows first: the session core has, or what an intro link
+ * makes of it.
+ */
+async function firstScreen(
+  core: string,
+  intro: string | undefined,
+): Promise<Screen> {
+  const result = await getSession(core);
+  if (result.outcome === "failed") {
+    return { state: "unreachable", reason: result.error };
+  }
+  const session = result.value;
+  if (intro === undefined) return session;
+  // Someone is signed in already, so ask before replacing them.
+  if (session.state === "signed-in") {
+    return { state: "intro", code: intro, session };
+  }
+  const signedIn = await signInWithCode(core, intro);
+  return signedIn.outcome === "ok"
+    ? signedIn.value
+    : { state: "code-refused", error: signedIn.error };
 }
 
 function Unreachable({ reason }: { reason: string }) {
