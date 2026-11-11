@@ -1,11 +1,12 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import { aDomain, slug } from "@internal/test-session";
 import { CommandProblem } from "@robkit/input/command";
 import {
   appEnv,
+  appSettings,
   ownSettings,
   refusedAppSettings,
   type InstallFacts,
@@ -229,5 +230,21 @@ describe("refusedAppSettings", () => {
         (problem: CommandProblem) => /sets (\w+),/.exec(problem.message)?.[1],
       ),
     ).toEqual(names.toSorted());
+  });
+
+  // Type assertions, which tsc checks: the published lists name no
+  // literals, and the runner's own copy stays exact.
+  it("is published as plain lists, so a name added changes no type", () => {
+    expectTypeOf(refusedAppSettings).toEqualTypeOf<{
+      readonly decidedForEachApp: readonly string[];
+      readonly prefix: string;
+      readonly alsoRefused: readonly string[];
+    }>();
+  });
+
+  it("stays exact inside, so appSettings can't leave a decided name out", () => {
+    expectTypeOf<
+      keyof ReturnType<typeof appSettings>
+    >().not.toEqualTypeOf<string>();
   });
 });
