@@ -238,6 +238,32 @@ describe("the built samples page's template files", () => {
   });
 });
 
+describe("the built pages' images", () => {
+  it("each say what they show, and hold their space before they load", async () => {
+    const problems: string[] = [];
+    let count = 0;
+    for await (const page of glob("**/*.html", {
+      cwd: join(repoRoot, "site", "dist"),
+    })) {
+      for (const [tag] of (await built(page)).matchAll(/<img\b[^>]*>/g)) {
+        count++;
+        const attribute = (name: string) =>
+          new RegExp(`\\s${name}="([^"]*)"`).exec(tag)?.[1] ?? "";
+        if (attribute("alt").length < 20)
+          problems.push(`${page}: alt in ${tag}`);
+        for (const size of ["width", "height"]) {
+          if (!/^\d+$/.test(attribute(size))) {
+            problems.push(`${page}: ${size} in ${tag}`);
+          }
+        }
+      }
+    }
+
+    expect(count).toBeGreaterThan(5);
+    expect(problems).toEqual([]);
+  });
+});
+
 describe("the pre-release line", () => {
   it("is on each page that shows npm create robkit while preRelease is on, and on none when it's off", async () => {
     const pages: { page: string; shows: boolean; line: boolean }[] = [];
