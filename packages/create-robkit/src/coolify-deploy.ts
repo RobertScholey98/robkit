@@ -246,15 +246,17 @@ async function decide(
   );
 }
 
+interface DeployStep {
+  app: string;
+  action: "deploy";
+  uuid: string;
+  reason: string;
+  /** What the application's record says once its deploy finished. */
+  record: string;
+}
+
 type Step =
-  | {
-      app: string;
-      action: "deploy";
-      uuid: string;
-      reason: string;
-      record: string;
-    }
-  | { app: string; action: "skip" | "failed"; reason: string };
+  DeployStep | { app: string; action: "skip" | "failed"; reason: string };
 
 /** Each app's step: what was decided, unless its sync failed. */
 function plan(
@@ -281,16 +283,6 @@ function plan(
       record: recordOf(commit, variablesHash(wanted.envs)),
     };
   });
-}
-
-/**
- * Core provisions every app's database as it starts, so it goes first and
- * the rest follow together.
- */
-function waves<T extends { app: string }>(deploys: T[]): T[][] {
-  const first = deploys.filter(({ app }) => app === "core");
-  const rest = deploys.filter(({ app }) => app !== "core");
-  return [first, rest].filter((wave) => wave.length > 0);
 }
 
 interface WaitOptions {
@@ -420,40 +412,48 @@ export async function deploy({
   }
   let ok = steps.every(({ action }) => action !== "failed");
 
-  const planned = waves(
-    steps.flatMap((step) => (step.action === "deploy" ? [step] : [])),
+  /** Deploys one app and records it, and answers whether it now runs. */
+  const deployOne = async ({
+    app,
+    uuid,
+    record,
+  }: DeployStep): Promise<boolean> => {
+    const deployed = await deployAndWait(api, uuid, { intervalMs, timeoutMs });
+    if (!deployed.ok) {
+      log(`- ${app}: failed, ${deployed.detail}`);
+      return false;
+    }
+    const saved = await callCoolify(api, "PATCH", `/applications/${uuid}`, {
+      body: { description: record },
+    });
+    if (saved.outcome === "failed") {
+      log(
+        `- ${app}: deployed, but its record wasn't saved, so the next deploy deploys it again: ${describeFailure(saved)}`,
+      );
+      // The app runs, so the rest can follow, but the command fails.
+      ok = false;
+      return true;
+    }
+    log(`- ${app}: deployed, ${deployed.detail}`);
+    return true;
+  };
+
+  // Core provisions every app's database as it starts, so it goes first,
+  // and no app deploys in a run where core didn't. The rest go together.
+  const deploys = steps.flatMap((step) =>
+    step.action === "deploy" ? [step] : [],
   );
-  for (const [index, wave] of planned.entries()) {
-    const outcomes = await Promise.all(
-      wave.map(async ({ app, uuid, record }) => {
-        const deployed = await deployAndWait(api, uuid, {
-          intervalMs,
-          timeoutMs,
-        });
-        if (!deployed.ok) {
-          log(`- ${app}: failed, ${deployed.detail}`);
-          return deployed;
-        }
-        const saved = await callCoolify(api, "PATCH", `/applications/${uuid}`, {
-          body: { description: record },
-        });
-        if (saved.outcome === "failed") {
-          log(
-            `- ${app}: deployed, but its record wasn't saved, so the next deploy deploys it again: ${describeFailure(saved)}`,
-          );
-          // The app runs, so the rest can follow, but the command fails.
-          ok = false;
-          return deployed;
-        }
-        log(`- ${app}: deployed, ${deployed.detail}`);
-        return deployed;
-      }),
-    );
-    if (outcomes.every(({ ok: deployed }) => deployed)) continue;
-    for (const { app } of planned.slice(index + 1).flat()) {
-      log(`- ${app}: not started, an earlier deploy failed`);
+  const core = deploys.filter(({ app }) => app === "core");
+  const rest = deploys.filter(({ app }) => app !== "core");
+  const coreFailed =
+    steps.some(({ app, action }) => app === "core" && action === "failed") ||
+    !(await Promise.all(core.map(deployOne))).every(Boolean);
+  if (coreFailed) {
+    for (const { app } of rest) {
+      log(`- ${app}: held back, since core didn't deploy`);
     }
     return false;
   }
-  return ok;
+  const deployed = await Promise.all(rest.map(deployOne));
+  return ok && deployed.every(Boolean);
 }

@@ -340,7 +340,27 @@ describe("deploy", () => {
     expect(log).toContain(
       "- core: failed, failed. Check the deployment's log in Coolify.",
     );
-    expect(log).toContain("- hub: not started, an earlier deploy failed");
+    expect(log).toContain("- hub: held back, since core didn't deploy");
+    expect(deploysOf(state)).toEqual(["/deploy?uuid=c"]);
+  });
+
+  it("holds every app back when core's settings can't be saved", async () => {
+    const state = host({
+      applications: all(),
+      answer: (route) =>
+        route === "PATCH /applications/c/envs/bulk"
+          ? { status: 500, body: { message: "Server Error" } }
+          : undefined,
+    });
+
+    const { ok, log } = await run(state, "all");
+
+    expect(ok).toBe(false);
+    expect(deploysOf(state)).toEqual([]);
+    expect(log.slice(-2)).toEqual([
+      "- hub: held back, since core didn't deploy",
+      "- notes: held back, since core didn't deploy",
+    ]);
   });
 
   it("gives up on a request Coolify never answers, and says what to check", async () => {
