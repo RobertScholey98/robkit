@@ -57,9 +57,11 @@ describe("writeMarkdownCopies", () => {
   });
 });
 
-/** A Markdown copy without its code, inline or fenced. */
+/** A Markdown copy without its code, inline or fenced, in a list or not. */
 const prose = (markdown: string) =>
-  markdown.replaceAll(/^(`{3,})[\s\S]*?^\1/gm, "").replaceAll(/`[^`\n]*`/g, "");
+  markdown
+    .replaceAll(/^ *(`{3,})[\s\S]*?^ *\1/gm, "")
+    .replaceAll(/`[^`\n]*`/g, "");
 
 const escaped = (text: string) =>
   text.replaceAll(/[.*+?^${}()|[\]\\]/g, "\\$&");

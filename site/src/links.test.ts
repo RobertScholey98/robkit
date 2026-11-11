@@ -71,6 +71,12 @@ describe("brokenLinks", () => {
         "[nor](/this/one/)",
         "```",
         "",
+        "1. In a list:",
+        "",
+        "   ```md",
+        "   [nor](/this/one/either/)",
+        "   ```",
+        "",
       ].join("\n"),
     });
 
