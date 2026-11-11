@@ -5,9 +5,11 @@ on:
   push:
     branches: [main]
 
+# A new push cancels a pull request's run in progress. On main every run
+# finishes, so each push's checks and deploy run in turn.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -49,7 +51,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          # turbo compares against the commit before the push.
+          # robkit deploy compares each app against the commit its last
+          # finished deploy recorded, so it needs the whole history.
           fetch-depth: 0
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
@@ -59,7 +62,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm robkit deploy
         env:
-          TURBO_SCM_BASE: ${{ github.event.before }}
           COOLIFY_URL: ${{ secrets.COOLIFY_URL }}
           COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
           CF_ACCESS_CLIENT_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}

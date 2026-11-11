@@ -89,7 +89,26 @@ It can't:
 - Post to another app as the viewer from its own pages. The other app's guard refuses a write from another origin.
 - Frame admin or another app in its own pages, unless that app's own policy names it. The other app's guard sends `X-Frame-Options: SAMEORIGIN`.
 - Read core's tables or another app's schema. Its database role reaches its own schema and nothing else.
-- Import `@robkit/core`, another app, or read the session cookie itself, if it keeps to the install's layer rule. `robkit check` enforces that rule on the source, so review an imported app's code before you trust it beyond that.
+
+Three things hold an app, whatever its code does:
+
+- Its database role, which reaches its own schema and nothing else.
+- Its app token's audience, its own slug. No other app's guard accepts the token, and core never renews from it.
+- Its container's environment, which holds its own `DATABASE_URL` and none of core's secrets.
+
+Its image isn't one of them. The install's `Dockerfile` runs `turbo prune` for the app, which brings in every workspace package the app's `package.json` names.
+
+`robkit check` is a lint, not a boundary. It reads the source of each app and shared package, and catches one that breaks the install's layer rule by mistake: an import of `@robkit/core` or another app, the session cookie read by name, or a relative import into a folder the check doesn't read. An app written to get past it can. So read an imported app's code before you install it.
+
+The known ways past the lint:
+
+- An import whose name is computed, such as `import(name)`.
+- `createRequire`.
+- An alias: tsconfig `paths`, a Vite `resolve.alias`, or a `package.json` `imports` entry.
+- An absolute path, or a `file:` specifier.
+- A symlinked file. The check reads the file, but works out its relative imports from the link's folder, and Node resolves them from the real file's.
+- A folder's name in another case, such as `./Dist/server.js`, on a file system that ignores case, as macOS's does by default.
+- A cookie name built from pieces, such as `"robkit_" + "session"`.
 
 ### robkit's own packages skip pnpm's one-day wait
 

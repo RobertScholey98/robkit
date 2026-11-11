@@ -63,12 +63,15 @@ An app's own settings, such as an API key, go in `apps/<slug>/.env`, which git i
 
 ## The layer rule
 
-`robkit check` enforces each rule here, and `pnpm lint` runs it. Its message names the rule a file breaks.
+`robkit check` enforces each rule here, and `pnpm lint` runs it. Its message names the file, the line and the rule it breaks.
 
 - An app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.
 - A shared package imports only its own files, @robkit/* packages and other shared packages/*. It never imports an app.
 - An app or shared package reaches core over HTTP only, never through @robkit/core. Only `apps/core` depends on it. Postgres keeps the data side: an app's role can reach its own schema and nothing else.
 - Handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.
+- An app or shared package imports no file under node_modules, dist, build, a dot-folder or a symlinked folder, since robkit check doesn't read them. Keep source out of those folders, and import a package by its name.
+
+`robkit check` is a lint, not a boundary. It reads the source and catches an app that breaks the rule by mistake, not one written to get past it, so read an imported app's code before you install it. Three things hold an app: its database role, which reaches its own schema and nothing else; its app token's audience, its own slug; and its container's environment, which holds its own `DATABASE_URL` and none of core's secrets. Its image isn't one of them: the `Dockerfile` runs `turbo prune`, which brings in every workspace package the app's `package.json` names.
 
 ## Databases
 
