@@ -135,7 +135,7 @@ describe("the built Your first app page", () => {
       "apps/notes/src/routes.tsx",
       "apps/notes/src/routes.tsx",
       "apps/notes/src/home.tsx",
-      "apps/notes/src/main.tsx",
+      "apps/notes/src/home.tsx",
     ]);
   });
 
