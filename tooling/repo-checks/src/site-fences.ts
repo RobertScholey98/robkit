@@ -1,6 +1,7 @@
 // The docs site's sh and go fences: each pnpm command a page shows is one
-// an install has, or robkit's checkout has in a fence marked `checkout`,
-// and each Go sample is as gofmt writes it.
+// an install has, robkit's checkout has in a fence marked `checkout`, or
+// an app has in a fence marked `app`, and each Go sample is as gofmt
+// writes it.
 
 import { spawnSync } from "node:child_process";
 import { glob, readFile } from "node:fs/promises";
@@ -47,6 +48,20 @@ export interface InstallCommands {
   scripts: readonly string[];
   /** The scripts robkit's own package.json has, for a fence marked `checkout`. */
   checkout: readonly string[];
+  /** The scripts every Node stack's app has, for a fence marked `app`. */
+  app: readonly string[];
+}
+
+/** The scripts a fence's commands may run, and whose they are. */
+function scriptsFor(
+  flags: readonly string[],
+  install: InstallCommands,
+): [readonly string[], string] {
+  if (flags.includes("checkout")) {
+    return [install.checkout, "robkit's own package.json"];
+  }
+  if (flags.includes("app")) return [install.app, "an app's package.json"];
+  return [install.scripts, "an install's package.json"];
 }
 
 /** Each shell command in a fence, one per line, split at `&&`, `||`, `;` and `|`. */
@@ -64,7 +79,7 @@ function commandsIn(code: string): { offset: number; words: string[] }[] {
  * Each `pnpm robkit <command>` in an `sh` fence whose command `robkit`
  * doesn't run, and each `pnpm <script>` the install has no script for. A
  * fence marked `checkout` runs in a clone of robkit, so its scripts are
- * robkit's own.
+ * robkit's own. One marked `app` runs in an app's folder.
  */
 export function commandProblems(
   fences: readonly Fence[],
@@ -73,9 +88,7 @@ export function commandProblems(
   return fences
     .filter(({ lang }) => lang === "sh")
     .flatMap(({ file, line, code, flags }) => {
-      const [scripts, owner] = flags.includes("checkout")
-        ? [install.checkout, "robkit's own package.json"]
-        : [install.scripts, "an install's package.json"];
+      const [scripts, owner] = scriptsFor(flags, install);
       return commandsIn(code).flatMap(
         ({ offset, words: [first, name, sub] }) => {
           const at = `${file}:${String(line + offset)}`;

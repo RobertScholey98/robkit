@@ -1,0 +1,197 @@
+---
+title: The database
+description: Your app's own Postgres schema, a new table, and its migration applied while pnpm dev runs.
+section: Build an app
+order: 8
+describes:
+  - packages/dev/src/
+  - packages/drizzle/
+  - packages/create-robkit/src/robkit-command.ts
+  - packages/create-robkit/templates/base/AGENTS.md
+  - packages/create-robkit/templates/stacks/
+---
+
+import StackSwitch from "../../../components/StackSwitch.astro";
+import TemplateFile from "../../../components/TemplateFile.astro";
+
+Your app has its own Postgres schema and its own role, and nothing else in the install can read them. `pnpm dev` makes both, and applies your app's migrations each time the app starts. Your app connects as its role with `DATABASE_URL`, which `pnpm dev` sets.
+
+## What your app can reach
+
+- Its own schema. The role has it first on its search path, so a table named without a schema lands there.
+- Nothing else. The role can't reach core's schema or another app's.
+
+An app gets a database when its `package.json` has a `migrate` script. Every app `robkit add` makes has one.
+
+## Your app's database code
+
+<StackSwitch>
+  <Fragment slot="start">
+    Your app talks to Postgres with Drizzle. `src/schema.ts` declares the tables, and `src/database.ts` connects with `appDatabase(schema)` from `@robkit/drizzle`, on first use:
+
+    <TemplateFile path="stacks/start/src/database.ts" />
+
+    `src/visits.ts` holds the example's queries. `drizzle/` holds the migrations.
+
+  </Fragment>
+  <Fragment slot="react-hono">
+    Your app talks to Postgres with Drizzle. `src/schema.ts` declares the tables, and `src/database.ts` connects with `appDatabase(schema)` from `@robkit/drizzle`, on first use:
+
+    <TemplateFile path="stacks/react-hono/src/database.ts" />
+
+    `src/visits.ts` holds the example's queries. `drizzle/` holds the migrations.
+
+  </Fragment>
+  <Fragment slot="express">
+    Your app talks to Postgres with Drizzle. `src/schema.ts` declares the tables, and `src/database.ts` connects with `appDatabase(schema)` from `@robkit/drizzle`, on first use:
+
+    <TemplateFile path="stacks/express/src/database.ts" />
+
+    `src/visits.ts` holds the example's queries. `drizzle/` holds the migrations.
+
+  </Fragment>
+  <Fragment slot="next">
+    Your app talks to Postgres with Drizzle. `src/schema.ts` declares the tables, and `src/database.ts` connects with `appDatabase(schema)` from `@robkit/drizzle`, on first use:
+
+    <TemplateFile path="stacks/next/src/database.ts" />
+
+    `src/visits.ts` holds the example's queries. `drizzle/` holds the migrations.
+
+  </Fragment>
+  <Fragment slot="go">
+    Your app talks to Postgres with pgx, in plain SQL. robkit's Drizzle files don't apply to it. `server.go` connects with `pgxpool` as the server starts, and `visits.go` holds the example's queries:
+
+    <TemplateFile path="stacks/go/visits.go" from="func (v databaseVisits) record" to="^}" />
+
+    `migrations/` holds the migrations, one `.sql` file each.
+
+  </Fragment>
+</StackSwitch>
+
+## Add a table
+
+This adds a table of notes to an app named `notes`. Run `pnpm dev` in one terminal, and the rest in another.
+
+<StackSwitch>
+  <Fragment slot="start">
+    Declare the table in `src/schema.ts`, beside the example's. Use `pgTable`, never `pgSchema`. The role can use only its own schema.
+
+    ```ts title="apps/notes/src/schema.ts"
+    import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+
+    export const note = pgTable("note", {
+      id: serial().primaryKey(),
+      author: text().notNull(),
+      body: text().notNull(),
+      at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    });
+    ```
+
+    Then write the migration, in the app's folder:
+
+    ```sh app
+    pnpm db:generate
+    ```
+
+    It writes the next file in `drizzle/`. Commit it.
+
+  </Fragment>
+  <Fragment slot="react-hono">
+    Declare the table in `src/schema.ts`, beside the example's. Use `pgTable`, never `pgSchema`. The role can use only its own schema.
+
+    ```ts title="apps/notes/src/schema.ts"
+    import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+
+    export const note = pgTable("note", {
+      id: serial().primaryKey(),
+      author: text().notNull(),
+      body: text().notNull(),
+      at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    });
+    ```
+
+    Then write the migration, in the app's folder:
+
+    ```sh app
+    pnpm db:generate
+    ```
+
+    It writes the next file in `drizzle/`. Commit it.
+
+  </Fragment>
+  <Fragment slot="express">
+    Declare the table in `src/schema.ts`, beside the example's. Use `pgTable`, never `pgSchema`. The role can use only its own schema.
+
+    ```ts title="apps/notes/src/schema.ts"
+    import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+
+    export const note = pgTable("note", {
+      id: serial().primaryKey(),
+      author: text().notNull(),
+      body: text().notNull(),
+      at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    });
+    ```
+
+    Then write the migration, in the app's folder:
+
+    ```sh app
+    pnpm db:generate
+    ```
+
+    It writes the next file in `drizzle/`. Commit it.
+
+  </Fragment>
+  <Fragment slot="next">
+    Declare the table in `src/schema.ts`, beside the example's. Use `pgTable`, never `pgSchema`. The role can use only its own schema.
+
+    ```ts title="apps/notes/src/schema.ts"
+    import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+
+    export const note = pgTable("note", {
+      id: serial().primaryKey(),
+      author: text().notNull(),
+      body: text().notNull(),
+      at: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    });
+    ```
+
+    Then write the migration, in the app's folder:
+
+    ```sh app
+    pnpm db:generate
+    ```
+
+    It writes the next file in `drizzle/`. Commit it.
+
+  </Fragment>
+  <Fragment slot="go">
+    Add the next migration to `migrations/`, named so it sorts after the last. They run in name order.
+
+    ```sql title="apps/notes/migrations/0002_add_notes.sql"
+    create table note (
+      id serial primary key,
+      author text not null,
+      body text not null,
+      at timestamptz not null default now()
+    );
+    ```
+
+    Commit it. The migrations are built into the server, so the binary needs no files beside it.
+
+  </Fragment>
+</StackSwitch>
+
+Then apply it, in the install's folder:
+
+```sh
+pnpm robkit migrate notes
+```
+
+This asks the running `pnpm dev` to run the app's `migrate` script with the app's own `DATABASE_URL`. The app keeps running, with its connection and its password. Without `pnpm dev` running, start it instead: it migrates every app as it starts.
+
+## Migrations
+
+- A migration that has run is never run again. Each app keeps a record of what ran, in its own schema, so a second run changes nothing.
+- Never edit a migration that has run. Add another.
+- In production, an app's container runs its migrations as it starts, before it serves. Two containers that start together apply each migration once.
