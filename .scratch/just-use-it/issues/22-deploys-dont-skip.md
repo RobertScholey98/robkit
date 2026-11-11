@@ -130,3 +130,40 @@ For R to know:
 - `robkit deploy` now refuses a checkout whose commit isn't on the deploy branch at a remote, and `--dry-run` with credentials refuses too. That is new for an owner. A remote's branch ahead of the checkout passes, and the next deploy then deploys again whatever changed in between, which is safe.
 - It stops before any write if Coolify lists any application without its environment, one from another install included.
 - Neither has run against a real Coolify. The map lists that as a known gap.
+
+### From the code round, 2026-11-11
+
+Milestone 4's code had its one council round at `6ec738ed`. Opus 5.5 gave it 7.5 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. I checked each finding against the code before I acted on it. These are the ones about this ticket.
+
+Taken, each in a commit of its own with a test that failed first:
+
+- **A deploy that robkit gives up on leaves no record** (Sol, must-change, `25ec5726`). A failed, cancelled or timed-out deploy left the app's last record in place. If the code was then put back to the recorded commit, the next deploy found nothing changed and skipped the app, though Coolify may have finished the newer build. Before it queues a deploy, `robkit deploy` now replaces the record with `robkit started a deploy from commit <sha>`, which the next run reads as no record. If that note can't be saved, the app's deploy isn't queued.
+- **The record names the commit Coolify built** (Sol, must-change, `25ec5726`). It named the checkout's commit. Coolify builds the branch's head as each build starts, which may be newer. Coolify 4.7.5 saves the commit it resolved on the deployment (`check_git_if_build_needed` in `ApplicationDeploymentJob.php`), and `GET /deployments/{uuid}` returns it, so the record takes it from there. When Coolify names no full commit, `robkit deploy` saves no record, says so and exits 0, and the app deploys again next time.
+- **Only the repository's remote counts as pushed** (Opus, must-change, `48a0a7d9`). Any remote passed the check, so a push to a fork or a backup did. A remote now counts when its URL ends in `coolify.json`'s `repository`, in any form git takes.
+- **A change to the `Dockerfile` or `.dockerignore` deploys every app** (Opus, should-change, `90f2b247`). turbo 2.11.10 counted no app as changed by either, which I checked in a linked install. The install's `turbo.json` now names both as `globalDependencies`, and `install-checks.test.ts` asks the install's own turbo. An install that exists adds the line by hand, and the changeset says so.
+- **A moved repository can't duplicate every app** (Opus, should-change, `042f3e5c`). Only applications built from `coolify.json`'s `repository` count as the install's. After a rename, with `repository` changed to match, every app read as new and would have been created again with the same name and domain. `readHost` now stops before any write when another repository's application in the environment has an app's name and the install has none by that name.
+
+One more, which neither reviewer raised:
+
+- **The reason for a recorded commit outside the checkout's history** (`99556380`) reads "`1a2b3c4` isn't in this checkout's history". It said the commit was gone, which is wrong when Coolify built a commit newer than the checkout.
+
+Not taken:
+
+- **Ask the remote where the branch is** (Opus, a note). `pushedTo` reads the checkout's tracking refs, which can be stale, and `git ls-remote` would ask the remote itself. That needs the network and the remote's credentials on every deploy and dry run. The record now names the commit Coolify built, so a stale ref can't record a build that never happened. What is left is a deploy that sets this checkout's variables while Coolify builds a newer head, and the output names the commit it built.
+
+For R to know:
+
+- When Coolify doesn't say which commit it built, each deploy deploys every app again and exits 0. I chose that over failing the run, since the deploy worked. Nothing has run against a real Coolify, so the first real deploy shows whether it reports the commit.
+- The refusal for a commit not pushed now names the repository, and a remote for a fork no longer passes.
+- I didn't test whether a change to `vendor/robkit/go` alone marks a Go app as changed. `robkit upgrade` also changes the lockfile, which should mark it. The map lists it as a known gap.
+
+For the docs site, the lines that are new or changed:
+
+- From a commit not pushed, in place of the line under "From the lead's read of PR 104": `Coolify builds <branch> as <repository> holds it, not this checkout, so robkit deploy runs only from a commit pushed there. This checkout's commit, 1a2b3c4, isn't on <branch> at a remote for <repository>. Push it, or fetch if it's pushed already, then deploy again. A remote counts when its URL ends in <repository>.`
+- `- <app>: failed, taking its last record away before the deploy: <why>`
+- `- <app>: deployed, but Coolify didn't say which commit it built, so the next deploy deploys it again`
+- `- <app>: deployed, <detail>. Coolify built 1a2b3c4, where the branch was by then`
+- A reason in the plan's table: `1a2b3c4 isn't in this checkout's history`
+- For a moved repository, the refusal starts `Coolify's <environment> environment has applications with this install's names, built from another repository, so robkit deploy wrote nothing:`. It lists each as `- <name>, built from <repository>`, and ends `coolify.json names <repository>. If the repository moved, change each application's repository to that in Coolify, then deploy again. If they are another install's, give this install its own project or environment in coolify.json.`
+- An application's description holds one of two lines: `robkit started a deploy from commit <sha>` or `robkit deployed commit <sha> with variables <hash>`.
+- `turbo.json` has `"globalDependencies": ["Dockerfile", ".dockerignore"]`, and `docs/deploy.md` lists the two files under "Which apps deploy".

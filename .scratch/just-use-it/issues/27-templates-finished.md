@@ -100,3 +100,11 @@ Two small things the lead saw and left, for the round on the finished site or a 
 
 - Admin's "Couldn't copy the link" message sits in the same row as the link and its button, so on a narrow screen the row gets tight.
 - `tooling/e2e/src/next-images.ts` makes the example's `public` folder itself and removes it after. If the Next template ever ships a `public` folder, that test fails on `mkdir` and has to change.
+
+### From the code round, 2026-11-11
+
+Milestone 4's code had its one council round at `6ec738ed`. Opus 5.5 gave it 7.5 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. Sol found this ticket's work sound. Opus had one note about it, which I took.
+
+- **The `pnpm robkit deploy` comment lines up with the others in the install's `AGENTS.md`** (Opus, a note, `126dc536`).
+
+The install's `AGENTS.md` also gained two sentences in its turbo paragraph, about `globalDependencies`. Ticket 22's comments say why.

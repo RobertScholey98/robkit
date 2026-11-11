@@ -62,3 +62,9 @@ Added by the lead. PR 117 merged into `m4-nothing-skipped` on 2026-11-11, with `
 No guard, adapter or route of core's had to change for the contract test to pass, so the helpers the guards' tests use already matched real core.
 
 One thing the build found that the ticket didn't name: with each key named by its own thumbprint, a forged token no longer shares core's `kid` by accident. The two forger tests now name core's `kid` on purpose, so they still test a bad signature and not an unknown key.
+
+### From the code round, 2026-11-11
+
+Milestone 4's code had its one council round at `6ec738ed`. Opus 5.5 gave it 7.5 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. Sol found this ticket's work sound. Opus had one note about it, which I didn't take.
+
+- **Keep the fake core's Go files out of an install** (Opus, a note). `readGoModule` copies every Go file that isn't a test into an install's `vendor/robkit/go`, and that includes `internal/fakecore`. Go's `internal` rule stops an app from importing it, and no package an app imports uses it, so it adds nothing to an app's build. Leaving it out would take a second list of what the Go module carries, for files that do nothing in an install.

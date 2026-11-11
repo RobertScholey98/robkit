@@ -76,3 +76,14 @@ Added by the lead. PR 109 merged into `m4-nothing-skipped` on 2026-11-11, with `
 The map no longer lists the intro link among the known gaps.
 
 One thing for R to know, not a fault: the launcher now makes two calls to core at each poll, one for the session and one for the apps, where it made one.
+
+### From the code round, 2026-11-11
+
+Milestone 4's code had its one council round at `6ec738ed`. Opus 5.5 gave it 7.5 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. I checked each finding against the code before I acted on it. These are the ones about this ticket.
+
+Taken, each in a commit of its own with a test that failed first:
+
+- **The hub forwards only when the tab kept its note** (Sol, must-change, `2e37205e`). A full `sessionStorage` answers a read and refuses each write. The hub then forwarded a signed-in visitor with no note, so an app that sent them straight back was forwarded to again, and nothing stopped the loop. `noteForward` now answers whether the browser kept the note, and the hub forwards by itself only when it did. A sign-in still goes on to the app, since a person signs in each time. The test that covered a storage that refuses made the read throw too, which took the safe path.
+- **No line about an app sending the visitor back when the storage can't be read** (Opus, should-change, `89dcb4b4`). When the read threw, the hub stayed on the launcher, which is right, but said an app had sent the visitor back. `forwardedBefore` now answers undefined when the browser won't say, and the launcher shows without that line.
+
+`SECURITY.md` and the `hub-sign-in-flows` changeset say the hub doesn't forward when the browser keeps no note.

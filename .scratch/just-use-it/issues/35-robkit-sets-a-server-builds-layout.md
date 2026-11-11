@@ -100,3 +100,9 @@ export default defineConfig({
 Added by the lead. PR 110 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` and the `production` job green on `170b905`. The lead read the diff and changed nothing.
 
 The map's line on platform wiring now says that `robkit({ serve })` sets the server build's layout for the React + Hono and Express stacks, and that this reverses ticket 10 for those two.
+
+### From the code round, 2026-11-11
+
+Milestone 4's code had its one council round at `6ec738ed`. Opus 5.5 gave it 7.5 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. Sol found this ticket's work sound. Opus had one should-change about it, which I didn't take.
+
+- **Rename the `serve` option of `robkit()`** (Opus, should-change). Opus found `serve` a vague name for the option that sets a server build's layout. The option takes the file the server starts from, `src/serve.ts`, and the adapters' `/serve` entries and the `start` script's `dist/serve.js` use the same word. This ticket's round chose the name for that reason. Another name would be a second word for one file.

@@ -99,3 +99,9 @@ For R to know:
 
 - An app missing from the list for one start of core loses the rule the owner set in admin. Deploying from a branch without the app's folder does that.
 - A removed app still running in production answers 503 with "Can't reach core to check who may open this app.", though core answered. The map lists it as a known gap with no ticket.
+
+### From the code round, 2026-11-11
+
+Milestone 4's code had its one council round at `6ec738ed`. Opus 5.5 gave it 7.5 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. I checked each finding against the code before I acted on it. One was about this ticket, and I took it.
+
+- **The message for a missing `ROBKIT_APPS` says what `[]` does** (Opus, should-change, `d9371220`). It said to set `[]` for an install with no apps of its own. On an install that has apps, `[]` takes each out of the catalog, with the rule the owner set for it. The message now ends "Set it to [] only for an install with no apps of its own, since [] takes every app out of core's catalog, with the rule the owner set for each." The text above and the changeset match.

@@ -137,3 +137,14 @@ What follows from it:
 - The docs site's `site/vitest.config.ts` is outside the glob `test-defaults.test.ts` reads, so nothing fails there. It can take `testDefaults` when `main` merges into `docs-site`.
 
 Not taken, for a later ticket if R wants it: the changeset check counts every change to a package's `package.json`, so a dev dependency alone needs a changeset naming the package. `.changeset/shared-test-settings.md` names fourteen for that reason, and each one's changelog gets a line that says nothing changes for an app. Counting only the fields that ship would end that.
+
+### From the code round, 2026-11-11
+
+Milestone 4's code had its one council round at `6ec738ed`. Opus 5.5 gave it 7.5 out of 10 and Sol 6.1 gave 7, and neither would merge it as it stood. I checked each finding against the code before I acted on it. These are the ones about this ticket.
+
+Taken, each in a commit of its own with a test that failed first:
+
+- **A version pull request that changes source needs a changeset** (Sol, should-change, `5ff9155e`). The check excused every package whose version changed, so that the version pull request, which has no changesets left, could pass. A version edited by hand in an ordinary pull request was excused the same way, which Opus raised as a should-change of its own. The check now excuses a package only when `package.json` is the one file of its that changed, among the files the check counts.
+- **A file create-robkit carries needs a changeset that names create-robkit** (Opus, must-change, `63c9c9a2`). create-robkit's build copies the catalog, pnpm's version, the lint policy and the Go module into every install. They sit outside every published package's folder, so a change to the Go guard needed no changeset, and `robkit upgrade`'s changelog would have said nothing of it. The check reads that build's inputs from `turbo.json` and counts a change to one as a change to create-robkit. The version pull request changes none of them, so nothing excuses it there.
+
+What follows from it: a pull request that changes `go/**`, `tooling/eslint/*.js`, `pnpm-workspace.yaml` or the root `package.json` now needs a changeset naming create-robkit. A new dev dependency at the root is one such change.
