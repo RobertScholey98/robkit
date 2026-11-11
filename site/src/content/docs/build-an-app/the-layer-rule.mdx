@@ -1,0 +1,47 @@
+---
+title: The layer rule
+description: What an app and a shared package may import, and what robkit check says when one doesn't.
+section: Build an app
+order: 10
+describes:
+  - packages/create-robkit/src/check.ts
+  - packages/create-robkit/templates/base/AGENTS.md
+  - packages/create-robkit/templates/base/package.json
+---
+
+Each app in your install stands on its own, and reaches core only over HTTP. `robkit check` holds every app and shared package to that, and `pnpm lint` runs it first.
+
+## The rule
+
+- An app imports only its own files, `@robkit/*` packages and the install's shared `packages/*`. It never imports another app.
+- A shared package imports only its own files, `@robkit/*` packages and other shared packages. It never imports an app.
+- An app or a shared package reaches core over HTTP only, never through `@robkit/core`. Only `apps/core` depends on it.
+- Handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.
+
+Postgres keeps the same rule for data. An app's role can reach its own schema and nothing else.
+
+## What robkit check says
+
+Run it in the install's folder:
+
+```sh
+pnpm robkit check
+```
+
+It prints a line for each place a file breaks the rule, with the file, its line and column, and the rule it breaks, and exits 1. In an install with four such files it prints:
+
+```text title="What it prints"
+apps/example/src/core.ts:1:28  Layer rule: an app or shared package reaches core over HTTP only, never through @robkit/core.
+apps/example/src/reach.ts:1:8  Layer rule: an app imports only its own files, @robkit/* packages and shared packages/*. It never imports another app.
+apps/example/src/token.ts:1:27  Layer rule: handlers take the viewer from their adapter. No app or shared package reads the session cookie or verifies a token itself.
+packages/ui/src/reach.ts:1:8  Layer rule: a shared package imports only its own files, @robkit/* packages and other shared packages/*. It never imports an app.
+```
+
+When every file keeps to the rule, it prints nothing and exits 0.
+
+## Fixing a line it prints
+
+- **Another app's files.** Move what both apps need into a shared package under `packages/`.
+- **`@robkit/core`.** Call core over HTTP from your server, at `ROBKIT_CORE_URL`. The guard already asks core for what it needs.
+- **The session or a token.** Take the viewer from your stack's adapter. [The viewer and the guard](/docs/build-an-app/the-viewer-and-the-guard/) shows how on each stack.
+- **An app, from a shared package.** Move the code the package needs into it, or into another shared package.

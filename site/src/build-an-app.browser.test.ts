@@ -21,6 +21,7 @@ describe.each([
   "/docs/build-an-app/testing-with-a-viewer/",
   "/docs/build-an-app/the-database/",
   "/docs/build-an-app/settings/",
+  "/docs/build-an-app/the-layer-rule/",
 ])("%s", (path) => {
   describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
     it.each(["light", "dark"] as const)(

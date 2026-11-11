@@ -1,10 +1,12 @@
 // Reads the site as Astro built it. Turbo runs the site's build before its
 // tests, so dist is fresh.
 
-import { glob, readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { glob, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { requestGuard } from "@robkit/session";
-import { readyStacks } from "create-robkit";
+import { defaultChoices, init, readyStacks } from "create-robkit";
 import { describe, expect, it } from "vitest";
 import { installGoVersion, installNodeVersion } from "./install.ts";
 import { quickstartCommands } from "./readme.ts";
@@ -204,6 +206,43 @@ describe("the built page on the viewer and the guard", () => {
       expect(await fromAnotherOrigin(method), method).toBe(403);
     }
   });
+});
+
+describe("the built page on the layer rule", () => {
+  /** Each file the page's sample breaks the rule in, and what it says. */
+  const breaks = {
+    "apps/example/src/reach.ts": 'import "../../hub/src/app.tsx";\n',
+    "apps/example/src/core.ts": 'import { createCore } from "@robkit/core";\n',
+    "apps/example/src/token.ts": 'import { jwtVerify } from "jose";\n',
+    "packages/ui/src/reach.ts": 'import "../../../apps/example/visits.ts";\n',
+  };
+
+  it("shows what robkit check prints for an install that breaks each rule", async () => {
+    const dir = join(await mkdtemp(join(tmpdir(), "site-check-")), "install");
+    await init(defaultChoices, dir, { install: false });
+    for (const [path, text] of Object.entries(breaks)) {
+      await writeFile(join(dir, path), text);
+    }
+    const bin = join(repoRoot, "packages/create-robkit/src/robkit-command.ts");
+    const checked = spawnSync(process.execPath, [bin, "check"], {
+      cwd: dir,
+      encoding: "utf8",
+    });
+    const blocks = codeBlocks(
+      await built("docs/build-an-app/the-layer-rule/index.html"),
+    );
+
+    expect(checked.status).toBe(1);
+    expect(blocks).toContainEqual({
+      label: "Terminal",
+      code: "pnpm robkit check",
+    });
+    expect(blocks).toContainEqual({
+      label: "What it prints",
+      code: checked.stdout.trimEnd(),
+    });
+    expect(checked.stdout.trimEnd().split("\n")).toHaveLength(4);
+  }, 60_000);
 });
 
 describe("the built header", () => {
