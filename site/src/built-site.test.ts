@@ -117,6 +117,36 @@ describe("the built quickstart", () => {
 
   it("is written, not a stub", async () => {
     expect(await built(page)).not.toContain("data-stub");
+    expect(
+      await built("docs/get-started/your-first-app/index.html"),
+    ).not.toContain("data-stub");
+  });
+});
+
+describe("the built Your first app page", () => {
+  const page = "docs/get-started/your-first-app/index.html";
+
+  it("shows each stack's owner heading in the app the reader added", async () => {
+    const labels = codeBlocks(await built(page)).map(({ label }) => label);
+
+    expect(labels).toEqual([
+      "Terminal",
+      "apps/notes/src/home.tsx",
+      "apps/notes/src/routes.tsx",
+      "apps/notes/src/routes.tsx",
+      "apps/notes/src/home.tsx",
+      "apps/notes/src/main.tsx",
+    ]);
+  });
+
+  it("links to the guide for each stack robkit can make", async () => {
+    const html = await built(page);
+    const list = /<ul data-stack-guides[^>]*>([\s\S]*?)<\/ul>/.exec(html);
+    const hrefs = [...(list?.[1] ?? "").matchAll(/href="([^"]+)"/g)].map(
+      ([, href]) => href,
+    );
+
+    expect(hrefs).toEqual(readyStacks.map((stack) => guideHref(stack)));
   });
 });
 
