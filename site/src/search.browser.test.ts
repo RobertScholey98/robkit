@@ -1,5 +1,5 @@
 // Search in Chromium: what it fetches before and after it opens, what it
-// finds, the keyboard, and axe on the open dialog.
+// finds, the keyboard, and axe on the open dialog. Then the 404 page.
 
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "playwright";
@@ -185,4 +185,43 @@ describe("search", () => {
       },
     );
   });
+});
+
+describe("the 404 page", () => {
+  const missing = "/docs/one/two/three/not-a-page/";
+
+  it("answers a path that doesn't exist, with search and a link home", async () => {
+    const { page: opened } = await openPage(site, "/", { width: 375 });
+    const response = await opened.goto(`${site.origin}${missing}`);
+
+    expect(response?.status()).toBe(404);
+    expect(await opened.locator("h1").textContent()).toBe(
+      "This page isn't here",
+    );
+    expect(
+      await opened
+        .getByRole("link", { name: "Go to the home page" })
+        .getAttribute("href"),
+    ).toBe("/");
+
+    await opened.getByRole("button", { name: "Search the docs" }).click();
+    await opened.locator("#search-input").fill("robkit add");
+
+    expect(await firstResult(opened).getAttribute("href")).toContain(
+      "/docs/reference/robkit-command/",
+    );
+  });
+
+  it.each(["light", "dark"] as const)(
+    "has nothing axe finds, in the %s theme",
+    async (theme) => {
+      const { page: opened } = await openPage(site, missing, {
+        width: 1280,
+        theme,
+      });
+      const { violations } = await new AxeBuilder({ page: opened }).analyze();
+
+      expect(violations.map(({ id, nodes }) => [id, nodes.length])).toEqual([]);
+    },
+  );
 });
