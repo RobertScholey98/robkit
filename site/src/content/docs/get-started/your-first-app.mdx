@@ -98,6 +98,8 @@ Open this file in your app's folder. For an app called `notes`, it's in `apps/no
 
 Change the words in quotes to your own, such as `Hello from my first app`, and save the file. Reload the app's page, and its heading shows your words. `pnpm dev` runs the app's dev server, which serves your changed code on the next request.
 
+The app's test looks for the old words, so `pnpm test` fails until you change them there too. The test is `src/home.test.tsx`, or `src/routes.test.tsx` on React + Hono and React + Express.
+
 ## Where next
 
 To share your app with a guest, make an access code and a role in admin, and let that role open the app. [Guests, access codes and roles](/docs/run-an-install/guests-and-access/) shows how.
