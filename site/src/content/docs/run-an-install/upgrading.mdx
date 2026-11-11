@@ -95,3 +95,20 @@ pnpm install
 ```
 
 When the upgrade can't put the files back itself, it prints the same commands.
+
+## Undo an upgrade
+
+An upgrade starts from a clean commit and writes only in the install's folder, so git can undo it.
+
+Before you commit what it changed, run the three commands under [If it stops partway](#if-it-stops-partway).
+
+After you commit it, revert that commit and install again:
+
+```sh
+git revert <the upgrade's commit>
+pnpm install
+```
+
+`pnpm robkit upgrade` itself never goes back. It refuses a version older than the install's.
+
+Git puts back files, not the database. If `pnpm dev` ran after the upgrade, the new core may have migrated its tables, and the older core runs against them as they are.
