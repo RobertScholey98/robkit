@@ -65,10 +65,10 @@ func NewKey(t testing.TB) *Key {
 }
 
 // thumbprint is an Ed25519 public key's RFC 7638 thumbprint: the SHA-256 of
-// its required members, in order, with no spaces.
+// its required fields, in order, with no spaces.
 func thumbprint(public ed25519.PublicKey) string {
-	members := fmt.Sprintf(`{"crv":"Ed25519","kty":"OKP","x":"%s"}`, base64.RawURLEncoding.EncodeToString(public))
-	sum := sha256.Sum256([]byte(members))
+	fields := fmt.Sprintf(`{"crv":"Ed25519","kty":"OKP","x":"%s"}`, base64.RawURLEncoding.EncodeToString(public))
+	sum := sha256.Sum256([]byte(fields))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
