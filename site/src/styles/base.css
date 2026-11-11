@@ -65,6 +65,9 @@ pre,
 samp {
   font-family: var(--font-mono);
   font-size: var(--text-sm);
+  /* Show each character a reader types: => stays two characters. */
+  font-variant-ligatures: none;
+  tab-size: 4;
 }
 
 :not(pre) > code {

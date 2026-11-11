@@ -38,6 +38,19 @@ describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
 });
 
 describe("a code block", () => {
+  it("shows each character as typed, with no ligatures", async () => {
+    const { page } = await openPage(site, path, { width: 1280 });
+    const style = await page
+      .locator("pre")
+      .first()
+      .evaluate((pre) => {
+        const { fontVariantLigatures, tabSize } = getComputedStyle(pre);
+        return { fontVariantLigatures, tabSize };
+      });
+
+    expect(style).toEqual({ fontVariantLigatures: "none", tabSize: "4" });
+  });
+
   const terminal = (page: Page) =>
     page.locator("figure").filter({ hasText: "Terminal" });
   // What the page hands the clipboard, exactly. Reading the clipboard back

@@ -88,6 +88,7 @@ Two faces, both served from the site itself, both under the SIL Open Font Licenc
 - Headings are JetBrains Mono at weight 600, in sentence case, and go in order with no level skipped. A page has one `h1`, its title.
 - Text sizes are in `rem`, so the reader's own text size wins.
 - Fonts load with `font-display: swap`, so text shows at once in the fallback face.
+- Code shows each character as typed: JetBrains Mono's ligatures are off, so `=>` stays two characters. A tab is 4 columns.
 
 ## Space, size and shape
 
