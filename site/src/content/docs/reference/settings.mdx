@@ -160,7 +160,7 @@ The install's apps as each one's manifest declares it, as a JSON list. Core's ca
 
 - **Who sets it.** `pnpm dev`, for every app, and `robkit deploy`, for core.
 - **In dev.** Each app in `apps/` but core, the hub and admin.
-- **In production.** Each app in `apps/` but core, the hub and admin, on core only. Core won't start without it.
+- **In production.** Each app in `apps/` but core, the hub and admin, on core only. Core won't start without it. An empty list, `[]`, takes every app out of core's catalog, with the rule you set for each.
 
 ### `ROBKIT_DATABASES`
 
