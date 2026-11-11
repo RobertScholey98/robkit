@@ -44,7 +44,8 @@ jobs:
             go/go.mod
             packages/create-robkit/templates/stacks/go/go.sum
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
+      # The browser alone, as in ci.yml.
+      - run: pnpm --filter @internal/e2e exec playwright install chromium
       # The docker driver can't export a cache. buildx's own builder can.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # Hands the build the cache service's URL and token.

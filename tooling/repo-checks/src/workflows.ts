@@ -1,3 +1,30 @@
+/**
+ * A command that installs a system package: Playwright's `--with-deps` and
+ * `install-deps`, which run apt, and `apt install` or `apt-get install`
+ * with any options between.
+ */
+const installsSystemPackage =
+  /--with-deps\b|\binstall-deps\b|\bapt(?:-get)?\s+(?:-\S+\s+)*install\b/;
+
+/**
+ * Lists each line of `workflow`, the text of the file at `path`, that
+ * installs a system package. Those come from Ubuntu's mirrors, so a run
+ * with such a step fails when the runner can't reach them. A comment may
+ * name one.
+ */
+export function systemPackageInstalls(
+  path: string,
+  workflow: string,
+): string[] {
+  return workflow.split("\n").flatMap((line, index) => {
+    const step = line.trim().replace(/^- /, "");
+    if (step.startsWith("#") || !installsSystemPackage.test(step)) return [];
+    return [
+      `${path} line ${String(index + 1)} installs a system package: ${step}. Those come from Ubuntu's mirrors, and the run fails when the runner can't reach them. The runner's image has the libraries Chromium needs, so install the browser alone, with playwright install chromium.`,
+    ];
+  });
+}
+
 /** `uses: owner/action@<commit> # v1.2.3`, the one way to name an action. */
 const pinned = /^uses: [\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/;
 
