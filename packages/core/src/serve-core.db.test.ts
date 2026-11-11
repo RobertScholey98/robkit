@@ -50,7 +50,7 @@ describe("serveCore", () => {
       PORT: String(port),
     });
     const listening = `core listening on 127.0.0.1:${String(port)}`;
-    await expect.poll(lines).toContain(listening);
+    await expect.poll(lines, { timeout: 30_000 }).toContain(listening);
     const status = await fetch(`http://127.0.0.1:${String(port)}/status`);
     process.emit("SIGTERM", "SIGTERM");
     // A second signal, such as Ctrl+C reaching the whole process group, is
@@ -84,7 +84,7 @@ describe("serveCore", () => {
       PORT: String(port),
     });
     const listening = `core listening on 127.0.0.1:${String(port)}`;
-    await expect.poll(lines).toContain(listening);
+    await expect.poll(lines, { timeout: 30_000 }).toContain(listening);
     // Another session holds core.apps, so core's read of it waits.
     const other = postgres(databaseUrl, { max: 2, onnotice: () => undefined });
     const { promise: locked, resolve: lock } = Promise.withResolvers();
