@@ -5,6 +5,7 @@ import {
   glossaryTerms,
   linksToGitHub,
   listAfter,
+  listIn,
   sectionUnder,
 } from "./repo-markdown.ts";
 
@@ -54,6 +55,20 @@ describe("listAfter", () => {
   ])("names the file when it has %s", (_, leadIn) => {
     expect(() => listAfter(file, leadIn, "F.md")).toThrow(
       `F.md has no list after a paragraph that starts "${leadIn}".`,
+    );
+  });
+});
+
+describe("listIn", () => {
+  it("takes the first list", () => {
+    expect(listIn("Intro.\r\n\r\n- one\r\n- two\r\n\r\n- three\r\n", "F")).toBe(
+      "- one\n- two",
+    );
+  });
+
+  it("names the file when it has none", () => {
+    expect(() => listIn("Intro.\n", "F.md's gaps")).toThrow(
+      "F.md's gaps has no list.",
     );
   });
 });

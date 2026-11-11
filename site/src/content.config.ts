@@ -1,6 +1,7 @@
 import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
 import { z } from "astro/zod";
+import { builtParts } from "./built.ts";
 import { sections } from "./navigation.ts";
 
 // What a docs page says about itself. The sidebar, the order and the
@@ -24,4 +25,22 @@ const docs = defineCollection({
   }),
 });
 
-export const collections = { docs };
+// The parts of pages built from the repo's own files, such as GLOSSARY.md,
+// rendered as Astro renders a Markdown page. Each is read again on every
+// build, so the page follows its file.
+const built = defineCollection({
+  loader: {
+    name: "robkit:built",
+    load: async (context) => {
+      context.store.clear();
+      for (const [id, build] of Object.entries(builtParts)) {
+        const body = await build();
+        const rendered = await context.renderMarkdown(body);
+        context.store.set({ id, data: {}, body, rendered });
+      }
+    },
+  },
+  schema: z.object({}),
+});
+
+export const collections = { docs, built };

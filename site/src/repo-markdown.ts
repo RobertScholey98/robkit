@@ -50,6 +50,19 @@ export function listAfter(
 }
 
 /**
+ * The first bullet list in `markdown`. `source` names the file and the
+ * part in the error when it has none.
+ */
+export function listIn(markdown: string, source: string): string {
+  const list = markdown
+    .replaceAll("\r\n", "\n")
+    .split(/\n{2,}/)
+    .find((block) => block.startsWith("- "));
+  if (list === undefined) throw new Error(`${source} has no list.`);
+  return list;
+}
+
+/**
  * `markdown`, from the repo file `from`, with each relative link made a
  * link to its file on GitHub, so it works on a docs page. A link with a
  * scheme, or one to an anchor on the same page, stays as it is.

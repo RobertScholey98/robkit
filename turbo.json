@@ -59,6 +59,9 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/GLOSSARY.md",
+        "$TURBO_ROOT$/SECURITY.md",
+        "$TURBO_ROOT$/docs/architecture.md",
         "$TURBO_ROOT$/packages/create-robkit/templates/**"
       ]
     },
@@ -68,6 +71,9 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/GLOSSARY.md",
+        "$TURBO_ROOT$/SECURITY.md",
+        "$TURBO_ROOT$/docs/architecture.md",
         "$TURBO_ROOT$/packages/create-robkit/templates/**"
       ]
     },
@@ -76,6 +82,9 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/README.md",
+        "$TURBO_ROOT$/GLOSSARY.md",
+        "$TURBO_ROOT$/SECURITY.md",
+        "$TURBO_ROOT$/docs/architecture.md",
         "$TURBO_ROOT$/packages/create-robkit/templates/**"
       ]
     },

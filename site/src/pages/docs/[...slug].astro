@@ -16,7 +16,14 @@ export const getStaticPaths = (async () => {
 type Props = InferGetStaticPropsType<typeof getStaticPaths>;
 
 const { entry } = Astro.props;
-const { Content, headings } = await render(entry);
+const page = await render(entry);
+// A part built from a repo file with the page's own id ends the page, as
+// the glossary's terms end its page.
+const ending = (await getCollection("built")).find(({ id }) => id === entry.id);
+const end = ending === undefined ? undefined : await render(ending);
+const headings = [...page.headings, ...(end?.headings ?? [])];
+const { Content } = page;
+const End = end?.Content;
 // A page built from another file, as the glossary is, names that file in
 // `source`. Every other page is its own MDX file, under site/.
 const file = entry.data.source ?? `site/${String(entry.filePath)}`;
@@ -31,4 +38,5 @@ const file = entry.data.source ?? `site/${String(entry.filePath)}`;
   edit={editUrl(file)}
 >
   <Content components={{ pre: CodeBlock }} />
+  {End && <End />}
 </DocsLayout>
