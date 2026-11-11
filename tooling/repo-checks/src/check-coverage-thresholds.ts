@@ -1,5 +1,5 @@
 // Fails if a pull request lowers a package's coverage thresholds below what
-// they are on its base. CI runs it from the workspace root:
+// they are where it left its base. CI runs it from the workspace root:
 //   node tooling/repo-checks/src/check-coverage-thresholds.ts <base-ref>
 import { execFileSync } from "node:child_process";
 import { existsSync, globSync, readFileSync } from "node:fs";
@@ -10,14 +10,18 @@ import {
   vitestConfigs,
 } from "./coverage-thresholds.ts";
 
-const base = process.argv[2];
-if (base === undefined) {
+const baseRef = process.argv[2];
+if (baseRef === undefined) {
   console.error("Usage: check-coverage-thresholds.ts <base-ref>");
   process.exit(2);
 }
 
 const git = (...args: string[]) =>
   execFileSync("git", args, { encoding: "utf8" });
+
+// The commit the branch started from. The base's tip may have moved on with
+// changes of its own, which aren't this branch's to answer for.
+const base = git("merge-base", baseRef, "HEAD").trim();
 
 const root = git("rev-parse", "--show-toplevel").trim();
 const before = git("ls-tree", "-r", "--name-only", base)

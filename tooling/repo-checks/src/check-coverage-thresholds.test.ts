@@ -76,6 +76,19 @@ describe("check-coverage-thresholds", () => {
     expect(check("main")).toEqual({ status: 0, output: "" });
   });
 
+  it("compares against where the branch left its base, not the base's tip", async () => {
+    git("switch", "-q", "-c", "change");
+    await write("packages/guard/src/index.ts", "export {};\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "Change the guard");
+    git("switch", "-q", "main");
+    await write(guard, config(95));
+    git("commit", "-q", "-am", "Raise the guard's threshold");
+    git("switch", "-q", "change");
+
+    expect(check("main")).toEqual({ status: 0, output: "" });
+  });
+
   it("prints its usage without a base", () => {
     expect(check()).toEqual({
       status: 2,
