@@ -73,8 +73,9 @@ Usage: robkit deploy [--all | --apps <list>] [--dry-run]
 Brings the install's applications on Coolify in line with the install, as
 coolify.json describes it, then deploys, core first, each app that is new,
 changed since the commit its last finished deploy recorded, or getting new
-variables. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run, prints each
-app's variables and contacts nothing.`;
+variables. Reads COOLIFY_URL and COOLIFY_TOKEN. With --dry-run, reads Coolify,
+writes nothing to it, and prints what each app would do and why. Without
+COOLIFY_URL, --dry-run prints each app's variables instead.`;
 
 process.exitCode = await runCommand(async () => {
   requireInstall(process.cwd());
@@ -155,7 +156,7 @@ async function deployInstall(): Promise<number | undefined> {
   const root = process.cwd();
   await readInstallChoices(root);
   const dryRun = values["dry-run"];
-  const coolify = dryRun ? undefined : readCoolify(process.env);
+  const coolify = readCoolify(process.env);
   if (isProblem(coolify)) throw new CommandProblem(coolify.error);
   // An install's CI deploys from its first push, before Coolify is set up.
   if (!coolify && !dryRun) {
@@ -185,6 +186,9 @@ async function deployInstall(): Promise<number | undefined> {
         console.log(`  ${key}=${shown}`);
       }
     }
+    console.log(
+      "Set COOLIFY_URL and COOLIFY_TOKEN to see which apps would deploy and why: the reasons need the host.",
+    );
     return;
   }
   const apps = values.all
@@ -199,6 +203,7 @@ async function deployInstall(): Promise<number | undefined> {
     deployments,
     apps,
     history: await gitHistory(root),
+    dryRun,
   });
   return ok ? 0 : 1;
 }

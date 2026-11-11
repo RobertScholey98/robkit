@@ -11,7 +11,7 @@ Every app under `apps/` runs in its own container on Coolify, built from the ins
 
 Each container migrates its app's database as it starts, before it serves. Core's container first runs the provision step, which gives every app with a database its schema and role. If a migration fails, the container exits and Coolify keeps the old one running.
 
-`pnpm robkit deploy --dry-run` prints each app's variables without contacting Coolify.
+`pnpm robkit deploy --dry-run`, with `COOLIFY_URL` and `COOLIFY_TOKEN` set, reads Coolify, writes nothing to it, and prints what each app would do and why. Without them it prints each app's variables.
 
 ## Variables
 

@@ -123,7 +123,7 @@ function checkout(
 
 interface RunOptions extends Pick<
   DeployOptions,
-  "requestTimeoutMs" | "timeoutMs"
+  "requestTimeoutMs" | "timeoutMs" | "dryRun"
 > {
   history?: History;
   deployments?: AppDeployment[];
@@ -508,6 +508,48 @@ describe("deploy's plan", () => {
       `| hub | failed | updating it: HTTP 500 {"message":"Server Error"}. Check Coolify's own log. |`,
     );
     expect(deploysOf(state)).toEqual(["/deploy?uuid=c", "/deploy?uuid=n"]);
+  });
+});
+
+describe("deploy's dry run", () => {
+  it("names each app's action and reason, and sends Coolify no write", async () => {
+    const state = host({
+      applications: [
+        existing("core", "c"),
+        existing("hub", "h"),
+        existing("blog", "b"),
+      ],
+    });
+    await deployedOnce(state, beforeNotesMigrated.slice(0, 2));
+    const before = structuredClone(state.applications);
+
+    const { ok, log } = await run(state, "changed", {
+      dryRun: true,
+      history: checkout(head, { [earlier]: ["hub"] }),
+    });
+
+    expect(ok).toBe(true);
+    expect(log).toEqual([
+      "| App | Action | Detail |",
+      "| --- | --- | --- |",
+      "| core | deploy | its variables changed since 0000000 |",
+      "| hub | deploy | changed since 0000000 |",
+      "| notes | deploy | new on Coolify |",
+      `- robkit-blog matches no app in this install, so robkit deploy left it alone. To remove it, see "Removing an app's application" in docs/deploy.md.`,
+      "This was a dry run, so nothing was written to Coolify.",
+    ]);
+    expect(new Set(state.requests.map(({ method }) => method))).toEqual(
+      new Set(["GET"]),
+    );
+    expect(state.applications).toEqual(before);
+  });
+
+  it("stops at a missing shared variable, as a deploy does", async () => {
+    const state = host({ sharedVariables: {} });
+
+    await expect(run(state, "changed", { dryRun: true })).rejects.toThrow(
+      "lacks shared variables the apps need",
+    );
   });
 });
 

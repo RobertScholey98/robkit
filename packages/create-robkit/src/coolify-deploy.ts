@@ -388,6 +388,8 @@ export interface DeployOptions {
   timeoutMs?: number;
   /** How long one request to Coolify may take. */
   requestTimeoutMs?: number;
+  /** Reads Coolify and logs the plan, but writes nothing to it. */
+  dryRun?: boolean;
 }
 
 /**
@@ -408,6 +410,7 @@ export async function deploy({
   intervalMs = 10_000,
   timeoutMs = 20 * 60_000,
   requestTimeoutMs = 30_000,
+  dryRun = false,
 }: DeployOptions): Promise<boolean> {
   const api: CoolifyApi = { coolify, fetch: fetchImpl, requestTimeoutMs };
   const desired = deployments.map((deployment) =>
@@ -415,18 +418,35 @@ export async function deploy({
   );
   const host = await readHost(api, config, sharedVariablesOf(deployments));
   const decisions = await decide(apps, desired, host, history);
+  const logPlan = (rows: readonly Omit<Step, "uuid" | "record">[]) => {
+    log("| App | Action | Detail |");
+    log("| --- | --- | --- |");
+    for (const { app, action, reason } of rows) {
+      log(`| ${app} | ${action} | ${reason} |`);
+    }
+    for (const name of unmatched(host, desired)) {
+      log(
+        `- ${name} matches no app in this install, so robkit deploy left it alone. To remove it, see "Removing an app's application" in docs/deploy.md.`,
+      );
+    }
+  };
+  if (dryRun) {
+    logPlan(
+      desired.map(({ slug }, index) => {
+        const decision = decisions[index];
+        return {
+          app: slug,
+          action: decision?.deploy ? "deploy" : "skip",
+          reason: decision?.reason ?? "",
+        };
+      }),
+    );
+    log("This was a dry run, so nothing was written to Coolify.");
+    return true;
+  }
   const synced = await syncApps(api, host, desired);
   const steps = plan(desired, decisions, synced, history.head);
-  log("| App | Action | Detail |");
-  log("| --- | --- | --- |");
-  for (const { app, action, reason } of steps) {
-    log(`| ${app} | ${action} | ${reason} |`);
-  }
-  for (const name of unmatched(host, desired)) {
-    log(
-      `- ${name} matches no app in this install, so robkit deploy left it alone. To remove it, see "Removing an app's application" in docs/deploy.md.`,
-    );
-  }
+  logPlan(steps);
   let ok = steps.every(({ action }) => action !== "failed");
 
   /** Deploys one app and records it, and answers whether it now runs. */

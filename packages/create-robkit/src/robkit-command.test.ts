@@ -417,11 +417,19 @@ describe("robkit deploy", () => {
     expect(output).toMatch(message);
   });
 
-  it("prints each app's variables on a dry run", async () => {
+  it("prints each app's variables on a dry run without the host, and says the reasons need it", async () => {
     const dir = await freshInstall();
     await writeFile(join(dir, "coolify.json"), coolifyJson);
 
-    const { code, output } = await drive(bin, dir, ["deploy", "--dry-run"]);
+    const { code, output } = await drive(
+      bin,
+      dir,
+      ["deploy", "--dry-run"],
+      [],
+      {
+        COOLIFY_URL: "",
+      },
+    );
 
     expect(code).toBe(0);
     expect(output).toContain(`example:
@@ -431,6 +439,9 @@ describe("robkit deploy", () => {
   PORT=3000
   DATABASE_URL=(shared) EXAMPLE_DATABASE_URL
 `);
+    expect(output).toMatch(
+      /Set COOLIFY_URL and COOLIFY_TOKEN to see which apps would deploy and why: the reasons need the host\.\n$/,
+    );
   });
 
   it("says it runs from a git checkout, before it reaches Coolify", async () => {
