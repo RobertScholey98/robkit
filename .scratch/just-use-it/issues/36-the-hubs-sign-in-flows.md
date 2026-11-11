@@ -14,17 +14,17 @@ The words on the question and on the "sent you back" line are the worker's, in t
 
 **Blocked by:** 06
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] An intro link in a signed-in browser asks first, and sends core no sign-in request before the answer
-- [ ] "No" leaves the session as it was, and "yes" replaces it with one sign-in request
-- [ ] An intro link in a browser that isn't signed in signs in without a question
-- [ ] A signed-in visitor with a `next` the hub would follow after sign-in goes there, and one with any other `next` sees the launcher
-- [ ] A browser that comes back with the same `next` sees the launcher and the line, and isn't forwarded again
-- [ ] The launcher shows the sign-in page within a poll of signing out elsewhere, and on becoming visible
-- [ ] With core unreachable the launcher shows a failure to retry, not the sign-in page
-- [ ] `SECURITY.md`'s known gaps no longer list the intro link, and the changeset says what an existing install copies
-- [ ] axe still passes on every hub page in the whole-stack test
+- [x] An intro link in a signed-in browser asks first, and sends core no sign-in request before the answer
+- [x] "No" leaves the session as it was, and "yes" replaces it with one sign-in request
+- [x] An intro link in a browser that isn't signed in signs in without a question
+- [x] A signed-in visitor with a `next` the hub would follow after sign-in goes there, and one with any other `next` sees the launcher
+- [x] A browser that comes back with the same `next` sees the launcher and the line, and isn't forwarded again
+- [x] The launcher shows the sign-in page within a poll of signing out elsewhere, and on becoming visible
+- [x] With core unreachable the launcher shows a failure to retry, not the sign-in page
+- [x] `SECURITY.md`'s known gaps no longer list the intro link, and the changeset says what an existing install copies
+- [x] axe still passes on every hub page in the whole-stack test
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -39,3 +39,32 @@ The words on the question and on the "sent you back" line are the worker's, in t
 The docs site, built beside this milestone on the `docs-site` branch, shows the hub's sign-in and its launcher, and takes screenshots of both. Say in these comments what a guest sees differently afterwards. The docs site's last build ticket (26) works from that.
 
 Order: [ticket 27](27-templates-finished.md) edits other files in the same templates. Whichever merges second merges the milestone's branch in first.
+
+### Built, 2026-11-11
+
+Chosen in the build:
+
+- The hub now asks core for the session before it uses an intro link's code. Signed in: it asks. Not signed in, or unclaimed: it signs in with the code as before. Core can't be reached: the "Core is unreachable" card, as on any other visit.
+- "Yes" with a code core refuses keeps the question on screen, with core's sentence under the buttons. The browser is still signed in, so the sign-in form would be wrong there.
+- An intro link still drops any `next` it carries, as it did before.
+- Forwarding once lives in `apps/hub/src/forwarded.ts`. The hub notes each `next` it sends a tab to in `sessionStorage`, one key per address (`robkit-hub-forwarded <next>`). That storage is the hub's own origin and lasts as long as the tab, which is the visit. The URL can't hold it, since the app that sends the browser back writes the URL. Nothing clears a note within the tab. If the tab's storage refuses, the hub doesn't forward a signed-in visitor, so it can't loop.
+- A sign-in always forwards to `next`, even one the tab went to before, since a person just acted. It notes the forward too, so an app that sends them straight back sees the line.
+- `returnTo`'s rule accepts any slug-shaped label beside the hub, the hub's own origin included. The brief said not to write a second rule, so a signed-in visitor with `next` set to the hub is forwarded to the hub's root, once. It can't loop, since that address has no `next`.
+- The launcher checks the session before each listing. A session that is now someone else's, as after "yes" to an intro link in another tab, moves the launcher to them. A failure from either call shows the sentence `callCore` gives, such as "Couldn't reach core at https://core.example.com.", with a "Try again" button that asks again at once.
+- The whole-stack test's axe journey now opens two more hub pages as the owner: the question for an intro link (`hub-intro-question`), and the launcher an app sent the owner back to (`launcher-sent-back`). With `E2E_SCREENSHOTS` set, each is saved under those names.
+
+### For the docs site
+
+What a guest or an owner sees differently:
+
+- **An intro link while signed in.** A card, under "robkit hub":
+  - Heading: "Sign in with this link instead?"
+  - Text: "You're signed in as Grandma. Only switch if someone sent you this link."
+  - Buttons: "Sign in with the link" and "Stay signed in as Grandma".
+  - "Sign in with the link" signs in with the link's code and opens the launcher as the link's guest. A code core refuses shows core's sentence under the buttons. "Stay signed in as Grandma" opens the launcher as before.
+- **An intro link while not signed in** signs in with no question, as before.
+- **Signed in already, arriving from an app.** The hub sends the browser straight on to the app, where before it showed the launcher. If the app sends the browser back with the same address in the same tab, the launcher shows, with this line above the apps: "notes.example.com sent you straight back here. Try opening it again below." The line names the app's host.
+- **Signing out in another tab.** An open launcher shows the sign-in page within 30 seconds, or as soon as its tab is shown again.
+- **Core can't be reached while the launcher is open.** The launcher stays, with core's sentence, such as "Couldn't reach core at https://core.example.com.", and a "Try again" button. Before, it showed the same sentence with no button.
+
+An app's author sees no change, and core's routes are the same.
