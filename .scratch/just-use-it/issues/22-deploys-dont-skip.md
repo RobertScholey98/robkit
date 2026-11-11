@@ -116,3 +116,17 @@ For the docs site:
 
 - From a commit not pushed: `Coolify builds <branch> as GitHub holds it, not this checkout, so robkit deploy runs only from a commit pushed to <branch>. From any other it would record a build that never happened. This checkout's commit, 1a2b3c4, isn't on <branch> at any remote. Push it, or fetch if it's pushed already, then deploy again.` The usage text and `docs/deploy.md` say it runs only from a pushed commit.
 - From a Coolify that lists an application without its environment: `Coolify listed an application without the environment it belongs to, so robkit deploy can't tell which applications are this install's, and wrote nothing. It needs Coolify 4.3 or later.`
+
+### Merged
+
+Added by the lead. The ticket was built in two pull requests.
+
+**PR 104** merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `5ac337e`. That head is the lead's merge of the milestone's branch into this one: tickets 22 and 23 had both raised create-robkit's coverage thresholds, and the merge keeps the higher of each. Reading its diff, the lead found the four things "From the lead's read of PR 104" lists above, and sent them back for a second pull request.
+
+**PR 115** merged on 2026-11-11, with `gate` green on `e051ecb`. The lead read the diff and changed nothing. The worker's turn ended once while a test run was in the background and nothing woke it, so this pull request opened about ninety minutes after its code was written.
+
+For R to know:
+
+- `robkit deploy` now refuses a checkout whose commit isn't on the deploy branch at a remote, and `--dry-run` with credentials refuses too. That is new for an owner. A remote's branch ahead of the checkout passes, and the next deploy then deploys again whatever changed in between, which is safe.
+- It stops before any write if Coolify lists any application without its environment, one from another install included.
+- Neither has run against a real Coolify. The map lists that as a known gap.
