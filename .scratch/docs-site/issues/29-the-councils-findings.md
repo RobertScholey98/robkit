@@ -16,7 +16,7 @@ What the round found that needs R goes to tickets: just-use-it 63 and 64, and no
 - [x] Each finding the lead took is fixed, and the PR's table names each one
 - [x] Each finding not taken has a reason in the PR
 - [x] The site's tests cover each fix that changes what a page's code block or a component does
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -47,3 +47,7 @@ None of these blocks the merge to `main`.
 - **Docs ticket 28** asks about the screenshots. The hub's launcher picture is mostly empty, and the sign-in and admin pictures are small on a wide screen.
 - **The home diagram** says "sign-in, launcher" under the hub, shortened from "sign-in and launcher" so the words draw 12 pixels tall on a phone.
 - **`/docs/` and each section's folder** now lead to their first page through a meta refresh. A host that can redirect could do it with a 301 instead, once ticket 27 names the host.
+
+### Merged
+
+Added by the lead. PR 151 merged into `docs-site` on 2026-11-11 as `a2dc987f`, with `gate` green on `892d4fb`. `gate` had also passed on `825944c`, before the site's own code joined the branch. `docs-site` now waits only for its pull request into `main`.
