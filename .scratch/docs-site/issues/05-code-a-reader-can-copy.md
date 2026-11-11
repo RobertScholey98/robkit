@@ -21,7 +21,7 @@
 - [x] Code blocks pass axe's contrast check in both themes
 - [x] Turning the pre-release switch off removes the line from every page that had it
 - [x] The samples page stays under the script size ticket 02 recorded
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -77,3 +77,12 @@
 
 - Ticket 27 (the templates finished) changes the template files that `<TemplateFile>` shows. The samples page's `from="func main()"` part fails the build if `main.go` loses that line.
 - A new stack in create-robkit's `stacks` makes every `<StackSwitch>` fail the build until each has a sample for it.
+
+### Merged
+
+Added by the lead. PR 111 merged into `docs-site` on 2026-11-11, with `gate` green on `e1f7999`. The lead read the diff and changed nothing.
+
+Two small things the lead saw and left. Neither reaches a reader of robkit.dev today:
+
+- The head script sets `data-stack` to whatever the browser stored. A stored stack no switcher offers, such as one robkit dropped, shows every stack's sample until the page's script runs and picks the first.
+- The copy button's click throws where the browser has no `navigator.clipboard`, as on a page served over plain http. robkit.dev is https.
