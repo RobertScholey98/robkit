@@ -4,6 +4,7 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { switcherStacks } from "./stacks.ts";
 import { openPage, openSite, type Site } from "./test/browser.ts";
 
 const path = "/samples/";
@@ -52,7 +53,7 @@ describe("a code block", () => {
   });
 
   const terminal = (page: Page) =>
-    page.locator("figure").filter({ hasText: "Terminal" });
+    page.locator("figure").filter({ hasText: "Terminal" }).first();
   // What the page hands the clipboard, exactly. Reading the clipboard back
   // gives the system's line endings, which differ on Windows.
   const recordCopies = (page: Page) =>
@@ -132,5 +133,82 @@ describe("a code block", () => {
 
     expect(await page.getByRole("button", { name: "Copy" }).count()).toBe(0);
     expect(await terminal(page).locator("pre").isVisible()).toBe(true);
+  });
+});
+
+describe("the stack switcher", () => {
+  const labels = switcherStacks.map(({ label }) => label);
+  const chosen = (page: Page) =>
+    page.getByRole("tab", { selected: true }).textContent();
+  const shown = (page: Page) =>
+    page
+      .locator("[data-stack-panel]")
+      .evaluateAll((panels) =>
+        panels
+          .filter((panel) => panel.checkVisibility())
+          .map((panel) => panel.dataset.stackPanel),
+      );
+
+  it("offers create-robkit's ready stacks, in order", async () => {
+    const { page } = await openPage(site, path, { width: 1280 });
+
+    expect(await page.getByRole("tab").allTextContents()).toEqual(labels);
+    expect(await chosen(page)).toBe("TanStack Start");
+    expect(await shown(page)).toEqual(["start"]);
+  });
+
+  it("moves between stacks with the arrow keys, Home and End", async () => {
+    const { page } = await openPage(site, path, { width: 375 });
+    await page.getByRole("tab", { name: "TanStack Start" }).focus();
+
+    await page.keyboard.press("ArrowRight");
+    expect(await chosen(page)).toBe("React + Hono");
+    expect(await shown(page)).toEqual(["react-hono"]);
+    await page.keyboard.press("End");
+    expect(await chosen(page)).toBe("React + Go");
+    await page.keyboard.press("ArrowRight");
+    expect(await chosen(page)).toBe("TanStack Start");
+    await page.keyboard.press("ArrowLeft");
+    expect(await chosen(page)).toBe("React + Go");
+    expect(await page.evaluate(() => document.activeElement?.textContent)).toBe(
+      "React + Go",
+    );
+    await page.keyboard.press("Home");
+    expect(await chosen(page)).toBe("TanStack Start");
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(
+        () => document.activeElement?.getAttribute("role") ?? "",
+      ),
+    ).toBe("tabpanel");
+  });
+
+  it("keeps the choice on the next page", async () => {
+    const { page } = await openPage(site, path, { width: 1280 });
+    await page.getByRole("tab", { name: "Next.js" }).click();
+    await page.goto(`${site.origin}/docs/get-started/what-you-need/`);
+    await page.goto(`${site.origin}${path}`);
+
+    expect(await chosen(page)).toBe("Next.js");
+    expect(await shown(page)).toEqual(["next"]);
+  });
+
+  it("shows every stack's sample under its name without scripts", async () => {
+    const { page } = await openPage(site, path, {
+      width: 375,
+      scripts: false,
+    });
+
+    expect(await page.getByRole("tab").count()).toBe(0);
+    expect(await shown(page)).toEqual(switcherStacks.map(({ value }) => value));
+    for (const { value, label } of switcherStacks) {
+      const panel = page.locator(`[data-stack-panel="${value}"]`);
+      expect(await panel.getByText(label, { exact: true }).isVisible()).toBe(
+        true,
+      );
+      expect(await panel.locator("pre").textContent()).toBe(
+        `pnpm robkit add notes --stack ${value}`,
+      );
+    }
   });
 });

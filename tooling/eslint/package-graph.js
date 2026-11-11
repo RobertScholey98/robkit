@@ -133,8 +133,9 @@ export const packageGraph = {
     dependencies: [],
     devDependencies: ["@robkit/guard", "@robkit/input"],
   },
-  // robkit.dev, the docs site. Private, and built to static files.
-  "@internal/site": { dependencies: [], devDependencies: [] },
+  // robkit.dev, the docs site. Private, and built to static files. Its
+  // stack switcher offers create-robkit's ready stacks.
+  "@internal/site": { dependencies: [], devDependencies: ["create-robkit"] },
   // Packs and checks every published package.
   "@internal/repo-checks": {
     dependencies: [],

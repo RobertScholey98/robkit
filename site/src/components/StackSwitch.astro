@@ -1,0 +1,116 @@
+---
+// A sample that differs by stack, one stack at a time. A page gives one
+// sample per stack, each as <Fragment slot="<stack>">, and the build fails
+// without one for every stack robkit can make.
+//
+// With scripts, tabs choose the stack, and the choice holds on every
+// switcher and every page: the script in the page's head applies a stored
+// choice before the page paints. Without scripts, every stack's sample
+// shows, each under its name.
+import { missingStacks, switcherStacks } from "../stacks.ts";
+
+const problem = missingStacks(
+  switcherStacks,
+  (stack) => Astro.slots.has(stack),
+  Astro.url.pathname,
+);
+if (problem !== undefined) throw new Error(problem);
+
+const panels = await Promise.all(
+  switcherStacks.map(async (stack) => ({
+    ...stack,
+    html: await Astro.slots.render(stack.value),
+  })),
+);
+// Until the script runs, CSS shows only the chosen stack's sample.
+const choose = switcherStacks
+  .map(
+    ({ value }) =>
+      `html[data-stack="${value}"] [data-stack-panel]:not([data-stack-panel="${value}"]){display:none}`,
+  )
+  .join("");
+---
+
+<div class="switch" data-stack-switch>
+  <div class="tabs" role="tablist" aria-label="Stack">
+    {switcherStacks.map(({ value, label }, index) => (
+      <button
+        type="button"
+        role="tab"
+        class="tab"
+        data-stack-tab={value}
+        aria-selected={index === 0 ? "true" : "false"}
+        tabindex={index === 0 ? 0 : -1}
+      >
+        {label}
+      </button>
+    ))}
+  </div>
+  {panels.map(({ value, label, html }) => (
+    <div class="panel" data-stack-panel={value}>
+      <p class="name">{label}</p>
+      <Fragment set:html={html} />
+    </div>
+  ))}
+</div>
+<style is:inline set:html={choose}></style>
+
+<style>
+  .switch {
+    margin: var(--space-4) 0;
+  }
+
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-1);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  :global(html:not([data-js])) .tabs {
+    display: none;
+  }
+
+  .tab {
+    min-height: var(--target);
+    padding: 0 var(--space-3);
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: none;
+    color: var(--color-muted);
+    font: inherit;
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .tab:hover {
+    color: var(--color-text);
+  }
+
+  .tab[aria-selected="true"] {
+    border-bottom-color: var(--color-accent);
+    color: var(--color-text);
+    font-weight: 600;
+  }
+
+  .name {
+    margin: var(--space-4) 0 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+
+  :global(html[data-js]) .name {
+    display: none;
+  }
+
+  /* With scripts but no choice yet, the first stack shows. */
+  :global(html[data-js]:not([data-stack])) .panel:not(:first-of-type) {
+    display: none;
+  }
+</style>
+
+<script>
+  import "../scripts/stacks.ts";
+</script>

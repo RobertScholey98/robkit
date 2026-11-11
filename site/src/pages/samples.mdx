@@ -1,4 +1,5 @@
 import CodeBlock from "../components/CodeBlock.astro";
+import StackSwitch from "../components/StackSwitch.astro";
 import TemplateFile from "../components/TemplateFile.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
@@ -73,6 +74,46 @@ func main() {
 ## Part of a file from the templates
 
 <TemplateFile path="stacks/go/main.go" from="func main()" to="^}" />
+
+## A sample for each stack
+
+<StackSwitch>
+<Fragment slot="start">
+
+```sh
+pnpm robkit add notes --stack start
+```
+
+</Fragment>
+<Fragment slot="react-hono">
+
+```sh
+pnpm robkit add notes --stack react-hono
+```
+
+</Fragment>
+<Fragment slot="express">
+
+```sh
+pnpm robkit add notes --stack express
+```
+
+</Fragment>
+<Fragment slot="next">
+
+```sh
+pnpm robkit add notes --stack next
+```
+
+</Fragment>
+<Fragment slot="go">
+
+```sh
+pnpm robkit add notes --stack go
+```
+
+</Fragment>
+</StackSwitch>
 
 </main>
 </BaseLayout>
