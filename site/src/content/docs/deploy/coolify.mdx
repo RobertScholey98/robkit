@@ -27,7 +27,7 @@ Put something that terminates TLS in front of Coolify before you deploy. `robkit
 Without TLS in front, visitors reach your apps over plain http, and two things break:
 
 - Nobody can sign in. Core's sign-in cookie is only sent over https.
-- Every app's address in `ROBKIT_CORE_URL` and in the catalog is an https address that nothing answers.
+- Each app takes core's address and its own from `ROBKIT_CORE_URL`, which is an https address that nothing answers.
 
 Coolify's own certificates don't work here yet. Traefik issues them only for an `https://` domain, and `robkit deploy` writes `http://` ones.
 
