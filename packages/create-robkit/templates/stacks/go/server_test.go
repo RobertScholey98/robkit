@@ -83,6 +83,8 @@ func TestServesThePageForAnyPathButItsFilesAndTheAPI(t *testing.T) {
 		"/":                 "the page",
 		"/recipes/42":       "the page",
 		"/assets/style.css": "the stylesheet",
+		"/assets/":          "the page",
+		"/assets":           "the page",
 		"/api/nothing":      "404 page not found\n",
 	} {
 		got := answer(t, httptest.NewRequest("GET", path, nil), owner)

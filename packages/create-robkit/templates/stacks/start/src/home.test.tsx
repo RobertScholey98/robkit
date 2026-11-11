@@ -1,8 +1,11 @@
+// @vitest-environment happy-dom
 import { guest, owner } from "@robkit/start/testing";
+import { cleanup, render, screen } from "@testing-library/react";
+import { userEvent } from "@testing-library/user-event";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { HomeCard } from "./home.tsx";
-import { shownTo, visitAgainAs, type Visits } from "./visits.ts";
+import { shownTo, visitAgainAs, type Shown, type Visits } from "./visits.ts";
 
 /** Visits kept in a list, in place of the database. */
 function visitsInMemory(): Visits & { recorded: string[] } {
@@ -22,9 +25,9 @@ function visitsInMemory(): Visits & { recorded: string[] } {
 function pageOf(shown: Awaited<ReturnType<typeof shownTo>>): string {
   return renderToStaticMarkup(
     <HomeCard
-      shown={shown}
-      onVisitAgain={() => {
-        // A test doesn't press it.
+      first={shown}
+      visitAgain={() => {
+        throw new Error("A test of the drawn page doesn't press it.");
       }}
     />,
   );
@@ -52,5 +55,54 @@ describe("the page", () => {
     expect(visits.recorded).toEqual(["code-1"]);
     expect(pageOf(shown)).toContain("Signed in as a guest");
     expect(pageOf(shown)).toContain("Visits: 1");
+  });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe("the button", () => {
+  const first: Shown = { kind: "owner", viewerId: "owner-1", visits: 2 };
+
+  it("records one visit however often it is pressed while the call is out", async () => {
+    let answer: (shown: Shown) => void = () => undefined;
+    const visitAgain = vi.fn(
+      () =>
+        new Promise<Shown>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    render(<HomeCard first={first} visitAgain={visitAgain} />);
+    const button = screen.getByRole("button", { name: "Visit again" });
+
+    await userEvent.click(button);
+    await userEvent.click(button);
+    answer({ ...first, visits: 3 });
+
+    expect(await screen.findByText("Visits: 3")).toBeTruthy();
+    expect(visitAgain).toHaveBeenCalledTimes(1);
+    expect(button.hasAttribute("disabled")).toBe(false);
+  });
+
+  it("says so when the call fails, and keeps the count", async () => {
+    // The card reports the failure to the console.
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    render(
+      <HomeCard
+        first={first}
+        visitAgain={() => Promise.reject(new Error("The server answered 500."))}
+      />,
+    );
+    const button = screen.getByRole("button", { name: "Visit again" });
+
+    await userEvent.click(button);
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Couldn't record your visit. Try again.",
+    );
+    expect(screen.getByTestId("visits").textContent).toBe("Visits: 2");
+    expect(button.hasAttribute("disabled")).toBe(false);
   });
 });

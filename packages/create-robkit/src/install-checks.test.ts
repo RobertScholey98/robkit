@@ -46,6 +46,31 @@ function removeLater(dir: string): void {
 }
 
 /**
+ * The hash turbo gives each build and test task in the install, by task:
+ * the key it would answer from cache with.
+ */
+async function taskHashes(dir: string): Promise<Record<string, string>> {
+  const { stdout } = await run("pnpm exec turbo run build test --dry=json", {
+    cwd: dir,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  const dry = JSON.parse(stdout.slice(stdout.indexOf("{"))) as {
+    tasks: { taskId: string; hash: string }[];
+  };
+  return Object.fromEntries(dry.tasks.map((task) => [task.taskId, task.hash]));
+}
+
+/** The tasks whose hash differs between `before` and `after`. */
+function changed(
+  before: Record<string, string>,
+  after: Record<string, string>,
+): string[] {
+  return Object.keys(after)
+    .filter((task) => before[task] !== after[task])
+    .sort();
+}
+
+/**
  * What pnpm check runs in a new install: the hub's, admin's and
  * core-client's tests, the install's lint, and the install's typecheck.
  * Rejects naming the first that fails.
@@ -82,6 +107,37 @@ describe("a new install", { concurrent: false }, () => {
 
   it("passes its hub's, admin's and core-client's tests, its lint and its typecheck", async () => {
     await checkInstall(dir);
+  }, 240_000);
+
+  it("builds and tests again each app that uses a shared package that changed", async () => {
+    const start = await taskHashes(dir);
+    await appendFile(join(dir, "packages/theme/theme.css"), "/* edited */\n");
+    const themed = await taskHashes(dir);
+    await appendFile(
+      join(dir, "packages/core-client/src/call-core.ts"),
+      "// edited\n",
+    );
+    const called = await taskHashes(dir);
+
+    expect(changed(start, themed)).toEqual(
+      expect.arrayContaining([
+        "@internal/admin-app#build",
+        "@internal/example-app#build",
+        "@internal/hub-app#build",
+        "@internal/hub-app#test",
+      ]),
+    );
+    expect(changed(themed, called)).toEqual(
+      expect.arrayContaining([
+        "@internal/admin-app#build",
+        "@internal/admin-app#test",
+        "@internal/hub-app#build",
+        "@internal/hub-app#test",
+      ]),
+    );
+    expect(changed(themed, called)).not.toContain(
+      "@internal/example-app#build",
+    );
   }, 240_000);
 
   it("fails on a type error in a template's file", async () => {
