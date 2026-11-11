@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { checkInstall } from "./check.ts";
-import { defaultChoices } from "./choices.ts";
+import { defaultChoices, readyStacks } from "./choices.ts";
 import { init } from "./init.ts";
 import { drive } from "./test/drive.ts";
 
@@ -47,12 +47,18 @@ describe("checkInstall", () => {
     expect(await checkInstall(await readOnlyInstall())).toEqual([]);
   });
 
-  it("finds nothing in a fresh install whose example is on React + Go", async () => {
-    const dir = join(await mkdtemp(join(tmpdir(), "robkit-check-")), "go");
-    await init({ exampleStack: "go" }, dir, { install: false });
+  it.each(readyStacks)(
+    "finds nothing in a fresh install whose example is on %s",
+    async (exampleStack) => {
+      const dir = join(
+        await mkdtemp(join(tmpdir(), "robkit-check-")),
+        exampleStack,
+      );
+      await init({ exampleStack }, dir, { install: false });
 
-    expect(await checkInstall(dir)).toEqual([]);
-  });
+      expect(await checkInstall(dir)).toEqual([]);
+    },
+  );
 
   it.each([
     [
