@@ -90,6 +90,36 @@ describe("the built home page", () => {
   });
 });
 
+describe("the built quickstart", () => {
+  const page = "docs/get-started/quickstart/index.html";
+  const clone = [
+    "git clone https://github.com/RobertScholey98/robkit.git",
+    "cd robkit",
+    "corepack enable",
+    "pnpm install",
+    "pnpm create-install ../my-install",
+  ].join("\n");
+
+  it("leads with the route from a clone until the first release, and drops it after", async () => {
+    const terminals = codeBlocks(await built(page))
+      .filter(({ label }) => label === "Terminal")
+      .map(({ code }) => code);
+
+    // A function of the switch, so the test reads the same either way.
+    const expected = (released: boolean) => [
+      ...(released ? [] : [clone]),
+      "npm create robkit my-install",
+      "cd my-install\npnpm dev",
+    ];
+
+    expect(terminals).toEqual(expected(!preRelease));
+  });
+
+  it("is written, not a stub", async () => {
+    expect(await built(page)).not.toContain("data-stub");
+  });
+});
+
 describe("the built What you need page", () => {
   it("gives the Node and Go versions the templates ask for", async () => {
     const html = await built("docs/get-started/what-you-need/index.html");
