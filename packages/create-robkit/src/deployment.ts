@@ -41,6 +41,23 @@ export function databaseUrlVariable(slug: string): string {
 }
 
 /**
+ * Where the owner gets the value of one of the host's shared variables, for
+ * a message that names one the host lacks.
+ */
+export function whereToFind(variable: string): string | undefined {
+  if (variable === "ROBKIT_DB_SECRET") {
+    return "the install's database secret, from step 4 of the one-time setup in docs/deploy.md";
+  }
+  if (variable === "ROBKIT_ADMIN_DATABASE_URL") {
+    return "the internal URL of the environment's PostgreSQL resource, from step 3 of the one-time setup in docs/deploy.md";
+  }
+  if (variable.endsWith("_DATABASE_URL")) {
+    return "pnpm robkit database-urls prints it";
+  }
+  return undefined;
+}
+
+/**
  * Every app's container in production, from the install at `root`: its
  * slug, its addresses over https, and for an app with a database, its
  * `DATABASE_URL` from the host. Core also gets the catalog, the apps the

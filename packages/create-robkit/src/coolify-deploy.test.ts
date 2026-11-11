@@ -27,6 +27,8 @@ const apps: AppDeployment[] = [
     env: {
       ROBKIT_APP: { literal: "core" },
       DATABASE_URL: { shared: "CORE_DATABASE_URL" },
+      ROBKIT_ADMIN_DATABASE_URL: { shared: "ROBKIT_ADMIN_DATABASE_URL" },
+      ROBKIT_DB_SECRET: { shared: "ROBKIT_DB_SECRET" },
     },
   },
   { slug: "hub", env: { ROBKIT_APP: { literal: "hub" } } },
@@ -38,6 +40,22 @@ const apps: AppDeployment[] = [
     },
   },
 ];
+
+/**
+ * A Coolify with the shared variables the apps refer to, each holding a
+ * value no output may show.
+ */
+function host(overrides: Partial<FakeCoolify> = {}): FakeCoolify {
+  return fakeCoolify({
+    sharedVariables: {
+      CORE_DATABASE_URL: "postgres://core:secret-core@db/robkit",
+      NOTES_DATABASE_URL: "postgres://notes:secret-notes@db/robkit",
+      ROBKIT_ADMIN_DATABASE_URL: "postgres://postgres:secret-admin@db/robkit",
+      ROBKIT_DB_SECRET: "secret-of-the-install",
+    },
+    ...overrides,
+  });
+}
 
 /** An application Coolify already has for `slug`, as a sync made it. */
 function existing(slug: string, uuid: string): Record<string, unknown> {
@@ -70,7 +88,7 @@ async function run(
 
 describe("deploy", () => {
   it("creates each app Coolify lacks from the one Dockerfile, with its variables", async () => {
-    const state = fakeCoolify();
+    const state = host();
 
     await run(state, []);
 
@@ -115,7 +133,7 @@ describe("deploy", () => {
   });
 
   it("adopts an app Coolify already has rather than making another", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("notes", "old-notes")],
     });
 
@@ -137,7 +155,7 @@ describe("deploy", () => {
       ...existing("notes", "staging-notes"),
       environment_id: 2,
     };
-    const state = fakeCoolify({
+    const state = host({
       environments: [
         { id: 1, uuid: "env-production", name: "production" },
         { id: 2, uuid: "env-staging", name: "staging" },
@@ -168,7 +186,7 @@ describe("deploy", () => {
       is_buildtime: false,
       is_runtime: true,
     };
-    const state = fakeCoolify({
+    const state = host({
       applications: [
         existing("core", "c"),
         existing("hub", "h"),
@@ -193,7 +211,7 @@ describe("deploy", () => {
   });
 
   it("deploys core first, then each affected app, and skips the rest", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [
         existing("core", "c"),
         existing("hub", "h"),
@@ -213,7 +231,7 @@ describe("deploy", () => {
   });
 
   it("deploys a new app, and core with it, since the app catalog changed", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("core", "c"), existing("hub", "h")],
     });
 
@@ -229,7 +247,7 @@ describe("deploy", () => {
   });
 
   it("stops before the other apps when core's deploy fails", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("core", "c"), existing("hub", "h")],
       outcomes: { c: "failed" },
     });
@@ -244,7 +262,7 @@ describe("deploy", () => {
   });
 
   it("gives up on a request Coolify never answers, and says what to check", async () => {
-    const state = fakeCoolify({
+    const state = host({
       answer: (route) => (route === "GET /servers" ? "hang" : undefined),
     });
 
@@ -254,7 +272,7 @@ describe("deploy", () => {
   });
 
   it("stops waiting at its deadline, even while a request hangs", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("core", "c")],
       answer: (route) =>
         route.startsWith("GET /deployments/") ? "hang" : undefined,
@@ -269,7 +287,7 @@ describe("deploy", () => {
   });
 
   it("names the app, the step and what to check when Coolify refuses one", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("core", "c"), existing("hub", "h")],
       answer: (route) =>
         route === "PATCH /applications/h/envs/bulk"
@@ -286,7 +304,7 @@ describe("deploy", () => {
   });
 
   it("names a failed deployment and where to look", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("core", "c")],
       outcomes: { c: "failed" },
     });
@@ -313,7 +331,7 @@ describe("deploy's plan", () => {
       .map(({ path }) => path);
 
   it("deploys nothing and logs only the plan when no app changed", async () => {
-    const state = fakeCoolify({ applications: all() });
+    const state = host({ applications: all() });
 
     const { ok, log } = await run(state, []);
 
@@ -329,7 +347,7 @@ describe("deploy's plan", () => {
   });
 
   it("deploys the changed apps together when core is unchanged", async () => {
-    const state = fakeCoolify({ applications: all() });
+    const state = host({ applications: all() });
 
     const { ok, log } = await run(state, ["hub", "notes"]);
 
@@ -350,7 +368,7 @@ describe("deploy's plan", () => {
   });
 
   it("deploys every app with all, core first", async () => {
-    const state = fakeCoolify({ applications: all() });
+    const state = host({ applications: all() });
 
     const { ok } = await run(state, "all");
 
@@ -363,7 +381,7 @@ describe("deploy's plan", () => {
   });
 
   it("still deploys the others when one app fails to sync, and reports failure", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: all(),
       answer: (route) =>
         route === "PATCH /applications/h"
@@ -381,9 +399,48 @@ describe("deploy's plan", () => {
   });
 });
 
+describe("deploy's shared variables", () => {
+  it("names each one the host lacks, shows no value and writes nothing", async () => {
+    const state = host({
+      sharedVariables: {
+        CORE_DATABASE_URL: "postgres://core:secret-core@db/robkit",
+      },
+    });
+
+    const failed = run(state, "all");
+
+    await expect(failed).rejects.toThrow(
+      [
+        "Coolify's production environment lacks shared variables the apps need, so nothing was deployed:",
+        "- ROBKIT_ADMIN_DATABASE_URL: the internal URL of the environment's PostgreSQL resource, from step 3 of the one-time setup in docs/deploy.md.",
+        "- ROBKIT_DB_SECRET: the install's database secret, from step 4 of the one-time setup in docs/deploy.md.",
+        "- NOTES_DATABASE_URL: pnpm robkit database-urls prints it.",
+        "Add each to the environment's shared variables in Coolify, then deploy again.",
+      ].join(String.fromCharCode(10)),
+    );
+    const message = String(await failed.catch((error: unknown) => error));
+    expect(message).not.toContain("secret-");
+    expect(state.requests.map(({ method }) => method)).not.toContain("POST");
+    expect(state.requests.map(({ method }) => method)).not.toContain("PATCH");
+  });
+
+  it("reads them from the configured environment", async () => {
+    const state = host();
+
+    await run(state, []);
+
+    expect(state.requests).toContainEqual(
+      expect.objectContaining({
+        method: "GET",
+        path: "/projects/proj/environments/production/envs",
+      }),
+    );
+  });
+});
+
 describe("deploy's lookups", () => {
   it("refuses two Coolify applications with one app's name", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("hub", "h1"), existing("hub", "h2")],
     });
 
@@ -393,7 +450,7 @@ describe("deploy's lookups", () => {
   });
 
   it("names the server it can't find, and those it found", async () => {
-    const state = fakeCoolify({
+    const state = host({
       servers: [
         { uuid: "a", name: "alpha" },
         { uuid: "b", name: "beta" },
@@ -406,7 +463,7 @@ describe("deploy's lookups", () => {
   });
 
   it("names the environment it can't find, and those the project has", async () => {
-    const state = fakeCoolify({
+    const state = host({
       environments: [{ id: 2, uuid: "env-staging", name: "staging" }],
     });
 
@@ -417,7 +474,7 @@ describe("deploy's lookups", () => {
   });
 
   it("takes Coolify's only server, whatever its name", async () => {
-    const state = fakeCoolify({ servers: [{ uuid: "only", name: "box" }] });
+    const state = host({ servers: [{ uuid: "only", name: "box" }] });
 
     await run(state, []);
 
@@ -431,7 +488,7 @@ describe("deploy's lookups", () => {
 
 describe("deploy's failures", () => {
   it("names the app when Coolify won't create it", async () => {
-    const state = fakeCoolify({
+    const state = host({
       answer: (route) =>
         route === "POST /applications/private-github-app"
           ? { status: 201, body: {} }
@@ -447,7 +504,7 @@ describe("deploy's failures", () => {
   });
 
   it("says what to check when Cloudflare Access turns a call away", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("core", "c")],
       answer: (route) =>
         route === "POST /deploy" ? { status: 302, body: "" } : undefined,
@@ -462,7 +519,7 @@ describe("deploy's failures", () => {
   });
 
   it("says when Coolify queued nothing", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("core", "c")],
       answer: (route) =>
         route === "POST /deploy"
@@ -481,7 +538,7 @@ describe("deploy's failures", () => {
   });
 
   it("gives up on a deployment it can't read three times running", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("core", "c")],
       answer: (route) =>
         route.startsWith("GET /deployments/")
@@ -497,7 +554,7 @@ describe("deploy's failures", () => {
   });
 
   it("names a deployment someone cancelled", async () => {
-    const state = fakeCoolify({
+    const state = host({
       applications: [existing("core", "c")],
       outcomes: { c: "cancelled-by-user" },
     });

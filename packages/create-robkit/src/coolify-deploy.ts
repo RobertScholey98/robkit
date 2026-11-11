@@ -16,6 +16,7 @@ import {
 import type { CoolifyConfig } from "./coolify-config.ts";
 import {
   containerPort,
+  whereToFind,
   type AppDeployment,
   type DeploymentValue,
 } from "./deployment.ts";
@@ -148,6 +149,50 @@ async function environmentId(
   );
 }
 
+/**
+ * Refuses, before anything is written, an environment that lacks a shared
+ * variable an app refers to. It reads their names alone: a token that may
+ * read values gets them too, and none is ever printed.
+ */
+async function requireSharedVariables(
+  api: CoolifyApi,
+  project: string,
+  config: CoolifyConfig,
+  needed: readonly string[],
+): Promise<void> {
+  const listed = await readFromCoolify(
+    api,
+    `/projects/${encodeURIComponent(project)}/environments/${encodeURIComponent(config.environment)}/envs`,
+  );
+  const held = new Set(
+    (Array.isArray(listed) ? listed : []).map((variable: unknown) =>
+      stringFieldOf(variable, "key"),
+    ),
+  );
+  const missing = needed.filter((name) => !held.has(name));
+  if (missing.length === 0) return;
+  throw new CommandProblem(
+    [
+      `Coolify's ${config.environment} environment lacks shared variables the apps need, so nothing was deployed:`,
+      ...missing.map((name) => {
+        const where = whereToFind(name);
+        return where ? `- ${name}: ${where}.` : `- ${name}`;
+      }),
+      "Add each to the environment's shared variables in Coolify, then deploy again.",
+    ].join("\n"),
+  );
+}
+
+/** The host's shared variables the apps refer to, each once. */
+function sharedVariablesOf(deployments: readonly AppDeployment[]): string[] {
+  const names = deployments.flatMap(({ env }) =>
+    Object.values(env).flatMap((value) =>
+      "shared" in value ? [value.shared] : [],
+    ),
+  );
+  return [...new Set(names)];
+}
+
 type Synced =
   | { slug: Slug; action: "created" | "synced"; uuid: string }
   | { slug: Slug; action: "failed"; detail: string };
@@ -161,6 +206,7 @@ async function syncApps(
   api: CoolifyApi,
   config: CoolifyConfig,
   desired: Desired[],
+  shared: readonly string[],
 ): Promise<Synced[]> {
   const [projects, servers, githubApps, applications] = await Promise.all(
     ["/projects", "/servers", "/github-apps", "/applications"].map((path) =>
@@ -174,6 +220,7 @@ async function syncApps(
     environment_name: config.environment,
   };
   const environment = await environmentId(api, target.project_uuid, config);
+  await requireSharedVariables(api, target.project_uuid, config, shared);
   // The token lists every application of its team, so keep to this
   // install's environment.
   const existing = (Array.isArray(applications) ? applications : []).filter(
@@ -382,6 +429,7 @@ export async function deploy({
     api,
     config,
     deployments.map((deployment) => desiredApp(deployment, config)),
+    sharedVariablesOf(deployments),
   );
   const steps = plan(affected, synced);
   log("| App | Action | Detail |");

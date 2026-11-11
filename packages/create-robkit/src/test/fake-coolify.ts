@@ -9,6 +9,11 @@ export interface FakeCoolify {
   githubApps: { uuid: string; name: string }[];
   /** The environments of every project, each with the id an application names. */
   environments: { id: number; uuid: string; name: string }[];
+  /**
+   * Every environment's shared variables, by name, as a token that may read
+   * their values sees them.
+   */
+  sharedVariables: Record<string, string>;
   applications: Record<string, unknown>[];
   /** Each application's variables, by its uuid. */
   envs: Map<string, Map<string, Record<string, unknown>>>;
@@ -34,6 +39,7 @@ export function fakeCoolify(overrides: Partial<FakeCoolify> = {}): FakeCoolify {
       { uuid: "gh", name: "robkit-coolify" },
     ],
     environments: [{ id: 1, uuid: "env-production", name: "production" }],
+    sharedVariables: {},
     applications: [],
     envs: new Map(),
     outcomes: {},
@@ -76,6 +82,23 @@ function handle(
       return { status: 404, body: { message: "Project not found." } };
     }
     return { status: 200, body: state.environments };
+  }
+  const environment = state.environments.find(
+    ({ name, uuid }) =>
+      route === `GET /projects/${project}/environments/${name}/envs` ||
+      route === `GET /projects/${project}/environments/${uuid}/envs`,
+  );
+  if (environment) {
+    return {
+      status: 200,
+      body: Object.entries(state.sharedVariables).map(([key, value], i) => ({
+        id: i + 1,
+        key,
+        value,
+        is_shown_once: false,
+        type: "environment",
+      })),
+    };
   }
   if (route === "POST /applications/private-github-app") {
     const { environment_name: name, ...fields } = body as Record<
