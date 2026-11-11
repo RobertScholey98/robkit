@@ -1,5 +1,4 @@
 import { setTimeout as sleep } from "node:timers/promises";
-import { CommandProblem } from "@robkit/dev/cli";
 import type { Slug } from "@robkit/input";
 import { install } from "@robkit/input/addresses";
 import {
@@ -8,17 +7,16 @@ import {
   describeDuration,
   describeFailure,
   fieldOf,
-  readFromCoolify,
   stringFieldOf,
   type CoolifyApi,
   type Coolify,
 } from "./coolify-api.ts";
 import type { CoolifyConfig } from "./coolify-config.ts";
 import {
-  environmentId,
-  pick,
-  requireSharedVariables,
+  findApp,
+  readHost,
   sharedVariablesOf,
+  type Host,
 } from "./coolify-host.ts";
 import { recordOf, variablesHash } from "./coolify-record.ts";
 import {
@@ -81,37 +79,6 @@ function desiredApp(
   };
 }
 
-function normalizeRepo(repository: string): string {
-  return repository
-    .toLowerCase()
-    .replace(/^(https?:\/\/github\.com\/|git@github\.com:)/, "")
-    .replace(/\.git$/, "")
-    .replace(/\/+$/, "");
-}
-
-/**
- * The Coolify application already running `desired` from this repository,
- * so one made by hand is adopted rather than duplicated. Every app builds
- * the same Dockerfile, so its name tells them apart.
- */
-function findApp(
-  applications: unknown[],
-  desired: Desired,
-): string | undefined {
-  const repo = normalizeRepo(String(desired.settings.git_repository));
-  const matches = applications.filter(
-    (app) =>
-      normalizeRepo(stringFieldOf(app, "git_repository") ?? "") === repo &&
-      stringFieldOf(app, "name") === desired.settings.name,
-  );
-  if (matches.length > 1) {
-    throw new CommandProblem(
-      `${String(matches.length)} Coolify applications are named ${String(desired.settings.name)}. Delete the extras.`,
-    );
-  }
-  return stringFieldOf(matches[0], "uuid");
-}
-
 type Synced =
   | { slug: Slug; action: "created" | "synced"; uuid: string }
   | { slug: Slug; action: "failed"; detail: string };
@@ -123,38 +90,21 @@ type Synced =
  */
 async function syncApps(
   api: CoolifyApi,
-  config: CoolifyConfig,
+  host: Host,
   desired: Desired[],
-  shared: readonly string[],
 ): Promise<Synced[]> {
-  const [projects, servers, githubApps, applications] = await Promise.all(
-    ["/projects", "/servers", "/github-apps", "/applications"].map((path) =>
-      readFromCoolify(api, path),
-    ),
-  );
-  const target = {
-    project_uuid: pick(projects, config.project, "project"),
-    server_uuid: pick(servers, config.server, "server"),
-    github_app_uuid: pick(githubApps, config.githubApp, "GitHub App"),
-    environment_name: config.environment,
-  };
-  const environment = await environmentId(api, target.project_uuid, config);
-  await requireSharedVariables(api, target.project_uuid, config, shared);
-  // The token lists every application of its team, so keep to this
-  // install's environment.
-  const existing = (Array.isArray(applications) ? applications : []).filter(
-    (app: unknown) => fieldOf(app, "environment_id") === environment,
-  );
-
   const results: Synced[] = [];
   for (const app of desired) {
-    const found = findApp(existing, app);
+    const found = stringFieldOf(
+      findApp(host, String(app.settings.name)),
+      "uuid",
+    );
     const saved = found
       ? await callCoolify(api, "PATCH", `/applications/${found}`, {
           body: app.settings,
         })
       : await callCoolify(api, "POST", "/applications/private-github-app", {
-          body: { ...target, instant_deploy: false, ...app.settings },
+          body: { ...host.target, instant_deploy: false, ...app.settings },
         });
     const uuid =
       found ??
@@ -356,12 +306,8 @@ export async function deploy({
       recordOf(commit, variablesHash(envs)),
     ]),
   );
-  const synced = await syncApps(
-    api,
-    config,
-    desired,
-    sharedVariablesOf(deployments),
-  );
+  const host = await readHost(api, config, sharedVariablesOf(deployments));
+  const synced = await syncApps(api, host, desired);
   const steps = plan(affected, synced);
   log("| App | Action | Detail |");
   log("| --- | --- | --- |");
