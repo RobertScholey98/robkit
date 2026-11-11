@@ -71,6 +71,19 @@ When more than one of the apps' and Postgres's ports is taken, it names each.
 
 It also refuses when the socket's path is 100 bytes or more. Make a folder only you can open at a shorter path, link `~/.robkit/run` to it, then run `pnpm dev` again. The `robkit` commands refuse a folder that fails these checks too.
 
+## Start again with an empty database
+
+`pnpm dev` keeps Postgres's data in a Docker volume, so the owner, the codes and each app's data last from one run to the next. To start again with an empty database, stop `pnpm dev`, then run this in the install's folder:
+
+```sh
+docker compose down --volumes
+pnpm dev
+```
+
+It deletes every app's data along with the owner, the codes and the roles. You claim the install again on the hub.
+
+robkit can't reset the owner's password. On your machine, starting again is the way back from a lost one, and it costs the data.
+
 ## Add an app
 
 `pnpm robkit add` writes a new app to `apps/<slug>`. With no options it asks for each, as [Your first app](/docs/get-started/your-first-app/) shows. With any option it asks nothing, and needs the app's name:
