@@ -35,3 +35,21 @@ describe.each([375, 1280] as const)("at %i pixels wide", (width) => {
     },
   );
 });
+
+describe("a code block", () => {
+  it("names its file, or Terminal for commands, with a prompt before each command", async () => {
+    const { page } = await openPage(site, path, { width: 1280 });
+    const block = page.locator("figure").filter({ hasText: "Terminal" });
+
+    expect(await page.locator("figcaption").first().textContent()).toContain(
+      "addresses.ts",
+    );
+    expect(
+      await block
+        .locator(".line")
+        .evaluateAll((lines) =>
+          lines.map((line) => getComputedStyle(line, "::before").content),
+        ),
+    ).toEqual(['"$ "', '"$ "']);
+  });
+});

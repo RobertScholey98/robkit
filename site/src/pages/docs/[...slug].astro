@@ -1,6 +1,7 @@
 ---
 import type { GetStaticPaths, InferGetStaticPropsType } from "astro";
 import { getCollection, render } from "astro:content";
+import CodeBlock from "../../components/CodeBlock.astro";
 import DocsLayout from "../../layouts/DocsLayout.astro";
 import { editUrl } from "../../site.ts";
 
@@ -29,5 +30,5 @@ const file = entry.data.source ?? `site/${String(entry.filePath)}`;
   stub={entry.data.stub}
   edit={editUrl(file)}
 >
-  <Content />
+  <Content components={{ pre: CodeBlock }} />
 </DocsLayout>

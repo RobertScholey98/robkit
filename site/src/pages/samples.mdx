@@ -1,4 +1,7 @@
+import CodeBlock from "../components/CodeBlock.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
+
+export const components = { pre: CodeBlock };
 
 <BaseLayout
   title="Code samples"
@@ -13,7 +16,7 @@ This page holds one code sample of each kind the docs show. The repo's checks re
 
 ## TypeScript
 
-```ts
+```ts title="addresses.ts"
 import { installAt } from "@robkit/input/addresses";
 
 const core = installAt("http://hub.robkit.localhost:3000/", "hub")?.origin(

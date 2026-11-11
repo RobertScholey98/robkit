@@ -1,8 +1,8 @@
 ---
 // Every icon the site draws, inline, in currentColor. Each is hidden from
 // screen readers: the control around it carries the name.
-// Sources: sun, moon, menu, x, square-terminal, arrow-left, arrow-right
-// and square-pen from Lucide
+// Sources: sun, moon, menu, x, square-terminal, arrow-left, arrow-right,
+// square-pen and file from Lucide
 // (https://lucide.dev, ISC licence); github from Simple Icons
 // (https://simpleicons.org, CC0).
 
@@ -16,7 +16,8 @@ interface Props {
     | "github"
     | "arrow-left"
     | "arrow-right"
-    | "pen";
+    | "pen"
+    | "file";
   size?: number;
 }
 
@@ -58,6 +59,12 @@ const { name, size = 20 } = Astro.props;
     <>
       <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
       <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" />
+    </>
+  )}
+  {name === "file" && (
+    <>
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
     </>
   )}
   {name === "github" && (

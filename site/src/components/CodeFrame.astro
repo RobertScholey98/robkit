@@ -1,0 +1,72 @@
+---
+// The frame around every code block: a bar naming the file, "Terminal" for
+// commands, or the language. A command block puts a prompt before each
+// line, which can't be selected with the command.
+import { codeLabel, isCommand } from "../code.ts";
+import Icon from "./Icon.astro";
+
+interface Props {
+  lang: string;
+  /** The file the code is from, as a reader's install names it. */
+  title?: string | undefined;
+}
+
+const { lang, title } = Astro.props;
+const command = isCommand(lang);
+const label = codeLabel(lang, title);
+---
+
+<figure class="code" data-command={command ? "" : undefined}>
+  <figcaption class="bar">
+    <span class="label">
+      {(command || title !== undefined) && (
+        <Icon name={command ? "terminal" : "file"} size={16} />
+      )}
+      <span>{label}</span>
+    </span>
+  </figcaption>
+  <slot />
+</figure>
+
+<style>
+  .code {
+    margin: var(--space-4) 0;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-code-bg);
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    min-height: var(--target);
+    padding: 0 var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .code :global(pre) {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .code[data-command] :global(.line:not(:empty))::before {
+    content: "$ ";
+    color: var(--color-muted);
+    user-select: none;
+  }
+</style>
