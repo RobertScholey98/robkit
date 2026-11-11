@@ -50,8 +50,8 @@ await migrate(config.databaseUrl);
 const db = createDatabase(config.databaseUrl);
 // Loaded before core listens, so no sign-in waits on it.
 const signingKey = await ensureSigningKey(db);
-// The owner's apps, as each declares itself. Core adds any it doesn't know,
-// with the rule it declares or as owner-only.
+// The owner's apps, as each declares itself. The catalog becomes this list:
+// core adds the new ones and deletes the ones it leaves out.
 await registerApps(db, config.apps);
 const app = createApp({
   db,
@@ -82,7 +82,7 @@ serve(getRequestListener(app.fetch), {
 | `migrate(url)`                       | Applies core's migrations from `drizzle/` through `@robkit/drizzle`'s migrator, the apps' own, under a lock on its journal table so two cores starting together apply each once                                                                                                                        |
 | `ensureSigningKey(db)`, `SigningKey` | Core's Ed25519 key, made on first boot and kept in core's schema                                                                                                                                                                                                                                       |
 | `readCoreConfig(env)`, `CoreConfig`  | Reads core's environment once, at start: its database, its public origin (`ROBKIT_CORE_URL`), apps (`ROBKIT_APPS`), trusted proxy, host and port, or an `InputProblem` naming each bad variable                                                                                                        |
-| `registerApps(db, apps)`             | Adds apps core hasn't seen, with their declared rule or owner-only. Keeps the owner's edits                                                                                                                                                                                                            |
+| `registerApps(db, apps)`             | Makes the catalog hold exactly these apps: adds the new ones with their declared rule or owner-only, keeps the owner's edits, and deletes the rest                                                                                                                                                     |
 | `TrustedProxy`                       | `cloudflare`, or nothing                                                                                                                                                                                                                                                                               |
 | `SignInLimits`                       | The sign-in limits `createApp` takes any of as `signInLimits`: attempts per client and per install, their windows, how many clients a limit keeps, and how many password checks run and wait at once                                                                                                   |
 
@@ -100,9 +100,10 @@ Core's routes are in `src/routes/`, one Hono app each for status, the session, c
 
 - Each routes module gets the install's addresses as `context.install`, worked out once from core's origin. `/refresh` mints for `next` only on `install.appAt`'s exact origin, and only for admin or an app in core's catalog.
 - `createApp` takes `logError`, a `Report` from `@robkit/input/report` that defaults to `reportToConsole`. Every unexpected error (one handler, `app.onError`, answering a generic 500) and an unreachable database are reported there.
+- `createApp` wraps `logError` once with `withoutQueryValues` from `query-values.ts`, and `robkit-core-command.ts` and `serving.ts` hand `runCommand` the same wrapper. A database error anywhere in a fault's chain is then told as its SQL and Postgres's SQLSTATE, severity and names, never its parameters or Postgres's message and detail. Its tests read the log as the console prints it.
 - `session-claims.ts` holds the session logic that needs no database: when a session expires, the holder's claims and guard viewer, and when a live session's token renews. `session-store.ts` calls it, and its unit tests need no Postgres.
 - The sign-in limit is in `rate-limit.ts`, keyed by `clientOf` in `client.ts`, with its defaults in `sign-in-limits.ts`. `/login` and `/login/code` reserve a place before they check, and release it in a `finally` unless the verdict is wrong. `/login/code` also reserves one in the install's budget of wrong codes. Every password hash and check runs through the one `PasswordChecker` from `password.ts` that `createApp` puts in the context, which runs 2 at once. When a limit trips, core writes one line to `logError`.
 - Each 500 carries a fresh request id, in the `X-Request-Id` header and the body's `requestId`. The log line names the same id, such as `GET /path failed (request <id>).`, so a 500 a person reports leads to its cause in core's log.
 - `robkit-core` is `src/robkit-core.ts`. `start` and `serve` in a checkout run `src/serving.ts` as a child, passing SIGTERM and SIGINT on and waiting; `serve` elsewhere runs it in its own process. It listens and stops through `listenUntilStopped` from `@robkit/serve`.
-- Two cores can start together, as in a rolling deploy, with no advisory lock: any role in the shared database can take any advisory key. The provision step tries an app again when it loses a race, `migrate` and `ensureSigningKey` lock core's own tables, which only core's role can, and `registerApps` adds an app's roles only in the core whose insert added it.
-- Core adds a new app with the rule it declares, or owner-only, and creates any role it names that the owner lacks. After that admin sets who may open it, and core keeps the owner's rule.
+- Two cores can start together, as in a rolling deploy, with no advisory lock: any role in the shared database can take any advisory key. The provision step tries an app again when it loses a race, `migrate` and `ensureSigningKey` lock core's own tables, which only core's role can, and `registerApps` locks `core.apps`, so two lists apply one after the other and the catalog holds the last one.
+- Core adds a new app with the rule it declares, or owner-only, and creates any role it names that the owner lacks. After that admin sets who may open it, and core keeps the owner's rule. An app `ROBKIT_APPS` no longer lists is deleted as core starts, its rule with it, so a slug that comes back is a new app. Nothing in Postgres beyond core's schema changes.

@@ -6,7 +6,7 @@ Thanks for helping. This page gets you from a fresh machine to a merged change. 
 
 - **Node 24.** `.node-version` names it.
 - **pnpm 11, through Corepack.** Run `corepack enable` once. The root `package.json` pins the exact pnpm version, and Corepack uses it. A pnpm installed some other way may be the wrong version.
-- **Go 1.26 or later**, with `go` and `gofmt` on your `PATH`. The Go module in `go/` is a workspace package, so `pnpm check` runs `go vet` and `go test` on it, and the whole-stack test makes a React + Go install. Get it from [go.dev/dl](https://go.dev/dl/); CI uses the version `.github/workflows/ci.yml` names. In WSL, install it there too.
+- **Go 1.26 or later**, with `go` and `gofmt` on your `PATH`. The Go module in `go/` is a workspace package, so `pnpm check` runs `go vet` and `go test` on it, and the whole-stack test makes a React + Go install. Get it from [go.dev/dl](https://go.dev/dl/); CI tests on the oldest Go this promises, which `go/go.mod` names, and on the newest, which `.github/workflows/ci.yml` names. In WSL, install it there too.
 - **Docker**, with Compose. Core's and the dev runner's `*.db.test.ts` files, the test Postgres's tests and the whole-stack test start their own Postgres containers.
 - **Linux or macOS** for the full test suite and `pnpm dev`. The dev runner stops apps with POSIX process groups.
 
@@ -174,7 +174,7 @@ For a typo or a broken link, a ticket can be a few lines.
 - One branch and one pull request per ticket. Name the branch after the ticket, such as `22-app-slugs-checked-at-start`.
 - Open the pull request against `main`, or against the branch it builds on if it stacks on another ticket's.
 - Fill in the template, `.github/pull_request_template.md`: the ticket (CI checks that it names the ticket's file under `.scratch/`), what changed and why, how you proved it (the commands you ran and their results), and anything R must decide.
-- A change to a published package's `src`, or to create-robkit's `templates` (tests aside), needs a changeset. Run `pnpm changeset`, pick the packages and `patch`, and commit the file it writes.
+- A change to a published package's `src` or `package.json`, to create-robkit's `templates`, to `packages/guard/conformance.json` or under `packages/core/drizzle` (tests aside) needs a changeset that names that package. Run `pnpm changeset`, pick each package you changed and `patch`, and commit the file it writes. A template change names create-robkit. CI fails a branch whose new changesets leave a changed package out, and names it.
 - A change an owner must do something about names create-robkit in its changeset too, and says what to do, such as "Add `ROBKIT_CORE_URL` to your install's `.env`". That holds for a change in any package, and in any file an install copies. `robkit upgrade` prints create-robkit's changelog between two versions, and a changeset writes only to the changelogs of the packages it names.
 - Before 1.0.0, a change that breaks an install is `minor`, never `major`. Every package releases at one version, so one `major` changeset would release 1.0.0, and a repo check fails on it.
 - CI's `gate` job passes only when every other job does. It is the one check a pull request needs.

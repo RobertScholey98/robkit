@@ -60,6 +60,7 @@
     "@internal/eslint-config": "workspace:*",
     "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
+    "@internal/vitest-config": "workspace:*",
     "@robkit/input": "workspace:*",
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",

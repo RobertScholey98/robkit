@@ -6,6 +6,7 @@ const env = {
   DATABASE_URL: "postgres://core:secret@127.0.0.1:5432/robkit",
   ROBKIT_CORE_URL: "https://core.robkit.dev",
   PORT: "3000",
+  ROBKIT_APPS: "[]",
 };
 
 describe("readCoreConfig", () => {
@@ -27,7 +28,7 @@ describe("readCoreConfig", () => {
     });
   });
 
-  it("listens on loopback, with no apps and no proxy beyond the first, by default", () => {
+  it("listens on loopback, with no proxy beyond the first, by default", () => {
     expect(readCoreConfig(env)).toEqual({
       databaseUrl: env.DATABASE_URL,
       origin: "https://core.robkit.dev",

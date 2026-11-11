@@ -2,12 +2,17 @@
 
 This page covers the suites that start Docker: what they do, how they clean up, and what each prints when it fails. [CONTRIBUTING.md](../CONTRIBUTING.md#check-your-work) says which gate runs which tests and how to run one package's.
 
+## What every package's tests run with
+
+Each package's `vitest.config` spreads `testDefaults` from `tooling/vitest`, and a repo check fails one that doesn't. Git runs with no name or email of the machine's own, as on CI's runner, so a test that commits sets them in each repo it makes, every clone included. `expect.poll` waits up to 30 seconds rather than Vitest's one, since a process starting or a lock being taken can take seconds on a busy machine. [tooling/vitest/README.md](../tooling/vitest/README.md) says more.
+
 ## Tests that start Docker
 
 The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postgres containers, and so do core's and dev's `*.db.test.ts` files. Core and dev run those in a `db` Vitest project, with the Postgres global setup and longer timeouts; their other tests are the `unit` project, which `test:unit` and `pnpm check` run.
 
 - Each suite gets its own test Postgres from `tooling/test-postgres`, whose data stays in memory (`in-memory.yaml`, added to `COMPOSE_FILE` by `testComposeFiles()`).
 - A test registers what it starts with `removeWhenGone`: a detached watcher waits for the test process to exit, however it ends, then removes its Compose project, stops every process carrying its `ROBKIT_TEST_TAG`, deletes the temp folders it made and releases its port leases. It tries each of those even when one fails, so a failed or interrupted gate leaves nothing running and nothing in the temp folder.
+- A test that runs `pnpm dev`, or a command that asks it, gives it a home of its own with `homeOfItsOwn()`, since the runner keeps its socket in `~/.robkit/run`. Docker, Corepack, pnpm and Go still find their settings and caches in the real home.
 - A block of ports, for `pnpm dev`'s proxy and the apps after it, comes from `freePortBlock()`. Blocks start every 20 ports from 20000, and each is leased until the test process exits: a symlink in `$TMPDIR/robkit-port-leases`, named for the block's first port and pointing at the process's pid. Only one process can make it, so two suites on the machine never get the same block, even though their servers bind long after the probe. The watcher removes the leases of a process that exited. A block that something outside the tests holds keeps its lease, and the next of up to 50 tries takes a fresh one.
 - A Postgres port comes from `freePostgresPort()`, which also skips the ports Docker already publishes, because Docker Desktop publishes them from its own VM where `freePort()` can't see them.
 - Where Docker runs natively on Linux, as on CI, set `COMPOSE_FILE` as `.github/workflows/ci.yml` does, so every test Postgres runs on the host's network: each new compose network otherwise adds host interfaces, and Chromium fails its in-flight requests with `ERR_NETWORK_CHANGED`. Docker Desktop keeps its networks in its own VM, so the suite in WSL with Docker Desktop doesn't need it.

@@ -8,7 +8,7 @@ Say what you found, how to reproduce it, and what an attacker could do with it. 
 
 ## The trust model
 
-An install trusts core, the hub, admin and the proxy in front of them. It trusts each app only with what that app needs to serve its own viewers. [docs/architecture.md](docs/architecture.md) shows the flows, and [docs/adr/](docs/adr/README.md) the reasons.
+An install trusts core, the hub, admin and the proxy in front of them. It trusts each app only with what that app needs to serve its own viewers. [docs/architecture.md](docs/architecture.md) shows the flows, and [docs/adr/](docs/adr/README.md) the reasons. Core's log holds no query parameters: a failed query is logged as its SQL with Postgres's code and names, so no access code, password hash or signing key reaches it.
 
 ### Only the proxy reaches core
 
@@ -75,6 +75,15 @@ Core knows its own origin from `ROBKIT_CORE_URL`, and works out every other addr
 - CORS lets exactly the hub's and admin's origins call core with the owner's cookie.
 - Only a local install, on `localhost` or a name under it, runs over plain http. Core and every app refuse an http `ROBKIT_CORE_URL` on any other domain, since tokens travel in the URLs of `/refresh`'s redirects, and `pnpm dev` refuses a domain that isn't local.
 
+### The hub asks before an intro link replaces a session
+
+Any app on the install can send a viewer to an intro link, one of its own included. So the hub checks the session before it uses the link's code:
+
+- A browser that isn't signed in signs in with the code, without a question.
+- A browser that is signed in sees who it is signed in as, and is asked whether to sign in with the link instead. The hub sends core the code only on "yes". "No" leaves the session as it was.
+
+The hub sends a browser on to `next` only on an app's exact origin, whether it just signed in or was signed in already. It forwards a tab to a given `next` once a visit, and notes where in its own `sessionStorage`, since the app that sends the browser back writes the address. A browser that comes back with the same `next` stays on the launcher, which says the app sent it back. A browser that won't let the hub read or keep the note stays on the launcher too, so only a person signing in sends it on.
+
 ### What an imported app can and can't do
 
 An app the owner installs, whoever wrote it, can:
@@ -89,7 +98,26 @@ It can't:
 - Post to another app as the viewer from its own pages. The other app's guard refuses a write from another origin.
 - Frame admin or another app in its own pages, unless that app's own policy names it. The other app's guard sends `X-Frame-Options: SAMEORIGIN`.
 - Read core's tables or another app's schema. Its database role reaches its own schema and nothing else.
-- Import `@robkit/core`, another app, or read the session cookie itself, if it keeps to the install's layer rule. `robkit check` enforces that rule on the source, so review an imported app's code before you trust it beyond that.
+
+Three things hold an app, whatever its code does:
+
+- Its database role, which reaches its own schema and nothing else.
+- Its app token's audience, its own slug. No other app's guard accepts the token, and core never renews from it.
+- Its container's environment, which holds its own `DATABASE_URL` and none of core's secrets.
+
+Its image isn't one of them. The install's `Dockerfile` runs `turbo prune` for the app, which brings in every workspace package the app's `package.json` names.
+
+`robkit check` is a lint, not a boundary. It reads the source of each app and shared package, and catches one that breaks the install's layer rule by mistake: an import of `@robkit/core` or another app, the session cookie read by name, or a relative import into a folder the check doesn't read. An app written to get past it can. So read an imported app's code before you install it.
+
+The known ways past the lint:
+
+- An import whose name is computed, such as `import(name)`.
+- `createRequire`.
+- An alias: tsconfig `paths`, a Vite `resolve.alias`, or a `package.json` `imports` entry.
+- An absolute path, or a `file:` specifier.
+- A symlinked file. The check reads the file, but works out its relative imports from the link's folder, and Node resolves them from the real file's.
+- A folder's name in another case, such as `./Dist/server.js`, on a file system that ignores case, as macOS's does by default.
+- A cookie name built from pieces, such as `"robkit_" + "session"`.
 
 ### robkit's own packages skip pnpm's one-day wait
 
@@ -106,7 +134,7 @@ The plan, `.scratch/kit/map.md`, lists the gaps we know of. The ones that bear o
 - After sign-out, an app the browser opened in the last 15 minutes still lets it in until that app's token expires.
 - Core hands an app its token in the callback's URL, so a proxy that logs URLs logs that app's token, good for 15 minutes on that app alone.
 - Any container on Coolify's network can reach core directly and send its own forwarded headers. Only the owner's apps run there.
-- Core's container starts with the Postgres admin URL and the database secret, from which every app's password comes. `robkit-core start` uses them to give each app its database, then serves core from a process whose environment holds neither, so nothing core logs or dumps of its own environment carries them. That is not a wall: code running in core's container can still read them from `/proc`.
+- Core's container starts with the Postgres admin URL and the database secret, from which every app's password comes. `robkit-core start` uses them to give each app its database, then serves core from a process whose environment holds neither, so nothing core logs or dumps of its own environment carries them. That is not a wall: code running in core's container can still read them from `/proc`. The statement that sets an app's role's password holds its SCRAM-SHA-256 verifier, not the password, and Postgres can log that verifier; whoever reads it can only guess against it offline, which a 64-character password derived from the database secret puts out of reach.
 - Wrong access codes are limited to 20 an hour across the whole install, whatever addresses they come from. A generated code is 5 characters from 31, about 28.6 million codes. An attacker wants any live code, not one in particular, so trying them all takes about 163 years however many are live. With k codes live, the first hit is expected after about 28.6 million ÷ (k + 1) guesses: about 82 years with 1 live code, and about 8 years with 20, about a 12% chance of a hit in a year.
 - What that costs: an attacker can stop new code sign-ins for up to an hour, and again for as long as they keep it up. Guests already signed in and the owner's password sign-in are unaffected.
 - A 3-character code stays guessable in weeks. [Ticket 29](.scratch/just-use-it/issues/29-access-codes-at-least-five.md) takes that.
@@ -114,5 +142,4 @@ The plan, `.scratch/kit/map.md`, lists the gaps we know of. The ones that bear o
 - With many addresses the limit per client stops counting, so the rate of password guesses is whatever the cap of 2 password checks at once allows.
 - A hosted install's setup screen stays open until someone claims it. Claim it as soon as it's up.
 - A state the guard keeps for a trip through core, if read from a log, is good until ten minutes after the last trip that renewed it, in the one browser that holds its cookie. The guard reuses the state a browser holds and renews its ten minutes on each trip, so tabs that share it all arrive.
-- The hub signs a browser in with whatever access code an intro link carries, without asking, even when someone is already signed in. So an app on a sibling subdomain can send a viewer to an intro link of its own and swap their session for a guest's. [Ticket 27](.scratch/just-use-it/issues/27-templates-finished.md) makes the hub ask first.
 - `GET /apps/:slug/access` answers anyone, since each app's guard reads its rule there with no cookie. So a stranger can learn which slugs an install has, and who may open each.

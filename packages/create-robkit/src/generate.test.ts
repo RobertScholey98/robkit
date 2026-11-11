@@ -16,6 +16,7 @@ import {
 } from "./choices.ts";
 import { layerRule } from "./check.ts";
 import {
+  appFiles,
   generateInstall,
   readFolder,
   stackTemplate,
@@ -248,13 +249,29 @@ describe("generateInstall", () => {
       "pnpm install --frozen-lockfile",
       "pnpm robkit deploy",
     ]);
+    // robkit deploy sets turbo's base from each application's record.
     expect(Object.keys(deploy?.steps.at(-1)?.env ?? {})).toEqual([
-      "TURBO_SCM_BASE",
       "COOLIFY_URL",
       "COOLIFY_TOKEN",
       "CF_ACCESS_CLIENT_ID",
       "CF_ACCESS_CLIENT_SECRET",
     ]);
+  });
+
+  it("cancels a run in progress for a pull request, never for main", async () => {
+    const files = await generateInstall(defaultChoices);
+    type Concurrency = Record<string, unknown>;
+    const workflow = parse(files.get(".github/workflows/ci.yml") ?? "") as {
+      concurrency?: Concurrency;
+      jobs: Record<string, { concurrency?: Concurrency }>;
+    };
+
+    expect(workflow.concurrency?.["cancel-in-progress"]).toBe(
+      "${{ github.event_name == 'pull_request' }}",
+    );
+    expect(workflow.jobs.deploy?.concurrency?.["cancel-in-progress"]).toBe(
+      false,
+    );
   });
 
   it("writes a CI workflow that installs, then runs the install's own scripts", async () => {
@@ -323,7 +340,7 @@ describe("generateInstall", () => {
 
     expect(setUpGo).toEqual({
       if: "hashFiles('apps/*/go.mod') != ''",
-      uses: "actions/setup-go@v7",
+      uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
       with: {
         "go-version": goVersionIn(
           files.get("Dockerfile") ?? "",
@@ -379,12 +396,19 @@ describe("generateInstall", () => {
     const configs = [...files].filter(([path]) =>
       /(^|\/)(vite|vitest|next)\.config\.ts$/.test(path),
     );
+    // The two stacks whose server Vite builds take its layout from serve.
+    const serverBuilds = [
+      "stacks/express/vite.config.ts",
+      "stacks/react-hono/vite.config.ts",
+    ];
     const call = (path: string) =>
       path.endsWith("next.config.ts")
         ? "export default withRobkit();"
         : path.endsWith("hub/vite.config.ts")
           ? "robkit({ guarded: false })"
-          : "robkit()";
+          : serverBuilds.includes(path)
+            ? 'robkit({ serve: "src/serve.ts" })'
+            : "robkit()";
 
     expect(configs.map(([path]) => path).sort()).toEqual([
       "base/apps/admin/vite.config.ts",
@@ -409,6 +433,9 @@ describe("generateInstall", () => {
           ? []
           : [path],
       ),
+    ).toEqual([]);
+    expect(
+      serverBuilds.filter((path) => files.get(path)?.includes("build:")),
     ).toEqual([]);
   });
 
@@ -884,7 +911,7 @@ export const database = appDatabase(schema);
       dev: "go run . dev",
       typecheck: "go vet ./... && tsc",
       lint: "gofmt -d .",
-      test: "go test ./...",
+      test: "go test ./... && vitest run",
       build: "vite build && go build -o dist/server .",
       start: "./dist/server migrate && ./dist/server",
       migrate: "go run . migrate",
@@ -943,4 +970,66 @@ export const database = appDatabase(schema);
     expect(files.get("apps/example/AGENTS.md")).toBe(template.get("AGENTS.md"));
     expect(files.get("apps/example/CLAUDE.md")).toBe("@AGENTS.md\n");
   });
+});
+
+describe("appFiles", () => {
+  // Where each stack's page sets its title and viewport, as written there.
+  const pages: Record<
+    Stack,
+    { file: string; title: string; viewport: string }
+  > = {
+    "react-hono": {
+      file: "src/routes.tsx",
+      title: "<title>notes</title>",
+      viewport:
+        '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    },
+    express: {
+      file: "src/routes.tsx",
+      title: "<title>notes</title>",
+      viewport:
+        '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    },
+    go: {
+      file: "index.html",
+      title: "<title>notes</title>",
+      viewport:
+        '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+    },
+    next: {
+      file: "src/app/layout.tsx",
+      title: 'title: "notes"',
+      viewport:
+        'viewport: Viewport = { width: "device-width", initialScale: 1 }',
+    },
+    start: {
+      file: "src/routes/__root.tsx",
+      title: '{ title: "notes" }',
+      viewport:
+        '{ name: "viewport", content: "width=device-width, initial-scale=1" }',
+    },
+  };
+
+  it.each(readyStacks)(
+    "titles the %s app's page with its slug, and sets a viewport",
+    async (stack) => {
+      const files = appFiles(await stackTemplate(stack), "notes");
+      const { file, title, viewport } = pages[stack];
+
+      expect(files.get(file)).toContain(title);
+      expect(files.get(file)).toContain(viewport);
+      for (const [path, text] of files) {
+        expect(text, path).not.toMatch(/<title>example<|title: "example"/i);
+      }
+    },
+  );
+  it.each(readyStacks)(
+    "gives the %s app an AGENTS.md about this app, not the example",
+    async (stack) => {
+      const agents = (await stackTemplate(stack)).get("AGENTS.md") ?? "";
+
+      expect(agents).not.toMatch(/\bthe example\b/i);
+      expect(agents).not.toMatch(/\ba `app\./);
+    },
+  );
 });

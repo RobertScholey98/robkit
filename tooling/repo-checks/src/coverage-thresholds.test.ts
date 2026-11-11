@@ -1,11 +1,13 @@
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  coverageScopeIn,
   loweredThresholds,
   readCoverage,
   readWorkspaceCoverage,
   thresholdsBelowCoverage,
   thresholdsIn,
+  unexplainedScopeChanges,
 } from "./coverage-thresholds.ts";
 
 const config = (
@@ -75,6 +77,78 @@ describe("loweredThresholds", () => {
     expect(loweredThresholds(path, { lines: 90 }, undefined)).toEqual([
       `${path} no longer sets coverage thresholds.`,
     ]);
+  });
+});
+
+describe("coverageScopeIn", () => {
+  it("reads include and exclude without layout or comments", () => {
+    expect(
+      coverageScopeIn(`export default defineConfig({
+  test: {
+    include: ["src/**/*.test.ts"],
+    coverage: {
+      include: ["src/**"],
+      // Helpers.
+      // coverage-scope: main.ts only starts the server.
+      exclude: [
+        "src/test/**", // Test helpers.
+        "src/main.ts",
+      ],
+    },
+  },
+});
+`),
+    ).toEqual({
+      include: '["src/**"]',
+      exclude: '["src/test/**","src/main.ts"]',
+      reasons: ["main.ts only starts the server."],
+    });
+  });
+
+  it("finds none in a config that measures everything", () => {
+    expect(coverageScopeIn("export default defineConfig({});")).toEqual({
+      include: undefined,
+      exclude: undefined,
+      reasons: [],
+    });
+  });
+});
+
+describe("unexplainedScopeChanges", () => {
+  const path = "packages/guard/vitest.config.ts";
+  const scope = (include: string, reasons: string[] = []) => ({
+    include,
+    exclude: undefined,
+    reasons,
+  });
+
+  it("accepts a scope that stays", () => {
+    expect(unexplainedScopeChanges(path, scope("a"), scope("a"))).toEqual([]);
+  });
+
+  it("accepts a new config, or one that's gone", () => {
+    expect(unexplainedScopeChanges(path, undefined, scope("a"))).toEqual([]);
+    expect(unexplainedScopeChanges(path, scope("a"), undefined)).toEqual([]);
+  });
+
+  it("reports a change with no new reason", () => {
+    expect(
+      unexplainedScopeChanges(path, scope("a", ["old"]), scope("b", ["old"])),
+    ).toEqual([
+      `${path} changes coverage.include, so its thresholds would measure other files. Undo it, or say why in a new comment in that file: // coverage-scope: <why>`,
+    ]);
+  });
+
+  it("refuses an empty reason", () => {
+    expect(
+      unexplainedScopeChanges(path, scope("a"), scope("b", [""])),
+    ).toHaveLength(1);
+  });
+
+  it("accepts a change with a new reason", () => {
+    expect(
+      unexplainedScopeChanges(path, scope("a"), scope("b", ["why"])),
+    ).toEqual([]);
   });
 });
 

@@ -5,10 +5,13 @@ import { defineConfig } from "vite";
 
 // robkit() sets the dev server up behind pnpm dev's proxy. expressApp()
 // hands every request but Vite's own to the Express app, so the guard sees
-// page loads, and loads it again after each change.
+// page loads, and loads it again after each change. For vite build, serve
+// names the server's entry: robkit() builds it to dist/serve.js and the
+// stylesheet its page links to dist/assets.
 export default defineConfig({
-  plugins: [robkit(), expressApp("/src/server.tsx"), tailwindcss()],
-  // The production build: the server, ready for Node, as dist/serve.js,
-  // and the stylesheet its page links, in dist/assets.
-  build: { ssr: "src/serve.ts", outDir: "dist", ssrEmitAssets: true },
+  plugins: [
+    robkit({ serve: "src/serve.ts" }),
+    expressApp("/src/server.tsx"),
+    tailwindcss(),
+  ],
 });

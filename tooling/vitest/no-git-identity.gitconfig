@@ -1,0 +1,6 @@
+# The global git config every package's tests run with, in place of the
+# machine's own. CI's runner has no name or email, so a test that commits
+# must set them in each repo it makes, every clone included. This makes git
+# refuse to commit without them on any machine, rather than guess one.
+[user]
+	useConfigOnly = true

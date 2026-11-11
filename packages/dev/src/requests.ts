@@ -3,10 +3,10 @@
 // path out here, and both read a request with the one reader.
 
 import { createHash } from "node:crypto";
-import { lstat, realpath } from "node:fs/promises";
+import { lstat, readlink, realpath } from "node:fs/promises";
 import { connect } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { userInfo } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import {
   type InputProblem,
   isProblem,
@@ -32,27 +32,49 @@ export interface DevRequest {
 
 /** Where a running `pnpm dev` listens for requests. */
 export interface DevSocket {
-  /** The folder it is in, which the runner makes for this account alone. */
+  /** `.robkit` in the account's home, which holds `run`. */
+  parent: string;
+  /**
+   * The folder the socket is in: `run` in {@link parent}, or the folder
+   * `run` links to. The runner makes it for this account alone.
+   */
   folder: string;
   /** The socket file. */
   path: string;
-  /** The variable that names the folder `folder` is in. */
-  setBy: "XDG_RUNTIME_DIR" | "TMPDIR";
 }
 
 /** macOS takes no socket path of 104 bytes or more, so robkit keeps under 100. */
 const maxPathBytes = 100;
 
 /**
- * Where `pnpm dev` in the install at `root` listens for requests: in a
- * folder of this account's own, in `XDG_RUNTIME_DIR` where `env` sets it
- * and in the temp folder where it doesn't. The socket is named after a
- * hash of the install's real path, so two installs never share one. It
- * reads the folder's path and makes nothing.
+ * The folder the socket goes in: `run` itself, or the folder it links to,
+ * there or not, so the owner can put the socket on a shorter path.
+ */
+async function socketFolder(run: string): Promise<string> {
+  const stats = await lstat(run).catch((error: unknown) => {
+    if (hasCode(error, "ENOENT", "ENOTDIR")) return undefined;
+    throw error;
+  });
+  if (!stats?.isSymbolicLink()) return run;
+  return realpath(run).catch(async (error: unknown) => {
+    if (!hasCode(error, "ENOENT")) throw error;
+    // A folder in the temp folder is gone after a restart. The runner makes
+    // it again, and checks it as it checks its own.
+    return resolve(dirname(run), await readlink(run));
+  });
+}
+
+/**
+ * Where `pnpm dev` in the install at `root` listens for requests: in
+ * `.robkit/run` in the account's home, or the folder that links to. The
+ * socket is named after a hash of the install's real path, so two
+ * installs, or an install and its copy, never share one. It reads where
+ * `run` links and makes nothing.
  *
- * The folder is robkit's own even in `XDG_RUNTIME_DIR`, since not every
- * system keeps that one private: under WSL without systemd it is
- * `/mnt/wslg/runtime-dir`, which every account can open.
+ * The home is `HOME` in `env`, which a login sets from the account, or the
+ * account's own where `HOME` isn't set. Nothing else in `env` counts, so
+ * every terminal of one account works out the same path, whatever its
+ * `XDG_RUNTIME_DIR` or `TMPDIR`.
  *
  * @throws a {@link CommandProblem} when the path is 100 bytes or more
  */
@@ -60,46 +82,35 @@ export async function devSocket(
   root: string,
   env: NodeJS.ProcessEnv,
 ): Promise<DevSocket> {
-  const runtime = env.XDG_RUNTIME_DIR;
-  // An empty XDG_RUNTIME_DIR names no folder.
-  const [within, setBy] = runtime
-    ? ([runtime, "XDG_RUNTIME_DIR"] as const)
-    : ([tmpdir(), "TMPDIR"] as const);
-  const folder = join(within, `robkit-${String(process.getuid?.())}`);
+  // An empty HOME names no folder.
+  const home = env.HOME?.length ? env.HOME : userInfo().homedir;
+  const parent = join(home, ".robkit");
+  const run = join(parent, "run");
+  const folder = await socketFolder(run);
   const hash = createHash("sha256")
     .update(await realpath(root))
     .digest("hex")
     .slice(0, 16);
-  const path = join(folder, `robkit-${hash}.sock`);
+  const path = join(folder, `${hash}.sock`);
   const bytes = Buffer.byteLength(path);
   if (bytes >= maxPathBytes) {
     throw new CommandProblem(
-      `pnpm dev keeps its socket at ${path}, which is ${String(bytes)} bytes, and a socket's path must be under ${String(maxPathBytes)}. Point ${setBy} at a shorter folder, then run pnpm dev again.`,
+      `pnpm dev keeps its socket at ${path}, which is ${String(bytes)} bytes, and a socket's path must be under ${String(maxPathBytes)}. Make a folder only you can open at a shorter path, link ${run} to it, then run pnpm dev again.`,
     );
   }
-  return { folder, path, setBy };
+  return { parent, folder, path };
 }
 
 /**
- * Checks that the folder `socket` is in is this account's alone. Whoever
- * can write in the folder can listen there, and whoever can open it can
- * ask, so its owner and mode are what say a runner there is this account's
- * and takes requests from nobody else. No browser can reach a socket file.
- *
- * @param owner the account that must own it, this process's by default
- * @param again what to do once it is put right, which ends the problem
- * @returns false when the folder isn't there
- * @throws a {@link CommandProblem} for a folder that isn't one, that
- *   another account owns, or that others can open
+ * Checks one folder on the way to the socket, as {@link socketFolderIsOwn}
+ * says, and says whether it is there.
  */
-export async function socketFolderIsOwn(
-  { folder, setBy }: Pick<DevSocket, "folder" | "setBy">,
-  {
-    owner = process.getuid?.(),
-    again = "run pnpm dev again",
-  }: { owner?: number | undefined; again?: string } = {},
+async function folderIsOwn(
+  folder: string,
+  where: string,
+  owner: number | undefined,
+  again: string,
 ): Promise<boolean> {
-  const where = `pnpm dev keeps its socket in ${folder}`;
   const stats = await lstat(folder).catch((error: unknown) => {
     if (hasCode(error, "ENOENT")) return undefined;
     throw error;
@@ -112,7 +123,7 @@ export async function socketFolderIsOwn(
   }
   if (stats.uid !== owner) {
     throw new CommandProblem(
-      `${where}, which another account owns. Point ${setBy} at a folder of your own, then ${again}.`,
+      `${where}, which another account owns. Remove it, with sudo if you need to, then ${again}.`,
     );
   }
   if ((stats.mode & 0o077) !== 0) {
@@ -122,6 +133,41 @@ export async function socketFolderIsOwn(
     );
   }
   return true;
+}
+
+/**
+ * Checks that the folder `socket` is in, and the `.robkit` folder that
+ * holds `run`, are this account's alone. Whoever can write in the folder
+ * can listen there, and whoever can open it can ask. Whoever can write in
+ * `.robkit` can put another folder in `run`'s place. So their owner and
+ * mode are what say a runner there is this account's and takes requests
+ * from nobody else. No browser can reach a socket file.
+ *
+ * `run` may be a link, which only this account can make once `.robkit` is
+ * its alone. The folder it links to is checked in its place.
+ *
+ * @param owner the account that must own them, this process's by default
+ * @param again what to do once it is put right, which ends the problem
+ * @returns false when either folder isn't there
+ * @throws a {@link CommandProblem} for a folder that isn't one, that
+ *   another account owns, or that others can open
+ */
+export async function socketFolderIsOwn(
+  { parent, folder }: Pick<DevSocket, "parent" | "folder">,
+  {
+    owner = process.getuid?.(),
+    again = "run pnpm dev again",
+  }: { owner?: number | undefined; again?: string } = {},
+): Promise<boolean> {
+  return (
+    (await folderIsOwn(
+      parent,
+      `pnpm dev keeps its socket under ${parent}`,
+      owner,
+      again,
+    )) &&
+    folderIsOwn(folder, `pnpm dev keeps its socket in ${folder}`, owner, again)
+  );
 }
 
 /** Whether something takes a connection on the socket at `path`. */

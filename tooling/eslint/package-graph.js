@@ -19,10 +19,14 @@
 
 /**
  * Packages any package may take as a dev dependency without an edge here:
- * the shared ESLint and TypeScript configs.
+ * the shared ESLint, TypeScript and Vitest configs.
  */
 /** @type {readonly string[]} */
-export const toolchain = ["@internal/eslint-config", "@internal/tsconfig"];
+export const toolchain = [
+  "@internal/eslint-config",
+  "@internal/tsconfig",
+  "@internal/vitest-config",
+];
 
 /**
  * Where the workspace's JavaScript packages are: every entry in
@@ -128,6 +132,7 @@ export const packageGraph = {
   "@robkit/serve": { dependencies: ["@robkit/input"], devDependencies: [] },
   "@internal/eslint-config": { dependencies: [], devDependencies: [] },
   "@internal/tsconfig": { dependencies: [], devDependencies: [] },
+  "@internal/vitest-config": { dependencies: [], devDependencies: [] },
   "@internal/test-postgres": { dependencies: [], devDependencies: [] },
   "@internal/test-session": {
     dependencies: [],

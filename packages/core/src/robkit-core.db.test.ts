@@ -184,6 +184,7 @@ describe("robkit-core start", () => {
     const run = robkitCore(["start"], {
       DATABASE_URL: await freshDatabase(),
       ROBKIT_CORE_URL: coreUrl,
+      ROBKIT_APPS: "[]",
       PORT: String(port),
     });
 
@@ -205,6 +206,7 @@ describe("robkit-core start", () => {
       ...provisioning(database.admin, "core"),
       DATABASE_URL: database.core,
       ROBKIT_CORE_URL: coreUrl,
+      ROBKIT_APPS: "[]",
       PORT: String(port),
     });
 
@@ -316,6 +318,7 @@ describe("robkit-core start", () => {
     const run = robkitCore(["start"], {
       DATABASE_URL: await freshDatabase(),
       ROBKIT_CORE_URL: coreUrl,
+      ROBKIT_APPS: "[]",
       PORT: String(port),
     });
     expect(await statusOf(port)).toBe(200);
@@ -350,6 +353,7 @@ describe("robkit-core start", () => {
         ...provisioning(database.admin, "core,overlord"),
         DATABASE_URL: database.core,
         ROBKIT_CORE_URL: coreUrl,
+        ROBKIT_APPS: "[]",
         PORT: "3000",
       }),
     ).rejects.toEqual(
@@ -368,6 +372,7 @@ describe("robkit-core start", () => {
         ROBKIT_DB_SECRET: "short",
         DATABASE_URL: database.core,
         ROBKIT_CORE_URL: coreUrl,
+        ROBKIT_APPS: "[]",
         PORT: "3000",
       }),
     ).rejects.toEqual(
@@ -382,6 +387,32 @@ describe("robkit-core start", () => {
       ),
     ).toEqual([]);
   });
+
+  it("prints a fault storing its new signing key as a bug, without the key", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    await asAdmin(
+      inDatabase(inject("adminUrl"), new URL(databaseUrl).pathname.slice(1)),
+      "alter table core.signing_keys add constraint no_new_keys check (false) not valid",
+    );
+
+    const run = spawnCore(["start"], {
+      DATABASE_URL: databaseUrl,
+      ROBKIT_CORE_URL: coreUrl,
+      ROBKIT_APPS: "[]",
+      PORT: String(await freePort()),
+    });
+
+    expect(await run.exited).toBe(1);
+    const printed = run.stderr();
+    expect(printed).toContain("robkit hit a bug.");
+    expect(printed).toContain('insert into "core"."signing_keys"');
+    expect(printed).toContain("constraint_name: 'no_new_keys'");
+    // The new key is a JWK: its private part is "d", on curve Ed25519.
+    expect(printed).not.toContain('"d"');
+    expect(printed).not.toContain("Ed25519");
+    expect(printed).not.toContain("Failing row");
+  });
 });
 
 describe("robkit-core serve", () => {
@@ -392,6 +423,7 @@ describe("robkit-core serve", () => {
     const run = spawnCore(["serve"], {
       DATABASE_URL: databaseUrl,
       ROBKIT_CORE_URL: coreUrl,
+      ROBKIT_APPS: "[]",
       PORT: String(port),
     });
     const listening = `core listening on 127.0.0.1:${String(port)}`;
@@ -419,6 +451,7 @@ describe("robkit-core serve", () => {
     const run = spawnCore(["serve"], {
       DATABASE_URL: databaseUrl,
       ROBKIT_CORE_URL: coreUrl,
+      ROBKIT_APPS: "[]",
       PORT: String(port),
     });
     const listening = `core listening on 127.0.0.1:${String(port)}`;

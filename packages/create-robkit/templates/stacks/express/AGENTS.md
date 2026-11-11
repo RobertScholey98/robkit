@@ -34,7 +34,7 @@ Set it in the handler, with `res.set("Content-Security-Policy", ...)`, or in mid
 ## Serving
 
 - `pnpm dev` runs Vite. `expressApp()` from `@robkit/vite/express`, in `vite.config.ts`, hands every request Vite doesn't answer itself to the Express app in `src/server.tsx`, which it loads afresh after each change. Don't listen in `src/server.tsx`.
-- `pnpm build` builds `src/serve.ts` into `dist/serve.js`, and the stylesheet the page links into `dist/assets`. The production image runs the `start` script, which migrates and then runs it.
+- `pnpm build` builds `src/serve.ts` into `dist/serve.js`, and the stylesheet the page links into `dist/assets`. `robkit({ serve: "src/serve.ts" })` in `vite.config.ts` sets that layout, so the config has no `build` block. Leave out `build.ssr`, `build.outDir` and `build.ssrEmitAssets`: another value stops the build with a message that names the setting. The production image runs the `start` script, which migrates and then runs it.
 - `src/serve.ts` calls `serve(server)` from `@robkit/express/serve`. It listens on `HOST` and `PORT`, answers `dist/assets` under `/assets` and this app's `public` folder at the root, hands every other request to the app, and stops on SIGTERM. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
 - Built files are public. `serve` answers `dist/assets`, and every file in `public`, before the guard runs, so put nothing there that a viewer shouldn't see.
 - `dependencies` are what the server imports when it runs. The production image installs only those, so a package the server needs that sits in `devDependencies` is missing there.
@@ -57,7 +57,7 @@ The guard already asks core for what it needs: core's public key and this app's 
 
 The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes no settings. When one is missing or won't do, it prints what to fix and stops the app. Don't read them for the guard yourself.
 
-`vite.config.ts` calls `robkit()` from `@robkit/vite` first, which sets the dev server up for `pnpm dev`: it listens on `PORT`, answers `<slug>.<domain>`, and stops the dev server as it starts, with the same message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. It changes nothing under Vitest or for a build. The rest of the config, such as Tailwind and `build`, is the app's own.
+`vite.config.ts` calls `robkit()` from `@robkit/vite` first, which sets the dev server up for `pnpm dev`: it listens on `PORT`, answers `<slug>.<domain>`, and stops the dev server as it starts, with the same message, when `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing. It changes nothing under Vitest, and for a build it sets only the layout `serve` names. The rest of the config, such as Tailwind, is the app's own.
 
 - `ROBKIT_APP` is the app's slug.
 - `ROBKIT_CORE_URL` is core's origin.
@@ -65,7 +65,7 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded()` takes 
 
 The app's own settings, such as an API key, go in its `.env`, which git ignores. `pnpm dev` loads it for this app alone as it starts, so an edit waits for the next `pnpm dev`. Commit an `.env.example` that names each setting. The install's `AGENTS.md` says what the file can't set, and where the settings go in production. Vite writes a `VITE_*` value into the page when it builds the app, and Docker builds an image without the `.env`, so in production the page doesn't have it. Read the setting on the server and hand it to the page instead.
 
-The example's queries are in `src/visits.ts`. The server hands them to `routes(visits)` in `src/routes.tsx`.
+The app's queries are in `src/visits.ts`. The server hands them to `routes(visits)` in `src/routes.tsx`.
 
 ## The database
 

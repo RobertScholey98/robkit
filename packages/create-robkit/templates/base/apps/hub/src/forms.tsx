@@ -1,6 +1,12 @@
 import type { Result } from "@internal/core-client";
 import { useState, type SubmitEvent } from "react";
-import { setUp, signIn, signInWithCode, type Session } from "./core-api.ts";
+import {
+  setUp,
+  signIn,
+  signInWithCode,
+  type Profile,
+  type Session,
+} from "./core-api.ts";
 import { Button, Card, Field, FormError, Heading } from "./ui.tsx";
 
 export type Sending =
@@ -180,6 +186,43 @@ function OwnerSignIn({
         <Submit sending={sending}>Sign in</Submit>
       </form>
       <Switch onClick={onCode}>Use an access code</Switch>
+    </Card>
+  );
+}
+
+/**
+ * What an intro link shows a browser that is already signed in. Another app
+ * on the install can send a viewer to an intro link of its own, so the hub
+ * sends core the code only once the viewer says yes.
+ */
+export function IntroQuestion({
+  core,
+  onSession,
+  code,
+  profile,
+  onStay,
+}: FormProps & { code: string; profile: Profile; onStay: () => void }) {
+  const { sending, send } = useSend(onSession);
+  const name = profile.kind === "owner" ? profile.username : profile.name;
+  return (
+    <Card>
+      <Heading>Sign in with this link instead?</Heading>
+      <p className="mt-2 text-sm text-muted-foreground">
+        You're signed in as {name}. Only switch if someone sent you this link.
+      </p>
+      <div className="mt-6 grid gap-2">
+        <Button
+          look="primary"
+          disabled={sending.state === "sending"}
+          onClick={() => void send(() => signInWithCode(core, code))}
+        >
+          Sign in with the link
+        </Button>
+        <Button look="outline" onClick={onStay}>
+          {`Stay signed in as ${name}`}
+        </Button>
+        {sending.state === "failed" && <FormError>{sending.error}</FormError>}
+      </div>
     </Card>
   );
 }

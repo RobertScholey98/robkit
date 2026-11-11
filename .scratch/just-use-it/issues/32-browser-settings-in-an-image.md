@@ -20,9 +20,14 @@
 **If yes, the criteria would be:**
 
 - [ ] A `VITE_*` value reaches the built client of a Vite stack's image, and a `NEXT_PUBLIC_*` value the Next stack's, with the production test showing each
-- [ ] No server secret can reach an image the same way
+- [ ] The file takes only names that start `VITE_` on a Vite stack or `NEXT_PUBLIC_` on Next, and the build refuses any other name. The app's `.env` still never reaches an image
+- [ ] The docs say every value in that file is public, since a prefix can't tell whether a value is a secret
 - [ ] `docs/deploy.md` and each stack's `AGENTS.md` say where such a value goes
 
 ## Comments
 
 Raised in milestone 3's ticket round (2026-11-10) by Opus 5.5, as a must-change on ticket 17, and by Sol 6.1 as a should. Ticket 17 took the docs. This is the rest.
+
+### From milestone 4's ticket round, 2026-11-11
+
+Both reviewers agree with the recommendation: not in this work. Sol found the criterion "no server secret can reach an image the same way" can't be proved from a name: a secret called `VITE_SECRET` would pass. The criteria now say which names the file takes, and that the docs call every value in it public.

@@ -1,11 +1,22 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalDependencies": ["Dockerfile", ".dockerignore"],
   "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
     "build": {
+      "dependsOn": ["transit"],
       "outputs": ["dist/**"]
     },
-    "lint": {},
-    "typecheck": {},
-    "test": {}
+    "lint": {
+      "dependsOn": ["transit"]
+    },
+    "typecheck": {
+      "dependsOn": ["transit"]
+    },
+    "test": {
+      "dependsOn": ["transit"]
+    }
   }
 }

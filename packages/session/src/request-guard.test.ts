@@ -129,7 +129,10 @@ describe("requestGuard, on a page load", () => {
     const forger = await signingKey();
 
     const res = await guardedBy(core)(core.page, {
-      headers: { ...navigate, ...cookie(await forger.token()) },
+      headers: {
+        ...navigate,
+        ...cookie(await forger.token({ kid: core.key.kid })),
+      },
     });
 
     expect([res.status, res.headers.get("location")]).toEqual([

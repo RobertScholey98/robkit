@@ -84,6 +84,7 @@ function packageFiles(name: string): Record<string, string> {
       devDependencies: {
         "@internal/eslint-config": "workspace:*",
         "@internal/tsconfig": "workspace:*",
+        "@internal/vitest-config": "workspace:*",
         "@types/node": "catalog:",
         "@vitest/coverage-v8": "catalog:",
         eslint: "catalog:",
@@ -115,10 +116,12 @@ function packageFiles(name: string): Record<string, string> {
       "",
     ].join("\n"),
     "vitest.config.ts": [
+      'import { testDefaults } from "@internal/vitest-config";',
       'import { defineConfig } from "vitest/config";',
       "",
       "export default defineConfig({",
       "  test: {",
+      "    ...testDefaults,",
       "    // It starts with no tests. Thresholds of 100 make its first code",
       "    // bring tests with it.",
       "    passWithNoTests: true,",

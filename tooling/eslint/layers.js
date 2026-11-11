@@ -177,6 +177,35 @@ function breaks(row, filename, specifier) {
   });
 }
 
+/** Names for the global object, through which a banned global is reached. */
+const globalObjects = ["globalThis", "window", "self", "global"];
+
+/**
+ * Whether `identifier`, a name for the global object, only reads a property
+ * that is neither banned nor the global object again, such as
+ * `globalThis.crypto`. Anything else, such as `globalThis[name]` or
+ * `const { fetch } = globalThis`, could reach a banned global.
+ * @param {any} identifier
+ * @param {string[]} banned
+ */
+function readsAllowedProperty(identifier, banned) {
+  const { parent } = identifier;
+  if (parent?.type !== "MemberExpression" || parent.object !== identifier) {
+    return false;
+  }
+  const { property } = parent;
+  const name = parent.computed
+    ? property.type === "Literal" && typeof property.value === "string"
+      ? property.value
+      : undefined
+    : property.name;
+  return (
+    name !== undefined &&
+    !banned.includes(name) &&
+    !globalObjects.includes(name)
+  );
+}
+
 /** @type {import("eslint").Rule.RuleModule} */
 export default {
   meta: {
@@ -225,14 +254,24 @@ export default {
       ImportExpression: (node) => check(node.source),
       "Program:exit"(node) {
         const scope = context.sourceCode.getScope(node);
+        /** @param {string} name */
+        const referencesTo = (name) => [
+          ...(scope.set.get(name)?.references ?? []),
+          ...scope.through.filter((ref) => ref.identifier.name === name),
+        ];
         for (const row of rows) {
-          for (const name of row.globals ?? []) {
-            const references = [
-              ...(scope.set.get(name)?.references ?? []),
-              ...scope.through.filter((ref) => ref.identifier.name === name),
-            ];
-            for (const { identifier } of references) {
+          const banned = row.globals ?? [];
+          for (const name of banned) {
+            for (const { identifier } of referencesTo(name)) {
               context.report({ node: identifier, message: row.rule });
+            }
+          }
+          if (banned.length === 0) continue;
+          for (const name of globalObjects) {
+            for (const { identifier } of referencesTo(name)) {
+              if (!readsAllowedProperty(identifier, banned)) {
+                context.report({ node: identifier, message: row.rule });
+              }
             }
           }
         }

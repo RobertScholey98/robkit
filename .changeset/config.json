@@ -13,7 +13,10 @@
     "!src/**/__snapshots__/**",
     "templates/**",
     "!templates/**/*.test.ts",
-    "!templates/**/*.test.tsx"
+    "!templates/**/*.test.tsx",
+    "package.json",
+    "conformance.json",
+    "drizzle/**"
   ],
   "ignore": []
 }

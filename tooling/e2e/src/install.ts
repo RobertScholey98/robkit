@@ -56,13 +56,15 @@ declare module "vitest" {
 /**
  * Adds an app on the stack after `exampleStack` to the install in `dir`,
  * as the owner would with robkit add's flags. With `pnpm dev` running
- * there, robkit add has it start the app.
+ * there, robkit add has it start the app, once `env` has the home that
+ * `pnpm dev` runs with, which holds its socket.
  *
  * @returns what robkit add printed
  */
 export async function addTheApp(
   dir: string,
   exampleStack: Stack,
+  env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
   const other = addedStackFor(exampleStack);
   const { stdout } = await run(
@@ -79,7 +81,7 @@ export async function addTheApp(
       "--icon",
       addedIcon,
     ],
-    { cwd: dir },
+    { cwd: dir, env },
   );
   return stdout;
 }

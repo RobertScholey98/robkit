@@ -5,11 +5,12 @@
     "module": "preserve",
     "jsx": "react-jsx",
     "lib": ["es2024", "dom", "dom.iterable"],
-    "types": ["node", "next"],
+    "types": ["node", "next", "next/image-types/global"],
     "plugins": [{ "name": "next" }]
   },
   "include": ["src", "*.js", "*.ts"],
   // next dev and next build write it, naming types under dist that may be
-  // gone. The next types above hold what it declares.
+  // gone. The types above hold what it declares, an imported image's among
+  // them.
   "exclude": ["next-env.d.ts"]
 }
