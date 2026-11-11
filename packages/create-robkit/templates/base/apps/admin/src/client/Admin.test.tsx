@@ -279,3 +279,36 @@ describe("the role forms", () => {
     ).toBeDefined();
   });
 });
+
+describe("a code's row", () => {
+  const grandma = () => aCode("c_1", "Grandma", "K7XQ2");
+
+  it("copies the code's link", async () => {
+    coreHolding({ codes: [grandma()], roles: [] });
+    // Testing Library's setup puts a clipboard of its own on the page.
+    const owner = userEvent.setup();
+    const copied = vi.spyOn(navigator.clipboard, "writeText");
+    render(<Admin core={core} />);
+
+    await owner.click(await screen.findByRole("button", { name: "Copy" }));
+
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeDefined();
+    expect(copied).toHaveBeenCalledWith("https://hub.robkit.test/i/K7XQ2");
+  });
+
+  it("says so when the browser refuses the clipboard", async () => {
+    coreHolding({ codes: [grandma()], roles: [] });
+    const owner = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+      new DOMException("Write permission denied.", "NotAllowedError"),
+    );
+    render(<Admin core={core} />);
+
+    await owner.click(await screen.findByRole("button", { name: "Copy" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Couldn't copy the link. Select it and copy it yourself.",
+    );
+    expect(screen.getByRole("button", { name: "Copy" })).toBeDefined();
+  });
+});
