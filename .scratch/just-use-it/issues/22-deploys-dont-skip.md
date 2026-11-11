@@ -41,7 +41,7 @@
 - [x] `docs/deploy.md` states the TLS requirement and the one arrangement supported, and says how to delete a removed app's application
 - [x] The changeset names `create-robkit`, and says what to change in an existing install's `ci.yml` and that the first deploy afterwards deploys every app
 - [x] The PR lists each Coolify API call with where it was read, and says the command hasn't run against a real Coolify
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
