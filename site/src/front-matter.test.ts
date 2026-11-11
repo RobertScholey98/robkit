@@ -43,6 +43,7 @@ async function syncPage(name: string, frontMatter: string) {
     "src/markdown.ts",
     "src/dist.ts",
     "src/markdown-copies.ts",
+    "src/sitemap.ts",
     "src/built.ts",
     "src/repo-markdown.ts",
     "src/repo.ts",
