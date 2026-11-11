@@ -209,6 +209,34 @@ describe("the built page on the viewer and the guard", () => {
   });
 });
 
+describe("the built Next.js guide", () => {
+  it("gives each name and line of code the template's AGENTS.md gives on images", async () => {
+    const agents = await readFile(
+      join(repoRoot, "packages/create-robkit/templates/stacks/next/AGENTS.md"),
+      "utf8",
+    );
+    const images = /^## Images\n([\s\S]*?)^## /m.exec(agents)?.[1] ?? "";
+    const html = await built("docs/build-an-app/nextjs/index.html");
+    const section = html.slice(
+      html.indexOf('<h2 id="images"'),
+      html.indexOf('<h2 id="the-test"'),
+    );
+    const onPage = [...section.matchAll(/<code>([^<]+)<\/code>/g)].map(
+      ([, code = ""]) =>
+        code
+          .replaceAll("&lt;", "<")
+          .replaceAll("&gt;", ">")
+          .replaceAll("&quot;", '"')
+          .replaceAll("&#123;", "{")
+          .replaceAll("&#125;", "}"),
+    );
+    const inAgents = [...images.matchAll(/`([^`]+)`/g)].map(([, code]) => code);
+
+    expect(inAgents).toContain('<Image src="/logo.png" unoptimized ... />');
+    expect(onPage).toEqual(expect.arrayContaining(inAgents));
+  });
+});
+
 describe("the built page on the layer rule", () => {
   /** Each file the page's sample breaks the rule in, and what it says. */
   const breaks = {

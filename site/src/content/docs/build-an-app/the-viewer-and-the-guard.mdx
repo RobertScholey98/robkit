@@ -95,7 +95,7 @@ Any other method is a write: `POST`, `PUT`, `PATCH`, `DELETE`, or one of your ow
 
 The guard can't protect a GET, which a link or an image on another app can send. So change state only on a write, never in a GET handler, a page's render or a loader.
 
-A WebSocket the guard never sees is yours to check. Go's guard sees every handshake, and lets one through only from your app's own origin. On the other stacks a socket is usually upgraded outside your routes, where the guard doesn't run, so check its `Origin` against your app's own before you accept it.
+A WebSocket the guard never sees is yours to check. Go's guard sees every handshake, and refuses one from another origin. On the other stacks a socket is usually upgraded outside your routes, where the guard doesn't run, so check its `Origin` against your app's own before you accept it.
 
 ## Who may frame your app
 
@@ -121,4 +121,4 @@ To let another origin frame a page, such as the hub, send `Content-Security-Poli
   </Fragment>
 </StackSwitch>
 
-Files your app serves without the guard, such as its built scripts and styles, carry no framing header. They aren't pages. They are public, so put nothing among them that a viewer shouldn't see.
+Files your app serves without the guard, such as its built scripts and styles, carry no framing header. They aren't pages. They are public, so put nothing among them that a viewer shouldn't see. A Next.js app's `public` folder isn't among them, since its files go through the guard. That's why `<Image>` can't optimize them, and [Images](/docs/build-an-app/nextjs/#images) says what to do instead.

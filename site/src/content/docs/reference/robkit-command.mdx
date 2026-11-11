@@ -22,7 +22,7 @@ Each install has a `robkit` command for its apps and its upgrades. Run it with `
 pnpm robkit add notes
 ```
 
-Every command refuses a folder with no `robkit.json`, which init writes, and says to run it in an install's folder. A command given an option it doesn't take, or more arguments than it takes, prints the usage text of every command and exits 1. So does `pnpm robkit` with a command it doesn't have.
+Every command refuses a folder with no `robkit.json`, which init writes, and says to run it in an install's folder. A command given an option it doesn't take, or the wrong number of arguments, prints usage text and exits 1. `robkit upgrade` prints its own, and so does `robkit migrate` given the wrong number of arguments. Otherwise it prints the usage text of every command, as `pnpm robkit` does with a command it doesn't have.
 
 ## robkit add
 
@@ -43,6 +43,8 @@ It refuses:
 
 - A name that isn't a slug, one of the platform apps `core`, `hub` and `admin`, or an app the install already has.
 - A stack, an access rule or a role list it doesn't take. `--access roles` needs `--roles` with at least one role, and `--roles` goes only with `--access roles`.
+- An `--icon` an app's `package.json` couldn't hold, by the same rule `pnpm dev` reads it with.
+- A React + Go app on a machine with no Go, before it writes anything.
 
 [pnpm dev and your apps](/docs/run-an-install/pnpm-dev-and-your-apps/#add-an-app) says what happens with and without `pnpm dev` running, and how to use a template of your own.
 
@@ -63,7 +65,7 @@ It refuses:
 
 ## robkit upgrade
 
-Moves the install to a newer robkit, the newest or the version you give. It updates robkit's catalog entries, its lint policy and its Go module, and never your apps.
+Moves the install to a newer robkit, the newest or the version you give. It updates robkit's catalog entries and its lint policy, and its Go module in an install with a Go app. It never changes your apps.
 
 It takes one version, such as `0.2.0`, or none for the newest. An install made from a clone links to robkit's packages there, so it has nothing to move:
 

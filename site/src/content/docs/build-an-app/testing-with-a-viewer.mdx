@@ -17,7 +17,7 @@ import TemplateFile from "../../../components/TemplateFile.astro";
 
 A test of your app's code runs as a viewer the test builds. It needs no core, no database and no `pnpm dev`. Run `pnpm test` in the app's folder.
 
-Each stack's adapter has a `/testing` entry for tests only. `owner()`, `guest({ roles })` and `nobody()` build a viewer, so a test never makes up an id. The example app's test shows how your stack hands it to your code, and keeps its visits in a list in place of the database.
+Each TypeScript adapter has a `/testing` entry for tests only. Its `owner()`, `guest({ roles })` and `nobody()` build a viewer, so a test never makes up an id. Go has none, so a Go test builds a `guard.Owner`, `guard.Guest` or `guard.Nobody` itself. The example app's test shows how your stack hands it to your code, and keeps its visits in a list in place of the database.
 
 ## Your stack's test
 

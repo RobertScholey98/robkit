@@ -122,19 +122,11 @@ describe("the built docs pages", () => {
     },
   );
 
-  // Ticket 26 turns this into a failure on any stub left.
-  describe(`the site's ${String(stubs.length)} stubs`, () => {
-    it.each(stubs.map(({ id }) => id))(
-      "%s says it isn't written yet",
-      async (id) => {
-        expect(await built(id)).toContain("This page isn't written yet.");
-      },
-    );
-
-    it("are the only pages that say so", async () => {
-      for (const { id } of pages.filter(({ stub }) => !stub)) {
-        expect(await built(id)).not.toContain("This page isn't written yet.");
-      }
-    });
+  // The site ships with every page written.
+  it("are all written, with no stub left", async () => {
+    expect(stubs.map(({ id }) => id)).toEqual([]);
+    for (const { id } of pages) {
+      expect(await built(id), id).not.toContain("This page isn't written yet.");
+    }
   });
 });
