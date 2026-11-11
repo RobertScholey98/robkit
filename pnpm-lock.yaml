@@ -897,6 +897,9 @@ importers:
       '@internal/vitest-config':
         specifier: workspace:*
         version: link:../tooling/vitest
+      '@robkit/session':
+        specifier: workspace:*
+        version: link:../packages/session
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5

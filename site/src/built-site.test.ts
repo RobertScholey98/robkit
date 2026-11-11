@@ -3,6 +3,7 @@
 
 import { glob, readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { requestGuard } from "@robkit/session";
 import { readyStacks } from "create-robkit";
 import { describe, expect, it } from "vitest";
 import { installGoVersion, installNodeVersion } from "./install.ts";
@@ -156,6 +157,52 @@ describe("the built What you need page", () => {
 
     expect(html).toContain(`needs Node ${await installNodeVersion()} or later`);
     expect(html).toContain(`Go ${await installGoVersion()} or later`);
+  });
+});
+
+describe("the built page on the viewer and the guard", () => {
+  const page = "docs/build-an-app/the-viewer-and-the-guard/index.html";
+
+  /** The `<code>` in the paragraph that says `text`. */
+  const codeIn = (html: string, text: string) => {
+    const paragraph = [...html.matchAll(/<p>([\s\S]*?)<\/p>/g)]
+      .map(([, inner = ""]) => inner)
+      .find((inner) => inner.includes(text));
+    return [...(paragraph ?? "").matchAll(/<code>([^<]+)<\/code>/g)].map(
+      ([, name = ""]) => name,
+    );
+  };
+
+  /** What the guard does with `method` from another app's origin. */
+  const fromAnotherOrigin = async (method: string) => {
+    const decided = await requestGuard({
+      app: "notes",
+      core: "http://core.robkit.localhost:3000",
+      access: { kind: "open" },
+    })(
+      new Request("http://notes.robkit.localhost:3000/", {
+        method,
+        headers: { origin: "http://photos.robkit.localhost:3000" },
+      }),
+    );
+    return decided.outcome === "answer" ? decided.response.status : 200;
+  };
+
+  it("names the methods the guard lets through and the ones it treats as writes", async () => {
+    const html = await built(page);
+    const passing = codeIn(html, "pass from anywhere");
+    const writes = codeIn(html, "is a write");
+    // A method of an app's own, which the page names in words.
+    const made = "PROPFIND";
+
+    expect(passing).toEqual(["GET", "HEAD", "OPTIONS"]);
+    expect(writes).toEqual(["POST", "PUT", "PATCH", "DELETE"]);
+    for (const method of passing) {
+      expect(await fromAnotherOrigin(method), method).not.toBe(403);
+    }
+    for (const method of [...writes, made]) {
+      expect(await fromAnotherOrigin(method), method).toBe(403);
+    }
   });
 });
 
