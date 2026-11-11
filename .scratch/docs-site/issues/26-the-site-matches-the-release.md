@@ -21,3 +21,23 @@
 - [ ] axe finds nothing on any page, in either theme, at either width
 - [ ] The ticket's comments name the commit of `main` the site describes
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### Done early, in the catch-up with milestone 4 (PR 131)
+
+The branch `docs-14b-catch-up-with-main` merged `docs-site` at `7bc45f2a`, which holds `main` with milestone 4, into the stack up to ticket 14. It brought these up to milestone 4:
+
+- **The checks spoke first.** The build and all site tests passed after the merge. No `<TemplateFile>` part broke, and the file lists for Start, React + Hono, React + Express and Next.js still matched. Ticket 15 lists Go's new `src/home.tsx` and `src/home.test.tsx`.
+- **The guides' "make it yours" steps ran again**, for React + Hono, React + Express, TanStack Start and Next.js. Each ran in an app made from milestone 4's templates, with `pnpm dev`, the migration, typecheck, build, tests and lint. No fence needed a change. React + Go's guide, ticket 15, was written against milestone 4.
+- **The layer rule page** has milestone 4's fifth rule and a section on what `robkit check` doesn't stop. That covers ticket 10's item on just-use-it ticket 23.
+- **Start's test and Go's page test.** The Start guide and "Testing with a viewer" say that Start's test presses the card's button, and that a React + Go app's page has its own test.
+- **Ticket 16** was written after the catch-up. It describes removing an app and the socket in `~/.robkit/run` as milestone 4 made them.
+
+### Left for this ticket
+
+- **The screenshots.** The hub changed: the intro link's question, the launcher's "Try again" and its note when an app sends a viewer straight back. Run `pnpm screenshots` again and fix the words in `screenshots.ts` to match (ticket 08's item).
+- **`next/image` and `public`.** Next's template `AGENTS.md` now has an "Images" section: `<Image>` can't optimize a file in `public`, since the guard refuses the optimizer. The Next.js guide and the line on built files in "The viewer and the guard" say nothing about it yet (tickets 09 and 14).
+- **The layer rule and declaration files.** Once the lead's fix for just-use-it ticket 42 is on `docs-site`, the layer rule page needs a sentence: a declaration file may import another from a folder `robkit check` doesn't read.
+- **The rest of the content tickets' lists**, not checked in the catch-up: ticket 02's native Windows item (just-use-it ticket 21), ticket 06's home page items, and ticket 07's set-up form and `case "owner":` items. The build would have failed on a lost `case "owner":` line, and it didn't.
+- **This ticket's own steps.** Ticket 03's script over the files milestone 4 changed, the stub count and its test, axe on every page, the commit of `main` the site describes, and `preRelease` once robkit is on npm.
