@@ -3,7 +3,12 @@ import { once } from "node:events";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { build, resolveConfig, type Plugin } from "vite";
+import {
+  build,
+  resolveConfig,
+  type BuildEnvironmentOptions,
+  type Plugin,
+} from "vite";
 import { robkit } from "./index.ts";
 import {
   answer,
@@ -120,6 +125,80 @@ describe("robkit({ serve }), for a server Vite builds", () => {
         name.replace(/-[\w-]+\.css$/, ".css"),
       ),
     }).toEqual({ dist: ["assets", "serve.js"], assets: ["serve.css"] });
+  });
+
+  it.each([
+    [
+      { outDir: "build" },
+      '- build.outDir is "build", but the start script runs dist/serve.js and serve() answers dist/assets. Remove build.outDir from vite.config.ts.',
+    ],
+    [
+      { ssr: "src/server.ts" },
+      '- build.ssr is "src/server.ts", but the server\'s entry is "src/serve.ts". Remove build.ssr from vite.config.ts.',
+    ],
+    [
+      { ssrEmitAssets: false },
+      "- build.ssrEmitAssets is false, but without it the build leaves out the page's stylesheet. Remove build.ssrEmitAssets from vite.config.ts.",
+    ],
+  ])(
+    "stops a build whose config sets %o beside it, naming the setting",
+    async (own, line) => {
+      const building = resolveConfig(
+        {
+          configFile: false,
+          logLevel: "silent",
+          plugins: [robkit({ serve: "src/serve.ts" })],
+          build: own,
+        },
+        "build",
+      );
+
+      await expect(building).rejects.toThrow(
+        `vite.config.ts sets the server build's layout beside robkit({ serve }), which sets it itself.\n${line}`,
+      );
+    },
+  );
+
+  it("names every setting that disagrees", async () => {
+    const building = resolveConfig(
+      {
+        configFile: false,
+        logLevel: "silent",
+        plugins: [robkit({ serve: "src/serve.ts" })],
+        build: { ssr: true, outDir: "out" },
+      },
+      "build",
+    );
+
+    await expect(building).rejects.toThrow(
+      /build\.ssr is true, .*\n- build\.outDir is "out", /,
+    );
+  });
+
+  it("builds as before when the app's own build block says the same", async () => {
+    const root = await appFolder();
+    const layout = async (build?: BuildEnvironmentOptions) => {
+      const config = await resolveConfig(
+        {
+          root,
+          configFile: false,
+          logLevel: "silent",
+          plugins: [robkit({ serve: "src/serve.ts" })],
+          ...(build && { build }),
+        },
+        "build",
+      );
+      const { ssr, outDir, ssrEmitAssets } = config.build;
+      return { ssr, outDir, ssrEmitAssets };
+    };
+
+    const kept = await layout({
+      ssr: "./src/serve.ts",
+      outDir: join(root, "dist"),
+      ssrEmitAssets: true,
+    });
+
+    expect(kept).toEqual(await layout());
   });
 
   it("changes nothing under pnpm dev or Vitest", async () => {

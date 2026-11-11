@@ -1,6 +1,7 @@
+import { resolve } from "node:path";
 import { orThrow, readDevServerEnv, readGuardEnv } from "@robkit/input";
 import { securityHeaders } from "@robkit/input/headers";
-import type { Plugin, UserConfig } from "vite";
+import type { BuildEnvironmentOptions, Plugin, UserConfig } from "vite";
 
 export interface RobkitOptions {
   /**
@@ -31,12 +32,12 @@ export interface RobkitOptions {
 export function robkit({ guarded = true, serve }: RobkitOptions = {}): Plugin {
   return {
     name: "robkit",
-    config(_config, { command }) {
+    config(config, { command }) {
       // Vitest runs Vite's serve command, so only vite build gets here. A
       // vite build that a test starts inherits VITEST, and still needs the
       // layout its start script expects.
       if (command === "build") {
-        return serve === undefined ? undefined : serverBuild(serve);
+        return serve === undefined ? undefined : serverBuild(config, serve);
       }
       if (process.env.VITEST) return;
       if (guarded) orThrow(readGuardEnv(process.env));
@@ -62,7 +63,47 @@ export function robkit({ guarded = true, serve }: RobkitOptions = {}): Plugin {
   };
 }
 
-/** The server build's layout, merged over the app's config. */
-function serverBuild(serve: string): UserConfig {
+/**
+ * The server build's layout, merged over the app's config. Vite lets a
+ * plugin's settings win over the app's, so an app's own setting that
+ * disagrees stops the build here rather than losing quietly. The same
+ * value, or the same path written another way, isn't a disagreement.
+ */
+function serverBuild(config: UserConfig, serve: string): UserConfig {
+  const own: BuildEnvironmentOptions = { ...config.build };
+  const root = resolve(config.root ?? "");
+  const samePath = (set: unknown, path: string) =>
+    typeof set === "string" && resolve(root, set) === resolve(root, path);
+  const problems = [
+    own.ssr !== undefined &&
+      !samePath(own.ssr, serve) &&
+      disagreement("ssr", own.ssr, `the server's entry is "${serve}"`),
+    own.outDir !== undefined &&
+      !samePath(own.outDir, "dist") &&
+      disagreement(
+        "outDir",
+        own.outDir,
+        "the start script runs dist/serve.js and serve() answers dist/assets",
+      ),
+    own.ssrEmitAssets === false &&
+      disagreement(
+        "ssrEmitAssets",
+        false,
+        "without it the build leaves out the page's stylesheet",
+      ),
+  ].filter((problem) => problem !== false);
+  if (problems.length > 0) {
+    throw new Error(
+      [
+        "vite.config.ts sets the server build's layout beside robkit({ serve }), which sets it itself.",
+        ...problems,
+      ].join("\n"),
+    );
+  }
   return { build: { ssr: serve, outDir: "dist", ssrEmitAssets: true } };
+}
+
+/** One line of a disagreement's message: the setting, why, and what to do. */
+function disagreement(setting: string, set: unknown, why: string): string {
+  return `- build.${setting} is ${JSON.stringify(set)}, but ${why}. Remove build.${setting} from vite.config.ts.`;
 }
