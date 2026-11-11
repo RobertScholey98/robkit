@@ -8,7 +8,7 @@ Say what you found, how to reproduce it, and what an attacker could do with it. 
 
 ## The trust model
 
-An install trusts core, the hub, admin and the proxy in front of them. It trusts each app only with what that app needs to serve its own viewers. [docs/architecture.md](docs/architecture.md) shows the flows, and [docs/adr/](docs/adr/README.md) the reasons.
+An install trusts core, the hub, admin and the proxy in front of them. It trusts each app only with what that app needs to serve its own viewers. [docs/architecture.md](docs/architecture.md) shows the flows, and [docs/adr/](docs/adr/README.md) the reasons. Core's log holds no query parameters: a failed query is logged as its SQL with Postgres's code and names, so no access code, password hash or signing key reaches it.
 
 ### Only the proxy reaches core
 
@@ -125,7 +125,7 @@ The plan, `.scratch/kit/map.md`, lists the gaps we know of. The ones that bear o
 - After sign-out, an app the browser opened in the last 15 minutes still lets it in until that app's token expires.
 - Core hands an app its token in the callback's URL, so a proxy that logs URLs logs that app's token, good for 15 minutes on that app alone.
 - Any container on Coolify's network can reach core directly and send its own forwarded headers. Only the owner's apps run there.
-- Core's container starts with the Postgres admin URL and the database secret, from which every app's password comes. `robkit-core start` uses them to give each app its database, then serves core from a process whose environment holds neither, so nothing core logs or dumps of its own environment carries them. That is not a wall: code running in core's container can still read them from `/proc`.
+- Core's container starts with the Postgres admin URL and the database secret, from which every app's password comes. `robkit-core start` uses them to give each app its database, then serves core from a process whose environment holds neither, so nothing core logs or dumps of its own environment carries them. That is not a wall: code running in core's container can still read them from `/proc`. The statement that sets an app's role's password holds its SCRAM-SHA-256 verifier, not the password, and Postgres can log that verifier; whoever reads it can only guess against it offline, which a 64-character password derived from the database secret puts out of reach.
 - Wrong access codes are limited to 20 an hour across the whole install, whatever addresses they come from. A generated code is 5 characters from 31, about 28.6 million codes. An attacker wants any live code, not one in particular, so trying them all takes about 163 years however many are live. With k codes live, the first hit is expected after about 28.6 million ÷ (k + 1) guesses: about 82 years with 1 live code, and about 8 years with 20, about a 12% chance of a hit in a year.
 - What that costs: an attacker can stop new code sign-ins for up to an hour, and again for as long as they keep it up. Guests already signed in and the owner's password sign-in are unaffected.
 - A 3-character code stays guessable in weeks. [Ticket 29](.scratch/just-use-it/issues/29-access-codes-at-least-five.md) takes that.

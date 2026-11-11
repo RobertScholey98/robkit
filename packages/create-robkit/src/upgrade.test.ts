@@ -56,7 +56,7 @@ async function git(dir: string, env: NodeJS.ProcessEnv, ...args: string[]) {
 
 /**
  * A written install, committed with `edit` made first, and the environment
- * to run robkit in: git with a name, and an XDG_RUNTIME_DIR of its own for
+ * to run robkit in: git with a name, and a home of its own, which holds
  * pnpm dev's socket.
  */
 async function committedInstall(
@@ -67,10 +67,7 @@ async function committedInstall(
   await init(defaultChoices, dir, { install: false, link });
   await writeFile(join(dir, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
   await edit(dir);
-  const env = {
-    ...(await gitEnv(true)),
-    XDG_RUNTIME_DIR: await mkdtemp(join(tmpdir(), "robkit-run-")),
-  };
+  const env = await gitEnv(true);
   await git(dir, env, "init", "--quiet");
   await git(dir, env, "add", "--all");
   await git(dir, env, "commit", "--quiet", "-m", "Make a robkit install");

@@ -382,6 +382,31 @@ describe("robkit-core start", () => {
       ),
     ).toEqual([]);
   });
+
+  it("prints a fault storing its new signing key as a bug, without the key", async () => {
+    const databaseUrl = await freshDatabase();
+    await migrate(databaseUrl);
+    await asAdmin(
+      inDatabase(inject("adminUrl"), new URL(databaseUrl).pathname.slice(1)),
+      "alter table core.signing_keys add constraint no_new_keys check (false) not valid",
+    );
+
+    const run = spawnCore(["start"], {
+      DATABASE_URL: databaseUrl,
+      ROBKIT_CORE_URL: coreUrl,
+      PORT: String(await freePort()),
+    });
+
+    expect(await run.exited).toBe(1);
+    const printed = run.stderr();
+    expect(printed).toContain("robkit hit a bug.");
+    expect(printed).toContain('insert into "core"."signing_keys"');
+    expect(printed).toContain("constraint_name: 'no_new_keys'");
+    // The new key is a JWK: its private part is "d", on curve Ed25519.
+    expect(printed).not.toContain('"d"');
+    expect(printed).not.toContain("Ed25519");
+    expect(printed).not.toContain("Failing row");
+  });
 });
 
 describe("robkit-core serve", () => {

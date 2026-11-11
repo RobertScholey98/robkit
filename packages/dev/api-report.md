@@ -60,9 +60,9 @@ export function devSocket(
   env: NodeJS.ProcessEnv,
 ): Promise<DevSocket>;
 export interface DevSocket {
+  parent: string;
   folder: string;
   path: string;
-  setBy: "XDG_RUNTIME_DIR" | "TMPDIR";
 }
 export function exec(
   command: string,

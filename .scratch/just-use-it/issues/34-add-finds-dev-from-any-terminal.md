@@ -20,16 +20,16 @@ Where the socket is belongs to one robkit version: in an install, the runner and
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] With `pnpm dev` running, `robkit add` from a shell whose `XDG_RUNTIME_DIR` and `TMPDIR` differ from the runner's starts the app in the running `pnpm dev`
-- [ ] From such a shell, `robkit migrate` migrates in the running `pnpm dev`, and `robkit upgrade` refuses
-- [ ] Two installs, one a copy of the other, each reach only their own runner
-- [ ] A folder another account owns, or others can open, is refused as today, by the runner and by each command
-- [ ] A socket path over the limit stops `pnpm dev` with a message that names the path and what to do
-- [ ] Nothing new is written inside the install, so `robkit upgrade`'s clean-tree check is unchanged
-- [ ] The install's `AGENTS.md`, `packages/dev/README.md` and ADR 0020 say where the socket is
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] With `pnpm dev` running, `robkit add` from a shell whose `XDG_RUNTIME_DIR` and `TMPDIR` differ from the runner's starts the app in the running `pnpm dev`
+- [x] From such a shell, `robkit migrate` migrates in the running `pnpm dev`, and `robkit upgrade` refuses
+- [x] Two installs, one a copy of the other, each reach only their own runner
+- [x] A folder another account owns, or others can open, is refused as today, by the runner and by each command
+- [x] A socket path over the limit stops `pnpm dev` with a message that names the path and what to do
+- [x] Nothing new is written inside the install, so `robkit upgrade`'s clean-tree check is unchanged
+- [x] The install's `AGENTS.md`, `packages/dev/README.md` and ADR 0020 say where the socket is
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -59,3 +59,32 @@ Chosen by the lead: a folder under the account's home over `/tmp/robkit-<uid>`, 
 This changes ADR 0020's choice of `XDG_RUNTIME_DIR`. That ADR's status line already says the build's choices await R's review.
 
 Order: this merges after ticket 24, which edits the same section of the install's `AGENTS.md`.
+
+### Chosen in the build, 2026-11-11
+
+- **The folder is `~/.robkit/run`.** The home comes from `HOME`, or from the account's own entry where `HOME` isn't set. `devSocket` reads nothing else from the environment. ADR 0020 says why not `/tmp/robkit-<uid>`.
+- **The socket's name is the 16-character hash alone**, `<hash>.sock`, without the old `robkit-` prefix. Inside robkit's own folder the prefix said nothing, and the 7 bytes go to the home: a home of up to 65 bytes fits.
+- **`.robkit` is checked as `run` is.** The runner makes both with mode 0700, and the runner and each command refuse either when it isn't a folder, another account owns it, or others can open it. `.robkit` is checked before anything is made in it. The home itself isn't checked.
+- **The way out of a path too long is a link.** The owner makes a folder only they can open at a shorter path and links `~/.robkit/run` to it. The runner and the commands follow that one link, check the folder it leads to in `run`'s place, and put the socket there. Where that folder is gone, as a folder in `/tmp` is after a restart, the runner makes it again and checks it. A link is on disk, so every terminal agrees on it. Before, a link in the folder's place was refused; a link in `.robkit`'s place still is.
+- **A folder another account owns** now says to remove it, "with sudo if you need to", since `sudo pnpm dev` that keeps `HOME` is the likely cause. Before, it said to point a variable elsewhere.
+- **A folder the runner can't make** now says to make it with mode 700. Before, it said to point a variable elsewhere.
+- **`DevSocket` has `parent` in place of `setBy`.** No message names a variable any more.
+- **Tests get a home of their own.** `homeOfItsOwn()` in `@internal/test-postgres` gives a new `HOME` and keeps `XDG_CACHE_HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `GOPATH` and `DOCKER_CONFIG` where they were, so Docker, Corepack, pnpm and Go find what they had. The runner's Docker tests, the e2e dev stack and its `robkit add` use it, so no test writes in the real home. Before, the e2e's `pnpm dev` wrote its socket folder in the real runtime or temp folder. create-robkit's `dev-requests.test.ts` sets `HOME` in place of `XDG_RUNTIME_DIR`, and `upgrade.test.ts` already had a home from `gitEnv`.
+- **Not built:** a named pipe for native Windows (ticket 21), and any file in the install. The socket tests stay skipped on Windows as before.
+
+### For the docs site
+
+- The socket is in `~/.robkit/run`, not `robkit-<uid>` in `XDG_RUNTIME_DIR` or the temp folder. `robkit add`, `migrate` and `upgrade` find a running `pnpm dev` from any terminal of the same account.
+- New message when the path is too long: "pnpm dev keeps its socket at <path>, which is <n> bytes, and a socket's path must be under 100. Make a folder only you can open at a shorter path, link <home>/.robkit/run to it, then run pnpm dev again."
+- New message for `.robkit`: "pnpm dev keeps its socket under <home>/.robkit, which others can open (mode <mode>). Run chmod 700 <home>/.robkit, then run pnpm dev again." The same line for `run` says "in" where this says "under".
+- Changed message for a folder another account owns: "... which another account owns. Remove it, with sudo if you need to, then run pnpm dev again."
+- Changed message for a folder it can't make: "... and couldn't make that folder (<code>). Make it yourself, with mode 700, then run pnpm dev again."
+- The install's `AGENTS.md` line under "Adding and removing apps" names `~/.robkit/run`. Nothing new is written in the install.
+
+### Merged
+
+Added by the lead. PR 108 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `7944946`. The build got no clean full gate on its own machine, which was too busy for the Docker tests' time limits, so GitHub's run was the full gate.
+
+It merged before ticket 24, not after it as "Order" above says, so ticket 24 takes this ticket's line in the install's `AGENTS.md` as it finds it.
+
+For R: the way out for a home too long for a socket is a link at `~/.robkit/run`, which the runner and the commands follow and check. The ticket left that way out to the build.

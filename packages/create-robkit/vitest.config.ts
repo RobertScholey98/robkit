@@ -12,8 +12,9 @@ export default defineConfig({
     // Windows while lint and typecheck run beside them.
     testTimeout: 30_000,
     // A `*.pack.test.ts` file builds and packs robkit's own packages, which
-    // takes most of a minute under load. `test:unit` runs the `unit`
-    // project alone, so `pnpm check` skips it; `test` runs both.
+    // takes most of a minute under load, and has taken over two on a slow
+    // CI runner. `test:unit` runs the `unit` project alone, so `pnpm check`
+    // skips it; `test` runs both.
     projects: [
       {
         extends: true,
@@ -30,7 +31,7 @@ export default defineConfig({
         test: {
           name: "pack",
           include: ["src/**/*.pack.test.ts"],
-          testTimeout: 120_000,
+          testTimeout: 300_000,
         },
       },
     ],
