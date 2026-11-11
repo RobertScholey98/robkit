@@ -15,17 +15,17 @@ A medium-effort worker builds this. If a bullet turns out to change how sign-in 
 
 **Blocked by:** 06, 08, 11, 23
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Every stack's page has a viewport and the app's name as its title, checked in the generator's tests
-- [ ] No added app's `AGENTS.md` says "the example", and the React + Hono one says "an `app.get`"
-- [ ] Each error state above has a test: the Go page, Start's button twice and failing, admin's copy refused
-- [ ] The Go server's `GET /assets/` never lists a folder
-- [ ] Editing `packages/theme/theme.css` and running `pnpm build` rebuilds the hub, and editing `packages/core-client` rebuilds an app that uses it
-- [ ] Admin's "Save access", revoke and copy each have a test for success and for failure
-- [ ] The Next stack's `AGENTS.md` says which images work, and a test holds it in a built Next app
-- [ ] The changeset names `create-robkit` and lists what an existing install copies by hand
-- [ ] axe still passes on every page in the whole-stack test
+- [x] Every stack's page has a viewport and the app's name as its title, checked in the generator's tests
+- [x] No added app's `AGENTS.md` says "the example", and the React + Hono one says "an `app.get`"
+- [x] Each error state above has a test: the Go page, Start's button twice and failing, admin's copy refused
+- [x] The Go server's `GET /assets/` never lists a folder
+- [x] Editing `packages/theme/theme.css` and running `pnpm build` rebuilds the hub, and editing `packages/core-client` rebuilds an app that uses it
+- [x] Admin's "Save access", revoke and copy each have a test for success and for failure
+- [x] The Next stack's `AGENTS.md` says which images work, and a test holds it in a built Next app
+- [x] The changeset names `create-robkit` and lists what an existing install copies by hand
+- [x] axe still passes on every page in the whole-stack test
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -58,3 +58,36 @@ Taken here:
 - Both: `robkit upgrade` doesn't reach these files, so the changeset says what to copy.
 
 Also from the round, for the lead: the PRD's out-of-scope line said anything in an app's `public` folder is public. For Next that contradicts `SECURITY.md`, where `public` goes through the guard. The lead corrected the PRD.
+
+### From the build, 2026-11-11
+
+**`next/image`, run first.** In the Next example, built with `pnpm build` and served with `node src/serve.ts` behind the guard, with a fake core whose rule lets only the owner in, as the owner:
+
+- `/logo.png` from `public`: 200, `image/png`. With no session: 401, the guard's JSON.
+- `/_next/image?url=%2Flogo.png&w=64&q=75`, which `<Image src="/logo.png">` asks for: 401, no content type. The optimizer's own fetch carries no cookie, and the guard's 401 comes back as the answer.
+- `/_next/image` for an image the page imports (`/_next/static/media/...`): 200, `image/png`.
+
+So the reading of Next's source was right. The guard and its matcher are unchanged. `tooling/e2e/src/next-images.ts` holds all four, run from `install-checks.test.ts` on the next install after its CI steps built it.
+
+Running it found a second fault: the Next template's `tsconfig.json` excludes `next-env.d.ts`, which held the type of an imported image, so `next build` failed its type check on `import logo from "./logo.png"`. Its `types` now list `next/image-types/global`.
+
+Chosen in the build:
+
+- **Titles.** A stack's page is titled `example`, the example's slug, as `<title>example</title>` or `title: "example"`. `appFiles` in `src/generate.ts`, which already names the manifest after the slug, swaps that for the new app's slug. The example's title is `example`, lowercase, since the slug is the app's name.
+- **Viewport on Next.** Next sets one by default; the layout now exports it too, so the generator's test can see it.
+- **Go's `/assets/`.** A folder answers with the page, as any other path that isn't a file does, rather than a 404.
+- **The Go page's test.** It runs under Vitest in happy-dom, so the Go template gained Vitest and Testing Library, and its `test` script is `go test ./... && vitest run`. The page moved from `src/main.tsx` into `Home` in `src/home.tsx`.
+- **Start's test** gained happy-dom and Testing Library too. `HomeCard` now takes the first count and the call, and owns the call's state.
+- **Deadlines.** Hub and admin call through `callCore` (10 seconds), and the Go page and Start's server functions through `sessionFetch` (30 seconds), so each already had one. Next's server action and the Hono and Express forms are the framework's or the browser's own calls, with no deadline to set.
+- **turbo.** Each task depends on a `transit` task, turbo's documented way to carry a used package's files into a task's hash without running anything in it. `src/install-checks.test.ts` compares turbo's dry-run hashes before and after an edit, rather than running a build twice.
+- **Copy's timer** is cleared when the row goes and on each press. No test watches the timer: nothing an owner sees changes.
+
+### For the docs site
+
+- **A stack's guide:** each page's tab shows the app's slug (`example` for the first app, `notes` for an app added as notes), not "Example" or "Start example". Every stack's page sets a viewport, so it fits a phone.
+- **The Next guide:** a new section in the Next stack's `AGENTS.md`, "Images": an imported image and a `public` file in `<img>` or `<Image unoptimized>` work; `<Image src="/logo.png">` shows a broken image. A page can now import an image at all.
+- **The Go guide:** the page's code is in `src/home.tsx`, with a test in `src/home.test.tsx`, and `pnpm test` runs Vitest after `go test`. When `/api/me` fails the page shows "Couldn't load your visits. Reload the page to try again." or "Couldn't record your visit. Try again." `/assets/` answers with the page.
+- **The Start guide:** the button is off while its call is out, and a failed call shows "Couldn't record your visit. Try again." `HomeCard` takes `first` and `visitAgain`.
+- **Admin's screen:** when the browser refuses the clipboard, the code's row shows "Couldn't copy the link. Select it and copy it yourself." No other screen changed: the hub, admin's layout and each example's card look the same, apart from the Go card's heading, which says "Your visits" while it loads.
+- **The install's `AGENTS.md`** has a turbo bullet under "Dev tools" on the `transit` task, and `turbo.json` changed.
+- **Upgrading:** the changeset lists what an existing install copies by hand.
