@@ -202,7 +202,7 @@ async function fromRecord(
   if (changed.outcome === "not-in-history") {
     return {
       deploy: true,
-      reason: `${since} is no longer in the branch's history`,
+      reason: `${since} isn't in this checkout's history`,
     };
   }
   return changed.apps.includes(app.slug)

@@ -595,7 +595,7 @@ describe("deploy's decisions", () => {
     expect(log).toContain("| notes | deploy | its record can't be read |");
   });
 
-  it("deploys each app whose recorded commit is no longer in history, as after a force push", async () => {
+  it("deploys each app whose recorded commit isn't in the checkout's history, as after a force push", async () => {
     const state = host({ applications: all() });
     await deployedOnce(state);
 
@@ -604,7 +604,7 @@ describe("deploy's decisions", () => {
     });
 
     expect(log).toContain(
-      "| hub | deploy | 0000000 is no longer in the branch's history |",
+      "| hub | deploy | 0000000 isn't in this checkout's history |",
     );
     expect(deploysOf(state)).toEqual([
       "/deploy?uuid=c",

@@ -31,7 +31,7 @@ An app deploys when:
 - it has no record, or one `robkit deploy` can't read
 - its code, or a package it uses, changed since its recorded commit
 - the variables it is about to get differ from its record. A new app, or one that gains or loses a `migrate` script, changes core's variables, so core deploys too
-- its recorded commit is no longer in the branch's history, as after a force push
+- its recorded commit isn't in the checkout's history, as after a force push, or when Coolify built a commit newer than the checkout
 
 Before it queues an app's deploy, `robkit deploy` replaces the app's record with a note that a deploy started. So a deploy that fails, is cancelled or runs out of time leaves no record, and the next deploy deploys the app again, whatever its code is by then. Coolify may finish a deploy after `robkit deploy` stopped waiting for it, and nothing else would say which code the app runs. A record that couldn't be saved does the same, and `robkit deploy` fails and says so. If the note itself can't be saved, the app's deploy isn't queued. The first deploy of an install, or the first after an upgrade that brought records in, deploys every app.
 
