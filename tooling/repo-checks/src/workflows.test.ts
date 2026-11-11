@@ -2,7 +2,9 @@
 // A tag can be moved to other code, so each action is named by commit.
 import { globSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { isRecord } from "@robkit/input";
 import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
 import { unpinnedActions } from "./workflows.ts";
 
 const root = join(import.meta.dirname, "../../..");
@@ -62,4 +64,17 @@ describe("the repo's and the template's workflows", () => {
       workflows.flatMap((path) => unpinnedActions(path, read(path))),
     ).toEqual([]);
   });
+
+  it.each(["check", "pull-request"])(
+    "give ci.yml's %s job a time limit",
+    (name) => {
+      const workflow: unknown = parse(read(".github/workflows/ci.yml"));
+      const jobs = isRecord(workflow) ? workflow.jobs : undefined;
+      const job = isRecord(jobs) ? jobs[name] : undefined;
+
+      expect(isRecord(job) ? job["timeout-minutes"] : undefined).toEqual(
+        expect.any(Number),
+      );
+    },
+  );
 });
