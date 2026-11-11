@@ -112,11 +112,34 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: PR_BODY="$(gh pr view "$PR" --json body --jq .body)" node tooling/repo-checks/src/check-pr-ticket.ts
 
+  # Go's vet and tests on the oldest Go the docs promise, which go/go.mod
+  # names. check runs them on the newest. go-version.test.ts holds the docs,
+  # both go.mod files and this job to one version.
+  go-oldest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go/go.mod
+          cache-dependency-path: |
+            go/go.mod
+            packages/create-robkit/templates/stacks/go/go.sum
+      - working-directory: go
+        run: go vet ./... && go test ./...
+      # The template finds robkit's Go module in vendor/robkit/go, which an
+      # install has and this checkout doesn't, so point it at go/ here.
+      - working-directory: packages/create-robkit/templates/stacks/go
+        run: |
+          go mod edit -replace=github.com/RobertScholey98/robkit/go=../../../../../go
+          go vet ./... && go test ./...
+
   # The one check branch protection requires. It passes only if every job
   # above passed, or was skipped because it runs only on pull requests.
   gate:
     if: ${{ always() }}
-    needs: [check, pull-request]
+    needs: [check, pull-request, go-oldest]
     runs-on: ubuntu-latest
     steps:
       - env:

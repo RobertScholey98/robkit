@@ -6,7 +6,7 @@ Thanks for helping. This page gets you from a fresh machine to a merged change. 
 
 - **Node 24.** `.node-version` names it.
 - **pnpm 11, through Corepack.** Run `corepack enable` once. The root `package.json` pins the exact pnpm version, and Corepack uses it. A pnpm installed some other way may be the wrong version.
-- **Go 1.26 or later**, with `go` and `gofmt` on your `PATH`. The Go module in `go/` is a workspace package, so `pnpm check` runs `go vet` and `go test` on it, and the whole-stack test makes a React + Go install. Get it from [go.dev/dl](https://go.dev/dl/); CI uses the version `.github/workflows/ci.yml` names. In WSL, install it there too.
+- **Go 1.26 or later**, with `go` and `gofmt` on your `PATH`. The Go module in `go/` is a workspace package, so `pnpm check` runs `go vet` and `go test` on it, and the whole-stack test makes a React + Go install. Get it from [go.dev/dl](https://go.dev/dl/); CI tests on the oldest Go this promises, which `go/go.mod` names, and on the newest, which `.github/workflows/ci.yml` names. In WSL, install it there too.
 - **Docker**, with Compose. Core's and the dev runner's `*.db.test.ts` files, the test Postgres's tests and the whole-stack test start their own Postgres containers.
 - **Linux or macOS** for the full test suite and `pnpm dev`. The dev runner stops apps with POSIX process groups.
 
