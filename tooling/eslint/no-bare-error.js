@@ -30,8 +30,9 @@ export default {
   },
   create(context) {
     return {
+      // `Error("…")` without `new` makes the same error.
       /** @param {any} node */
-      "ThrowStatement > NewExpression"(node) {
+      "ThrowStatement > :matches(NewExpression, CallExpression)"(node) {
         const [message, options] = node.arguments;
         if (
           node.callee.type === "Identifier" &&
