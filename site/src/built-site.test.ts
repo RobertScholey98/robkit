@@ -13,6 +13,7 @@ import type { TreeEntry } from "./install-tree.ts";
 import { installGoVersion, installNodeVersion } from "./install.ts";
 import { quickstartCommands } from "./readme.ts";
 import { repoRoot } from "./repo.ts";
+import { anchorOf, glossaryTerms } from "./repo-markdown.ts";
 import { docsHome, preRelease, repoUrl } from "./site.ts";
 import { guideHref } from "./stacks.ts";
 
@@ -354,6 +355,38 @@ describe("the built page on guests and access", () => {
     expect(
       await built("docs/run-an-install/guests-and-access/index.html"),
     ).not.toContain("data-stub");
+  });
+});
+
+describe("the built glossary", () => {
+  const page = "docs/concepts/glossary/index.html";
+
+  it("has a heading with an anchor for every term in GLOSSARY.md", async () => {
+    const glossary = await readFile(join(repoRoot, "GLOSSARY.md"), "utf8");
+    const html = await built(page);
+    const headings = [...html.matchAll(/<h3 id="([^"]+)">([^<]+)<\/h3>/g)];
+
+    expect(headings.map(([, , term]) => term?.replaceAll("’", "'"))).toEqual(
+      glossaryTerms(glossary),
+    );
+    expect(headings.map(([, id]) => id)).toEqual(
+      glossaryTerms(glossary).map(anchorOf),
+    );
+  });
+
+  it("links each term it names in a meaning to that term's heading", async () => {
+    const html = await built(page);
+    const ids = new Set(
+      [...html.matchAll(/ id="([^"]+)"/g)].map(([, id]) => id),
+    );
+    const targets = [...html.matchAll(/href="#([^"]+)"/g)].map(([, id]) => id);
+
+    expect(targets).toContain("cores-origin");
+    expect(targets.filter((id) => !ids.has(id))).toEqual([]);
+  });
+
+  it("names GLOSSARY.md as the file to edit", async () => {
+    expect(await built(page)).toContain(`${repoUrl}/edit/main/GLOSSARY.md`);
   });
 });
 
