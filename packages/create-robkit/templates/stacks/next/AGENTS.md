@@ -42,8 +42,17 @@ A page can't set its own headers, and `src/proxy.ts` is the guard's. So a page s
 - `pnpm build` runs `next build`, which writes the build to `dist`.
 - The production image runs the `start` script, which migrates and then runs `src/serve.ts`.
 - `src/serve.ts` calls `serve()` from `@robkit/next/serve`. It listens on `HOST` and `PORT`, hands every request to Next, and stops on SIGTERM. Next answers its built files under `/_next/static` and this app's `public` folder itself. It returns the Node server, so a WebSocket server can attach to it. Put code of your own before the call.
-- Built files are public. Next answers `/_next/static` without the guard, since the matcher in `src/proxy.ts` leaves `/_next/` out, so put nothing in the client's code that a viewer shouldn't see. Files in `public` go through the guard.
+- Built files are public. Next answers `/_next/static` without the guard, since the matcher in `src/proxy.ts` leaves `/_next/` out, so put nothing in the client's code that a viewer shouldn't see. Files in `public` go through the guard, so `<Image>` can't optimize them: [Images](#images) says which images work.
 - `dependencies` are what runs in production: Next, React, and what `src/serve.ts` imports, `@robkit/next`, since Next loads `next.config.ts` in production too, and `@robkit/drizzle` with `drizzle-orm` and `postgres`, which the `migrate` script runs. The production image installs only those. `next build` bundles everything else the pages and the proxy import, the UI kit among them, so those are dev dependencies.
+
+## Images
+
+Files in `public` go through the guard, and the image optimizer behind `<Image>` from `next/image` fetches such a file through the app's own server with no cookie. So the guard refuses it with a 401, and `<Image src="/logo.png">` shows a broken image. These work:
+
+- An image the page imports, as `import logo from "./logo.png"` and then `<Image src={logo} alt="..." />`. Next builds it into `/_next/static`, which the guard leaves out, and optimizes it.
+- A file in `public` drawn with `<img src="/logo.png" alt="..." />`, or with `<Image src="/logo.png" unoptimized ... />`. The browser asks for it with the viewer's cookie, so the guard lets it through to whoever may open the app.
+
+Don't change the matcher in `src/proxy.ts` to let the optimizer through: that would serve `public` to anyone.
 
 ## Testing
 
