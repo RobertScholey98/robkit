@@ -14,6 +14,10 @@ export default defineConfig({
           name: "unit",
           include: ["src/**/*.test.ts"],
           exclude: ["src/**/*.db.test.ts"],
+          // password.test.ts runs scrypt at its real cost, up to four times
+          // in a test. A slow CI runner takes over a second for each, which
+          // took one test past vitest's five seconds.
+          testTimeout: 30_000,
         },
       },
       {
