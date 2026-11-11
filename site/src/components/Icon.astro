@@ -2,8 +2,8 @@
 // Every icon the site draws, inline, in currentColor. Each is hidden from
 // screen readers: the control around it carries the name.
 // Sources: sun, moon, menu, x, square-terminal, arrow-left, arrow-right,
-// square-pen, file, copy, check, info, triangle-alert and search from Lucide
-// (https://lucide.dev, ISC licence); github from Simple Icons
+// square-pen, file, copy, check, info, triangle-alert, search and chevron-down
+// from Lucide (https://lucide.dev, ISC licence); github from Simple Icons
 // (https://simpleicons.org, CC0).
 
 interface Props {
@@ -22,7 +22,8 @@ interface Props {
     | "check"
     | "info"
     | "alert"
-    | "search";
+    | "search"
+    | "chevron-down";
   size?: number;
 }
 
@@ -85,6 +86,7 @@ const { name, size = 20 } = Astro.props;
     </>
   )}
   {name === "check" && <path d="M20 6 9 17l-5-5" />}
+  {name === "chevron-down" && <path d="m6 9 6 6 6-6" />}
   {name === "info" && (
     <>
       <circle cx="12" cy="12" r="10" />

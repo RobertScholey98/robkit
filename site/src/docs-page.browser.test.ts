@@ -287,4 +287,45 @@ describe("On this page", () => {
       await heading.evaluate((element) => element.getBoundingClientRect().top),
     ).toBeGreaterThanOrEqual(0);
   });
+
+  describe.each([true, false])("at 375 pixels, scripts on: %s", (scripts) => {
+    // The longest list of headings in the docs.
+    const long = "/docs/reference/settings/";
+
+    it("starts folded to one line", async () => {
+      const { page } = await openPage(site, long, { width: 375, scripts });
+      const toc = page.getByRole("navigation", { name: "On this page" });
+
+      expect(
+        await toc
+          .getByRole("link", { name: "Where each setting goes" })
+          .isVisible(),
+      ).toBe(false);
+      expect((await toc.boundingBox())?.height).toBeLessThan(50);
+      // Without scripts the list of pages sits above the text, by design.
+      if (scripts) {
+        const text = page.locator(".prose > p").first();
+        expect((await text.boundingBox())?.y).toBeLessThan(800);
+      }
+    });
+
+    it("opens and shuts from the keyboard", async () => {
+      const { page } = await openPage(site, long, { width: 375, scripts });
+      const toc = page.getByRole("navigation", { name: "On this page" });
+      const fold = toc.locator("summary");
+      const link = toc.getByRole("link", { name: "Where each setting goes" });
+
+      await fold.focus();
+      await page.keyboard.press("Enter");
+      expect(await link.isVisible()).toBe(true);
+      await page.keyboard.press("Tab");
+      expect(
+        await page.evaluate(() => document.activeElement?.textContent),
+      ).toBe("Where each setting goes");
+
+      await fold.focus();
+      await page.keyboard.press("Space");
+      expect(await link.isVisible()).toBe(false);
+    });
+  });
 });

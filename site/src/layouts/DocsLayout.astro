@@ -73,16 +73,22 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
       </header>
       {onThisPage.length > 0 && (
         <nav class="toc" aria-labelledby="toc-heading" data-toc>
-          <p id="toc-heading" class="toc-heading">
+          <p id="toc-heading" class="toc-title">
             On this page
           </p>
-          <ul>
-            {onThisPage.map((heading) => (
-              <li class={`depth-${String(heading.depth)}`}>
-                <a href={`#${heading.slug}`}>{heading.text}</a>
-              </li>
-            ))}
-          </ul>
+          <details class="toc-fold">
+            <summary class="toc-heading">
+              <span>On this page</span>
+              <Icon name="chevron-down" size={16} />
+            </summary>
+            <ul>
+              {onThisPage.map((heading) => (
+                <li class={`depth-${String(heading.depth)}`}>
+                  <a href={`#${heading.slug}`}>{heading.text}</a>
+                </li>
+              ))}
+            </ul>
+          </details>
         </nav>
       )}
       <div class="prose">
@@ -272,24 +278,58 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
     font-size: var(--text-lg);
   }
 
+  /* Below 80rem the list is folded above the text, and the reader opens it. */
   .toc {
     margin-bottom: var(--space-6);
-    padding: var(--space-4);
     border: 1px solid var(--color-border);
     border-radius: var(--radius);
     font-size: var(--text-sm);
   }
 
+  .toc-title {
+    display: none;
+  }
+
   .toc-heading {
-    margin: 0 0 var(--space-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    min-height: var(--target);
+    padding: 0 var(--space-4);
+    border-radius: var(--radius);
     font-family: var(--font-mono);
     font-weight: 600;
+    list-style: none;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease);
+  }
+
+  .toc-heading::-webkit-details-marker {
+    display: none;
+  }
+
+  .toc-heading:hover {
+    background: var(--color-raised);
+  }
+
+  .toc-heading :global(.icon) {
+    color: var(--color-muted);
+    transition: transform var(--duration-fast) var(--ease);
+  }
+
+  .toc-fold[open] .toc-heading :global(.icon) {
+    transform: rotate(180deg);
   }
 
   .toc ul {
     margin: 0;
     padding: 0;
     list-style: none;
+  }
+
+  .toc-fold ul {
+    padding: 0 var(--space-4) var(--space-3);
   }
 
   .toc a {
@@ -338,6 +378,32 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
       border: 0;
       border-left: 1px solid var(--color-border);
       border-radius: 0;
+    }
+
+    /*
+     * A column has room for the whole list, so it shows unfolded, with no
+     * fold to open, in CSS alone. A browser that can't style the fold's
+     * content keeps the fold.
+     */
+    @supports selector(::details-content) {
+      .toc-title {
+        display: block;
+        margin: 0 0 var(--space-2);
+        font-family: var(--font-mono);
+        font-weight: 600;
+      }
+
+      .toc-heading {
+        display: none;
+      }
+
+      .toc-fold::details-content {
+        content-visibility: visible;
+      }
+
+      .toc-fold ul {
+        padding: 0;
+      }
     }
   }
 
