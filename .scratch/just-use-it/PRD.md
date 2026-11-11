@@ -93,7 +93,7 @@ Each is built by the ticket named, and that ticket's comments record what the bu
 15. **An app's own settings live in its `.env`.** `pnpm dev` loads `apps/<slug>/.env` into that app alone. What the runner sets wins, then the shell, then the file, and a file that names one of robkit's settings is refused. The install's root `.env` holds robkit's own dev settings, such as its ports (16). In production the owner sets an app's settings on the host. A value the browser reads isn't in an image yet (32, waiting for R). (17)
 16. **`robkit add` tells a running `pnpm dev`.** The runner listens on a socket file in a folder only the owner can open. No browser can reach one, so it needs no token. A request names an operation and a slug, and nothing else. `robkit add` reports the new app once it is installed, and the runner brings it up without moving a running app's port. The same channel applies a new migration without a restart, as `pnpm robkit migrate <slug>`. No folder watching. (18)
 17. **`robkit upgrade` runs in two steps.** The installed robkit moves `create-robkit` in the catalog to the new version and installs it. The new robkit then raises robkit's other packages and writes what only it holds. The call that hands over from one to the other can't change once 0.1.0 is published, and a test holds it. Upgrade refuses a tree with uncommitted changes, so git shows the owner everything it did, and a step that fails puts the files back. (19)
-18. **`robkit check` is a lint, not a boundary.** It catches an app that breaks the layer rule by mistake. What holds an imported app is its database role, its token's audience and its own image. `SECURITY.md` says so. (23)
+18. **`robkit check` is a lint, not a boundary.** It catches an app that breaks the layer rule by mistake. What holds an imported app is its database role, its token's audience and its container's environment, which holds none of core's secrets. Its image isn't one of them: an image holds whatever workspace packages the app's `package.json` names. `SECURITY.md` says so. (23)
 
 ## Milestones and tickets
 
@@ -150,16 +150,22 @@ The one council round on this milestone's code ran on 2026-11-10, at `8bca5524`:
 24. [Apps leave the catalog](issues/24-apps-leave-the-catalog.md)
 25. [CI checks without holes](issues/25-ci-checks-without-holes.md)
 26. [Tests that don't collide](issues/26-tests-that-dont-collide.md)
-27. [The templates, finished](issues/27-templates-finished.md)
+27. [The templates, finished](issues/27-templates-finished.md) (the tidying; see 35 and 36 below)
 28. [The fake core is checked against the real one](issues/28-fake-core-checked-against-real.md)
 29. [Access codes are at least 5 characters](issues/29-access-codes-at-least-five.md) (needs R's answer)
 30. [Core's error log holds no query parameters](issues/30-error-log-holds-no-parameters.md)
 31. [Password sign-in under a flood](issues/31-password-sign-in-under-a-flood.md) (needs R's answer)
 32. [A setting the browser reads, in production](issues/32-browser-settings-in-an-image.md) (needs R's answer)
 
-22, 23, 24, 28 and 30 start together. 25 follows 22, and 27 follows 23.
-
 Ticket 34, [`robkit add` finds `pnpm dev` from any terminal](issues/34-add-finds-dev-from-any-terminal.md), came from milestone 3's code round. It waits on nothing.
+
+Three tickets came from this milestone's own ticket round. Ticket 35, [`robkit()` sets a server build's layout](issues/35-robkit-sets-a-server-builds-layout.md), and ticket 36, [The hub's sign-in flows, finished](issues/36-the-hubs-sign-in-flows.md), were parts of 27 that aren't tidying. Ticket 37, [A role's password stays out of the statement](issues/37-a-roles-password-stays-out-of-the-statement.md), was a question in 30's comments.
+
+22, 23, 30, 34 and 37 start first, each in a package of its own. 24 follows 30, since both change core, and 28 follows 24. 25 follows 22. 35 and 36 follow 23, and 27 follows them. Where two tickets edit one doc, the second merges the milestone's branch before its last gate: 24 before 34 in the install's `AGENTS.md`, and 23 before 36 in `SECURITY.md`. The lead updates the map at each merge.
+
+Tickets 23 and 27 go to a medium-effort worker. The rest are high.
+
+The one council round on these tickets ran on 2026-11-11, at `e5b1692d`: Opus 5.5 gave them 6 out of 10 and Sol 6.1 gave 7. Each ticket's comments say what was taken, with what the code showed, and what wasn't. Two things it settled change what an owner sees, and the lead tells R about both: `robkit deploy` supports TLS from a Cloudflare tunnel only (22), and an app that leaves `ROBKIT_APPS` and comes back is a new app, without the rule the owner set in admin (24).
 
 ## How the work runs
 
@@ -185,5 +191,7 @@ R changed the council and the workers' effort on 2026-11-10. This section has th
 - **The hub and admin as packages.** The council's first round asked for `@robkit/hub` and `@robkit/admin`, so their fixes reach existing installs. [ADR 0008](../../docs/adr/0008-packages-update-apps-are-owned.md) says the hub's and admin's pages are copied and owned, so an owner can change them. This work keeps that, and moves what is security or wiring (the guard, the headers, serving, dev wiring) into packages that update.
 - **The lint policy as a package.** An install still gets a copy in `tooling/eslint`, which `robkit upgrade` refreshes.
 - **A browser with no fetch metadata.** It can't open a gated app: it bounces between the app and the hub. Every browser the templates target has sent `Sec-Fetch-*` since 2023. If it matters later, the fix is a marker in the app's cookie on the way to the hub, so the return trip asks core whatever the browser sends.
-- **Files a stack serves without the guard.** An app's built files and anything in its `public` folder are public, as in any web app. Each stack's `AGENTS.md` says so.
+- **Files a stack serves without the guard.** An app's built files are public, as in any web app, and so is its `public` folder on every stack but Next, where `public` goes through the guard. `SECURITY.md` and each stack's `AGENTS.md` say so.
+- **TLS from Coolify's own certificates.** `robkit deploy` writes `http://` domains, for a Cloudflare tunnel that ends TLS in front of Coolify. Ticket 22's runbook says that is the one arrangement supported.
+- **Pinning a deploy to a commit.** Coolify builds what the branch holds. Ticket 22 records what each finished deploy applied, so the next run repairs a mismatch.
 - Lint holes that don't bear on the goal: a brand cast through `never`, an aliased `pgSchema`, and Renovate pinning peer ranges. They stay listed in the review.
