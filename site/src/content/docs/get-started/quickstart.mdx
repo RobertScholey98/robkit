@@ -22,6 +22,7 @@ import BeforeRelease from "../../../components/BeforeRelease.astro";
 import InstallTree from "../../../components/InstallTree.astro";
 import InstallVersion from "../../../components/InstallVersion.astro";
 import PreRelease from "../../../components/PreRelease.astro";
+import Screenshot from "../../../components/Screenshot.astro";
 
 The quickstart makes an install, starts it with `pnpm dev`, and has you claim it in the hub as its owner. You finish signed in to your own hub, with the example app in its launcher.
 
@@ -110,9 +111,15 @@ Open http://hub.robkit.localhost:3000. A new install asks you to set it up, and 
 2. Pick a password of at least 12 characters, and type it again.
 3. Select **Create owner**.
 
+<Screenshot name="hub-set-up" />
+
 You're signed in as the owner. The hub is your launcher, and it shows the example app. Open it from there.
 
+<Screenshot name="hub-first-launcher" />
+
 Admin, at http://admin.robkit.localhost:3000, is where you make access codes for guests and say which apps they may open. Every new install has the access code `test`, for signing in as a guest. It works only while the install runs on a `.localhost` domain.
+
+<Screenshot name="admin-codes" />
 
 ## What you got
 
