@@ -1,5 +1,5 @@
 // Every link inside the built site leads somewhere: each page, anchor and
-// local image a page points at exists.
+// local image a page or a Markdown copy points at exists.
 
 import { glob, readFile, stat } from "node:fs/promises";
 import { join, posix } from "node:path";
@@ -41,28 +41,49 @@ async function servedFile(root: string, path: string) {
   return undefined;
 }
 
-/** Every internal link in the site built at `root` that leads nowhere. */
+/**
+ * The links and images in a Markdown file, as written, leaving out what
+ * sits in code.
+ */
+const markdownLinks = (markdown: string) =>
+  [
+    ...markdown
+      .replaceAll(/^(`{3,})[\s\S]*?^\1/gm, "")
+      .replaceAll(/`[^`\n]*`/g, "")
+      .matchAll(/\]\((?:<([^>]*)>|([^)\s]+))/g),
+  ].map(([, angled, bare]) => String(angled ?? bare));
+
+/**
+ * Every internal link in the site built at `root` that leads nowhere, from
+ * its HTML pages and its Markdown copies.
+ */
 export async function brokenLinks(root: string): Promise<BrokenLink[]> {
-  const pages: { page: string; html: string }[] = [];
-  for await (const path of glob("**/*.html", { cwd: root })) {
+  const pages: { page: string; text: string }[] = [];
+  for await (const path of glob("**/*.{html,md}", { cwd: root })) {
     const page = path.replaceAll("\\", "/");
-    pages.push({ page, html: await readFile(join(root, page), "utf8") });
+    pages.push({ page, text: await readFile(join(root, page), "utf8") });
   }
   pages.sort((a, b) => a.page.localeCompare(b.page, "en"));
   const ids = new Map(
-    pages.map(({ page, html }) => [
+    pages.map(({ page, text }) => [
       page,
       new Set(
-        [...html.matchAll(idAttribute)].map((id) => unescape(String(id[1]))),
+        page.endsWith(".html")
+          ? [...text.matchAll(idAttribute)].map((id) => unescape(String(id[1])))
+          : [],
       ),
     ]),
   );
 
   const broken: BrokenLink[] = [];
-  for (const { page, html } of pages) {
-    for (const found of html.matchAll(attribute)) {
-      const written = String(found[1]);
-      const link = unescape(written);
+  for (const { page, text } of pages) {
+    const links = page.endsWith(".md")
+      ? markdownLinks(text).map((link) => ({ written: link, link }))
+      : [...text.matchAll(attribute)].map((found) => ({
+          written: String(found[1]),
+          link: unescape(String(found[1])),
+        }));
+    for (const { written, link } of links) {
       if (link === "" || isExternal(link)) continue;
       const hashAt = link.includes("#") ? link.indexOf("#") : link.length;
       const path = link.slice(0, hashAt).replace(/\?.*$/, "");
