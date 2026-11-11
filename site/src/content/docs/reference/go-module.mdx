@@ -54,7 +54,7 @@ When `ROBKIT_APP` or `ROBKIT_CORE_URL` is missing or won't do, `session.Guarded`
 
 - `Access`. A fixed access rule, such as `guard.OwnerRule{}`, in place of the one the owner sets in admin.
 - `App` and `Core`. The app's slug and core's public origin, when you don't want them read from `ROBKIT_APP` and `ROBKIT_CORE_URL`.
-- `OnUnavailable`. Called with a `Fault` when the guard can't reach core and answers 503.
+- `OnUnavailable`. Called with a `Fault` when the guard can't check a request against core and answers 503, because core can't be reached or didn't answer with its key set or the app's rule.
 - `Now`. The clock the guard checks tokens against, for a test.
 
 ## What it exports
