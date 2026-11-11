@@ -12,8 +12,13 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { slug } from "@internal/test-session";
 import postgres from "postgres";
-import { describe, expect, it, onTestFinished } from "vitest";
-import { askDev, devSocket, type DevOperation } from "./requests.ts";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import {
+  askDev,
+  devRunning,
+  devSocket,
+  type DevOperation,
+} from "./requests.ts";
 import { type DevOptions, runDev } from "./runner.ts";
 import {
   createdContainers,
@@ -87,7 +92,11 @@ async function runningDev(
   options?: DevOptions,
 ) {
   const install = await devInstall(prepare);
-  const devEnv = { ...install.env, FIXTURE_POSTGRES: fixturePostgres, ...env };
+  const devEnv: NodeJS.ProcessEnv = {
+    ...install.env,
+    FIXTURE_POSTGRES: fixturePostgres,
+    ...env,
+  };
   const running = runDev(install.root, devEnv, options);
   // A test that expects it to fail checks how; here it only must stop.
   const stopped = running.catch(() => undefined);
@@ -265,7 +274,10 @@ describe("robkit-dev adding an app while it runs", () => {
   });
 
   it("stops an added app that doesn't answer within the limit, and says to check its port", async () => {
-    const dev = await runningDev({}, undefined, { startLimitMs: 6000 });
+    // Long enough for pnpm to reach the script's first line on a busy
+    // machine, which writes the pid the test reads. A CI runner took more
+    // than six seconds.
+    const dev = await runningDev({}, undefined, { startLimitMs: 15_000 });
     // It runs, and listens nowhere.
     await writeApp(dev.root, "aardvark", {
       dev: `node -e "require('node:fs').writeFileSync('started', String(process.pid)); setInterval(() => {}, 1000)"`,
@@ -276,7 +288,7 @@ describe("robkit-dev adding an app while it runs", () => {
     expect(answer).toMatchObject({
       outcome: "refused",
       message: expect.stringMatching(
-        /^aardvark didn't answer on port \d+ within 0\.1 minutes, so pnpm dev stopped it\. Check that it listens on PORT\.$/,
+        /^aardvark didn't answer on port \d+ within 0\.25 minutes, so pnpm dev stopped it\. Check that it listens on PORT\.$/,
       ) as string,
     });
     expect(
@@ -556,12 +568,12 @@ describe("robkit-dev migrating an app while it runs", () => {
 
 describe("robkit-dev's socket", () => {
   it("refuses a socket folder others can open before it starts anything", async () => {
-    const runtime = await mkdtemp(join(tmpdir(), "robkit-run-"));
-    const folder = join(runtime, `robkit-${String(process.getuid?.())}`);
-    await mkdir(folder);
+    const home = await mkdtemp(join(tmpdir(), "robkit-home-"));
+    const folder = join(home, ".robkit", "run");
+    await mkdir(folder, { recursive: true, mode: 0o700 });
     await chmod(folder, 0o755);
 
-    const dev = await startDev({ XDG_RUNTIME_DIR: runtime });
+    const dev = await startDev({ HOME: home });
 
     expect(await exitCode(dev.child)).toBe(1);
     expect(dev.output()).toBe(
@@ -569,6 +581,61 @@ describe("robkit-dev's socket", () => {
     );
     expect(await startedApps(dev.root)).toEqual([]);
     expect(await createdContainers(dev.root)).toBe("");
+  });
+
+  it("stops before it starts anything where the socket's path is too long, saying how to shorten it", async () => {
+    const home = join(
+      await mkdtemp(join(tmpdir(), "robkit-home-")),
+      "a".repeat(80),
+    );
+
+    const dev = await startDev({ HOME: home });
+
+    const run = join(home, ".robkit", "run");
+    expect(await exitCode(dev.child)).toBe(1);
+    expect(dev.output()).toMatch(
+      new RegExp(
+        `^pnpm dev keeps its socket at ${run}/[0-9a-f]{16}\\.sock, which is \\d+ bytes, and a socket's path must be under 100\\. Make a folder only you can open at a shorter path, link ${run} to it, then run pnpm dev again\\.\\n$`,
+      ),
+    );
+    expect(await startedApps(dev.root)).toEqual([]);
+    expect(await createdContainers(dev.root)).toBe("");
+  });
+
+  it("adds and migrates for a terminal whose XDG_RUNTIME_DIR and TMPDIR differ from its own, which sees it running", async () => {
+    const dev = await runningDev({
+      XDG_RUNTIME_DIR: await mkdtemp(join(tmpdir(), "robkit-run-")),
+    });
+    await writeApp(dev.root, "gamma");
+    // As a macOS terminal app sets TMPDIR, where an ssh session sets none.
+    vi.stubEnv("TMPDIR", await mkdtemp(join(tmpdir(), "robkit-tmp-")));
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+    const other = {
+      HOME: dev.env.HOME,
+      XDG_RUNTIME_DIR: await mkdtemp(join(tmpdir(), "robkit-run-")),
+    };
+
+    const added = await askDev(
+      dev.root,
+      { operation: "add", slug: slug("gamma") },
+      other,
+    );
+    const migrated = await askDev(
+      dev.root,
+      { operation: "migrate", slug: slug("gamma") },
+      other,
+    );
+
+    expect([added, migrated]).toEqual([
+      {
+        outcome: "done",
+        message: `pnpm dev started gamma at http://gamma.robkit.localhost:${String(dev.port)}.`,
+      },
+      { outcome: "done", message: "pnpm dev migrated gamma." },
+    ]);
+    expect(await devRunning(dev.root, other)).toBe(true);
   });
 
   it("removes its socket file when it stops", async () => {

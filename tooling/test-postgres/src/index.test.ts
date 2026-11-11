@@ -1,7 +1,14 @@
 import { execFile, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { once } from "node:events";
-import { chmod, mkdtemp, readdir, rm, symlink } from "node:fs/promises";
+import {
+  chmod,
+  mkdtemp,
+  readdir,
+  readlink,
+  rm,
+  symlink,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -10,7 +17,9 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
 import {
+  freePort,
   freePortBlock,
+  portLeases,
   publishedPorts,
   removeWhenGone,
   startPostgres,
@@ -153,6 +162,29 @@ async function eventually(check: () => Promise<boolean>): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
 }
+
+describe("freePort", () => {
+  it("gives a port from a block it leases, below the ports the OS hands out", async () => {
+    const port = await freePort();
+
+    // The OS gives a server that asks for any port one from 32768 up, so
+    // no test's server gets this one before the caller binds it.
+    expect(port).toBeGreaterThanOrEqual(20_000);
+    expect(port).toBeLessThan(30_000);
+    expect(await readlink(join(portLeases, String(port)))).toBe(
+      String(process.pid),
+    );
+  });
+
+  it("gives a port that can be listened on", async () => {
+    const server = createServer().listen(await freePort(), "127.0.0.1");
+    onTestFinished(() => {
+      server.close();
+    });
+
+    await once(server, "listening");
+  });
+});
 
 describe("freePortBlock", () => {
   it("never gives two processes overlapping blocks", async () => {

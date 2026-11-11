@@ -139,12 +139,13 @@ func viewerID(viewer guard.Viewer) string {
 }
 
 // builtPage serves the page vite build wrote: each file as it is, and
-// index.html for any other path, so a link into the page loads it.
+// index.html for any other path, a folder's included, so a link into the
+// page loads it and no folder is listed.
 func builtPage(files fs.FS) http.Handler {
 	server := http.FileServerFS(files)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
-		if _, err := fs.Stat(files, name); name != "" && err != nil {
+		if info, err := fs.Stat(files, name); name != "" && (err != nil || info.IsDir()) {
 			r = r.Clone(r.Context())
 			r.URL.Path = "/"
 		}

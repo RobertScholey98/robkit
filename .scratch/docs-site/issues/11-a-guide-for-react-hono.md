@@ -30,7 +30,7 @@ Milestone 4 changes the templates (ticket 27 of "Just use it": page titles and e
 - The guide adds an app named `notes`, and shows its files under `apps/notes/` with `TemplateFile`'s `app="notes"`. The walkthrough shows `src/schema.ts`, `src/visits.ts`, `src/server.tsx` and `src/routes.test.tsx` whole, and the `routes` function from `src/routes.tsx`. It pastes none of them.
 - The rest of the app's files are in a tree. `InstallTree` now takes a `label`, and the entries are in `site/src/app-files.ts`, keyed by stack. A folder entry with no children, such as `drizzle/`, stands for every file under it, so a new migration doesn't fail the test.
 - "Make it yours" adds a `note` table, `src/notes.ts` after the pattern of `src/visits.ts`, a `GET /notes` that lists the viewer's notes as JSON, a `POST /notes` that adds one from a form field named `body`, and two tests. `routes` takes the notes as a second argument, and the test's `appAs` defaults it, so the template's own tests stay as they are.
-- I filed `.scratch/just-use-it/issues/35-example-test-prints-no-react-warning.md` as needs-triage. Under Vitest the page's stylesheet `href` is empty, and React prints a warning in every test that renders the page. The guide says nothing about it.
+- I filed `.scratch/just-use-it/issues/38-example-test-prints-no-react-warning.md` as needs-triage. Under Vitest the page's stylesheet `href` is empty, and React prints a warning in every test that renders the page. The guide says nothing about it.
 
 **The headings, for tickets 12 to 15**
 

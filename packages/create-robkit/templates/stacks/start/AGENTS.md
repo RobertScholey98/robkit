@@ -48,7 +48,7 @@ Set it on the answer with `setResponseHeader("Content-Security-Policy", ...)` fr
 - Each server function's handler hands `context.viewer` to a plain function, as `src/routes/index.tsx` hands it to `shownTo` and `visitAgainAs` in `src/visits.ts`.
 - The test calls that function with a viewer from `@robkit/start/testing`: `owner()`, `guest({ roles: ["family"] })` or `nobody()`.
 - The function takes what it stores through as an argument, so the test passes a stand-in and nothing reaches Postgres.
-- The page's card is `HomeCard` in `src/home.tsx`, which takes what to show as props, so the test renders it with `renderToStaticMarkup`.
+- The page's card is `HomeCard` in `src/home.tsx`, which takes the first count and the call that records a visit as props. The test draws it with `renderToStaticMarkup`, or in happy-dom with Testing Library to press its button. When the call fails the card says so, and its button is off while a call is out.
 
 ## Calling core
 
@@ -66,7 +66,7 @@ The guard reads `ROBKIT_APP` and `ROBKIT_CORE_URL` itself, so `guarded(entry)` t
 
 The app's own settings, such as an API key, go in its `.env`, which git ignores. `pnpm dev` loads it for this app alone as it starts, so an edit waits for the next `pnpm dev`. Commit an `.env.example` that names each setting. The install's `AGENTS.md` says what the file can't set, and where the settings go in production. Vite writes a `VITE_*` value into the page when it builds the app, and Docker builds an image without the `.env`, so in production the page doesn't have it. Read the setting on the server and hand it to the page instead.
 
-The example's queries are in `src/visits.ts`. `src/routes/index.tsx` reads the count from its loader with a GET server function, and records a visit with a POST one when the button is pressed.
+The app's queries are in `src/visits.ts`. `src/routes/index.tsx` reads the count from its loader with a GET server function, and records a visit with a POST one when the button is pressed.
 
 ## The database
 

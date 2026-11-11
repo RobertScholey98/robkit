@@ -58,7 +58,7 @@ This is how the page reaches its server:
 - The loader calls `shown`. When the page first loads, it runs on the server, inside the page's request. After that, Start calls `shown` from the browser with a `GET` to the app's own server.
 - The button calls `visit` through `useServerFn`. Start sends that call as a `POST` to the app's own server, so it passes the guard like any other request. A server function is a `GET` unless it says otherwise, so one that changes state says `method: "POST"`.
 
-The guard refuses a write from another app's page, but it can't refuse a `GET`, which a link can send. So never change state in a `GET` server function or in a loader. The card itself is `HomeCard` in `src/home.tsx`, which uses the install's shared UI kit from `@internal/ui`.
+The guard refuses a write from another app's page, but it can't refuse a `GET`, which a link can send. So never change state in a `GET` server function or in a loader. The card itself is `HomeCard` in `src/home.tsx`, which uses the install's shared UI kit from `@internal/ui`. It keeps the latest count, turns its button off while a call is out, and says so when a call fails.
 
 ## The server
 
@@ -76,7 +76,7 @@ A call made once the session has lapsed goes through core's refresh and back, ra
 
 ## The test
 
-A server function runs only inside Start, so the test can't call one. It calls the plain functions in `src/visits.ts` with a viewer from `@robkit/start/testing`, and renders the card:
+A server function runs only inside Start, so the test can't call one. It calls the plain functions in `src/visits.ts` with a viewer from `@robkit/start/testing`, and draws the card. It also presses the card's button in happy-dom, with a stand-in for the server function:
 
 <TemplateFile path="stacks/start/src/home.test.tsx" app="notes" />
 

@@ -65,6 +65,7 @@
     "@internal/eslint-config": "workspace:*",
     "@internal/test-session": "workspace:*",
     "@internal/tsconfig": "workspace:*",
+    "@internal/vitest-config": "workspace:*",
     "@robkit/input": "workspace:*",
     "@types/express": "catalog:",
     "@types/node": "catalog:",

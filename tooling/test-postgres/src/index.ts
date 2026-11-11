@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import { removeWhenGone } from "./clean-up.ts";
 
 export { removeWhenGone, testTag, type Leftover } from "./clean-up.ts";
+export { homeOfItsOwn } from "./home.ts";
 
 const run = promisify(execFile);
 
@@ -54,9 +55,15 @@ function listenOn(port: number): Promise<number> {
   });
 }
 
-/** Asks the OS for a port nothing is listening on. */
+/**
+ * A port nothing is listening on, which no other test process on the
+ * machine gets while this one runs: the first of a block it leases. A port
+ * the OS picked could go to another test's server before the caller bound
+ * it. On 2026-11-11 in CI, core's start test asked its port for `/status`
+ * and read the 201 a proxy test's server answers.
+ */
 export function freePort(): Promise<number> {
-  return listenOn(0);
+  return freePortBlock(1);
 }
 
 /** The host ports Docker publishes for running containers. */
@@ -142,8 +149,8 @@ async function lease(leases: string, first: number): Promise<boolean> {
  * exits, so no other test process on the machine gets them in the meantime.
  * Their probe sockets close before this returns, so the caller's servers
  * can bind them later. The block sits below the OS's ephemeral range,
- * since the OS hands out ephemeral ports in sequence and would soon give a
- * neighbour of `freePort()` to someone else.
+ * where the OS finds a port for each server that asks for any, and would
+ * soon give one of these to someone else.
  */
 export async function freePortBlock(
   size: number,

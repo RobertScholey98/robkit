@@ -140,7 +140,7 @@ describe("the built Your first app page", () => {
       "apps/notes/src/routes.tsx",
       "apps/notes/src/routes.tsx",
       "apps/notes/src/home.tsx",
-      "apps/notes/src/main.tsx",
+      "apps/notes/src/home.tsx",
     ]);
   });
 
@@ -216,6 +216,7 @@ describe("the built page on the layer rule", () => {
     "apps/example/src/reach.ts": 'import "../../hub/src/app.tsx";\n',
     "apps/example/src/core.ts": 'import { createCore } from "@robkit/core";\n',
     "apps/example/src/token.ts": 'import { jwtVerify } from "jose";\n',
+    "apps/example/src/built.ts": 'import "../dist/serve.js";\n',
     "packages/ui/src/reach.ts": 'import "../../../apps/example/visits.ts";\n',
   };
 
@@ -243,7 +244,7 @@ describe("the built page on the layer rule", () => {
       label: "What it prints",
       code: checked.stdout.trimEnd(),
     });
-    expect(checked.stdout.trimEnd().split("\n")).toHaveLength(4);
+    expect(checked.stdout.trimEnd().split("\n")).toHaveLength(5);
   }, 60_000);
 });
 

@@ -1,3 +1,4 @@
+import { testDefaults } from "@internal/vitest-config";
 import { defineConfig } from "vitest/config";
 
 // Two projects: `unit` needs no browser, and pnpm check runs it as
@@ -5,6 +6,7 @@ import { defineConfig } from "vitest/config";
 // runs it.
 export default defineConfig({
   test: {
+    ...testDefaults,
     projects: [
       {
         extends: true,

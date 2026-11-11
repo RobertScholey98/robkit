@@ -38,3 +38,7 @@ From milestone 3's ticket round (2026-11-10), for whoever builds this if R says 
 - **Stopping an app's whole tree** on Windows is `taskkill /T /F`, where the runner signals a process group.
 - **Closing the terminal** has no SIGHUP on Windows. Say what does stop the apps there.
 - **Ticket 18's socket file** is a named pipe on Windows. Node listens on one with the same call, and its path and who may open it need their own rule. This ticket now waits for 18.
+
+From milestone 4's ticket round (2026-11-11), moved here from ticket 25's comments:
+
+- **A port lease whose holder and watcher were both killed is never taken back** (`freePortBlock` in `tooling/test-postgres/src/index.ts`). A reboot or `wsl --shutdown` leaves every lease of that moment behind, and with enough of them 50 random tries over 500 blocks start to fail. It never reaches CI, where each run gets a fresh machine, so both reviewers said it isn't ticket 25's. A lease named for its block and its holder's pid needs no removal to be ignored, and needs no symlink, which this ticket wants gone too.
