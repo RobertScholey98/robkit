@@ -12,15 +12,15 @@ A medium-effort worker builds this. The words above are the decision. Don't wide
 
 **Blocked by:** 03
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A relative import into `node_modules`, `dist`, `build`, a dot-folder or a symlinked folder fails, with a test for each
-- [ ] A relative import whose path passes through a symlinked folder part-way along fails
-- [ ] A new install's own apps, on every stack, still pass `robkit check`
-- [ ] The new message names the file, the line, the rule and what to do
-- [ ] `SECURITY.md` says what the check proves, names the role, the token's audience and the container's environment as the boundaries, and lists the known ways past the lint
-- [ ] The install's `AGENTS.md` describes the check as a lint, in the same words
-- [ ] No doc says an app's image holds only its own files
+- [x] A relative import into `node_modules`, `dist`, `build`, a dot-folder or a symlinked folder fails, with a test for each
+- [x] A relative import whose path passes through a symlinked folder part-way along fails
+- [x] A new install's own apps, on every stack, still pass `robkit check`
+- [x] The new message names the file, the line, the rule and what to do
+- [x] `SECURITY.md` says what the check proves, names the role, the token's audience and the container's environment as the boundaries, and lists the known ways past the lint
+- [x] The install's `AGENTS.md` describes the check as a lint, in the same words
+- [x] No doc says an app's image holds only its own files
 - [ ] The PR's CI `gate` job passes on GitHub
 
 ## Comments
@@ -42,3 +42,29 @@ Taken:
 - Sol: a criterion for the install's `AGENTS.md`, and absolute and `file:` specifiers in the list of known ways past.
 
 Both reviewers would give this ticket a medium-effort worker.
+
+### From the build, 2026-11-11
+
+Chosen in the build:
+
+- The skipped-folder refusal is a fifth row of `layerRule`, so it prints like the others: `file:line:column  rule`. Its text says what to do: keep source out of those folders, and import a package by its name. It applies to every app and shared package, core included.
+- The check looks at each part of the target's path from the install root with `lstat`, then `stat`. A part along the way named `node_modules`, `dist`, `build` or starting with `.` fails by its name alone. The last part fails by name only when it is a folder on disk, so `./build.ts` passes. A symlink to a folder fails wherever it sits. A symlinked file doesn't: the scan reads those.
+- A target above the install root, such as `../../../../x.ts` from an app, gets only the "leaves the app" rule, not this one.
+- A path that stops existing part-way, or runs through a file (`ENOTDIR`), is checked by name from there on.
+- The symlink tests use `symlink(..., "junction")`, which Windows makes without admin rights and Linux ignores, so they run on both.
+- The changeset is `minor`, since an install whose source imports from one of those folders now fails `pnpm lint`.
+
+The known ways past the lint, as `SECURITY.md` lists them:
+
+- An import whose name is computed, such as `import(name)`.
+- `createRequire`.
+- An alias: tsconfig `paths`, a Vite `resolve.alias`, or a `package.json` `imports` entry.
+- An absolute path, or a `file:` specifier.
+- A cookie name built from pieces, such as `"robkit_" + "session"`.
+
+For the docs site:
+
+- An app's author: `robkit check` (and so `pnpm lint`) prints a new message for a relative import into `node_modules`, `dist`, `build`, a dot-folder or a symlinked folder: `<file>:<line>:<column>  Layer rule: an app or shared package imports no file under node_modules, dist, build, a dot-folder or a symlinked folder, since robkit check doesn't read them. Keep source out of those folders, and import a package by its name.`
+- An owner: a new install's `AGENTS.md` lists that fifth rule, and says the check is a lint, not a boundary. It names the three things that hold an app: its database role, its app token's audience, and its container's environment. It says an app's image isn't one of them, because `turbo prune` brings in every workspace package the app's `package.json` names.
+- The layer rule page (docs-site ticket 10) should say the check is a lint, name the three boundaries, and list the known ways past it. The command reference (ticket 20) should add the new refusal.
+- A guest sees nothing different.
