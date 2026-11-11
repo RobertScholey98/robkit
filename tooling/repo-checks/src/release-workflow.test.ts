@@ -209,4 +209,24 @@ describe(".github/workflows/ci.yml", () => {
       0,
     );
   });
+
+  it("keeps the site the check job built, as an artifact of the run", async () => {
+    workflow = record(
+      parse(await readFile(join(root, ".github/workflows/ci.yml"), "utf8")),
+    );
+    const gate = stepRunning("check", "pnpm check:all");
+    const upload = steps("check").findIndex(
+      ({ uses, with: given }) =>
+        typeof uses === "string" &&
+        uses.startsWith("actions/upload-artifact@") &&
+        record(given).name === "site",
+    );
+
+    expect(gate).toBeGreaterThan(0);
+    expect(upload).toBeGreaterThan(gate);
+    expect(steps("check")[upload]?.with).toMatchObject({
+      path: "site/dist/",
+      "if-no-files-found": "error",
+    });
+  });
 });

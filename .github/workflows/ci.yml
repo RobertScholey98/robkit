@@ -61,6 +61,14 @@ jobs:
           path: |
             packages/*/coverage/
             tooling/*/coverage/
+            site/coverage/
+      # The docs site as the gate built it: static files any host can serve.
+      # CONTRIBUTING.md says how to look at it.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: site
+          path: site/dist/
+          if-no-files-found: error
 
   # What a pull request's own changes must keep to, checked against its base.
   pull-request:
