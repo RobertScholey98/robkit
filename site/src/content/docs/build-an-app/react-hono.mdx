@@ -57,7 +57,7 @@ The server passes `visits`, and a test passes a list of its own, so the routes r
   app="notes"
 />
 
-Each handler reads who is asking as `c.var.viewer`, which the guard set. The page changes nothing, and the form posts to `/visits`, which records the visit. The guard refuses a write from another app's page, but it can't refuse a `GET`, which a link can send. So the app changes state only on a `POST`. The rest of the file is the `Page` component, which uses the install's shared UI kit from `@internal/ui`.
+Each handler reads who is asking as `c.var.viewer`, which the guard set. The page changes nothing, and the form posts to `/visits`, which records the visit. The guard refuses a write from another app's page, but it can't refuse a `GET`, which a link can send. So the app changes state only on a `POST`. The rest of the file is two small helpers, `visitorId` and `headingFor`, and the `Page` component, which uses the install's shared UI kit from `@internal/ui`.
 
 ## The server
 
