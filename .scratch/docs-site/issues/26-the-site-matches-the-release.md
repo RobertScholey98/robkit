@@ -14,13 +14,13 @@
 
 **Status:** done
 
-- [ ] `docs-site` holds `main` with milestone 4 merged, and CI's `gate` passes on it
+- [x] `docs-site` holds `main` with milestone 4 merged, and CI's `gate` passes on it
 - [x] Each item in the content tickets' "what milestone 4 will change" lists is done or shown not to apply, and the Proof goes through them
 - [x] The screenshots were retaken, and their record names the new commit
 - [x] The stub count is zero, and a test fails on a stub from now on
 - [x] axe finds nothing on any page, in either theme, at either width
 - [x] The ticket's comments name the commit of `main` the site describes
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -119,3 +119,14 @@ The branch `docs-14b-catch-up-with-main` merged `docs-site` at `7bc45f2a`, which
 
 - The first box waits on your merge of `main` into `docs-site`. It brings only the two ticket files.
 - `preRelease` goes off once robkit is on npm, and the quickstart, the home page and the Markdown copies follow it. Step 10 of the deploy guide doesn't, so check it against `docs/deploy.md` then.
+
+### Merged
+
+Added by the lead. PR 148 merged into `docs-site` on 2026-11-11 inside PR 150, which merged as `da0fb8e9` with `gate` green on `e5fc75c`.
+
+- **PR 148's own `check` failed three times**, each time before any test ran. GitHub's runners couldn't resolve Ubuntu's mirrors, and the job installed Chromium through apt. [Just-use-it ticket 62](../../just-use-it/issues/62-ci-runs-without-ubuntus-mirrors.md) installs the browser alone. It merged to `main` as `1285381c`.
+- **PR 150 is `docs-site` with PR 148, `main` at `1285381c`, and one fix of mine.** Its green `gate` is the first box here, and it proves PR 148, since its tree is what `docs-site` became.
+- **The site now describes `main` at `1285381c`.** Since `2d3c0422`, `main` gained only ticket 62: three workflow lines, a repo check and a ticket file. No page describes those.
+- **I read each of PR 148's twenty page fixes against the code** at `e7fe7761` and found them right.
+- **My fix.** "The robkit command" said every mistake prints the usage text of every command, but for `robkit upgrade` and for `robkit migrate` given the wrong number of arguments. `robkit add` given an option and no name prints its own too. A one-off test ran twelve mistakes in a fresh install and read which usage lines each printed.
+- **For the council's fixes.** `every-page.browser.test.ts` took 558 seconds in PR 150's `check`, for 181 tests. Each test opens a browser context and none closes one.
