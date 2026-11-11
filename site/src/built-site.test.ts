@@ -308,6 +308,72 @@ describe("the built page on pnpm dev and your apps", () => {
   });
 });
 
+describe("the built page on guests and access", () => {
+  /** The page's words, without its markup. */
+  const words = async () =>
+    (await built("docs/run-an-install/guests-and-access/index.html"))
+      .replaceAll(/<[^>]+>/g, "")
+      .replaceAll(/\s+/g, " ");
+  const source = (path: string) => readFile(join(repoRoot, path), "utf8");
+  /** The first number `pattern` captures in `text`, or NaN. */
+  const numberIn = (text: string, pattern: RegExp) =>
+    Number(pattern.exec(text)?.[1]);
+
+  it("gives the sign-in limits and session length the code sets", async () => {
+    const limits = await source("packages/core/src/sign-in-limits.ts");
+    const session = await source("packages/core/src/session-claims.ts");
+    const page = await words();
+    const codes = numberIn(limits, /codesPerClient: (\d+)/);
+    const passwords = numberIn(limits, /passwordsPerClient: (\d+)/);
+    const window = numberIn(limits, /clientWindowMs: (\d+) \* minute/);
+    const install = numberIn(limits, /codesPerInstall: (\d+)/);
+    const days = numberIn(session, /sessionLifetimeSeconds = (\d+) \* 24/);
+
+    expect(numberIn(limits, /installWindowMs: (\d+) \* minute/)).toBe(60);
+    expect(page).toContain(
+      `Each visitor gets ${String(codes)} tries every ${String(window)} minutes.`,
+    );
+    expect(page).toContain(
+      `The whole install takes ${String(install)} wrong codes an hour`,
+    );
+    expect(page).toContain(
+      `${String(passwords)} tries per visitor every ${String(window)} minutes`,
+    );
+    expect(page).toContain(`stays signed in for ${String(days)} days`);
+  });
+
+  it("gives the odds SECURITY.md gives", async () => {
+    const security = await source("SECURITY.md");
+    const page = await words();
+    const generated =
+      /A generated code is (\d+) characters from (\d+), about ([\d.]+ million) codes/.exec(
+        security,
+      );
+    const odds =
+      /about (\d+) years with 1 live code, and about (\d+) years with (\d+), about a (\d+)% chance/.exec(
+        security,
+      );
+
+    expect(numberIn(security, /limited to (\d+) an hour/)).toBe(20);
+    expect(page).toContain(
+      `picks ${String(generated?.[1])} characters from ${String(generated?.[2])} letters and digits`,
+    );
+    expect(page).toContain(`one of about ${String(generated?.[3])}`);
+    expect(page).toContain(`a hit after about ${String(odds?.[1])} years`);
+    expect(page).toContain(
+      `With ${String(odds?.[3])} live codes, it is about ${String(odds?.[2])} years, a ${String(odds?.[4])}% chance`,
+    );
+    expect(security).toContain("A 3-character code stays guessable in weeks.");
+    expect(page).toContain("A 3-character code can be guessed in weeks");
+  });
+
+  it("is written, not a stub", async () => {
+    expect(
+      await built("docs/run-an-install/guests-and-access/index.html"),
+    ).not.toContain("data-stub");
+  });
+});
+
 /** Each entry's name, in the order a tree shows them. */
 const treeNames = (entries: readonly TreeEntry[]): string[] =>
   entries.flatMap(({ name, children = [] }) => [name, ...treeNames(children)]);
