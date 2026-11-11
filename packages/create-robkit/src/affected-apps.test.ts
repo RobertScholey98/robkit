@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { CommandProblem } from "@robkit/dev/cli";
-import { gitHistory } from "./affected-apps.ts";
+import { gitHistory, pushedTo } from "./affected-apps.ts";
 import { gitEnv } from "./test/git.ts";
 
 const run = promisify(execFile);
@@ -151,5 +151,56 @@ describe.skipIf(process.platform === "win32")("gitHistory's changes", () => {
     ).rejects.toThrow(
       "turbo ls --affected printed JSON robkit can't read. Name the apps to deploy with --apps, or deploy them all with --all.",
     );
+  });
+});
+
+describe("pushedTo", () => {
+  /** A repository with a bare one as its `origin`. */
+  async function withRemote(): Promise<Awaited<ReturnType<typeof repository>>> {
+    const checkout = await repository();
+    const remote = await mkdtemp(join(tmpdir(), "robkit-remote-"));
+    await run("git", ["init", "--quiet", "--bare"], {
+      cwd: remote,
+      env: checkout.env,
+    });
+    await checkout.git("remote", "add", "origin", remote);
+    return checkout;
+  }
+
+  it("finds the checkout's commit on the branch at a remote", async () => {
+    const { dir, env, git } = await withRemote();
+    await git("push", "--quiet", "origin", "HEAD:refs/heads/main");
+
+    expect(await pushedTo(dir, "main", env)).toBe(true);
+  });
+
+  it("finds a commit not pushed yet missing", async () => {
+    const { dir, env, git } = await withRemote();
+    await git("push", "--quiet", "origin", "HEAD:refs/heads/main");
+    await commit(git, "not pushed");
+
+    expect(await pushedTo(dir, "main", env)).toBe(false);
+  });
+
+  it("finds a commit pushed only to another branch missing", async () => {
+    const { dir, env, git } = await withRemote();
+    await git("push", "--quiet", "origin", "HEAD:refs/heads/feature");
+
+    expect(await pushedTo(dir, "main", env)).toBe(false);
+  });
+
+  it("finds a commit in a checkout with no remote missing", async () => {
+    const { dir, env } = await repository();
+
+    expect(await pushedTo(dir, "main", env)).toBe(false);
+  });
+
+  it("finds the checkout's commit when the remote's branch is ahead of it", async () => {
+    const { dir, env, git } = await withRemote();
+    await commit(git, "pushed after the checkout's commit");
+    await git("push", "--quiet", "origin", "HEAD:refs/heads/main");
+    await git("reset", "--quiet", "--hard", "HEAD~1");
+
+    expect(await pushedTo(dir, "main", env)).toBe(true);
   });
 });

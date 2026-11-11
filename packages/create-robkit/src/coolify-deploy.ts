@@ -476,7 +476,8 @@ export async function deploy({
   };
 
   // Core provisions every app's database as it starts, so it goes first,
-  // and no app deploys in a run where core didn't. The rest go together.
+  // and no app deploys in a run where core's deploy failed. The rest go
+  // together.
   const deploys = steps.flatMap((step) =>
     step.action === "deploy" ? [step] : [],
   );

@@ -899,6 +899,35 @@ describe("deploy's lookups", () => {
     expect(state.requests.map(({ method }) => method)).not.toContain("POST");
   });
 
+  it("adopts an application whose environment id comes as a string", async () => {
+    const state = host({
+      applications: all().map((app) => ({ ...app, environment_id: "1" })),
+    });
+
+    await run(state, "all");
+
+    expect(
+      state.requests.filter(({ method }) => method === "POST"),
+    ).not.toContainEqual(
+      expect.objectContaining({ path: "/applications/private-github-app" }),
+    );
+  });
+
+  it("writes nothing when Coolify lists an application without its environment", async () => {
+    const unplaced = existing("notes", "n");
+    delete unplaced.environment_id;
+    const state = host({
+      applications: [existing("core", "c"), existing("hub", "h"), unplaced],
+    });
+
+    await expect(run(state, "all")).rejects.toThrow(
+      "Coolify listed an application without the environment it belongs to, so robkit deploy can't tell which applications are this install's, and wrote nothing. It needs Coolify 4.3 or later.",
+    );
+    expect(state.requests.map(({ method }) => method)).toEqual(
+      state.requests.map(() => "GET"),
+    );
+  });
+
   it("takes Coolify's only server, whatever its name", async () => {
     const state = host({ servers: [{ uuid: "only", name: "box" }] });
 
