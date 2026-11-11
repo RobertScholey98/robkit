@@ -911,7 +911,7 @@ export const database = appDatabase(schema);
       dev: "go run . dev",
       typecheck: "go vet ./... && tsc",
       lint: "gofmt -d .",
-      test: "go test ./...",
+      test: "go test ./... && vitest run",
       build: "vite build && go build -o dist/server .",
       start: "./dist/server migrate && ./dist/server",
       migrate: "go run . migrate",

@@ -19,7 +19,7 @@ case guard.Nobody:
 
 Key a viewer's data by its id. Never read the session cookie or verify the token yourself. The token is the app's own: core mints it for this app's slug, and no other app or core accepts it. Paths under `/_robkit/` are the guard's, so give no route one. To test a handler, hand it a viewer with `session.WithViewer`, and a stand-in for what it stores, as `server_test.go` does: `routes` takes a `visitStore`, which the server builds from the database with `visitsIn`, so the test needs no Postgres.
 
-The page is React, in `src/main.tsx`. It asks the server who is asking with `sessionFetch` from `@robkit/react`: a `GET /api/me` as it loads, which records nothing, and a `POST /api/me` when its button records a visit. A call from the page whose session has lapsed gets a 401 rather than a redirect, and `sessionFetch` sends the browser through core's refresh and back to the page. Make every call from the page to the app with it.
+The page is React: `src/main.tsx` draws `Home` from `src/home.tsx`. It asks the server who is asking with `sessionFetch` from `@robkit/react`: a `GET /api/me` as it loads, which records nothing, and a `POST /api/me` when its button records a visit. A call from the page whose session has lapsed gets a 401 rather than a redirect, and `sessionFetch` sends the browser through core's refresh and back to the page. Make every call from the page to the app with it. It gives up after 30 seconds. When a call fails, the page says so and keeps the last count.
 
 ## Changing state
 
@@ -38,7 +38,7 @@ Set it in the handler, with `w.Header().Set("Content-Security-Policy", ...)` bef
 - `pnpm dev` runs `go run . dev`. The Go server listens on `PORT` and guards everything, as in production. It starts Vite on a port of its own and passes it every request beyond the API: the page, its modules, and Vite's hot updates over a WebSocket. Restart `pnpm dev` after changing Go code; Vite reloads the page's own changes.
 - `pnpm build` runs `vite build`, which writes the page to `dist/public`, then `go build`, which writes the server to `dist/server`. The built server serves each file in `dist/public` and `index.html` for any other path, a folder such as `/assets/` included, so the page can have routes of its own and no folder is listed.
 - The production image runs the `start` script, which migrates and then serves. The image runs the binary alone, so the server needs nothing from `node_modules`, and the page's packages are all `devDependencies`.
-- `pnpm lint` runs `gofmt -d .`, `pnpm typecheck` runs `go vet` and `tsc`, and `pnpm test` runs `go test`. `go test` loads no `.env`, so a test that needs a setting sets it with `t.Setenv`.
+- `pnpm lint` runs `gofmt -d .`, `pnpm typecheck` runs `go vet` and `tsc`, and `pnpm test` runs `go test`, then Vitest for the page. `go test` loads no `.env`, so a test that needs a setting sets it with `t.Setenv`. `src/home.test.tsx` draws the page in happy-dom and stubs `fetch` with what the server answers.
 
 ## Calling core
 
