@@ -17,6 +17,8 @@ export interface PageFile {
   id: string;
   title: string;
   stub: boolean;
+  /** The repo file the page is built from, when it isn't its own MDX file. */
+  source: string | undefined;
 }
 
 /** A page's front matter, from the text of its MDX `file`. */
@@ -30,14 +32,18 @@ export function readPage(text: string, file: string): PageFile {
   const fields = new Map<string, unknown>(Object.entries(data));
   const title = fields.get("title");
   const stub = fields.get("stub") ?? false;
+  const source = fields.get("source");
   if (typeof title !== "string") throw new Error(`${file} has no title.`);
   if (typeof stub !== "boolean") {
     throw new Error(
       `${file}'s stub is ${JSON.stringify(stub)}, not true or false.`,
     );
   }
+  if (source !== undefined && typeof source !== "string") {
+    throw new Error(`${file}'s source isn't a path.`);
+  }
   const id = posix.relative(docsFolder, file).replace(/\.mdx$/, "");
-  return { file, id, title, stub };
+  return { file, id, title, stub, source };
 }
 
 /** Every docs page, by file, in path order. */
@@ -55,3 +61,6 @@ export async function readPages(): Promise<PageFile[]> {
     ),
   );
 }
+
+/** The repo file a reader edits to change a page. */
+export const pageSource = (page: PageFile) => page.source ?? page.file;

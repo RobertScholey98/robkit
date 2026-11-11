@@ -17,6 +17,8 @@ const docs = defineCollection({
     order: z.number().int().optional(),
     /** Not written yet: the page shows its first paragraph and says so. */
     stub: z.boolean().default(false),
+    /** The repo file the page is built from, when it isn't its own MDX file. */
+    source: z.string().optional(),
   }),
 });
 
