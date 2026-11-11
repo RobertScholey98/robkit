@@ -33,7 +33,7 @@ Adds an app to `apps/<name>`, from a stack's template or your install's own. Wit
 - `--roles <role,...>`. The guest roles that may open it, with `--access roles` only.
 - `--icon <emoji>`. The emoji the hub's launcher shows for it. By default, 📦.
 
-With `pnpm dev` running, `pnpm dev` starts the new app at once:
+In an install with its dependencies in, it runs `pnpm install` for the new app. With `pnpm dev` running, `pnpm dev` then starts the app at once, and after pnpm's own output it prints:
 
 ```text title="What it prints"
 Added apps/notes. pnpm dev started notes at http://notes.robkit.localhost:3000.
@@ -54,10 +54,11 @@ Asks the `pnpm dev` running in the install to run an app's migrate script, so a 
 pnpm dev migrated notes.
 ```
 
+With no `pnpm dev` running, it migrates nothing, says so, and exits 0. Start `pnpm dev`, which migrates every app as it starts.
+
 It refuses:
 
 - No slug, or a name that isn't one.
-- No `pnpm dev` running in the install. Start `pnpm dev`, which migrates every app as it starts.
 - An app `pnpm dev` isn't running, or one with no migrate script when `pnpm dev` started it.
 
 ## robkit upgrade
@@ -69,6 +70,8 @@ It takes one version, such as `0.2.0`, or none for the newest. An install made f
 ```text title="What it prints"
 This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.
 ```
+
+An install that runs the tarballs `robkit vendor` packed gets a line saying to vendor again from a newer checkout instead.
 
 It refuses a change that isn't committed, a running `pnpm dev`, a link where it writes, and a version that isn't newer than the install's. [Upgrading robkit](/docs/run-an-install/upgrading/) has each refusal, what it changes and how to undo one.
 
