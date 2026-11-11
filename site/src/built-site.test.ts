@@ -1,13 +1,13 @@
 // Reads the site as Astro built it. Turbo runs the site's build before its
 // tests, so dist is fresh.
 
-import { readFile } from "node:fs/promises";
+import { glob, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { installGoVersion, installNodeVersion } from "./install.ts";
 import { quickstartCommands } from "./readme.ts";
 import { repoRoot } from "./repo.ts";
-import { docsHome, repoUrl } from "./site.ts";
+import { docsHome, preRelease, repoUrl } from "./site.ts";
 
 const built = (path: string) =>
   readFile(join(repoRoot, "site", "dist", path), "utf8");
@@ -105,6 +105,27 @@ describe("the built samples page's template files", () => {
       label: "apps/example/main.go",
       code: main.slice(start, main.indexOf("\n}\n", start) + 2),
     });
+  });
+});
+
+describe("the pre-release line", () => {
+  it("is on each page that shows npm create robkit while preRelease is on, and on none when it's off", async () => {
+    const pages: { page: string; shows: boolean; line: boolean }[] = [];
+    for await (const page of glob("**/*.html", {
+      cwd: join(repoRoot, "site", "dist"),
+    })) {
+      const html = await built(page);
+      const line = html.includes("data-pre-release");
+      // The line says `npm create robkit` once itself.
+      const mentions = html.split("npm create robkit").length - 1;
+      pages.push({ page, shows: mentions > (line ? 1 : 0), line });
+    }
+    const showing = pages.filter(({ shows }) => shows);
+
+    expect(showing.length).toBeGreaterThan(1);
+    expect(
+      pages.filter(({ shows, line }) => line !== (shows && preRelease)),
+    ).toEqual([]);
   });
 });
 

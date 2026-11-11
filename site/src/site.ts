@@ -16,3 +16,11 @@ export const docsHome = "/docs/get-started/what-you-need/";
  * root. It leads nowhere for a page until docs-site merges to main.
  */
 export const editUrl = (path: string) => `${repoUrl}/edit/main/${path}`;
+
+/**
+ * Whether robkit's packages are still to be published. While it's true,
+ * every page that shows `npm create robkit` says they aren't on npm yet,
+ * with the way to make an install from a clone. Set it to false when
+ * 0.1.0 is on npm, and the line goes from every page.
+ */
+export const preRelease = true;
