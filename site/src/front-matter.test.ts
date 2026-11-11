@@ -38,6 +38,7 @@ async function syncPage(name: string, frontMatter: string) {
     "astro.config.ts",
     "src/content.config.ts",
     "src/navigation.ts",
+    "src/code.ts",
   ]) {
     await cp(join(site, source), join(root, source));
   }

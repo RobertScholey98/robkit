@@ -1,4 +1,11 @@
+import CodeBlock from "../components/CodeBlock.astro";
+import Callout from "../components/Callout.astro";
+import PreRelease from "../components/PreRelease.astro";
+import StackSwitch from "../components/StackSwitch.astro";
+import TemplateFile from "../components/TemplateFile.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
+
+export const components = { pre: CodeBlock };
 
 <BaseLayout
   title="Code samples"
@@ -13,7 +20,7 @@ This page holds one code sample of each kind the docs show. The repo's checks re
 
 ## TypeScript
 
-```ts
+```ts title="addresses.ts"
 import { installAt } from "@robkit/input/addresses";
 
 const core = installAt("http://hub.robkit.localhost:3000/", "hub")?.origin(
@@ -61,6 +68,76 @@ func main() {
 	_ = http.ListenAndServe(":3000", nil)
 }
 ```
+
+## A file from the templates
+
+<TemplateFile path="stacks/go/go.mod" />
+
+## Part of a file from the templates
+
+<TemplateFile path="stacks/go/main.go" from="func main()" to="^}" />
+
+## A sample for each stack
+
+<StackSwitch>
+<Fragment slot="start">
+
+```sh
+pnpm robkit add notes --stack start
+```
+
+</Fragment>
+<Fragment slot="react-hono">
+
+```sh
+pnpm robkit add notes --stack react-hono
+```
+
+</Fragment>
+<Fragment slot="express">
+
+```sh
+pnpm robkit add notes --stack express
+```
+
+</Fragment>
+<Fragment slot="next">
+
+```sh
+pnpm robkit add notes --stack next
+```
+
+</Fragment>
+<Fragment slot="go">
+
+```sh
+pnpm robkit add notes --stack go
+```
+
+</Fragment>
+</StackSwitch>
+
+## Callouts
+
+<Callout>
+
+Every new install has an access code, `test`, for signing in as a guest. It works only while the install runs on a `.localhost` domain.
+
+</Callout>
+
+<Callout kind="warning">
+
+`robkit deploy` sets its own variables in Coolify. Don't give one of yours a name from its table, or the next deploy replaces its value.
+
+</Callout>
+
+## A command before the first release
+
+```sh
+npm create robkit my-install
+```
+
+<PreRelease />
 
 </main>
 </BaseLayout>

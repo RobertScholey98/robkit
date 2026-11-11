@@ -38,6 +38,9 @@ const pageTitle = title === "robkit" ? title : `${title} | robkit`;
         if (theme === "light" || theme === "dark") {
           document.documentElement.dataset.theme = theme;
         }
+        // The stack switchers' choice, so the chosen sample paints first.
+        const stack = localStorage.getItem("robkit-stack");
+        if (stack !== null) document.documentElement.dataset.stack = stack;
       } catch (error) {
         // Storage is off: the page follows the system setting.
         void error;

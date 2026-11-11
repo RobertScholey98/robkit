@@ -59,8 +59,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/README.md",
-        "$TURBO_ROOT$/packages/create-robkit/templates/base/package.json",
-        "$TURBO_ROOT$/packages/create-robkit/templates/stacks/go/go.mod"
+        "$TURBO_ROOT$/packages/create-robkit/templates/**"
       ]
     },
     "@internal/site#test": {
@@ -69,8 +68,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/README.md",
-        "$TURBO_ROOT$/packages/create-robkit/templates/base/package.json",
-        "$TURBO_ROOT$/packages/create-robkit/templates/stacks/go/go.mod"
+        "$TURBO_ROOT$/packages/create-robkit/templates/**"
       ]
     },
     "@internal/site#test:unit": {
@@ -78,8 +76,7 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/README.md",
-        "$TURBO_ROOT$/packages/create-robkit/templates/base/package.json",
-        "$TURBO_ROOT$/packages/create-robkit/templates/stacks/go/go.mod"
+        "$TURBO_ROOT$/packages/create-robkit/templates/**"
       ]
     },
     "@internal/go#test": {

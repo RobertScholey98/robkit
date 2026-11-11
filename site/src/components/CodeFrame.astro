@@ -1,0 +1,121 @@
+---
+// The frame around every code block: a bar naming the file, "Terminal" for
+// commands, or the language, and a copy button. A command block puts a
+// prompt before each line, which isn't copied. The button stays hidden
+// without scripts, since it can't work then, and the code can still be
+// selected.
+import { codeLabel, isCommand } from "../code.ts";
+import Icon from "./Icon.astro";
+
+interface Props {
+  lang: string;
+  /** The file the code is from, as a reader's install names it. */
+  title?: string | undefined;
+}
+
+const { lang, title } = Astro.props;
+const command = isCommand(lang);
+const label = codeLabel(lang, title);
+---
+
+<figure class="code" data-command={command ? "" : undefined}>
+  <figcaption class="bar">
+    <span class="label">
+      {(command || title !== undefined) && (
+        <Icon name={command ? "terminal" : "file"} size={16} />
+      )}
+      <span>{label}</span>
+    </span>
+    <button type="button" class="copy" data-copy hidden>
+      <span class="copy-icon">
+        <Icon name="copy" size={16} />
+      </span>
+      <span class="done-icon">
+        <Icon name="check" size={16} />
+      </span>
+      <span data-copy-label>Copy</span>
+    </button>
+    <span class="visually-hidden" role="status" data-copy-status></span>
+  </figcaption>
+  <slot />
+</figure>
+
+<style>
+  .code {
+    margin: var(--space-4) 0;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-code-bg);
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    min-height: var(--target);
+    padding: 0 0 0 var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .copy {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-width: var(--target);
+    min-height: var(--target);
+    padding: 0 var(--space-4);
+    border: 0;
+    border-left: 1px solid var(--color-border);
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease);
+  }
+
+  .copy:hover {
+    background: var(--color-raised);
+  }
+
+  .copy[hidden] {
+    display: none;
+  }
+
+  .copy > span {
+    display: inline-flex;
+  }
+
+  .copy:not([data-copied]) .done-icon,
+  .copy[data-copied] .copy-icon {
+    display: none;
+  }
+
+  .code :global(pre) {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .code[data-command] :global(.line:not(:empty))::before {
+    content: "$ ";
+    color: var(--color-muted);
+    user-select: none;
+  }
+</style>
+
+<script>
+  import "../scripts/copy.ts";
+</script>

@@ -1,0 +1,18 @@
+---
+// A fenced code block in a page, in its frame. MDX hands every `pre` here.
+// Shiki has coloured the code, and astro.config.ts copies the fence's
+// language and `title="..."` onto the `pre` it made.
+import type { HTMLAttributes } from "astro/types";
+import CodeFrame from "./CodeFrame.astro";
+
+type Props = HTMLAttributes<"pre"> & {
+  "data-language"?: string;
+  "data-title"?: string;
+};
+
+const { "data-language": lang = "", "data-title": title, ...pre } = Astro.props;
+---
+
+<CodeFrame lang={lang} title={title}>
+  <pre {...pre} data-language={lang}><slot /></pre>
+</CodeFrame>

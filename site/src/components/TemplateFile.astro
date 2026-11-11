@@ -1,0 +1,27 @@
+---
+// A file from the templates, or part of one, read as the site builds. The
+// frame names it as the reader's install does. A path that doesn't exist,
+// or a part no line matches, fails the build and names the page.
+import { Code } from "astro:components";
+import { installPath, langOf, templateFile } from "../templates.ts";
+import CodeFrame from "./CodeFrame.astro";
+
+interface Props {
+  /** From `packages/create-robkit/templates`, such as `stacks/go/main.go`. */
+  path: string;
+  /** Text only the part's first line has, to show part of the file. */
+  from?: string;
+  /** Text the part's last line has. */
+  to?: string;
+  /** The app's slug, for a stack's file. `example` unless it says. */
+  app?: string;
+}
+
+const { path, from, to, app } = Astro.props;
+const code = await templateFile(path, Astro.url.pathname, { from, to });
+const lang = langOf(path);
+---
+
+<CodeFrame lang={lang} title={installPath(path, app)}>
+  <Code code={code} lang={lang} theme="css-variables" />
+</CodeFrame>

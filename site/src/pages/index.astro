@@ -1,6 +1,7 @@
 ---
 // The home page, plain until ticket 06 designs it. It shows the README's
 // quickstart commands, read as the site builds.
+import PreRelease from "../components/PreRelease.astro";
 import BaseLayout from "../layouts/BaseLayout.astro";
 import { quickstartCommands } from "../readme.ts";
 import { readRepoFile } from "../repo.ts";
@@ -17,6 +18,7 @@ const description =
     <p>{description}</p>
     <h2>Start an install</h2>
     <pre><code>{commands.join("\n")}</code></pre>
+    <PreRelease />
   </main>
 </BaseLayout>
 

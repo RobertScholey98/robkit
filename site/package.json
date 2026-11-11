@@ -25,6 +25,7 @@
     "@types/node": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "astro": "catalog:",
+    "create-robkit": "workspace:*",
     "eslint": "catalog:",
     "eslint-plugin-astro": "catalog:",
     "playwright": "catalog:",

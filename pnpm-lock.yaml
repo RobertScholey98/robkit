@@ -849,6 +849,9 @@ importers:
       astro:
         specifier: 'catalog:'
         version: 7.4.8(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+      create-robkit:
+        specifier: workspace:*
+        version: link:../packages/create-robkit
       eslint:
         specifier: 'catalog:'
         version: 10.13.0(jiti@2.7.0)

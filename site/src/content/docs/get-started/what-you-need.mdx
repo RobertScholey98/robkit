@@ -12,8 +12,11 @@ describes:
 ---
 
 import InstallVersion from "../../../components/InstallVersion.astro";
+import PreRelease from "../../../components/PreRelease.astro";
 
 A robkit install runs on Linux or macOS, with Node, pnpm and Docker. On Windows, you run it in WSL. An app on React + Go needs Go as well.
+
+<PreRelease />
 
 ## On your machine
 
@@ -69,10 +72,6 @@ go version
 ```
 
 `npm create robkit`, `robkit add` and `pnpm dev` each stop and say so when an app is on React + Go and Go isn't on your `PATH`.
-
-## Before the first release
-
-robkit isn't on npm yet, so `npm create robkit` can't work until its first release. Until then you make an install from a clone of robkit's repo, which needs git as well as the tools above. [The README's quickstart](https://github.com/RobertScholey98/robkit#quickstart) shows how.
 
 ## What you should know
 

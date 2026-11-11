@@ -1,8 +1,8 @@
 ---
 // Every icon the site draws, inline, in currentColor. Each is hidden from
 // screen readers: the control around it carries the name.
-// Sources: sun, moon, menu, x, square-terminal, arrow-left, arrow-right
-// and square-pen from Lucide
+// Sources: sun, moon, menu, x, square-terminal, arrow-left, arrow-right,
+// square-pen, file, copy, check, info and triangle-alert from Lucide
 // (https://lucide.dev, ISC licence); github from Simple Icons
 // (https://simpleicons.org, CC0).
 
@@ -16,7 +16,12 @@ interface Props {
     | "github"
     | "arrow-left"
     | "arrow-right"
-    | "pen";
+    | "pen"
+    | "file"
+    | "copy"
+    | "check"
+    | "info"
+    | "alert";
   size?: number;
 }
 
@@ -58,6 +63,31 @@ const { name, size = 20 } = Astro.props;
     <>
       <path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
       <path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" />
+    </>
+  )}
+  {name === "file" && (
+    <>
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    </>
+  )}
+  {name === "copy" && (
+    <>
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </>
+  )}
+  {name === "check" && <path d="M20 6 9 17l-5-5" />}
+  {name === "info" && (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4M12 8h.01" />
+    </>
+  )}
+  {name === "alert" && (
+    <>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+      <path d="M12 9v4M12 17h.01" />
     </>
   )}
   {name === "github" && (
