@@ -12,7 +12,7 @@ const page = (prose: string, { stub = false } = {}) => `<!doctype html>
 <html><head><title>Ignored | robkit</title></head><body>
 <nav id="site-nav"><a href="/docs/x/">Not indexed</a></nav>
 <main id="main">
-<header class="page-head"><p class="eyebrow">Reference</p><h1>The robkit command</h1></header>
+<header class="page-head"><p class="eyebrow">Reference</p><h1>The robkit command</h1><p class="lead">What it does.</p></header>
 <nav class="toc"><a href="#add">robkit add</a></nav>
 <div class="prose">${stub ? '<p class="stub" data-stub>This page isn&#39;t written yet.</p>' : ""}${prose}</div>
 <footer class="page-foot"><a href="/edit">Edit this page</a></footer>

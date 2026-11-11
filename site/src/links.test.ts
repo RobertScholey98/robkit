@@ -54,6 +54,33 @@ describe("brokenLinks", () => {
     ]);
   });
 
+  it("reads the links and images in a Markdown copy, but not in its code", async () => {
+    await site({
+      "docs/a/index.html": '<h2 id="why">Why</h2>',
+      "shot.png": "",
+      "docs/a.md": [
+        "# A",
+        "",
+        "See [why](/docs/a/#why), [gone](/docs/gone/) and [no anchor](/docs/a/#nowhere).",
+        "",
+        "![A shot](/shot.png) ![Missing](/missing.png) [GitHub](https://github.com/x)",
+        "",
+        "Inline `[not](/a/link/)` code.",
+        "",
+        "```md",
+        "[nor](/this/one/)",
+        "```",
+        "",
+      ].join("\n"),
+    });
+
+    expect(await brokenLinks(root)).toEqual([
+      { page: "docs/a.md", link: "/docs/gone/" },
+      { page: "docs/a.md", link: "/docs/a/#nowhere" },
+      { page: "docs/a.md", link: "/missing.png" },
+    ]);
+  });
+
   it("leaves other origins, mail and data alone", async () => {
     await site({
       "index.html":

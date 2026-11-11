@@ -12,7 +12,8 @@ const docs = defineCollection({
   loader: glob({ pattern: "**/*.mdx", base: "./src/content/docs" }),
   schema: z.object({
     title: z.string(),
-    description: z.string(),
+    /** What the page holds, in a line. The lead, link previews and llms.txt show it. */
+    description: z.string().trim().min(1),
     section: z.enum(sections),
     /** Its place in its section. A page with none comes after those with one. */
     order: z.number().int().optional(),

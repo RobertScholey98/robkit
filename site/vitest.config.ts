@@ -31,10 +31,16 @@ export default defineConfig({
     coverage: {
       include: ["src/**/*.ts"],
       // The browser tests drive the scripts a page runs and use the test
-      // helpers. Astro reads content.config.ts as it builds, and the
-      // built-site tests check what it made. Coverage measures the code the
-      // site builds with.
-      exclude: ["src/scripts/**", "src/test/**", "src/content.config.ts"],
+      // helpers. Astro reads content.config.ts and the endpoints under
+      // src/pages as it builds, and the built-site tests check what they
+      // made. Coverage measures the code the site builds with.
+      // coverage-scope: Astro runs the endpoints under src/pages, which only hand what Astro gives them to code under src, and the built-site tests check what they wrote.
+      exclude: [
+        "src/scripts/**",
+        "src/test/**",
+        "src/content.config.ts",
+        "src/pages/**",
+      ],
       // Today's coverage, rounded down. Raise them as it rises; CI fails a
       // pull request that lowers one.
       thresholds: {
