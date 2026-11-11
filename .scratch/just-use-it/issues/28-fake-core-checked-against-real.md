@@ -26,7 +26,7 @@ This was part of ticket 26, and moved here so it wouldn't collide with milestone
 - [x] It fails if core's redirect differs from `callbackFor`, signed in or signed out, with a deliberate mismatch shown failing in the Proof
 - [x] It fails if core's app token lacks a claim a fake's has, or has another audience
 - [x] The package graph allows the test's imports, with any new edge listed
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -54,3 +54,11 @@ Order: this merges after tickets 30 and 24, which edit `packages/core`'s coverag
 ### For the docs site
 
 Nothing. This changes tests and test helpers only. An owner, a guest and an app's author see no difference.
+
+### Merged
+
+Added by the lead. PR 117 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `fd4fd552`. The lead read the diff and changed nothing.
+
+No guard, adapter or route of core's had to change for the contract test to pass, so the helpers the guards' tests use already matched real core.
+
+One thing the build found that the ticket didn't name: with each key named by its own thumbprint, a forged token no longer shares core's `kid` by accident. The two forger tests now name core's `kid` on purpose, so they still test a bad signature and not an unknown key.
