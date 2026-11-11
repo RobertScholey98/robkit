@@ -1,6 +1,12 @@
 import { readyStacks } from "create-robkit";
 import { describe, expect, it } from "vitest";
-import { missingStacks, switcherStacks, type SwitcherStack } from "./stacks.ts";
+import { readPages } from "./pages.ts";
+import {
+  guideHref,
+  missingStacks,
+  switcherStacks,
+  type SwitcherStack,
+} from "./stacks.ts";
 
 describe("switcherStacks", () => {
   it("are create-robkit's ready stacks, in its order, with their names", () => {
@@ -34,5 +40,16 @@ describe("missingStacks", () => {
     ).toBe(
       '/docs/a/ has a stack switcher with no sample for React + Go. Give it one for each, as <Fragment slot="go">.',
     );
+  });
+});
+
+describe("guideHref", () => {
+  it("leads to a docs page for each ready stack", async () => {
+    const ids = (await readPages()).map(({ id }) => id);
+
+    for (const stack of readyStacks) {
+      expect(ids).toContain(guideHref(stack).slice("/docs/".length, -1));
+    }
+    expect(guideHref("go")).toBe("/docs/build-an-app/react-go/");
   });
 });
