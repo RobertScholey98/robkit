@@ -17,6 +17,7 @@ afterAll(async () => {
 });
 
 describe.each([
+  "/docs/build-an-app/tanstack-start/",
   "/docs/build-an-app/react-hono/",
   "/docs/build-an-app/react-express/",
   "/docs/build-an-app/the-viewer-and-the-guard/",
