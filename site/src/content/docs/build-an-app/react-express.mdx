@@ -28,7 +28,7 @@ With `pnpm dev` running, in the install's folder:
 pnpm robkit add notes --stack express
 ```
 
-It asks who may open the app and which emoji the hub's launcher shows for it, then writes `apps/notes` and starts it at `http://notes.robkit.localhost:3000`. The folder's name is the app's slug. It names the subdomain, and the Postgres schema and role too.
+With `--stack` given, it asks nothing. It writes `apps/notes`, open to the owner alone and with the default icon, and starts it at `http://notes.robkit.localhost:3000`. Add `--access` and `--icon` to choose who may open it and its emoji, or leave out every option to be asked. The folder's name is the app's slug. It names the subdomain, and the Postgres schema and role too.
 
 ## What robkit add writes
 
