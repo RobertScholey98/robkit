@@ -14,7 +14,7 @@
 - [x] An export added to one of those packages and not to its page fails a test, and so does a name on the page the package no longer exports
 - [x] The Go page's names are the ones `go doc` prints, held by a test that runs where Go is installed
 - [x] The page for the rest names every other published package
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -57,3 +57,7 @@
 **What milestone 4 and ticket 26 change**
 
 - Nothing here depends on `robkit deploy` or `robkit check`. A new export or a renamed one in milestone 4 shows up in this test.
+
+### Merged
+
+Added by the lead. PR 144 merged into `docs-site` on 2026-11-11 as `71ee7ea8`, with `gate` green on `a831a8a`.
