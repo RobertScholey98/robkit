@@ -12,6 +12,8 @@
    - **On each release** (recommended). Once 0.1.0 is out, `main` runs ahead of npm. A site built from every push to `main` would describe things a reader can't install yet.
    - **On each push to `main`.** Simpler, and right until the first release. After it, the site needs a way to say which version a page describes.
 
+Every link on the site starts at `/`, so whichever host R chooses must serve the site at a domain's root, such as `robkit.dev`. A host that serves it under a path, such as GitHub Pages' default `<account>.github.io/robkit`, breaks every link until the custom domain is set.
+
 Once R answers, the lead writes a deploy ticket for the chosen host. That ticket waits for ticket 28: nothing is published before R has approved the design and the home page's words.
 
 **Blocked by:** none
