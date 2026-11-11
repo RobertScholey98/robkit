@@ -13,7 +13,7 @@ Cover what differs: Go on the `PATH` and which version, robkit's Go module in `v
 - [x] The "make it yours" steps were done in an app made from this checkout, with `go vet` and `go test` passing, and the Proof says so
 - [x] Every `go` fence passes the `gofmt` test, and the Go version on the page is read from the template
 - [x] The guide is no longer a stub
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -61,3 +61,7 @@ Cover what differs: Go on the `PATH` and which version, robkit's Go module in `v
 **What milestone 4 changed**
 
 Milestone 4 is merged. Ticket 26 still has the screenshots to take.
+
+### Merged
+
+Added by the lead. PR 132 merged into `docs-site` on 2026-11-11 as `ac88fd29`. Its own `gate` was still running on `1f92071` then. The box is ticked on PR 136's `gate`, which passed on `3b5c9ff`. PR 136 is stacked on this one and holds its commits, and the tree merged into `docs-site` equals PR 136's head.

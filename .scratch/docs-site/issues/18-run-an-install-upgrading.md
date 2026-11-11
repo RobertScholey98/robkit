@@ -12,7 +12,7 @@ Until the first release there is nothing to upgrade to, and the page says so wit
 - [x] Each refusal the page names is one the code makes
 - [x] The files the page says upgrade writes are the ones the code writes, and the Proof names where
 - [x] The install's README is among the turbo inputs of the test that reads it
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -53,3 +53,7 @@ Until the first release there is nothing to upgrade to, and the page says so wit
 - Astro's build turns `'` into `’` in prose, so a test that compares a page's sentence to a source file swaps them back first.
 - `run18.sh` and `run18b.sh` in the scratchpad swap an install's `link:` overrides for a version, so the checks a registry install gets run. Don't let one reach `pnpm install`, since nothing is on npm.
 - Ticket 26: once robkit is on npm, run a real upgrade between two published versions, and show its output and changelog on the page if they read well.
+
+### Merged
+
+Added by the lead. PR 136 merged into `docs-site` on 2026-11-11 as `42c6fe49`, with `gate` green on `3b5c9ff`.

@@ -16,7 +16,7 @@ Milestone 4 also changes how the commands find a running `pnpm dev` from another
 - [x] The removal steps were followed in an install made from this checkout, and the page says what the launcher and Postgres show afterwards
 - [x] Every option of `robkit add` on the page is one the command takes
 - [x] The comments list what tickets 24 and 34 of "Just use it" will change on these pages
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -60,3 +60,7 @@ Milestone 4 also changes how the commands find a running `pnpm dev` from another
 **What milestone 4 changed**
 
 Milestone 4 has merged. Tickets 24 and 34 of "Just use it" are in, and the page describes both: removal takes an app out of core's catalog, and the socket is in `~/.robkit/run`. Ticket 26 has nothing left to change on this page.
+
+### Merged
+
+Added by the lead. PR 133 merged into `docs-site` on 2026-11-11 as `6ecba785`. Its own `gate` failed on `c4b207c` from three create-robkit tests that passed their 30 seconds on a slow runner, which just-use-it ticket 60 fixes on `main`. The box is ticked on PR 136's `gate`, which passed on `3b5c9ff`. PR 136 is stacked on this one and holds its commits, and the tree merged into `docs-site` equals PR 136's head.

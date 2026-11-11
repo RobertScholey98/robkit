@@ -13,7 +13,7 @@ Milestone 4 may change two things here: an intro link opened by someone already 
 - [x] The page matches what admin and the hub do, checked in an install made from this checkout, and the Proof says how
 - [x] The numbers on the page are the ones `SECURITY.md` and the code give
 - [x] The comments list what tickets 27 and 29 of "Just use it" would change on the page
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -51,3 +51,7 @@ Milestone 4 may change two things here: an intro link opened by someone already 
 
 - The intro link's question moved from ticket 27 to [ticket 36](../../just-use-it/issues/36-the-hubs-sign-in-flows.md), which is done and merged. The page describes it as the code does now, and the run above saw it.
 - [Ticket 29](../../just-use-it/issues/29-access-codes-at-least-five.md) is still `needs-info`. Codes of 3 and 4 characters work today, and the page says so and warns against them. If R says yes, the page's "A code of your own is 3 to 32" becomes 5 to 32, the short-code warning becomes a sentence on what happens to an old short code, and the built-site test's `SECURITY.md` line changes with it.
+
+### Merged
+
+Added by the lead. PR 135 merged into `docs-site` on 2026-11-11 as `1ec27c28`. Its own `gate` was still running on `bc25e9f` then. The box is ticked on PR 136's `gate`, which passed on `3b5c9ff`. PR 136 is stacked on this one and holds its commits, and the tree merged into `docs-site` equals PR 136's head.
