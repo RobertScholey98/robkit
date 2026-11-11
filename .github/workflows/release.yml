@@ -50,7 +50,8 @@ jobs:
           go-version: "1.27.3"
           cache: false
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium
+      # The browser alone, as in ci.yml.
+      - run: pnpm --filter @internal/e2e exec playwright install chromium
       - run: pnpm check:all
 
   # Builds and packs every package, checks the tarballs, and hands them to

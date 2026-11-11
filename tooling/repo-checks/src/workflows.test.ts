@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { isRecord } from "@robkit/input";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
-import { unpinnedActions } from "./workflows.ts";
+import { systemPackageInstalls, unpinnedActions } from "./workflows.ts";
 
 const root = join(import.meta.dirname, "../../..");
 
@@ -51,6 +51,38 @@ describe("unpinnedActions", () => {
   });
 });
 
+describe("systemPackageInstalls", () => {
+  it("passes a step that installs the browser alone", () => {
+    expect(
+      systemPackageInstalls(
+        "ci.yml",
+        "      - run: pnpm --filter @internal/e2e exec playwright install chromium\n",
+      ),
+    ).toEqual([]);
+  });
+
+  it("passes a comment that names such a step", () => {
+    expect(
+      systemPackageInstalls(
+        "ci.yml",
+        "      # Not --with-deps, which runs apt-get install.\n",
+      ),
+    ).toEqual([]);
+  });
+
+  it.each([
+    "      - run: pnpm --filter @internal/e2e exec playwright install --with-deps chromium\n",
+    "      - run: npx playwright install-deps chromium\n",
+    "      - run: sudo apt-get install -y fonts-unifont\n",
+    "        run: sudo apt-get update && sudo apt-get -y install jq\n",
+    "      - run: sudo apt install -y jq\n",
+  ])("fails `%s`", (line) => {
+    expect(systemPackageInstalls("ci.yml", `jobs:\n${line}`)).toEqual([
+      `ci.yml line 2 installs a system package: ${line.trim().replace(/^- /, "")}. Those come from Ubuntu's mirrors, and the run fails when the runner can't reach them. The runner's image has the libraries Chromium needs, so install the browser alone, with playwright install chromium.`,
+    ]);
+  });
+});
+
 describe("the repo's and the template's workflows", () => {
   it("are found", () => {
     expect(workflows).toContain(".github/workflows/ci.yml");
@@ -62,6 +94,14 @@ describe("the repo's and the template's workflows", () => {
   it("name every action by commit", () => {
     expect(
       workflows.flatMap((path) => unpinnedActions(path, read(path))),
+    ).toEqual([]);
+  });
+
+  // On 2026-11-11 GitHub's runners couldn't resolve Ubuntu's mirrors for
+  // over two hours, and every run failed at playwright install --with-deps.
+  it("install no system package, so a run doesn't need Ubuntu's mirrors", () => {
+    expect(
+      workflows.flatMap((path) => systemPackageInstalls(path, read(path))),
     ).toEqual([]);
   });
 
