@@ -65,19 +65,27 @@ async function openPage(path: string) {
 }
 
 describe("networkIdle", () => {
-  it("is a page Playwright's own networkidle never reaches", async () => {
-    // Playwright fires networkidle in the quiet gap, then load takes it
-    // back after the late script, and nothing fires it again. If this
-    // starts passing, Playwright has fixed it and networkIdle can go.
-    const { browser, page } = await openPage("/late");
-    try {
-      await expect(
-        page.waitForLoadState("networkidle", { timeout: 3_000 }),
-      ).rejects.toThrow("Timeout 3000ms exceeded");
-    } finally {
-      await browser.close();
-    }
-  });
+  // Playwright fires networkidle in the quiet gap, then load takes it back
+  // after the late script, and nothing fires it again. If this starts
+  // passing, Playwright has fixed it and networkIdle can go.
+  //
+  // Whether the gap falls where the bug needs it depends on timing, and a
+  // busy CI runner missed it once, on 2026-11-11. So it gets three more
+  // tries. A Playwright that has fixed the bug fails all four.
+  it(
+    "is a page Playwright's own networkidle never reaches",
+    { retry: 3 },
+    async () => {
+      const { browser, page } = await openPage("/late");
+      try {
+        await expect(
+          page.waitForLoadState("networkidle", { timeout: 3_000 }),
+        ).rejects.toThrow("Timeout 3000ms exceeded");
+      } finally {
+        await browser.close();
+      }
+    },
+  );
 
   it("resolves on that page once its late script has run", async () => {
     const { browser, page } = await openPage("/late");
