@@ -3,11 +3,14 @@ import { once } from "node:events";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import {
   build,
   resolveConfig,
   type BuildEnvironmentOptions,
+  type InlineConfig,
   type Plugin,
+  type PluginOption,
 } from "vite";
 import { robkit } from "./index.ts";
 import {
@@ -29,10 +32,14 @@ afterEach(() => {
 
 /**
  * A resolved config's settings, without the functions in it, which differ
- * between two resolves of the same config.
+ * between two resolves of the same config, or its lists of plugins.
  */
 function settled(config: object): unknown {
-  return JSON.parse(JSON.stringify(config));
+  return JSON.parse(
+    JSON.stringify(config, (key, value: unknown) =>
+      key === "plugins" ? undefined : value,
+    ),
+  );
 }
 
 describe("robkit()", () => {
@@ -76,6 +83,48 @@ describe("robkit()", () => {
       );
     },
   );
+
+  it.each<[string, Record<string, string>, InlineConfig, () => Plugin]>([
+    ["the hub", {}, {}, () => robkit({ guarded: false })],
+    [
+      "a React + Go app",
+      {},
+      { build: { outDir: "dist/public" } },
+      () => robkit(),
+    ],
+    [
+      "a Start app",
+      {
+        "src/router.tsx": "export {};\n",
+        "src/routes/__root.tsx": "export {};\n",
+      },
+      { plugins: [tanstackStart({ router: { addExtensions: true } })] },
+      () => robkit(),
+    ],
+  ])("leaves %s's build as it was", async (_, files, own, plugin) => {
+    const root = await appFolder(files);
+    const buildConfig = async (plugins: PluginOption[]) => {
+      const config = await resolveConfig(
+        {
+          ...own,
+          root,
+          configFile: false,
+          logLevel: "silent",
+          plugins: [...plugins, ...(own.plugins ?? [])],
+        },
+        "build",
+      );
+      return settled({
+        build: config.build,
+        environments: config.environments,
+      });
+    };
+
+    const without = await buildConfig([]);
+    const withIt = await buildConfig([plugin()]);
+
+    expect(withIt).toEqual(without);
+  });
 
   it("checks nothing for a build", async () => {
     settings({ ROBKIT_APP: undefined, ROBKIT_CORE_URL: undefined });
