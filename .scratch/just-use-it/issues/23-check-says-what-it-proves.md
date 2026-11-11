@@ -21,7 +21,7 @@ A medium-effort worker builds this. The words above are the decision. Don't wide
 - [x] `SECURITY.md` says what the check proves, names the role, the token's audience and the container's environment as the boundaries, and lists the known ways past the lint
 - [x] The install's `AGENTS.md` describes the check as a lint, in the same words
 - [x] No doc says an app's image holds only its own files
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -68,3 +68,14 @@ For the docs site:
 - An owner: a new install's `AGENTS.md` lists that fifth rule, and says the check is a lint, not a boundary. It names the three things that hold an app: its database role, its app token's audience, and its container's environment. It says an app's image isn't one of them, because `turbo prune` brings in every workspace package the app's `package.json` names.
 - The layer rule page (docs-site ticket 10) should say the check is a lint, name the three boundaries, and list the known ways past it. The command reference (ticket 20) should add the new refusal.
 - A guest sees nothing different.
+
+### Merged
+
+Added by the lead. PR 102 merged into `m4-nothing-skipped` on 2026-11-11, with `gate` green on `b3a9d7c`. The build's own full gate in WSL passed 75 of 77 tasks. `@robkit/dev` and `@internal/e2e` timed out there under the machine's load, and passed alone.
+
+Reading the diff, the lead found two ways past the lint that the list left out, and added them to `SECURITY.md` after the merge:
+
+- A symlinked file. The check reads it, but works out its relative imports from the link's folder (`usesIn` joins the specifier to the link's path), and Node resolves them from the real file's.
+- A folder's name in another case, such as `./Dist/server.js`, on a file system that ignores case. `skips` matches a name exactly, and the scan skips the folder under the name it has on disk.
+
+Both stay open: the check is a lint. The docs site's layer rule page takes its list from `SECURITY.md`.
