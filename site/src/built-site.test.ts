@@ -838,6 +838,24 @@ describe("the built pages' images", () => {
 });
 
 describe("the pre-release line", () => {
+  /** The pre-release line's words on a built page, its link as written. */
+  const line = async (page: string) =>
+    /<div data-pre-release>[\s\S]*?<p>([\s\S]*?)<\/p>\s*<\/div>/.exec(
+      await built(page),
+    )?.[1];
+
+  it.skipIf(!preRelease)(
+    "sends a reader to the quickstart, but on the quickstart to the steps below",
+    async () => {
+      expect(await line("docs/reference/npm-create-robkit/index.html")).toMatch(
+        /which needs git\. <a href="\/docs\/get-started\/quickstart\/#make-an-install">The quickstart<\/a> shows how\.$/,
+      );
+      expect(await line("docs/get-started/quickstart/index.html")).toMatch(
+        /which needs git\. The steps below show how\.$/,
+      );
+    },
+  );
+
   it("is on each page that shows npm create robkit while preRelease is on, and on none when it's off", async () => {
     const pages: { page: string; shows: boolean; line: boolean }[] = [];
     for await (const page of glob("**/*.html", {
