@@ -1,7 +1,9 @@
+import { testDefaults } from "@internal/vitest-config";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    ...testDefaults,
     coverage: {
       include: ["src/**"],
       // Type tests run in the typechecker, and src/test holds test helpers.

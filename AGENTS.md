@@ -24,7 +24,7 @@ pnpm --filter @internal/e2e test:production  # the default install in Docker ove
 ## Where things are
 
 - `packages/` holds the published packages: `create-robkit` and `@robkit/*`. Each README says what the package is for, gives an example, and lists its exports and its layer rule. Where a package's code needs more explaining, its README ends with a "For contributors" section.
-- `tooling/` holds private workspace packages: the shared tsconfig and ESLint config; repo checks that run as tests; a per-suite test Postgres; `@internal/test-session`, which signs session tokens, runs a fake core for the guard's and adapters' tests, and builds branded values for tests; and the whole-stack test.
+- `tooling/` holds private workspace packages: the shared tsconfig, ESLint config and Vitest settings (`@internal/vitest-config`: no git identity of the machine's own, and 30 seconds for `expect.poll`); repo checks that run as tests; a per-suite test Postgres; `@internal/test-session`, which signs session tokens, runs a fake core for the guard's and adapters' tests, and builds branded values for tests; and the whole-stack test.
 
 ## Docs
 

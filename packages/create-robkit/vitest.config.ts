@@ -1,7 +1,9 @@
+import { testDefaults } from "@internal/vitest-config";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    ...testDefaults,
     // Most tests spend their time waiting on a process they spawned or on
     // files they write, so the tests in a file run side by side. A test
     // that shares an install only reads it.

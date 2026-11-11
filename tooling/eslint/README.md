@@ -53,7 +53,7 @@ Apart from the rows, the rule fails a relative import that leaves its workspace,
 
 ## The package graph
 
-`package-graph.js` lists which workspace package may depend on which. Each package has two lists: `dependencies`, what its runtime code may import, and `devDependencies`, what only its tests, `src/test` helpers and config may import. Any package may take the shared ESLint and TypeScript configs (`toolchain`) without an edge.
+`package-graph.js` lists which workspace package may depend on which. Each package has two lists: `dependencies`, what its runtime code may import, and `devDependencies`, what only its tests, `src/test` helpers and config may import. Any package may take the shared ESLint, TypeScript and Vitest configs (`toolchain`) without an edge.
 
 ### Add an edge
 
