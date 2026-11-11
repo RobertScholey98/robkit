@@ -217,3 +217,22 @@ Two reviewers read the first 19 tickets at `963c38be`, alone and without editing
 - **Leave the samples page out of the published site (Opus).** The browser tests read the build that is published. A second build without the page would mean publishing a site no test opened. The page is `noindex` and out of the navigation, the sitemap, search and `llms.txt`.
 - **Reach the usage text by running `robkit` with an unknown command (Opus, as one of two ways).** The export is simpler to hold a test to.
 - **Hold the screenshots until milestone 4's hub changes land (both).** They are taken now, so the home page and the quickstart can be read, and taken again in ticket 26.
+
+## The code round, 2026-11-11
+
+The same two reviewers read the finished site at `8997ccb0`, alone and without editing, with the built site and 137 screenshots. Sol 6.1 gave it 8 out of 10 and Opus 5.5 gave it 7. Both said not to merge unchanged. R capped the council at one round, so no second round followed.
+
+[Ticket 29](issues/29-the-councils-findings.md) fixed what the round found, in pull request 151. Its description holds every finding in a table, with the file the lead read for each. Of 39 findings, 33 were fixed and 6 weren't taken.
+
+`docs-site` merged to `main` on 2026-11-11 as `43221e7c`, in pull request 152. Nothing is published. Tickets 27 and 28 wait for R.
+
+**Not taken**, each raised by one reviewer
+
+- **Move the quickstart's "if it fails" notes below the steps (Sol).** They sit at the step that fails, where a stuck reader looks.
+- **Retake the screenshots cropped closer (Opus).** It needs new pictures. Ticket 28 now asks R.
+- **Rank search results (Opus).** The right page is on the first screen of results.
+- **Run the glossary check over the components' prose (Opus).** The components hold a few fixed sentences, read in review.
+- **Upload the built site before the coverage step (Opus).** A failed run's site shouldn't pass for the branch's site.
+- **Show a rejected promise in the Start guide's form (Sol, as a note).** The guide's example stays short, and the template's own card shows how.
+
+One part of a finding that was taken isn't fixed. Inline code such as `--roles` can still wrap after its dashes on a phone.
