@@ -1,0 +1,147 @@
+---
+// How a sign-in becomes an app token, drawn in the style guide's tokens so
+// it follows the theme. The numbered list after it on "How it works" says
+// each step in words; `steps` here holds the same numbers.
+
+/** The four parts the browser moves between, left to right. */
+const lanes = [
+  { name: "Browser", x: 40 },
+  { name: "App", x: 140 },
+  { name: "Hub", x: 230 },
+  { name: "Core", x: 320 },
+] as const;
+
+type Lane = (typeof lanes)[number]["name"];
+
+/** Each step: where the browser goes from and to, and a short label. */
+const steps: { from: Lane; to: Lane; label: string }[] = [
+  { from: "Browser", to: "App", label: "open" },
+  { from: "App", to: "Core", label: "/refresh, no token" },
+  { from: "Core", to: "App", label: "nobody signed in" },
+  { from: "App", to: "Hub", label: "sign in" },
+  { from: "Hub", to: "Core", label: "code" },
+  { from: "Core", to: "Hub", label: "session" },
+  { from: "Hub", to: "App", label: "back" },
+  { from: "App", to: "Core", label: "/refresh again" },
+  { from: "Core", to: "App", label: "app token" },
+  { from: "App", to: "Browser", label: "the page" },
+];
+
+const xOf = (lane: Lane) => lanes.find(({ name }) => name === lane)?.x ?? 0;
+const top = 48;
+const gap = 30;
+const rowY = (index: number) => top + 30 + index * gap;
+const bottom = rowY(steps.length - 1) + 20;
+---
+
+<figure class="diagram">
+  <svg
+    viewBox={`0 0 360 ${String(bottom + 8)}`}
+    role="img"
+    aria-labelledby="sign-in-diagram-title sign-in-diagram-desc"
+  >
+    <title id="sign-in-diagram-title">From sign-in to an app token</title>
+    <desc id="sign-in-diagram-desc">
+      Ten numbered steps between the browser, an app, the hub and core. The
+      browser opens the app, whose guard sends it to core, which finds nobody
+      signed in, so the guard sends it to the hub. The browser signs in at the
+      hub, core starts a session, and the hub sends the browser back to the app.
+      The guard sends it to core again, core mints an app token for that app,
+      and the app serves the page.
+    </desc>
+    <defs>
+      <marker
+        id="sign-in-arrow"
+        viewBox="0 0 8 8"
+        refX="7"
+        refY="4"
+        markerWidth="8"
+        markerHeight="8"
+        orient="auto"
+      >
+        <path class="head" d="M0 0 8 4 0 8Z"></path>
+      </marker>
+    </defs>
+
+    {lanes.map(({ name, x }) => (
+      <g>
+        <rect class="box" x={x - 34} y="8" width="68" height="30" rx="6" />
+        <text class="name" x={x} y="28">
+          {name}
+        </text>
+        <path
+          class="life"
+          d={`M${String(x)} ${String(top - 10)}V${String(bottom)}`}
+        />
+      </g>
+    ))}
+
+    {steps.map(({ from, to, label }, index) => {
+      const [x1, x2] = [xOf(from), xOf(to)];
+      const y = rowY(index);
+      const toward = x2 > x1 ? -3 : 3;
+      return (
+        <g>
+          <path
+            class="line"
+            d={`M${String(x1)} ${String(y)}H${String(x2 + toward)}`}
+            marker-end="url(#sign-in-arrow)"
+          />
+          <text class="note" x={(x1 + x2) / 2} y={y - 6}>
+            {`${String(index + 1)} ${label}`}
+          </text>
+        </g>
+      );
+    })}
+  </svg>
+</figure>
+
+<style>
+  .diagram {
+    max-width: 30rem;
+    margin: 1.5rem 0;
+  }
+
+  svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-mono);
+  }
+
+  .box {
+    fill: var(--color-surface);
+    stroke: var(--color-border-control);
+    stroke-width: 1;
+  }
+
+  .name {
+    fill: var(--color-text);
+    font-size: 13px;
+    font-weight: 600;
+    text-anchor: middle;
+  }
+
+  .note {
+    fill: var(--color-muted);
+    font-size: 11px;
+    text-anchor: middle;
+  }
+
+  .life {
+    fill: none;
+    stroke: var(--color-border-control);
+    stroke-width: 1;
+    stroke-dasharray: 2 4;
+  }
+
+  .line {
+    fill: none;
+    stroke: var(--color-muted);
+    stroke-width: 1.5;
+  }
+
+  .head {
+    fill: var(--color-muted);
+  }
+</style>

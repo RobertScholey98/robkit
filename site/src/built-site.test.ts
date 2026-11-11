@@ -390,6 +390,33 @@ describe("the built glossary", () => {
   });
 });
 
+describe("the built page on how it works", () => {
+  const page = "docs/concepts/how-it-works/index.html";
+
+  it("draws the sign-in as an image with a text alternative, and lists each step it numbers", async () => {
+    const html = await built(page);
+    const svg = /<svg[^>]*role="img"[\s\S]*?<\/svg>/.exec(html)?.[0] ?? "";
+    const [labelledBy = ""] =
+      /aria-labelledby="([^"]+)"/.exec(svg)?.slice(1) ?? [];
+    const alternative = labelledBy
+      .split(" ")
+      .map((id) =>
+        new RegExp(`id="${id}"[^>]*>([^<]+)<`).exec(svg)?.[1]?.trim(),
+      );
+    const arrows = svg.match(/marker-end=/g) ?? [];
+    const steps =
+      /<ol>([\s\S]*?)<\/ol>/
+        .exec(html.slice(html.indexOf(svg)))?.[1]
+        ?.match(/<li>/g) ?? [];
+
+    expect(alternative).toHaveLength(2);
+    expect(alternative[0]).toBe("From sign-in to an app token");
+    expect(alternative[1]).toMatch(/^Ten numbered steps between the browser/);
+    expect(arrows).toHaveLength(10);
+    expect(steps).toHaveLength(arrows.length);
+  });
+});
+
 describe("the built page on security", () => {
   const page = "docs/concepts/security/index.html";
   const security = () => readFile(join(repoRoot, "SECURITY.md"), "utf8");
