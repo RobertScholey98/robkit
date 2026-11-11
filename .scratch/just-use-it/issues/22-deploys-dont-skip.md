@@ -102,3 +102,17 @@ For the docs site:
 - The install's `.github/workflows/ci.yml` cancels in-progress runs for pull requests only and sets no `TURBO_SCM_BASE`. The first deploy after the upgrade deploys every app.
 
 Not proved here: the tests run against `src/test/fake-coolify.ts`, and the command hasn't run against a real Coolify. That a core started with the new `ROBKIT_DATABASES` gives the app its role is core's provision step, which these tests don't run.
+
+### From the lead's read of PR 104, 2026-11-11
+
+Four fixes, built in a second PR:
+
+- **A checkout ahead of the branch records a build that never happened.** Coolify builds the branch as GitHub holds it, so `robkit deploy` now runs only when some remote's copy of `coolify.json`'s branch (`refs/remotes/<remote>/<branch>`) has the checkout's commit as an ancestor. Otherwise it stops before it reaches Coolify and says to push. A remote ahead of the checkout passes. CI passes: with `fetch-depth: 0`, `actions/checkout` sets `refs/remotes/origin/main` to the pushed commit and checks out from it (`src/ref-helper.ts`, `src/git-source-provider.ts`). Chosen in the build: `--dry-run` with credentials refuses too, since its reasons compare against a commit Coolify wouldn't build.
+- **Fail closed when Coolify doesn't say which environment.** `environment_id` and the environment's id are compared as strings. If any listed application has no `environment_id`, robkit deploy stops before any write and says it needs Coolify 4.3 or later. Before, such an application matched nothing, so robkit deploy would have created a duplicate.
+- **The hold-back comment in `deploy()`** now says no app deploys in a run where core's deploy failed.
+- **The template's `ci.yml` concurrency comment** said every run on main finishes. A run in progress does. A run still waiting is replaced when a newer push queues behind it, as GitHub does in any concurrency group (default `queue: single`), and the newer run deploys each app from its record. The changeset and `docs/deploy.md` made no wrong claim.
+
+For the docs site:
+
+- From a commit not pushed: `Coolify builds <branch> as GitHub holds it, not this checkout, so robkit deploy runs only from a commit pushed to <branch>. From any other it would record a build that never happened. This checkout's commit, 1a2b3c4, isn't on <branch> at any remote. Push it, or fetch if it's pushed already, then deploy again.` The usage text and `docs/deploy.md` say it runs only from a pushed commit.
+- From a Coolify that lists an application without its environment: `Coolify listed an application without the environment it belongs to, so robkit deploy can't tell which applications are this install's, and wrote nothing. It needs Coolify 4.3 or later.`
