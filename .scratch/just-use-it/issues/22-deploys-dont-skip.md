@@ -21,27 +21,27 @@
 
 **Blocked by:** 02, 12
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A deploy re-run after core failed on the first try deploys core, and the new app's role exists afterwards
-- [ ] An existing core whose last deploy failed after its variables were saved is deployed again on the re-run
-- [ ] An existing app that gains a `migrate` script deploys core
-- [ ] A push after a failed or cancelled run deploys the apps the earlier push changed, whatever `TURBO_SCM_BASE` says
-- [ ] When the branch moves during a deploy, the run after it deploys the app again and leaves core's settings matching it
-- [ ] An app whose recorded commit is no longer in history deploys, and so does one whose record is missing or can't be read
-- [ ] A failed, cancelled or timed-out deploy leaves the application's record as it was
-- [ ] When saving a record fails, the command fails and the next run deploys that app
-- [ ] When core's settings can't be saved or core's deploy fails, no app deploys and the output names the apps held back
-- [ ] With a shared variable missing on the host, `robkit deploy` names it, prints no value and deploys nothing
-- [ ] An application in another environment with the same name is neither changed nor reported
-- [ ] Deleting an app's folder deploys core with the shorter `ROBKIT_APPS`, and names the app's application as matching no app
-- [ ] Core's saved variables hold no `ROBKIT_DOMAIN`, and `robkit deploy` sends no call that deletes or replaces a variable it didn't set
-- [ ] `--dry-run` with credentials names each app's action and reason and sends Coolify no write. Without them it prints the variables and says the reasons need the host
-- [ ] The template's workflow cancels in-progress runs for pull requests and never for `main`, and sets no `TURBO_SCM_BASE`
-- [ ] `docs/deploy.md` states the TLS requirement and the one arrangement supported, and says how to delete a removed app's application
-- [ ] The changeset names `create-robkit`, and says what to change in an existing install's `ci.yml` and that the first deploy afterwards deploys every app
-- [ ] The PR lists each Coolify API call with where it was read, and says the command hasn't run against a real Coolify
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] A deploy re-run after core failed on the first try deploys core, and the new app's role exists afterwards
+- [x] An existing core whose last deploy failed after its variables were saved is deployed again on the re-run
+- [x] An existing app that gains a `migrate` script deploys core
+- [x] A push after a failed or cancelled run deploys the apps the earlier push changed, whatever `TURBO_SCM_BASE` says
+- [x] When the branch moves during a deploy, the run after it deploys the app again and leaves core's settings matching it
+- [x] An app whose recorded commit is no longer in history deploys, and so does one whose record is missing or can't be read
+- [x] A failed, cancelled or timed-out deploy leaves the application's record as it was
+- [x] When saving a record fails, the command fails and the next run deploys that app
+- [x] When core's settings can't be saved or core's deploy fails, no app deploys and the output names the apps held back
+- [x] With a shared variable missing on the host, `robkit deploy` names it, prints no value and deploys nothing
+- [x] An application in another environment with the same name is neither changed nor reported
+- [x] Deleting an app's folder deploys core with the shorter `ROBKIT_APPS`, and names the app's application as matching no app
+- [x] Core's saved variables hold no `ROBKIT_DOMAIN`, and `robkit deploy` sends no call that deletes or replaces a variable it didn't set
+- [x] `--dry-run` with credentials names each app's action and reason and sends Coolify no write. Without them it prints the variables and says the reasons need the host
+- [x] The template's workflow cancels in-progress runs for pull requests and never for `main`, and sets no `TURBO_SCM_BASE`
+- [x] `docs/deploy.md` states the TLS requirement and the one arrangement supported, and says how to delete a removed app's application
+- [x] The changeset names `create-robkit`, and says what to change in an existing install's `ci.yml` and that the first deploy afterwards deploys every app
+- [x] The PR lists each Coolify API call with where it was read, and says the command hasn't run against a real Coolify
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -75,3 +75,30 @@ Not taken:
 - **Pin each deploy to the checkout's commit and verify what Coolify built (Sol).** Coolify's deploy call takes no commit. Pinning means setting the commit on the application, which changes what Coolify's own Redeploy button builds, and no test here can see whether a build honours it. The record makes the next run repair a mismatch instead.
 - **Support Coolify's own certificates with a setting (Sol).** That is a new arrangement to build and test, not a fix. The runbook says it isn't supported, and the map lists it.
 - **R runs a deploy against a real Coolify before this merges (Opus).** A worker's PR can't wait on that. The PR says what wasn't proved, and R's first deploy, with `--dry-run` first, is the test. The lead tells R.
+
+### From the build, 2026-11-11
+
+Chosen in the build:
+
+- **The record is in the application's description.** Coolify 4.7.5's `PATCH /applications/{uuid}` accepts `description` (up to 255 characters of letters, digits, spaces and `-_.,!?()'"+=*@/&`), and `GET /applications` returns it. Coolify's deployment configuration snapshot (`ApplicationConfigurationSnapshot.php`) covers source, build, runtime, domains, variables and storage, not the description, so writing it neither changes what the container runs nor marks the app as having changes to deploy. A `ROBKIT_DEPLOYED` variable would do both. The record reads `robkit deployed commit <sha> with variables <sha256>`. robkit replaces whatever the description held, and the runbook says to leave it alone.
+- **The hash covers each variable's key, value and build-time flag, sorted by key.** A value that refers to a shared variable holds its name, so no secret goes into it.
+- **Only this install's applications:** those whose `environment_id` is the configured environment's id, from `GET /projects/{uuid}/environments`, and whose repository is the install's.
+- **Shared variables come from `GET /projects/{uuid}/environments/{name}/envs`**, which Coolify has had since 4.3. robkit reads each `key` alone. A token with `read:sensitive` also gets values, and none is printed. The runbook says robkit deploy needs Coolify 4.3 or later.
+- **"Gone from history" means not an ancestor of the commit robkit runs from** (`git merge-base --is-ancestor`), not only missing. A commit a force push left behind in a local clone would otherwise hide what the force push took out.
+- **`--apps` deploys the apps named, each new app, and core when its record doesn't show the variables it is about to get** (missing, unreadable or a different hash). Before, `--apps` deployed core when an app was new, so core still gives a new or changed app its database.
+- **No record is written for an app that was skipped.** Its record stays at the commit of its last finished deploy, and turbo compares from there.
+- **robkit deploy needs a git checkout now, even with `--all`**, since each record names a commit. Outside one it says so before it reaches Coolify.
+- **A failed save of core's record doesn't hold the apps back**, since core runs. The command still fails.
+
+For the docs site:
+
+- `robkit deploy`'s usage text changed: it deploys each app that is new, changed since the commit its last finished deploy recorded, or getting new variables. `--dry-run` with `COOLIFY_URL` and `COOLIFY_TOKEN` reads Coolify, writes nothing, and prints a table of each app's action and reason (`new on Coolify`, `no record of a finished deploy`, `its record can't be read`, `changed since 1a2b3c4`, `its variables changed since 1a2b3c4`, `1a2b3c4 is no longer in the branch's history`, `unchanged since 1a2b3c4`, `--all`, `named with --apps`, `not named with --apps`), then `This was a dry run, so nothing was written to Coolify.` Without them it prints the variables as before, then `Set COOLIFY_URL and COOLIFY_TOKEN to see which apps would deploy and why: the reasons need the host.`
+- A missing shared variable stops the deploy before any write: `Coolify's <environment> environment lacks shared variables the apps need, so nothing was deployed:`, one line per variable with where its value comes from, then `Add each to the environment's shared variables in Coolify, then deploy again.`
+- An application that matches no app: `- <project>-<slug> matches no app in this install, so robkit deploy left it alone. To remove it, see "Removing an app's application" in docs/deploy.md.`
+- A failed core: `- <slug>: held back, since core didn't deploy` for each app. A record that wasn't saved: `- <slug>: deployed, but its record wasn't saved, so the next deploy deploys it again: ...`
+- Outside a git checkout: `robkit deploy runs from the install's git checkout, and git couldn't name its commit: ... Run it in the install's repository.`
+- Each application's description on Coolify holds robkit's record. Core no longer gets `ROBKIT_DOMAIN`.
+- The install's `docs/deploy.md` gains "TLS in front of Coolify", "Which apps deploy" and "Removing an app's application" (ticket 24's "Removing an app" can link the last), says robkit deploy needs Coolify 4.3 or later, and its dry run line changed.
+- The install's `.github/workflows/ci.yml` cancels in-progress runs for pull requests only and sets no `TURBO_SCM_BASE`. The first deploy after the upgrade deploys every app.
+
+Not proved here: the tests run against `src/test/fake-coolify.ts`, and the command hasn't run against a real Coolify. That a core started with the new `ROBKIT_DATABASES` gives the app its role is core's provision step, which these tests don't run.

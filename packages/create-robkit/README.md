@@ -193,13 +193,14 @@ React + Go (stacks ticket 03) is the stack whose server isn't Node, and it diffe
 
 The package's second command, `robkit`, runs in an install, which takes create-robkit as a dev dependency.
 
-- `robkit check` is the install's layer rule, and the install's `lint` script runs it.
+- `robkit check` is the install's layer rule, and the install's `lint` script runs it. It is a lint, not a boundary: `SECURITY.md` says what holds an app, and lists the known ways past the check. It skips `node_modules`, `dist`, `build`, dot-folders and symlinked folders, and refuses a relative import into one, looking at each folder along the target's path on disk.
 - `pnpm robkit add` adds an app. `addApp` in `src/add.ts` writes `apps/<slug>` on any ready stack, through the same `appFiles` the generator mounts the example with, or from the install's own `robkit/templates/<stack>` folder, which replaces robkit's template whole and whose files that aren't UTF-8 text keep their bytes. It writes files only. The generator catalogs every stack's dependencies, so an added app needs no new versions.
 - `writeApp` in `src/write.ts` builds the app's folder in the install's `.robkit/`, which its `.gitignore` names, and renames it into `apps/` once every file is written. The runner and pnpm both read every folder in `apps/`, so a failed add leaves nothing there. In an install with its dependencies in, add then runs `pnpm install`, and then asks a running `pnpm dev` to start the app with `askDev` from `@robkit/dev/cli`, printing the address or the problem it answers with.
 - `--icon` and the wizard's icon question check the icon with `readAppManifest`, so a bad one fails at once with the manifest's message.
 - `robkit vendor` packs the packages a linked install uses, and the robkit packages those run on, into its `vendor/robkit`, and copies robkit's Go module to `vendor/robkit/go`, so it builds without the checkout until the packages are on npm.
 - `robkit database-urls` prints each app's production `DATABASE_URL`.
-- `robkit deploy` deploys the install to Coolify. `src/coolify-config.ts` reads `coolify.json`, `src/coolify-api.ts` makes each request to Coolify, `src/coolify-deploy.ts` syncs the apps and deploys them in order, and `deploymentOf` in `src/deployment.ts` works out each app's variables.
+- `robkit deploy` deploys the install to Coolify. `src/coolify-config.ts` reads `coolify.json`, `src/coolify-api.ts` makes each request to Coolify, `src/coolify-host.ts` reads the host before anything is written, `src/coolify-record.ts` writes and reads the record a finished deploy leaves in each application's description, `src/affected-apps.ts` asks git and turbo what changed since a recorded commit, `src/coolify-deploy.ts` decides which apps deploy, syncs them and deploys core before the rest, and `deploymentOf` in `src/deployment.ts` works out each app's variables.
+- `src/test/fake-coolify.ts` stands in for Coolify in the tests. It is a reading of Coolify's API and source, not a proof of it: read the real route before you make the fake answer a new call. Each route the command calls names its source in a comment there.
 
 ### The UI kit
 
