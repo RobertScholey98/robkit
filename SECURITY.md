@@ -106,6 +106,8 @@ The known ways past the lint:
 - `createRequire`.
 - An alias: tsconfig `paths`, a Vite `resolve.alias`, or a `package.json` `imports` entry.
 - An absolute path, or a `file:` specifier.
+- A symlinked file. The check reads the file, but works out its relative imports from the link's folder, and Node resolves them from the real file's.
+- A folder's name in another case, such as `./Dist/server.js`, on a file system that ignores case, as macOS's does by default.
 - A cookie name built from pieces, such as `"robkit_" + "session"`.
 
 ### robkit's own packages skip pnpm's one-day wait
