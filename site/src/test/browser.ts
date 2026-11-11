@@ -4,6 +4,7 @@
 
 import { join } from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
+import { onTestFinished } from "vitest";
 import { repoRoot } from "../repo.ts";
 import { serveSite } from "./serve.ts";
 
@@ -21,8 +22,16 @@ export async function openSite(): Promise<Site> {
     origin: server.origin,
     browser,
     close: async () => {
+      // Each test closes what it opened. A context left open costs memory
+      // for the rest of the run, which made a run of every page take minutes.
+      const left = browser.contexts().length;
       await browser.close();
       await server.close();
+      if (left > 0) {
+        throw new Error(
+          `${String(left)} browser contexts were left open. Open pages with openPage, which closes each one when its test ends.`,
+        );
+      }
     },
   };
 }
@@ -42,7 +51,7 @@ export interface Opened {
   requests: string[];
 }
 
-/** Opens `path` in a fresh context set up as `view` says. */
+/** Opens `path` in a fresh context set up as `view` says, closed when the test ends. */
 export async function openPage(
   site: Site,
   path: string,
@@ -60,6 +69,7 @@ export async function openPage(
     reducedMotion: reducedMotion ? "reduce" : "no-preference",
     javaScriptEnabled: scripts,
   });
+  onTestFinished(() => context.close());
   if (stored !== undefined) {
     await context.addInitScript((value) => {
       localStorage.setItem("robkit-theme", value);
