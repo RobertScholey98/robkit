@@ -1,7 +1,9 @@
+import { testDefaults } from "@internal/vitest-config";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    ...testDefaults,
     coverage: {
       include: ["src/**"],
       // Today's coverage, rounded down. Raise them as it rises; CI fails a

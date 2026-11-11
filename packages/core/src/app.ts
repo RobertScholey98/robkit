@@ -22,6 +22,7 @@ import { defaultSignInLimits, type SignInLimits } from "./sign-in-limits.ts";
 import { statusRoutes } from "./routes/status.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 import { createPasswordChecker } from "./password.ts";
+import { withoutQueryValues } from "./query-values.ts";
 
 export interface CoreOptions {
   db: Database;
@@ -41,7 +42,8 @@ export interface CoreOptions {
   /**
    * Where core reports what it can't answer usefully: an unexpected error in
    * a route, or the database being unreachable. Defaults to
-   * `reportToConsole`.
+   * `reportToConsole`. A database error reaches it without its query's
+   * values.
    */
   logError?: Report;
   /**
@@ -85,6 +87,8 @@ export function createApp({
   signingKey: loaded,
   signInLimits,
 }: CoreOptions): Hono {
+  // The one reporter onError and every route use.
+  const report = withoutQueryValues(logError);
   const app = new Hono();
   // Hono's own answer to a route that throws. The cause stays in core's log
   // and the caller gets a generic error, with a request id that finds the
@@ -92,7 +96,7 @@ export function createApp({
   app.onError((error, c) => {
     if (error instanceof HTTPException) return error.getResponse();
     const requestId = randomUUID();
-    logError(
+    report(
       `${c.req.method} ${c.req.path} failed (request ${requestId}).`,
       error,
     );
@@ -161,13 +165,13 @@ export function createApp({
       atOnce: limits.passwordChecksAtOnce,
       waiting: limits.passwordChecksWaiting,
       onFull: () => {
-        logError(
+        report(
           `Password checks: ${String(limits.passwordChecksAtOnce)} running and ${String(limits.passwordChecksWaiting)} waiting, the most core allows. Core answers more 429 until one finishes.`,
         );
       },
     }),
     trustedProxy,
-    logError,
+    logError: report,
     signInLimits: limits,
   };
   app.route("/", statusRoutes(context));

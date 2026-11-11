@@ -119,6 +119,96 @@ describe("the launcher", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
+  describe("while open", () => {
+    let session: object;
+    let reachable: boolean;
+
+    beforeEach(() => {
+      // Only the launcher's poll runs on fake time; the rest of the page
+      // keeps real time.
+      vi.useFakeTimers({
+        toFake: ["setInterval", "clearInterval"],
+        shouldAdvanceTime: true,
+      });
+      session = guest;
+      reachable = true;
+      const answer = fakeCore(core, {
+        "GET /session": () => ({ body: session }),
+        "GET /launcher": () => ({
+          body: { apps: [{ slug: "example", name: "example", icon: null }] },
+        }),
+      });
+      vi.stubGlobal("fetch", (input: RequestInfo | URL, init?: RequestInit) =>
+        reachable
+          ? answer(input, init)
+          : Promise.reject(new TypeError("Failed to fetch")),
+      );
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("shows the sign-in page within a poll of signing out elsewhere", async () => {
+      render(<App />);
+      await screen.findByRole("link", { name: "example" });
+
+      session = { state: "signed-out" };
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect(await screen.findByLabelText("Access code")).toBeDefined();
+      expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
+    });
+
+    it("shows the sign-in page as the tab becomes visible after signing out", async () => {
+      render(<App />);
+      await screen.findByRole("link", { name: "example" });
+
+      session = { state: "signed-out" };
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(await screen.findByLabelText("Access code")).toBeDefined();
+    });
+
+    it("follows a sign-in as someone else in another tab", async () => {
+      render(<App />);
+      await screen.findByRole("link", { name: "example" });
+
+      session = owner;
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(await screen.findByText("rob")).toBeDefined();
+      expect(screen.getByText("Signed in as").textContent).toBe(
+        "Signed in as rob",
+      );
+    });
+
+    it("shows a failure to retry when core can't be reached, not the sign-in page", async () => {
+      const viewer = userEvent.setup({
+        advanceTimers: (ms) => vi.advanceTimersByTime(ms),
+      });
+      render(<App />);
+      await screen.findByRole("link", { name: "example" });
+
+      reachable = false;
+      await vi.advanceTimersByTimeAsync(30_000);
+
+      expect((await screen.findByRole("alert")).textContent).toBe(
+        `Couldn't reach core at ${core}.`,
+      );
+      expect(screen.queryByLabelText("Access code")).toBeNull();
+      expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
+
+      reachable = true;
+      await viewer.click(screen.getByRole("button", { name: "Try again" }));
+
+      expect(
+        await screen.findByRole("link", { name: "example" }),
+      ).toBeDefined();
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+  });
+
   it("signs the viewer out, back to the sign-in form", async () => {
     coreWith(guest, {
       "GET /launcher": () => ({ body: { apps: [] } }),

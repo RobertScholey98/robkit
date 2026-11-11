@@ -279,3 +279,122 @@ describe("the role forms", () => {
     ).toBeDefined();
   });
 });
+
+describe("a code's row", () => {
+  const grandma = () => aCode("c_1", "Grandma", "K7XQ2");
+
+  it("revokes the code and lists it as revoked", async () => {
+    const held = { codes: [grandma()], roles: [] };
+    coreHolding(held, {
+      "POST /codes/c_1/revoke": () => {
+        held.codes = [{ ...grandma(), standing: "revoked" }];
+        return new Response(null, { status: 204 });
+      },
+    });
+    const owner = userEvent.setup();
+    render(<Admin core={core} />);
+
+    await owner.click(await screen.findByRole("button", { name: "Revoke" }));
+
+    expect(await screen.findByText("Revoked")).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Revoke" })).toBeNull();
+  });
+
+  it("shows core's refusal of a revoke and keeps the code live", async () => {
+    coreHolding(
+      { codes: [grandma()], roles: [] },
+      {
+        "POST /codes/c_1/revoke": () => ({
+          status: 404,
+          body: { error: "There's no such code." },
+        }),
+      },
+    );
+    const owner = userEvent.setup();
+    render(<Admin core={core} />);
+
+    await owner.click(await screen.findByRole("button", { name: "Revoke" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "There's no such code.",
+    );
+    expect(screen.getByText("Live")).toBeDefined();
+  });
+
+  it("copies the code's link", async () => {
+    coreHolding({ codes: [grandma()], roles: [] });
+    // Testing Library's setup puts a clipboard of its own on the page.
+    const owner = userEvent.setup();
+    const copied = vi.spyOn(navigator.clipboard, "writeText");
+    render(<Admin core={core} />);
+
+    await owner.click(await screen.findByRole("button", { name: "Copy" }));
+
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeDefined();
+    expect(copied).toHaveBeenCalledWith("https://hub.robkit.test/i/K7XQ2");
+  });
+
+  it("says so when the browser refuses the clipboard", async () => {
+    coreHolding({ codes: [grandma()], roles: [] });
+    const owner = userEvent.setup();
+    vi.spyOn(navigator.clipboard, "writeText").mockRejectedValue(
+      new DOMException("Write permission denied.", "NotAllowedError"),
+    );
+    render(<Admin core={core} />);
+
+    await owner.click(await screen.findByRole("button", { name: "Copy" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Couldn't copy the link. Select it and copy it yourself.",
+    );
+    expect(screen.getByRole("button", { name: "Copy" })).toBeDefined();
+  });
+});
+
+describe("an app's access", () => {
+  const notes = { slug: "notes", name: "notes", access: { kind: "owner" } };
+
+  it("saves who can open the app", async () => {
+    const posted = coreHolding(
+      { codes: [], roles: [] },
+      {
+        "GET /apps": () => ({ body: { apps: [notes] } }),
+        "POST /apps/notes/access": ({ body }) => ({ body }),
+      },
+    );
+    const owner = userEvent.setup();
+    render(<Admin core={core} />);
+
+    await owner.click(await screen.findByRole("radio", { name: "Anyone" }));
+    await owner.click(screen.getByRole("button", { name: "Save access" }));
+
+    expect((await screen.findByRole("status")).textContent).toBe(
+      "Saved. The app picks it up within a minute.",
+    );
+    expect(posted).toEqual([{ kind: "open" }]);
+  });
+
+  it("shows core's refusal of the app's access", async () => {
+    coreHolding(
+      { codes: [], roles: [] },
+      {
+        "GET /apps": () => ({ body: { apps: [notes] } }),
+        "POST /apps/notes/access": () => ({
+          status: 404,
+          body: { error: "There's no app called notes." },
+        }),
+      },
+    );
+    const owner = userEvent.setup();
+    render(<Admin core={core} />);
+
+    await owner.click(
+      await screen.findByRole("button", { name: "Save access" }),
+    );
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "There's no app called notes.",
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+});

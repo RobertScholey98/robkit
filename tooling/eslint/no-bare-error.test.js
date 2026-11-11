@@ -34,6 +34,8 @@ describe("robkit/no-bare-error", () => {
     "throw new Error(`Core couldn't store the session.`);",
     "throw new Error();",
     'if (!row) { throw new Error("No row."); }',
+    'throw Error("Core couldn\'t store the session.");',
+    "throw Error();",
   ])("refuses `%s`", (code) => {
     expect(lint(code)).toEqual([bare]);
   });
@@ -48,6 +50,11 @@ describe("robkit/no-bare-error", () => {
       'try { f(); } catch (error) { throw new Error("Core couldn\'t start.", { cause: error }); }',
     ],
     ["a message built elsewhere", "throw new Error(message);"],
+    [
+      "a call without new that names what was tried",
+      "throw Error(`No row in ${table}.`);",
+    ],
+    ["a function that builds the error", 'throw makeError("No row.");'],
     ["a message joined from parts", 'throw new Error("Core " + reason);'],
     [
       "a problem the person can fix",

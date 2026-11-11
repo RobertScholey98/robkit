@@ -99,6 +99,7 @@ function boot(port: number, env: Record<string, string> = {}): ChildProcess {
     PORT: String(port),
     DATABASE_URL: databaseUrl,
     ROBKIT_CORE_URL: "http://core.robkit.localhost:3000",
+    ROBKIT_APPS: "[]",
     ...env,
   });
 }

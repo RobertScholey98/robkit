@@ -144,10 +144,12 @@ func isLocal(domain string) bool {
 	return domain == "localhost" || strings.HasSuffix(domain, ".localhost")
 }
 
-// isCoreOrigin says whether value is core's address: an origin on
+// isCoreOrigin says whether value is core's address as an origin alone: on
 // core.<domain>, over https, or over http only on a local domain, as
-// readCoreUrl in @robkit/input allows. Both ReadGuardEnv and Guarded ask
-// it, so an address written in code is judged as one read from settings.
+// readCoreUrl in @robkit/input allows. ReadGuardEnv cuts the setting to its
+// origin first, dropping a path or a trailing slash as readCoreUrl does.
+// Guarded asks it of the address written in code as it stands, so a
+// trailing slash there is refused, where TypeScript's guarded drops it.
 func isCoreOrigin(value string) bool {
 	domain, ok := coreDomain(value)
 	return ok && (strings.HasPrefix(value, "https://") || isLocal(domain))

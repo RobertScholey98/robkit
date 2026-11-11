@@ -7,6 +7,7 @@ package fakecore
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -53,14 +54,22 @@ type Key struct {
 	public  ed25519.PublicKey
 }
 
-// NewKey makes a key that names itself kid.
-func NewKey(t testing.TB, kid string) *Key {
+// NewKey makes a key named, as core names its own, by its thumbprint.
+func NewKey(t testing.TB) *Key {
 	t.Helper()
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &Key{Kid: kid, private: private, public: public}
+	return &Key{Kid: thumbprint(public), private: private, public: public}
+}
+
+// thumbprint is an Ed25519 public key's RFC 7638 thumbprint: the SHA-256 of
+// its required fields, in order, with no spaces.
+func thumbprint(public ed25519.PublicKey) string {
+	fields := fmt.Sprintf(`{"crv":"Ed25519","kty":"OKP","x":"%s"}`, base64.RawURLEncoding.EncodeToString(public))
+	sum := sha256.Sum256([]byte(fields))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
 // JWK is the public half as core serves it in its JWKS.
@@ -71,6 +80,7 @@ func (k *Key) JWK() map[string]any {
 		"x":   base64.RawURLEncoding.EncodeToString(k.public),
 		"kid": k.Kid,
 		"alg": "EdDSA",
+		"use": "sig",
 	}
 }
 
@@ -191,7 +201,7 @@ var accessPath = regexp.MustCompile(`^/apps/([^/]+)/access$`)
 // Start starts core for one test. It stops when the test finishes.
 func Start(t testing.TB) *Core {
 	t.Helper()
-	key := NewKey(t, "key-1")
+	key := NewKey(t)
 	core := &Core{Key: key, keys: []*Key{key}, rules: map[string]string{}, status: http.StatusOK}
 	server := httptest.NewServer(http.HandlerFunc(core.serve))
 	t.Cleanup(server.Close)

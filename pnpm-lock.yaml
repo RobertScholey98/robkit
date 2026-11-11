@@ -21,6 +21,12 @@ catalogs:
     '@changesets/cli':
       specifier: 3.0.3
       version: 3.0.3
+    '@changesets/git':
+      specifier: 4.0.1
+      version: 4.0.1
+    '@changesets/read':
+      specifier: 1.0.1
+      version: 1.0.1
     '@clack/prompts':
       specifier: 1.8.1
       version: 1.8.1
@@ -221,6 +227,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -276,6 +285,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -316,6 +328,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -356,6 +371,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@robkit/provision':
         specifier: workspace:*
         version: link:../provision
@@ -405,6 +423,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@robkit/input':
         specifier: workspace:*
         version: link:../input
@@ -445,6 +466,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -488,6 +512,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@robkit/input':
         specifier: workspace:*
         version: link:../input
@@ -521,6 +548,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -564,6 +594,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -610,6 +643,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -641,6 +677,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.0.5(vitest@5.0.5)
@@ -672,6 +711,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -712,6 +754,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -758,6 +803,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
       '@tanstack/react-start':
         specifier: 'catalog:'
         version: 1.169.4(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.15)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -798,6 +846,12 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../../tooling/typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../../tooling/vitest
+      '@tanstack/react-start':
+        specifier: 'catalog:'
+        version: 1.169.4(esbuild@0.28.2)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(rolldown@1.2.15)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -900,6 +954,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest
       '@robkit/dev':
         specifier: workspace:*
         version: link:../../packages/dev
@@ -955,6 +1012,9 @@ importers:
         specifier: 'catalog:'
         version: 8.72.1(eslint@10.13.0(jiti@2.7.0))(typescript@6.0.3)
     devDependencies:
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest
       '@vitest/coverage-v8':
         specifier: 'catalog:'
         version: 5.0.5(vitest@5.0.5)
@@ -973,6 +1033,12 @@ importers:
       '@arethetypeswrong/core':
         specifier: 'catalog:'
         version: 0.18.5
+      '@changesets/git':
+        specifier: 'catalog:'
+        version: 4.0.1
+      '@changesets/read':
+        specifier: 'catalog:'
+        version: 1.0.1
       '@hono/node-server':
         specifier: 'catalog:'
         version: 2.1.5(hono@4.13.14)
@@ -982,6 +1048,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest
       '@robkit/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -1084,6 +1153,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -1114,6 +1186,9 @@ importers:
       '@internal/tsconfig':
         specifier: workspace:*
         version: link:../typescript
+      '@internal/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest
       '@robkit/guard':
         specifier: workspace:*
         version: link:../../packages/guard
@@ -1143,6 +1218,12 @@ importers:
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
   tooling/typescript: {}
+
+  tooling/vitest:
+    devDependencies:
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
 
 packages:
 

@@ -1,13 +1,16 @@
+import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { reportFaultsAt, runCommand } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { appFiles } from "./generate.ts";
 import { init } from "./init.ts";
 import { drive, keys, questionsAsked } from "./test/drive.ts";
+import { gitEnv } from "./test/git.ts";
 import { pathWith } from "./test/path.ts";
 
 const bin = fileURLToPath(new URL("robkit-command.ts", import.meta.url));
@@ -417,11 +420,19 @@ describe("robkit deploy", () => {
     expect(output).toMatch(message);
   });
 
-  it("prints each app's variables on a dry run", async () => {
+  it("prints each app's variables on a dry run without the host, and says the reasons need it", async () => {
     const dir = await freshInstall();
     await writeFile(join(dir, "coolify.json"), coolifyJson);
 
-    const { code, output } = await drive(bin, dir, ["deploy", "--dry-run"]);
+    const { code, output } = await drive(
+      bin,
+      dir,
+      ["deploy", "--dry-run"],
+      [],
+      {
+        COOLIFY_URL: "",
+      },
+    );
 
     expect(code).toBe(0);
     expect(output).toContain(`example:
@@ -431,31 +442,49 @@ describe("robkit deploy", () => {
   PORT=3000
   DATABASE_URL=(shared) EXAMPLE_DATABASE_URL
 `);
+    expect(output).toMatch(
+      /Set COOLIFY_URL and COOLIFY_TOKEN to see which apps would deploy and why: the reasons need the host\.\n$/,
+    );
   });
 
-  // The stand-in turbo is a shell script, which Windows can't run.
-  it.skipIf(process.platform === "win32")(
-    "prints turbo's own message when turbo ls fails",
-    async () => {
+  it("says it runs from a git checkout, before it reaches Coolify", async () => {
+    const dir = await freshInstall();
+    await writeFile(join(dir, "coolify.json"), coolifyJson);
+
+    const { code, output } = await drive(bin, dir, ["deploy", "--all"], [], {
+      COOLIFY_URL: "https://coolify.example",
+      COOLIFY_TOKEN: "t",
+      GIT_CEILING_DIRECTORIES: tmpdir(),
+    });
+
+    expect(code).toBe(1);
+    expect(output).toMatch(
+      /^robkit deploy runs from the install's git checkout, and git couldn't name its commit: .+ Run it in the install's repository\.\n$/,
+    );
+  });
+
+  it.each([[["--all"]], [["--dry-run"]]])(
+    "refuses a commit not pushed to the deploy branch, before it reaches Coolify, with %s",
+    async (flags) => {
       const dir = await freshInstall();
       await writeFile(join(dir, "coolify.json"), coolifyJson);
-      const standIn = await mkdtemp(join(tmpdir(), "turbo-stand-in-"));
-      await writeFile(
-        join(standIn, "turbo"),
-        "#!/bin/sh\necho '  x No git repository found' >&2\nexit 1\n",
-        { mode: 0o755 },
-      );
+      const env = await gitEnv(true);
+      const git = (...args: string[]) =>
+        promisify(execFile)("git", args, { cwd: dir, env });
+      await git("init", "--quiet");
+      await git("add", ".");
+      await git("commit", "--quiet", "-m", "first");
+      const head = (await git("rev-parse", "HEAD")).stdout.trim();
 
-      const { code, output } = await drive(bin, dir, ["deploy"], [], {
+      const { code, output } = await drive(bin, dir, ["deploy", ...flags], [], {
         COOLIFY_URL: "https://coolify.example",
         COOLIFY_TOKEN: "t",
-        PATH: `${standIn}:${String(process.env.PATH)}`,
       });
 
       expect({ code, output }).toEqual({
         code: 1,
-        output:
-          "turbo ls --affected couldn't find the apps that changed: x No git repository found. Name the apps to deploy with --apps, or deploy them all with --all.\n",
+        output: `Coolify builds main as RobertScholey98/robkit-dev holds it, not this checkout, so robkit deploy runs only from a commit pushed there. This checkout's commit, ${head.slice(0, 7)}, isn't on main at a remote for RobertScholey98/robkit-dev. Push it, or fetch if it's pushed already, then deploy again. A remote counts when its URL ends in RobertScholey98/robkit-dev.
+`,
       });
     },
   );

@@ -1,10 +1,12 @@
-import { exec as execCallback, spawn } from "node:child_process";
+import { exec as execCallback, execFile, spawn } from "node:child_process";
 import { appendFile, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { gitHistory } from "./affected-apps.ts";
 import { defaultChoices, init } from "./index.ts";
+import { gitEnv } from "./test/git.ts";
 
 // The hub's, admin's and core-client's own unit tests, and the install's
 // lint and typecheck, run in a new install linked to this checkout. They need no Docker,
@@ -46,6 +48,31 @@ function removeLater(dir: string): void {
 }
 
 /**
+ * The hash turbo gives each build and test task in the install, by task:
+ * the key it would answer from cache with.
+ */
+async function taskHashes(dir: string): Promise<Record<string, string>> {
+  const { stdout } = await run("pnpm exec turbo run build test --dry=json", {
+    cwd: dir,
+    maxBuffer: 16 * 1024 * 1024,
+  });
+  const dry = JSON.parse(stdout.slice(stdout.indexOf("{"))) as {
+    tasks: { taskId: string; hash: string }[];
+  };
+  return Object.fromEntries(dry.tasks.map((task) => [task.taskId, task.hash]));
+}
+
+/** The tasks whose hash differs between `before` and `after`. */
+function changed(
+  before: Record<string, string>,
+  after: Record<string, string>,
+): string[] {
+  return Object.keys(after)
+    .filter((task) => before[task] !== after[task])
+    .sort();
+}
+
+/**
  * What pnpm check runs in a new install: the hub's, admin's and
  * core-client's tests, the install's lint, and the install's typecheck.
  * Rejects naming the first that fails.
@@ -82,6 +109,77 @@ describe("a new install", { concurrent: false }, () => {
 
   it("passes its hub's, admin's and core-client's tests, its lint and its typecheck", async () => {
     await checkInstall(dir);
+  }, 240_000);
+
+  it("builds and tests again each app that uses a shared package that changed", async () => {
+    const start = await taskHashes(dir);
+    await appendFile(join(dir, "packages/theme/theme.css"), "/* edited */\n");
+    const themed = await taskHashes(dir);
+    await appendFile(
+      join(dir, "packages/core-client/src/call-core.ts"),
+      "// edited\n",
+    );
+    const called = await taskHashes(dir);
+
+    expect(changed(start, themed)).toEqual(
+      expect.arrayContaining([
+        "@internal/admin-app#build",
+        "@internal/example-app#build",
+        "@internal/hub-app#build",
+        "@internal/hub-app#test",
+      ]),
+    );
+    expect(changed(themed, called)).toEqual(
+      expect.arrayContaining([
+        "@internal/admin-app#build",
+        "@internal/admin-app#test",
+        "@internal/hub-app#build",
+        "@internal/hub-app#test",
+      ]),
+    );
+    expect(changed(themed, called)).not.toContain(
+      "@internal/example-app#build",
+    );
+  }, 240_000);
+
+  // robkit deploy asks turbo which apps changed since a commit. This asks
+  // the install's own turbo, with the install's turbo.json.
+  it("finds every app changed by the Dockerfile, and by a shared package only the apps that use it", async () => {
+    const env = await gitEnv(true);
+    env.PATH = [join(dir, "node_modules/.bin"), env.PATH].join(delimiter);
+    const git = async (...args: string[]) =>
+      (await promisify(execFile)("git", args, { cwd: dir, env })).stdout.trim();
+    const commitAll = async (message: string) => {
+      await git("add", "--all");
+      await git("commit", "--quiet", "--no-verify", "-m", message);
+      return git("rev-parse", "HEAD");
+    };
+    await git("init", "--quiet");
+    await commitAll("Start");
+    const history = await gitHistory(dir, env);
+    /** The apps turbo finds changed by a commit that edits `file` alone. */
+    const changedBy = async (file: string) => {
+      const before = await git("rev-parse", "HEAD");
+      await appendFile(join(dir, file), "\n");
+      await commitAll(`Change ${file}`);
+      const changes = await history.changedSince(before);
+      return changes.outcome === "changed"
+        ? [...changes.apps].sort()
+        : changes.outcome;
+    };
+
+    const every = ["admin", "core", "example", "hub"];
+    expect({
+      Dockerfile: await changedBy("Dockerfile"),
+      dockerignore: await changedBy(".dockerignore"),
+      coreClient: await changedBy("packages/core-client/src/call-core.ts"),
+      readme: await changedBy("README.md"),
+    }).toEqual({
+      Dockerfile: every,
+      dockerignore: every,
+      coreClient: ["admin", "hub"],
+      readme: [],
+    });
   }, 240_000);
 
   it("fails on a type error in a template's file", async () => {
