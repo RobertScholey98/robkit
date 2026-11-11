@@ -16,7 +16,7 @@ describe("readListedApps", () => {
   ])("refuses a ROBKIT_APPS that is %s", (_, env) => {
     expect(readListedApps(env)).toEqual({
       error:
-        "ROBKIT_APPS is not set. pnpm dev and robkit deploy set it from each app's manifest. Set it to [] for an install with no apps of its own.",
+        "ROBKIT_APPS is not set. pnpm dev and robkit deploy set it from each app's manifest. Set it to [] only for an install with no apps of its own, since [] takes every app out of core's catalog, with the rule the owner set for each.",
     });
   });
 

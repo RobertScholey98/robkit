@@ -84,7 +84,7 @@ What an app's author sees: nothing new. The guard and the session protocol don't
 Settings reference: `ROBKIT_APPS` is now required. `[]` is a real list, which an install with only the platform apps sends, and removes every app. Missing or blank, core refuses to start and prints:
 
 ```text
-ROBKIT_APPS is not set. pnpm dev and robkit deploy set it from each app's manifest. Set it to [] for an install with no apps of its own.
+ROBKIT_APPS is not set. pnpm dev and robkit deploy set it from each app's manifest. Set it to [] only for an install with no apps of its own, since [] takes every app out of core's catalog, with the rule the owner set for each.
 ```
 
 A malformed one prints, as before, `ROBKIT_APPS isn't valid JSON (<the parser's reason>). Fix its syntax.`, or `ROBKIT_APPS must be a JSON list of apps, such as [{"slug": "notes"}]. pnpm dev and robkit deploy set it from each app's manifest.`, or the problem with one app, such as `ROBKIT_APPS[0].icon must be one emoji, such as "📝".` Each stops core before it touches the catalog.
