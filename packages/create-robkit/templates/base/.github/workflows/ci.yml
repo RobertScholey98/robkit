@@ -5,8 +5,10 @@ on:
   push:
     branches: [main]
 
-# A new push cancels a pull request's run in progress. On main every run
-# finishes, so each push's checks and deploy run in turn.
+# A new push cancels a pull request's run in progress. On main a run in
+# progress always finishes. A run still waiting is replaced when a newer
+# push queues behind it, as GitHub does in any concurrency group, and the
+# newer run deploys each app from its record, so nothing is lost.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
