@@ -262,20 +262,6 @@ describe("the built page on pnpm dev and your apps", () => {
     }).stderr;
   };
 
-  /** The text of each item in the list after `heading`. */
-  const itemsAfter = (html: string, heading: string) => {
-    const list = /<ul>[\s\S]*?<\/ul>/.exec(
-      html.slice(html.indexOf(`id="${heading}"`)),
-    );
-    return [...(list?.[0] ?? "").matchAll(/<li>([\s\S]*?)<\/li>/g)].map(
-      ([, item = ""]) =>
-        item
-          .replaceAll(/<[^>]+>/g, "")
-          .replaceAll("&lt;", "<")
-          .replaceAll("&gt;", ">"),
-    );
-  };
-
   it("names each option robkit add takes, with its default", async () => {
     const usage = await addUsage();
     const items = itemsAfter(await built(page), "add-an-app");
@@ -370,6 +356,20 @@ describe("the built page on guests and access", () => {
     ).not.toContain("data-stub");
   });
 });
+
+/** The text of each item in the first list after the heading `id`. */
+function itemsAfter(html: string, id: string): string[] {
+  const list = /<ul>[\s\S]*?<\/ul>/.exec(
+    html.slice(html.indexOf(`id="${id}"`)),
+  );
+  return [...(list?.[0] ?? "").matchAll(/<li>([\s\S]*?)<\/li>/g)].map(
+    ([, item = ""]) =>
+      item
+        .replaceAll(/<[^>]+>/g, "")
+        .replaceAll("&lt;", "<")
+        .replaceAll("&gt;", ">"),
+  );
+}
 
 /** Each entry's name, in the order a tree shows them. */
 const treeNames = (entries: readonly TreeEntry[]): string[] =>
