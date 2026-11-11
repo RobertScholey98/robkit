@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { existsSync } from "node:fs";
 import {
   chmod,
+  cp,
   mkdir,
   mkdtemp,
   stat,
@@ -14,30 +15,41 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { slug } from "@internal/test-session";
 import { CommandProblem } from "@robkit/input/command";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { privateFolder, serveRequests } from "./request-server.ts";
 import {
   askDev,
   devRunning,
   devSocket,
+  socketFolderIsOwn,
   type Answered,
   type DevRequest,
   type DevSocket,
 } from "./requests.ts";
 
+/** A home folder of the test's own, so nothing writes in the real one. */
+function home(): Promise<string> {
+  return mkdtemp(join(tmpdir(), "robkit-home-"));
+}
+
+/** A new install's folder. */
+function installDir(): Promise<string> {
+  return mkdtemp(join(tmpdir(), "robkit-install-"));
+}
+
 /**
- * An install's folder, and an XDG_RUNTIME_DIR of its own, for one test,
- * with the socket's folder in it, as a `pnpm dev` that ran there left it.
+ * An install's folder, and a home of its own, for one test, with the
+ * socket's folder in it, as a `pnpm dev` that ran there left it.
  */
 async function place(): Promise<{
   root: string;
   env: NodeJS.ProcessEnv;
   socket: DevSocket;
 }> {
-  const root = await mkdtemp(join(tmpdir(), "robkit-install-"));
-  const env = { XDG_RUNTIME_DIR: await mkdtemp(join(tmpdir(), "robkit-run-")) };
+  const root = await installDir();
+  const env = { HOME: await home() };
   const socket = await devSocket(root, env);
-  await mkdir(socket.folder, { mode: 0o700 });
+  await mkdir(socket.folder, { recursive: true, mode: 0o700 });
   return { root, env, socket };
 }
 
@@ -326,11 +338,89 @@ describe.skipIf(process.platform === "win32")("serveRequests", () => {
     ]);
   });
 
-  it("listens where others can open XDG_RUNTIME_DIR, as they can WSLg's, in a folder they can't", async () => {
-    const root = await mkdtemp(join(tmpdir(), "robkit-install-"));
-    const runtime = await mkdtemp(join(tmpdir(), "robkit-run-"));
-    await chmod(runtime, 0o777);
-    const env = { XDG_RUNTIME_DIR: runtime };
+  // A home is 755 on older Ubuntu and on WSL's first account, 750 on newer
+  // Ubuntu, macOS and CI's runner, and 700 for root.
+  it.each([0o755, 0o750, 0o700])(
+    "listens in a home of mode %o, in folders only this account can open",
+    async (mode) => {
+      const root = await installDir();
+      const env = { HOME: await home() };
+      await chmod(env.HOME, mode);
+      const socket = await devSocket(root, env);
+      await serving(socket);
+
+      const answer = await askDev(
+        root,
+        { operation: "add", slug: slug("notes") },
+        env,
+      );
+
+      expect(answer).toEqual({ outcome: "done", message: "add notes" });
+      expect([
+        (await stat(socket.parent)).mode & 0o777,
+        (await stat(socket.folder)).mode & 0o777,
+      ]).toEqual([0o700, 0o700]);
+    },
+  );
+
+  it("answers a terminal whose XDG_RUNTIME_DIR and TMPDIR differ from the runner's", async () => {
+    const root = await installDir();
+    const HOME = await home();
+    vi.stubEnv("TMPDIR", await mkdtemp(join(tmpdir(), "robkit-tmp-")));
+    onTestFinished(() => {
+      vi.unstubAllEnvs();
+    });
+    await serving(
+      await devSocket(root, { HOME, XDG_RUNTIME_DIR: "/mnt/wslg/runtime-dir" }),
+    );
+    // As a macOS terminal app sets it, where an ssh session sets neither.
+    vi.stubEnv("TMPDIR", "/var/folders/xy/T");
+
+    const answer = await askDev(
+      root,
+      { operation: "add", slug: slug("notes") },
+      { HOME },
+    );
+
+    expect(answer).toEqual({ outcome: "done", message: "add notes" });
+  });
+
+  it("answers only for its own install, though another is a copy of it", async () => {
+    const env = { HOME: await home() };
+    const original = await installDir();
+    await mkdir(join(original, ".robkit"));
+    const copy = join(await installDir(), "copy");
+    await cp(original, copy, { recursive: true });
+    for (const [root, name] of [
+      [original, "original"],
+      [copy, "copy"],
+    ] as const) {
+      await serving(await devSocket(root, env), (request) =>
+        Promise.resolve({
+          outcome: "done",
+          message: `${name} ${request.slug}`,
+        }),
+      );
+    }
+
+    const answers = await Promise.all(
+      [original, copy].map((root) =>
+        askDev(root, { operation: "add", slug: slug("notes") }, env),
+      ),
+    );
+
+    expect(answers).toEqual([
+      { outcome: "done", message: "original notes" },
+      { outcome: "done", message: "copy notes" },
+    ]);
+  });
+
+  it("listens in the folder run links to, which it checks in run's place", async () => {
+    const root = await installDir();
+    const env = { HOME: await home() };
+    const shorter = await mkdtemp(join(tmpdir(), "r-"));
+    await mkdir(join(env.HOME, ".robkit"), { mode: 0o700 });
+    await symlink(shorter, join(env.HOME, ".robkit", "run"));
     const socket = await devSocket(root, env);
     await serving(socket);
 
@@ -341,7 +431,7 @@ describe.skipIf(process.platform === "win32")("serveRequests", () => {
     );
 
     expect(answer).toEqual({ outcome: "done", message: "add notes" });
-    expect((await stat(socket.folder)).mode & 0o777).toBe(0o700);
+    expect(socket.path.startsWith(`${shorter}/`)).toBe(true);
   });
 
   it("removes a socket file a killed run left, and listens there", async () => {
@@ -494,6 +584,25 @@ describe.skipIf(process.platform === "win32")("askDev", () => {
     expect(asked).toBe(0);
   });
 
+  it("asks nothing of a socket under a .robkit others can open, where another account could swap run", async () => {
+    const { root, env, socket } = await place();
+    let asked = 0;
+    await impostorAt(socket.path, (connection) => {
+      asked += 1;
+      connection.end('{"outcome":"done","message":"Added."}\n');
+    });
+    await chmod(socket.parent, 0o777);
+
+    const answer = askDev(root, { operation: "add", slug: slug("notes") }, env);
+
+    await expect(answer).rejects.toThrow(
+      new CommandProblem(
+        `pnpm dev keeps its socket under ${socket.parent}, which others can open (mode 777). Run chmod 700 ${socket.parent}, then run pnpm dev again.`,
+      ),
+    );
+    expect(asked).toBe(0);
+  });
+
   it("stops reading an answer with no line break at 64 KB, as a fault", async () => {
     const { root, env, socket } = await place();
     await impostorAt(socket.path, (connection) => {
@@ -565,6 +674,45 @@ describe.skipIf(process.platform === "win32")("devRunning", () => {
       ),
     );
   });
+
+  it("doesn't say for a socket under a .robkit others can open", async () => {
+    const { root, env, socket } = await place();
+    await serving(socket);
+    await chmod(socket.parent, 0o755);
+
+    await expect(devRunning(root, env)).rejects.toThrow(
+      new CommandProblem(
+        `pnpm dev keeps its socket under ${socket.parent}, which others can open (mode 755). Run chmod 700 ${socket.parent}, then try again.`,
+      ),
+    );
+  });
+});
+
+// The check askDev and devRunning make before they connect, as another
+// account sees this account's folders.
+describe.skipIf(process.platform === "win32")("socketFolderIsOwn", () => {
+  const someoneElse = Number(process.getuid?.()) + 1;
+
+  it("refuses a .robkit another account owns", async () => {
+    const { socket } = await place();
+
+    const checked = socketFolderIsOwn(socket, {
+      owner: someoneElse,
+      again: "try again",
+    });
+
+    await expect(checked).rejects.toThrow(
+      new CommandProblem(
+        `pnpm dev keeps its socket under ${socket.parent}, which another account owns. Remove it, with sudo if you need to, then try again.`,
+      ),
+    );
+  });
+
+  it("says no runner is there when .robkit isn't", async () => {
+    const socket = await devSocket(await installDir(), { HOME: await home() });
+
+    expect(await socketFolderIsOwn(socket)).toBe(false);
+  });
 });
 
 describe("devRunning on native Windows", () => {
@@ -594,79 +742,162 @@ async function impostorAt(
 }
 
 describe.skipIf(process.platform === "win32")("privateFolder", () => {
-  it("makes the folder only this account can open", async () => {
-    const folder = join(await mkdtemp(join(tmpdir(), "robkit-")), "robkit-0");
+  /** Where pnpm dev keeps its socket under a home of the test's own. */
+  async function socketIn(HOME: string) {
+    return devSocket(await installDir(), { HOME });
+  }
 
-    await privateFolder({ folder, setBy: "TMPDIR" });
+  it("makes .robkit and run in the home, each only this account can open", async () => {
+    const socket = await socketIn(await home());
 
-    expect((await stat(folder)).mode & 0o777).toBe(0o700);
+    await privateFolder(socket);
+
+    expect([
+      (await stat(socket.parent)).mode & 0o777,
+      (await stat(socket.folder)).mode & 0o777,
+    ]).toEqual([0o700, 0o700]);
   });
 
-  it("says when it can't make the folder", async () => {
-    const file = join(await mkdtemp(join(tmpdir(), "robkit-")), "a-file");
+  it("says when it can't make the folder, as in a home that is a file", async () => {
+    const file = join(await home(), "a-file");
     await writeFile(file, "");
-    const folder = join(file, "robkit-0");
+    const socket = await socketIn(file);
 
-    const made = privateFolder({ folder, setBy: "TMPDIR" });
+    const made = privateFolder(socket);
 
     await expect(made).rejects.toThrow(
       new CommandProblem(
-        `pnpm dev keeps its socket in ${folder}, and couldn't make that folder (ENOTDIR). Point TMPDIR at a folder you can write to, then run pnpm dev again.`,
+        `pnpm dev keeps its socket in ${socket.parent}, and couldn't make that folder (ENOTDIR). Make it yourself, with mode 700, then run pnpm dev again.`,
       ),
     );
   });
 
-  it("refuses a folder others can open", async () => {
-    const folder = await mkdtemp(join(tmpdir(), "robkit-run-"));
-    await chmod(folder, 0o755);
+  // Root writes in any folder.
+  it.skipIf(process.getuid?.() === 0)(
+    "says when it can't make the folder in a home it can't write in",
+    async () => {
+      const HOME = await home();
+      await chmod(HOME, 0o500);
+      onTestFinished(() => chmod(HOME, 0o700));
+      const socket = await socketIn(HOME);
 
-    const checked = privateFolder({ folder, setBy: "XDG_RUNTIME_DIR" });
+      const made = privateFolder(socket);
+
+      await expect(made).rejects.toThrow(
+        new CommandProblem(
+          `pnpm dev keeps its socket in ${socket.parent}, and couldn't make that folder (EACCES). Make it yourself, with mode 700, then run pnpm dev again.`,
+        ),
+      );
+    },
+  );
+
+  it("refuses a run folder others can open", async () => {
+    const socket = await socketIn(await home());
+    await mkdir(socket.folder, { recursive: true, mode: 0o700 });
+    await chmod(socket.folder, 0o755);
+
+    const checked = privateFolder(socket);
 
     await expect(checked).rejects.toThrow(
       new CommandProblem(
-        `pnpm dev keeps its socket in ${folder}, which others can open (mode 755). Run chmod 700 ${folder}, then run pnpm dev again.`,
+        `pnpm dev keeps its socket in ${socket.folder}, which others can open (mode 755). Run chmod 700 ${socket.folder}, then run pnpm dev again.`,
       ),
     );
   });
 
-  it("refuses a folder another account owns", async () => {
-    const folder = await mkdtemp(join(tmpdir(), "robkit-run-"));
+  it("refuses a .robkit others can open, and makes nothing in it", async () => {
+    const socket = await socketIn(await home());
+    await mkdir(socket.parent, { mode: 0o777 });
+    await chmod(socket.parent, 0o777);
+
+    const checked = privateFolder(socket);
+
+    await expect(checked).rejects.toThrow(
+      new CommandProblem(
+        `pnpm dev keeps its socket under ${socket.parent}, which others can open (mode 777). Run chmod 700 ${socket.parent}, then run pnpm dev again.`,
+      ),
+    );
+    expect(existsSync(socket.folder)).toBe(false);
+  });
+
+  it("refuses a .robkit another account owns", async () => {
+    const socket = await socketIn(await home());
     // As another account sees this account's folder.
     const someoneElse = Number(process.getuid?.()) + 1;
 
-    const checked = privateFolder(
-      { folder, setBy: "TMPDIR" },
-      { owner: someoneElse },
-    );
+    const checked = privateFolder(socket, { owner: someoneElse });
 
     await expect(checked).rejects.toThrow(
       new CommandProblem(
-        `pnpm dev keeps its socket in ${folder}, which another account owns. Point TMPDIR at a folder of your own, then run pnpm dev again.`,
+        `pnpm dev keeps its socket under ${socket.parent}, which another account owns. Remove it, with sudo if you need to, then run pnpm dev again.`,
       ),
     );
   });
 
-  it("refuses a link in the folder's place", async () => {
-    const target = await mkdtemp(join(tmpdir(), "robkit-run-"));
-    const folder = join(await mkdtemp(join(tmpdir(), "robkit-")), "robkit-0");
-    await symlink(target, folder);
+  it("refuses a link in .robkit's place", async () => {
+    const HOME = await home();
+    await symlink(await home(), join(HOME, ".robkit"));
+    const socket = await socketIn(HOME);
 
-    const checked = privateFolder({ folder, setBy: "TMPDIR" });
+    const checked = privateFolder(socket);
 
     await expect(checked).rejects.toThrow(
       new CommandProblem(
-        `pnpm dev keeps its socket in ${folder}, which isn't a folder. Remove it, then run pnpm dev again.`,
+        `pnpm dev keeps its socket under ${socket.parent}, which isn't a folder. Remove it, then run pnpm dev again.`,
       ),
     );
   });
 
-  it("leaves a folder of its own as it is", async () => {
-    const parent = await mkdtemp(join(tmpdir(), "robkit-"));
-    const folder = join(parent, "robkit-0");
-    await mkdir(folder, { mode: 0o700 });
+  it("refuses a file in run's place", async () => {
+    const HOME = await home();
+    await mkdir(join(HOME, ".robkit"), { mode: 0o700 });
+    await writeFile(join(HOME, ".robkit", "run"), "");
+    const socket = await socketIn(HOME);
 
-    await privateFolder({ folder, setBy: "TMPDIR" });
+    const checked = privateFolder(socket);
 
-    expect((await stat(folder)).mode & 0o777).toBe(0o700);
+    await expect(checked).rejects.toThrow(
+      new CommandProblem(
+        `pnpm dev keeps its socket in ${socket.folder}, which isn't a folder. Remove it, then run pnpm dev again.`,
+      ),
+    );
+  });
+
+  it("refuses a folder run links to that others can open, naming it", async () => {
+    const HOME = await home();
+    const target = await mkdtemp(join(tmpdir(), "r-"));
+    await chmod(target, 0o755);
+    await mkdir(join(HOME, ".robkit"), { mode: 0o700 });
+    await symlink(target, join(HOME, ".robkit", "run"));
+    const socket = await socketIn(HOME);
+
+    const checked = privateFolder(socket);
+
+    await expect(checked).rejects.toThrow(
+      new CommandProblem(
+        `pnpm dev keeps its socket in ${target}, which others can open (mode 755). Run chmod 700 ${target}, then run pnpm dev again.`,
+      ),
+    );
+  });
+
+  it("makes the folder run links to when it is gone, as after a restart", async () => {
+    const HOME = await home();
+    const gone = join(await mkdtemp(join(tmpdir(), "r-")), "gone");
+    await mkdir(join(HOME, ".robkit"), { mode: 0o700 });
+    await symlink(gone, join(HOME, ".robkit", "run"));
+    const socket = await socketIn(HOME);
+
+    await privateFolder(socket);
+
+    expect((await stat(gone)).mode & 0o777).toBe(0o700);
+  });
+
+  it("leaves folders of its own as they are", async () => {
+    const socket = await socketIn(await home());
+    await mkdir(socket.folder, { recursive: true, mode: 0o700 });
+
+    await privateFolder(socket);
+
+    expect((await stat(socket.folder)).mode & 0o777).toBe(0o700);
   });
 });

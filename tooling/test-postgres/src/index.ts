@@ -9,6 +9,7 @@ import { promisify } from "node:util";
 import { removeWhenGone } from "./clean-up.ts";
 
 export { removeWhenGone, testTag, type Leftover } from "./clean-up.ts";
+export { homeOfItsOwn } from "./home.ts";
 
 const run = promisify(execFile);
 
