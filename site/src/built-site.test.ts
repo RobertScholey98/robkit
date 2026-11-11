@@ -44,6 +44,18 @@ describe("the built header", () => {
   });
 });
 
+describe("the built samples page", () => {
+  it("is built, asks search engines to skip it, and isn't in the sidebar", async () => {
+    const html = await built("samples/index.html");
+    const docs = await built(`${docsHome.slice(1)}index.html`);
+
+    expect(html).toContain('<meta name="robots" content="noindex">');
+    expect(html).toContain('class="language-go"');
+    expect(docs).not.toContain('href="/samples/"');
+    expect(await built("index.html")).not.toContain("noindex");
+  });
+});
+
 describe("the built docs pages", () => {
   it("link to the pages before and after them in the sidebar's order", async () => {
     const page = (href: string) => built(`${href.slice(1)}index.html`);

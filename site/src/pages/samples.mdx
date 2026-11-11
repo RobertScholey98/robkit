@@ -1,0 +1,66 @@
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+<BaseLayout
+  title="Code samples"
+  description="One code sample of each kind the docs show, kept here so the repo's checks test them."
+  noindex
+>
+<main id="main" tabindex="-1" style="max-width: var(--content-width); margin: 0 auto; padding: var(--space-12) var(--space-4) var(--space-16);">
+
+# Code samples
+
+This page holds one code sample of each kind the docs show. The repo's checks read it, so you can see what they test.
+
+## TypeScript
+
+```ts
+import { installAt } from "@robkit/input/addresses";
+
+const core = installAt("http://hub.robkit.localhost:3000/", "hub")?.origin(
+  "core",
+);
+console.log(core);
+```
+
+## React
+
+```tsx
+import { useState } from "react";
+
+export function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    <button type="button" onClick={() => setCount(count + 1)}>
+      Clicked {count} times
+    </button>
+  );
+}
+```
+
+## Shell
+
+```sh
+pnpm robkit add notes
+pnpm dev
+```
+
+## Go
+
+```go
+package main
+
+import (
+	"fmt"
+	"net/http"
+)
+
+func main() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "hello")
+	})
+	_ = http.ListenAndServe(":3000", nil)
+}
+```
+
+</main>
+</BaseLayout>
