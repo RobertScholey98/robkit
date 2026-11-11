@@ -1,0 +1,102 @@
+---
+// The page a missing address gets: it says the page isn't there, and
+// offers search, the docs and the way home. Its links and assets are from
+// the root, so it works at any depth.
+import Icon from "../components/Icon.astro";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { docsHome } from "../site.ts";
+---
+
+<BaseLayout
+  title="Page not found"
+  description="The page at this address isn't on robkit.dev."
+  noindex
+>
+  <main id="main" class="not-found" tabindex="-1">
+    <p class="eyebrow">404</p>
+    <h1>This page isn't here</h1>
+    <p class="lead">
+      The address may be out of date, or have a typo. Search the docs for what
+      you came for, or start again from the home page.
+    </p>
+    <div class="ways">
+      <button
+        class="button"
+        type="button"
+        aria-haspopup="dialog"
+        aria-controls="search"
+        data-search-button
+        hidden
+      >
+        <Icon name="search" />
+        Search the docs
+      </button>
+      <a class="quiet" href="/">
+        Go to the home page
+      </a>
+      <a class="quiet" href={docsHome}>
+        Read the docs
+      </a>
+    </div>
+  </main>
+</BaseLayout>
+
+<style>
+  .not-found {
+    max-width: var(--content-width);
+    margin: 0 auto;
+    padding: var(--space-16) var(--space-4);
+  }
+
+  .eyebrow {
+    margin: 0;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 600;
+  }
+
+  h1 {
+    margin-top: var(--space-2);
+  }
+
+  .lead {
+    color: var(--color-muted);
+    font-size: var(--text-lg);
+  }
+
+  .ways {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-6);
+    margin-top: var(--space-8);
+  }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: var(--target);
+    padding: 0 var(--space-6);
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--color-button);
+    color: var(--color-on-accent);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .button[hidden] {
+    display: none;
+  }
+
+  .quiet {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--target);
+    color: var(--color-text);
+    font-weight: 500;
+  }
+</style>

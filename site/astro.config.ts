@@ -1,6 +1,8 @@
+import { fileURLToPath } from "node:url";
 import mdx from "@astrojs/mdx";
 import { defineConfig } from "astro/config";
 import { fenceTitle } from "./src/code.ts";
+import { writeSearchIndex } from "./src/search-index.ts";
 
 // Astro reports how it is used unless this is set. The site sends nothing
 // anywhere, and neither does its build. Only where nothing has set it, so
@@ -10,7 +12,18 @@ process.env.ASTRO_TELEMETRY_DISABLED ??= "1";
 export default defineConfig({
   site: "https://robkit.dev",
   output: "static",
-  integrations: [mdx()],
+  integrations: [
+    mdx(),
+    {
+      // The docs search's index, from the built pages: see search-index.ts.
+      name: "robkit:search",
+      hooks: {
+        "astro:build:done": async ({ dir }) => {
+          await writeSearchIndex(fileURLToPath(dir));
+        },
+      },
+    },
+  ],
   markdown: {
     shikiConfig: {
       // Colours come from the style guide's tokens: see base.css.

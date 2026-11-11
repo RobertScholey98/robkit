@@ -1,6 +1,7 @@
 ---
 // The header on every page: the menu button at phone width on a docs page,
-// the name, the docs and GitHub links, and the theme toggle.
+// the name, the search button, the docs and GitHub links, and the theme
+// toggle.
 import { docsHome, repoUrl } from "../site.ts";
 import Icon from "./Icon.astro";
 import ThemeToggle from "./ThemeToggle.astro";
@@ -30,6 +31,19 @@ const { menu } = Astro.props;
     <Icon name="terminal" size={22} />
     <span>robkit</span>
   </a>
+  <button
+    class="control search-button"
+    type="button"
+    aria-haspopup="dialog"
+    aria-controls="search"
+    aria-keyshortcuts="/"
+    data-search-button
+    hidden
+  >
+    <Icon name="search" />
+    <span class="label">Search</span>
+    <kbd class="key" aria-hidden="true" set:text="/" />
+  </button>
   <nav class="links" aria-label="Site">
     <a class="control" href={docsHome}>
       Docs
@@ -77,7 +91,32 @@ const { menu } = Astro.props;
     display: flex;
     align-items: center;
     gap: var(--space-1);
+  }
+
+  .search-button {
     margin-left: auto;
+    color: var(--color-muted);
+  }
+
+  .key {
+    padding: 0 var(--space-1);
+    border: 1px solid var(--color-border-control);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: 1.4;
+  }
+
+  @media (min-width: 48rem) {
+    .search-button {
+      min-width: 12rem;
+      justify-content: flex-start;
+      border: 1px solid var(--color-border-control);
+    }
+
+    .search-button .key {
+      margin-left: auto;
+    }
   }
 
   .control {
@@ -109,6 +148,22 @@ const { menu } = Astro.props;
   }
 
   @media (max-width: 47.999rem) {
+    .header {
+      gap: var(--space-1);
+    }
+
+    .links {
+      gap: 0;
+    }
+
+    .control {
+      padding: 0 var(--space-2);
+    }
+
+    .key {
+      display: none;
+    }
+
     .label {
       position: absolute;
       width: 1px;

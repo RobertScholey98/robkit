@@ -1,0 +1,212 @@
+---
+// The docs search: a dialog over the page, opened by a search button or
+// the / key. Only the small script that opens it loads with the page. The
+// dialog's script and the index load the first time it opens.
+import Icon from "./Icon.astro";
+---
+
+<dialog id="search" class="search" aria-labelledby="search-label">
+  <div class="panel">
+    <div class="bar">
+      <Icon name="search" />
+      <label id="search-label" class="visually-hidden" for="search-input">
+        Search the docs
+      </label>
+      <input
+        id="search-input"
+        class="input"
+        type="search"
+        autocomplete="off"
+        spellcheck="false"
+        enterkeyhint="go"
+        placeholder="Search the docs"
+        aria-describedby="search-status"
+      />
+      <button
+        class="close"
+        type="button"
+        aria-label="Close search"
+        data-search-close
+      >
+        <Icon name="x" />
+      </button>
+    </div>
+    <p id="search-status" class="status" role="status">
+      Type a command, a setting or any word from the docs.
+    </p>
+    <ul id="search-results" class="results" aria-label="Results"></ul>
+    <p class="keys" aria-hidden="true">
+      <kbd>↑</kbd>
+      <kbd>↓</kbd> to move, <kbd>Enter</kbd> to open, <kbd>Esc</kbd> to close
+    </p>
+  </div>
+</dialog>
+
+<style>
+  .search {
+    width: 100%;
+    max-width: 40rem;
+    max-height: none;
+    margin: 0 auto;
+    padding: var(--space-4);
+    border: 0;
+    background: none;
+    color: var(--color-text);
+  }
+
+  .search::backdrop {
+    background: var(--color-scrim);
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 2 * var(--space-4));
+    border: 1px solid var(--color-border-control);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+  }
+
+  @media (min-width: 48rem) {
+    .search {
+      margin-top: 12vh;
+    }
+
+    .panel {
+      max-height: 70vh;
+    }
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-2) 0 var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-muted);
+  }
+
+  .input {
+    flex: 1;
+    min-width: 0;
+    min-height: var(--target);
+    padding: var(--space-3) 0;
+    border: 0;
+    background: none;
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--text-lg);
+  }
+
+  .close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--target);
+    min-height: var(--target);
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background-color var(--duration-fast) var(--ease);
+  }
+
+  .close:hover {
+    background: var(--color-raised);
+  }
+
+  .status {
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+  }
+
+  .results {
+    overflow-y: auto;
+    margin: 0;
+    padding: 0 var(--space-2) var(--space-2);
+    list-style: none;
+  }
+
+  .results:empty {
+    display: none;
+  }
+
+  .results :global(li) {
+    margin: 0;
+  }
+
+  .results :global(a) {
+    display: block;
+    min-height: var(--target);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: background-color var(--duration-fast) var(--ease);
+  }
+
+  .results :global(a:hover),
+  .results :global(a:focus-visible) {
+    background: var(--color-raised);
+  }
+
+  .results :global(.place) {
+    display: block;
+    font-weight: 600;
+  }
+
+  .results :global(.heading) {
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+
+  .results :global(.excerpt) {
+    display: block;
+    margin-top: var(--space-1);
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+  }
+
+  .results :global(mark) {
+    background: none;
+    color: var(--color-text);
+    font-weight: 600;
+    text-decoration: underline var(--color-accent) 2px;
+    text-underline-offset: 2px;
+  }
+
+  .keys {
+    display: none;
+    margin: 0;
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+  }
+
+  @media (min-width: 48rem) and (hover: hover) {
+    .keys {
+      display: block;
+    }
+  }
+
+  kbd {
+    padding: 0 var(--space-1);
+    border: 1px solid var(--color-border-control);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+  }
+
+  kbd + kbd {
+    margin-left: var(--space-1);
+  }
+</style>
+
+<script>
+  import "../scripts/search-key.ts";
+</script>

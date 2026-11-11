@@ -141,10 +141,16 @@ export const packageGraph = {
   // robkit.dev, the docs site. Private, and built to static files. Its
   // stack switcher offers create-robkit's ready stacks, a test holds its
   // page on writes to the guard in @robkit/session, and its settings page
-  // lists the names @robkit/dev refuses in an app's .env.
+  // lists the names @robkit/dev refuses in an app's .env. Its search reads
+  // its index with @robkit/input.
   "@internal/site": {
     dependencies: [],
-    devDependencies: ["@robkit/dev", "@robkit/session", "create-robkit"],
+    devDependencies: [
+      "@robkit/dev",
+      "@robkit/input",
+      "@robkit/session",
+      "create-robkit",
+    ],
   },
   // Packs and checks every published package.
   "@internal/repo-checks": {

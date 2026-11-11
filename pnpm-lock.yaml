@@ -900,6 +900,9 @@ importers:
       '@robkit/dev':
         specifier: workspace:*
         version: link:../packages/dev
+      '@robkit/input':
+        specifier: workspace:*
+        version: link:../packages/input
       '@robkit/session':
         specifier: workspace:*
         version: link:../packages/session
