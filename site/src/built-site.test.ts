@@ -262,20 +262,6 @@ describe("the built page on pnpm dev and your apps", () => {
     }).stderr;
   };
 
-  /** The text of each item in the list after `heading`. */
-  const itemsAfter = (html: string, heading: string) => {
-    const list = /<ul>[\s\S]*?<\/ul>/.exec(
-      html.slice(html.indexOf(`id="${heading}"`)),
-    );
-    return [...(list?.[0] ?? "").matchAll(/<li>([\s\S]*?)<\/li>/g)].map(
-      ([, item = ""]) =>
-        item
-          .replaceAll(/<[^>]+>/g, "")
-          .replaceAll("&lt;", "<")
-          .replaceAll("&gt;", ">"),
-    );
-  };
-
   it("names each option robkit add takes, with its default", async () => {
     const usage = await addUsage();
     const items = itemsAfter(await built(page), "add-an-app");
@@ -370,6 +356,85 @@ describe("the built page on guests and access", () => {
     ).not.toContain("data-stub");
   });
 });
+
+describe("the built page on upgrading", () => {
+  const page = "docs/run-an-install/upgrading/index.html";
+  const source = (path: string) => readFile(join(repoRoot, path), "utf8");
+  const codes = async () =>
+    codeBlocks(await built(page)).map(({ code }) => code.trim());
+
+  it("shows the install README's upgrade commands, and its list of what an upgrade never reaches", async () => {
+    const readme = await source(
+      "packages/create-robkit/templates/base/README.md",
+    );
+    const section =
+      readme.replaceAll("\r\n", "\n").split(/^## Upgrade robkit$/m)[1] ?? "";
+    const fences = [
+      ...(section.split(/^## /m)[0] ?? "").matchAll(
+        /^```sh\n([\s\S]*?)^```$/gm,
+      ),
+    ].map(([, code = ""]) => code.trim());
+    const sentence = /^An upgrade doesn't reach [^\n]*?\.github`\./m.exec(
+      section,
+    )?.[0];
+
+    expect(fences).toHaveLength(2);
+    expect(await codes()).toEqual(expect.arrayContaining(fences));
+    expect(sentence).toBeDefined();
+    expect(
+      (await built(page)).replaceAll(/<[^>]+>/g, "").replaceAll("’", "'"),
+    ).toContain(String(sentence).replaceAll("`", ""));
+  });
+
+  it("names every path upgrade writes, and no other", async () => {
+    const handover = await source(
+      "packages/create-robkit/src/upgrade-handover.ts",
+    );
+    const listed = (name: string) =>
+      [
+        ...(
+          new RegExp(`const ${name} = \\[([^\\]]*)\\]`).exec(handover)?.[1] ??
+          ""
+        ).matchAll(/"([^"]+)"/g),
+      ].map(([, path]) => path);
+    const written = [...listed("ownedPaths"), ...listed("ownedFolders")];
+
+    expect(written).toHaveLength(5);
+    expect(
+      itemsAfter(await built(page), "what-it-changes").map(
+        (item) => /^(\S+?)[.,]\s/.exec(item)?.[1],
+      ),
+    ).toEqual(written);
+  });
+
+  it("quotes the lines robkit upgrade prints", async () => {
+    const upgrade = await source("packages/create-robkit/src/upgrade.ts");
+    const quoted = (await codes()).filter((code) => !code.includes("\n"));
+
+    expect(quoted).toContainEqual(
+      expect.stringMatching(/^Next, read git diff/),
+    );
+    for (const line of quoted) expect(upgrade).toContain(line);
+  });
+
+  it("is written, not a stub", async () => {
+    expect(await built(page)).not.toContain("data-stub");
+  });
+});
+
+/** The text of each item in the first list after the heading `id`. */
+function itemsAfter(html: string, id: string): string[] {
+  const list = /<ul>[\s\S]*?<\/ul>/.exec(
+    html.slice(html.indexOf(`id="${id}"`)),
+  );
+  return [...(list?.[0] ?? "").matchAll(/<li>([\s\S]*?)<\/li>/g)].map(
+    ([, item = ""]) =>
+      item
+        .replaceAll(/<[^>]+>/g, "")
+        .replaceAll("&lt;", "<")
+        .replaceAll("&gt;", ">"),
+  );
+}
 
 /** Each entry's name, in the order a tree shows them. */
 const treeNames = (entries: readonly TreeEntry[]): string[] =>
