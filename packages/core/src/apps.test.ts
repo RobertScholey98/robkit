@@ -3,9 +3,21 @@ import { describe, expect, it } from "vitest";
 import { readAccess, readListedApps } from "./apps.ts";
 
 describe("readListedApps", () => {
-  it("reads nothing from an unset or empty ROBKIT_APPS", () => {
-    expect(readListedApps({})).toEqual([]);
-    expect(readListedApps({ ROBKIT_APPS: " " })).toEqual([]);
+  it("reads an empty list as no apps", () => {
+    expect(readListedApps({ ROBKIT_APPS: "[]" })).toEqual([]);
+  });
+
+  // Core takes out every app the list leaves out, so a list that is
+  // missing must not read as an empty one.
+  it.each([
+    ["unset", {}],
+    ["empty", { ROBKIT_APPS: "" }],
+    ["blank", { ROBKIT_APPS: " \n" }],
+  ])("refuses a ROBKIT_APPS that is %s", (_, env) => {
+    expect(readListedApps(env)).toEqual({
+      error:
+        "ROBKIT_APPS is not set. pnpm dev and robkit deploy set it from each app's manifest. Set it to [] for an install with no apps of its own.",
+    });
   });
 
   it("reads each app's slug, rule and icon", () => {

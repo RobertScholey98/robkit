@@ -30,8 +30,25 @@ Before it starts anything, `pnpm dev` checks that Docker answers and that these 
 
 - `pnpm robkit add` works while `pnpm dev` runs. Once the app's files are written and installed, `pnpm dev` gives it a database, migrates it, starts it on a port no running app holds and routes its subdomain, then restarts core so the launcher lists it. Nobody is signed out. `robkit add` prints the app's address, or the problem if it can't start, and every other app keeps running.
 - `pnpm robkit migrate <slug>` applies an app's new migration while `pnpm dev` runs, as the app's own role, so its password stays the same. With no `pnpm dev` running, start it: it migrates every app as it starts.
-- Removing an app needs a restart. Stop `pnpm dev`, delete `apps/<slug>`, then start `pnpm dev` again.
 - `pnpm dev` hears these commands over a socket file in `~/.robkit/run`, which it makes for you alone, so every terminal finds it. It refuses to start if others can open that folder or another account owns it, and the `robkit` commands refuse to use one.
+
+### Removing an app
+
+Delete `apps/<slug>`, then restart `pnpm dev`, or deploy. `pnpm dev` doesn't notice a deleted folder while it runs. As core starts, it takes each app whose folder is gone out of its catalog: the app leaves the launcher and admin, core gives it no new token, and the rule you set for it in admin goes too. In production that happens when core deploys, and `robkit deploy` redeploys core when an app's folder is gone.
+
+Removing an app doesn't:
+
+- Stop it in production. Its container runs until you delete its application: see "Removing an app's application" in [docs/deploy.md](docs/deploy.md#removing-an-apps-application). Within a minute of core's deploy, its guard answers every request with a 503, since core no longer knows the app.
+- Take back a token the app already holds for a viewer. That lasts until it expires, at most 15 minutes.
+- Delete the app's data. Its Postgres schema and role stay. To drop both, run this as Postgres's admin, with the app's slug in place of `notes`:
+
+  ```sh
+  docker compose exec postgres psql -U postgres -d robkit -c 'drop owned by notes; drop role notes;'
+  ```
+
+  In production, run the same two statements with `psql` and the URL you set as `ROBKIT_ADMIN_DATABASE_URL`.
+
+A slug that comes back is a new app, whether you add one with that slug or bring back the folder, as when you switch to a branch that still has it. Core gives it the rule its manifest declares, or owner only, and none of the old roles, so set its rule in admin again. It finds the old app's schema and data unless you dropped them.
 
 ## Upgrading robkit
 

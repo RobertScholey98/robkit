@@ -15,6 +15,7 @@ const core = {
   DATABASE_URL: "postgres://core:pw@db:5432/robkit",
   ROBKIT_CORE_URL: "https://core.robkit.test",
   PORT: "3000",
+  ROBKIT_APPS: "[]",
 };
 
 describe("robkit-core", () => {
@@ -36,6 +37,7 @@ describe("robkit-core", () => {
       robkitCore(["start"], {
         DATABASE_URL: "postgres://core:pw@db:5432/robkit",
         PORT: "3000",
+        ROBKIT_APPS: "[]",
         // The provision step would refuse this too, but core's go first.
         ROBKIT_DB_SECRET: "short",
       }),

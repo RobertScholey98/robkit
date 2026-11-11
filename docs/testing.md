@@ -2,6 +2,10 @@
 
 This page covers the suites that start Docker: what they do, how they clean up, and what each prints when it fails. [CONTRIBUTING.md](../CONTRIBUTING.md#check-your-work) says which gate runs which tests and how to run one package's.
 
+## What every package's tests run with
+
+Each package's `vitest.config` spreads `testDefaults` from `tooling/vitest`, and a repo check fails one that doesn't. Git runs with no name or email of the machine's own, as on CI's runner, so a test that commits sets them in each repo it makes, every clone included. `expect.poll` waits up to 30 seconds rather than Vitest's one, since a process starting or a lock being taken can take seconds on a busy machine. [tooling/vitest/README.md](../tooling/vitest/README.md) says more.
+
 ## Tests that start Docker
 
 The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postgres containers, and so do core's and dev's `*.db.test.ts` files. Core and dev run those in a `db` Vitest project, with the Postgres global setup and longer timeouts; their other tests are the `unit` project, which `test:unit` and `pnpm check` run.

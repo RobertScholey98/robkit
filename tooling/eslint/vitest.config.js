@@ -1,7 +1,9 @@
+import { testDefaults } from "@internal/vitest-config";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    ...testDefaults,
     // A file's first lint with the type-aware config builds a TypeScript
     // program, which took 5.9 seconds on CI while turbo ran every package.
     testTimeout: 30_000,

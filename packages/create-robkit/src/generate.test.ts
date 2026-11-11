@@ -340,7 +340,7 @@ describe("generateInstall", () => {
 
     expect(setUpGo).toEqual({
       if: "hashFiles('apps/*/go.mod') != ''",
-      uses: "actions/setup-go@v7",
+      uses: "actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e",
       with: {
         "go-version": goVersionIn(
           files.get("Dockerfile") ?? "",
