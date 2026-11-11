@@ -156,7 +156,7 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 
 ## Code and callouts
 
-- Every code block sits in a frame with a bar above the code. The bar names the file the code is from, says "Terminal" for commands, or names the language.
+- Every code block sits in a frame with a bar above the code. The bar names the file the code is from, says "Terminal" for commands, or names the language. A long path in the bar breaks after a slash, never inside a name.
 - A command block puts a `$` prompt before each line, in `--color-muted`. The prompt can't be selected or copied with the command.
 - Every block a reader would paste has a copy button at the end of its bar, `--target` tall. A block that shows what a command prints, a `text` fence, has none. It says "Copied" for 2 seconds, on the button and to a screen reader through a status region. When the browser refuses the clipboard, it says "Couldn't copy" and asks the reader to select the code. Without scripts it isn't shown.
 - A block wider than the page scrolls on its own. Code isn't wrapped.

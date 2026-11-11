@@ -18,6 +18,8 @@ const { lang, title } = Astro.props;
 const command = isCommand(lang);
 const output = isOutput(lang);
 const label = codeLabel(lang, title);
+// A long path may break after a slash, and nowhere inside a name.
+const pieces = label.split(/(?<=\/)/);
 ---
 
 <figure
@@ -30,7 +32,9 @@ const label = codeLabel(lang, title);
       {(command || title !== undefined) && (
         <Icon name={command ? "terminal" : "file"} size={16} />
       )}
-      <span>{label}</span>
+      <span>
+        {pieces.map((piece, at) => (at === 0 ? piece : [<wbr />, piece]))}
+      </span>
     </span>
     {!output && (
       <>
@@ -81,8 +85,8 @@ const label = codeLabel(lang, title);
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    min-width: 0;
-    overflow-wrap: anywhere;
+    /* No narrower than its longest piece, so a name stays whole. */
+    overflow-wrap: break-word;
   }
 
   .copy {
