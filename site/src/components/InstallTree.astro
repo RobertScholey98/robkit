@@ -1,21 +1,25 @@
 ---
-// A new install's folders, each with what it's for. The entries are in
-// install-tree.ts, where a test finds each one in the templates.
+// Folders and files, each with what it's for. A new install's by default,
+// from install-tree.ts, or an app's, from app-files.ts. A test finds each
+// entry in the templates.
 import { installTree, type TreeEntry } from "../install-tree.ts";
 
 interface Props {
   entries?: TreeEntry[];
   /** Whether this is the tree's top, which names it. */
   top?: boolean;
+  /** What the tree is, for a screen reader. */
+  label?: string;
 }
 
-const { entries = installTree, top = true } = Astro.props;
+const {
+  entries = installTree,
+  top = true,
+  label = "A new install",
+} = Astro.props;
 ---
 
-<ul
-  class:list={["tree", { top }]}
-  aria-label={top ? "A new install" : undefined}
->
+<ul class:list={["tree", { top }]} aria-label={top ? label : undefined}>
   {entries.map(({ name, about, children }) => (
     <li>
       <code>{name}</code>

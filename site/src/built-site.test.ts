@@ -245,6 +245,76 @@ describe("the built page on the layer rule", () => {
   }, 60_000);
 });
 
+describe("the built guide for React + Hono", () => {
+  const page = "docs/build-an-app/react-hono/index.html";
+  const file = async (path: string) =>
+    (
+      await readFile(
+        join(
+          repoRoot,
+          "packages/create-robkit/templates/stacks/react-hono",
+          path,
+        ),
+        "utf8",
+      )
+    )
+      .replaceAll("\r\n", "\n")
+      .trimEnd();
+
+  it("shows the files it walks through as the template holds them", async () => {
+    const blocks = codeBlocks(await built(page));
+    const routes = await file("src/routes.tsx");
+    const start = routes.indexOf("export function routes");
+
+    for (const path of [
+      "src/schema.ts",
+      "src/visits.ts",
+      "src/server.tsx",
+      "src/routes.test.tsx",
+    ]) {
+      expect(blocks).toContainEqual({
+        label: `apps/notes/${path}`,
+        code: await file(path),
+      });
+    }
+    expect(blocks).toContainEqual({
+      label: "apps/notes/src/routes.tsx",
+      code: routes.slice(start, routes.indexOf("\n}\n", start) + 2),
+    });
+  });
+
+  it("lists every file the app gets, and is written, not a stub", async () => {
+    const html = await built(page);
+    const start = html.indexOf('aria-label="An app on React + Hono"');
+    const tree = html.slice(start, html.indexOf("<h2", start));
+    const names = [
+      ...tree.matchAll(/<li[^>]*>\s*<code[^>]*>([^<]+)<\/code>/g),
+    ].map(([, name = ""]) => name);
+
+    expect(start).toBeGreaterThan(-1);
+
+    expect(names).toEqual([
+      "src/",
+      "schema.ts",
+      "database.ts",
+      "visits.ts",
+      "routes.tsx",
+      "routes.test.tsx",
+      "server.tsx",
+      "serve.ts",
+      "styles.css",
+      "drizzle/",
+      "drizzle.config.ts",
+      "vite.config.ts",
+      "package.json",
+      "tsconfig.json",
+      "AGENTS.md",
+      "CLAUDE.md",
+    ]);
+    expect(html).not.toContain("data-stub");
+  });
+});
+
 describe("the built header", () => {
   it("links Docs to a page the build made, and GitHub to the repository", async () => {
     const html = await built("index.html");
