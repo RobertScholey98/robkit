@@ -2,6 +2,8 @@ node_modules/
 .turbo/
 dist/
 coverage/
+# Astro writes its generated types here.
+.astro/
 .env
 .env.*
 !.env.example

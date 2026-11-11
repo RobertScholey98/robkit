@@ -24,6 +24,15 @@
 /** @type {readonly string[]} */
 export const toolchain = ["@internal/eslint-config", "@internal/tsconfig"];
 
+/**
+ * Where the workspace's JavaScript packages are: every entry in
+ * `pnpm-workspace.yaml` but `go`, the Go module. The repo checks and the
+ * layer rule read the packages from here, and a test fails when the two
+ * lists part.
+ * @type {readonly string[]}
+ */
+export const packageFolders = ["packages/*", "tooling/*", "site"];
+
 /** @type {PackageGraph} */
 export const packageGraph = {
   // The readers for input from outside robkit: depend on nothing.
@@ -124,6 +133,8 @@ export const packageGraph = {
     dependencies: [],
     devDependencies: ["@robkit/guard", "@robkit/input"],
   },
+  // robkit.dev, the docs site. Private, and built to static files.
+  "@internal/site": { dependencies: [], devDependencies: [] },
   // Packs and checks every published package.
   "@internal/repo-checks": {
     dependencies: [],

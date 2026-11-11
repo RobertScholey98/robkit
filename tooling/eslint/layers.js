@@ -3,7 +3,7 @@ import { builtinModules } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
 import { matchesGlob, dirname as posixDirname } from "node:path/posix";
 import { fileURLToPath } from "node:url";
-import { packageGraph } from "./package-graph.js";
+import { packageFolders, packageGraph } from "./package-graph.js";
 
 export const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -70,7 +70,7 @@ function workspaceFolders() {
   /** @type {Map<string, string>} */
   const folders = new Map();
   for (const path of globSync(
-    ["packages/*/package.json", "tooling/*/package.json"],
+    packageFolders.map((folder) => `${folder}/package.json`),
     { cwd: repoRoot },
   )) {
     const manifest = JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
@@ -118,13 +118,16 @@ export const layers = [
   ...coreRows(packageGraph, folders),
 ];
 
-/** The workspace a file belongs to, such as `packages/guard`. */
+/**
+ * The workspace a file belongs to: one folder deep, such as `site`, or
+ * two, such as `packages/guard`.
+ */
 export function workspaceOf(/** @type {string} */ filename) {
-  return relative(repoRoot, filename)
+  const segments = relative(repoRoot, filename)
     .replaceAll("\\", "/")
-    .split("/")
-    .slice(0, 2)
-    .join("/");
+    .split("/");
+  const [first = ""] = segments;
+  return workspaces.has(first) ? first : segments.slice(0, 2).join("/");
 }
 
 /** @param {string} specifier */

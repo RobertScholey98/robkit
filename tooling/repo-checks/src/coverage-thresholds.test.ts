@@ -84,7 +84,9 @@ describe("the robkit workspace", () => {
       join(import.meta.dirname, "../../.."),
     );
 
-    expect(packages.map((p) => p.name)).toContain("@robkit/guard");
+    expect(packages.map((p) => p.name)).toEqual(
+      expect.arrayContaining(["@robkit/guard", "@internal/site"]),
+    );
     expect(
       packages
         .filter((p) => p.name !== "@internal/e2e")

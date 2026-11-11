@@ -1,11 +1,11 @@
 import { relative } from "node:path";
 
 // What the pre-commit hook runs on the files a commit stages. ESLint fixes
-// the staged code in packages/ and tooling/, each file with its own
+// the staged code in packages/, tooling/ and site/, each file with its own
 // package's config, and Prettier formats every staged file it knows.
 // create-robkit's templates are an install's own files, which the install
 // lints, so robkit's ESLint skips them.
-const code = /^(packages|tooling)\/.*\.[cm]?[jt]sx?$/;
+const code = /^(packages|tooling|site)\/.*\.([cm]?[jt]sx?|astro)$/;
 const templates = /^packages\/create-robkit\/templates\//;
 
 /** @param {string[]} files */

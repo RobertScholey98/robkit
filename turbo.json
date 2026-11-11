@@ -50,6 +50,20 @@
         "$TURBO_ROOT$/pnpm-workspace.yaml"
       ]
     },
+    "@internal/site#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/README.md"]
+    },
+    "@internal/site#test": {
+      "dependsOn": ["^build", "build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/README.md"]
+    },
+    "@internal/site#test:unit": {
+      "dependsOn": ["^build", "build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/README.md"]
+    },
     "@internal/go#test": {
       "inputs": [
         "$TURBO_DEFAULT$",
@@ -77,7 +91,9 @@
         "$TURBO_ROOT$/packages/**",
         "$TURBO_ROOT$/tooling/**",
         "$TURBO_ROOT$/go/**",
+        "$TURBO_ROOT$/site/**",
         "!$TURBO_ROOT$/**/.turbo/**",
+        "!$TURBO_ROOT$/**/.astro/**",
         "!$TURBO_ROOT$/**/dist/**",
         "!$TURBO_ROOT$/**/coverage/**",
         "!$TURBO_ROOT$/**/node_modules/**",
@@ -99,7 +115,9 @@
         "$TURBO_ROOT$/packages/**",
         "$TURBO_ROOT$/tooling/**",
         "$TURBO_ROOT$/go/**",
+        "$TURBO_ROOT$/site/**",
         "!$TURBO_ROOT$/**/.turbo/**",
+        "!$TURBO_ROOT$/**/.astro/**",
         "!$TURBO_ROOT$/**/dist/**",
         "!$TURBO_ROOT$/**/coverage/**",
         "!$TURBO_ROOT$/**/node_modules/**",

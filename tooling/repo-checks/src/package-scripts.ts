@@ -1,5 +1,6 @@
 import { glob } from "node:fs/promises";
 import { join } from "node:path";
+import { packageFolders } from "@internal/eslint-config/package-graph";
 import { readJsonFile, readNamedManifest } from "./manifest.ts";
 
 export const scripts = [
@@ -88,18 +89,19 @@ export function scriptProblems(
 }
 
 /**
- * Each workspace package with a test script, and its scripts: those under
- * packages/ and tooling/, and the Go module in go/.
+ * Each workspace package with a test script, and its scripts: the
+ * JavaScript packages and the Go module in go/.
  */
 export async function readWorkspaceScripts(
   root: string,
 ): Promise<PackageScripts[]> {
   const packages: PackageScripts[] = [];
   for await (const path of glob(
-    ["{packages,tooling}/*/package.json", "go/package.json"],
-    {
-      cwd: root,
-    },
+    [
+      ...packageFolders.map((folder) => `${folder}/package.json`),
+      "go/package.json",
+    ],
+    { cwd: root },
   )) {
     const json = await readJsonFile(join(root, path), readNamedManifest);
     const defined = json.scripts ?? {};
