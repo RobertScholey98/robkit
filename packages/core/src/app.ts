@@ -22,6 +22,7 @@ import { defaultSignInLimits, type SignInLimits } from "./sign-in-limits.ts";
 import { statusRoutes } from "./routes/status.ts";
 import { ensureSigningKey, type SigningKey } from "./signing-key.ts";
 import { createPasswordChecker } from "./password.ts";
+import { withoutQueryValues } from "./query-values.ts";
 
 export interface CoreOptions {
   db: Database;
@@ -41,7 +42,8 @@ export interface CoreOptions {
   /**
    * Where core reports what it can't answer usefully: an unexpected error in
    * a route, or the database being unreachable. Defaults to
-   * `reportToConsole`.
+   * `reportToConsole`. A database error reaches it without its query's
+   * values.
    */
   logError?: Report;
   /**
@@ -81,10 +83,12 @@ export function createApp({
   origin,
   now = () => new Date(),
   trustedProxy,
-  logError = reportToConsole,
+  logError: report = reportToConsole,
   signingKey: loaded,
   signInLimits,
 }: CoreOptions): Hono {
+  // The one reporter onError and every route use.
+  const logError = withoutQueryValues(report);
   const app = new Hono();
   // Hono's own answer to a route that throws. The cause stays in core's log
   // and the caller gets a generic error, with a request id that finds the
