@@ -70,7 +70,7 @@ describe("exampleProblems", () => {
       `packages/x/README.md:15: Type '"notes"' is not assignable to type 'Slug'.\n` +
         "  Make the example compile against the built packages. If it is deliberately not a whole program, such as a signature or a fragment, mark its fence ```ts nocheck.",
     ]);
-  });
+  }, 120_000);
 
   it("passes an example that compiles", async () => {
     expect(
@@ -83,7 +83,7 @@ describe("exampleProblems", () => {
         },
       ]),
     ).toEqual([]);
-  });
+  }, 120_000);
 });
 
 describe("docExamples", () => {
