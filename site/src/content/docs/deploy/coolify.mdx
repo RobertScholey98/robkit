@@ -1,0 +1,250 @@
+---
+title: Deploy to Coolify
+description: Put your install on your own server with Coolify, and deploy each app with pnpm robkit deploy.
+section: Deploy
+order: 1
+describes:
+  - packages/create-robkit/templates/base/docs/deploy.md
+  - packages/create-robkit/templates/base/.github/workflows/ci.yml
+  - packages/create-robkit/src/robkit-command.ts
+  - packages/create-robkit/src/env.ts
+  - packages/create-robkit/src/coolify-config.ts
+  - packages/create-robkit/src/coolify-host.ts
+  - packages/create-robkit/src/coolify-deploy.ts
+  - packages/create-robkit/src/deployment.ts
+---
+
+import Callout from "../../../components/Callout.astro";
+
+`pnpm robkit deploy` puts your install on your own server, with each app in its own container on [Coolify](https://coolify.io/docs/) 4.3 or later. It creates each app's application on Coolify, sets its variables and deploys it, core first. Once you've set it up, your install's CI runs it on every push to `main` that passes the checks.
+
+Coolify is the one host robkit deploys to. Your install carries this guide as `docs/deploy.md`, and [what it doesn't cover](#what-this-guide-doesnt-cover) is at the end.
+
+## TLS in front of Coolify
+
+Put something that terminates TLS in front of Coolify before you deploy. `robkit deploy` is written for a Cloudflare tunnel, which takes https from visitors and carries plain http to Coolify's Traefik. So it gives each application an `http://` domain with force-HTTPS off.
+
+Without TLS in front, visitors reach your apps over plain http, and two things break:
+
+- Nobody can sign in. Core's sign-in cookie is only sent over https.
+- Every app's address in `ROBKIT_CORE_URL` and in the catalog is an https address that nothing answers.
+
+Coolify's own certificates don't work here yet. Traefik issues them only for an `https://` domain, and `robkit deploy` writes `http://` ones.
+
+## Set it up once
+
+Do these in order. Each one gives `robkit deploy` something it needs.
+
+1. **Connect Coolify to your repository.** In Coolify, add a GitHub App under Sources, install it on this repository only, and leave pull request previews off. Coolify builds each app from the repository through it.
+2. **Make a project and an environment** in Coolify, with the names you'll give them in `coolify.json`. Every app's application goes in that environment.
+3. **Add Postgres.** In that environment, add a PostgreSQL resource on `postgres:18-alpine` and start it. Copy its internal URL. Its host only resolves inside Coolify's Docker network, which is where your apps run.
+4. **Make the install's database secret**, which every app's database password comes from. Keep it somewhere safe.
+
+   ```sh
+   openssl rand -hex 32
+   ```
+
+5. **Print each app's `DATABASE_URL`** from the Postgres URL and the secret:
+
+   ```sh
+   ROBKIT_ADMIN_DATABASE_URL='<internal Postgres URL>' ROBKIT_DB_SECRET='<secret>' pnpm robkit database-urls
+   ```
+
+6. **Add the environment's shared variables** in Coolify. Add `ROBKIT_ADMIN_DATABASE_URL`, `ROBKIT_DB_SECRET`, and each `<SLUG>_DATABASE_URL` line from step 5. They hold the secrets, so none lives in your repository or in CI.
+7. **Write `coolify.json`** at the install's root. It tells `robkit deploy` where the install goes.
+
+   ```json title="coolify.json"
+   {
+     "project": "robkit",
+     "environment": "production",
+     "server": "localhost",
+     "githubApp": "<the GitHub App's name>",
+     "repository": "<owner>/<repo>",
+     "branch": "main",
+     "domain": "<your domain>",
+     "trustedProxy": "cloudflare"
+   }
+   ```
+
+   Leave out `trustedProxy` unless the host is reachable only through a Cloudflare tunnel. [Behind a Cloudflare tunnel](#behind-a-cloudflare-tunnel) says why.
+
+8. **Point `*.<domain>` at Coolify.** Each app answers on its own subdomain. With a Cloudflare tunnel, Cloudflare terminates TLS and the tunnel carries plain http to Traefik.
+9. **Let CI reach Coolify.** In Coolify, create an API token with `read`, `write` and `deploy`. Add it to the repository's secrets as `COOLIFY_TOKEN`, and Coolify's address as `COOLIFY_URL`. If Cloudflare Access guards Coolify, add an Access client ID and secret as `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`.
+10. **Carry robkit's packages, until they're on npm.** An install made with `--link` must carry them. Run `pnpm robkit vendor`, then commit `vendor/robkit` and the lockfile.
+11. **Deploy everything once.** Run `pnpm robkit deploy --all` with the same four variables set in your shell, or push to `main`.
+
+## Claim it at once
+
+Open `https://hub.<domain>` as soon as the first deploy finishes, and set up the install. Whoever does that first becomes its owner, so until you do, anyone who finds the hub can take it.
+
+Then check it's yours. In a private window, the hub shows **Sign in** where it showed **Set up this install**. Or ask core:
+
+```sh
+curl https://core.<domain>/session
+```
+
+It answers `{"state":"signed-out"}` once the install has an owner, and `{"state":"unclaimed"}` until then.
+
+While you're there, check that:
+
+- a code minted in admin signs a guest in on the hub, and opens an app on its own subdomain
+- the `test` code is refused
+
+## Deploy
+
+Push to `main`, and CI runs `pnpm robkit deploy` once the checks pass. Run it yourself with the same variables set:
+
+```sh
+pnpm robkit deploy                  # the apps that changed
+pnpm robkit deploy --all            # every app
+pnpm robkit deploy --apps notes,hub # the apps named
+pnpm robkit deploy --dry-run        # what each app would do, and why
+```
+
+A deploy does four things:
+
+1. It reads `coolify.json`.
+2. It finds each app's application on Coolify by its name, `<project>-<slug>`, so one you made by hand is adopted, not made twice. It creates the ones Coolify lacks.
+3. It sets each application's domain, `http://<slug>.<domain>`, port 3000, the `/Dockerfile` build with `ROBKIT_APP` as its build argument, auto-deploy off and force-HTTPS off, and then [its variables](#what-it-sets-on-each-app).
+4. It deploys core first, then the other apps together. When core's settings can't be saved or its deploy fails, no other app deploys, and the output names each app it held back.
+
+Each container migrates its app's database as it starts, before it serves. Core's container first runs the provision step, which gives every app with a database its schema and role. If a migration fails, the container exits and Coolify keeps the old one running.
+
+It runs only from a commit pushed to the branch in `coolify.json`. Coolify builds the branch as the repository holds it, not your checkout, so `robkit deploy` checks first that your commit is on that branch at a remote whose URL ends in the repository's name. If it isn't, it says to push. CI's checkout of a push to `main` passes.
+
+### Which apps deploy
+
+With no option, an app deploys when:
+
+- it's new to Coolify
+- it has no record of a finished deploy, or one `robkit deploy` can't read
+- its code, or a package it uses, changed since its recorded commit
+- the `Dockerfile` or `.dockerignore` changed since then, since every app's image is built with them
+- the variables it's about to get differ from its record. A new app, or one that gains or loses a `migrate` script, changes core's variables, so core deploys too
+- its recorded commit isn't in your checkout's history, as after a force push
+
+`robkit deploy` keeps each app's record in its application's description on Coolify. The record names the commit Coolify built, with a hash of the variables it set. Leave the description alone, since `robkit deploy` replaces whatever it holds. A deploy that fails, or that it stops waiting for, leaves no record, so the next deploy deploys that app again.
+
+`--all` deploys every app. `--apps` deploys the apps named, each app new to Coolify, and core when its record doesn't show the variables it's about to get.
+
+### The dry run
+
+`pnpm robkit deploy --dry-run` reads Coolify and writes nothing to it. It prints a table with a row for each app, its action, `deploy` or `skip`, and one of these reasons:
+
+- `new on Coolify`
+- `no record of a finished deploy`
+- `its record can't be read`
+- `changed since 1a2b3c4`
+- `its variables changed since 1a2b3c4`
+- `1a2b3c4 isn't in this checkout's history`
+- `unchanged since 1a2b3c4`
+- `--all`
+- `named with --apps`
+- `not named with --apps`
+
+`1a2b3c4` stands for the commit in the app's record. The last line is `This was a dry run, so nothing was written to Coolify.` With no `COOLIFY_URL`, it can't read the records, so it prints each app's variables instead.
+
+### What it prints
+
+A deploy prints the same table, then a line for each app it deployed. These lines need you:
+
+- **`<app>: deployed, but its record wasn't saved`.** The app runs, the command fails, and the next deploy deploys it again.
+- **`<app>: held back, since core didn't deploy`.** Fix core's deploy first. Core's own line says why it failed.
+- **`<project>-<slug> matches no app in this install`.** An application left from an app you removed. [Remove it](#remove-an-app) yourself.
+
+It stops before it writes anything to Coolify when:
+
+- the environment lacks a shared variable the apps need. It names each one and where its value comes from.
+- an application with one of your apps' names is built from another repository, as after you rename or move the repository. Change each application's repository in Coolify to match `coolify.json`, then deploy again.
+- Coolify lists an application without its environment, which means a Coolify older than 4.3.
+
+With no `COOLIFY_URL` and no `--dry-run`, it deploys nothing and says so, which is what your install's CI does before you set Coolify up.
+
+## Three kinds of value
+
+A deployed install takes values from three places. Each has its own home, so no secret ends up in your repository.
+
+### What robkit deploy reads
+
+You set these in your shell, or as the repository's secrets for CI. `robkit deploy` reads no `.env`.
+
+| Name                      | What it holds                                             |
+| ------------------------- | --------------------------------------------------------- |
+| `COOLIFY_URL`             | Coolify's address. Without it, nothing deploys            |
+| `COOLIFY_TOKEN`           | the API token from step 9                                 |
+| `CF_ACCESS_CLIENT_ID`     | Cloudflare Access's client ID, when Access guards Coolify |
+| `CF_ACCESS_CLIENT_SECRET` | its secret. Set both of these, or neither                 |
+
+`pnpm robkit database-urls` reads `ROBKIT_ADMIN_DATABASE_URL` and `ROBKIT_DB_SECRET` from your shell, once, in step 5.
+
+### Shared variables on the host
+
+You set these once, in the Coolify environment, in step 6. `robkit deploy` checks each one's name is there before it writes anything, and never reads their values.
+
+- `ROBKIT_ADMIN_DATABASE_URL`, the internal URL of the environment's Postgres
+- `ROBKIT_DB_SECRET`, the install's database secret
+- `<SLUG>_DATABASE_URL` for each app with a database, as `pnpm robkit database-urls` prints it
+
+When you add an app with a database, run `pnpm robkit database-urls` again and add its line before you push.
+
+### An app's own settings
+
+Set an app's own settings, such as an API key, on Coolify. Open the app's application, `<project>-<slug>`, and add each one under Environment Variables. Coolify gives them to the app when it next starts, so redeploy the app from Coolify after a change. `robkit deploy` can't see them, so a change to one doesn't deploy the app.
+
+No image holds an app's `.env`, so a setting your app has under `pnpm dev` must be set here too. A `VITE_*` or `NEXT_PUBLIC_*` setting is written into the page when the image builds, and the build takes no setting but `ROBKIT_APP`. So read the setting on the server and hand it to the page.
+
+<Callout kind="warning">
+
+Don't give one of your own settings a name from [the table below](#what-it-sets-on-each-app). The next deploy replaces its value.
+
+</Callout>
+
+## What it sets on each app
+
+`robkit deploy` sets these variables and no others. It sends Coolify nothing that removes or replaces a variable of your own.
+
+| Variable          | Value                                                                     |
+| ----------------- | ------------------------------------------------------------------------- |
+| `ROBKIT_APP`      | the app's slug, also a build argument                                     |
+| `ROBKIT_DOMAIN`   | the domain in `coolify.json`, for every app but core                      |
+| `ROBKIT_CORE_URL` | `https://core.<domain>`. Core takes the install's domain from it          |
+| `PORT`            | `3000`                                                                    |
+| `DATABASE_URL`    | `{{environment.<SLUG>_DATABASE_URL}}`, for an app with a `migrate` script |
+
+Core also gets:
+
+- `ROBKIT_APPS`, the app catalog
+- `ROBKIT_DATABASES`, the apps the provision step gives a database
+- `ROBKIT_ADMIN_DATABASE_URL` and `ROBKIT_DB_SECRET`, from the shared variables. Core's server starts without them, and only the provision step sees them
+- `ROBKIT_TRUSTED_PROXY`, when `coolify.json` sets `trustedProxy`
+
+[Every setting](/docs/reference/settings/) says what each one does.
+
+## Behind a Cloudflare tunnel
+
+Core limits failed sign-ins for each visitor, so it needs to tell visitors apart. By default it takes the address Traefik saw. Behind a tunnel, Traefik sees the tunnel for every visitor, so they all share one limit, and anyone can lock you out by failing on purpose.
+
+With `"trustedProxy": "cloudflare"` in `coolify.json`, core tells visitors apart by the `CF-Connecting-IP` header, which Cloudflare sets itself.
+
+Set it only when nothing but the tunnel reaches the host. If Traefik also answers on the server's public address, anyone can go around Cloudflare and name any address they like. Close ports 80 and 443 to the internet, or leave `trustedProxy` out and accept the shared limit.
+
+After the first deploy, check it. Fail to sign in five times from one network, then sign in from another, such as a phone off Wi-Fi. The second should get in.
+
+## Add an app
+
+`pnpm robkit add` writes the app. If it has a database, run `pnpm robkit database-urls` again and add its new `<SLUG>_DATABASE_URL` shared variable before you push. The next deploy creates its application, deploys core with it in the catalog, then starts it.
+
+## Remove an app
+
+Delete the app's folder, and the next deploy takes it out of core's catalog. `robkit deploy` never deletes an application. It names the old one as matching no app, and leaves it running.
+
+To remove it, open the application `<project>-<slug>` in Coolify, stop it, and delete it. Its schema and role stay in Postgres, and its `<SLUG>_DATABASE_URL` shared variable stays in the environment, until you delete them yourself.
+
+## What this guide doesn't cover
+
+This guide covers one path, and leaves these to you:
+
+- **Other hosts.** `robkit deploy` talks to Coolify only, and no other host has a guide.
+- **Backups.** Nothing backs up the install's Postgres. Back it up yourself, and keep the database secret with it, since every app's password comes from it.
+- **Observability.** robkit sets up no metrics or alerts. Each container prints its own log, which Coolify shows on the application.
+- **Secret rotation.** No command changes the database secret or the Coolify token for you.

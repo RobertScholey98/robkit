@@ -48,7 +48,7 @@ async function servedFile(root: string, path: string) {
 const markdownLinks = (markdown: string) =>
   [
     ...markdown
-      .replaceAll(/^(`{3,})[\s\S]*?^\1/gm, "")
+      .replaceAll(/^ *(`{3,})[\s\S]*?^ *\1/gm, "")
       .replaceAll(/`[^`\n]*`/g, "")
       .matchAll(/\]\((?:<([^>]*)>|([^)\s]+))/g),
   ].map(([, angled, bare]) => String(angled ?? bare));
