@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { writeMarkdownCopies } from "./markdown-copies.ts";
 import { readPages } from "./pages.ts";
+import { preRelease } from "./site.ts";
 import { switcherStacks } from "./stacks.ts";
 import { built } from "./test/built.ts";
 
@@ -96,13 +97,15 @@ describe("the built site's Markdown copies", async () => {
     }
   });
 
-  it("write a callout and the pre-release line as text", async () => {
+  it("write a callout as text, and the pre-release line while preRelease is on", async () => {
     expect(await built("docs/run-an-install/upgrading.md")).toMatch(
       /^> \*\*(Note|Warning)\*\*\n>\n> \S/m,
     );
-    expect(await built("docs/get-started/quickstart.md")).toContain(
-      "> robkit isn't on npm yet, so `npm create robkit` won't work until its first release.",
-    );
+    expect(
+      (await built("docs/get-started/quickstart.md")).includes(
+        "> robkit isn't on npm yet, so `npm create robkit` won't work until its first release.",
+      ),
+    ).toBe(preRelease);
   });
 
   it("link each docs page to its copy", async () => {
