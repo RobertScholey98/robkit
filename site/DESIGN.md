@@ -169,6 +169,12 @@ No shadows and no gradients. A surface stands apart by its colour and a border.
 - They're light only, since the hub and admin have no dark theme. Each sits in a window frame: a bar on `--color-raised` with three dots and the address it was taken at, and a `--color-border-control` edge. On the dark theme, the frame shows a light page in a dark window, as a reader's browser would.
 - Each has words for a reader who can't see it, saying what it shows, and a width and height, so the page doesn't move as it loads. Below the first screen, it loads only when the reader nears it.
 
+## Link previews
+
+- One image serves every page's link preview: `public/preview.png`, 1200 by 630. It shows the name beside the terminal icon in `--color-accent`, the home page's headline, and one command in a terminal, on the dark theme with a `--color-accent` bar along the top.
+- `pnpm preview-image` makes it from `scripts/preview-image.html`, which takes its colours from `tokens.css` and the site's own fonts. Never edit the PNG by hand. Make it again when the headline, the dark theme or the fonts change.
+- A preview's title is the page's title without "| robkit", and its words are the page's description.
+
 ## Icons
 
 - SVG only, drawn inline, 1.5-pixel strokes on a 24-pixel grid, in `currentColor`. No emoji stands in for an icon.

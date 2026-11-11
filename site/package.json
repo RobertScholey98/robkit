@@ -9,6 +9,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "pages-to-reread": "node scripts/pages-to-reread.ts",
+    "preview-image": "node scripts/preview-image.ts",
     "lint": "astro sync && eslint .",
     "typecheck": "astro check && tsc",
     "test": "vitest run --coverage",
