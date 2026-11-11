@@ -36,3 +36,7 @@ Where the socket is belongs to one robkit version: in an install, the runner and
 Opus's review of milestone 3's code raised this, and I confirmed it in `devSocket` in `packages/dev/src/requests.ts`: the folder comes from `env.XDG_RUNTIME_DIR`, or from `os.tmpdir()`, which reads `TMPDIR`. I didn't build it in the round. It adds a file and a lookup to the one channel into `pnpm dev`, which deserves a ticket and a review of its own, and nothing about it freezes at 0.1.0.
 
 A second `pnpm dev` started from such a terminal is already refused: the proxy's port is taken, and the port check runs before the socket is touched.
+
+### From milestone 3, added by the lead
+
+The docs site, built beside this milestone on the `docs-site` branch, has a page on adding an app (docs-site ticket 16) that describes how the `robkit` commands find a running `pnpm dev` today. Say in this ticket's comments what an owner sees differently afterwards. The docs site's last build ticket (26) works from that.

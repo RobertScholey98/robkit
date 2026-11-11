@@ -33,3 +33,9 @@
 Found while milestone 1 was built (2026-11-09):
 
 - After ticket 02 core reads only `ROBKIT_CORE_URL`. `robkit deploy` still sets `ROBKIT_DOMAIN` on core, and core ignores it. `docs/deploy.md` says so. Stop setting it on core here, since this ticket already works out which settings each app needs.
+
+### From milestone 3, added by the lead
+
+Milestone 3 changed none of `robkit deploy`'s code. It added to the install's `docs/deploy.md` where an app's own settings go in production (ticket 17).
+
+The docs site is being built beside this milestone, on the `docs-site` branch. Its Deploy page (docs-site ticket 25) waits for this ticket to reach `main`, and its command reference (docs-site ticket 20) describes `robkit deploy` as it is before this ticket. Say in this ticket's comments what an owner sees differently afterwards: the reasons in the dry run, the missing-variable message, the application that matches no app. Write the TLS requirement into the install's `docs/deploy.md`, as "What to build" asks, since the Deploy page is written from that file. The docs site's last build ticket (26) works from this ticket's comments.

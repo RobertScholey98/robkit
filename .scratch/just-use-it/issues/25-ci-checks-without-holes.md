@@ -45,3 +45,12 @@ Found while milestone 3 was built (2026-11-10):
 - `tooling/repo-checks/src/version-pull-request.test.ts` failed pull request 92's CI because one test committed in a second clone that had no git identity. Every machine that had run it had a global identity, and CI's runner has none. Running the tests that call git with `GIT_CONFIG_GLOBAL=/dev/null` and `user.useConfigOnly=true` shows it anywhere. A check that runs them that way would catch the next one before CI does.
 - Two of create-robkit's unit tests failed pull request 94's CI because each ran a real `pnpm install` from npm's registry, with 110 seconds to finish, and npm took 10 to 21 seconds a request on that runner. The lead gave them a fake pnpm ahead of the machine's own on `PATH`. The registry test in `tooling/e2e` still installs with the real one. A unit test that reaches npm's registry depends on npm's speed that minute. A check could run the unit tests with no network and fail any that needs one.
 - Several tests named a version that a routine pull request changes: six named robkit's own as 0.0.0, which the version pull request changes, and three gave a fake pnpm 11.28.9 to print, which the next pnpm update changes. Each reads the number from `package.json` now. Running the tests in a copy bumped with `changeset version` showed the first six.
+
+### From milestone 3, added by the lead
+
+On top of the notes above, which were written as milestone 3 was built:
+
+- **`release.yml` already names every action by commit**, with its version beside it, and `release-workflow.test.ts` holds it to that (ticket 14). The "Workflows" bullet is about `ci.yml`, `production.yml`, `nightly.yml` and the template's workflows.
+- **The Go version.** Ticket 20 found the three places disagree: `CONTRIBUTING.md` and the install's docs say Go 1.26 or later, `go.mod` says 1.26.0, and CI runs 1.27.3. That is this ticket's last bullet.
+- **One more test on a time limit.** `packages/create-robkit/src/vendor.pack.test.ts` timed out at 120 seconds in CI on `main`, on the merge of milestone 3 (run 42927115992). It was the run's only failure. The same tree had passed on the pull request an hour before. The lead re-ran the job.
+- **A comment can fail the glossary check.** Milestone 3's code round wrote "a group of its own" in a comment in `packages/dev/src/exec.ts`, and the check failed in WSL after the unit tests had passed. It passed once "process group" sat on one line. The check is right. A contributor meets it late, since `pnpm check` runs it among 300 other tests.

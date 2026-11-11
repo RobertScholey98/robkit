@@ -16,3 +16,13 @@ Computed imports, `createRequire`, aliases, tsconfig `paths`, a Vite `resolve.al
 - [ ] The new message names the file, the line, the rule and what to do
 - [ ] `SECURITY.md` says what the check proves, what the boundaries are, and lists the known ways past it
 - [ ] The PR's CI `gate` job passes on GitHub
+
+## Comments
+
+### From milestone 3, added by the lead
+
+Ticket 20 added a line to the map for PRD decision 18, "`robkit check` is a lint, not a boundary", marked not built yet. Update that line when this merges.
+
+`robkit upgrade` (ticket 19) refuses a link at or above any path it writes. That check is upgrade's own and shares nothing with `robkit check`'s scan, so a symlinked folder still needs this ticket.
+
+The docs site, built beside this milestone on the `docs-site` branch, has a page on the layer rule (docs-site ticket 10) and a command reference (20). Both describe `robkit check` as it is before this ticket. Say in this ticket's comments what the check prints or claims differently afterwards. The docs site's last build ticket (26) works from that.

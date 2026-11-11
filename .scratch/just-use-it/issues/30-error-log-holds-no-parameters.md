@@ -22,3 +22,7 @@
 Opus found a second log that can hold a secret. Postgres logs a statement that fails, whole, at its default `log_min_error_statement`. Provisioning writes each role's password into its `create role` or `alter role` statement, and since ticket 12 two cores that start together are expected to collide and retry. So a lost race puts `create role "notes" … password '…'` in Postgres's own log. The statement predates milestone 2; the expected race is new.
 
 Milestone 4's ticket round should decide whether this ticket takes it. Two ways to close it: `set local log_min_error_statement = 'panic'` and `set local log_statement = 'none'` in the provisioning transaction, which a superuser may set, or send the password as a SCRAM verifier, so the log never holds the password itself.
+
+### From milestone 3, added by the lead
+
+Milestone 3 changed nothing under this ticket. One related message did change: when a migration fails in a running `pnpm dev`, `robkit migrate` now answers that its output is in `pnpm dev`'s terminal. A failed migration prints the failed statement there, as it always has. That is the owner's own terminal in dev, and outside this ticket.
