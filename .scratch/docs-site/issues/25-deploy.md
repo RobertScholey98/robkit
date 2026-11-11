@@ -19,7 +19,7 @@ It waits for ticket 22 of "Just use it", which changes what `robkit deploy` depl
 - [x] Every name `robkit deploy` reads is on the page, and every name on the page is one it reads or sets
 - [x] The page says to claim the install at once, and how to check it is claimed
 - [x] The page says what it doesn't cover
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -56,3 +56,7 @@ It waits for ticket 22 of "Just use it", which changes what `robkit deploy` depl
 - Nothing known. Milestone 4's deploy changes, ticket 22 of "Just use it" included, were already in `docs-site` when this was written.
 - Step 10, vendoring robkit's packages, holds only until they're on npm. Once `preRelease` is off, check whether `docs/deploy.md` still has it, and drop it from the page if not.
 - None of this has run against a real Coolify, as ticket 22 says. If the first real deploy prints something else, this page follows `docs/deploy.md`.
+
+### Merged
+
+Added by the lead. PR 147 merged into `docs-site` on 2026-11-11 as `8e59120f`, with `gate` green on `721bbf7`. I read the page against the install's `docs/deploy.md`, core's `session-store.ts` and the hub's `forms.tsx`, and found nothing to change.
