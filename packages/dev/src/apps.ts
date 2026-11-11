@@ -150,8 +150,7 @@ export function routesFor(apps: readonly App[], domain: Domain): Route[] {
 
 /**
  * `ROBKIT_APPS` for core: the owner's apps as JSON, each with what its
- * manifest declares. Core adds any it doesn't know to its catalog when it
- * starts.
+ * manifest declares. As core starts, its catalog becomes this list.
  */
 export function catalogOf(apps: readonly App[]): string {
   return JSON.stringify(
