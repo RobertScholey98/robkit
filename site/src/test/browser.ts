@@ -78,7 +78,10 @@ export async function openPage(
   const page = await context.newPage();
   const requests: string[] = [];
   page.on("request", (request) => requests.push(request.url()));
-  await page.goto(`${site.origin}${path}`, { waitUntil: "networkidle" });
+  // The load event, then the fonts, since axe measures text as drawn.
+  // Waiting for the network to go quiet cost half a second a page.
+  await page.goto(`${site.origin}${path}`, { waitUntil: "load" });
+  await page.evaluate(() => document.fonts.ready);
   return { page, requests };
 }
 
