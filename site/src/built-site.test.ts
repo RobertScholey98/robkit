@@ -43,3 +43,27 @@ describe("the built header", () => {
     );
   });
 });
+
+describe("the built docs pages", () => {
+  it("link to the pages before and after them in the sidebar's order", async () => {
+    const page = (href: string) => built(`${href.slice(1)}index.html`);
+    const hrefs = (html: string) =>
+      [...html.matchAll(/href="([^"]+)"/g)].map(([, href = ""]) => href);
+    const sidebar = (html: string) =>
+      hrefs(/<nav id="site-nav"[\s\S]*?<\/nav>/.exec(html)?.[0] ?? "");
+    const order = sidebar(await page(docsHome));
+    expect(order.length).toBeGreaterThan(1);
+
+    for (const [index, href] of order.entries()) {
+      const html = await page(href);
+      const rel = (name: string) =>
+        new RegExp(`href="([^"]+)" rel="${name}"`).exec(html)?.[1];
+
+      expect(sidebar(html), href).toEqual(order);
+      expect([rel("prev"), rel("next")], href).toEqual([
+        order[index - 1],
+        order[index + 1],
+      ]);
+    }
+  });
+});

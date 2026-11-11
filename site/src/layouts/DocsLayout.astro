@@ -1,9 +1,11 @@
 ---
-// A docs page: the sidebar, the page and its headings. The sidebar is a
-// column from 64rem wide and the phone menu below that. Without scripts
-// it stays in the page, so every link works with none.
+// A docs page: the sidebar, the page, its headings, and the links to the
+// pages before and after it. The sidebar is a column from 64rem wide and
+// the phone menu below that. Without scripts it stays in the page, so
+// every link works with none.
 import type { MarkdownHeading } from "astro";
 import { getCollection } from "astro:content";
+import Icon from "../components/Icon.astro";
 import { buildNavigation } from "../navigation.ts";
 import BaseLayout from "./BaseLayout.astro";
 
@@ -83,6 +85,34 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
         )}
         <slot />
       </div>
+      <footer class="page-foot">
+        {(place.previous ?? place.next) && (
+          <nav class="pager" aria-label="Previous and next pages">
+            {place.previous && (
+              <a
+                class="pager-link previous"
+                href={place.previous.href}
+                rel="prev"
+              >
+                <span class="pager-label">
+                  <Icon name="arrow-left" size={16} />
+                  Previous
+                </span>
+                <span class="pager-title">{place.previous.title}</span>
+              </a>
+            )}
+            {place.next && (
+              <a class="pager-link next" href={place.next.href} rel="next">
+                <span class="pager-label">
+                  Next
+                  <Icon name="arrow-right" size={16} />
+                </span>
+                <span class="pager-title">{place.next.title}</span>
+              </a>
+            )}
+          </nav>
+        )}
+      </footer>
     </main>
   </div>
 </BaseLayout>
@@ -270,7 +300,8 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
     }
 
     .page-head,
-    .prose {
+    .prose,
+    .page-foot {
       grid-column: 1;
     }
 
@@ -278,7 +309,7 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
       position: sticky;
       top: calc(var(--header-height) + var(--space-8));
       grid-column: 2;
-      grid-row: 1 / span 2;
+      grid-row: 1 / span 3;
       align-self: start;
       margin: 0;
       padding: 0 0 0 var(--space-4);
@@ -318,6 +349,61 @@ const onThisPage = headings.filter(({ depth }) => depth === 2 || depth === 3);
     border-left: 3px solid var(--color-accent);
     border-radius: var(--radius);
     background: var(--color-surface);
+    font-weight: 600;
+  }
+
+  .page-foot {
+    margin-top: var(--space-12);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .pager {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+  }
+
+  @media (min-width: 40rem) {
+    .pager {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .pager-link {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-4);
+    border: 1px solid var(--color-border-control);
+    border-radius: var(--radius-lg);
+    color: var(--color-text);
+    text-decoration: none;
+    transition: border-color var(--duration-fast) var(--ease);
+  }
+
+  .pager-link:hover {
+    border-color: var(--color-accent);
+  }
+
+  .pager-link.next {
+    grid-column: -2;
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .pager-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    color: var(--color-muted);
+    font-size: var(--text-sm);
+  }
+
+  .pager-title {
+    color: var(--color-link);
+    font-family: var(--font-mono);
     font-weight: 600;
   }
 </style>
