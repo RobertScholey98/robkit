@@ -16,7 +16,7 @@ Milestone 4 changes `robkit deploy` and `robkit check` (tickets 22 and 23 of "Ju
 - [x] A command or option added to the usage text and not to the page fails a test, and so does the reverse
 - [x] Each command's page gives an example of its output and what makes it refuse, from the code
 - [x] The command's source files are among the turbo inputs of the test
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -54,3 +54,7 @@ Milestone 4 changes `robkit deploy` and `robkit check` (tickets 22 and 23 of "Ju
 **What milestone 4 and ticket 26 change**
 
 - When just-use-it tickets 22 and 23 change `robkit deploy` or `robkit check`, `reference-commands.test.ts` fails on any option or usage line that moved, and on check's and deploy's examples if what they print changes. Update the page to match.
+
+### Merged
+
+Added by the lead. PR 141 merged into `docs-site` on 2026-11-11 as `6f4a0081`, with `gate` green on `dd42cc9`.
