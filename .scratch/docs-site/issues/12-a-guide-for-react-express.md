@@ -13,7 +13,7 @@ Say what differs from React + Hono, since a reader choosing between them will lo
 - [x] The "make it yours" steps were done in an app made from this checkout, and the Proof says so
 - [x] Every fence compiles, or is `nocheck` with its reason in the Proof
 - [x] The guide is no longer a stub
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -47,3 +47,7 @@ Say what differs from React + Hono, since a reader choosing between them will lo
 **What milestone 4 will change**
 
 As for ticket 11. The template blocks and the tree follow the template. If ticket 27 of "Just use it" changes `routes(visits)` or the `/visits` route, ticket 26 should run the steps again.
+
+### Merged
+
+Added by the lead. PR 124 merged into `docs-site` on 2026-11-11 as `72b02f51`. Its own `gate` was red on `c492556` from one test alone, the start-limit test that [just-use-it ticket 39](../../just-use-it/issues/39-a-tests-app-starts-before-its-limit.md) fixed on `main`. The box is ticked on the catch-up's `gate`. PR 131 holds this ticket's commits and passed on `e2e773e`, on milestone 4's templates.

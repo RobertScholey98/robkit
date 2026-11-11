@@ -13,7 +13,7 @@ Cover what is Next's own: `withRobkit()` in the config, where the guard runs, an
 - [x] The "make it yours" steps were done in an app made from this checkout, and the Proof says so
 - [x] Every fence compiles, or is `nocheck` with its reason in the Proof
 - [x] The guide is no longer a stub
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -48,3 +48,7 @@ Cover what is Next's own: `withRobkit()` in the config, where the guard runs, an
 **What milestone 4 will change**
 
 Ticket 27 of "Just use it" adds page titles, error states and maybe what `next/image` can show from `public`. Ticket 26 adds that to this guide once it lands. The template blocks and the tree follow the template, and the file-list test fails if a file comes or goes.
+
+### Merged
+
+Added by the lead. PR 126 merged into `docs-site` on 2026-11-11 as `10b036b1`, with `gate` green on `7bb41a7`. It went in with the catch-up, PR 131, whose `gate` passed on `e2e773e` for the whole stack on milestone 4's templates.
