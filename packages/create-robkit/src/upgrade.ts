@@ -165,7 +165,8 @@ function notFromRegistry(settings: string): string | undefined {
 
 const commitCommands = `  git init
   git add --all
-  git commit -m "Make a robkit install"`;
+  git commit -m "Make a robkit install"
+  git branch -M main`;
 
 /**
  * Refuses an install git can't show the upgrade's changes in: git isn't

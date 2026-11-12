@@ -322,7 +322,8 @@ describe("robkit upgrade's checks", () => {
 
   git init
   git add --all
-  git commit -m "Make a robkit install"`,
+  git commit -m "Make a robkit install"
+  git branch -M main`,
       );
       expect(await written(dir)).toEqual(before);
       expect(await pnpm.calls()).toEqual([]);
