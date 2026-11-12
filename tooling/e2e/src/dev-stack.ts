@@ -69,6 +69,12 @@ export interface DevStack {
   /** Waits until core, the hub, admin and the apps `pnpm dev` started answer. */
   started: () => Promise<void>;
   /**
+   * Waits for `started`, then answers with `git status --porcelain` in the
+   * install, read before robkit add runs: what starting changed since the
+   * install's last commit.
+   */
+  changedByDev: () => Promise<string>;
+  /**
    * Waits for `started`, then runs robkit add for the second app, unless
    * the install had it when `pnpm dev` started.
    *
@@ -120,6 +126,7 @@ export function useDevStack(
   let home: NodeJS.ProcessEnv = {};
   let output = "";
   let isStarted: Promise<void> | undefined;
+  let isChanged: Promise<string> | undefined;
   let isAdded: Promise<string | undefined> | undefined;
   let isUp: Promise<void> | undefined;
   let isClaimed: Promise<void> | undefined;
@@ -194,12 +201,24 @@ export function useDevStack(
       ...(adds ? [] : [eventually(() => send(hostOf(addedSlug), "/"))]),
     ]).then(() => undefined));
 
+  const changedByDev = () =>
+    (isChanged ??= startedUp().then(async () => {
+      const status = await run("git", ["status", "--porcelain"], {
+        cwd: dirOf(),
+      });
+      return status.stdout;
+    }));
+
+  // robkit add changes the tree, so it waits for git's reading of what
+  // starting did, whatever that reading is.
   const added = () =>
-    (isAdded ??= startedUp().then(() =>
-      exampleStack
-        ? addTheApp(dirOf(), exampleStack, { ...process.env, ...home })
-        : undefined,
-    ));
+    (isAdded ??= changedByDev()
+      .catch(() => undefined)
+      .then(() =>
+        exampleStack
+          ? addTheApp(dirOf(), exampleStack, { ...process.env, ...home })
+          : undefined,
+      ));
 
   const up = () =>
     (isUp ??= added().then(async () => {
@@ -290,6 +309,7 @@ export function useDevStack(
     send,
     eventually,
     started: startedUp,
+    changedByDev,
     added,
     up,
     claimedBeforeAdd,
