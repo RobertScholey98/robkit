@@ -140,7 +140,7 @@ describe("vendorPackages", () => {
       it("runs again cleanly after it couldn't copy the Go module", async () => {
         const { dir, root } = await linkedToBroken(
           { build: "exit 0" },
-          defaultChoices,
+          { exampleStack: "go" },
           { withGo: false },
         );
         await expect(vendorPackages(dir)).rejects.toThrow(
@@ -221,10 +221,37 @@ describe("vendorPackages", () => {
         });
       });
 
+      it("copies no Go module into an install with no Go app, and removes one an earlier run left", async () => {
+        const { dir } = await linkedToBroken({ build: "exit 0" });
+        const left = join(dir, "vendor/robkit/go/guard/guard.go");
+        await mkdir(join(left, ".."), { recursive: true });
+        await writeFile(left, "package guard\n");
+
+        await vendorPackages(dir);
+
+        expect(await readdir(join(dir, "vendor/robkit"))).toEqual([
+          "robkit-broken-0.0.0.tgz",
+        ]);
+      });
+
+      it("packs for an install with no Go app from a checkout with no Go module", async () => {
+        const { dir } = await linkedToBroken(
+          { build: "exit 0" },
+          defaultChoices,
+          { withGo: false },
+        );
+
+        await vendorPackages(dir);
+
+        expect(await readdir(join(dir, "vendor/robkit"))).toEqual([
+          "robkit-broken-0.0.0.tgz",
+        ]);
+      });
+
       it("says when the checkout has no Go module to copy", async () => {
         const { dir, root } = await linkedToBroken(
           { build: "exit 0" },
-          defaultChoices,
+          { exampleStack: "go" },
           { withGo: false },
         );
 

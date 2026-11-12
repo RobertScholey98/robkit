@@ -43,7 +43,14 @@ describe("vendorPackages", { concurrent: false }, () => {
       expect(spec).toBe(`file:${tarball}`);
       await access(join(dir, tarball));
     }
-    // And robkit's Go module, from the checkout's go folder.
+  });
+
+  it("copies robkit's Go module, from the checkout's go folder, for an install with a Go app", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
+    await init({ exampleStack: "go" }, dir, { link: true, install: false });
+
+    await vendorPackages(dir);
+
     await access(join(dir, "vendor/robkit/go/session/guarded.go"));
   });
 

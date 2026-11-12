@@ -89,7 +89,7 @@ apps/example/src/core.ts:1:28  Layer rule: an app or shared package reaches core
 
 ## robkit vendor
 
-In an install made with `--link`, packs the robkit packages it links to into `vendor/robkit`, and points the install at them, so it builds without the checkout. It copies robkit's Go module there too. It takes no options.
+In an install made with `--link`, packs the robkit packages it links to into `vendor/robkit`, and points the install at them, so it builds without the checkout. For an install with a React + Go app, it copies robkit's Go module there too. It takes no options.
 
 ```text title="What it prints"
 Packed robkit's packages into vendor/robkit. Commit it with the install.
