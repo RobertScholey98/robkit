@@ -73,7 +73,7 @@ It takes one version, such as `0.2.0`, or none for the newest. An install made f
 This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.
 ```
 
-An install that runs the tarballs `robkit vendor` packed gets a line saying to vendor again from a newer checkout instead.
+An install that runs the tarballs `robkit vendor` packed gets a line saying to run `robkit vendor --from` with a newer checkout instead.
 
 It refuses a change that isn't committed, a running `pnpm dev`, a link where it writes, and a version that isn't newer than the install's. [Upgrading robkit](/docs/run-an-install/upgrading/) has each refusal, what it changes and how to undo one.
 
@@ -89,13 +89,19 @@ apps/example/src/core.ts:1:28  Layer rule: an app or shared package reaches core
 
 ## robkit vendor
 
-In an install made with `--link`, packs the robkit packages it links to into `vendor/robkit`, and points the install at them, so it builds without the checkout. For an install with a React + Go app, it copies robkit's Go module there too. It takes no options.
+In an install made with `--link`, packs the robkit packages it links to into `vendor/robkit`, and points the install at them, so it builds without the checkout. For an install with a React + Go app, it copies robkit's Go module there too.
 
 ```text title="What it prints"
 Packed robkit's packages into vendor/robkit. Commit it with the install.
 ```
 
-It refuses an install that doesn't link to a robkit checkout, and one whose checkout lacks a package or the Go module it links to.
+| Option | What it does |
+| --- | --- |
+| `--from <checkout>` | Packs from that robkit checkout's folder, and packs again what an earlier run packed. An install with no link left takes a newer robkit this way. |
+
+A run removes each tarball in `vendor/robkit` that the install no longer uses.
+
+It refuses an install that neither links to a robkit checkout nor runs its tarballs, one that runs them when `--from` is missing, a `--from` folder that isn't a robkit checkout, and a checkout that lacks a package or the Go module the install needs. [Upgrading robkit](/docs/run-an-install/upgrading/#update-a-vendored-install) has the steps.
 
 ## robkit database-urls
 

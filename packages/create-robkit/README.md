@@ -35,6 +35,7 @@ pnpm robkit migrate notes                             # applies a new migration 
 pnpm robkit upgrade                                   # moves the install to the newest robkit, or to the version given
 pnpm robkit check                                     # the install's layer rule; pnpm lint runs it
 pnpm robkit vendor                                    # packs the linked packages, and what they run on, into vendor/robkit
+pnpm robkit vendor --from ../robkit                   # packs them again from a checkout, in an install with no link left
 ```
 
 `robkit database-urls` and `robkit deploy` are for production. The install's `docs/deploy.md` is the runbook for both.

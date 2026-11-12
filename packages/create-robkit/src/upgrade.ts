@@ -158,7 +158,7 @@ function notFromRegistry(settings: string): string | undefined {
     return "This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.";
   }
   if (specs.some((spec) => spec.startsWith("file:"))) {
-    return "This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. Vendor again from a newer robkit checkout to update them.";
+    return "This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. To update them, run pnpm robkit vendor --from <checkout> with a newer robkit checkout's folder.";
   }
   return undefined;
 }

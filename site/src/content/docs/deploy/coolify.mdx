@@ -70,7 +70,7 @@ Do these in order. Each one gives `robkit deploy` something it needs.
 
 8. **Point `*.<domain>` at Coolify.** Each app answers on its own subdomain. With a Cloudflare tunnel, Cloudflare terminates TLS and the tunnel carries plain http to Traefik.
 9. **Let CI reach Coolify.** In Coolify, create an API token with `read`, `write` and `deploy`. Add it to the repository's secrets as `COOLIFY_TOKEN`, and Coolify's address as `COOLIFY_URL`. If Cloudflare Access guards Coolify, add an Access client ID and secret as `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`.
-10. **Carry robkit's packages, until they're on npm.** An install made with `--link` must carry them. Run `pnpm robkit vendor`, then commit `vendor/robkit` and the lockfile.
+10. **Carry robkit's packages, until they're on npm.** An install made with `--link` must carry them. Run `pnpm robkit vendor`, then commit `vendor/robkit` and the lockfile. To take a newer robkit later, pull the clone, run `pnpm robkit vendor --from` with the clone's folder, and commit again.
 11. **Deploy everything once.** Run `pnpm robkit deploy --all` with the same four variables set in your shell, or push to `main`.
 
 ## Claim it at once

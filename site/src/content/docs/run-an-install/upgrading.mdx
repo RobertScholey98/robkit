@@ -7,6 +7,7 @@ describes:
   - packages/create-robkit/src/upgrade.ts
   - packages/create-robkit/src/upgrade-handover.ts
   - packages/create-robkit/src/robkit-command.ts
+  - packages/create-robkit/src/vendor.ts
   - packages/create-robkit/templates/base/README.md
 ---
 
@@ -45,7 +46,23 @@ The upgrade runs in two steps. The robkit your install has checks everything, mo
 An install made with `--link` takes robkit's packages from a clone, so an upgrade has nothing to move there, and it says to pull the clone. One that ran `robkit vendor` gets this line instead:
 
 ```text title="What it prints"
-This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. Vendor again from a newer robkit checkout to update them.
+This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. To update them, run pnpm robkit vendor --from <checkout> with a newer robkit checkout's folder.
+```
+
+## Update a vendored install
+
+Until robkit is on npm, an install that ran `robkit vendor` takes a newer robkit from a clone. Pull the clone, then pack from it again, in the install's folder:
+
+```sh
+pnpm robkit vendor --from ../robkit
+```
+
+`--from` takes the clone's folder. The command packs robkit's packages into `vendor/robkit` again, installs them, and removes each tarball the install no longer uses. Then commit `vendor/robkit` and the lockfile.
+
+An install that vendored before `--from` existed has a robkit that refuses the option. Run the clone's robkit there once, from the install's folder:
+
+```sh
+node ../robkit/packages/create-robkit/src/robkit-command.ts vendor --from ../robkit
 ```
 
 ## What it changes

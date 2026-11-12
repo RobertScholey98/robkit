@@ -466,7 +466,7 @@ describe("robkit upgrade's checks", () => {
     const before = await written(dir);
 
     expect(await upgrade(dir, undefined, pnpm.env)).toBe(
-      "This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. Vendor again from a newer robkit checkout to update them.",
+      "This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. To update them, run pnpm robkit vendor --from <checkout> with a newer robkit checkout's folder.",
     );
     expect(await written(dir)).toEqual(before);
   });

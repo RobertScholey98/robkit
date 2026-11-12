@@ -100,7 +100,7 @@ No image holds an app's `.env`. `.dockerignore` leaves out every `.env` file but
 
 8. Point `*.<domain>` at Coolify. With a Cloudflare tunnel, Cloudflare terminates TLS and the tunnel carries plain http to Traefik, which is why the deploy sets `http://` domains with force-HTTPS off.
 9. In Coolify, create an API token with `read`, `write` and `deploy`. Add it to the repository's secrets as `COOLIFY_TOKEN`, with `COOLIFY_URL`. If Cloudflare Access guards Coolify, add a service token as `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`.
-10. Until the `@robkit/*` packages are on npm, an install made with `--link` must carry them: run `pnpm robkit vendor`, then commit `vendor/robkit` and the lockfile.
+10. Until the `@robkit/*` packages are on npm, an install made with `--link` must carry them: run `pnpm robkit vendor`, then commit `vendor/robkit` and the lockfile. To take a newer robkit later, pull the clone, run `pnpm robkit vendor --from` with the clone's folder, and commit again.
 11. Deploy everything once: `pnpm robkit deploy --all` with the same variables set, or push to `main`.
 
 ## Behind a Cloudflare tunnel
