@@ -58,9 +58,10 @@ function failed(args: string[], { code, stdout, stderr }: Ran): string {
 }
 
 /**
- * Makes `dir` a git repository. A new install starts git before it
- * installs, so Husky's install script finds the repository and sets its
- * hook up.
+ * Makes `dir` a git repository on `main`, whatever git's default branch,
+ * since the install's workflow and deploy guide name `main`. A new install
+ * starts git before it installs, so Husky's install script finds the
+ * repository and sets its hook up.
  *
  * @returns why the install will have no first commit, in one line, or
  *   `undefined`
@@ -72,9 +73,15 @@ export async function startGit(
   if (!onPath("git", env)) {
     return "git isn't installed, so init made no first commit.";
   }
-  const args = ["init", "--quiet"];
-  const ran = await run("git", args, { cwd: dir, env });
-  return ran.code === 0 ? undefined : failed(args, ran);
+  // git init --initial-branch needs git 2.28, and symbolic-ref works on any.
+  for (const args of [
+    ["init", "--quiet"],
+    ["symbolic-ref", "HEAD", "refs/heads/main"],
+  ]) {
+    const ran = await run("git", args, { cwd: dir, env });
+    if (ran.code !== 0) return failed(args, ran);
+  }
+  return undefined;
 }
 
 /**

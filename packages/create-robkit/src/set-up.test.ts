@@ -102,6 +102,29 @@ describe("startGit", () => {
     expect(stdout.trim()).toBe((await realpath(dir)).replaceAll("\\", "/"));
   });
 
+  it.each([
+    ["git has no default branch set", {}],
+    [
+      "git's default branch is another",
+      {
+        GIT_CONFIG_COUNT: "1",
+        GIT_CONFIG_KEY_0: "init.defaultBranch",
+        GIT_CONFIG_VALUE_0: "trunk",
+      },
+    ],
+  ])("puts the first commit on main when %s", async (_, settings) => {
+    const dir = await folderWithAFile();
+    const env = { ...(await gitEnv(true)), ...settings };
+
+    await startGit(dir, env);
+    await firstCommit(dir, env);
+
+    const { stdout } = await run("git", ["branch", "--show-current"], {
+      cwd: dir,
+    });
+    expect(stdout.trim()).toBe("main");
+  });
+
   it("says in one line that there's no first commit when git isn't installed", async () => {
     const dir = await folderWithAFile();
 
