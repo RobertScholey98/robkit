@@ -586,7 +586,7 @@ describe("generateInstall", () => {
       expect(config).toContain('() => "robkit check"');
       expect(config).toContain("eslint --fix");
       expect(config).toContain("prettier --write");
-      expect(config).toContain('"*.go": "gofmt -w"');
+      expect(config).toContain('"!(vendor)/**/*.go": "gofmt -w"');
     });
   });
 

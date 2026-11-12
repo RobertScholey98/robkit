@@ -10,6 +10,15 @@ async function executable(file: string): Promise<boolean> {
   );
 }
 
+/** This process's PATH without the folders that hold `bin`, as on a machine that lacks it. */
+export async function pathWithout(bin: string): Promise<string> {
+  const entries = (process.env.PATH ?? "").split(delimiter);
+  const holds = await Promise.all(
+    entries.map((entry) => executable(join(entry, bin))),
+  );
+  return entries.filter((_, index) => !holds[index]).join(delimiter);
+}
+
 /**
  * A PATH that can't see any `node_modules/.bin`, with pnpm put back on it.
  * An install's scripts then find only the bins its own manifests give it,
