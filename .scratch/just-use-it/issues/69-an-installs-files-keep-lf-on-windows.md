@@ -21,9 +21,21 @@ Found on 2026-11-11. The robscholey.com install was made in WSL and cloned by Wi
 
 **Blocked by:** none
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
-- [ ] A new install has a `.gitattributes` that keeps text files LF, and the test that lists an install's files holds it
+- [ ] A new install has a `.gitattributes` that keeps text files LF
+- [ ] A test clones a new install with `core.autocrlf=true` and finds LF in the pre-commit hook and in a text file
 - [ ] The docs site's tree of an install's files shows it
-- [ ] R has said whether robkit's repo gets one
-- [ ] The changeset names create-robkit
+- [ ] robkit's repo has one too, and its seven files with mixed endings are LF
+- [ ] The changeset names create-robkit, and gives the file for an install made before this
+
+## Comments
+
+### Triage, 2026-11-12
+
+R passed the triage of tickets 66 to 70 to a council round and to me. The council was Opus 5.5 and Sol 6.1, both at high, on `main` at `8ae537af`.
+
+- **Both the base template and robkit's repo get the file.** Both reviewers agreed. A template read from a Windows checkout with CRLF endings would be copied into an install as it is.
+- **The test clones with `core.autocrlf=true`** (Sol). Listing the file proves it exists, not that it works. A clone with that setting gives CRLF on Linux too, so the test runs in CI.
+- **Seven files under `.scratch/quality-hillclimb/research/` have mixed endings** (Opus, confirmed with `git ls-files --eol`). The repo's `.gitattributes` would show them as changed, so they become LF in a commit of their own first.
+- **The changeset gives the file for an older install** (both). No command adds it to one.

@@ -17,8 +17,20 @@ Found on 2026-11-11, making the robscholey.com install on the TanStack Start sta
 
 **Blocked by:** none
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
 - [ ] A commit that stages `vendor/robkit/go` passes the pre-commit hook on a machine with no Go, and a test holds it
-- [ ] R has said whether `robkit vendor` copies the Go module into an install with no Go app
-- [ ] The changeset names create-robkit
+- [ ] `robkit vendor` copies the Go module only into an install with a Go app, and removes a copy an earlier run left in one with none
+- [ ] The changeset names create-robkit, and gives the edit for an install made before this
+
+## Comments
+
+### Triage, 2026-11-12
+
+R passed the triage of tickets 66 to 70 to a council round and to me. The council was Opus 5.5 and Sol 6.1, both at high, on `main` at `8ae537af`. I checked each finding in the code before taking it.
+
+- **The hook skips `vendor/`.** Both reviewers agreed. An owner's own Go files still go through gofmt.
+- **`robkit vendor` copies the Go module only into an install with a Go app**, as init and `robkit upgrade` do. Both agreed. Nothing is lost: `robkit add` writes the module when the first Go app arrives in an install that isn't linked (`addApp` in `add.ts`), from what the running robkit carries.
+- **A run in an install with no Go app removes a `vendor/robkit/go` an earlier run left** (Opus).
+- **The changeset gives the one-line edit for an older install** (Opus). No command rewrites an install's `lint-staged.config.js`.
+- Not taken: a new test that vendors with no Go app and then adds one (Sol). `add.test.ts` holds it already, in "writes robkit's Go module to vendor/robkit/go with the first Go app of an install that had none".

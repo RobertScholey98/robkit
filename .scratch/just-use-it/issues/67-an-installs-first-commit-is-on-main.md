@@ -17,8 +17,19 @@ Found on 2026-11-11, making the robscholey.com install in WSL, where git had no 
 
 **Blocked by:** none
 
-**Status:** needs-triage
+**Status:** ready-for-agent
 
-- [ ] R has answered the question
-- [ ] A new install's first commit is on the branch its workflow and its deploy guide name, whatever `init.defaultBranch` says, and a test holds it
+- [ ] A new install's first commit is on `main`, whatever `init.defaultBranch` says and with none set, and a test holds it
+- [ ] The commands `robkit upgrade` prints for an install with no commit end on `main` too
 - [ ] The changeset names create-robkit
+
+## Comments
+
+### Triage, 2026-11-12
+
+R passed the triage of tickets 66 to 70 to a council round and to me. The council was Opus 5.5 and Sol 6.1, both at high, on `main` at `8ae537af`.
+
+- **`main`, always.** Both reviewers agreed.
+- **Set the branch with `git symbolic-ref HEAD refs/heads/main` after `git init`** (Opus). `git init --initial-branch` needs git 2.28, and Ubuntu 20.04 ships 2.25. `symbolic-ref` works on every git.
+- **`robkit upgrade`'s commands for an install with no commit end on `main` too** (Opus, `commitCommands` in `upgrade.ts`). It prints them for an install with no commit, such as one made with `--no-install`, and a bare `git init` gives `master` again. `git branch -M main` after the commit works on every git.
+- The test sets `init.defaultBranch` through `GIT_CONFIG_COUNT`, `GIT_CONFIG_KEY_0` and `GIT_CONFIG_VALUE_0`, and runs once more with none set (both).
