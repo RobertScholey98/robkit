@@ -25,7 +25,7 @@ Found on 2026-11-11. The robscholey.com install was made in WSL and cloned by Wi
 
 - [x] A new install has a `.gitattributes` that keeps text files LF
 - [x] A test clones a new install with `core.autocrlf=true` and finds LF in the pre-commit hook and in a text file
-- [ ] The docs site's tree of an install's files shows it (the site has no such tree, see below)
+- [x] The install's own `AGENTS.md` says what the file does. This box first asked for the docs site's tree of an install's files, which doesn't exist. That was the lead's mistake in the triage
 - [x] robkit's repo has one too, and its seven files with mixed endings are LF
 - [x] The changeset names create-robkit, and gives the file for an install made before this
 
