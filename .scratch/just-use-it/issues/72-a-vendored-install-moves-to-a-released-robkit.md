@@ -47,3 +47,19 @@ What the council round on ticket 70 found, each checked in the code:
 - create-robkit's `upgrade.test.ts`, 71 tests in WSL: the move, its summary, `vendor/robkit` holding only `go` afterwards with the Go module replaced, the overrides left as `styled-jsx>@babel/core` alone, a failed `pnpm install` and a Ctrl+C each leaving `git status` clean, the line for a registry with no create-robkit and for one with a newer robkit only, a refused version, and the checks first. The Ctrl+C test fails with the SIGINT handler taken out.
 - `tooling/e2e`'s `vendored-upgrade.test.ts`, 5 tests in 46 seconds: the vendored robkit prints the line, the test runs the `pnpm dlx` command it names, and the install then has every robkit entry at the registry's version, no robkit override, no tarball, the registry's Go module and lint policy, installs from its lockfile and builds.
 - In WSL: `pnpm format:check`, `pnpm knip`, create-robkit's lint, typecheck and tests with their coverage thresholds, e2e's lint and typecheck, and repo-checks' glossary, site fences and doc examples all pass.
+
+### From the code round, 2026-11-12
+
+Opus 5.5 and Sol 6.1 each scored the pull request 8/10. Four findings held up against the code and were fixed:
+
+- The move could lower an install's version (both reviewers). `pnpm dlx` can fetch a robkit older than the one the install packed from a checkout, and the move set the catalog to the running robkit's version whatever it held. It now refuses before it changes a file, and names the version to wait for. The test failed first with "promise resolved".
+- The move deleted an owner's override such as `@robkit/core>postgres` (Sol). It matched overrides by name. It now deletes only the overrides whose value names a tarball in `vendor/robkit`. The test failed first with the override gone.
+- Two doc lines were untrue for the move (Opus). The upgrade page said the new robkit installs again only when the catalog changed, and the Coolify page gave `--from` to an install whose robkit refuses it.
+- The changeset is `minor`, as the one for `vendor --from` is (Opus).
+
+Not taken:
+
+- A vendored robkit at the release's own version supplies its own lint policy and Go module, so those two could differ from the release's (Opus). Telling the install's robkit from one `pnpm dlx` fetched would depend on where pnpm keeps packages. `git diff` shows what the move wrote.
+- The 404 branch is proven only by the fake pnpm (Opus). pnpm 11.28.9 against a registry answering 404 printed `ERR_PNPM_FETCH_404` and exited 1, which is what the code reads.
+- A failure while removing the tarballs, after `pnpm install` succeeded, leaves some behind (Opus). The install works either way, and the owner can delete the rest.
+- Moving the e2e helper out of the hook commit (Opus). The commit is pushed.
