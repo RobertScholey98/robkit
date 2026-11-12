@@ -210,6 +210,30 @@ describe("robkit's failures", () => {
     },
   );
 
+  it("packs from the folder robkit vendor's --from names, refusing one that isn't a checkout", async () => {
+    const dir = await freshInstall();
+    const settings = join(dir, "pnpm-workspace.yaml");
+    await writeFile(
+      settings,
+      (await readFile(settings, "utf8")).replace(
+        "\noverrides:\n",
+        '\noverrides:\n  "@robkit/core": file:vendor/robkit/robkit-core-0.0.0.tgz\n',
+      ),
+    );
+    const elsewhere = await mkdtemp(join(tmpdir(), "robkit-elsewhere-"));
+
+    const { code, output } = await drive(bin, dir, [
+      "vendor",
+      "--from",
+      elsewhere,
+    ]);
+
+    expect({ code, output }).toEqual({
+      code: 1,
+      output: `${elsewhere} has no packages folder, so it isn't a robkit checkout. Give --from the folder robkit is cloned into.\n`,
+    });
+  });
+
   it("prints a fault it didn't expect whole, with where to report it", async () => {
     const dir = await mkdtemp(join(tmpdir(), "robkit-"));
     await mkdir(join(dir, "robkit.json"));

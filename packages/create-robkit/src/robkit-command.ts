@@ -56,11 +56,12 @@ Usage: robkit check
 Checks that every app in the install keeps to the layer rule, and names
 each place one breaks it.
 
-Usage: robkit vendor
+Usage: robkit vendor [--from <checkout>]
 
 In an install made with --link, packs the robkit packages it links to into
 ${vendorDir} and points the install at them, so it builds without the
-checkout.
+checkout. With --from, it packs them from that robkit checkout, which is how
+an install that has vendored takes a newer robkit.
 
 Usage: robkit database-urls
 
@@ -121,12 +122,15 @@ async function check(): Promise<number> {
 }
 
 async function vendor(): Promise<undefined> {
-  const { positionals } = readArgs({ allowPositionals: true }, usage);
+  const { values, positionals } = readArgs(
+    { allowPositionals: true, options: { from: { type: "string" } } },
+    usage,
+  );
   if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
-  await vendorPackages(root);
+  await vendorPackages(root, { from: values.from });
   if (existsSync(join(root, "node_modules"))) {
     await installDependencies(root);
   }
