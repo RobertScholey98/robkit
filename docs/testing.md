@@ -50,6 +50,14 @@ The tests in `@internal/e2e` and `@internal/test-postgres` start their own Postg
 - The local registry serves both versions, and the newer is `latest`.
 - It makes an install at the older version with `npm create robkit`, with its example on Go, takes one catalog entry out, lowers another and adds one of the owner's, and commits. Then it runs `pnpm robkit upgrade`, and checks the catalog, `packageManager`, `tooling/eslint`, `vendor/robkit/go`, that no file under `apps/` changed, and the changelog it printed. Last, the install installs from its lockfile, and passes its own lint, typecheck and build.
 
+## The vendored upgrade test
+
+`src/vendored-upgrade.test.ts` in `@internal/e2e`, in the same Vitest project as the registry test.
+
+- It packs every package and makes an install from them with `npm create robkit`, with its example on Go. Then it does what `robkit vendor` did before it could move an install, as the robscholey.com install has it: a copy of each tarball in `vendor/robkit`, an override naming each, and the catalog left at the packed version. It installs and commits.
+- A second local registry serves the same tarballs a patch higher, with `packNewer`, and not the packed version.
+- It runs `pnpm robkit upgrade`, which finds the registry lacks the vendored robkit and prints a `pnpm dlx` command. It runs that command, and checks the catalog, the overrides, `vendor/robkit`, the lint policy and what it printed. Last, the install installs from its lockfile and builds.
+
 ## The production test
 
 `pnpm --filter @internal/e2e test:production`.

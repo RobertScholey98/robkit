@@ -19,6 +19,7 @@ export default defineConfig({
             "src/production.test.ts",
             "src/registry.test.ts",
             "src/upgrade.test.ts",
+            "src/vendored-upgrade.test.ts",
             "**/node_modules/**",
           ],
         },
@@ -29,7 +30,11 @@ export default defineConfig({
         // the global setup's.
         test: {
           name: "registry",
-          include: ["src/registry.test.ts", "src/upgrade.test.ts"],
+          include: [
+            "src/registry.test.ts",
+            "src/upgrade.test.ts",
+            "src/vendored-upgrade.test.ts",
+          ],
         },
       },
     ],
