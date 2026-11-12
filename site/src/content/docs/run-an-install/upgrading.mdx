@@ -67,6 +67,8 @@ If `pnpm install` fails, or you stop it with Ctrl+C, it puts back every file it 
 The registry has no robkit 0.0.0, so this install stays on the tarballs in vendor/robkit. To move to the newest robkit on the registry, run pnpm dlx --package create-robkit robkit upgrade. Before robkit is released, run pnpm robkit vendor --from <checkout> to take a newer robkit from a checkout.
 ```
 
+The move never goes back. It refuses a robkit older than the one in `vendor/robkit`, and tells you to wait for a release at that version or newer.
+
 The move goes to the running robkit's own version only. To move to another, run that version with `pnpm dlx`:
 
 ```sh
@@ -99,9 +101,9 @@ It writes these and nothing else:
 - `tooling/eslint`, robkit's lint policy, which it replaces whole.
 - `vendor/robkit/go`, robkit's Go module, which it replaces whole. It writes this only when your install has a Go app.
 
-A move off the tarballs in `vendor/robkit` removes them as well.
-
 The new robkit installs again only when it changed the catalog or `packageManager`.
+
+A move off the tarballs in `vendor/robkit` always installs, and removes them as well.
 
 ## What it never changes
 
