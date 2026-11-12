@@ -20,7 +20,7 @@ import { devSocket } from "@robkit/dev/cli";
 import { describe, expect, it, vi } from "vitest";
 import { parse, parseDocument } from "yaml";
 import { defaultChoices } from "./choices.ts";
-import { installCatalog } from "./generate.ts";
+import { installCatalog, overridesIn } from "./generate.ts";
 import { init } from "./init.ts";
 import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 import { drive } from "./test/drive.ts";
@@ -322,7 +322,8 @@ describe("robkit upgrade's checks", () => {
 
   git init
   git add --all
-  git commit -m "Make a robkit install"`,
+  git commit -m "Make a robkit install"
+  git branch -M main`,
       );
       expect(await written(dir)).toEqual(before);
       expect(await pnpm.calls()).toEqual([]);
@@ -452,23 +453,192 @@ describe("robkit upgrade's checks", () => {
     expect(await pnpm.calls()).toEqual([]);
   });
 
-  it("says a vendored install has nothing to upgrade, and changes nothing", async () => {
-    const { dir, env } = await committedInstall(async (dir) => {
-      const path = join(dir, "pnpm-workspace.yaml");
-      const workspace = parseDocument(await readFile(path, "utf8"));
+  it("refuses a vendored install with an uncommitted change before it asks the registry", async () => {
+    const { dir, env } = await vendoredInstall();
+    await writeFile(join(dir, "README.md"), "My install.\n");
+    const pnpm = await fakePnpm({ view: published }, env);
+
+    await expect(upgrade(dir, undefined, pnpm.env)).rejects.toThrow(
+      "robkit upgrade needs every change committed, so git diff shows only what it changes. Commit or remove these, then run pnpm robkit upgrade again:\n\n  README.md (not committed)",
+    );
+    expect(await pnpm.calls()).toEqual([]);
+  });
+});
+
+/** The version of the tarballs {@link vendoredInstall} vendors. */
+const vendoredVersion = `${robkitVersion}-0`;
+
+/** The file `robkit vendor` packs `name` into, at {@link vendoredVersion}. */
+const tarballOf = (name: string) =>
+  `${name.replace(/^@/, "").replace("/", "-")}-${vendoredVersion}.tgz`;
+
+/**
+ * A committed install as `robkit vendor` left one before it could move to
+ * the registry, as the robscholey.com install is: every robkit entry in the
+ * catalog at the tarballs' version, an override naming a tarball in
+ * vendor/robkit for each, and robkit's Go module beside them. It has a Go
+ * app, a tarball no override names, and an override of the owner's for a
+ * package under one of robkit's. `version` is what its catalog holds.
+ */
+async function vendoredInstall(version = vendoredVersion) {
+  return committedInstall(async (dir) => {
+    const path = join(dir, "pnpm-workspace.yaml");
+    const workspace = parseDocument(await readFile(path, "utf8"));
+    workspace.setIn(["overrides", "@robkit/core>postgres"], "3.4.5");
+    await mkdir(join(dir, "vendor/robkit/go"), { recursive: true });
+    for (const name of Object.keys(await catalogOf(dir)).filter(isRobkit)) {
+      workspace.setIn(["catalog", name], version);
       workspace.setIn(
-        ["overrides", "@robkit/core"],
-        `file:vendor/robkit/robkit-core-${robkitVersion}.tgz`,
+        ["overrides", name],
+        `file:vendor/robkit/${tarballOf(name)}`,
       );
-      await writeFile(path, workspace.toString());
-    });
+      await writeFile(join(dir, "vendor/robkit", tarballOf(name)), "packed\n");
+    }
+    await writeFile(path, workspace.toString());
+    await writeFile(join(dir, "vendor/robkit/robkit-old-0.0.0.tgz"), "old\n");
+    await writeFile(join(dir, "vendor/robkit/go/go.mod"), "module older\n");
+    await mkdir(join(dir, "apps/gopher"));
+    await writeFile(join(dir, "apps/gopher/go.mod"), "module gopher\n");
+  });
+}
+
+/** The overrides in the install at `dir`'s pnpm settings, by name. */
+async function overridesOf(dir: string): Promise<Record<string, string>> {
+  return overridesIn(await readFile(join(dir, "pnpm-workspace.yaml"), "utf8"));
+}
+
+describe("robkit upgrade in a vendored install", () => {
+  it.each([
+    ["no version", undefined],
+    ["its own version", robkitVersion],
+  ])(
+    "given %s, moves to the registry's copy of the robkit running it, then removes the tarballs",
+    async (_, given) => {
+      const repo = await readRobkitRepo();
+      const { dir, env } = await vendoredInstall();
+      const pnpm = await fakePnpm({ view: published }, env);
+
+      const said = await upgrade(dir, given, pnpm.env);
+
+      const entries = await robkitEntries(dir);
+      expect(entries.length).toBeGreaterThan(10);
+      expect(
+        entries.filter(([, version]) => version !== robkitVersion),
+      ).toEqual([]);
+      expect(await overridesOf(dir)).toEqual({
+        "@robkit/core>postgres": "3.4.5",
+        "styled-jsx>@babel/core": "-",
+      });
+      expect(await pnpm.calls()).toEqual([
+        ["view", "create-robkit", "dist-tags", "versions", "--json"],
+        ["install", "--no-frozen-lockfile"],
+      ]);
+      expect(await readdir(join(dir, "vendor/robkit"))).toEqual(["go"]);
+      expect(await filesUnder(join(dir, "vendor/robkit/go"))).toEqual(
+        new Map([...repo.goModule].sort(([a], [b]) => (a < b ? -1 : 1))),
+      );
+      expect(said)
+        .toBe(`Moved this install off the tarballs in vendor/robkit, to robkit ${robkitVersion} from the registry. It changed:
+
+  pnpm-lock.yaml
+  pnpm-workspace.yaml: robkit's packages at ${robkitVersion}
+  vendor/robkit: removed robkit's tarballs
+  vendor/robkit/go: robkit ${robkitVersion}'s Go module
+
+Next, read git diff, run pnpm lint, pnpm typecheck and pnpm test, then commit.`);
+    },
+  );
+
+  it("puts back the overrides, the catalog and the tarballs when pnpm install fails", async () => {
+    const { dir, env } = await vendoredInstall();
+    const pnpm = await fakePnpm({ view: published, failInstall: 1 }, env);
+
+    await expect(upgrade(dir, undefined, pnpm.env)).rejects.toThrow(
+      `robkit upgrade couldn't move this install to robkit ${robkitVersion}: pnpm install --no-frozen-lockfile exited with 1 in ${dir}. Its output is above: fix what it says, then try again. It put back every file it changed and kept the tarballs, so the install is as it was at your last commit. Run pnpm install to put node_modules back, and the same command to try again.`,
+    );
+    expect(
+      await git(dir, env, "status", "--porcelain", "--untracked-files=all"),
+    ).toBe("");
+  });
+
+  // Windows has no SIGINT for a test to send.
+  it.skipIf(process.platform === "win32")(
+    "puts every file back when Ctrl+C stops pnpm install",
+    async ({ onTestFinished }) => {
+      const { dir, env } = await vendoredInstall();
+      const pnpm = await fakePnpm({ view: published, holdInstall: true }, env);
+      const robkit = spawn(process.execPath, [bin, "upgrade"], {
+        cwd: dir,
+        env: { ...process.env, ...pnpm.env },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      let output = "";
+      robkit.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
+      robkit.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
+      const installing = await pnpm.held();
+      onTestFinished(() => {
+        robkit.kill("SIGKILL");
+      });
+
+      robkit.kill("SIGINT");
+      process.kill(installing, "SIGINT");
+      const [code] = (await once(robkit, "exit")) as [number | null];
+
+      expect(output).toContain(
+        `robkit upgrade couldn't move this install to robkit ${robkitVersion}`,
+      );
+      expect(code).toBe(1);
+      expect(
+        await git(dir, env, "status", "--porcelain", "--untracked-files=all"),
+      ).toBe("");
+    },
+  );
+
+  it.each([
+    ["has no create-robkit at all", "fails"],
+    [
+      "has a newer robkit only",
+      { "dist-tags": { latest: newerVersion }, versions: [newerVersion] },
+    ],
+  ])(
+    "says how to move on when the registry %s, and changes nothing",
+    async (_, view) => {
+      const { dir, env } = await vendoredInstall();
+      const pnpm = await fakePnpm({ view }, env);
+      const before = await written(dir);
+
+      expect(await upgrade(dir, undefined, pnpm.env)).toBe(
+        `The registry has no robkit ${robkitVersion}, so this install stays on the tarballs in vendor/robkit. To move to the newest robkit on the registry, run pnpm dlx --package create-robkit robkit upgrade. Before robkit is released, run pnpm robkit vendor --from <checkout> to take a newer robkit from a checkout.`,
+      );
+      expect(await written(dir)).toEqual(before);
+      expect(await pnpm.calls()).toEqual([
+        ["view", "create-robkit", "dist-tags", "versions", "--json"],
+      ]);
+    },
+  );
+
+  it("refuses a version other than the robkit running it, and says what runs that one", async () => {
+    const { dir, env } = await vendoredInstall();
     const pnpm = await fakePnpm({ view: published }, env);
     const before = await written(dir);
 
-    expect(await upgrade(dir, undefined, pnpm.env)).toBe(
-      "This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. Vendor again from a newer robkit checkout to update them.",
+    await expect(upgrade(dir, newerVersion, pnpm.env)).rejects.toThrow(
+      `robkit ${robkitVersion} can move this install off vendor/robkit to ${robkitVersion} only. To move to ${newerVersion}, run pnpm dlx --package create-robkit@${newerVersion} robkit upgrade.`,
     );
     expect(await written(dir)).toEqual(before);
+    expect(await pnpm.calls()).toEqual([]);
+  });
+
+  it("refuses a robkit older than the one in vendor/robkit, changing nothing", async () => {
+    const { dir, env } = await vendoredInstall(newerVersion);
+    const pnpm = await fakePnpm({ view: published }, env);
+    const before = await written(dir);
+
+    await expect(upgrade(dir, undefined, pnpm.env)).rejects.toThrow(
+      `robkit ${robkitVersion} is older than the robkit ${newerVersion} this install runs from vendor/robkit. robkit upgrade moves forward only, so wait for a release at ${newerVersion} or newer, then run pnpm dlx --package create-robkit robkit upgrade.`,
+    );
+    expect(await written(dir)).toEqual(before);
+    expect(await pnpm.calls()).toEqual([]);
   });
 });
 

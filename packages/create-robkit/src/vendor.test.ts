@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import {
   access,
   mkdir,
@@ -7,13 +8,17 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
+import { promisify } from "node:util";
 import { CommandProblem } from "@robkit/dev/cli";
 import { describe, expect, it } from "vitest";
 import { parse, parseDocument } from "yaml";
 import { defaultChoices, type Choices } from "./choices.ts";
 import { init } from "./init.ts";
+import { installDependencies } from "./set-up.ts";
 import { vendorPackages } from "./vendor.ts";
+
+const run = promisify(execFile);
 
 async function overridesOf(dir: string): Promise<Record<string, string>> {
   const workspace = parse(
@@ -140,7 +145,7 @@ describe("vendorPackages", () => {
       it("runs again cleanly after it couldn't copy the Go module", async () => {
         const { dir, root } = await linkedToBroken(
           { build: "exit 0" },
-          defaultChoices,
+          { exampleStack: "go" },
           { withGo: false },
         );
         await expect(vendorPackages(dir)).rejects.toThrow(
@@ -221,10 +226,179 @@ describe("vendorPackages", () => {
         });
       });
 
+      it("copies no Go module into an install with no Go app, and removes one an earlier run left", async () => {
+        const { dir } = await linkedToBroken({ build: "exit 0" });
+        const left = join(dir, "vendor/robkit/go/guard/guard.go");
+        await mkdir(join(left, ".."), { recursive: true });
+        await writeFile(left, "package guard\n");
+
+        await vendorPackages(dir);
+
+        expect(await readdir(join(dir, "vendor/robkit"))).toEqual([
+          "robkit-broken-0.0.0.tgz",
+        ]);
+      });
+
+      it("packs for an install with no Go app from a checkout with no Go module", async () => {
+        const { dir } = await linkedToBroken(
+          { build: "exit 0" },
+          defaultChoices,
+          { withGo: false },
+        );
+
+        await vendorPackages(dir);
+
+        expect(await readdir(join(dir, "vendor/robkit"))).toEqual([
+          "robkit-broken-0.0.0.tgz",
+        ]);
+      });
+
+      /** Makes the checkout at `root` a workspace, and gives its package `code`. */
+      async function withCode(root: string, code: string, version = "0.0.0") {
+        await writeFile(
+          join(root, "pnpm-workspace.yaml"),
+          "packages:\n  - packages/*\n",
+        );
+        const checkout = join(root, "packages", "broken");
+        await writeFile(
+          join(checkout, "package.json"),
+          JSON.stringify({
+            name: "@robkit/broken",
+            version,
+            main: "index.js",
+            scripts: { build: "exit 0" },
+          }),
+        );
+        await writeFile(
+          join(checkout, "index.js"),
+          `module.exports = ${JSON.stringify(code)};\n`,
+        );
+      }
+
+      /** `file` of the package in `tarball`, as pnpm packed it. */
+      async function packedFile(tarball: string, file: string) {
+        const { stdout } = await run("tar", [
+          "-xOf",
+          tarball,
+          `package/${file}`,
+        ]);
+        return stdout;
+      }
+
+      it("packs again from the checkout --from names, in an install with no link left", async () => {
+        const { dir, root } = await linkedToBroken({ build: "exit 0" });
+        await withCode(root, "one");
+        await vendorPackages(dir);
+        await withCode(root, "two");
+
+        await vendorPackages(dir, { from: root });
+
+        expect(await overridesOf(dir)).toEqual({
+          "@robkit/broken": "file:vendor/robkit/robkit-broken-0.0.0.tgz",
+          "styled-jsx>@babel/core": "-",
+        });
+        expect(
+          await packedFile(
+            join(dir, "vendor/robkit/robkit-broken-0.0.0.tgz"),
+            "index.js",
+          ),
+        ).toBe('module.exports = "two";\n');
+      });
+
+      it("takes --from as a path from the install's folder", async () => {
+        const { dir, root } = await linkedToBroken({ build: "exit 0" });
+        await withCode(root, "one");
+        await vendorPackages(dir);
+        await withCode(root, "two");
+
+        await vendorPackages(dir, { from: relative(dir, root) });
+
+        expect(
+          await packedFile(
+            join(dir, "vendor/robkit/robkit-broken-0.0.0.tgz"),
+            "index.js",
+          ),
+        ).toBe('module.exports = "two";\n');
+      });
+
+      it("removes the old version's tarball when the checkout is on a new one", async () => {
+        const { dir, root } = await linkedToBroken({ build: "exit 0" });
+        await withCode(root, "one");
+        await vendorPackages(dir);
+        await withCode(root, "two", "0.1.0");
+
+        await vendorPackages(dir, { from: root });
+
+        expect(await readdir(join(dir, "vendor/robkit"))).toEqual([
+          "robkit-broken-0.1.0.tgz",
+        ]);
+        expect((await overridesOf(dir))["@robkit/broken"]).toBe(
+          "file:vendor/robkit/robkit-broken-0.1.0.tgz",
+        );
+      });
+
+      it("puts the checkout's new code in node_modules though its version didn't change, and a frozen install passes after", async () => {
+        const { root, checkout } = await linkedToBroken({ build: "exit 0" });
+        await withCode(root, "one");
+        // An install small enough to install with no registry: one app that
+        // runs on the linked package.
+        const dir = await mkdtemp(join(tmpdir(), "robkit-vendor-"));
+        await mkdir(join(dir, "apps", "notes"), { recursive: true });
+        await writeFile(
+          join(dir, "robkit.json"),
+          '{ "exampleStack": "start" }',
+        );
+        await writeFile(join(dir, "package.json"), '{ "private": true }');
+        await writeFile(
+          join(dir, "pnpm-workspace.yaml"),
+          `packages:\n  - apps/*\ncatalog:\n  "@robkit/broken": 0.0.0\noverrides:\n  "@robkit/broken": ${JSON.stringify(`link:${checkout}`)}\n`,
+        );
+        await writeFile(
+          join(dir, "apps", "notes", "package.json"),
+          '{ "name": "notes", "dependencies": { "@robkit/broken": "catalog:" } }',
+        );
+        const installed = () =>
+          readFile(
+            join(dir, "apps/notes/node_modules/@robkit/broken/index.js"),
+            "utf8",
+          );
+        await vendorPackages(dir);
+        await installDependencies(dir);
+        expect(await installed()).toBe('module.exports = "one";\n');
+        await withCode(root, "two");
+
+        await vendorPackages(dir, { from: root });
+        await installDependencies(dir);
+
+        expect(await installed()).toBe('module.exports = "two";\n');
+        await run("pnpm", ["install", "--frozen-lockfile"], { cwd: dir });
+      });
+
+      it("says how to pack again when the install has vendored and --from is missing", async () => {
+        const { dir } = await linkedToBroken({ build: "exit 0" });
+        await vendorPackages(dir);
+
+        await expect(vendorPackages(dir)).rejects.toThrow(
+          "This install runs the tarballs robkit vendor packed, and links to no robkit checkout. To pack them again from a checkout, run pnpm robkit vendor --from <checkout>.",
+        );
+      });
+
+      it("refuses a --from folder that isn't a robkit checkout, changing nothing", async () => {
+        const { dir } = await linkedToBroken({ build: "exit 0" });
+        const before = await overridesOf(dir);
+        const elsewhere = await mkdtemp(join(tmpdir(), "robkit-elsewhere-"));
+
+        await expect(vendorPackages(dir, { from: elsewhere })).rejects.toThrow(
+          `${elsewhere} has no packages folder, so it isn't a robkit checkout. Give --from the folder robkit is cloned into.`,
+        );
+
+        expect(await overridesOf(dir)).toEqual(before);
+      });
+
       it("says when the checkout has no Go module to copy", async () => {
         const { dir, root } = await linkedToBroken(
           { build: "exit 0" },
-          defaultChoices,
+          { exampleStack: "go" },
           { withGo: false },
         );
 

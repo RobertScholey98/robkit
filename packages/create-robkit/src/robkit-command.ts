@@ -43,7 +43,10 @@ const upgradeUsage = `Usage: robkit upgrade [version]
 Moves the install to a newer robkit: the newest, or the version given. It
 updates the catalog, the lint policy in tooling/eslint and the Go module in
 vendor/robkit/go, and never your apps. It needs every change committed and
-pnpm dev stopped.`;
+pnpm dev stopped.
+
+In an install that runs the tarballs robkit vendor packed, it moves to the
+registry's copy of this robkit instead, then removes the tarballs.`;
 
 const usage = `${addUsage}
 
@@ -56,11 +59,12 @@ Usage: robkit check
 Checks that every app in the install keeps to the layer rule, and names
 each place one breaks it.
 
-Usage: robkit vendor
+Usage: robkit vendor [--from <checkout>]
 
 In an install made with --link, packs the robkit packages it links to into
 ${vendorDir} and points the install at them, so it builds without the
-checkout.
+checkout. With --from, it packs them from that robkit checkout, which is how
+an install that has vendored takes a newer robkit.
 
 Usage: robkit database-urls
 
@@ -121,12 +125,15 @@ async function check(): Promise<number> {
 }
 
 async function vendor(): Promise<undefined> {
-  const { positionals } = readArgs({ allowPositionals: true }, usage);
+  const { values, positionals } = readArgs(
+    { allowPositionals: true, options: { from: { type: "string" } } },
+    usage,
+  );
   if (positionals.length > 1) throw new CommandProblem(usage);
   const root = process.cwd();
   // Refuses a folder that isn't an install.
   await readInstallChoices(root);
-  await vendorPackages(root);
+  await vendorPackages(root, { from: values.from });
   if (existsSync(join(root, "node_modules"))) {
     await installDependencies(root);
   }
@@ -303,8 +310,8 @@ async function upgradeInstall(): Promise<undefined> {
   const root = process.cwd();
   await readInstallChoices(root);
   if (finishing === undefined) {
-    const nothing = await upgrade(root, given, process.env);
-    if (nothing !== undefined) console.log(nothing);
+    const said = await upgrade(root, given, process.env);
+    if (said !== undefined) console.log(said);
     return;
   }
   const changelog = await readFile(

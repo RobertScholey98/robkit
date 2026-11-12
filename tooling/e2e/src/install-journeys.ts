@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { connect } from "node:net";
+import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { discoverApps } from "@robkit/dev";
@@ -13,6 +15,7 @@ import { testGuestJourney } from "./guest-journey.ts";
 import {
   addedIcon,
   addedSlug,
+  addedStackFor,
   exampleSlug,
   installChoices,
   type InstallName,
@@ -27,6 +30,29 @@ import { testServerFunctionJourney } from "./server-function-journey.ts";
 import { testThemeJourney } from "./theme-journey.ts";
 
 const run = promisify(execFile);
+
+/**
+ * Commits the install in `dir` as it stands, so git can say what `pnpm dev`
+ * changes. CI's runner has no name or email in git, and init made no first
+ * commit there.
+ */
+async function commitAll(dir: string): Promise<void> {
+  const git = (...args: string[]) =>
+    run(
+      "git",
+      [
+        "-c",
+        "user.name=robkit",
+        "-c",
+        "user.email=robkit@example.com",
+        ...args,
+      ],
+      { cwd: dir },
+    );
+  await git("add", "--all");
+  // Without the install's hook, as init's first commit is.
+  await git("commit", "--quiet", "--no-verify", "--allow-empty", "-m", "Start");
+}
 
 function isListening(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -99,9 +125,16 @@ export function describeJourneys(
   }: JourneyOptions = {},
 ): void {
   const stack = installChoices[name].exampleStack;
-  const dev = useDevStack(name, hubFrames ? letTheHubFrameNext : undefined);
+  const dev = useDevStack(name, async (dir) => {
+    if (hubFrames) await letTheHubFrameNext(dir);
+    await commitAll(dir);
+  });
 
   describe(`pnpm dev in an install with the ${stack} example`, () => {
+    it("changes no file git tracks, and adds none git would", async () => {
+      expect(await dev.changedByDev()).toBe("");
+    });
+
     it("serves the hub on hub.robkit.localhost", async () => {
       const hub = await dev.eventually(() => dev.send(dev.hostOf("hub"), "/"));
 
@@ -236,6 +269,29 @@ export function describeJourneys(
         added: (await dev.send(dev.hostOf(addedSlug), "/")).status,
       }).toEqual({ hub: 200, core: 200, admin: 401, example: 401, added: 200 });
     });
+
+    // After the journey above, which signs a guest in before the add.
+    it.runIf(addedStackFor(stack) === "start")(
+      "leaves the route tree robkit add wrote as TanStack Router has it",
+      async () => {
+        await dev.up();
+        const routeTree = "src/routeTree.gen.ts";
+
+        const kept = await readFile(
+          join(dev.dir, "apps", addedSlug, routeTree),
+          "utf8",
+        );
+
+        const written = await readFile(
+          new URL(
+            `../../../packages/create-robkit/templates/stacks/start/${routeTree}`,
+            import.meta.url,
+          ),
+          "utf8",
+        );
+        expect(kept).toBe(written);
+      },
+    );
 
     testOwnerJourney(dev);
     testServerFunctionJourney(dev, serverFunction);

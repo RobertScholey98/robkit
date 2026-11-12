@@ -20,7 +20,7 @@ The fourth run failed the `check` job of a pull request that adds five ticket fi
 - [x] The failure is reproduced before the fix, shown by the same "Test timed out" with a limit shorter than scrypt takes
 - [x] Core's unit tests have a limit several times the slowest run seen
 - [x] `password.test.ts` and the rest of core's unit tests still pass
-- [ ] The PR's CI `gate` job passes on GitHub
+- [x] The PR's CI `gate` job passes on GitHub
 
 ## Comments
 
@@ -35,3 +35,7 @@ The fourth run failed the `check` job of a pull request that adds five ticket fi
 
 - In WSL (Ubuntu 22.04, Node 24) with the limit as configured, `password.test.ts` passes all 14 in 1.6 seconds, and core's unit tests pass all 191 with coverage. Core's typecheck and lint pass.
 - The four CI runs' times are in the table above, read from each run's log.
+
+### Merged
+
+Pull request 155 merged to `main` as `8ae537af` on 2026-11-11. Its `gate` job passed on `57c30c8`.

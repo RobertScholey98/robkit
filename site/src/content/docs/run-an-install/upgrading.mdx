@@ -7,6 +7,7 @@ describes:
   - packages/create-robkit/src/upgrade.ts
   - packages/create-robkit/src/upgrade-handover.ts
   - packages/create-robkit/src/robkit-command.ts
+  - packages/create-robkit/src/vendor.ts
   - packages/create-robkit/templates/base/README.md
 ---
 
@@ -42,10 +43,52 @@ It asks the registry your pnpm uses which versions of robkit it has, so a mirror
 
 The upgrade runs in two steps. The robkit your install has checks everything, moves `create-robkit` alone to the new version and installs it, then hands over to the new robkit, which does the rest.
 
-An install made with `--link` takes robkit's packages from a clone, so an upgrade has nothing to move there, and it says to pull the clone. One that ran `robkit vendor` gets this line instead:
+An install made with `--link` takes robkit's packages from a clone, so an upgrade has nothing to move there, and it says to pull the clone. One that ran `robkit vendor` moves to the registry in one step, as the next section says.
+
+## Move off the tarballs in vendor/robkit
+
+An install that ran `robkit vendor` runs robkit's packages from tarballs in `vendor/robkit`. Once robkit is on npm, commit your changes, stop `pnpm dev`, then run this in the install's folder:
+
+```sh
+pnpm dlx --package create-robkit robkit upgrade
+```
+
+`pnpm dlx` runs the newest robkit on the registry rather than the one in `vendor/robkit`, which may be too old to know this move. That robkit moves the install to its own version:
+
+- In `pnpm-workspace.yaml`, it removes the overrides that point at robkit's tarballs and keeps any others. It sets robkit's packages in the catalog to its version, and adds or raises the other entries it needs, as any upgrade does.
+- It replaces the lint policy, and the Go module in an install with a Go app, and runs `pnpm install`.
+- Once `pnpm install` has succeeded, it removes the tarballs. `vendor/robkit/go` stays, as a Go app builds against it either way.
+
+If `pnpm install` fails, or you stop it with Ctrl+C, it puts back every file it changed and keeps the tarballs, so the install builds as it did.
+
+`pnpm robkit upgrade` runs the robkit in `vendor/robkit`. When the registry has that robkit's version, it makes the same move. When it doesn't, as before robkit's release, it changes nothing and prints:
 
 ```text title="What it prints"
-This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. Vendor again from a newer robkit checkout to update them.
+The registry has no robkit 0.0.0, so this install stays on the tarballs in vendor/robkit. To move to the newest robkit on the registry, run pnpm dlx --package create-robkit robkit upgrade. Before robkit is released, run pnpm robkit vendor --from <checkout> to take a newer robkit from a checkout.
+```
+
+The move never goes back. It refuses a robkit older than the one in `vendor/robkit`, and tells you to wait for a release at that version or newer.
+
+The move goes to the running robkit's own version only. To move to another, run that version with `pnpm dlx`:
+
+```sh
+pnpm dlx --package create-robkit@0.2.0 robkit upgrade
+```
+
+## Update a vendored install
+
+Until robkit is on npm, an install that ran `robkit vendor` takes a newer robkit from a clone. Pull the clone, then pack from it again, in the install's folder:
+
+```sh
+pnpm robkit vendor --from ../robkit
+```
+
+`--from` takes the clone's folder. The command packs robkit's packages into `vendor/robkit` again, installs them, and removes each tarball the install no longer uses. Then commit `vendor/robkit` and the lockfile.
+
+An install that vendored before `--from` existed has a robkit that refuses the option. Run the clone's robkit there once, from the install's folder:
+
+```sh
+node ../robkit/packages/create-robkit/src/robkit-command.ts vendor --from ../robkit
 ```
 
 ## What it changes
@@ -59,6 +102,8 @@ It writes these and nothing else:
 - `vendor/robkit/go`, robkit's Go module, which it replaces whole. It writes this only when your install has a Go app.
 
 The new robkit installs again only when it changed the catalog or `packageManager`.
+
+A move off the tarballs in `vendor/robkit` always installs, and removes them as well.
 
 ## What it never changes
 

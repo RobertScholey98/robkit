@@ -1,11 +1,12 @@
 import { execFile } from "node:child_process";
-import { realpath, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, realpath, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 import { readyStacks } from "create-robkit";
 import { describe, expect, inject, it } from "vitest";
 import { freePortBlock } from "@internal/test-postgres";
-import { cleanPath } from "./clean-path.ts";
+import { cleanPath, pathWithout } from "./clean-path.ts";
+import { exampleSlug } from "./install.ts";
 import { nextImageAnswers } from "./next-images.ts";
 import { ownCiSteps, runOwnCi } from "./own-ci.ts";
 
@@ -137,20 +138,23 @@ describe("the start install's lint", () => {
   });
 });
 
-describe("the start install's pre-commit hook", () => {
-  const commit = (dir: string, ...args: string[]) =>
-    run(
-      "git",
-      [
-        "-c",
-        "user.name=robkit",
-        "-c",
-        "user.email=robkit@example.com",
-        ...args,
-      ],
-      { cwd: dir },
-    );
+const identity = [
+  "-c",
+  "user.name=robkit",
+  "-c",
+  "user.email=robkit@example.com",
+];
 
+const commit = (dir: string, ...args: string[]) =>
+  run("git", [...identity, ...args], { cwd: dir });
+
+/** Takes `folder` out of the install in `dir`, staged or committed. */
+async function removeCommitted(dir: string, folder: string): Promise<void> {
+  await commit(dir, "rm", "-r", "--force", "--quiet", folder);
+  await commit(dir, "commit", "--quiet", "--allow-empty", "-m", "Remove it");
+}
+
+describe("the start install's pre-commit hook", () => {
   it("is set up by init's install", async () => {
     const dir = inject("checkInstalls").start;
 
@@ -193,5 +197,55 @@ describe("the start install's pre-commit hook", () => {
       cwd: dir,
     });
     expect(stdout).toBe("# Notes\n\n- one\n");
+  });
+
+  it("takes a commit of robkit's Go module in vendor/ on a machine with no Go", async () => {
+    const dir = inject("checkInstalls").start;
+    const path = "vendor/robkit/go/session/guarded.go";
+    await mkdir(dirname(join(dir, path)), { recursive: true });
+    await writeFile(join(dir, path), "package session\n");
+    try {
+      await commit(dir, "add", path);
+
+      await run(
+        "git",
+        [...identity, "commit", "-m", "Vendor robkit's Go module"],
+        { cwd: dir, env: { ...process.env, PATH: await pathWithout("gofmt") } },
+      );
+
+      const { stdout } = await run("git", ["show", `HEAD:${path}`], {
+        cwd: dir,
+      });
+      expect(stdout).toBe("package session\n");
+    } finally {
+      await removeCommitted(dir, "vendor");
+    }
+  });
+});
+
+describe("the go install's pre-commit hook", () => {
+  it("formats a Go file of the owner's that a commit stages", async () => {
+    const dir = inject("checkInstalls").go;
+    const folder = `apps/${exampleSlug}/notes`;
+    const path = `${folder}/notes.go`;
+    await mkdir(join(dir, folder));
+    await writeFile(
+      join(dir, path),
+      "package notes\n\nfunc  Count() int {\nreturn 1\n}\n",
+    );
+    try {
+      await commit(dir, "add", path);
+
+      await commit(dir, "commit", "-m", "Count the notes");
+
+      const { stdout } = await run("git", ["show", `HEAD:${path}`], {
+        cwd: dir,
+      });
+      expect(stdout).toBe(
+        "package notes\n\nfunc Count() int {\n\treturn 1\n}\n",
+      );
+    } finally {
+      await removeCommitted(dir, folder);
+    }
   });
 });
