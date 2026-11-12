@@ -296,7 +296,8 @@ export async function upgrade(
   given: string | undefined,
   env: NodeJS.ProcessEnv,
 ): Promise<string | undefined> {
-  const source = sourceOf(await readFile(join(root, pnpmSettings), "utf8"));
+  const settings = await readFile(join(root, pnpmSettings), "utf8");
+  const source = sourceOf(settings);
   if (source === "link") {
     return "This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.";
   }
@@ -311,6 +312,13 @@ export async function upgrade(
   if (source === "vendor" && given !== undefined && given !== from) {
     throw new CommandProblem(
       `robkit ${from} can move this install off vendor/robkit to ${from} only. To move to ${given}, run pnpm dlx --package create-robkit@${given} robkit upgrade.`,
+    );
+  }
+  // The robkit running can be an older one that pnpm dlx fetched.
+  const vendored = source === "vendor" ? newestRobkit(settings) : undefined;
+  if (vendored !== undefined && (compareVersions(from, vendored) ?? 0) < 0) {
+    throw new CommandProblem(
+      `robkit ${from} is older than the robkit ${vendored} this install runs from vendor/robkit. robkit upgrade moves forward only, so wait for a release at ${vendored} or newer, then run pnpm dlx --package create-robkit robkit upgrade.`,
     );
   }
   await requireCleanGit(root, env);
@@ -656,6 +664,26 @@ const isTarball = (path: string) =>
   path.startsWith(`${vendorDir}/`) &&
   path.endsWith(".tgz") &&
   !path.slice(vendorDir.length + 1).includes("/");
+
+/**
+ * The newest version the catalog in `settings`, pnpm's settings, holds of
+ * a robkit package, or `undefined` when it holds none. In a vendored
+ * install that is the version `robkit vendor` packed.
+ */
+function newestRobkit(settings: string): string | undefined {
+  // Failsafe reads every scalar as a string, so 1.10 stays a version.
+  const held: unknown = parse(settings, { schema: "failsafe" });
+  const catalog = isRecord(held) ? stringsIn(held.catalog) : {};
+  let newest: string | undefined;
+  for (const [name, spec] of Object.entries(catalog)) {
+    if (!isRobkit(name)) continue;
+    const version = specVersion(spec);
+    if (newest === undefined || (compareVersions(version, newest) ?? 0) > 0) {
+      newest = version;
+    }
+  }
+  return newest;
+}
 
 /**
  * pnpm's settings, `settings`, taking robkit's packages from the registry

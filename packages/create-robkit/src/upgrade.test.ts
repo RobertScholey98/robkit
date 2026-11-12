@@ -478,16 +478,16 @@ const tarballOf = (name: string) =>
  * catalog at the tarballs' version, an override naming a tarball in
  * vendor/robkit for each, and robkit's Go module beside them. It has a Go
  * app, a tarball no override names, and an override of the owner's for a
- * package under one of robkit's.
+ * package under one of robkit's. `version` is what its catalog holds.
  */
-async function vendoredInstall() {
+async function vendoredInstall(version = vendoredVersion) {
   return committedInstall(async (dir) => {
     const path = join(dir, "pnpm-workspace.yaml");
     const workspace = parseDocument(await readFile(path, "utf8"));
     workspace.setIn(["overrides", "@robkit/core>postgres"], "3.4.5");
     await mkdir(join(dir, "vendor/robkit/go"), { recursive: true });
     for (const name of Object.keys(await catalogOf(dir)).filter(isRobkit)) {
-      workspace.setIn(["catalog", name], vendoredVersion);
+      workspace.setIn(["catalog", name], version);
       workspace.setIn(
         ["overrides", name],
         `file:vendor/robkit/${tarballOf(name)}`,
@@ -624,6 +624,18 @@ Next, read git diff, run pnpm lint, pnpm typecheck and pnpm test, then commit.`)
 
     await expect(upgrade(dir, newerVersion, pnpm.env)).rejects.toThrow(
       `robkit ${robkitVersion} can move this install off vendor/robkit to ${robkitVersion} only. To move to ${newerVersion}, run pnpm dlx --package create-robkit@${newerVersion} robkit upgrade.`,
+    );
+    expect(await written(dir)).toEqual(before);
+    expect(await pnpm.calls()).toEqual([]);
+  });
+
+  it("refuses a robkit older than the one in vendor/robkit, changing nothing", async () => {
+    const { dir, env } = await vendoredInstall(newerVersion);
+    const pnpm = await fakePnpm({ view: published }, env);
+    const before = await written(dir);
+
+    await expect(upgrade(dir, undefined, pnpm.env)).rejects.toThrow(
+      `robkit ${robkitVersion} is older than the robkit ${newerVersion} this install runs from vendor/robkit. robkit upgrade moves forward only, so wait for a release at ${newerVersion} or newer, then run pnpm dlx --package create-robkit robkit upgrade.`,
     );
     expect(await written(dir)).toEqual(before);
     expect(await pnpm.calls()).toEqual([]);
