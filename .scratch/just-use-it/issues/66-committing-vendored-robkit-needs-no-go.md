@@ -17,11 +17,11 @@ Found on 2026-11-11, making the robscholey.com install on the TanStack Start sta
 
 **Blocked by:** none
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A commit that stages `vendor/robkit/go` passes the pre-commit hook on a machine with no Go, and a test holds it
-- [ ] `robkit vendor` copies the Go module only into an install with a Go app, and removes a copy an earlier run left in one with none
-- [ ] The changeset names create-robkit, and gives the edit for an install made before this
+- [x] A commit that stages `vendor/robkit/go` passes the pre-commit hook on a machine with no Go, and a test holds it
+- [x] `robkit vendor` copies the Go module only into an install with a Go app, and removes a copy an earlier run left in one with none
+- [x] The changeset names create-robkit, and gives the edit for an install made before this
 
 ## Comments
 
@@ -34,3 +34,15 @@ R passed the triage of tickets 66 to 70 to a council round and to me. The counci
 - **A run in an install with no Go app removes a `vendor/robkit/go` an earlier run left** (Opus).
 - **The changeset gives the one-line edit for an older install** (Opus). No command rewrites an install's `lint-staged.config.js`.
 - Not taken: a new test that vendors with no Go app and then adds one (Sol). `add.test.ts` holds it already, in "writes robkit's Go module to vendor/robkit/go with the first Go app of an install that had none".
+
+### Chosen in the build, 2026-11-12
+
+- The hook's rule is now `"!(vendor)/**/*.go": "gofmt -w"`. lint-staged matches it from the install's root, so it takes a Go file under any folder but `vendor/`. A Go file at the install's root would be left out too, and an install has none.
+- The second end-to-end test pins what the glob could have broken: the Go install's hook still formats a Go file of the owner's.
+- `vendor.ts` finds the install's Go apps once, as `goModsIn`, and both the copy and the `go.mod` rewrite use it.
+
+### Proof
+
+- Against the old rule, in WSL (Ubuntu 22.04, Node 24), the new test "takes a commit of robkit's Go module in vendor/ on a machine with no Go" failed with the ticket's own error, `Task failed to spawn: gofmt -w` and `ENOENT`. With the new rule it passes, with the three hook tests beside it and the Go install's.
+- Against the old `vendor.ts`, the two new unit tests failed: one found `go` beside the tarball, and one stopped at a checkout with no `go` folder. With the change, `vendor.test.ts`, `vendor.pack.test.ts` and `generate.test.ts` pass all 82, and create-robkit's typecheck and lint pass.
+- I ran the repo's lint-staged in a throwaway repo with the new glob. It gave gofmt `apps/notes/main.go` and `apps/notes/server/serve.go`, and not `vendor/robkit/go/session/guarded.go`.
