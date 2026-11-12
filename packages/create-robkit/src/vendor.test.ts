@@ -321,6 +321,22 @@ describe("vendorPackages", () => {
         ).toBe('module.exports = "two";\n');
       });
 
+      it("removes the old version's tarball when the checkout is on a new one", async () => {
+        const { dir, root } = await linkedToBroken({ build: "exit 0" });
+        await withCode(root, "one");
+        await vendorPackages(dir);
+        await withCode(root, "two", "0.1.0");
+
+        await vendorPackages(dir, { from: root });
+
+        expect(await readdir(join(dir, "vendor/robkit"))).toEqual([
+          "robkit-broken-0.1.0.tgz",
+        ]);
+        expect((await overridesOf(dir))["@robkit/broken"]).toBe(
+          "file:vendor/robkit/robkit-broken-0.1.0.tgz",
+        );
+      });
+
       it("puts the checkout's new code in node_modules though its version didn't change, and a frozen install passes after", async () => {
         const { root, checkout } = await linkedToBroken({ build: "exit 0" });
         await withCode(root, "one");

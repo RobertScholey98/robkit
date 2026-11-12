@@ -103,7 +103,8 @@ function whatToPack(
  *
  * With `from`, a robkit checkout's folder, it packs from there instead, and
  * packs again the packages an earlier run packed. That is how an install
- * with no link left takes a newer robkit.
+ * with no link left takes a newer robkit. It then removes each tarball no
+ * override names.
  */
 export async function vendorPackages(
   root: string,
@@ -162,6 +163,17 @@ export async function vendorPackages(
     path,
     await format(workspace.toString(), { filepath: pnpmSettings }),
   );
+  // A checkout on a new version names its tarballs anew, and the old
+  // version's would stay beside them.
+  const now: unknown = workspace.toJS();
+  const named = new Set(
+    Object.values(isRecord(now) ? stringsIn(now.overrides) : {}),
+  );
+  for (const file of await readdir(out)) {
+    if (file.endsWith(".tgz") && !named.has(`${packedPrefix}${file}`)) {
+      await rm(join(out, file));
+    }
+  }
   for (const goMod of goMods) {
     const text = await readFile(goMod, "utf8");
     await writeFile(goMod, withGoModule(text, vendoredGoModule));
