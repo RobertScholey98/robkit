@@ -2,7 +2,8 @@
 // robkit the install has checks everything, then hands over in
 // upgrade-handover.ts, which can't change once 0.1.0 is out. The robkit it
 // installed then finishes here, in finishUpgrade, which can change in any
-// version.
+// version. An install that runs the tarballs robkit vendor packed moves to
+// the registry in one step instead, in leaveVendor.
 
 import {
   lstat,
@@ -23,14 +24,15 @@ import {
   problem,
 } from "@robkit/input";
 import { format } from "prettier";
-import { parse, parseDocument } from "yaml";
+import { isMap, parse, parseDocument } from "yaml";
 import { installCatalog, overridesIn, pnpmSettings } from "./generate.ts";
 import { vendoredGoDir } from "./go-module.ts";
 import { stringsIn } from "./json.ts";
-import type { RobkitRepo } from "./robkit-repo.ts";
+import { readRobkitRepo, type RobkitRepo } from "./robkit-repo.ts";
 import { installDependencies } from "./set-up.ts";
 import { onPath, run } from "./toolchain.ts";
 import { handOver, putBack } from "./upgrade-handover.ts";
+import { vendorDir } from "./vendor.ts";
 
 /** Where an install keeps robkit's lint policy, from its root. */
 const lintPolicyDir = "tooling/eslint";
@@ -117,50 +119,52 @@ export function readPublished(json: unknown): Published | InputProblem {
   };
 }
 
+/** Why pnpm couldn't ask the registry, `why`, as the owner sees it. */
+const couldNotAsk = (why: string) =>
+  new CommandProblem(
+    `robkit upgrade couldn't ask the registry which versions of create-robkit it has: ${why.replace(/\.$/, "")}. Check your network and the registry pnpm uses (pnpm config get registry), then run pnpm robkit upgrade again.`,
+  );
+
 /**
  * What the registry the install's pnpm uses has of create-robkit. pnpm
  * reads its own settings, such as `pnpm_config_registry` or an `.npmrc`,
  * so a mirror works as it does for `pnpm install`.
  *
+ * @returns an {@link InputProblem} with pnpm's words when the registry has
+ *   no create-robkit, as npm had none before robkit's first release
  * @throws a {@link CommandProblem} when pnpm can't ask it
  */
 async function published(
   root: string,
   env: NodeJS.ProcessEnv,
-): Promise<Published> {
+): Promise<Published | InputProblem> {
   const args = ["view", "create-robkit", "dist-tags", "versions", "--json"];
   const ran = await run("pnpm", args, { cwd: root, env });
   const parsed = parseJson(ran.stdout, "pnpm view's answer");
   if (ran.code !== 0) {
     const error = isProblem(parsed) ? undefined : parsed.json;
-    const said = isRecord(error) ? stringsIn(error.error).message : undefined;
+    const { code, message } = isRecord(error) ? stringsIn(error.error) : {};
     const why =
-      said ??
+      message ??
       ((ran.stderr || ran.stdout).trim() ||
         `pnpm view exited with ${String(ran.code)}`);
-    throw new CommandProblem(
-      `robkit upgrade couldn't ask the registry which versions of create-robkit it has: ${why.replace(/\.$/, "")}. Check your network and the registry pnpm uses (pnpm config get registry), then run pnpm robkit upgrade again.`,
-    );
+    if (code === "ERR_PNPM_FETCH_404") return problem(why);
+    throw couldNotAsk(why);
   }
   return orThrow(isProblem(parsed) ? parsed : readPublished(parsed.json));
 }
 
-/**
- * A line saying why an install that links to robkit's checkout, or runs
- * the tarballs `robkit vendor` packed, has nothing to upgrade, or
- * `undefined` for one that takes robkit's packages from a registry.
- */
-function notFromRegistry(settings: string): string | undefined {
+/** Where robkit's packages come from in an install, by its overrides. */
+type Source = "link" | "vendor" | "registry";
+
+/** Where robkit's packages come from in the install whose settings these are. */
+function sourceOf(settings: string): Source {
   const specs = Object.entries(overridesIn(settings))
-    .filter(([name]) => name.startsWith("@robkit/") || name === "create-robkit")
+    .filter(([name]) => isRobkit(name))
     .map(([, spec]) => spec);
-  if (specs.some((spec) => spec.startsWith("link:"))) {
-    return "This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.";
-  }
-  if (specs.some((spec) => spec.startsWith("file:"))) {
-    return "This install runs the tarballs robkit vendor packed into vendor/robkit, so robkit upgrade has nothing to move. To update them, run pnpm robkit vendor --from <checkout> with a newer robkit checkout's folder.";
-  }
-  return undefined;
+  if (specs.some((spec) => spec.startsWith("link:"))) return "link";
+  if (specs.some((spec) => spec.startsWith("file:"))) return "vendor";
+  return "registry";
 }
 
 const commitCommands = `  git init
@@ -279,9 +283,11 @@ function target(
 /**
  * `robkit upgrade [version]` in the install at `root`: checks everything,
  * then hands over to the robkit it installs, which finishes the upgrade.
+ * In an install that runs the tarballs `robkit vendor` packed, it moves to
+ * the registry's copy of this robkit itself, in {@link leaveVendor}.
  *
- * @returns a line to print when there is nothing to upgrade, or
- *   `undefined` once the upgrade is done
+ * @returns a line to print when there is nothing to upgrade, what a move
+ *   off vendor/robkit changed, or `undefined` once the upgrade is done
  * @throws a {@link CommandProblem} saying what to do, for each check that
  *   fails, before it changes anything
  */
@@ -290,13 +296,21 @@ export async function upgrade(
   given: string | undefined,
   env: NodeJS.ProcessEnv,
 ): Promise<string | undefined> {
-  const nothing = notFromRegistry(
-    await readFile(join(root, pnpmSettings), "utf8"),
-  );
-  if (nothing !== undefined) return nothing;
+  const source = sourceOf(await readFile(join(root, pnpmSettings), "utf8"));
+  if (source === "link") {
+    return "This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.";
+  }
   if (given !== undefined && compareVersions(given, given) === undefined) {
     throw new CommandProblem(
       `"${given}" isn't a version. Give one such as 0.2.0, or none for the newest.`,
+    );
+  }
+  const from = await installedVersion();
+  // Only the robkit running knows which packages it has, so it moves the
+  // install to its own version and no other.
+  if (source === "vendor" && given !== undefined && given !== from) {
+    throw new CommandProblem(
+      `robkit ${from} can move this install off vendor/robkit to ${from} only. To move to ${given}, run pnpm dlx --package create-robkit@${given} robkit upgrade.`,
     );
   }
   await requireCleanGit(root, env);
@@ -306,11 +320,18 @@ export async function upgrade(
       "pnpm dev is running in this install. An upgrade replaces the packages under every running app, so stop pnpm dev, then run pnpm robkit upgrade again.",
     );
   }
-  const from = await installedVersion();
   // pnpm tries a registry it can't reach for over a minute before it says
   // so, so the owner hears what the wait is for.
   console.log("Asking the registry which versions of robkit it has.");
-  const to = target(from, given, await published(root, env));
+  const has = await published(root, env);
+  if (source === "vendor") {
+    if (isProblem(has) || !has.versions.includes(from)) {
+      return `The registry has no robkit ${from}, so this install stays on the tarballs in vendor/robkit. To move to the newest robkit on the registry, run pnpm dlx --package create-robkit robkit upgrade. Before robkit is released, run pnpm robkit vendor --from <checkout> to take a newer robkit from a checkout.`;
+    }
+    return leaveVendor(root, from, env);
+  }
+  if (isProblem(has)) throw couldNotAsk(has.error);
+  const to = target(from, given, has);
   if (typeof to !== "string") return to.nothing;
   await handOver(root, { from, to }, env);
   return undefined;
@@ -481,6 +502,7 @@ async function changedPaths(
     .filter(Boolean)
     .map((line) => {
       const path = line.slice(3);
+      if (isTarball(path)) return vendorDir;
       return (
         ownedFolders.find((folder) => path.startsWith(`${folder}/`)) ?? path
       );
@@ -582,6 +604,7 @@ async function changeLines(
     ],
     [lintPolicyDir, `robkit ${to}'s lint policy`],
     [vendoredGoDir, `robkit ${to}'s Go module`],
+    [vendorDir, "removed robkit's tarballs"],
   ]);
   return (await changedPaths(root, env)).map((path) => {
     const detail = details.get(path);
@@ -589,11 +612,15 @@ async function changeLines(
   });
 }
 
-/** The second step's changes, as {@link finishUpgrade} describes them. */
+/**
+ * The second step's changes, as {@link finishUpgrade} describes them. With
+ * `reinstall`, it installs whatever it changed.
+ */
 async function finish(
   root: string,
   repo: RobkitRepo,
   env: NodeJS.ProcessEnv,
+  reinstall = false,
 ): Promise<Finished> {
   // The first step checked, but this one can be run by hand.
   await refuseLinks(root);
@@ -613,7 +640,7 @@ async function finish(
   if (await hasGoApp(root)) {
     await replaceFolder(root, vendoredGoDir, repo.goModule);
   }
-  if (catalog.changed.size > 0 || manifest !== undefined) {
+  if (reinstall || catalog.changed.size > 0 || manifest !== undefined) {
     await installDependencies(root, env);
   }
   return {
@@ -622,4 +649,87 @@ async function finish(
       .map(([, line]) => line),
     packageManager: manifest === undefined ? undefined : repo.packageManager,
   };
+}
+
+/** Whether `path`, from the install's root, is a tarball in vendor/robkit. */
+const isTarball = (path: string) =>
+  path.startsWith(`${vendorDir}/`) &&
+  path.endsWith(".tgz") &&
+  !path.slice(vendorDir.length + 1).includes("/");
+
+/**
+ * pnpm's settings, `settings`, taking robkit's packages from the registry
+ * at the versions `repo` carries: no override for any of them, and each of
+ * their catalog entries at its version. Other overrides stay.
+ */
+async function fromRegistry(
+  settings: string,
+  repo: RobkitRepo,
+): Promise<string> {
+  const workspace = parseDocument(settings);
+  for (const name of Object.keys(overridesIn(settings)).filter(isRobkit)) {
+    workspace.deleteIn(["overrides", name]);
+  }
+  const overrides = workspace.get("overrides");
+  if (isMap(overrides) && overrides.items.length === 0) {
+    workspace.delete("overrides");
+  }
+  for (const [name, { version }] of repo.packages) {
+    if (workspace.hasIn(["catalog", name])) {
+      workspace.setIn(["catalog", name], version);
+    }
+  }
+  return format(workspace.toString(), { filepath: pnpmSettings });
+}
+
+/**
+ * Moves the install at `root`, which runs the tarballs `robkit vendor`
+ * packed, to robkit `to` from the registry, `to` being the version running
+ * here. It takes robkit's packages from the registry, does the second
+ * step's work and installs. Only then does it remove the tarballs, since
+ * {@link putBack} restores neither them nor anything else outside the
+ * paths upgrade writes. vendor/robkit/go stays, as a Go app builds against
+ * it either way.
+ *
+ * @returns what it changed and what to run next
+ * @throws a {@link CommandProblem} saying it put the files back
+ */
+async function leaveVendor(
+  root: string,
+  to: string,
+  env: NodeJS.ProcessEnv,
+): Promise<string> {
+  const repo = await readRobkitRepo();
+  const settingsPath = join(root, pnpmSettings);
+  // Ctrl+C reaches pnpm install, which then fails. This process outlives
+  // it, so the files go back.
+  const outlive = () => undefined;
+  process.on("SIGINT", outlive);
+  let done: Finished;
+  try {
+    await writeFile(
+      settingsPath,
+      await fromRegistry(await readFile(settingsPath, "utf8"), repo),
+    );
+    done = await finish(root, repo, env, true);
+  } catch (error) {
+    await putBack(root, env);
+    if (!(error instanceof CommandProblem)) throw error;
+    throw new CommandProblem(
+      `robkit upgrade couldn't move this install to robkit ${to}: ${error.message} It put back every file it changed and kept the tarballs, so the install is as it was at your last commit. Run pnpm install to put node_modules back, and the same command to try again.`,
+      { cause: error },
+    );
+  } finally {
+    process.off("SIGINT", outlive);
+  }
+  const vendored = join(root, vendorDir);
+  for (const file of await readdir(vendored)) {
+    if (isTarball(`${vendorDir}/${file}`)) await rm(join(vendored, file));
+  }
+  const changed = await changeLines(root, to, done, env);
+  return `Moved this install off the tarballs in vendor/robkit, to robkit ${to} from the registry. It changed:
+
+${changed.join("\n")}
+
+Next, read git diff, run pnpm lint, pnpm typecheck and pnpm test, then commit.`;
 }

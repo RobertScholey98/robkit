@@ -94,6 +94,8 @@ for (const note of notes) console.log(note);
 
 A failure in either step puts back the five paths upgrade writes, from the last commit (`putBack`). So does Ctrl+C, which stops the command the first step is running and not the first step. The tree was clean when it started, so what changed there is upgrade's own.
 
+An install that runs the tarballs `robkit vendor` packed takes no handover. After the same checks, `leaveVendor` in `src/upgrade.ts` moves it to the registry's copy of the robkit running, and to no other version, since only that robkit knows which packages it has. It removes robkit's overrides, sets robkit's catalog entries to its versions, then does the second step's work and installs. It removes the tarballs last, because `putBack` doesn't restore them. When the registry lacks that version, a 404 for create-robkit included, it changes nothing and names `pnpm dlx --package create-robkit robkit upgrade`, which runs the registry's newest robkit in the install.
+
 `src/upgrade-handover.ts` is frozen once 0.1.0 is on npm: 0.1.0's first step hands every later upgrade over with it. So the call, its one argument and the state it leaves are public, like an export, and every later `finishUpgrade` must answer them. `src/upgrade-handover.test.ts` runs that file, then the current second step, and holds the file to a hash. To change the first step in a later version, copy the file, change the copy, and import the copy from `src/upgrade.ts`. Keep the frozen file and its test. Put anything that can live in the second step there, since it can change in any version.
 
 ### The templates

@@ -43,7 +43,10 @@ const upgradeUsage = `Usage: robkit upgrade [version]
 Moves the install to a newer robkit: the newest, or the version given. It
 updates the catalog, the lint policy in tooling/eslint and the Go module in
 vendor/robkit/go, and never your apps. It needs every change committed and
-pnpm dev stopped.`;
+pnpm dev stopped.
+
+In an install that runs the tarballs robkit vendor packed, it moves to the
+registry's copy of this robkit instead, then removes the tarballs.`;
 
 const usage = `${addUsage}
 
@@ -307,8 +310,8 @@ async function upgradeInstall(): Promise<undefined> {
   const root = process.cwd();
   await readInstallChoices(root);
   if (finishing === undefined) {
-    const nothing = await upgrade(root, given, process.env);
-    if (nothing !== undefined) console.log(nothing);
+    const said = await upgrade(root, given, process.env);
+    if (said !== undefined) console.log(said);
     return;
   }
   const changelog = await readFile(
