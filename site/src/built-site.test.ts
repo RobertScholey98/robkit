@@ -574,12 +574,22 @@ describe("the built page on upgrading", () => {
 
   it("quotes the lines robkit upgrade prints", async () => {
     const upgrade = await source("packages/create-robkit/src/upgrade.ts");
-    const quoted = (await codes()).filter((code) => !code.includes("\n"));
+    const printed = ["What it prints", "Its last line"];
+    const quoted = codeBlocks(await built(page))
+      .filter(({ label }) => printed.includes(label))
+      .map(({ code }) => code.trim())
+      .filter((code) => !code.includes("\n"));
 
     expect(quoted).toContainEqual(
       expect.stringMatching(/^Next, read git diff/),
     );
-    for (const line of quoted) expect(upgrade).toContain(line);
+    expect(quoted).toContainEqual(
+      expect.stringMatching(/^The registry has no robkit 0\.0\.0,/),
+    );
+    for (const line of quoted) {
+      // The source names the running robkit's version as ${from}.
+      expect(upgrade).toContain(line.replace("robkit 0.0.0", "robkit ${from}"));
+    }
   });
 
   it("is written, not a stub", async () => {
