@@ -73,7 +73,7 @@ It takes one version, such as `0.2.0`, or none for the newest. An install made f
 This install links to a robkit checkout, so robkit upgrade has nothing to move. Pull the checkout to update it.
 ```
 
-An install that runs the tarballs `robkit vendor` packed gets a line saying to run `robkit vendor --from` with a newer checkout instead.
+In an install that runs the tarballs `robkit vendor` packed, it moves to the registry's copy of the robkit running it, then removes the tarballs. `pnpm dlx --package create-robkit robkit upgrade` runs the newest robkit on the registry for that. When the registry doesn't have the robkit running, it changes nothing and says what to run. [Upgrading robkit](/docs/run-an-install/upgrading/#move-off-the-tarballs-in-vendorrobkit) has the details.
 
 It refuses a change that isn't committed, a running `pnpm dev`, a link where it writes, and a version that isn't newer than the install's. [Upgrading robkit](/docs/run-an-install/upgrading/) has each refusal, what it changes and how to undo one.
 
