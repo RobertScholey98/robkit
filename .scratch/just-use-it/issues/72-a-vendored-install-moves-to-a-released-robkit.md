@@ -16,12 +16,34 @@ What the council round on ticket 70 found, each checked in the code:
 
 **Blocked by:** 70
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A vendored install moves to a released robkit with one command, and a test holds it against the repo's local registry
-- [ ] The test's install was vendored by a robkit without this code, as robscholey.com was
-- [ ] A move that fails at `pnpm install` leaves the overrides, the catalog and the tarballs as the last commit has them, and a test holds it
-- [ ] After the move, `vendor/robkit` holds no tarball, a Go app's `vendor/robkit/go` is still there, and an override that isn't robkit's is unchanged
-- [ ] `robkit upgrade` in a vendored install whose robkit the registry doesn't have prints a command that works
-- [ ] "Upgrading robkit" says how
-- [ ] The changeset names create-robkit
+- [x] A vendored install moves to a released robkit with one command, and a test holds it against the repo's local registry
+- [x] The test's install was vendored by a robkit without this code, as robscholey.com was
+- [x] A move that fails at `pnpm install` leaves the overrides, the catalog and the tarballs as the last commit has them, and a test holds it
+- [x] After the move, `vendor/robkit` holds no tarball, a Go app's `vendor/robkit/go` is still there, and an override that isn't robkit's is unchanged
+- [x] `robkit upgrade` in a vendored install whose robkit the registry doesn't have prints a command that works
+- [x] "Upgrading robkit" says how
+- [x] The changeset names create-robkit
+
+## Comments
+
+### Chosen in the build, 2026-11-12
+
+- The move runs the second step's work whole, with `finish` in `upgrade.ts`. So besides the lint policy and the Go module, it adds or raises the other catalog entries this robkit needs and raises `packageManager`, as any upgrade does. robkit's own entries are set to this robkit's versions, not raised, as the design says.
+- A given version must be the running robkit's own. Any other is refused before anything runs, with the `pnpm dlx --package create-robkit@<version> robkit upgrade` that runs it.
+- The checks run before the registry is asked, as for any upgrade. A vendored install with a change not committed is refused first.
+- npm has no create-robkit today, so `pnpm view` answers 404 (`ERR_PNPM_FETCH_404`). In a vendored install that counts as "the registry doesn't have it" and gets the two-step line. Any other failure still says it couldn't ask the registry. An install on the registry sees no change.
+- The command to name is `pnpm dlx --package create-robkit robkit upgrade`, with no version, so it runs the registry's newest. It ran against the local registry with `minimumReleaseAgeStrict` on, inside a vendored install, and ran the registry's robkit, not the one in `vendor/robkit`.
+- Ctrl+C during `pnpm install` puts the files back too, as the handover does: the move outlives the SIGINT that stops pnpm.
+- It removes every tarball directly in `vendor/robkit`, whether an override names it or not, and leaves the folder for `vendor/robkit/go`. The summary names the tarballs as one line, `vendor/robkit: removed robkit's tarballs`.
+- It prints no changelog. The vendored code isn't a release, so no range of versions fits it.
+- The whole-stack test builds its vendored install by hand, the way `robkit vendor` wrote one before this change: made by `npm create robkit` at the packed version, then each tarball copied to `vendor/robkit` with an override naming it. The robkit inside those tarballs is this code, which the test uses to print the line. The move itself is made by the registry's robkit through `pnpm dlx`, so the vendored robkit's code plays no part in it, as for robscholey.com.
+- `upgrade-handover.ts` is unchanged.
+
+### Proof
+
+- Before the change, in WSL against the local registry: a vendored install's `pnpm robkit upgrade` and `pnpm dlx --package create-robkit@0.0.1 robkit upgrade` both printed "Vendor again from a newer robkit checkout to update them."
+- create-robkit's `upgrade.test.ts`, 71 tests in WSL: the move, its summary, `vendor/robkit` holding only `go` afterwards with the Go module replaced, the overrides left as `styled-jsx>@babel/core` alone, a failed `pnpm install` and a Ctrl+C each leaving `git status` clean, the line for a registry with no create-robkit and for one with a newer robkit only, a refused version, and the checks first. The Ctrl+C test fails with the SIGINT handler taken out.
+- `tooling/e2e`'s `vendored-upgrade.test.ts`, 5 tests in 46 seconds: the vendored robkit prints the line, the test runs the `pnpm dlx` command it names, and the install then has every robkit entry at the registry's version, no robkit override, no tarball, the registry's Go module and lint policy, installs from its lockfile and builds.
+- In WSL: `pnpm format:check`, `pnpm knip`, create-robkit's lint, typecheck and tests with their coverage thresholds, e2e's lint and typecheck, and repo-checks' glossary, site fences and doc examples all pass.
