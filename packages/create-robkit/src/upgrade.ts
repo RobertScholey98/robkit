@@ -659,16 +659,20 @@ const isTarball = (path: string) =>
 
 /**
  * pnpm's settings, `settings`, taking robkit's packages from the registry
- * at the versions `repo` carries: no override for any of them, and each of
- * their catalog entries at its version. Other overrides stay.
+ * at the versions `repo` carries: no override names a tarball in
+ * vendor/robkit, and each of robkit's catalog entries is at its version.
+ * Every other override stays, the owner's for a package under one of
+ * robkit's among them, such as `@robkit/core>postgres`.
  */
 async function fromRegistry(
   settings: string,
   repo: RobkitRepo,
 ): Promise<string> {
   const workspace = parseDocument(settings);
-  for (const name of Object.keys(overridesIn(settings)).filter(isRobkit)) {
-    workspace.deleteIn(["overrides", name]);
+  for (const [name, spec] of Object.entries(overridesIn(settings))) {
+    if (spec.startsWith(`file:${vendorDir}/`)) {
+      workspace.deleteIn(["overrides", name]);
+    }
   }
   const overrides = workspace.get("overrides");
   if (isMap(overrides) && overrides.items.length === 0) {

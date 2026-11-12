@@ -477,12 +477,14 @@ const tarballOf = (name: string) =>
  * the registry, as the robscholey.com install is: every robkit entry in the
  * catalog at the tarballs' version, an override naming a tarball in
  * vendor/robkit for each, and robkit's Go module beside them. It has a Go
- * app, and a tarball no override names.
+ * app, a tarball no override names, and an override of the owner's for a
+ * package under one of robkit's.
  */
 async function vendoredInstall() {
   return committedInstall(async (dir) => {
     const path = join(dir, "pnpm-workspace.yaml");
     const workspace = parseDocument(await readFile(path, "utf8"));
+    workspace.setIn(["overrides", "@robkit/core>postgres"], "3.4.5");
     await mkdir(join(dir, "vendor/robkit/go"), { recursive: true });
     for (const name of Object.keys(await catalogOf(dir)).filter(isRobkit)) {
       workspace.setIn(["catalog", name], vendoredVersion);
@@ -524,6 +526,7 @@ describe("robkit upgrade in a vendored install", () => {
         entries.filter(([, version]) => version !== robkitVersion),
       ).toEqual([]);
       expect(await overridesOf(dir)).toEqual({
+        "@robkit/core>postgres": "3.4.5",
         "styled-jsx>@babel/core": "-",
       });
       expect(await pnpm.calls()).toEqual([
