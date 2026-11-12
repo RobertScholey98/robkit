@@ -95,9 +95,7 @@ In an install made with `--link`, packs the robkit packages it links to into `ve
 Packed robkit's packages into vendor/robkit. Commit it with the install.
 ```
 
-| Option | What it does |
-| --- | --- |
-| `--from <checkout>` | Packs from that robkit checkout's folder, and packs again what an earlier run packed. An install with no link left takes a newer robkit this way. |
+- `--from <checkout>`. Packs from that robkit checkout's folder, and packs again what an earlier run packed. An install with no link left takes a newer robkit this way.
 
 A run removes each tarball in `vendor/robkit` that the install no longer uses.
 
