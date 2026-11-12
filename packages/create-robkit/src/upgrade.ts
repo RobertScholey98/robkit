@@ -539,19 +539,7 @@ export async function finishUpgrade(
     );
   }
 
-  const details = new Map([
-    [pnpmSettings, [`robkit's packages at ${to}`, ...done.catalog].join("; ")],
-    [
-      "package.json",
-      done.packageManager && `packageManager ${done.packageManager}`,
-    ],
-    [lintPolicyDir, `robkit ${to}'s lint policy`],
-    [vendoredGoDir, `robkit ${to}'s Go module`],
-  ]);
-  const changed = (await changedPaths(root, env)).map((path) => {
-    const detail = details.get(path);
-    return detail ? `  ${path}: ${detail}` : `  ${path}`;
-  });
+  const changed = await changeLines(root, to, done, env);
   const entries = changelog && changelogBetween(changelog, from, to);
   return `Upgraded robkit from ${from} to ${to}. It changed:
 
@@ -577,6 +565,28 @@ interface Finished {
   catalog: string[];
   /** The `packageManager` it set, if it raised it. */
   packageManager: string | undefined;
+}
+
+/** A line for each path the upgrade to `to` changed, saying what it did. */
+async function changeLines(
+  root: string,
+  to: string,
+  done: Finished,
+  env: NodeJS.ProcessEnv,
+): Promise<string[]> {
+  const details = new Map([
+    [pnpmSettings, [`robkit's packages at ${to}`, ...done.catalog].join("; ")],
+    [
+      "package.json",
+      done.packageManager && `packageManager ${done.packageManager}`,
+    ],
+    [lintPolicyDir, `robkit ${to}'s lint policy`],
+    [vendoredGoDir, `robkit ${to}'s Go module`],
+  ]);
+  return (await changedPaths(root, env)).map((path) => {
+    const detail = details.get(path);
+    return detail ? `  ${path}: ${detail}` : `  ${path}`;
+  });
 }
 
 /** The second step's changes, as {@link finishUpgrade} describes them. */
