@@ -98,7 +98,8 @@ It writes these and nothing else:
 - `package.json`, where it raises `packageManager` when the new robkit pins a newer pnpm.
 - `tooling/eslint`, robkit's lint policy, which it replaces whole.
 - `vendor/robkit/go`, robkit's Go module, which it replaces whole. It writes this only when your install has a Go app.
-- The tarballs in `vendor/robkit`, which it removes when it moves an install off them.
+
+A move off the tarballs in `vendor/robkit` removes them as well.
 
 The new robkit installs again only when it changed the catalog or `packageManager`.
 
